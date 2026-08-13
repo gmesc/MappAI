@@ -307,154 +307,15 @@ CONSOLE_MODALE.sottotitolo = 'La stessa console, dentro un modale da 1160px';
    - «Jigsaw» raccoglie i vault per gruppi e la Revisione;
    - «Studio attivo» compare SOLO col profilo di un allievo attivo, quindi
      non sta nella griglia «Tutte le azioni». */
-const NAV_MAPPA = [
-    { id: 'materiali', etichetta: 'Materiali di studio', icona: 'printer', contatore: 6 },
-    { id: 'live', etichetta: 'Live', icona: 'radio', contatore: 4 },
-    { id: 'grafo', etichetta: 'Grafo e vault', icona: 'folder-cog', contatore: 4 },
-    { id: 'jigsaw', etichetta: 'Jigsaw', icona: 'puzzle', contatore: 4 },
-    { id: 'genera', etichetta: 'Genera materiali', icona: 'package' },
-    /* «Elabora» senza freccia: il ↗ era un glifo infilato nell'etichetta, e
-       le icone qui le disegna Lucide — un simbolo scritto nel testo è
-       esattamente ciò che la regola dell'11/7 ha tolto da tutto il resto */
-    { id: 'elabora', etichetta: 'Elabora', icona: 'sparkles' },
-    { id: 'studio', etichetta: 'Studio attivo', icona: 'target', contatore: 7 }
-];
+/* ⚠️ Qui stavano NAV_MAPPA, CONSOLE_MAPPA_GRIGLIA e CONSOLE_MAPPA_DOMINIO —
+   il gruppo D, la console «Mappa» che avrebbe sostituito il menu radiale.
+   TOLTI il 13/8/26: superati dalle decisioni successive (Giacomo). Il menu
+   radiale resta quello che è, e gira. Gli schemi stanno in git se un giorno
+   la domanda si riaprisse.
+   ⚠️ Da non confondere con `d1-mappa` in `mappai-console-bento.js`: quello è
+   la schermata «mappa scelta» di INSEGNA, viva e cablata. Due cose diverse
+   hanno portato lo stesso nome, e mi è già costato un errore. */
 
-const CONSOLE_MAPPA_GRIGLIA = {
-    titolo: 'La Fotosintesi',
-    sottotitolo: '77 nodi · 6 rami · classe 2A — tutte le azioni sulla mappa aperta',
-    icona: 'map',
-    taglia: 'xl', layout: 'console', area: 'tre',
-    invio: false,        /* è un hub: nessuna azione primaria, Invio non deve fare nulla */
-    nav: NAV_MAPPA,
-    sezioni: [
-        {
-            titolo: 'Materiali stampati',
-            azioni: [
-                { id: 'm1', etichetta: 'Foglio nodi', icona: 'layout-grid' },
-                { id: 'm2', etichetta: 'Sintesi', icona: 'file-text' },
-                { id: 'm3', etichetta: 'Dossier', icona: 'book-open' },
-                { id: 'm4', etichetta: 'Timeline', icona: 'calendar-clock' }
-            ]
-        },
-        {
-            titolo: 'Live',
-            azioni: [
-                { id: 'l1', etichetta: 'Quiz live (QR)', icona: 'radio' },
-                { id: 'l2', etichetta: 'Lavagna', icona: 'presentation' },
-                { id: 'l3', etichetta: 'Rispondi e Domanda', icona: 'message-circle' },
-                { id: 'l4', etichetta: 'Materiali via QR', icona: 'qr-code' }
-            ]
-        },
-        {
-            titolo: 'Grafo e vault',
-            azioni: [
-                { id: 'g1', etichetta: 'Sincronizza vault', icona: 'refresh-cw' },
-                { id: 'g2', etichetta: 'Esporta / importa', icona: 'folder-cog' },
-                { id: 'g3', etichetta: 'Unisci mappe', icona: 'git-merge' },
-                { id: 'g4', etichetta: 'Appunti in Markdown', icona: 'file-down' }
-            ]
-        },
-        {
-            titolo: 'Jigsaw',
-            azioni: [
-                { id: 'j1', etichetta: 'Genera vault', icona: 'users' },
-                { id: 'j2', etichetta: 'Ricomponi vault', icona: 'combine' },
-                { id: 'j3', etichetta: 'Lacune', icona: 'search-x' },
-                { id: 'j4', etichetta: 'Revisione', icona: 'clipboard-pen' }
-            ]
-        },
-        {
-            titolo: 'Knowledge Garden',
-            azioni: [
-                { id: 'k1', etichetta: 'Apri Studio', icona: 'sprout' },
-                { id: 'k2', etichetta: 'Importa piano', icona: 'file-up' }
-            ]
-        }
-    ],
-    nota: '«Studio attivo» non compare qui: si accende solo col profilo di un allievo attivo, e resta una voce di navigazione. «Elabora» e «Genera materiali» sono viste, non azioni: la prima porta fuori (ELABORA a tutto schermo), la seconda apre le sue opzioni.',
-    azioni: [
-        { id: 'undo', etichetta: 'Annulla', icona: 'rotate-ccw' },
-        { id: 'home', etichetta: 'Torna alla Home', icona: 'arrow-left' },
-        { id: 'chiudi', etichetta: 'Chiudi', ruolo: 'quieto' }
-    ]
-};
-
-/* D2 — la stessa console sul dominio «Materiali»: azioni a sinistra,
-   contesto della mappa in colonna laterale, documenti già prodotti sotto */
-const CONSOLE_MAPPA_DOMINIO = {
-    titolo: 'La Fotosintesi',
-    sottotitolo: 'Materiali di studio della mappa aperta',
-    icona: 'map',
-    taglia: 'xl', layout: 'console', area: 'due',
-    invio: false,
-    nav: NAV_MAPPA.map(v => Object.assign({}, v, { attiva: v.id === 'materiali' })),
-    schede: [
-        { id: 'crea', etichetta: 'Crea', attiva: true },
-        { id: 'archivio', etichetta: 'Già prodotti' },
-        { id: 'condivisi', etichetta: 'Condivisi (QR)' }
-    ],
-    sezioni: [
-        {
-            /* una riga per fatto (richiesta di Giacomo, 31/7): in un paragrafo
-               unico i cinque numeri si leggono come prosa e ci si perdono */
-            colonna: 'lato', titolo: 'Questa mappa', accento: true,
-            dati: [
-                { etichetta: 'Nodi', valore: '77' },
-                { etichetta: 'Rami', valore: '6' },
-                { etichetta: 'Densità', valore: '1,22' },
-                { etichetta: 'Profondità', valore: 'fino a L3' },
-                { etichetta: 'Classe', valore: '2A' },
-                { etichetta: 'Disciplina', valore: 'Storia' },
-                { etichetta: 'Vault', valore: 'sincronizzato alle 14:02' }
-            ]
-        },
-        {
-            /* solo l'ACCESSO ai materiali già prodotti: la generazione ha la
-               sua vista («Genera materiali»), qui si apre ciò che esiste */
-            titolo: 'Stampati già prodotti',
-            azioni: [
-                { id: 'm1', etichetta: 'Fogli nodi (3)', icona: 'layout-grid' },
-                { id: 'm2', etichetta: 'Sintesi (2)', icona: 'file-text' },
-                { id: 'm3', etichetta: 'Dossier (1)', icona: 'book-open' },
-                { id: 'm4', etichetta: 'Timeline (1)', icona: 'calendar-clock' }
-            ]
-        },
-        {
-            titolo: 'Consegna via QR',
-            testo: 'Gli allievi inquadrano il codice e aprono ciò che hai scelto: i materiali già pronti, oppure un file preso dal computer.',
-            azioni: [
-                { id: 'q1', etichetta: 'Condividi', ruolo: 'primario', icona: 'qr-code' },
-                { id: 'q2', etichetta: 'Scegli file', icona: 'folder-open' }
-            ],
-            /* l'esito della scelta sta SOTTO il bottone che l'ha prodotta:
-               senza, non si saprebbe che cosa verrà condiviso */
-            sotto: 'Scelto: Scheda-di-lavoro-fotosintesi.pdf · 1,2 MB'
-        }
-    ],
-    tabella: {
-        colonne: [
-            { etichetta: 'Documento' },
-            { etichetta: 'Tipo', larghezza: '150px' },
-            { etichetta: 'Classe', larghezza: '90px' },
-            { etichetta: 'Materia', larghezza: '150px' },
-            { etichetta: 'Contenuto', larghezza: '160px' },
-            { etichetta: 'Data', larghezza: '110px' }
-        ],
-        righe: RIGHE_DOC
-    },
-    azioni: [
-        { id: 'undo', etichetta: 'Annulla', icona: 'rotate-ccw' },
-        { id: 'home', etichetta: 'Torna alla Home', icona: 'arrow-left' },
-        { id: 'chiudi', etichetta: 'Chiudi', ruolo: 'quieto' }
-    ]
-};
-
-/* ══════════════════════════════════════════════════════════════════════════
-   GRUPPO E — Console «Cabina»: raccoglie i bottoni della top section della
-   landing (header-utils, index.html:628-651: Config AI · Guida · Tutorial ·
-   Profilo insegnante) + il chip della classe attiva.
-   ══════════════════════════════════════════════════════════════════════════ */
 const NAV_CABINA = [
     { id: 'profilo', etichetta: 'Profilo insegnante', icona: 'id-card' },
     { id: 'classe', etichetta: 'Classe attiva', icona: 'graduation-cap', contatore: 4 },
@@ -800,18 +661,6 @@ const VARIANTI = [
         compromesso: 'L’allegato alla lettera: un solo posto per tutto. Le 16 voci sono ora divise per ENTITÀ (la classe · documenti · AI · io e l’app) — le stesse quattro che in B sono quattro console separate: guardarle qui come categorie mostra che A e B dicono la stessa cosa a due densità diverse. Resta il costo: per il docente poco esperto una colonna con quattro sezioni è comunque un gestionale.',
         assorbe: 'tutte le superfici delle tre console di B, in un solo elenco',
         schema: CONSOLE_UNICA
-    },
-    {
-        id: 'd1-mappa', gruppo: 'D', nome: 'D1 · Console «Mappa» — griglia delle azioni (area a 3 colonne)',
-        compromesso: 'Sostituisce il menu esporta/esci. Rivisto il 31/7: via «AI sulla mappa»; «Elabora» e «Genera materiali» diventano VOCI di navigazione (la prima porta a ELABORA a tutto schermo, la seconda apre le sue opzioni); nuova sezione «Jigsaw» coi vault per gruppi e la Revisione; «Studio attivo» resta voce ma fuori dalla griglia, perché si accende solo col profilo di un allievo. «Annulla» e «Torna alla Home» nel piè, sempre nello stesso posto.',
-        assorbe: 'floating-actions-menu · openStudyMaterialsModal · openGraphManagerModal · openLiveHub (come navigazione)',
-        schema: CONSOLE_MAPPA_GRIGLIA
-    },
-    {
-        id: 'd2-mappa', gruppo: 'D', nome: 'D2 · Console «Mappa» — dominio attivo + documenti prodotti (2 colonne + tabella)',
-        compromesso: 'La stessa console col dominio «Materiali» selezionato. Rivisto il 31/7: a sinistra solo l’ACCESSO agli stampati già prodotti (la generazione ha la sua vista), a destra un pannello solo per consegnare — QR con ciò che è pronto, oppure un file dal computer. Via Jigsaw e Genera materiali. Sotto, i documenti già prodotti: creare e ritrovare nello stesso posto.',
-        assorbe: 'materiali di studio (hub) + documenti archiviati + quiz cartacei, per la mappa aperta',
-        schema: CONSOLE_MAPPA_DOMINIO
     },
     {
         id: 'e1-cabina', gruppo: 'E', nome: 'E1 · Console «Cabina» — profilo e classe attiva (area a 2 colonne)',

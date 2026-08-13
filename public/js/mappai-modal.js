@@ -69,12 +69,10 @@
         if (!nome) return '';
         return '<i data-lucide="' + esc(nome) + '"' + (cls ? ' class="' + cls + '"' : '') + '></i>';
     }
-    function disegnaIcone(dove) {
+    function disegnaIcone() {
+        /* Solo Lucide SVG: lo «stile Android» (emoji al posto degli SVG) è
+           pensionato dal 13/8 — nell'app c'è una famiglia di icone sola. */
         if (root_lucide()) { try { window.lucide.createIcons({ nameAttr: 'data-lucide' }); } catch (e) { } }
-        /* se l'app è in modalità icone Android, le emoji sostituiscono gli SVG */
-        if (window.getIconStyle && window.getIconStyle() === 'android' && window._emojifyIcons) {
-            try { window._emojifyIcons(dove || document); } catch (e) { }
-        }
     }
     function root_lucide() { return window.lucide && window.lucide.createIcons; }
 

@@ -132,8 +132,7 @@
         }
         var statici = [
             ['app-guide-modal', 'closeAppGuide'],
-            ['app-tutorial-modal', 'closeAppTutorial'],
-            ['config-ai-modal', null]
+            ['app-tutorial-modal', 'closeAppTutorial']
         ];
         for (var i = 0; i < statici.length; i++) {
             var el = document.getElementById(statici[i][0]);
@@ -289,7 +288,13 @@
        della landing. Due copie diverse degli stessi numeri divergono al primo
        ritocco, quindi qui si riempie soltanto la tela. */
     function _riempiTela(box) {
-        if (!box || _st.voce !== 'consumi') return;
+        if (!box) return;
+        if (_st.voce === 'ai') {
+            var hAi = box.querySelector('[data-tela="ai"]');
+            if (hAi) _portaAi(hAi);
+            return;
+        }
+        if (_st.voce !== 'consumi') return;
         var host = box.querySelector('[data-tela="ud"]');
         if (!host) return;
         var UD = window.MappAIUsageDash;
@@ -631,15 +636,76 @@
         if (_st.voce === 'termini') return _vistaTermini(s);
         if (_st.voce === 'privacy') return _vistaPrivacy(s);
 
-        /* L'unica vista non ancora migrata: la console la dichiara per quello
-           che è — un ponte verso la finestra che esiste — invece di far finta
-           di averla assorbita. */
-        s.sezioni.push({
-            id: 'ponte', nuda: true,
-            testo: t('cb_ai_intro', 'Provider, chiave e modello: la finestra di oggi resta quella dell’app. Da qui si apre nel posto giusto.'),
-            azioni: [{ id: 'apri-ai', etichetta: t('cb_apri_ai', 'Apri le impostazioni AI'), icona: 'bot', ruolo: 'primario', chiude: false }]
-        });
+        return _vistaAi(s);
+    }
+
+    /* ══ IMPOSTAZIONI AI — l'ultimo ponte, chiuso (13/8) ═══════════════════
+       Era l'unica voce che apriva ancora la finestra storica. Ora i comandi
+       vivono nell'area della console.
+
+       ⚠️ I comandi NON sono riscritti come schema: si SPOSTANO. Provider,
+       chiave, Product ID, modello e listino sono cablati per ID a una dozzina
+       di funzioni globali (`switchAIProvider`, `refreshGeminiModels`,
+       `saveApiKey`, `updateModelCapabilities`…) e a `changeLanguage`, che li
+       cerca nel documento. Ricostruirli come dati vorrebbe dire due superfici
+       con gli stessi id — la trappola che il bento di CREA evita nello stesso
+       modo, montando gli elementi VERI invece di copiarli.
+       Conseguenza da sapere: gli elementi vanno RESTITUITI al loro posto
+       quando la console si chiude, o alla riapertura non esisterebbero più
+       (il motore butta via il riquadro, e con lui tutto ciò che contiene). */
+    function _vistaAi(s) {
+        s.tela = { id: 'ai', segnaposto: '' };
+        s.nota = t('cb_ai_nota', 'Le chiavi restano su questo computer: non vengono mai inviate se non al provider che scegli qui.');
         return s;
+    }
+
+    /* Dove stavano prima: un segnaposto vuoto nel modale storico, così il
+       ritorno è esatto anche se nel frattempo il markup attorno è cambiato. */
+    var _aiSegno = null, _aiPezzi = null;
+    function _aiCorpo() {
+        var m = document.getElementById('config-ai-modal');
+        if (!m) return null;
+        /* il corpo è tutto ciò che sta nel riquadro TRANNE la × e il titolo:
+           quelli la console ce li ha già, e ripeterli sarebbe due volte lo
+           stesso comando nella stessa schermata */
+        var riquadro = m.firstElementChild;
+        if (!riquadro) return null;
+        var pezzi = [];
+        for (var i = 0; i < riquadro.children.length; i++) {
+            var el = riquadro.children[i];
+            if (el.tagName === 'BUTTON' || el.tagName === 'H2') continue;
+            pezzi.push(el);
+        }
+        return { riquadro: riquadro, pezzi: pezzi };
+    }
+    function _portaAi(host) {
+        var c = _aiCorpo();
+        if (!c || !c.pezzi.length) {
+            host.textContent = t('cb_ai_no_dom', 'I comandi delle impostazioni AI non sono caricati.');
+            return;
+        }
+        if (!_aiSegno) {
+            _aiSegno = document.createComment(' comandi AI: ora nella Cabina ');
+            c.riquadro.insertBefore(_aiSegno, c.pezzi[0]);
+        }
+        /* ⚠️ Si ricordano I PEZZI, non «il contenuto della tela»: quando la
+           restituzione parte, la tela può già essere di un'altra vista o non
+           esistere più (misurato — cambiando vista i comandi restavano orfani
+           in un riquadro buttato via, e alla riapertura la Cabina mostrava una
+           schermata muta). Coi nodi in mano il ritorno è esatto comunque. */
+        _aiPezzi = c.pezzi.slice();
+        for (var i = 0; i < c.pezzi.length; i++) host.appendChild(c.pezzi[i]);
+        /* Il modale storico non si apre più da nessuna parte, ma resta nel DOM
+           col suo velo: senza questo, un click a vuoto lo riporterebbe davanti. */
+        var m = document.getElementById('config-ai-modal');
+        if (m) m.classList.add('hidden');
+        if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+    function _restituisciAi() {
+        if (!_aiSegno || !_aiSegno.parentNode || !_aiPezzi) { _aiSegno = null; _aiPezzi = null; return; }
+        for (var i = 0; i < _aiPezzi.length; i++) _aiSegno.parentNode.insertBefore(_aiPezzi[i], _aiSegno);
+        _aiSegno.parentNode.removeChild(_aiSegno);
+        _aiSegno = null; _aiPezzi = null;
     }
 
     /* Ridisegnare la console è sempre due cose: rimontare lo schema e
@@ -686,6 +752,7 @@
             }
 
             if (id === '__nav') {
+                if (_st.voce === 'ai') _restituisciAi();
                 _st.voce = ev.voce;
                 if (_st.voce === 'consumi') _caricaConsumi();
                 _ridisegna();
@@ -799,10 +866,6 @@
             if (id === 'vai-consumi') { _st.voce = 'consumi'; _caricaConsumi(); _ridisegna(); return; }
 
             // ── Ponti verso le finestre non ancora migrate ──────────────────
-            if (id === 'apri-ai') {
-                if (window.showConfigAIModal) { window.showConfigAIModal(); _alza('#config-ai-modal'); }
-                return;
-            }
             if (id === 'apri-guida') {
                 if (window.showAppGuide) { window.showAppGuide(); _alza('#app-guide-modal'); }
                 return;
@@ -812,7 +875,7 @@
                 return;
             }
         };
-        MM().open(s);
+        MM().open(s).then(function () { _restituisciAi(); }, function () { _restituisciAi(); });
     }
 
     function _etichettaSelezione() {

@@ -122,8 +122,13 @@ Uscendo verso una mappa si lascia un **segnalibro** in `sessionStorage`
 ### CABINA — console
 `window.openCabina(voce)` in `mappai-cabina.js`: nove viste in quattro gruppi (Profilo
 insegnante · Allievi · Classi · Impostazioni AI · Consumi AI · Consigli di studio ·
-Tutorial · Termini · Privacy). **Resta un solo ponte**: Impostazioni AI, che apre ancora
-la finestra storica.
+Tutorial · Termini · Privacy). **Nessun ponte**: dal 13/8 anche «Impostazioni AI» vive
+qui — provider, chiave, Product ID, modello e listino.
+⚠️ Quei comandi non sono riscritti come schema: si **spostano**. Sono cablati per ID a
+una dozzina di funzioni globali, e ricostruirli come dati vorrebbe dire due superfici
+con gli stessi id. La console li porta nella sua area e li **restituisce** al
+`<div id="config-ai-modal">` — che resta nel markup come loro CASA, non come superficie
+— quando si cambia vista o si chiude. Senza la restituzione sparirebbero col riquadro.
 
 ### VISTA STUDIO — il passo «STUDIO» del ciclo LAYOUT
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
@@ -144,34 +149,44 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 ## 4. I debiti aperti, in ordine di quanto mordono
 
-Verificati sul codice il 12/8: ognuno esiste ancora.
+Verificati sul codice il 13/8: ognuno esiste ancora.
 
 1. **La pipeline in sottofondo lavora coi dati congelati.** Cambiando progetto mentre gira,
    scrive i materiali della mappa NUOVA nel vault VECCHIO, **in silenzio**. È l'unico
    debito che produce file sbagliati su disco senza dirlo.
-2. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-3. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js:1845) cerca
-   ancora l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
-   (mappai-branch-synthesis.js:645), e due commenti dicono il contrario di ciò che il
-   codice fa. Sono i resti del modello a un file solo, superato dai due file
+2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+   13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
+   assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
+   dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
+   mancano**, non lavoro in coda.
+3. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+4. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+   l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
+   (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
+   fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-5. **Impostazioni AI**: l'ultimo ponte della Cabina (uno dei cinque modali orfani).
-6. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
-   `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. ⚠️ I token `--mm-doc-*`
-   vivono **in quel file, non nel foglio dei token**: la barra sta per metà in finestre
-   `window.open` che il CSS dell'app non lo caricano.
-7. **«File condivisi» è orfano**: `renderSharedMat` scrive in `teach-shared-body`, che non
-   esiste. Va deciso se ricostruirla o pensionarla.
-8. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+5. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+   `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
+   `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
+   Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
+   barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
+   anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
+   `lucide.createIcons()` non esiste).
+6. **«File condivisi» è un buco funzionale, non codice morto**: condividere un file
+   funziona, ma `renderSharedMat` scrive in `#teach-sharedmat-body`, che nel markup non
+   esiste più. I file restano condivisi e **non si possono né vedere né togliere**. Girano
+   a vuoto ~110 righe, cinque export e un listener. Va deciso: rifare la vista in INSEGNA,
+   o pensionare la funzione.
+7. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-9. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+8. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-10. **`mappai-landing-teach.js` è a 3.623 righe** e fa quattro mestieri (landing · console
-    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console,
-    sono il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-11. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+9. **`mappai-landing-teach.js` è a 3.623 righe** e fa quattro mestieri (landing · console
+   INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
+   il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
+10. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-12. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+11. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**

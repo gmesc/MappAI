@@ -3242,19 +3242,6 @@
                         id="lang-btn-en" title="English">🇬🇧</button>
                 </div>
             </div>
-            <!-- Stile icone UI: Lucide SVG (default) oppure Android (emoji), su TUTTA l'app. -->
-            <div class="flex flex-col gap-1.5 mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100 flex-shrink-0">
-                <div class="flex items-center justify-between">
-                    <span class="input_label_xs" data-i18n="ui_icon_style">Stile icone:</span>
-                    <div class="flex bg-slate-200 p-1 rounded-full w-52 h-9 shrink-0">
-                        <button type="button" id="icon-lucide-btn" onclick="window.setIconStyle('lucide')"
-                            class="flex-1 text-[12px] font-bold rounded-full transition-all bg-white shadow-sm text-slate-700">Lucide SVG</button>
-                        <button type="button" id="icon-android-btn" onclick="window.setIconStyle('android')"
-                            class="flex-1 text-[12px] font-bold rounded-full transition-all text-slate-500 hover:text-slate-700">Android</button>
-                    </div>
-                </div>
-                <span class="text-[10px] text-slate-400" data-i18n="ui_icon_style_hint">Cambia lo stile di tutte le icone dell'app. Le icone senza un'emoji corrispondente restano SVG.</span>
-            </div>
             <div class="flex items-center gap-3 mb-4">
                 <span class="input_label_xs" data-i18n="ui_map_lang_label">Lingua delle mappe:</span>
                 <select id="map-language-select"
@@ -3614,12 +3601,12 @@
     <script src="js/mappai-math.js"></script>
     <script src="js/mappai-relations.js"></script>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=dh12"></script>
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
     <script src="js/mappai-modal-core.js"></script>
-    <script src="js/mappai-modal.js?v=man2"></script>
+    <script src="js/mappai-modal.js?v=dh12"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
@@ -3628,10 +3615,9 @@
          mostra elenchi (9/8). Presto, perché chiunque può segnalare. -->
     <script src="js/mappai-vaults-bus.js?v=man2"></script>
     <script src="js/mappai-console-bento.js?v=man2"></script>
-    <script src="js/mappai-icon-style.js"></script>
     <script src="js/mappai-mm-triage.js"></script>
-    <script src="js/mappai-ui-modals.js"></script>
-    <script src="js/mappai-storage-lang.js"></script>
+    <script src="js/mappai-ui-modals.js?v=dh12"></script>
+    <script src="js/mappai-storage-lang.js?v=dh12"></script>
     <script src="js/mappai-d3-render.js?v=dh11"></script>
     <script src="js/mappai-ui-canvas.js"></script>
     <!-- Moduli MappAI estesi -->
@@ -3777,7 +3763,7 @@
     <script src="js/mappai-teacher-profile.js"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js"></script>
+    <script src="js/mappai-cabina.js?v=dh13"></script>
     <script src="js/mappai-search-finder.js"></script>
     <script src="js/mappai-vault-manager.js"></script>
     <script src="js/mappai-contextual-ai.js"></script>

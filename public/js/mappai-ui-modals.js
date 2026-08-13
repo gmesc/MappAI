@@ -248,7 +248,13 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
 };
 
 // --- Modal Management (con try/catch per robustezza) ---
+/* ⚠️ 13/8 — I comandi delle impostazioni AI vivono nella CABINA: la console li
+   sposta dentro la sua area e li restituisce a questo modale quando si chiude.
+   Aprire il modale con i comandi altrove mostrerebbe un riquadro vuoto, quindi
+   questa funzione porta dove le cose sono davvero. Il `<div id="config-ai-modal">`
+   resta nel markup perché è la CASA di quegli elementi, non una superficie. */
 window.showConfigAIModal = function () {
+    if (typeof window.openCabina === 'function') { window.openCabina('ai'); return; }
     if (appState.studentMode) {
         window.showToast(window.t('tst_config_student', "Configurazione AI non disponibile nella versione studente"), "warning");
         return;

@@ -71,33 +71,39 @@ const DESTINAZIONI = [
       nota: 'Markup fermo a z-9999: aperto sopra una console finisce DIETRO. È il difetto di «Elimina classe».' },
 
     /* ── console Mappa (D1/D2): sostituisce il menu radiale ────────────── */
-    { id: 'map-floating-actions-menu', dove: 'Console Mappa (D1)', stato: 'daFare',
-      nota: 'È la superficie che D1 sostituisce: 22 azioni in 8 hub. Il mockup è approvato, manca il modulo.' },
-    { id: 'dyn-dyn-hub', dove: 'Console Mappa › Materiali', stato: 'daFare',
+    /* ⚠️ 13/8/26 — LA CONSOLE «MAPPA» (D1) È STATA RITIRATA (Giacomo): superata
+       dalle decisioni successive. Il menu radiale resta quello che è e gira.
+       Le sedici superfici che le erano state assegnate NON sono per questo
+       sistemate: hanno perso la destinazione, e adesso lo dicono («—»). Sono
+       decisioni che mancano, non lavoro in coda — ed è giusto che il conto delle
+       decisioni mancanti salga, invece di indicare una meta che non esiste. */
+    { id: 'map-floating-actions-menu', dove: '—', stato: 'daFare',
+      nota: 'Il menu radiale con 22 azioni in 8 hub. Resta com\'è finché non si decide altro.' },
+    { id: 'dyn-dyn-hub', dove: '—', stato: 'daFare',
       nota: 'L\'hub «Materiali di studio» diventa un dominio della console, non una finestra a sé.' },
-    { id: 'dyn-dyn-active-study', dove: 'Console Mappa › Studio attivo', stato: 'daFare',
+    { id: 'dyn-dyn-active-study', dove: '—', stato: 'daFare',
       nota: 'Il launcher a due colonne è già un mezzo cruscotto: entra come vista.' },
-    { id: 'st-dossier-print-modal', dove: 'Console Mappa › Materiali', stato: 'daFare' },
-    { id: 'st-study-config-modal', dove: 'Console Mappa › Studio attivo', stato: 'daFare',
+    { id: 'st-dossier-print-modal', dove: '—', stato: 'daFare' },
+    { id: 'st-study-config-modal', dove: '—', stato: 'daFare',
       nota: 'Uno dei 5 modali statici senza archetipo.' },
-    { id: 'st-layout-manager-modal', dove: 'Console Mappa › Vista', stato: 'daFare',
+    { id: 'st-layout-manager-modal', dove: '—', stato: 'daFare',
       nota: 'Uno dei 5 senza archetipo. Convive con la vista STUDIO, che ha già il suo tab.' },
-    { id: 'st-contextual-ai-extension-modal', dove: 'Console Mappa › AI', stato: 'daFare',
+    { id: 'st-contextual-ai-extension-modal', dove: '—', stato: 'daFare',
       nota: 'Uno dei 5 senza archetipo.' },
-    { id: 'st-link-family-modal', dove: 'Console Mappa › Modifica', stato: 'daFare',
+    { id: 'st-link-family-modal', dove: '—', stato: 'daFare',
       nota: 'Uno dei 5 senza archetipo. È un elenco di famiglie: l\'archetipo è «Elenco», già nel motore.' },
-    { id: 'st-edit-node-modal', dove: 'Console Mappa › Modifica', stato: 'daFare' },
+    { id: 'st-edit-node-modal', dove: '—', stato: 'daFare' },
     { id: 'st-source-modal', dove: 'resta com\'è (Scheda Focus)', stato: 'daFare',
       nota: 'La superficie più aperta di tutta l\'app. Migrarla vale doppio, ma non è una console: è una scheda.' },
-    { id: 'dyn-dyn-checkpoint', dove: 'Console Mappa › Genera', stato: 'daFare' },
-    { id: 'dyn-dyn-correction', dove: 'Console Mappa › Modifica', stato: 'daFare' },
+    { id: 'dyn-dyn-checkpoint', dove: '—', stato: 'daFare' },
+    { id: 'dyn-dyn-correction', dove: '—', stato: 'daFare' },
     { id: 'st-merge-confirm-modal', dove: 'MappAIModal.conferma', stato: 'daFare' },
-    { id: 'st-validate-link-modal', dove: 'Console Mappa › Modifica', stato: 'daFare' },
-    { id: 'st-vault-manager-modal', dove: 'Console Mappa › Vault', stato: 'daFare' },
+    { id: 'st-validate-link-modal', dove: '—', stato: 'daFare' },
+    { id: 'st-vault-manager-modal', dove: '—', stato: 'daFare' },
     { id: 'st-layout-exit-confirm-modal', dove: 'MappAIModal.conferma', stato: 'daFare' },
-    { id: 'st-ai-modal', dove: 'Console Mappa › AI', stato: 'daFare' },
-    { id: 'st-quiz-modal', dove: 'Console Mappa › Studio attivo', stato: 'daFare' },
-    { id: 'st-study-player-modal', dove: 'Console Mappa › Studio attivo', stato: 'daFare' },
+    { id: 'st-ai-modal', dove: '—', stato: 'daFare' },
+    { id: 'st-quiz-modal', dove: '—', stato: 'daFare' },
+    { id: 'st-study-player-modal', dove: '—', stato: 'daFare' },
 
     /* ── console Documento (F): il guscio di ELABORA ───────────────────── */
     { id: 'dyn-dyn-docedit', dove: 'Console Documento (F1)', stato: 'daFare',

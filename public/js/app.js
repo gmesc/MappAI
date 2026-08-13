@@ -4,11 +4,11 @@ window.safeCreateIcons = function () {
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();
     }
-    // Modalità icone «Android»: converte le icone Lucide mappate in emoji (hub globale,
-    // definito in mappai-icon-style.js). No-op in modalità Lucide o se il modulo manca.
-    if (typeof window._emojifyIcons === 'function') {
-        try { if (localStorage.getItem('mappai_icon_style') === 'android') window._emojifyIcons(); } catch (e) { }
-    }
+    /* ⚠️ Qui c'era la conversione delle icone in emoji («stile Android»),
+       pensionata il 13/8 su decisione di Giacomo: le icone dell'app sono SEMPRE
+       Lucide SVG. Chi aveva scelto «Android» viene riportato indietro da
+       `mappai-storage-lang.js` al boot — senza, resterebbe con le emoji e senza
+       più il comando per tornare. */
 };
 window.safeCreateIcons();
 // Secondary call to ensure all dynamic or hidden elements are caught

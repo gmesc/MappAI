@@ -2496,8 +2496,6 @@ const en_translations = {
     cb_generico_sotto: "No tuning: the AI writes without a specific reader.",
     cb_gestisci: "Manage classes and students",
     cb_allievi: "students",
-    cb_ai_intro: "Provider, key and model: today's window is still the app's own. This opens it in the right place.",
-    cb_apri_ai: "Open the AI settings",
     cb_consumi_intro: "Tokens and cost of every call, by map and by category.",
     cb_guida_intro: "The guide explains how the app is built; the tutorial lets you try it.",
     // Students & Classes
@@ -2524,6 +2522,8 @@ const en_translations = {
     cb_classi_nota: "Student cards are the individual tuning: they open once you declare the «Learning support teacher / OPI» role in your profile.",
     // AI usage
     cb_ud_carico: "Reading the AI call log…",
+    cb_ai_nota: "Your keys stay on this computer: they are only ever sent to the provider you pick here.",
+    cb_ai_no_dom: "The AI settings controls are not loaded.",
     cb_ud_no_dash: "The usage dashboard is not loaded.",
     cb_ud_mappe: "Maps",
     cb_ud_tutte_mappe: "All maps",

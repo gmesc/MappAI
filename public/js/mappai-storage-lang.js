@@ -708,7 +708,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (typeof window.setMMLogic === 'function') window.setMMLogic(window.getMMLogic(), true);
     // Stile icone UI (Lucide SVG / Android): applica la scelta salvata + sincronizza il toggle.
-    if (typeof window.setIconStyle === 'function') window.setIconStyle(window.getIconStyle(), true);
+    /* Stile icone pensionato (13/8): l'app è solo Lucide SVG. Chi aveva scelto
+       «Android» ha ancora la chiave in storage — si toglie, o al prossimo giro
+       nessuno saprebbe più da dove viene un'emoji al posto di un'icona. */
+    try { localStorage.removeItem('mappai_icon_style'); } catch (e) { }
     const desc = document.getElementById('pipeline-desc');
     if (desc) desc.innerHTML += '<br><small style="opacity:0.7; font-size:11px;">Riavvia generazione per applicare</small>';
 
