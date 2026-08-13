@@ -451,15 +451,31 @@ window.buildOpenQuestionsHtml = function (set, opts) {
     // FOGLIO SOLUZIONI: qui la «traccia» non è la risposta da copiare, è che
     // cosa deve contenere — quindi va per esteso, in UNA colonna (le due
     // colonne del quiz reggono una riga di risposta, non un paragrafo).
+    /* ⚠️ IL LIVELLO SI VEDE SOLO QUI, sul foglio del docente (13/8).
+       Sulla copia degli allievi NON compare, ed è una decisione: scrivere
+       «facile» accanto a una domanda a cui uno studente non sa rispondere è
+       un giudizio, non un aiuto — e in una classe di recupero è il modo più
+       rapido per far smettere di provare. Al docente serve invece sapere da
+       dove si comincia, per capire chi si è fermato al primo scalino. */
     let answerKeyHtml = '';
     items.forEach((item, idx) => {
         const g = item.guide || item.answer || '—';
+        const avvio = String(item.livello || '').toLowerCase() === 'base';
         answerKeyHtml += `
         <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
-            <div style="font-weight:900; color:${accentColor}; font-size:12px;">${idx + 1}. ${escHtmlQP(item.question)}</div>
+            <div style="font-weight:900; color:${accentColor}; font-size:12px;">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
+                margin-left:7px; font-size:9px; font-weight:700; letter-spacing:0.06em;
+                color:#475569; background:#f1f5f9; border-radius:999px; padding:2px 7px;
+                text-transform:uppercase;">avvio</span>` : ''}</div>
             <div style="color:#1e293b; font-size:13px; margin-top:3px;">${escHtmlQP(g)}</div>
         </div>`;
     });
+    /* Il conto in testa al foglio soluzioni: dice com'è fatta la verifica —
+       quante domande si possono affrontare sapendo una parte della scheda. */
+    const _grad = items.reduce((a, it) => {
+        if (String(it.livello || '').toLowerCase() === 'base') a.base++; else a.ponte++;
+        return a;
+    }, { base: 0, ponte: 0 });
 
     return `<!DOCTYPE html>
 <html lang="it">
@@ -502,6 +518,9 @@ window.buildOpenQuestionsHtml = function (set, opts) {
 
     ${includeAnswers ? `<div class="answer-key" style="page-break-before:always;">
         <div class="oq-section-title">Tracce di correzione</div>
+        ${_grad.base ? `<div style="font-size:11px; color:#475569; margin:-6px 0 14px;">
+            ${_grad.base} domande di avvio (si rispondono con un concetto solo) · ${_grad.ponte} di ponte (ne collegano due o più).
+        </div>` : ''}
         ${answerKeyHtml}
     </div>` : ''}
 

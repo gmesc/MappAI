@@ -142,13 +142,26 @@
                 id: 'par', titolo: tp.et(),
                 testo: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
                     .replace('{es}', _esempioNome(tp)),
+                /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
+                   `normalizzaCampo` lo trasforma in un campo di testo vuoto
+                   senza etichetta, che a schermo è una riga misteriosa. */
                 campi: [
                     { id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'), aiuto: t('cq_nome_ph', 'verifica di ottobre') },
                     { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'), valore: 5, min: 1, max: 30, larghezza: 'meta' },
                     { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'), opzioni: opzAree, valore: 'all' },
                     { id: 'angolo', tipo: 'scelta', etichetta: t('cq_ang', 'Angolazione'), opzioni: opzAngoli, valore: 'auto',
-                      aiuto: t('cq_ang_d', 'Che cosa devono chiedere le domande. «Automatico» le distribuisce fra i tipi di ragionamento.') }
-                ]
+                      aiuto: t('cq_ang_d', 'Che cosa devono chiedere le domande. Scegliendone una, TUTTE le domande avranno quel taglio; «Automatico» le distribuisce fra i tipi di ragionamento.') },
+                    /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────────
+                       Solo per le domande aperte: nei quiz a scelta multipla
+                       la graduazione non ha lo stesso senso — lì le opzioni
+                       orientano già, e una domanda «facile» diventa un
+                       indovinello. Qui invece è la differenza fra un foglio
+                       che si può cominciare e uno su cui chi sa metà scrive
+                       zero righe. */
+                    tp.documento ? { id: 'base', tipo: 'numero', etichetta: t('cq_base', 'Domande d\'avvio (%)'),
+                      valore: 40, min: 0, max: 100, larghezza: 'meta',
+                      aiuto: t('cq_base_d', 'Quante domande si possono risolvere con UN concetto solo, da chi ha studiato una parte della scheda. Le altre chiedono di collegare due o più concetti. Sul foglio degli allievi la differenza non si vede: compare solo sulle tue tracce di correzione.') } : null
+                ].filter(Boolean)
             }],
             azioni: [
                 { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
@@ -157,7 +170,8 @@
         }).then(function (r) {
             if (!r || r.azione !== 'vai') return;
             var v = r.valori || {};
-            _genera(tp, { nome: v.nome || '', quantita: v.quante || 5, area: v.area || 'all', angolo: v.angolo || 'auto' });
+            _genera(tp, { nome: v.nome || '', quantita: v.quante || 5, area: v.area || 'all',
+                angolo: v.angolo || 'auto', base: (v.base != null && v.base !== '') ? v.base : null });
         });
     }
 
@@ -175,7 +189,7 @@
         if (!P() || !P().generaSet) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
         P().generaSet({
             tipo: tp.id, nome: opts.nome, quantita: opts.quantita,
-            area: opts.area, angolo: opts.angolo
+            area: opts.area, angolo: opts.angolo, base: opts.base
         }).then(function (r) {
             if (!r || !r.ok) { toast((r && r.errore) || t('cq_ko', 'Generazione non riuscita.'), 'error'); return; }
             /* Che cosa è successo, detto per intero: dove si corregge e dove si

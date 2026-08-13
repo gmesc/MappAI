@@ -169,6 +169,74 @@
     return { ok: true, count: items.length };
   }
 
+  /* ══ LA GRADUAZIONE DI UN FOGLIO DI DOMANDE (13/8 sera) ═══════════════════
+     Un foglio in cui OGNI domanda richiede tutta la scheda è un foglio su cui
+     l'allievo che ne sa metà scrive zero righe — e da un foglio bianco non si
+     impara niente. Servono domande d'AVVIO: quelle che si risolvono con UN
+     concetto ripreso da ciò che il testo dice, senza collegarne altri.
+
+     ⚠️ La facilità è definita per COSA SERVE PER RISPONDERE, non per una
+     percentuale di contenuti: «bastano il 50% dei contenuti» è una richiesta
+     che un modello linguistico non sa verificare — non conta i concetti di una
+     scheda, e obbedirebbe a parole. «Una domanda risolvibile con un concetto
+     solo» invece è una proprietà della domanda, che il modello può DICHIARARE
+     item per item (`livello`) e che qui si CONTA.
+       · base  → un concetto, esplicito nel testo: chi ha studiato metà scheda
+                 può rispondere;
+       · ponte → collega due o più concetti, o applica a un caso nuovo.
+     La proporzione la chiede il docente in percentuale; qui diventa un numero
+     di domande, che è ciò che si può controllare.                            */
+  function quotaBase(n, pct) {
+    var tot = Math.max(0, parseInt(n, 10) || 0);
+    var p = parseInt(pct, 10);
+    if (isNaN(p)) p = 0;
+    p = Math.max(0, Math.min(100, p));
+    if (!tot || !p) return 0;
+    /* si ARROTONDA, ma con una rete ai due estremi: una percentuale > 0 deve
+       dare almeno una domanda d'avvio (altrimenti la leva non fa nulla e
+       sembra rotta), e sotto il 100% almeno una domanda ponte deve restare */
+    var b = Math.round(tot * p / 100);
+    if (p > 0 && b < 1) b = 1;
+    if (p < 100 && b >= tot) b = tot - 1;
+    return b;
+  }
+  /* Che cosa è arrivato davvero: il modello dichiara, noi contiamo. Serve a
+     dirlo (nel foglio soluzioni, nel registro) invece di fidarsi. */
+  function contaGraduazione(items) {
+    var base = 0, ponte = 0;
+    (items || []).forEach(function (it) {
+      if (it && String(it.livello || it.level || '').toLowerCase() === 'base') base++;
+      else ponte++;
+    });
+    return { base: base, ponte: ponte, tot: base + ponte };
+  }
+  /* Le domande d'avvio PRIMA, dentro il loro gruppo. Un foglio si comincia da
+     ciò che si sa: iniziare con la domanda più difficile è il modo più rapido
+     per far smettere di provare.
+     ⚠️ L'ordine si rimescola SOLO dentro lo stesso gruppo (`aree`/`l1`): il
+     foglio è organizzato per macro-area, e un riordino globale lo scomporrebbe.
+     Stabile: a parità di livello resta l'ordine di generazione. */
+  function ordinaGraduazione(items) {
+    var arr = (items || []).slice();
+    var gruppi = [], indice = {};
+    arr.forEach(function (it, i) {
+      var k = String((it && (it.l1 || (it.areas || [])[0])) || '');
+      if (!(k in indice)) { indice[k] = gruppi.length; gruppi.push([]); }
+      gruppi[indice[k]].push({ it: it, i: i });
+    });
+    var fuori = [];
+    gruppi.forEach(function (g) {
+      g.map(function (x, j) { return { x: x, j: j }; })
+        .sort(function (a, b) {
+          var la = String((a.x.it && a.x.it.livello) || '').toLowerCase() === 'base' ? 0 : 1;
+          var lb = String((b.x.it && b.x.it.livello) || '').toLowerCase() === 'base' ? 0 : 1;
+          return (la - lb) || (a.j - b.j);
+        })
+        .forEach(function (o) { fuori.push(o.x.it); });
+    });
+    return fuori;
+  }
+
   function validatePdfB64(b64) {
     if (typeof b64 !== 'string') return { ok: false, error: 'PDF assente' };
     var s = /^data:/i.test(b64) && b64.indexOf(',') >= 0 ? b64.slice(b64.indexOf(',') + 1) : b64;
@@ -437,6 +505,9 @@
     validateQuizItems: validateQuizItems,
     validatePdfB64: validatePdfB64,
     validateSynthesis: validateSynthesis,
+    quotaBase: quotaBase,
+    contaGraduazione: contaGraduazione,
+    ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
     buildFileName: buildFileName,
     nomeLibero: nomeLibero,

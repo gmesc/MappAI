@@ -139,6 +139,44 @@ window.quizAngleBlock = function (angleKey) {
     return head + syntax;
 };
 
+/* ── L'ANGOLO E LA GRADUAZIONE DI UN FOGLIO DI DOMANDE APERTE (13/8 sera) ────
+   Gemello di `quizAngleBlock`, e legge la STESSA tabella `QUIZ_ANGLES`: gli
+   angoli sono uno solo, e due elenchi divergerebbero al primo aggiunto.
+   Ma il testo è diverso, e deve esserlo: la «VARIETÀ SINTATTICA» dei quiz
+   propone forme che qui non esistono («quale NON…», vero/falso motivato).
+   ⚠️ Il blocco DICHIARA di prevalere sulle indicazioni di varietà del
+   template. Serve davvero: chi ha un `prompts_config.json` personale continua
+   ad avere la vecchia riga «distribuisci le domande fra…», che direbbe
+   l'opposto — e a parità di autorevolezza vince l'ultima letta, cioè quella
+   sbagliata. Senza questa clausola l'angolo funzionerebbe solo sui default.  */
+window.openQuestionsAngleBlock = function (angleKey, opts) {
+    opts = opts || {};
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    var a = (window.QUIZ_ANGLES || []).filter(function (x) { return x.key === angleKey; })[0];
+    var righe = [];
+    if (a && a.key !== 'auto') {
+        righe.push(en
+            ? 'ANGLE OF THIS SHEET (mandatory, overrides any "variety" instruction below): EVERY question must be built around ' + (a.hintEn || a.key) + '. Vary the wording, never the angle.'
+            : 'ANGOLO DI QUESTO FOGLIO (obbligatorio, PREVALE su ogni indicazione di varietà più sotto): OGNI domanda deve avere come taglio ' + a.hint + '. Varia la formulazione, mai l\'angolo.');
+    }
+    /* La graduazione: quante domande d'AVVIO su quante. Si chiede un NUMERO,
+       non una percentuale — «il 40% delle domande» è una proporzione che il
+       modello deve calcolare mentre scrive, e la sbaglia; «2 domande su 5» è
+       un'istruzione che può eseguire e che noi possiamo contare. */
+    var nBase = parseInt(opts.base, 10) || 0;
+    var tot = parseInt(opts.tot, 10) || 0;
+    if (nBase > 0 && tot > 0) {
+        righe.push(en
+            ? 'GRADING: exactly ' + nBase + ' of the ' + tot + ' questions must be ENTRY questions ("livello":"base"): answerable with ONE concept taken explicitly from the material, by a student who studied only part of the sheet. The other ' + (tot - nBase) + ' are BRIDGE questions ("livello":"ponte"): they require connecting two or more concepts, or applying them to a new case. Declare the level of every question in the "livello" field. Entry questions are NOT trivial or single-word: they still ask to explain, in the student\'s own words.'
+            : 'GRADUAZIONE: esattamente ' + nBase + ' domande sulle ' + tot + ' devono essere di AVVIO ("livello":"base"): si rispondono con UN concetto solo, preso esplicitamente dal materiale, da uno studente che ha studiato solo una parte della scheda. Le altre ' + (tot - nBase) + ' sono di PONTE ("livello":"ponte"): richiedono di collegare due o più concetti, o di applicarli a un caso nuovo. Una domanda di avvio NON è banale e non si risponde con una parola: chiede comunque di spiegare con parole proprie, ma su una cosa sola. SCRIVI PER PRIME le ' + nBase + ' domande di avvio, poi le altre, e dichiara il campo "livello" su OGNI domanda.');
+    } else if (tot > 0) {
+        righe.push(en
+            ? 'GRADING: every question is a BRIDGE question ("livello":"ponte"): connecting or applying concepts.'
+            : 'GRADUAZIONE: tutte le domande sono di PONTE ("livello":"ponte"): collegano o applicano concetti.');
+    }
+    return righe.join('\n\n');
+};
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};

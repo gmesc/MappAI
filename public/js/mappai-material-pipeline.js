@@ -321,11 +321,31 @@
        una mappa a un ramo solo la domanda «collega le due aree» non avrebbe
        senso, e chiederlo lo stesso produrrebbe accostamenti inventati. */
     const areaB = opts.areaB || '';
+    /* ── ANGOLO E GRADUAZIONE, IN TESTA AL PROMPT (13/8 sera) ────────────────
+       L'angolo scelto dal docente non arrivava fin qui: restava nel modale e
+       finiva solo ai quiz a scelta multipla. Misurato sugli otto fogli di
+       Giacomo: il set «esempi concreti» non conteneva un solo esempio, quello
+       «definizioni» era il meno definitorio di tutti, e la prima domanda era la
+       stessa in quattro set diversi — otto estrazioni dello stesso foglio.
+       ⚠️ Il blocco sta FUORI dal template e PRIMA di esso, non dentro: così
+       vale anche per chi ha un `prompts_config.json` personale, che una
+       variabile nuova non ce l'ha e la lascerebbe cadere in silenzio.
+       Il numero di domande d'avvio è già calcolato (`opts.base`): al modello si
+       danno numeri, non percentuali da calcolare mentre scrive. */
+    const blocco = (window.openQuestionsAngleBlock)
+      ? window.openQuestionsAngleBlock(opts.angolo || 'auto', { base: opts.base || 0, tot: quantity })
+      : '';
     let prompt = '';
     try {
       prompt = window.fillPromptTemplate('OPEN_QUESTIONS_GENERATOR', {
         quantity, nodeLabel, nonce,
         areaB: areaB,
+        /* La riga «VARIETÀ COGNITIVA» del template vale SOLO senza un angolo
+           scelto: con l'angolo direbbe il contrario di ciò che si è chiesto. */
+        varieta: (opts.angolo && opts.angolo !== 'auto') ? ''
+          : (((typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en')
+            ? 'COGNITIVE VARIETY: spread the questions across explaining a process, comparing two elements, cause and effect, applying an example to a new case. '
+            : 'VARIETÀ COGNITIVA: distribuisci le domande fra spiegazione di un processo, confronto fra due elementi, causa-conseguenza, esempio da applicare a un caso nuovo. '),
         /* il blocco delle DUE AREE è un pezzo di prompt, non un flag: senza
            secondo ramo sparisce del tutto invece di restare come istruzione a
            vuoto */
@@ -341,16 +361,20 @@
       }) || '';
     }
     catch (e) { prompt = ''; }
+    /* il blocco precede SEMPRE, anche il prompt di ripiego qui sotto */
+    if (prompt.trim() && blocco) prompt = blocco + '\n\n' + prompt;
     if (!prompt.trim()) {
-      prompt = 'Genera ' + quantity + ' DOMANDE APERTE di verifica basate ESCLUSIVAMENTE su questo materiale.\n' +
+      prompt = (blocco ? blocco + '\n\n' : '') +
+        'Genera ' + quantity + ' DOMANDE APERTE di verifica basate ESCLUSIVAMENTE su questo materiale.\n' +
         'Codice di variazione: ' + nonce + '.\n' +
         'Una domanda aperta non ha opzioni: lo studente scrive con parole sue. Chiedi di SPIEGARE, ' +
         'CONFRONTARE, GIUSTIFICARE o RICOSTRUIRE, mai una parola singola da ricordare. Frasi brevi, ' +
         'una sola cosa chiesta per domanda (studenti BES/DSA).\n' +
         'Per ognuna scrivi anche «traccia» (che cosa deve contenere una risposta corretta, 1-2 frasi) ' +
         'e «righe» (quante righe servono per rispondere: 3 breve, 5 spiegazione, 8 confronto).\n' +
-        'e «aree» (le macro-aree che la domanda richiede: una, o al massimo due).\n' +
-        'Restituisci SOLO un JSON: [{"domanda":"…","traccia":"…","righe":5,"aree":["…"]}]\n' +
+        'e «aree» (le macro-aree che la domanda richiede: una, o al massimo due)\n' +
+        'e «livello» ("base" se si risponde con un concetto solo, "ponte" se ne collega due o più).\n' +
+        'Restituisci SOLO un JSON: [{"domanda":"…","traccia":"…","righe":5,"aree":["…"],"livello":"base"}]\n' +
         'Usa l\'italiano. Il tema del ramo è: \'' + nodeLabel + '\'.' +
         (areaB ? ('\nLa seconda area è \'' + areaB + '\': almeno una domanda deve collegarle.') : '');
     }
@@ -359,9 +383,17 @@
         type: 'OBJECT',
         properties: {
           domanda: { type: 'STRING' }, traccia: { type: 'STRING' }, righe: { type: 'INTEGER' },
-          aree: { type: 'ARRAY', items: { type: 'STRING' } }
+          aree: { type: 'ARRAY', items: { type: 'STRING' } },
+          /* `enum` invece di una stringa libera: senza, arrivano «facile»,
+             «medio», «base/ponte» — e chi conta non riconosce più niente. */
+          livello: { type: 'STRING', enum: ['base', 'ponte'] }
         },
-        required: ['domanda', 'traccia']
+        /* ⚠️ `livello` è OBBLIGATORIO, e la prima prova con l'AI vera dice
+           perché: da opzionale il modello semplicemente non lo emetteva —
+           l'istruzione «2 su 5 di avvio» veniva letta, e il campo che la rende
+           verificabile spariva. Tutte le domande cadevano su «ponte» e la leva
+           sembrava non fare niente. */
+        required: ['domanda', 'traccia', 'livello']
       }
     };
     let payload = {
@@ -388,14 +420,24 @@
          manda tre, si tengono le prime due nell'ordine in cui le ha messe */
       aree = aree.slice(0, 2);
       if (!aree.length) aree = [nodeLabel];
+      /* Il livello si NORMALIZZA a due valori: qualunque altra cosa il modello
+         scriva («facile», «medio») vale ponte — cioè il caso prudente, quello
+         che non promette all'allievo una domanda d'avvio che non lo è. */
+      const liv = String(x.livello || '').trim().toLowerCase() === 'base' ? 'base' : 'ponte';
       return {
         question: String(x.domanda),
         guide: String(x.traccia || ''),
         lines: x.righe,
-        areas: aree
+        areas: aree,
+        livello: liv
       };
     });
   }
+
+  /* Quante domande d'avvio, se nessuno lo dice. 40% = due su cinque: un foglio
+     che si può cominciare anche sapendo una parte, senza smettere di chiedere
+     i collegamenti. È un DEFAULT, non una regola: la leva è nel modale. */
+  const QUOTA_BASE_DEF = 40;
 
   const _QT = {
     mc: { quizType: 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta', kind: 'quiz_mc', sub: 'quiz_mc', mode: 'quiz', typeLabel: 'Scelta Multipla' },
@@ -438,8 +480,13 @@
             const insieme = materialeB
               ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
               : material;
+            /* l'angolo e la quota d'avvio valgono anche qui: la pipeline usa
+               `config.quiz.angle` (già scelto nel bento) e la quota di
+               default — è la stessa generazione, e due tarature diverse fra
+               «Genera materiali» e il gesto singolo si noterebbero subito */
             const items = await _genOpenQuestions(insieme, _clean(b.label), perBranch, apiKey,
-              { areaB: comp ? _clean(comp.label) : '' });
+              { areaB: comp ? _clean(comp.label) : '', angolo: angle,
+                base: PC().quotaBase(perBranch, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
             /* le AREE le porta già l'item (filtrate contro i nomi veri in
                `_genOpenQuestions`): qui si tiene `l1` come area principale, che
                è quella per cui stiamo generando */
@@ -1553,6 +1600,10 @@
     const mapName = _mapName();
     const quantita = Math.max(1, Math.min(30, parseInt(opts.quantita, 10) || 5));
     const angle = opts.angolo || 'auto';
+    /* Le domande d'AVVIO: la percentuale la sceglie il docente, il numero per
+       ramo lo fa il core (`quotaBase`) — al modello si danno numeri. */
+    const pctBase = (opts.base != null) ? opts.base : QUOTA_BASE_DEF;
+    const baseRamo = PC().quotaBase(quantita, pctBase);
     /* Il nome passa da `MappAIClona.pulisci` UNA volta: è lo stesso nome che
        finisce nel titolo d'archivio (che `pulisci` tronca a 40) e nel nome del
        file — se i due divergono, ELABORA non aggancia più il file alla riga
@@ -1586,8 +1637,11 @@
           const insieme = materialeB
             ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
             : material;
+          /* La quota si calcola PER RAMO, non sul totale del foglio: le
+             domande di un ramo si somministrano insieme, e una quota globale
+             potrebbe metterle tutte d'avvio in un'area e nessuna in un'altra. */
           const items = await _genOpenQuestions(insieme, _clean(b.label), quantita, apiKey,
-            { areaB: comp ? _clean(comp.label) : '' });
+            { areaB: comp ? _clean(comp.label) : '', angolo: angle, base: baseRamo });
           items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label) }, it)));
         } else if (opts.tipo === 'flashcards') {
           const items = await _genFlashcards(material, _clean(b.label), quantita, apiKey);
@@ -1601,6 +1655,10 @@
         }
       }
       if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
+      /* Le domande d'avvio in testa al loro ramo: un foglio si comincia da ciò
+         che si sa. L'ordine si rimescola solo DENTRO il ramo (il foglio resta
+         organizzato per macro-area). */
+      if (opts.tipo === 'open' && PC().ordinaGraduazione) raw.splice(0, raw.length, ...PC().ordinaGraduazione(raw));
 
       const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
       const titolo = mapName + ' — ' + spec.typeLabel + (nome ? ' · ' + nome : '');

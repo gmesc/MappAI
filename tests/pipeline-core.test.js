@@ -523,3 +523,67 @@ test('buildFileName: il dossier segue la convenzione, col nodo come dettaglio', 
         PC.buildFileName('dossier', null, false, { mappa: 'La Politica Svizzera', dettaglio: 'Consiglio federale' }),
         'Dossier-La Politica Svizzera-Consiglio federale.pdf');
 });
+
+/* ══ LA GRADUAZIONE DI UN FOGLIO DI DOMANDE (13/8/26) ═══════════════════════
+   Un foglio in cui ogni domanda richiede tutta la scheda lascia in bianco chi
+   ne sa metà. La quota d'AVVIO è la leva; qui si prova che diventa un numero
+   sensato in tutti i casi limite — perché è quel numero, non la percentuale,
+   che finisce nel prompt. */
+test('quotaBase: la percentuale diventa un numero di domande', () => {
+    assert.strictEqual(PC.quotaBase(5, 40), 2);
+    assert.strictEqual(PC.quotaBase(5, 0), 0);
+    assert.strictEqual(PC.quotaBase(10, 50), 5);
+    assert.strictEqual(PC.quotaBase(3, 33), 1);
+});
+test('quotaBase: una percentuale > 0 dà sempre almeno una domanda d\'avvio', () => {
+    /* con 5 domande e il 10% l\'arrotondamento darebbe 0: la leva sembrerebbe
+       rotta proprio a chi l\'ha spostata di poco */
+    assert.strictEqual(PC.quotaBase(5, 10), 1);
+    assert.strictEqual(PC.quotaBase(20, 1), 1);
+});
+test('quotaBase: sotto il 100% resta sempre almeno una domanda di ponte', () => {
+    assert.strictEqual(PC.quotaBase(5, 95), 4);
+    assert.strictEqual(PC.quotaBase(5, 100), 5);   /* il 100% è una scelta esplicita */
+    assert.strictEqual(PC.quotaBase(1, 90), 0);    /* con UNA domanda, il ponte vince */
+});
+test('quotaBase: valori sporchi non producono NaN nel prompt', () => {
+    assert.strictEqual(PC.quotaBase(5, null), 0);
+    assert.strictEqual(PC.quotaBase(5, 'abc'), 0);
+    assert.strictEqual(PC.quotaBase(5, -20), 0);
+    assert.strictEqual(PC.quotaBase(5, 500), 5);
+    assert.strictEqual(PC.quotaBase(0, 50), 0);
+});
+test('contaGraduazione: si CONTA quello che il modello ha dichiarato', () => {
+    const items = [{ livello: 'base' }, { livello: 'ponte' }, { livello: 'BASE' }, {}, { livello: 'facile' }];
+    /* «facile» e il livello assente valgono ponte: il caso prudente, che non
+       promette un avvio che non c'è */
+    assert.deepStrictEqual(PC.contaGraduazione(items), { base: 2, ponte: 3, tot: 5 });
+    assert.deepStrictEqual(PC.contaGraduazione([]), { base: 0, ponte: 0, tot: 0 });
+});
+test('ordinaGraduazione: l\'avvio prima, ma solo DENTRO il suo ramo', () => {
+    const items = [
+        { question: 'A1', l1: 'Clima', livello: 'ponte' },
+        { question: 'A2', l1: 'Clima', livello: 'base' },
+        { question: 'B1', l1: 'Venti', livello: 'ponte' },
+        { question: 'B2', l1: 'Venti', livello: 'base' }
+    ];
+    const out = PC.ordinaGraduazione(items).map(x => x.question);
+    /* i rami restano separati e nell'ordine in cui sono arrivati: un riordino
+       globale scomporrebbe il foglio, che è organizzato per macro-area */
+    assert.deepStrictEqual(out, ['A2', 'A1', 'B2', 'B1']);
+});
+test('ordinaGraduazione: è stabile a parità di livello', () => {
+    const items = [
+        { question: 'x', l1: 'C', livello: 'ponte' },
+        { question: 'y', l1: 'C', livello: 'ponte' },
+        { question: 'z', l1: 'C', livello: 'ponte' }
+    ];
+    assert.deepStrictEqual(PC.ordinaGraduazione(items).map(x => x.question), ['x', 'y', 'z']);
+});
+test('ordinaGraduazione: senza `l1` il gruppo lo dà la prima area', () => {
+    const items = [
+        { question: 'p', areas: ['Venti'], livello: 'ponte' },
+        { question: 'q', areas: ['Venti'], livello: 'base' }
+    ];
+    assert.deepStrictEqual(PC.ordinaGraduazione(items).map(x => x.question), ['q', 'p']);
+});

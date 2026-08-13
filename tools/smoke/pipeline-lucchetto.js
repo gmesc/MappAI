@@ -198,6 +198,68 @@ ok(esito === 'nessun errore', 'più nodi ma stessa mappa → continua (è la pip
   ok(f4 && f4.ok === false && /già una copia/.test(f4.errore || ''), 'e lo stesso nome si rifiuta (anche con altre maiuscole)');
   ok(archivio.length === 2, 'in archivio ci sono i due fogli veri, nessun doppione → ' + archivio.length);
 
+  /* ── 5. L'ANGOLO E LA GRADUAZIONE ARRIVANO DAVVERO NEL PROMPT (13/8 sera) ──
+     Il difetto misurato sugli otto fogli di Giacomo: l'angolo scelto restava
+     nel modale — «esempi concreti» senza un solo esempio, «definizioni» il set
+     meno definitorio, la stessa domanda in quattro fogli. Qui si INTERCETTA il
+     prompt che parte davvero: è l'unico modo di provare che un'istruzione è
+     stata data, senza chiamare l'AI.                                          */
+  console.log('\n· l\'angolo e le domande d\'avvio nel prompt');
+  vm.runInThisContext(fs.readFileSync(path.join(RADICE, 'public/js/mappai-study-session.js'), 'utf8'), { filename: 'study-session.js' });
+  ok(typeof global.window.openQuestionsAngleBlock === 'function', 'il blocco per le domande aperte esiste');
+
+  const prompts = [];
+  global.window.fetchModelAPI = async function (payload) {
+    prompts.push(payload.contents[0].parts[0].text);
+    return { candidates: [{ content: { parts: [{ text: JSON.stringify([
+      { domanda: 'D1', traccia: 't', righe: 4, aree: [], livello: 'base' },
+      { domanda: 'D2', traccia: 't', righe: 5, aree: [], livello: 'ponte' },
+      { domanda: 'D3', traccia: 't', righe: 5, aree: [], livello: 'ponte' },
+      { domanda: 'D4', traccia: 't', righe: 5, aree: [], livello: 'ponte' },
+      { domanda: 'D5', traccia: 't', righe: 3, aree: [], livello: 'base' }
+    ]) }] } }] };
+  };
+  /* il template vero, come lo legge l'app */
+  const cfg = JSON.parse(fs.readFileSync(path.join(RADICE, 'prompts_config.json'), 'utf8'));
+  global.window.fillPromptTemplate = function (nome, vars) {
+    let t = cfg[nome + '_IT'] || '';
+    Object.keys(vars || {}).forEach(k => { t = t.split('{{' + k + '}}').join(vars[k] == null ? '' : String(vars[k])); });
+    return t;
+  };
+  global.window.MappAIStudyDocs.list = () => [];
+
+  const rr = await P.generaSet({ tipo: 'open', nome: 'con-angolo', quantita: 5, area: 'all', angolo: 'confronto', base: 40 });
+  ok(rr && rr.ok, 'generazione riuscita');
+  const p = prompts[prompts.length - 1] || '';
+  ok(/ANGOLO DI QUESTO FOGLIO \(obbligatorio/.test(p), '🔑 l\'angolo È nel prompt, ed è obbligatorio');
+  ok(/CONFRONTO: differenze e somiglianze/.test(p), '…col testo dell\'angolo scelto, letto da QUIZ_ANGLES');
+  ok(/PREVALE su ogni indicazione di varietà/.test(p), '…e dichiara di prevalere (rete per i template personali)');
+  ok(!/VARIETÀ COGNITIVA/.test(p), 'la riga «varietà cognitiva» del template SPARISCE con un angolo scelto');
+  ok(/esattamente 2 domande sulle 5 devono essere di AVVIO/.test(p),
+    '🔑 la graduazione arriva come NUMERO, non come percentuale');
+  ok(/"livello"/.test(p), 'e il campo `livello` è chiesto nello schema');
+
+  prompts.length = 0;
+  await P.generaSet({ tipo: 'open', nome: 'auto', quantita: 5, area: 'all', angolo: 'auto', base: 0 });
+  const p2 = prompts[prompts.length - 1] || '';
+  ok(/VARIETÀ COGNITIVA/.test(p2), 'con «Automatico» la varietà del template TORNA');
+  ok(!/ANGOLO DI QUESTO FOGLIO/.test(p2), 'e nessun angolo obbligatorio');
+  ok(/tutte le domande sono di PONTE/.test(p2), 'con 0% d\'avvio lo si dice, invece di tacere');
+
+  /* l'ordine sul foglio: l'avvio in testa al suo ramo */
+  const raccolti = [];
+  global.window.MappAIStudyDocs.save = (rec) => { raccolti.push(rec); return 'doc_o'; };
+  global.window.MappAIQuizPrint && (global.window.buildOpenQuestionsHtml = global.window.buildOpenQuestionsHtml);
+  await P.generaSet({ tipo: 'open', nome: 'ordine', quantita: 5, area: 'all', angolo: 'cause', base: 40 });
+  const html = (raccolti[raccolti.length - 1] || {}).html || '';
+  const set = global.window.MappAIQuizPrint.setFromHtml(html);
+  const liv = (set && set.items || []).map(x => x.livello);
+  ok(liv.join(',') === 'base,base,ponte,ponte,ponte',
+    '🔑 sul foglio le domande d\'avvio vengono PRIME → ' + liv.join(' · '));
+  ok(/>avvio<\/span>/.test(html), 'il segno «avvio» c\'è nel foglio SOLUZIONI');
+  const senzaSol = global.window.buildOpenQuestionsHtml(set, { mapName: 'x', includeBar: false, includeAnswers: false });
+  ok(!/avvio/i.test(senzaSol), '…e NON nella copia degli allievi (dirlo sarebbe un giudizio, non un aiuto)');
+
   console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'TUTTO OK'));
   process.exit(ko ? 1 : 0);
 })().catch(e => { console.log('  KO  eccezione fuori posto: ' + (e && e.message)); process.exit(1); });

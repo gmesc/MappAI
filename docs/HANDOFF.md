@@ -244,34 +244,62 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    (`_casaDocumenti` in `mappai-crea-quiz.js`). Provato in Electron vivo cliccando il
    DOM vero, dentro la console: MC e domande aperte, editor a 702px con la domanda in
    bianco e i chip delle macro-aree della mappa.
-2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+2. ✅ **RISOLTO (13/8 notte): l'angolo arriva alle domande aperte, e il foglio si
+   può graduare.** Diagnosi da otto fogli veri di Giacomo (200 domande misurate): il
+   set «esempi concreti» non conteneva **un solo esempio**, «definizioni» era il meno
+   definitorio di tutti, la prima domanda era **la stessa in quattro set** — erano
+   otto estrazioni dello stesso foglio «Automatico». Causa: `_genOpenQuestions` non
+   riceveva `angle` (andava solo a `generateDynamicQuiz`), e il template ordinava
+   comunque «VARIETÀ COGNITIVA», che è l'opposto di un angolo. Ora l'angolo è
+   **assoluto** (`window.openQuestionsAngleBlock`, che legge la STESSA `QUIZ_ANGLES`
+   dei quiz), il blocco sta **fuori dal template e prima** — così vale anche per chi
+   ha un `prompts_config.json` personale — e **dichiara di prevalere** sulle
+   indicazioni di varietà; la riga del template è diventata `{{varieta}}`, vuota
+   quando un angolo è scelto.
+   Con esso la **graduazione**: ogni domanda dichiara `livello` base|ponte e il
+   docente sceglie la **percentuale di domande d'avvio** (default 40%). La quota si
+   calcola **per ramo** e arriva al modello come NUMERO («2 su 5»), non come
+   percentuale da calcolare mentre scrive. Le domande d'avvio vanno **prime dentro il
+   loro ramo**; il segno «AVVIO» compare **solo sul foglio soluzioni**, mai sulla
+   copia degli allievi (dire «facile» a chi non ci riesce è un giudizio, non un
+   aiuto). Logica pura in `mappai-pipeline-core.js` (`quotaBase`, `contaGraduazione`,
+   `ordinaGraduazione`) con 8 test nuovi.
+   ⚠️ **Trovato solo con l'AI vera**: con `livello` opzionale nello schema il modello
+   **non lo emetteva** — l'istruzione veniva letta e il campo che la rende
+   verificabile spariva, quindi tutte le domande cadevano su «ponte» e la leva
+   sembrava non fare niente. Ora è `required`, più l'ordine operativo «scrivi per
+   prime le N di avvio». Provato su «Il Clima» (4R): 2 base + 3 ponte esatti su due
+   angoli opposti, esempi concreti dove prima non ce n'erano.
+   Aperto: la pipeline batch usa il default 40% (nel bento la leva non è montata) e
+   l'editor non permette ancora di cambiare `livello` a mano su una domanda.
+3. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-3. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-4. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+4. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+5. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-5. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+6. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-6. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+7. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-7. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+8. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-8. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+9. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-9. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+10. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-10. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+11. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**

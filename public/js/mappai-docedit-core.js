@@ -632,15 +632,25 @@
             if (viste[k]) return;
             viste[k] = 1; pulite.push(a);
         });
+        /* Il LIVELLO sopravvive alla correzione (13/8): lo dichiara chi genera
+           ed è ciò che distingue una domanda d'avvio da una di ponte nel foglio
+           soluzioni. Senza questa riga si perdeva al primo salvataggio
+           dell'editor, e il foglio ristampato non lo diceva più.
+           Due valori soli: tutto ciò che non è «base» è «ponte» — il caso
+           prudente, che non promette un avvio che non c'è. */
+        var liv = _s(x.livello || x.level).trim().toLowerCase();
         return {
             question: _s(x.question || x.domanda),
             guide: _s(x.guide || x.traccia || x.answer),
             lines: _lines(x.lines != null ? x.lines : x.righe),
-            areas: pulite.slice(0, OPEN_AREAS_MAX)
+            areas: pulite.slice(0, OPEN_AREAS_MAX),
+            livello: liv === 'base' ? 'base' : 'ponte'
         };
     }
     function normOpenItems(items) { return (items || []).map(normOpenItem); }
-    function blankOpenItem() { return { question: '', guide: '', lines: null, areas: [] }; }
+    /* Una domanda scritta a mano nasce di PONTE: è il livello prudente, e chi
+       la scrive sa che cosa sta chiedendo meglio di qualunque default. */
+    function blankOpenItem() { return { question: '', guide: '', lines: null, areas: [], livello: 'ponte' }; }
     /* path: question | guide | lines | area:<nome> (aggiunge o toglie l'area) */
     function setOpenField(items, index, path, value) {
         var arr = normOpenItems(items);
