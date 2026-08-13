@@ -1452,7 +1452,12 @@
     const mapName = _mapName();
     const quantita = Math.max(1, Math.min(30, parseInt(opts.quantita, 10) || 5));
     const angle = opts.angolo || 'auto';
-    const nome = String(opts.nome || '').trim();
+    /* Il nome passa da `MappAIClona.pulisci` UNA volta: è lo stesso nome che
+       finisce nel titolo d'archivio (che `pulisci` tronca a 40) e nel nome del
+       file — se i due divergono, ELABORA non aggancia più il file alla riga
+       della copia e l'originale se lo prende. */
+    const CLN = window.MappAIClona;
+    const nome = (CLN && CLN.pulisci) ? CLN.pulisci(opts.nome) : String(opts.nome || '').trim();
 
     /* Su quale materiale: una macro-area sola, o tutte. Il materiale è quello
        del ramo — nodo più discendenti — come nello step B e come il quiz in-app. */
@@ -1461,6 +1466,31 @@
       ? tutte.filter(b => b.id === opts.area)
       : tutte;
     if (!scelte.length) return { ok: false, errore: _t('cq_no_area', 'Questa mappa non ha aree da cui generare.') };
+
+    /* Un nome già preso si rifiuta PRIMA di spendere token. Il flusso «Fai una
+       copia» valida i duplicati (`CL.valida`); senza questa guardia il gesto
+       singolo li scavalcava: stesso nome → stesso titolo → la dedup
+       dell'archivio (kind|title|mapName) RIMPIAZZAVA in silenzio una copia
+       magari corretta a mano — e il file, che porta lo stesso nome, idem. */
+    if (nome && CLN && CLN.chiave) {
+      let presi = [];
+      if (spec.documento) {
+        try {
+          const base = CLN.etichetta(spec.typeLabel, '');
+          presi = ((window.MappAIStudyDocs && window.MappAIStudyDocs.list()) || [])
+            .filter(d => d && d.kind === 'quizpaper' && d.mapName === mapName &&
+              String(d.title || '').indexOf(base + ' - ') === 0)
+            .map(d => String(d.title).slice(base.length + 3));
+        } catch (e) { presi = []; }
+      } else {
+        presi = ((_state().db && _state().db.studySets) || [])
+          .filter(x => x && x.type === spec.typeLabel && x.clone)
+          .map(x => x.clone);
+      }
+      if (presi.some(x => CLN.chiave(x) === CLN.chiave(nome))) {
+        return { ok: false, errore: _t('cq_nome_preso', 'C\'è già una copia con questo nome: eliminala in ELABORA o scegli un altro nome.') };
+      }
+    }
 
     Pipeline._running = true;                 // il lucchetto vale anche per il gesto singolo
     try {
@@ -1505,15 +1535,61 @@
 
       // ── le domande aperte sono un FOGLIO, non un set giocabile (vedi _QT.open)
       if (spec.documento) {
-        const html = window.buildOpenQuestionsHtml({ id: setId, title: titolo, type: spec.typeLabel, items: raw },
+        /* Il TITOLO segue la convenzione dei cloni (`MappAIClona.etichetta`,
+           «Domande Aperte - <nome>»): è da lì che ELABORA ricava il nome della
+           copia (`_cloneDalTitolo`) — e con esso il cestino e il clona sulla
+           riga. Col titolo di prima («<Mappa> — Domande aperte · <nome>») il
+           documento si vedeva ma non era riconosciuto come copia, e due copie
+           si contendevano la stessa voce. SENZA nome resta la forma della
+           pipeline: così rigenerare l'originale AGGIORNA la voce esistente
+           (la dedup dell'archivio è per kind|title|mapName) invece di
+           affiancarne una seconda. */
+        const titoloDoc = (nome && CLN && CLN.etichetta) ? CLN.etichetta(spec.typeLabel, nome) : titolo;
+        const html = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw },
           { mapName, includeBar: false });
-        const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape: false } });
-        if (!pdf || !pdf.ok) return { ok: false, errore: 'PDF non generato' };
-        if (vaultPath) await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+        /* La SORGENTE si salva PRIMA della RESA. L'archivio porta l'HTML con
+           dentro le domande — è ciò che si riapre e si corregge in ELABORA;
+           il PDF è una resa. Prima l'ordine era rovesciato: un `htmlToPdf`
+           che non rispondeva usciva di qui e buttava via minuti di
+           generazione AI — il materiale «non compariva da nessuna parte». */
+        let inArchivio = false;
         try {
-          if (window.MappAIStudyDocs) window.MappAIStudyDocs.save({ kind: 'quizpaper', title: titolo, html: html, mapName: mapName });
-        } catch (e) { /* l'archivio è un di più */ }
-        return { ok: true, titolo: titolo, file: vaultPath ? fileName : '' };
+          if (window.MappAIStudyDocs) {
+            const idDoc = window.MappAIStudyDocs.save({ kind: 'quizpaper', title: titoloDoc, html: html, mapName: mapName });
+            /* `save` può scartare in silenzio (quota localStorage piena): si
+               RILEGGE — «in archivio» deve voler dire che c'è, non che la
+               chiamata non ha lanciato. */
+            inArchivio = !!(idDoc && (!window.MappAIStudyDocs.get || window.MappAIStudyDocs.get(idDoc)));
+          }
+        } catch (e) { /* senza archivio resta il PDF: si prova comunque */ }
+        /* La resa: se fallisce si AVVISA (`pdfErrore` arriva al toast del
+           chiamante), senza toccare la sorgente appena scritta. */
+        let pdf = null, pdfErrore = '';
+        try {
+          pdf = (window.electronAPI && window.electronAPI.htmlToPdf)
+            ? await window.electronAPI.htmlToPdf({ html, options: { landscape: false } })
+            : null;
+          if (!pdf || !pdf.ok) pdfErrore = (pdf && pdf.error) || 'PDF non generato';
+          else if (PC().validatePdfB64) {
+            const v = PC().validatePdfB64(pdf.base64);
+            if (!v.ok) { pdfErrore = v.error || 'PDF non valido'; pdf = null; }
+          }
+        } catch (e) { pdfErrore = e.message || String(e); pdf = null; }
+        let fileScritto = false;
+        if (!pdfErrore && vaultPath) {
+          try {
+            const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+            fileScritto = !(w && w.ok === false);
+            if (!fileScritto) pdfErrore = 'scrittura fallita' + ((w && w.error) ? ': ' + w.error : '');
+          } catch (e) { pdfErrore = e.message || String(e); }
+        }
+        /* Detto agli elenchi già aperti, come nel ramo dei set: senza, il
+           materiale nuovo compare al giro dopo. */
+        try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vaultPath }); } catch (e) { }
+        if (!inArchivio && !fileScritto) return { ok: false, errore: pdfErrore || 'PDF non generato' };
+        /* `pdfErrore` solo se un vault c'era: senza vault il PDF non è promesso
+           e il toast giusto è quello del vault mancante, non un guasto. */
+        return { ok: true, titolo: titoloDoc, file: fileScritto ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '' };
       }
 
       // ── set EDITABILE (è da questi che nascono i quiz live) + PDF nel vault
@@ -1531,17 +1607,30 @@
         : window.buildQuizSetHtml(printSet, { mapName, includeBar: false });
       const QP = window.MappAIQuizPrint;
       const landscape = (opts.tipo === 'flashcards') && !!(QP && QP.flashSheet && QP.flashSheet().landscape);
-      const pdf = await window.electronAPI.htmlToPdf({ html, options: { landscape } });
-      if (pdf && pdf.ok && vaultPath) {
-        await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
-      }
+      /* Anche qui la resa non fa cadere il gesto: il SET è già in `studySets`
+         (la sorgente prima della resa) — un `htmlToPdf` che lancia faceva
+         uscire dal catch un «errore» su un set appena creato e rimasto lì. */
+      let pdfOk = false, pdfErrore = '';
+      try {
+        const pdf = (window.electronAPI && window.electronAPI.htmlToPdf)
+          ? await window.electronAPI.htmlToPdf({ html, options: { landscape } })
+          : null;
+        if (!pdf || !pdf.ok) pdfErrore = (pdf && pdf.error) || 'PDF non generato';
+        else if (vaultPath) {
+          const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
+          pdfOk = !(w && w.ok === false);
+          if (!pdfOk) pdfErrore = 'scrittura fallita' + ((w && w.error) ? ': ' + w.error : '');
+        }
+      } catch (e) { pdfErrore = e.message || String(e); }
       try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
       try { if (vaultPath) await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { }
       /* Detto agli elenchi già aperti: senza, il materiale nuovo compare al
          giro dopo e sembra che «ci metta molto». */
       try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vaultPath }); } catch (e) { }
       if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
-      return { ok: true, setId: setId, titolo: titolo, file: (pdf && pdf.ok && vaultPath) ? fileName : '' };
+      /* `pdfErrore` solo se un vault c'era: senza vault il PDF non è promesso
+         e il toast giusto è quello del vault mancante, non un guasto. */
+      return { ok: true, setId: setId, titolo: titolo, file: (pdfOk && vaultPath) ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '' };
     } catch (e) {
       return { ok: false, errore: e.message || String(e) };
     } finally {

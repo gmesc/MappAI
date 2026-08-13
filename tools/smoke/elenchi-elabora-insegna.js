@@ -213,6 +213,36 @@ ok(4 * 34 + 3 * 4 + 24 === 172, 'con stampa+scarica+cartella+cestino servono 172
 /* in ELABORA i generi restano */
 ok(sb.MappAITeach.tabelleMateriali(M, false, 'elabora').length > 1, 'in ELABORA i generi restano separati');
 
+console.log('— 3.4 (13/8): le voci d\'archivio dei fogli cartacei NON si mostrano in INSEGNA');
+/* Righe nella FORMA di `_consCaricaMateriali` (le voci d'archivio della console
+   portano `kind`): in INSEGNA le `quizpaper`/`flashsheet` spariscono — la loro
+   sorgente vive in ELABORA — mentre timeline e compagnia restano (una sorgente
+   in ELABORA non ce l'hanno: nascoste qui sarebbero irraggiungibili). */
+const listaIns = [
+    { id: 'arc:d1', archivio: true, docId: 'd1', kind: 'quizpaper', titolo: MAPPA + ' — Domande aperte', tipo: 'Quiz', formato: 'HTML', data: 5, cls: '', disc: '' },
+    { id: 'arc:d2', archivio: true, docId: 'd2', kind: 'flashsheet', titolo: 'Foglio flashcard — ' + MAPPA, tipo: 'Flashcard', formato: 'HTML', data: 5, cls: '', disc: '' },
+    { id: 'arc:d3', archivio: true, docId: 'd3', kind: 'timeline', titolo: 'Timeline — ' + MAPPA, tipo: 'Timeline', formato: 'HTML', data: 5, cls: '', disc: '' },
+    /* il foglio flashcard archiviato come PDF proprio (data-URI): un file nel
+       vault non l'ha mai avuto — si apre dall'archivio, quindi RESTA */
+    { id: 'arc:d4', archivio: true, docId: 'd4', kind: 'flashsheet', titolo: 'Foglio flashcard PDF — ' + MAPPA, tipo: 'Flashcard', formato: 'PDF', data: 5, cls: '', disc: '' },
+    { id: 'disk:q', archivio: false, titolo: 'Quiz-MC-' + MAPPA + '.pdf', tipo: 'Quiz MC', data: 6, cls: '', disc: '' }
+];
+const righeDi = t2 => t2.reduce((a, x) => a.concat(x.righe.map(r => r.id)), []);
+const insFiltro = righeDi(sb.MappAITeach.tabelleMateriali(listaIns, false, 'insegna'));
+ok(insFiltro.indexOf('m:arc:d1') < 0, 'la voce quizpaper (il quiz cancellato dal Finder) NON compare in INSEGNA');
+ok(insFiltro.indexOf('m:arc:d2') < 0, 'idem la flashsheet HTML');
+ok(insFiltro.indexOf('m:arc:d3') >= 0, 'la timeline d\'archivio RESTA: la sua sorgente non vive in ELABORA');
+ok(insFiltro.indexOf('m:arc:d4') >= 0, 'la voce con un PDF PROPRIO resta: si apre dall\'archivio, un file nel vault non l\'ha mai avuto');
+ok(insFiltro.indexOf('m:disk:q') >= 0, 'e i FILE restano: INSEGNA elenca i file');
+const elFiltro = righeDi(sb.MappAITeach.tabelleMateriali(listaIns, false, 'elabora'));
+ok(elFiltro.indexOf('m:arc:d1') >= 0, 'in ELABORA la stessa voce si vede: là è la sorgente, col cestino e il clona');
+/* il kill-switch riporta il comportamento storico */
+const getV = sb.localStorage.getItem;
+sb.localStorage.getItem = (k) => k === 'mappai_archivio_insegna' ? '1' : null;
+const insStorico = righeDi(sb.MappAITeach.tabelleMateriali(listaIns, false, 'insegna'));
+ok(insStorico.indexOf('m:arc:d1') >= 0, 'kill-switch mappai_archivio_insegna=1 → le voci tornano (strada storica)');
+sb.localStorage.getItem = getV;
+
 console.log(ko ? '\nFALLITI: ' + ko : '\nTUTTO OK');
 process.exit(ko ? 1 : 0);
 

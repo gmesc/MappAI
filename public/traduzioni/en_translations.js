@@ -538,6 +538,8 @@ const en_translations = {
     cq_genero: "Generating the questions…",
     cq_ok: "✓ {titolo} — mark it in ELABORA, print it from INSEGNA ({file})",
     cq_ok_no_vault: "✓ {titolo} — mark it in ELABORA. Without a vault on disk the PDF was not written.",
+    cq_ok_no_pdf: "✓ {titolo} — mark it in ELABORA. The PDF was not written: {err}",
+    cq_nome_preso: "A copy with this name already exists: delete it in ELABORA or pick another name.",
     cq_ko: "Generation failed.", cq_vuoto: "The AI produced no usable questions: try again, maybe on a richer area.",
     cq_no_area: "This map has no areas to generate from.",
     cq_no_motore: "The modal engine is not loaded.", cq_no_motore_gen: "The generator is not available.",

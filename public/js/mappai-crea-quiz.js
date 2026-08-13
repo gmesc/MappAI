@@ -164,12 +164,20 @@
             if (!r || !r.ok) { toast((r && r.errore) || t('cq_ko', 'Generazione non riuscita.'), 'error'); return; }
             /* Che cosa è successo, detto per intero: dove si corregge e dove si
                stampa. Sono due posti diversi, ed è la domanda che il docente si
-               farebbe subito dopo. */
-            toast(r.file
-                ? t('cq_ok', '✓ {titolo} — si corregge in ELABORA, si stampa da INSEGNA ({file})')
-                    .replace('{titolo}', r.titolo).replace('{file}', r.file)
-                : t('cq_ok_no_vault', '✓ {titolo} — si corregge in ELABORA. Senza un vault sul disco il PDF non è stato scritto.')
-                    .replace('{titolo}', r.titolo), 'success');
+               farebbe subito dopo.
+               ⚠️ `pdfErrore` = la SORGENTE c'è (si corregge in ELABORA) ma la
+               resa PDF è fallita: va detto col suo motivo, non confuso con
+               «manca il vault» — sono due rimedi diversi. */
+            if (r.pdfErrore) {
+                toast(t('cq_ok_no_pdf', '✓ {titolo} — si corregge in ELABORA. Il PDF non è stato scritto: {err}')
+                    .replace('{titolo}', r.titolo).replace('{err}', r.pdfErrore), 'warning');
+            } else {
+                toast(r.file
+                    ? t('cq_ok', '✓ {titolo} — si corregge in ELABORA, si stampa da INSEGNA ({file})')
+                        .replace('{titolo}', r.titolo).replace('{file}', r.file)
+                    : t('cq_ok_no_vault', '✓ {titolo} — si corregge in ELABORA. Senza un vault sul disco il PDF non è stato scritto.')
+                        .replace('{titolo}', r.titolo), 'success');
+            }
             if (r.setId && DEd() && DEd().openSet) DEd().openSet(r.setId);
         });
     }

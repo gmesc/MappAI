@@ -1301,7 +1301,10 @@
     var set = QP && QP.setFromHtml && QP.setFromHtml(doc.html);
     var html = set ? QP.buildQuizSetHtml(set, { includeAnswers: false, includeBar: false, mapName: doc.mapName }) : doc.html;
     if (window.MappAILive && window.MappAILive.shareDocQr) {
-      window.MappAILive.shareDocQr(_safeFile(doc.title) + '.html', html);
+      /* Il nome della MAPPA entra nel file: dal 13/8 il titolo di una copia è
+         «Domande Aperte - <nome>» (senza mappa), e due mappe con lo stesso nome
+         di copia si sovrascriverebbero il file nella sessione Materiali. */
+      window.MappAILive.shareDocQr(_safeFile((doc.mapName ? doc.mapName + ' - ' : '') + doc.title) + '.html', html);
       // 'materiali' (non 'materials'): è la chiave che FilesCore.activityLabel conosce.
       try { logSession({ activity: 'materiali', map: doc.mapName || '', cls: doc.cls || null }); } catch (e) { }
     } else {
@@ -1416,7 +1419,10 @@
     var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
     if (!doc || !doc.html) { toast(_t('lt_doc_no_qr', 'Questo materiale non è condivisibile via QR (solo i documenti HTML lo sono).'), 'warning'); return; }
     if (!(window.MappAILive && window.MappAILive.publishHtml)) { toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning'); return; }
-    var fname = (doc.title || 'materiale').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.html';
+    /* col nome della mappa davanti: i titoli delle copie (13/8) non la portano
+       più — senza, due mappe con la stessa copia si sovrascriverebbero il file */
+    var fname = ((doc.mapName ? doc.mapName + ' - ' : '') + (doc.title || 'materiale'))
+      .replace(/[^\w\-]+/g, '_').slice(0, 60) + '.html';
     Promise.resolve(window.MappAILive.publishHtml(fname, doc.html)).then(function () {
       logSession({ map: doc.mapName || '', activity: 'materiali' });
       if (window.MappAILive.openMaterials) window.MappAILive.openMaterials();
@@ -1751,7 +1757,11 @@
       if (kind === 'materials') {
         pickDoc(cls, function (doc) {
           if (!doc || !doc.html) { toast(_t('lt_doc_missing', 'Documento non disponibile.'), 'warning'); return; }
-          var fname = (doc.title || 'materiale').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.html';
+          /* col nome della mappa davanti: i titoli delle copie (13/8) non la
+             portano più — senza, due mappe con la stessa copia si
+             sovrascriverebbero il file nella sessione Materiali */
+          var fname = ((doc.mapName ? doc.mapName + ' - ' : '') + (doc.title || 'materiale'))
+            .replace(/[^\w\-]+/g, '_').slice(0, 60) + '.html';
           if (window.MappAILive && window.MappAILive.publishHtml) {
             Promise.resolve(window.MappAILive.publishHtml(fname, doc.html)).then(function () {
               logSession({ map: doc.mapName || '', cls: cls ? cls.name : null, activity: 'materiali' });
@@ -2189,6 +2199,28 @@
   function _consTabelleMateriali(lista, conMappa, dove) {
     lista = lista || _cons.materiali || [];
     lista = filtraSintesi(lista, dove || 'insegna');
+    /* ── LE VOCI D'ARCHIVIO DEI FOGLI CARTACEI NON SI MOSTRANO IN INSEGNA ────
+       (decisione di Giacomo, 13/8). INSEGNA elenca i FILE — ciò che si prende
+       in mano per stamparlo o consegnarlo; la SORGENTE di quiz e flashcard
+       vive in ELABORA, dove ha il suo cestino e il suo clona. Qui una voce
+       d'archivio compariva in due casi, entrambi sbagliati: quando il file
+       c'era (la dedup per nome non fonde i titoli dei quiz: ordine diverso,
+       genere diverso → riga DOPPIA) e quando il file era stato cancellato dal
+       Finder (riga di un materiale che non esiste più, senza nessun comando).
+       ⚠️ Vale per i SOLI `PAPER_KINDS`: timeline, dossier e catena una
+       sorgente in ELABORA non ce l'hanno — nascosti qui diventerebbero
+       irraggiungibili. E anche fra i cartacei restano le voci che portano un
+       PDF PROPRIO (`formato: 'PDF'`, il foglio flashcard archiviato come
+       data-URI): quelle si aprono dall'archivio stesso, un file nel vault non
+       l'hanno mai avuto, e toglierle qui le renderebbe irraggiungibili.
+       Kill-switch `mappai_archivio_insegna='1'` → comportamento storico. */
+    var _archInsegna = '0';
+    try { _archInsegna = localStorage.getItem('mappai_archivio_insegna') || '0'; } catch (e) { }
+    if (dove !== 'elabora' && _archInsegna !== '1') {
+      lista = lista.filter(function (m) {
+        return !(m.archivio && PAPER_KINDS.indexOf(m.kind) >= 0 && m.formato !== 'PDF');
+      });
+    }
     var noti = {};
     GRUPPI_MAT.forEach(function (g) { (g.tipi || []).forEach(function (t) { noti[t] = 1; }); });
     /* ⚠️ I `.json` non si mostrano in INSEGNA (12/8/26). Sono i set di studio
@@ -2397,7 +2429,13 @@
         voci: [{ id: 'mat', et: _t('lt_cons_materiali_gr', 'Materiali'), forma: 'materiali', vuoto: vuoto }]
       }
     ];
-    if (_cons.materiali && _cons.materiali.length) s.tabelle = _consTabelleMateriali();
+    if (_cons.materiali && _cons.materiali.length) {
+      var tabsB = _consTabelleMateriali();
+      /* il filtro delle voci d'archivio cartacee (13/8) può svuotare tutto:
+         senza tabelle il box dei materiali mostra il messaggio `vuoto`,
+         non un'area bianca */
+      if (tabsB.length) s.tabelle = tabsB;
+    }
   }
 
   function _consSchema() {
@@ -2501,6 +2539,17 @@
         });
       } else {
         s.tabelle = _consTabelleMateriali();
+        /* Il filtro delle voci d'archivio cartacee (13/8) può svuotare TUTTE
+           le tabelle pur con materiali in lista (mappa senza vault, solo fogli
+           generati): senza questo ramo l'area resterebbe BIANCA, che si legge
+           come un difetto — si dice invece che qui non c'è niente. */
+        if (!s.tabelle.length) {
+          s.tabelle = undefined;
+          s.sezioni.push({
+            id: 'vuoti', nuda: true,
+            testo: _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.')
+          });
+        }
       }
       return s;
     }
@@ -2667,6 +2716,12 @@
     if (tutti === null) { s.sezioni.push({ id: 'st-attesa', nuda: true, testo: _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…') }); return; }
     if (!tutti.length) { s.sezioni.push({ id: 'st-vuoto', nuda: true, testo: _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.') }); return; }
     s.tabelle = _consTabelleMateriali(tutti, true);
+    /* stesso rimedio della vista mappa: il filtro dei cartacei d'archivio può
+       svuotare tutte le tabelle — meglio dirlo che lasciare l'area bianca */
+    if (!s.tabelle.length) {
+      s.tabelle = undefined;
+      s.sezioni.push({ id: 'st-vuoto', nuda: true, testo: _t('lt_no_materials', 'Nessun materiale archiviato. Genera una Sintesi, un Dossier, un Foglio nodi o una Timeline: compariranno qui.') });
+    }
   }
 
   function _consTela() {
@@ -3244,7 +3299,14 @@
      mappa non c'è un materiale «corrente» → si sceglie quale condividere. */
   function _consQr() {
     if (_cons.mat) return _consShareMat(_cons.mat);
-    var lista = _cons.materiali || [];
+    /* Il picker elenca SOLO ciò che si può davvero condividere (`m.qr`): prima
+       offriva anche i PDF, che dopo la scelta rispondevano con un rifiuto —
+       un comando che non può riuscire è peggio di un comando che manca.
+       ⚠️ Le voci d'archivio cartacee che le TABELLE di INSEGNA nascondono
+       (13/8) qui RESTANO, per scelta: la tabella risponde a «che file ho», il
+       picker a «che cosa mando agli allievi» — e l'HTML d'archivio è proprio
+       la copia senza soluzioni che si manda. */
+    var lista = (_cons.materiali || []).filter(function (m) { return m.qr; });
     if (!lista.length) {
       toast(_t('lt_cons_qr_vuoto', 'Nessun materiale da condividere: genera prima una Sintesi, un Foglio nodi o una Timeline.'), 'warning');
       return;

@@ -64,6 +64,7 @@ tabella è la mappa per tornare indietro di un passo alla volta quando qualcosa 
 | `mappai_vista_ridotta` | scritto dalla combo | la vista ridotta di CREA (SHIFT+CTRL+L,K,J,H) |
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
 | `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
+| `mappai_archivio_insegna` | spento | `'1'` rimostra in INSEGNA le voci d'archivio dei fogli cartacei (`quizpaper`/`flashsheet` senza PDF proprio), nascoste dal 13/8: la loro sorgente vive in ELABORA |
 
 ---
 
@@ -202,12 +203,25 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
-1. **Creare un materiale a mano non arriva in fondo** (13/8, dalla prova di Giacomo): un
-   quiz a domande aperte generato con un nome **non compare da nessuna parte** — né
-   archivio né file — e INSEGNA mostra righe di file **cancellati dal Finder**. Diagnosi,
-   tre ipotesi da distinguere in Electron e piano in
-   **[`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md)**. È il debito in cima
-   perché tocca il gesto che abbiamo appena costruito.
+1. ✅ **RISOLTO (13/8 sera): creare un materiale a mano arriva in fondo.** Il ramo
+   documento di `generaSet` ora scrive la SORGENTE prima della resa (archivio → PDF →
+   vault: un `htmlToPdf` che fallisce AVVISA col motivo, `pdfErrore`, senza perdere la
+   generazione), il titolo segue la convenzione dei cloni (`MappAIClona.etichetta` → in
+   ELABORA la riga porta nome, cestino e clona; senza nome resta la forma della pipeline
+   così rigenerare AGGIORNA l'originale), un nome già preso si rifiuta PRIMA di spendere
+   token, e il bus viene avvisato. In INSEGNA le voci d'archivio dei fogli cartacei
+   (`quizpaper`/`flashsheet` senza PDF proprio) **non si mostrano più** (decisione di
+   Giacomo: INSEGNA elenca i FILE; kill-switch `mappai_archivio_insegna='1'`) — spariscono
+   con esse le righe dei file cancellati dal Finder E le righe doppie che la dedup per
+   nome non fondeva. Provato in **Electron vivo** (CDP, vault «La Politica Svizzera», AI
+   vera). Diario: [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md). Residui
+   dichiarati: (a) una voce d'archivio ORFANA (set eliminato dopo l'archiviazione) non
+   compare più nelle tabelle — resta raggiungibile dal picker QR, da «Documenti salvati»
+   e col kill-switch; (b) il picker QR mostra APPOSTA le voci d'archivio HTML che le
+   tabelle nascondono (è la copia senza soluzioni che si manda agli allievi); (c) la voce
+   d'archivio del gesto singolo prende classe/materia dal contesto ATTIVO, non dalla
+   mappa; (d) `MappAIStudyDocs.save` ora ritorna `null` quando la quota localStorage
+   scarta il documento.
 2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
@@ -261,7 +275,11 @@ si può vedere **solo** nell'app vera.
 
 Fatti e verificati: il **PDF di una copia** che non sovrascrive più l'originale (12/8), il
 rientro automatico in STUDIO col motore giusto (12/8), la veste manifesto in Electron
-(4/8), ELABORA su 28 vault reali (9/8).
+(4/8), ELABORA su 28 vault reali (9/8), e il **gesto «crea un documento» intero** (13/8
+sera, via CDP sull'app viva: generazione con AI vera, PDF nel vault, PDF rotto a mano →
+la sorgente resta con l'avviso, nome doppio rifiutato, righe di ELABORA con copia+file).
+Restano da guardare A OCCHIO (il CDP non vede i pixel): i due toast nuovi
+(`cq_ok_no_pdf`, `cq_nome_preso`) e l'elenco INSEGNA senza le voci d'archivio cartacee.
 
 ---
 
@@ -304,7 +322,7 @@ cambia la misura, non è la cascata — è la misura.**
 | | |
 |---|---|
 | il **diario** giorno per giorno, coi motivi e le misure | `CLAUDE.md` §11 |
-| il **piano aperto** su «creare un materiale a mano» | [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md) |
+| il diario di «creare un materiale a mano» (**chiuso il 13/8 sera**) | [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md) |
 | il diario del filone **console-bento / ELABORA** (6-12 agosto) | [`HANDOFF-console-bento.md`](HANDOFF-console-bento.md) |
 | il diario del filone **manifesto** (3-6 agosto) | [`HANDOFF-manifesto.md`](HANDOFF-manifesto.md) |
 | il diario del filone **console e motore dei modali** (fino al 3 agosto) | [`HANDOFF-console.md`](HANDOFF-console.md) |

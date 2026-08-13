@@ -167,8 +167,12 @@
         if (idx >= 0) { entry.id = arr[idx].id; arr.splice(idx, 1); }
         arr.unshift(entry);
         if (arr.length > DOCS_CAP) arr.length = DOCS_CAP;
-        _docsWrite(arr);
-        return entry.id;
+        /* `_docsWrite` scarta dalla CODA quando la quota non basta: se ritorna
+           più di zero, la voce nuova — che sta in testa — è persistita; zero =
+           non è entrato niente. Dirlo con `null` permette al chiamante di non
+           promettere un archivio che non c'è (prima tornava l'id comunque, e
+           un documento poteva «salvarsi» senza esistere da nessuna parte). */
+        return _docsWrite(arr) > 0 ? entry.id : null;
     }
     // list() → SOLO metadati (niente html: array leggero per il rendering).
     // `hasHtml`/`hasPdf` dicono COSA c'è dentro senza portarselo appresso: chi

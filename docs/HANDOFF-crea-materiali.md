@@ -1,11 +1,15 @@
-# HANDOFF — creare un materiale di studio a mano (aperto)
+# HANDOFF — creare un materiale di studio a mano (CHIUSO il 13/8/26 sera)
 
-> ⚠️ **Questo è un PIANO DI LAVORO su un problema aperto**, non lo stato del repo.
-> Lo stato sta in **[`HANDOFF.md`](HANDOFF.md)**; le regole di costruzione in
-> **[`../GUIDA-ARCHITETTO.md`](../GUIDA-ARCHITETTO.md)**.
-> Scritto il **13 agosto 2026** dopo la prova di Giacomo. Si chiude quando i due
-> difetti sotto sono corretti e provati in Electron: allora questo file sparisce e
-> quello che resta va in HANDOFF.md.
+> ✅ **CHIUSO.** I difetti sotto sono corretti e **provati in Electron vivo** (CDP,
+> vault reale «La Politica Svizzera», generazione con AI vera): 3.1 (archivio PRIMA
+> del PDF), 3.2 (titolo in convenzione cloni), 3.3 (`segnala` nel ramo documento),
+> 3.4 (INSEGNA nasconde le voci d'archivio cartacee; in ELABORA cestino e clona,
+> decisione di Giacomo). Lo stato vive in **[`HANDOFF.md`](HANDOFF.md)** §4; questo
+> file resta come diario e — per la sua stessa regola — è un candidato
+> all'eliminazione (decide Giacomo).
+> Nota di chiusura: nell'app viva `htmlToPdf` risponde (il «sospetto B» non si è
+> riprodotto); qualunque fosse la causa di quel giorno, ora un guasto della resa
+> non butta più via la sorgente.
 
 ---
 
