@@ -534,12 +534,10 @@
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
         }
-        const problems = CC().validateDoc(_cc);
-        if (problems.length && !await _chiedi(
-            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
-            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
-            t('de_save_anyway_ok', 'Salva comunque'))) return;
+        /* ⚠️ 13/8: salvare NON contesta più i campi vuoti. Un documento su cui
+           si lavora per giorni è incompleto quasi sempre, e la domanda aveva
+           una risposta sola. I problemi si contestano dove il documento esce:
+           «Stampa» e «Crea PDF» (`_problemiAccettati`). */
         const out = CC().normDoc(_cc);
         if (!CC().countRows(out)) {
             // Documento svuotato: senza questa guardia il salvataggio lascerebbe
@@ -732,11 +730,6 @@
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
         }
-        const problems = NS().validateDoc(_sheet);
-        if (problems.length && !await _chiedi(
-            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
-            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'))) return;
         const out = NS().normDoc(_sheet);
         out.excluded = (_sheet.excluded || []).slice();
         out.editedAt = Date.now();
@@ -802,36 +795,51 @@
        ciò che si era chiesto di salvare. È la stessa regola di `_conSalvataggio`
        nella console di ELABORA. Il segnale è `_dirty`: chi salva lo abbassa solo
        quando ha davvero scritto. */
+    /* ══ I TRE GESTI DELLA BARRA (13/8/26, modello di Giacomo) ═══════════════
+       Erano confusi in uno solo: «Salva ed Esci» chiedeva il nome, scriveva il
+       PDF nella cartella e lo faceva comparire in INSEGNA. Su un documento a cui
+       si lavora per giorni questo produce PDF transitori — pubblicati prima di
+       essere finiti — e obbliga a rispondere a domande («che nome?», «ci sono
+       campi vuoti, salvo comunque?») a ogni salvataggio.
+       Ora salvare non è pubblicare:
+         · SALVA ED ESCI → salva la SORGENTE modificabile (memoria, progetto e
+           vault) e basta. Niente nome, niente file, niente contestazioni: un
+           documento a metà è normale.
+         · STAMPA         → apre la stampa su una copia EFFIMERA. Qui i campi
+           vuoti si contestano: sta per finire su carta.
+         · CREA PDF       → scrive il file in «Materiale Studio/» e lo rende
+           visibile nelle tabelle di INSEGNA. È l'atto di pubblicare, e si fa
+           quando il documento è pronto.
+       ⚠️ Deroga: un documento aperto DA un file del vault (`_origine()` — la
+       sintesi, per esempio) continua a riscrivere il SUO file salvando: lì il
+       file esiste già ed è la sua casa, non una pubblicazione nuova. */
     async function esci() {
         if (_dirty) {
-            /* «Salva ed Esci» passa dalla STESSA strada di «Stampa»: chiede il
-               nome e scrive il file in `Materiale Studio/`.
-               Prima chiamava `save()`, che per quattro generi su cinque scrive
-               solo in memoria e in localStorage — quindi si «salvava» un
-               materiale e nella cartella della mappa non compariva niente. Un
-               documento che il docente ha corretto è un materiale, e un
-               materiale è un file.
-               ⚠️ Le due deroghe le gestisce già `_salvaConNome`: una sintesi
-               aperta DAL vault riscrive il suo file senza chiedere il nome (ce
-               l'ha già), e senza cartella o fuori dall'app desktop il documento
-               si salva lo stesso e lo si dice. */
-            let esito;
-            try { esito = await _salvaConNome(); }
+            let ok;
+            try { ok = await _salvaDoveVive(); }
             catch (e) {
                 toast(t('de_exit_ko', 'Salvataggio non riuscito: resto nel documento.') +
                     (e && e.message ? ' (' + e.message + ')' : ''), 'error');
                 return;
             }
-            /* `null` = ha rinunciato (nome annullato, collisione annullata,
-               validazione rifiutata): resta nel documento. `false` = il file non
-               si è potuto scrivere ma il documento sì, ed è già stato detto. */
-            if (esito === null) return;
-            if (_dirty) return;   // il salvataggio ha rinunciato, e l'ha già detto
+            if (!ok) return;      // ha rinunciato, e l'ha già detto
+            if (_dirty) return;
         }
         // Qui `_dirty` è falso per costruzione: `backToList()` non chiede
         // conferma, quindi non esegue nessun `await` e resta sincrona (con
         // essa l'annuncio dell'uscita, su cui la console conta).
         return backToList();
+    }
+
+    /* «Crea PDF»: il gesto che PUBBLICA. Chiede il nome solo a chi non ce l'ha,
+       scrive in «Materiale Studio/» e da lì il materiale compare in INSEGNA. */
+    async function creaPdf() {
+        /* Anche qui i problemi si contestano: il PDF finisce fra i materiali
+           che la classe vede, ed è l'ultimo momento in cui dirlo. */
+        if (!await _problemiAccettati()) return;
+        const esito = await _salvaConNome();
+        if (esito === null) return;              // ha rinunciato: nessun file
+        if (esito === false) return;             // non si è potuto scrivere: già detto
     }
 
     // ── cronologia ──────────────────────────────────────────────────────────
@@ -1025,12 +1033,6 @@
        Il PDF nella cartella della mappa lo riscrive «Stampa», come per gli
        altri generi: qui non si tocca il disco. */
     async function _saveOpenq() {
-        const problems = DE().validateOpenDoc(_doc);
-        if (problems.length && !await _chiedi(
-            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
-            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
-            t('de_save_anyway_ok', 'Salva comunque'))) return;
         const store = window.MappAIStudyDocs;
         if (!store || !store.save) { toast(t('de_oq_no_store', 'Archivio dei documenti non disponibile.'), 'error'); return; }
         const s = _appState();
@@ -1119,12 +1121,6 @@
             toast(t('de_map_changed', 'La mappa aperta è cambiata: questo documento appartiene a un\'altra mappa e non viene salvato. Riaprilo dalla mappa giusta.'), 'error');
             return;
         }
-        const problems = DE().validateDoc(_doc);
-        if (problems.length && !await _chiedi(
-            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
-            problems.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
-            (problems.length > 6 ? '\n…' : '') + '\n\n' + t('de_save_anyway', 'Salvare comunque?'),
-            t('de_save_anyway_ok', 'Salva comunque'))) return;
 
         const sets = (s.db.studySets = s.db.studySets || []);
         const idx = sets.findIndex(x => x.id === _srcSet.id);
@@ -1718,15 +1714,33 @@
        c'era. Su un documento non modificato non si chiede niente: il file
        esiste già o la stampa è quella effimera di sempre. */
     async function print() {
-        let nome = null;
-        if (_dirty) {
-            const esito = await _salvaConNome();
-            if (esito === null) return;   // ha annullato: non si stampa nemmeno
-            /* `false` = il documento è salvato ma il file no (niente cartella,
-               fuori dall'app): non c'è nessun nome da proporre. */
-            if (typeof esito === 'string') nome = esito;
-        }
-        return _stampaOra(nome);
+        /* 13/8: stampare non scrive più niente nella cartella — la copia è
+           effimera, come la stampa di una pagina qualunque. Il file lo fa
+           «Crea PDF», che è un gesto dichiarato.
+           I problemi del documento si contestano QUI, perché è qui che finisce
+           su carta: salvando invece no, un documento a metà è normale. */
+        if (!await _problemiAccettati()) return;
+        /* Il nome del file proposto dal dialogo di sistema (foglio nodi e
+           flashcard escono da jsPDF) resta quello canonico: `_stampaOra` lo
+           compone da sé quando non gliene passiamo uno. */
+        return _stampaOra(null);
+    }
+
+    /* I problemi del documento, chiesti una volta sola e nel posto giusto.
+       ⚠️ Un documento MAI salvato non si contesta: appena creato è vuoto per
+       definizione, e la domanda avrebbe una risposta sola. */
+    async function _problemiAccettati() {
+        let problemi = [];
+        try {
+            if (_kind === 'openq') problemi = DE().validateOpenDoc(_doc) || [];
+            else if (_doc) problemi = DE().validateDoc(_doc) || [];
+        } catch (e) { problemi = []; }
+        if (!problemi.length) return true;
+        return await _chiedi(
+            t('de_problems', 'Il documento ha dei problemi:') + '\n\n' +
+            problemi.slice(0, 6).map(p => '• ' + p.msg).join('\n') +
+            (problemi.length > 6 ? '\n…' : '') + '\n\n' + t('de_print_anyway', 'Stampare comunque?'),
+            t('de_print_anyway_ok', 'Stampa comunque'));
     }
 
     /* `nome` = come si chiama il file appena scritto in `Materiale Studio/`.
@@ -2242,8 +2256,16 @@
                funzione `saveToVault` resta esportata per chi la chiamasse da
                fuori. */
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()" title="' +
-            esc(t('de_print_tip', 'Chiede il nome, salva il file nella cartella della mappa e poi apre la stampa')) +
+            esc(t('de_print_tip2', 'Apre la stampa su una copia effimera: non lascia file nella cartella')) +
             '"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
+            /* «Crea PDF» = l'atto di PUBBLICARE (13/8, Giacomo): scrive il file
+               in «Materiale Studio/» e da lì il materiale compare in INSEGNA.
+               Sta separato dal salvataggio perché su un documento a cui si
+               lavora per giorni ogni salvataggio avrebbe pubblicato un PDF
+               transitorio, già visibile alla classe. */
+            '<button type="button" class="de-btn" onclick="MappAIDocEditor.creaPdf()" title="' +
+            esc(t('de_pdf_tip', 'Scrive il PDF nella cartella della mappa: da lì compare fra i materiali di INSEGNA')) +
+            '"><i data-lucide="file-down" class="w-4 h-4"></i> ' + esc(t('de_pdf', 'Crea PDF')) + '</button>' +
             /* Il bottone conclusivo è l'uscita (vedi `esci()`): tutte e due le
                facce nel markup, `_paintDirty()` accende quella giusta senza
                ridisegnare la barra. */
@@ -2314,7 +2336,7 @@
         if (pulita) pulita.style.display = _dirty ? 'none' : 'inline-flex';
         if (sporca) sporca.style.display = _dirty ? 'inline-flex' : 'none';
         ex.setAttribute('title', _dirty
-            ? t('de_exit_save_tip', 'Salva le modifiche e torna indietro')
+            ? t('de_exit_save_tip2', 'Salva il documento e torna indietro. Il PDF per INSEGNA lo fa «Crea PDF»')
             : t('de_exit_tip', 'Torna indietro: non c\'è niente da salvare'));
     }
 
@@ -3447,6 +3469,7 @@ ${_deCornice()}
         // modifiche come la lettura a voce di sistema).
         kind: function () { return (_view === 'doc') ? _kind : null; },
         openSet: openSet, openSynthesis: openSynthesis, backToList: backToList,
+        creaPdf: creaPdf,
         /* Domande aperte: si aprono dalla voce d'ARCHIVIO (il foglio HTML porta
            la sua sorgente incorporata) — non da `studySets`, dove non entrano. */
         openOpenQuestions: openOpenQuestions, oqArea: oqArea,

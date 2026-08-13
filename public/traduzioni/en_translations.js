@@ -2187,6 +2187,12 @@ const en_translations = {
     de_exit_ko: "Couldn't save: staying in the document.",
     de_saved: "✓ Document saved",
     de_saved_synth: "✓ Summary saved — the revised text applies to print, PDF and sharing",
+    de_pdf: "Create PDF",
+    de_pdf_tip: "Writes the PDF into the map folder: from there it appears among the INSEGNA materials",
+    de_print_tip2: "Opens printing on an ephemeral copy: it leaves no file in the folder",
+    de_exit_save_tip2: "Save the document and go back. The PDF for INSEGNA is made by «Create PDF»",
+    de_print_anyway: "Print anyway?",
+    de_print_anyway_ok: "Print anyway",
     de_print: "Print",
     de_undo: "Undo",
     de_undo_tip: "Undo the last change",
@@ -2197,7 +2203,6 @@ const en_translations = {
        stampa: ciò che si stampa esiste anche come file, che è quello che prima
        mancava. Il bottone «Nel vault» è sparito — faceva la stessa cosa senza
        dirlo (`de_vault`, `de_vault_tip`, `de_vault_ok`, `de_no_vault` rimosse). */
-    de_print_tip: "Asks for a name, saves the file in the map's folder, then opens the print view",
     de_nome_titolo: "What do you want to call this material?",
     de_nome_testo: "MappAI writes the first part of the name: it says what kind of material this is and which map it comes from. You add how you'll recognise it — you can leave this empty.",
     de_nome_ph: "final revision, test 2B, …",

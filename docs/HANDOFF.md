@@ -104,6 +104,22 @@ tarato una classe l'ha già deciso una volta), e i master `mp-quiz-on`/`mp-ns-on
 sparisce e la pipeline usa il default. Ogni voce dichiara `seFuori`, cioè *quanto costa*
 non averla.
 
+### L'EDITOR dei documenti — tre gesti, non uno
+Salvare non è pubblicare (13/8, modello di Giacomo):
+
+| gesto | che cosa fa | contesta i campi vuoti? |
+|---|---|---|
+| **Salva ed Esci** | salva la SORGENTE modificabile: memoria, progetto **e vault** | no — un documento a metà è normale |
+| **Stampa** | apre la stampa su una copia **effimera**, nessun file nella cartella | sì |
+| **Crea PDF** | scrive il file in `Materiale Studio/` → compare in **INSEGNA** | sì |
+
+⚠️ Prima erano un gesto solo: «Salva ed Esci» chiedeva il nome e pubblicava il PDF, quindi
+su un documento a cui si lavora per giorni si pubblicavano PDF **transitori**, e a ogni
+salvataggio si rispondeva a due domande («che nome?», «ci sono campi vuoti, salvo
+comunque?»).
+⚠️ Deroga: un documento aperto **DA** un file del vault (la sintesi) continua a riscrivere
+il suo file salvando — lì il file è la sua casa, non una pubblicazione nuova.
+
 ### ELABORA — console
 Sidebar dei progetti → tabelle dei documenti → il documento entra nella **tela**.
 `mappai-elabora-console.js`. La vecchia colonna a sette gruppi è stata **potata il
