@@ -202,34 +202,40 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
-1. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+1. **Creare un materiale a mano non arriva in fondo** (13/8, dalla prova di Giacomo): un
+   quiz a domande aperte generato con un nome **non compare da nessuna parte** — né
+   archivio né file — e INSEGNA mostra righe di file **cancellati dal Finder**. Diagnosi,
+   tre ipotesi da distinguere in Electron e piano in
+   **[`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md)**. È il debito in cima
+   perché tocca il gesto che abbiamo appena costruito.
+2. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-2. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-3. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+3. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+4. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-4. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+5. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-5. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+6. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-6. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+7. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-7. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+8. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-8. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+9. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-9. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+10. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**
@@ -298,6 +304,7 @@ cambia la misura, non è la cascata — è la misura.**
 | | |
 |---|---|
 | il **diario** giorno per giorno, coi motivi e le misure | `CLAUDE.md` §11 |
+| il **piano aperto** su «creare un materiale a mano» | [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md) |
 | il diario del filone **console-bento / ELABORA** (6-12 agosto) | [`HANDOFF-console-bento.md`](HANDOFF-console-bento.md) |
 | il diario del filone **manifesto** (3-6 agosto) | [`HANDOFF-manifesto.md`](HANDOFF-manifesto.md) |
 | il diario del filone **console e motore dei modali** (fino al 3 agosto) | [`HANDOFF-console.md`](HANDOFF-console.md) |

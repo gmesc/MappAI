@@ -140,7 +140,16 @@ I piani li citano per numero («viola l'invariante 6»). Ognuno è stato pagato.
     (pattern `mappai_bento_default_v1`, `defv` della Vista studio). E attenzione al fratello di
     questo guasto: al boot qualcun altro può aver già scritto un default suo, quindi «applica se
     la chiave è vuota» non basta mai.
-18. **`main.js` è I/O e finestre: IPC sottili, la logica sta nei core del renderer.** Le guardie
+18. **La SORGENTE si salva prima della RESA, e un errore nella resa non la fa perdere.**
+    Un documento ha una sorgente (il set, l'HTML col suo contenuto incorporato) e una o
+    più rese (il PDF, il foglio stampato). La sorgente si può riaprire e correggere; da
+    una resa non si ricava più niente. Guasto d'origine: `generaSet` costruiva il PDF
+    PRIMA di archiviare l'HTML, quindi un `htmlToPdf` che non rispondeva buttava via
+    minuti di generazione AI e il materiale «non compariva da nessuna parte»
+    ([`docs/HANDOFF-crea-materiali.md`](docs/HANDOFF-crea-materiali.md)). Corollario:
+    scrivere sempre l'ordine sorgente → resa, e far fallire la resa **rumorosamente**
+    senza toccare quello che c'è già.
+19. **`main.js` è I/O e finestre: IPC sottili, la logica sta nei core del renderer.** Le guardie
     sui percorsi (`sanitizeVaultRelPath`, allowlist) stanno nell'IPC; il resto no.
 
 ---
@@ -292,7 +301,13 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     cambia da DUE strade, servono DUE eventi (classe e materia ne hanno uno ciascuno).
 16. **Prima di dire «quel comando c'è già altrove», guardare se c'è.** Una briciola tolta
     «perché c'è il rail» ha lasciato una schermata senza uscita: col bento il rail non si monta.
-17. **`clamp()` senza spazi attorno agli operatori è sintassi invalida scartata in silenzio**, e
+17. **L'ARCHIVIO e il DISCO sono due mondi che non si parlano.** Le voci d'archivio
+    (`MappAIStudyDocs`, in localStorage) e i file nel vault vivono separati: cancellare un
+    file dal Finder non toglie la voce, e cancellare la voce non toglie il file. Gli
+    elenchi che li UNISCONO (INSEGNA) devono dire quando divergono, o mostrano materiali
+    che non esistono più. È dichiarato nel codice, e va ricordato ogni volta che si
+    aggiunge una fonte a un elenco.
+18. **`clamp()` senza spazi attorno agli operatori è sintassi invalida scartata in silenzio**, e
     l'elemento mostra il valore della cascata — verosimile abbastanza da non insospettire.
     `getComputedStyle` dice quale valore è in vigore, non da dove viene.
 
@@ -313,6 +328,7 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
      spostato o rigenerato? (§5, inv. 7)
    - come si spegne? qual è il kill-switch e che cosa ripristina? (inv. 1)
    - cambia un default? allora serve il marcatore di versione (inv. 17)
+   - sto scrivendo una RESA (un PDF, un foglio)? la sorgente è già al sicuro? (inv. 18)
    - funziona anche su Infomaniak? anche coi vault legacy? (inv. 9, 7)
 4. **Il piano dichiara sempre**: file toccati · dove vive la logica nuova (quale core, quale
    modulo) · le prove (test + banco) · **che cosa Giacomo verificherà a mano in Electron** ·
