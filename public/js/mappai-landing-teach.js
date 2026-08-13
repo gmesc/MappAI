@@ -709,7 +709,7 @@
       (o.titleHtmlExtra || '') + '</div>' +
       (o.sub ? '<div class="text-[10px] text-slate-400 truncate">' + o.sub + '</div>' : '') + '</div></div>');
   }
-  // ── Tabella sezioni "file" (Progetti · Materiali · File condivisi) ──────────
+  // ── Tabella sezioni "file" (Progetti · Materiali · Quiz cartacei) ──────────
   // 29/7: colonna DISCIPLINA dopo CLASSE. Il numero di <col> DEVE restare uguale
   // al numero di <th> e di <td> per riga (regola §10.15) — se ne aggiungi una,
   // toccale tutte e tre.
@@ -818,15 +818,10 @@
       return '<button type="button" class="teach-qs-btn" onclick="window.MappAITeach.quickStart(\'' + kind + '\')">' +
         '<i data-lucide="' + icon + '" class="w-7 h-7"></i><span>' + esc(label) + '</span></button>';
     };
-    // «Condividi» non passa da quickStart: apre subito il selettore file (shareFromPc)
-    // → condivide con la classe attiva. Sostituisce la sezione «File condivisi».
-    var share = '<button type="button" class="teach-qs-btn" onclick="window.MappAITeach.shareFromPc()">' +
-      '<i data-lucide="folder" class="w-7 h-7"></i><span>' + esc(_t('ui_qs_share', 'Condividi')) + '</span></button>';
     return '<div class="max-w-[806px] mx-auto mb-6"><div class="flex flex-wrap gap-3">' +
       qs('collab', 'presentation', _t('ui_qs_collab', 'Lavagna interattiva')) +
       qs('live', 'radio', _t('ui_qs_live', 'Studio attivo live')) +
       qs('materials', 'folder-down', _t('ui_qs_materials', 'Materiali di studio')) +
-      share +
       '</div></div>';
   }
 
@@ -1168,89 +1163,19 @@
   }
 
   // ── File condivisi (libreria "Materiali docente", IPC su disco) ────────────
-  var _smCache = [];
-  function smIcon(ext) {
-    ext = String(ext || '').toLowerCase();
-    if (ext === 'pdf') return 'file-text';
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].indexOf(ext) >= 0) return 'image';
-    if (['doc', 'docx'].indexOf(ext) >= 0) return 'file-type';
-    if (['xls', 'xlsx', 'csv'].indexOf(ext) >= 0) return 'sheet';
-    if (['ppt', 'pptx'].indexOf(ext) >= 0) return 'presentation';
-    return 'paperclip';
-  }
-  function smHuman(n) { if (n == null) return ''; if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(0) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
-
-  function renderSharedMat() {
-    var body = document.getElementById('teach-sharedmat-body');
-    if (!body) return;
-    if (!window.electronAPI || !window.electronAPI.sharedmatList) {
-      body.innerHTML = '<p class="text-xs text-slate-400 italic px-2 py-2">' +
-        esc(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.')) + '</p>';
-      return;
-    }
-    var addBar = '<div class="flex items-center gap-2 px-3 pt-1 pb-2">' +
-      '<button type="button" onclick="window.MappAITeach.shareFromPc()" class="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg px-3 py-1.5">' +
-      '<i data-lucide="upload" class="w-3.5 h-3.5"></i>' + esc(_t('lt_sm_add', 'Condividi da PC')) + '</button>' +
-      '<button type="button" onclick="window.MappAITeach.openSharedFolder()" title="' + esc(_t('lt_sm_folder', 'Apri cartella')) + '" class="inline-flex items-center text-slate-400 hover:text-indigo-500 rounded-lg p-1.5">' +
-      '<i data-lucide="folder" class="w-4 h-4"></i></button></div>';
-    window.electronAPI.sharedmatList().then(function (r) {
-      var items = (r && r.success && r.items) ? r.items : [];
-      _smCache = items;
-      items = filterBySelection(items);   // US5: filtra sulla mappa selezionata (metadato mapName)
-      if (!items.length) {
-        body.innerHTML = addBar + '<p class="text-xs text-slate-400 italic px-2 py-2">' +
-          esc(_t('lt_sm_empty', 'Nessun file condiviso. Usa “Condividi da PC” per inviare una scheda o un documento agli allievi via QR.')) + '</p>';
-        if (window.safeCreateIcons) window.safeCreateIcons();
-        return;
-      }
-      body.innerHTML = addBar + fileTable(items.map(function (it) {
-        var extLbl = String(it.ext || 'file').toUpperCase().slice(0, 4);
-        var block =
-          actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openSharedFile('" + esc(it.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-          actIcon('qr-code', _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareFile('" + esc(it.id) + "')", 'text-green-600 hover:text-green-700', false) +
-          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openSharedFolder()", null, false) +
-          actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.removeSharedFile('" + esc(it.id) + "')", 'text-slate-300 hover:text-red-500', false);
-        return fileRow({
-          tipo: tipoCell(smIcon(it.ext), extLbl, it.ext || ''),
-          title: it.name, titleTip: it.name,
-          sub: esc(smHuman(it.size) + (it.mapName ? ' · ' + it.mapName : '')),
-          cls: classCell(it.sharedClasses || []), disc: discOfMap(it.mapName, null), date: dateCell(it.addedAt),
-          block: block
-        });
-      }).join(''), true);
-      if (window.safeCreateIcons) window.safeCreateIcons();
-    }).catch(function () { body.innerHTML = addBar; if (window.safeCreateIcons) window.safeCreateIcons(); });
-  }
-
-  function shareFromPc() {
-    if (!window.electronAPI || !window.electronAPI.sharedmatAdd) { toast(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return; }
-    // US5: se una mappa è selezionata, il file condiviso porta il suo nome (metadato).
-    var mapName = _selectedProject ? _selectedProject.name : '';
-    window.electronAPI.sharedmatAdd({ mapName: mapName }).then(function (r) {
-      if (!r || !r.success) { if (r && !r.canceled) toast((r && r.error) || 'Errore', 'error'); return; }
-      renderSharedMat();
-      if (r.added && r.added.length && window.MappAILive && window.MappAILive.shareFile) {
-        window.MappAILive.shareFile(r.added[0].id).then(function () { renderSharedMat(); });
-      }
-    });
-  }
-  function shareFile(id) {
-    if (window.MappAILive && window.MappAILive.shareFile) window.MappAILive.shareFile(id).then(function () { renderSharedMat(); });
-    else toast(_t('lt_sm_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
-  }
-  function removeSharedFile(id) {
-    if (!window.electronAPI || !window.electronAPI.sharedmatRemove) return;
-    var it = _smCache.find(function (x) { return x.id === id; });
-    var name = (it && it.name) || _t('lt_this_file', 'questo file');
-    confirmDeleteText(name, function () {
-      window.electronAPI.sharedmatRemove({ id: id }).then(function () { renderSharedMat(); });
-    });
-  }
-  function openSharedFile(id) {
-    if (window.electronAPI && window.electronAPI.sharedmatOpenFile) window.electronAPI.sharedmatOpenFile({ id: id });
-    else toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning');
-  }
-  function openSharedFolder() { if (window.electronAPI && window.electronAPI.sharedmatOpenFolder) window.electronAPI.sharedmatOpenFolder(); }
+  /* ⚠️ 13/8/26 — «FILE CONDIVISI» PENSIONATA (decisione di Giacomo).
+     Qui vivevano la libreria dei file condivisi e la sua vista: `renderSharedMat`
+     scriveva in `#teach-sharedmat-body`, un contenitore che il markup non ha mai
+     avuto dopo il riordino della landing. Quindi si poteva CONDIVIDERE un file
+     ma non vederlo né toglierlo: restava condiviso, e l'unico modo di
+     accorgersene era aprire la cartella nel Finder.
+     Non è stata ricostruita altrove perché la stessa cosa si fa già in
+     MappAI Live › Materiali di studio, con «Aggiungi file…»: là il file entra
+     nel server della sessione e gli allievi lo scaricano senza login. Quello che
+     sparisce è la LIBRERIA persistente (una copia del file più lo storico delle
+     classi con cui era stato condiviso), che nessuna schermata mostrava.
+     ⚠️ I file già copiati NON vengono toccati: restano in
+     «MappAI - file/File condivisi/», raggiungibili dal Finder. */
 
   function filterItems(items) {
     if (readFilter() !== 'active') return items;
@@ -2493,11 +2418,9 @@
         });
       });
     }
-    /* Le viste della classe sono quelle che la landing sa già disegnare — e
-       SOLO quelle: «File condivisi» resta fuori perché il suo contenitore non
-       esiste (renderSharedMat senza `teach-shared-body`, orfano segnalato
-       dall'audit del 31/7). Una voce che porta a una vista vuota è peggio di
-       una voce che non c'è. */
+    /* Le viste della classe sono quelle che la landing sa già disegnare.
+       «File condivisi» non c'è più: pensionata il 13/8 (vedi la nota dove
+       stava il suo codice). */
     nav.push({ gruppo: _t('lt_cons_materiali_gr', 'Materiali') });
     VISTE_CLASSE.forEach(function (v) {
       nav.push({ id: v.id, etichetta: _t(v.chiave, v.testo), icona: v.icona, attiva: _cons.voce === v.id });
@@ -3568,11 +3491,6 @@
     openSet: openSet,
     openReport: openReport,
     logSession: logSession,
-    shareFromPc: shareFromPc,
-    shareFile: shareFile,
-    removeSharedFile: removeSharedFile,
-    openSharedFolder: openSharedFolder,
-    openSharedFile: openSharedFile,
     deleteProject: deleteProjectRow,
     openProjectFolder: openProjectFolder,
     shareProjectZip: shareProjectZip,
@@ -3601,7 +3519,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   document.addEventListener('mappai-active-class-changed', function () { if (readMode() === 'teach') refresh(); });
-  document.addEventListener('mappai-sharedmat-changed', function () { if (readMode() === 'teach') renderSharedMat(); });
   /* ── LE CARTELLE SONO CAMBIATE: si rilegge (Giacomo, 9/8) ──────────────────
      Prima ogni elenco leggeva il disco una volta, all'apertura: una mappa appena
      generata non compariva, una cartella spostata restava dov'era, un file

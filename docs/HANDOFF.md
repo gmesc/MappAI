@@ -181,22 +181,16 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-6. **«File condivisi» è un buco funzionale, non codice morto**: condividere un file
-   funziona, ma `renderSharedMat` scrive in `#teach-sharedmat-body`, che nel markup non
-   esiste più. I file restano condivisi e **non si possono né vedere né togliere**. Girano
-   a vuoto ~110 righe, cinque export e un listener. Va deciso — e la vista «mappa scelta»
-   di INSEGNA **non è il posto** (punto fermo del 13/8): o le si trova un'altra casa, o si
-   pensiona la funzione.
-7. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+6. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-8. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+7. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-9. **`mappai-landing-teach.js` è a 3.623 righe** e fa quattro mestieri (landing · console
+8. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-10. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+9. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-11. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+10. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**

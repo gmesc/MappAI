@@ -111,12 +111,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     liveMaterialsInfo: () => ipcRenderer.invoke('live-materials-info'),
     liveMaterialsAdd: () => ipcRenderer.invoke('live-materials-add'),
     liveMaterialsAddHtml: (data) => ipcRenderer.invoke('live-materials-add-html', data),
-    sharedmatList: () => ipcRenderer.invoke('sharedmat-list'),
-    sharedmatAdd: (data) => ipcRenderer.invoke('sharedmat-add', data),
-    sharedmatRemove: (data) => ipcRenderer.invoke('sharedmat-remove', data),
-    sharedmatOpenFolder: () => ipcRenderer.invoke('sharedmat-open-folder'),
-    sharedmatOpenFile: (data) => ipcRenderer.invoke('sharedmat-open-file', data),
-    sharedmatPublish: (data) => ipcRenderer.invoke('sharedmat-publish', data),
     // Sezione Progetti/Attività Insegna (19/7): apri cartelle, zip vault → QR.
     openVaultFolder: (data) => ipcRenderer.invoke('open-vault-folder', data),
     zipVaultToMaterials: (data) => ipcRenderer.invoke('zip-vault-to-materials', data),

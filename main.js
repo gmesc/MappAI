@@ -2361,88 +2361,18 @@ ipcMain.handle('live-materials-add-html', async (event, { filename, html }) => {
     return { success: true, file: path.basename(target), files: liveMatSrv.state().files };
 });
 
-// ── Libreria "Condividi da PC" (materiali docente persistenti) ──
-// ~/Documents/MappAI - Materiali docente/ : files/ + index.json (schema
-// mappai-shared-materials@1). I file caricati dal docente restano qui e sono
-// ricondivisibili via QR dalla landing Insegna. Copia servita → cartella sessione.
-function sharedMatDir() { return sharedBaseDir(); }   // 010: File condivisi se organizzato
-function sharedMatFilesDir() { return path.join(sharedMatDir(), 'files'); }
-function sharedMatIndexFile() { return path.join(sharedMatDir(), 'index.json'); }
-function _smRead() {
-    try { return JSON.parse(fs.readFileSync(sharedMatIndexFile(), 'utf8')).items || []; }
-    catch (e) { return []; }
-}
-function _smWrite(items) {
-    fs.mkdirSync(sharedMatDir(), { recursive: true });
-    fs.writeFileSync(sharedMatIndexFile(), JSON.stringify({ schema: 'mappai-shared-materials@1', items }, null, 2));
-}
-function _smPublic(it) {
-    return { id: it.id, name: it.name, size: it.size, ext: it.ext, addedAt: it.addedAt, sharedClasses: it.sharedClasses || [], lastSharedAt: it.lastSharedAt || null, mapName: it.mapName || '' };
-}
-
-ipcMain.handle('sharedmat-list', async () => {
-    try { return { success: true, items: _smRead().map(_smPublic) }; }
-    catch (err) { return { success: false, error: err.message }; }
-});
-
-ipcMain.handle('sharedmat-add', async (event, { mapName } = {}) => {
-    const result = await dialog.showOpenDialog(mainWindow, {
-        title: 'Condividi da PC — scegli un file', properties: ['openFile', 'multiSelections']
-    });
-    if (result.canceled || !result.filePaths.length) return { success: false, canceled: true };
-    fs.mkdirSync(sharedMatFilesDir(), { recursive: true });
-    const items = _smRead();
-    const added = [];
-    for (const src of result.filePaths) {
-        try {
-            const name = path.basename(src);
-            const ext = path.extname(name).toLowerCase().replace(/^\./, '');
-            const id = 'sm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-            const stored = id + '__' + name.replace(/[^a-zA-Z0-9._-]+/g, '_');
-            fs.copyFileSync(src, path.join(sharedMatFilesDir(), stored));
-            const st = fs.statSync(path.join(sharedMatFilesDir(), stored));
-            const entry = { id, name, stored, size: st.size, ext, addedAt: Date.now(), sharedClasses: [], lastSharedAt: null, mapName: mapName ? String(mapName) : '' };
-            items.unshift(entry); added.push(_smPublic(entry));
-        } catch (e) { console.warn('[sharedmat] copia fallita', src, e.message); }
-    }
-    _smWrite(items);
-    return { success: true, added };
-});
-
-ipcMain.handle('sharedmat-remove', async (event, { id }) => {
-    try {
-        const items = _smRead();
-        const it = items.find(x => x.id === id);
-        if (it) { try { fs.unlinkSync(path.join(sharedMatFilesDir(), it.stored)); } catch (e) { } }
-        _smWrite(items.filter(x => x.id !== id));
-        return { success: true };
-    } catch (err) { return { success: false, error: err.message }; }
-});
-
-ipcMain.handle('sharedmat-open-folder', async () => {
-    const dir = sharedMatDir();
-    fs.mkdirSync(dir, { recursive: true });
-    shell.openPath(dir);
-    return { success: true, dir };
-});
-
-// Pubblica un file della libreria nella sessione materiali attiva + registra la classe (chip storico)
-ipcMain.handle('sharedmat-publish', async (event, { id, className }) => {
-    if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
-    const items = _smRead();
-    const it = items.find(x => x.id === id);
-    if (!it) return { success: false, error: 'file non trovato' };
-    const src = path.join(sharedMatFilesDir(), it.stored);
-    if (!fs.existsSync(src)) return { success: false, error: 'file mancante su disco' };
-    const publishName = String(it.name).replace(/[^a-zA-Z0-9._-]+/g, '_');
-    try { fs.copyFileSync(src, path.join(liveMatInfo.filesDir, publishName)); }
-    catch (e) { return { success: false, error: e.message }; }
-    const cn = (className || '').trim();
-    if (cn && (it.sharedClasses || []).indexOf(cn) < 0) it.sharedClasses = (it.sharedClasses || []).concat(cn);
-    it.lastSharedAt = Date.now();
-    _smWrite(items);
-    return { success: true, file: publishName, item: _smPublic(it) };
-});
+/* ⚠️ 13/8/26 — LIBRERIA «FILE CONDIVISI» PENSIONATA (decisione di Giacomo).
+   Qui stavano `sharedMatDir/_smRead/_smWrite/_smPublic` e i cinque handler
+   `sharedmat-list|add|remove|open-folder|publish`: una libreria persistente di
+   file del docente (copia + storico delle classi) ricondivisibile via QR.
+   La si poteva RIEMPIRE ma non svuotare: la vista che la elencava scriveva in un
+   contenitore che la landing non ha più dopo il riordino, quindi i file
+   restavano condivisi e invisibili. Per dare un file alla classe resta
+   `live-materials-add` («Aggiungi file…»), che lo copia nel server della
+   sessione — un gesto solo, senza una seconda casa da tenere in ordine.
+   ⚠️ La CARTELLA resta e non si tocca: `sharedBaseDir()` è una delle sei di
+   «MappAI - file» e ci sono ancora i file dei docenti che l'hanno usata. Da oggi
+   nessuno ci scrive più; si aprono dal Finder. */
 
 // ── Store classi su disco (roster credenziali) ──
 ipcMain.handle('live-classes-load', async () => {
@@ -2859,18 +2789,6 @@ ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
         fs.writeFileSync(path.join(liveMatInfo.filesDir, fileName), buf);
         return { success: true, file: fileName, files: liveMatSrv ? liveMatSrv.state().files : [] };
     } catch (err) { console.error('zip-vault-to-materials:', err); return { success: false, error: err.message }; }
-});
-
-// ── Apri un file della libreria "File condivisi" nel programma di sistema (19/7) ──
-ipcMain.handle('sharedmat-open-file', async (event, { id } = {}) => {
-    try {
-        const it = _smRead().find(x => x.id === id);
-        if (!it) return { success: false, error: 'file-non-trovato' };
-        const abs = path.join(sharedMatFilesDir(), it.stored);
-        if (!fs.existsSync(abs)) return { success: false, error: 'file-mancante' };
-        await shell.openPath(abs);
-        return { success: true };
-    } catch (err) { return { success: false, error: err.message }; }
 });
 
 // ── Apri la cartella di una sessione di studio nel Finder (registro attività, 19/7) ──
