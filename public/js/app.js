@@ -1478,6 +1478,11 @@ window.startGeneration = async function () {
        Qui si alza attorno all'estrazione e si abbassa SEMPRE, anche se lancia:
        un lucchetto che resta su dopo un errore blocca l'app per sempre. */
     window.MappAIGen.inizia(appState.rootNodeLabel, appState.extractionMode);
+    /* Il contesto si congela anche qui, e per la stessa ragione: una MindMap
+       multi-pass fa decine di chiamate su parecchi minuti, e la taratura si
+       rilegge a ognuna. Il contesto della generazione si decide PRIMA (classe e
+       materia, `ensureGenerationContext`) e deve valere fino in fondo. */
+    if (window.MappAITune && window.MappAITune.congela) window.MappAITune.congela();
     try {
     if (appState.extractionMode === 'mindmap') {
         // PRE-PASS TRIAGE (gated da mappai_mm_triage_enabled; null se OFF/fallito → zero
@@ -1510,6 +1515,7 @@ window.startGeneration = async function () {
     }
     } finally {
         window.MappAIGen.fine();
+        if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela();
     }
 }
 
@@ -1633,6 +1639,34 @@ window.MappAITune = {
     },
     // Esegue fn con la taratura armata, ripristinando lo stato precedente.
     withTuning: function (fn) { var prev = this.armed; this.armed = true; try { return fn(); } finally { this.armed = prev; } },
+    /* Scatta il contesto ADESSO e lo tiene fermo finché non si scongela: chi
+       lavora per minuti (pipeline dei materiali, generazione) deve produrre un
+       materiale solo, tarato su un pubblico solo. `_gelo` è letto da
+       `classTuningPrompt`; `contesto()` dà le due etichette che vanno scritte
+       nell'archivio — la voce d'archivio senza `cls`/`disc` li prende dal
+       contesto ATTIVO, cioè da quello che c'è alla FINE. */
+    congela: function () {
+        var c = null, nome = '', disc = '';
+        try {
+            var CL = window.MappAIClasses;
+            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var up = a && a.userProfile;
+            c = (CL && CL.getActive) ? CL.getActive() : null;
+            nome = (up && up.nickname) ? up.nickname : ((c && c.name) || '');
+            disc = (CL && CL.effectiveDiscipline) ? (CL.effectiveDiscipline(c) || '')
+                : ((CL && CL.activeDiscipline && CL.activeDiscipline()) || '');
+        } catch (e) { }
+        this._gelo = {
+            pieno: this.activeTuningBlock(),
+            livello: this.levelBlock(),
+            nome: nome, disc: disc
+        };
+        return this._gelo;
+    },
+    scongela: function () { this._gelo = null; },
+    /* Le etichette del contesto congelato ('' se non si sta congelando niente:
+       il chiamante ricade sul contesto attivo, che è il comportamento storico). */
+    contesto: function () { return this._gelo ? { nome: this._gelo.nome, disc: this._gelo.disc } : null; },
     // C'è un contesto attivo con taratura SPECIALE? (governa il suffisso [VERDE])
     isSpecialActive: function () {
         try {
@@ -1687,6 +1721,24 @@ window.MappAITune = {
 window.classTuningPrompt = function () {
     try {
         if (!window.MappAITune) return '';
+        /* ⚠️ CONTESTO CONGELATO (14/8). Questa funzione è chiamata a OGNI
+           chiamata all'AI, e la pipeline dei materiali ne fa una PER RAMO:
+           cambiando classe a metà, un quiz su cinque aree usciva metà tarato
+           per una classe e metà per un'altra — output plausibile, nessun
+           errore, nessun modo di accorgersene. Chi lavora a lungo scatta il
+           contesto all'inizio (`MappAITune.congela()`) e da lì in poi tutte le
+           chiamate leggono QUELLO.
+           Si congela il TESTO già risolto, non le sue fonti: il blocco nasce da
+           due posti diversi (la scheda allievo in `appState.userProfile` e la
+           classe attiva in `MappAIClasses`) e congelarne una sola lascerebbe
+           l'altra libera di cambiare sotto. Gli interruttori `armed`/`levelArmed`
+           restano vivi: la pipeline li arma DOPO aver congelato. */
+        var g = window.MappAITune._gelo;
+        if (g) {
+            if (window.MappAITune.armed) return g.pieno;
+            if (window.MappAITune.levelArmed) return g.livello;
+            return '';
+        }
         if (window.MappAITune.armed) return window.MappAITune.activeTuningBlock();
         if (window.MappAITune.levelArmed) return window.MappAITune.levelBlock();
         return '';

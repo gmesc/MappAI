@@ -873,10 +873,15 @@
     opts = opts || {};
     Pipeline._running = true;
     const counter = { calls: 0 };
+    /* ⚠️ Stesso congelamento del gesto singolo, e qui pesa di più: gli step A-D
+       durano minuti e fanno decine di chiamate. Il contesto si scatta PRIMA di
+       tutto e vale fino alla fine — cambiare classe mentre gira non tara più
+       metà dei materiali su un altro pubblico. */
     try {
       const cls = config.classId ? (window.MappAIClasses && window.MappAIClasses.get(config.classId)) : null;
       config.className = cls ? cls.name : (config.className || '');
       config.sede = cls ? (cls.sede || '') : '';
+      if (window.MappAITune && window.MappAITune.congela) window.MappAITune.congela();
       const apiKey = window.getSystemKey ? window.getSystemKey() : '';
       if (!apiKey) throw new Error(_t('tst_need_key', "Inserisci un'API Key per continuare"));
 
@@ -965,6 +970,9 @@
       Pipeline._running = false;
       Pipeline._interno = false;
       Pipeline._identita = null;
+      /* SEMPRE, anche su errore: un contesto rimasto gelato tarerebbe di
+         nascosto tutto il resto della sessione */
+      try { if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela(); } catch (e) { }
       _veloACasa();      // anche su errore: un velo orfano dentro CREA resterebbe lì
     }
   };
@@ -1638,6 +1646,13 @@
     if (preso) return { ok: false, errore: preso };
 
     Pipeline._running = true;                 // il lucchetto vale anche per il gesto singolo
+    /* ⚠️ IL CONTESTO SI CONGELA QUI (14/8). Sotto c'è una chiamata all'AI PER
+       RAMO, e la taratura si rilegge a ogni chiamata: cambiando classe da
+       ELABORA o INSEGNA mentre questo gira, il foglio usciva metà tarato per
+       una classe e metà per un'altra. E la voce d'archivio, che senza `cls`/
+       `disc` li prende dal contesto ATTIVO, finiva etichettata con la classe
+       che c'era alla FINE. Uno scatto all'inizio, usato per tutto. */
+    var gelo = (window.MappAITune && window.MappAITune.congela) ? window.MappAITune.congela() : null;
     try {
       _overlay(_t('cq_genero', 'Genero le domande…'),
         spec.typeLabel + (nome ? ' · ' + nome : '') + ' — ' + mapName);
@@ -1708,7 +1723,12 @@
         let inArchivio = false;
         try {
           if (window.MappAIStudyDocs) {
-            const idDoc = window.MappAIStudyDocs.save({ kind: 'quizpaper', title: titoloDoc, html: html, mapName: mapName });
+            /* classe e materia CONGELATE, non quelle attive adesso: senza,
+               l'etichetta della riga direbbe il contesto di fine pipeline */
+            const idDoc = window.MappAIStudyDocs.save({
+              kind: 'quizpaper', title: titoloDoc, html: html, mapName: mapName,
+              cls: gelo ? gelo.nome : undefined, disc: gelo ? gelo.disc : undefined
+            });
             /* `save` può scartare in silenzio (quota localStorage piena): si
                RILEGGE — «in archivio» deve voler dire che c'è, non che la
                chiamata non ha lanciato. */
@@ -1788,6 +1808,9 @@
       return { ok: false, errore: e.message || String(e) };
     } finally {
       Pipeline._running = false;
+      /* si scongela SEMPRE: un contesto che resta gelato dopo un errore
+         tarerebbe di nascosto tutto il resto della sessione */
+      try { if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela(); } catch (e) { }
       _overlay(false);
     }
   };
