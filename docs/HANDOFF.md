@@ -299,16 +299,19 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    Aperto: la pipeline batch usa il default 40% — `config.quiz.base` è **già letto**
    dal motore, manca solo il campo nel bento (voce nell'inventario dell'Officina +
    `mp-base` in `_readConfig`).
-3. 🔴 **La maniglia della colonna sconfina di 34px nell'area, e nessuna vista lo
-   sa** (14/8). Sta a cavallo del confine per disegno (`translateX(-50%)`), quindi
-   metà del suo corpo è sopra il contenuto dell'area — e nel CSS dell'area non c'è
-   niente che lo dichiari. È già costata due pezze in due giorni: il titolo della
-   barra dell'editor (`padding-left:46px`, commit `293fa6b`) e prima ancora il
-   disegno che teneva il contenuto più in basso. **Difetto vivo: «Crea nuovo» di
-   ELABORA, coperto per 10px in entrambi gli stati.** Censimento misurato su tutte
-   le console, tre strade e il primo gesto della prossima sessione in
-   **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)** — la scelta fra
-   fascia riservata · maniglia fuori dall'area · maniglia in testata è di Giacomo.
+3. ✅ **La maniglia della colonna: il posto è riservato** (14/8, chiuso). Occupava
+   l'angolo in alto a sinistra dell'area — 34×34, sopra il contenuto — senza che
+   nessuna regola lo dichiarasse: due pezze in due giorni, e «Crea nuovo» di
+   ELABORA coperto per 10px. Strada scelta da Giacomo: **margini nell'area**, ma
+   con tre correzioni — **una** regola per tutte le console (non due eccezioni,
+   che lascerebbero pagare la terza), numero **derivato** dalle leve della
+   maniglia (`--mnc-man-size`, `--mnc-man-x`) e non scritto a mano, costo reale
+   **10px** (l'area ne pagava già 24). Censimento rifatto: **zero elementi sotto
+   la maniglia** in tutte e quattro le console e in entrambi gli stati, col primo
+   contenuto esattamente al bordo destro della maniglia. Diario, misure e le due
+   trappole pagate in
+   **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)**; la regola è la
+   trappola §8.19 della guida.
 4. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore

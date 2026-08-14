@@ -1,123 +1,93 @@
-# HANDOFF — la maniglia e il bordo dell'area (aperto)
+# HANDOFF — la maniglia e il bordo dell'area (CHIUSO, 14 agosto 2026)
 
-> ⚠️ **Piano di lavoro su un problema aperto**, non lo stato del repo.
+> ⚠️ **Diario di un problema risolto**, non lo stato del repo.
 > Lo stato sta in **[`HANDOFF.md`](HANDOFF.md)**; le regole di costruzione in
-> **[`../GUIDA-ARCHITETTO.md`](../GUIDA-ARCHITETTO.md)**.
-> Scritto il **14 agosto 2026** dopo la seconda sovrapposizione in due giorni.
-> Si chiude quando la fascia della maniglia è una regola sola, misurata, e il
-> censimento qui sotto torna pulito su tutte le console.
+> **[`../GUIDA-ARCHITETTO.md`](../GUIDA-ARCHITETTO.md)** (la trappola è la §8.19).
+> Aperto il 14/8 dopo la seconda sovrapposizione in due giorni, chiuso lo stesso
+> giorno con la strada **A** scelta da Giacomo: **margini nell'area**.
 
 ---
 
 ## 0. Il fatto, in una riga
 
-**La maniglia della colonna sconfina di 34px dentro l'area della console, in
-ogni vista e in tutti e due gli stati** — e nessuna superficie lo sa. Ogni volta
-che qualcuno mette un comando in alto a sinistra nell'area, quel comando finisce
-sotto la maniglia. È già successo due volte in due giorni, con due rimedi
-diversi: la seconda volta l'ho corretta con un `padding-left` sulla barra
-dell'editor (commit `293fa6b`), cioè **un'altra pezza**, non la regola.
+**La maniglia della colonna occupa l'angolo in alto a sinistra dell'area della
+console — 34×34, sopra qualunque cosa ci sia — e nessuna regola lo dichiarava.**
+Ogni comando messo lì dentro finiva sotto la maniglia; è successo due volte in
+due giorni, con due pezze diverse. Ora il posto è **riservato una volta per
+tutte le console**, e il numero è derivato dalla taglia della maniglia.
 
 ---
 
-## 1. Il censimento, misurato (14/8, finestra 1280×768)
+## 1. La cura, in tre righe di CSS
 
-`node tools/smoke/…` non arriva qui: serve l'app vera. Lo script usato sta in
-`scratchpad/cdp-censimento-maniglia.js` della sessione (CDP: rettangoli che si
+| dove | che cosa |
+|---|---|
+| `public/css/mappai-console-manifesto.css` (~568) | `.mm-console__area` prende `padding-left: max(--mnc-area-pad-x, --mnc-man-x + --mnc-man-size)` |
+| `public/js/mappai-doc-editor.js` (~3123) | la barra dell'editor passa da `46px` scritti a mano a `calc(var(--mnc-man-size, 34px) + 12px)` |
+| `GUIDA-ARCHITETTO.md` §8 | trappola 19: «l'area della console non comincia al suo bordo sinistro» |
+
+Tre scelte dentro la cura, e sono il motivo per cui non è una terza pezza:
+
+1. **Una regola per TUTTE le console**, non due eccezioni per ELABORA e Cabina.
+   Due eccezioni lasciano pagare il conto alla terza console — che è esattamente
+   la malattia da cui si veniva.
+2. **Il numero è derivato, non scritto**: la taglia e la posizione della maniglia
+   sono leve dell'officina (`--mnc-man-size`, `--mnc-man-x`). Se domani la
+   maniglia cresce, il margine la segue da sé.
+3. **Costo reale 10px**, non 34: l'area ne pagava già 24 di suo. Il `max()` prende
+   il maggiore fra il respiro dell'area e l'ingombro della maniglia.
+
+**L'unica eccezione dichiarata** è la console-EDITOR (`:has(.mm-tela)`, selettore
+più specifico): lì l'area sta a `padding:0` perché il foglio è a filo, e il posto
+lo riserva la barra del documento — con lo stesso token, così il numero resta uno.
+
+---
+
+## 2. Il censimento, dopo (14/8, finestra 1280×768, colonna aperta e chiusa)
+
+Script: `scratchpad/censimento.js` della sessione (CDP: rettangoli che si
 intersecano + `elementFromPoint` nel punto di contatto, che è la verità su chi
-sta sopra). Va **rifatto dopo ogni intervento** — è la prova che il difetto non
-torna.
+sta sopra). Va rifatto dopo ogni intervento sulla maniglia o sull'area.
 
-| console · vista | colonna | esito |
+| console · vista | primo contenuto (aperta / chiusa) | esito |
 |---|---|---|
-| **ELABORA · elenco documenti** | aperta | 🔴 **«Crea nuovo» coperto per 10px** |
-| **ELABORA · elenco documenti** | chiusa | 🔴 **«Crea nuovo» coperto per 10px** |
-| ELABORA · documento aperto | aperta/chiusa | ✅ (dal `padding-left:46px` di `293fa6b`) |
-| INSEGNA | aperta/chiusa | ✅ nessun elemento sotto |
-| CABINA · profilo | aperta/chiusa | ✅ (il primo campo comincia a x=312 / x=40) |
+| **ELABORA · elenco documenti** | «Crea nuovo» a x=**306** / x=**34** | ✅ (prima 296 / 24 → 10px coperti) |
+| ELABORA · documento aperto | barra a x=272 / x=17, testo +46 | ✅ |
+| INSEGNA | nessun elemento a quella quota | ✅ |
+| CABINA · profilo | primo campo a x=322 / x=50 | ✅ (prima 312 / 40) |
 
-Costanti in ogni riga: maniglia `34×34` a `y 65-99`, **sconfino nell'area: 34px**
-sempre; `--mm-console-side: 272px`.
-
-⚠️ **Il difetto vivo è uno: «Crea nuovo» di ELABORA.** In entrambi gli stati la
-maniglia gli sta sopra per 10px — il bottone parte a x=296 (colonna aperta) e a
-x=24 (chiusa), la maniglia arriva a 306 e a 34.
-
-⚠️ **Trappola del censimento, pagata**: il primo giro diceva «Crea nuovo» anche
-in INSEGNA e nella Cabina. Non era vero — quelle console non si erano aperte e
-si stava rimisurando ELABORA. Le console **non si aprono una sopra l'altra**: fra
-una misura e l'altra ci vuole `Page.reload`, e la sonda deve dichiarare CHI sta
-misurando (identità della vista), o si scrive un censimento falso.
+**Zero elementi dell'area sotto la maniglia, in tutte e quattro le console e in
+entrambi gli stati.** In ogni riga il primo contenuto comincia **esattamente** al
+bordo destro della maniglia (306 e 34): è il segno che il posto riservato è
+tarato, non abbondante. Suite **1075 pass / 0 fail / 2 skip**.
 
 ---
 
-## 2. Perché ricapita (la causa, non il sintomo)
+## 3. Due trappole pagate strada facendo
 
-La maniglia è **`position:absolute` sul confine, con `transform:translateX(-50%)`**:
-sta a cavallo fra colonna e area per scelta di disegno (Giacomo, 2/8: «il comando
-è dove l'occhio cerca il pannello»). Quindi metà del suo corpo è **dentro**
-l'area, sopra qualunque cosa ci sia — e chi disegna una vista non ha modo di
-saperlo: nel CSS dell'area non c'è **niente** che dica «i primi 34px in alto a
-sinistra sono occupati».
-
-Ogni superficie nuova che mette un comando lì dentro ripaga lo stesso prezzo, e
-lo scopre solo chi misura (o Giacomo, provando). Le due pezze finora:
-`padding-left:46px` sulla barra dell'editor (`.mm-console__area .de-bar`) — e
-prima ancora, nel disegno originale, il fatto che le viste avessero contenuto
-più in basso.
-
----
-
-## 3. Le strade, con quello che costano
-
-Nessuna è stata scelta: **è una decisione di layout, e la prende Giacomo.**
-
-**A. Una fascia riservata, dichiarata nei token** *(la mia raccomandazione)*
-`--mm-console-man-gutter: 34px` in `mappai-modal-tokens.css`, e
-`.mm-console__area { padding-left: var(--mm-console-man-gutter); }` — o meglio
-solo sulla prima riga di contenuto, per non spostare tabelle e bento interi.
-· *pro*: una leva sola, vale per costruzione anche per le viste di domani;
-il censimento torna pulito ovunque senza toccare le singole superfici.
-· *contro*: 34px in meno di larghezza utile a sinistra in TUTTE le viste, anche
-dove non serve; da verificare su bento e tabelle (che oggi partono dal bordo).
-
-**B. La maniglia esce dall'area**
-Vive tutta dentro la colonna quando è aperta, e in una fascia sua quando è
-chiusa (niente `translateX(-50%)`).
-· *pro*: zero sovrapposizioni per costruzione, nessuno spazio perso nell'area.
-· *contro*: cambia il disegno approvato il 2/8 — la maniglia non è più «sul
-filo»; e a colonna chiusa un posto glielo si deve dare comunque.
-
-**C. La maniglia sale nella testata della console**
-Accanto al titolo, come un comando qualunque.
-· *pro*: il problema sparisce del tutto e la testata è già una riga di comandi.
-· *contro*: perde il legame visivo col pannello che apre e chiude — era il punto
-del disegno originale.
-
-**D. Solo la pezza puntuale** (padding su «Crea nuovo» come per la barra)
-· *pro*: cinque minuti.
-· *contro*: è la terza pezza; alla quarta superficie si ripaga di nuovo.
+1. **La maniglia sembrava non muoversi a colonna chiusa** — misurata ferma a
+   x=272 con l'area già a x=0, cioè a mezz'aria in mezzo al contenuto. Non era
+   vero: la finestra Electron stava in secondo piano e **le transizioni CSS
+   restano congelate sul frame di partenza** (trappola §8.1 della guida, terza
+   volta). `getComputedStyle` serviva il valore di partenza. Spente le
+   transizioni (`* { transition: none !important }` iniettato dopo ogni reload),
+   la maniglia è a x=**0** da chiusa, come il foglio dice. **Un censimento che
+   misura una geometria animata a finestra nascosta scrive numeri falsi.**
+2. **Un apice inverso in un commento dentro il template literal** del CSS di
+   `mappai-doc-editor.js` ha chiuso la stringa: `window.MappAIDocEditor` non
+   nasceva più, e la console ELABORA ripiegava in silenzio sul workspace v1
+   (`open()` esce subito se l'editor non c'è). Ottava volta nel progetto; il
+   commento ora lo dichiara sul posto. `node --check` sul file prima di provare.
 
 ---
 
-## 4. Il primo gesto della prossima sessione
-
-1. Rifare il censimento (§1) per confermare che il quadro non è cambiato.
-2. Chiedere a Giacomo A/B/C (§3) — con lo screenshot dei due stati sotto gli
-   occhi, perché è una scelta che si vede.
-3. Applicare, poi **rifare il censimento**: pulito su tutte le console e in
-   entrambi gli stati, altrimenti non è finita.
-4. Se si sceglie A, aggiungere il token alla tabella dei token della console e
-   scrivere in `GUIDA-ARCHITETTO.md` §8 la trappola: *«l'area della console non
-   comincia al suo bordo sinistro»*.
-
-## 5. Dove guardare
+## 4. Dove guardare
 
 | | |
 |---|---|
-| la maniglia (markup) | `consoleHtml` in `public/js/mappai-modal.js` (~riga 559) |
-| la maniglia (stile, posizione, stati) | `.mm-console__man` in `public/css/mappai-modal-tokens.css` (~1512) |
-| l'animazione di scivolamento e flip | stesso blocco, `transition` + `@keyframes mm-man-flip` (14/8) |
-| la veste manifesto (sostituisce l'icona a ogni toggle) | `vestiManiglia` in `public/js/mappai-console-manifesto.js` |
-| la pezza già in casa | `.mm-console__area .de-bar` in `public/js/mappai-doc-editor.js` |
-| il bottone che oggi sta sotto | «Crea nuovo» di ELABORA — `_schemaV2` in `public/js/mappai-elabora-console.js` |
+| la maniglia (markup) | `consoleHtml` in `public/js/mappai-modal.js` (~559) |
+| la maniglia (stile base) | `.mm-console__man` in `public/css/mappai-modal-tokens.css` (~1512) |
+| la maniglia (veste manifesto, angolo in alto a sinistra) | `public/css/mappai-console-manifesto.css` (~285) |
+| **il posto riservato** | `.mm-console__area` in `public/css/mappai-console-manifesto.css` (~568) |
+| l'eccezione della console-EDITOR | `.mm-console__area .de-bar` in `public/js/mappai-doc-editor.js` (~3123) |
+| le leve dell'officina | `t.maniglia` in `public/js/mappai-console-bento.js` (~535) |

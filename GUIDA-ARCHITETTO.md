@@ -310,6 +310,12 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
 18. **`clamp()` senza spazi attorno agli operatori è sintassi invalida scartata in silenzio**, e
     l'elemento mostra il valore della cascata — verosimile abbastanza da non insospettire.
     `getComputedStyle` dice quale valore è in vigore, non da dove viene.
+19. **L'area della console NON comincia al suo bordo sinistro**: i primi 34px in alto a sinistra
+    sono della maniglia della colonna, che ci sta sopra. Il posto glielo riserva UNA regola
+    (`padding-left` di `.mm-console__area`, derivato da `--mnc-man-size`), quindi chi disegna
+    una vista non deve più saperlo — ma chi porta l'area a `padding:0` (la console-EDITOR con
+    la tela a filo) se lo riprende, e allora il respiro va rimesso sul primo pezzo, **con lo
+    stesso token**. Due pezze puntuali in due giorni prima che diventasse una regola sola.
 
 ---
 

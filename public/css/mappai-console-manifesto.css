@@ -567,6 +567,24 @@ html.manifesto .mm-box--console .mm-nav__g--tog svg {
 /* ── l'area: dove sta il bento, e quanto respira ─────────────────────────── */
 html.manifesto .mm-box--console .mm-console__area {
     padding: var(--mnc-area-pad-y) var(--mnc-area-pad-x);
+    /* ⚠️ L'AREA NON COMINCIA AL SUO BORDO SINISTRO. La maniglia (10/8) è
+       incastrata nell'angolo in alto a sinistra dell'area — 34×34, `position:
+       absolute`, sopra qualunque cosa ci sia — e fin qui nessuna regola lo
+       diceva: chi disegnava una vista col primo comando in alto a sinistra ci
+       finiva sotto, e lo scopriva solo misurando. È costato due pezze in due
+       giorni (`.de-bar` di ELABORA, commit 293fa6b) e il difetto vivo del 14/8
+       («Crea nuovo» di ELABORA coperto per 10px: il bottone partiva a
+       area+24px, la maniglia arriva a area+34).
+       Qui il posto glielo si riserva UNA volta, per TUTTE le console — anche
+       quelle di domani, che è il punto: due eccezioni per due console
+       lascerebbero pagare il conto alla terza. Il numero non è scritto a mano
+       ma DERIVATO dalla taglia della maniglia, che l'officina può cambiare:
+       il margine la segue da sé. Costo reale: 10px (l'area ne pagava già 24).
+       ⚠️ Fa eccezione la console-EDITOR (`:has(.mm-tela)`, più specifica): lì
+       l'area sta a `padding:0` per scelta e il posto lo riserva la barra del
+       documento, con lo STESSO token. */
+    padding-left: max(var(--mnc-area-pad-x),
+                      calc(var(--mnc-man-x, 0px) + var(--mnc-man-size, 34px)));
 }
 /* il bento dell'area: la stessa griglia di CREA, con le colonne dichiarate */
 html.manifesto .mn-bento-area {

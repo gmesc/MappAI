@@ -3112,12 +3112,17 @@ ${_deCornice()}
 
 .de-doc { display:flex; flex-direction:column; height:100%; }
 .de-bar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#fff; border-bottom:1px solid #e2e8f0; flex:0 0 auto; flex-wrap:wrap; }
-/* Dentro la CONSOLE la maniglia della colonna sconfina nell'area proprio alla
-   quota della barra: 17px con la colonna aperta (sta a cavallo del confine),
-   34 da chiusa (scivola tutta dentro). Misurato: copriva i primi 20px del
+/* Dentro la CONSOLE la maniglia della colonna sta nell'angolo in alto a sinistra
+   dell'area, proprio alla quota della barra. Misurato: copriva i primi 20px del
    titolo — le lettere «Ca» di «Catena…» — e il clic lì finiva alla maniglia.
-   Il respiro copre il caso peggiore; fuori dalla console non serve e non c'è. */
-.mm-console__area .de-bar { padding-left:46px; }
+   La console-EDITOR è l'unica dove l'area sta a padding:0 (la tela è a filo),
+   quindi il posto lo riserva la barra; ma il numero è lo STESSO token dell'area
+   (--mnc-man-size), non un 46 scritto a mano: se la maniglia cambia taglia
+   nell'officina, il respiro la segue. +12px di aria, che il resto della barra
+   ha già. Fuori dalla console non serve e non c'è.
+   ⚠️ Niente apici inversi in questo commento: è dentro un template literal e
+   il primo che capita chiude la stringa (quarta volta nel progetto). */
+.mm-console__area .de-bar { padding-left: calc(var(--mnc-man-size, 34px) + 12px); }
 .de-bar-t { font-size:13px; font-weight:800; color:#1e293b; }
 .de-dirty { color:#f59e0b; font-size:20px; line-height:0; margin-left:4px; visibility:hidden; }
 .de-spacer { flex:1 1 auto; }
