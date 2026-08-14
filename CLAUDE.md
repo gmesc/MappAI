@@ -4427,6 +4427,12 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 7. Decomposizione `app.js` in moduli separati
 
 ### Flag feature disponibili (tutti gated da localStorage)
+> ⚠️ **Questa tabella si è fermata all'estate 2026 e non è più la fonte.** I kill-switch
+> vivi — veste manifesto, console, bento, vista studio, indicatore dei lavori, contesto
+> della generazione — stanno in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §2**. Quella qui
+> sotto riguarda i flag della GENERAZIONE (prompt, fasi, deepening) e resta utile per
+> quelli.
+
 | Flag localStorage key | Funzione | Default |
 |---|---|---|
 | `mappai_jsonl_enabled` | JSONL sezionato in Fase 3 (solo Infomaniak) | OFF |

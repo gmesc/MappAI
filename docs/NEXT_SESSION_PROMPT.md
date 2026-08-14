@@ -1,5 +1,12 @@
 # Prompt per la prossima sessione MappAI
 
+> ⚠️ **FERMO AL 3 GIUGNO 2026 — non usarlo.** Cita un branch che non è più attivo
+> (`feat/structural-suggestions`; si committa su `main` dal luglio) e un contesto di sessione
+> vecchio di due mesi. Il punto di ripresa vero è **[`HANDOFF.md`](HANDOFF.md)**, e come si
+> costruisce lo dice **[`../GUIDA-ARCHITETTO.md`](../GUIDA-ARCHITETTO.md)**. Resta qui come
+> storia.
+
+
 ```
 Progetto: MappAI (~/Claude/MappAI) — Electron app per mappe mentali / Knowledge
 Graph da fonti PDF/URL. Leggi CLAUDE.md prima di iniziare (vanilla JS + window

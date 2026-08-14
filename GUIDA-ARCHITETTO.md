@@ -131,6 +131,13 @@ I piani li citano per numero («viola l'invariante 6»). Ognuno è stato pagato.
     da un `MutationObserver` chiude il cerchio e appende il renderer (successo davvero). Dove un
     pezzo si ridisegna spesso, l'icona va messa come SVG in linea. Le emoji di CONTENUTO
     (identità allievi) si rendono in Noto/Android anche nei PDF: l'emoji È l'identità.
+    ⚠️ E **un'icona si mette solo se dice qualcosa che il testo non dice** (Giacomo, 14/8):
+    il lucchetto su una voce spenta sì — dice che non si può premere; un glifo accanto a
+    «Crea» no, è un secondo alfabeto da imparare per un'informazione che c'è già. Niente
+    icone dove non sono state chieste. E se un'icona la si prende «da un'altra parte
+    dell'app», va guardato se quella parte è ancora viva: le forme del rail erano una UI
+    abbandonata, e un glifo che viene da un pezzo morto porta con sé un'identità che non
+    esiste più.
 16. **Il contrasto si misura, ≥ 4,5:1, sul fondo che si VEDE.** Bianco su verde `#41e6aa` fa
     1,6:1: sul verde il testo è scuro. I colori vivono in token unici (`--man-nero: #404040`,
     `--man-card: #f1f4f8`): una leva sola, non cinque regole che coincidono per caso.
@@ -322,6 +329,13 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     una vista non deve più saperlo — ma chi porta l'area a `padding:0` (la console-EDITOR con
     la tela a filo) se lo riprende, e allora il respiro va rimesso sul primo pezzo, **con lo
     stesso token**. Due pezze puntuali in due giorni prima che diventasse una regola sola.
+
+20. **Un `<button>` con `width:auto` NON riempie il suo contenitore**: si stringe sul contenuto,
+    come ogni controllo di modulo. In un contenitore `block` le voci di una colonna crescevano
+    quanto il nome più lungo — la colonna scorreva in orizzontale, il testo non troncava mai (una
+    riga senza larghezza non ha niente da rispettare) e il bollino in coda finiva oltre il bordo.
+    La cura è rendere il contenitore un **flex colonna**: da flex item la voce si stira alla
+    larghezza del contenitore meno i margini. Vale per qualunque elenco di bottoni.
 
 ---
 

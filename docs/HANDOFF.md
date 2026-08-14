@@ -4,8 +4,8 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **14 agosto 2026** (generare mentre si lavora · filtri nella
-> colonna · briciola che si completa · bollino NUOVO).
+> Ultimo allineamento: **14 agosto 2026, sera** (generare mentre si lavora · filtri nella
+> colonna · briciola che si completa · bollino NUOVO · velo sull'area di CREA).
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
@@ -56,7 +56,7 @@ tabella è la mappa per tornare indietro di un passo alla volta quando qualcosa 
 
 | chiave | stato | che cosa spegne |
 |---|---|---|
-| `mappai_console_bento_app` | **`'1'` nel userData di Giacomo** | il cablaggio bento delle console. ⚠️ Col bento acceso **il rail delle tre forme non si monta**: la sezione la dicono le briciole in alto, che sono anche l'unica uscita |
+| `mappai_console_bento_app` | **`'1'` nel userData di Giacomo** | il cablaggio bento delle console. ⚠️ Col bento acceso **il rail delle tre forme non si monta**: la sezione la dicono le briciole in alto, che sono anche l'unica uscita. ⚠️ NON è più un vero passo indietro: il rail è codice morto e nessuno lo prova più (§4 punto 6) |
 | `mappai_stile_manifesto` | acceso | la veste «manifesto»: landing, CREA, bento. `'0'` → la landing torna esattamente com'era e il modale «Genera materiali» si riapre |
 | `mappai_bento_layout` | assente = composizione del file | la composizione scritta dall'Officina §7. Assente, comanda `mappai-bento-composizione.js` |
 | `mappai_teach_console` | acceso | la console INSEGNA. `'0'` → le tre sezioni storiche della landing |
@@ -280,6 +280,15 @@ il destinatario la pipeline l'ha già nella sua configurazione.
 **L'autosave periodico si sospende** durante generazione e pipeline: scriveva un progetto
 a metà costruzione, e se la generazione falliva restava quello.
 
+**Il velo copre l'AREA DI LAVORO di CREA, e gli avvii rapidi si spengono.** Il velo dentro
+l'area era una cosa della sola pipeline: una generazione MM/KG nuda lo lasciava a tutto
+schermo, e sopra restavano comunque «Nuovo Progetto · Apri Vault · Apri JSON» — i tre
+comandi che RIMPIAZZANO il progetto, cioè quelli che il lucchetto rifiuta. Un bottone che
+si vede acceso e risponde con un avviso è peggio di un bottone che non c'è. Li spegne il
+foglio su `html.mappai-genera`; l'implementazione del velo è **una**
+(`MappAIGen.veloNellArea/veloACasa`, la pipeline delega): due copie si sarebbero contese
+lo stesso nodo e il suo segnaposto di ritorno.
+
 **Alla fine, `window.mappaPronta()`**: se sei ancora dov'eri (nessuna console **visibile**)
 passa al canvas come prima; se ti sei spostato, avvisa e non ti strappa la schermata.
 Ritorna `true` solo se ha cambiato vista — i cinque punti di fine generazione disegnano il
@@ -313,6 +322,9 @@ apposta, quindi la colonna parte sempre senza filtro.)
   altro fra cui scegliere** — una tendina con una voce già spuntata si legge come rotta.
 - Il **chip di INSEGNA** sparisce da sé: `montaPercorso` marca il box `mn-percorso` e la
   veste non glielo rimette.
+- Nel menu «Cosa» **l'unica icona è il LUCCHETTO** sulle voci spente (Lucide, non emoji):
+  dice una cosa che il testo non dice. Le icone accanto a Crea/Elabora/Insegna sono state
+  tolte — un glifo messo per bellezza è un secondo alfabeto da imparare (invariante 15).
 
 ### VISTA STUDIO — il passo «STUDIO» del ciclo LAYOUT
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
@@ -441,34 +453,48 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    lungo. `.mm-nav__gc` è ora flex-colonna: da flex item la voce si stira alla larghezza
    del contenitore meno i margini, e l'ellissi del testo torna a funzionare perché la riga
    ha finalmente una larghezza da rispettare. Misurato: sbordo 0, voci tutte a 232px.
-6. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+6. 🆕 **Il RAIL delle tre forme è codice morto, e il suo kill-switch è una TRAPPOLA.**
+   `montaRail()` esce quando il cablaggio bento è acceso; `montaCascataLanding()` esce
+   quando è spento: sono le due facce dello stesso interruttore, e uno dei due c'è sempre.
+   Oggi il bento è acceso, quindi il rail non si monta: ~110 righe fra
+   `mappai-stile-manifesto.js` (FORME · `montaRail` · mini-logo · ramo rail di
+   `sincronizza`), `alzaRail()` in `mappai-console-manifesto.js` e 23 righe di CSS.
+   ⚠️ Toglierlo NON è una potatura: senza rail, `mappai_console_bento_app='0'` lascia la
+   landing **senza nessun modo di cambiare sezione** e CREA senza uscita (è già successo
+   l'11/8). Il lavoro vero è **pensionare il flag** — decisione, non pulizia.
+   ⚠️ `vaiA()` NON è del rail: è anche l'`onCosa` della briciola (chiude la console
+   chiedendo conferma, poi cambia sezione). Resta.
+   ⚠️ Si perde davvero una cosa: **«torna alla prima pagina»** (la landing vuota) esiste
+   solo sul mini-logo, che col bento è già nascosto — oggi non è raggiungibile da nessuna
+   parte. Se serve, va rimessa altrove (una voce «Home» nel menu «Cosa» sarebbe naturale).
+7. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-7. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-8. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+8. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+9. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-9. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+10. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-10. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+11. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-11. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+12. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-12. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+13. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-13. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+14. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-14. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+15. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**
