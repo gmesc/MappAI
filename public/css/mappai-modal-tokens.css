@@ -1527,7 +1527,15 @@ button.mm-ctx__p:focus-visible {
     color: var(--mm-testo-3);
     opacity: .75;
     cursor: pointer;
-    transition: opacity .15s, color .15s, border-color .15s;
+    /* Il toggle cambia una CLASSE sullo stesso nodo (nessun ridisegno), quindi
+       il viaggio si può animare: la maniglia SCIVOLA dal confine al bordo e
+       il chevron si RIBALTA strada facendo (scaleX passa dallo specchio: si
+       schiaccia e riesce girato — il «flip» chiesto da Giacomo, 14/8). Curva
+       morbida e breve: è un comando, non uno spettacolo. */
+    transition: left .28s cubic-bezier(.2, .7, .3, 1),
+                transform .28s cubic-bezier(.2, .7, .3, 1),
+                border-radius .28s ease,
+                opacity .15s, color .15s, border-color .15s;
 }
 
 .mm-console__man:hover {
@@ -1539,6 +1547,27 @@ button.mm-ctx__p:focus-visible {
 .mm-console__man svg {
     width: 13px;
     height: 13px;
+    transition: transform .28s cubic-bezier(.2, .7, .3, 1);
+}
+
+/* Il ribaltone del glifo. Due strade, perché due sono i modi in cui il glifo
+   cambia: senza la veste manifesto il nodo resta LO STESSO e lo specchia la
+   transizione qui sopra; con la veste, `vestiManiglia` SOSTITUISCE l'svg a
+   ogni toggle (panel-left-close ⇄ open) — e un nodo appena nato non può
+   transire da nessun dove. Quindi il nodo fresco suona da sé un'animazione
+   d'ingresso: parte di taglio (rotateY) e si distende sul valore che il
+   foglio gli assegna. Misurato: senza, il chevron cambiava di colpo mentre
+   la maniglia scivolava. */
+@keyframes mm-man-flip {
+    from { transform: rotateY(92deg) scale(.7); opacity: .2; }
+}
+.mm-console__man svg { animation: mm-man-flip .28s cubic-bezier(.2, .7, .3, 1); }
+
+/* La fluidità è un di più, non un requisito: chi ha chiesto al sistema di
+   ridurre il movimento (vale doppio in un prodotto per ADHD) torna al cambio
+   secco di prima. */
+@media (prefers-reduced-motion: reduce) {
+    .mm-console__man, .mm-console__man svg { transition: none; animation: none; }
 }
 
 .mm-box--console.is-nav-chiusa .mm-console__side {
