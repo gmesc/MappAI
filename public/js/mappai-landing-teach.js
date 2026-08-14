@@ -2849,6 +2849,12 @@
   var _consAggiorna = null;
   function openConsoleInsegna(voceIniziale) {
     if (!MM()) { setMode('teach'); return; }
+    /* ⚠️ La console DICHIARA la sua sezione, e deve farlo QUI: `setMode('teach')`
+       lo faceva per conto suo, ma chi apre la console per altre strade — il
+       segnalibro dell'uscita verso una mappa, una chiamata diretta — la lasciava
+       muta, e la briciola in alto non sapeva dove si era: mostrava il solo
+       «Cosa» invece di «Insegna». */
+    try { document.documentElement.dataset.manSezionePendente = 'teach'; } catch (e) { }
     _cons = { voce: '', mat: null, materiali: null, mappe: null, sessioni: null, report: null, stampabili: null, lavLogin: '', lavRete: '' };
     var ridisegnaCons = null;
 
@@ -2915,10 +2921,37 @@
         onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
       };
       var livelli = CB.specContesto(_cbCtx);
-      /* `qui: true` = la briciola del posto in cui si è (corsivo). Qui è statica e
-         lo prenderebbe comunque, ma dichiararlo è ciò che la tiene in corsivo se un
-         giorno anche INSEGNA le darà una tendina — come ha ELABORA. */
-      if (p) livelli.push({ statico: p.nome, qui: true });
+      /* ── LA BRICIOLA SI COMPLETA QUANDO SCEGLI UN PROGETTO (Giacomo, 14/8) ──
+         Finché non hai scelto, in alto resta la sola prima domanda: le altre due
+         sono scese in testa alla COLONNA, dove filtrano l'elenco, e tenerle
+         anche qui sarebbe lo stesso comando in due posti mentre si sta ancora
+         cercando. Scelto il progetto, la testata dice il percorso INTERO —
+         Insegna › classe › materia › progetto — e ogni pezzo resta cliccabile.
+         L'ultima briciola ha un MENU (le mappe del filtro): è la via breve per
+         passare da una mappa all'altra senza tornare alla colonna. */
+      if (!p) livelli = livelli.slice(0, 1);
+      else {
+        var _altre = _consFiltrate();
+        /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
+           l'allineamento il filtro si stringe spesso su UNA mappa, e una
+           tendina con una voce sola — già spuntata — si legge come rotta.
+           Con una sola mappa la briciola resta un'etichetta; per allargare c'è
+           «mostra tutti» in fondo ai filtri. */
+        livelli.push(_altre.length > 1
+          ? {
+            et: p.nome,
+            menu: {
+              tipo: 'lista',
+              voci: _altre.map(function (mm2) {
+                return {
+                  et: mm2.nome, on: mm2.id === p.id,
+                  onPick: function () { if (mm2.id !== p.id) scegliMappa(mm2.id); }
+                };
+              })
+            }
+          }
+          : { statico: p.nome, qui: true });
+      }
       /* ⚠️ `node` = il BOX: montaPercorso marca il box `mn-percorso` (la veste
          allora NON gli rimette il chip) e ne toglie l'eventuale chip. Nessun
          `testiEl`: le briciole vanno in `.mm-head__testi` della testata, come
@@ -2934,6 +2967,12 @@
     }
     function scegliMappa(id) {
       _cons.voce = id; _cons.mat = null; _cons.materiali = null;
+      var _m0 = (_consMappe() || []).filter(function (x) { return x.id === id; })[0] || null;
+      /* Scegliere una mappa ALLINEA il filtro alla sua classe e materia (stessa
+         regola di ELABORA, 14/8): senza, la briciola in alto resterebbe sulla
+         domanda «A chi?» mentre a schermo c'è già il progetto — e la sequenza
+         non si completerebbe mai. */
+      if (_m0 && MappAITeach.allineaContestoA) { try { MappAITeach.allineaContestoA(_m0); } catch (e) { } }
       rifai();
       var m = _consMappaScelta();
       if (!m) return;

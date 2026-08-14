@@ -940,6 +940,7 @@
        `null` = elenco non ancora letto dal disco · `[]` = letto e vuoto. */
     var _mappe = null;
     var _totali = null;      /* quante mappe ci sono in tutto, filtro a parte */
+    var _allineato = false;  /* il filtro è già stato allineato alla mappa aperta? */
     /* la mappa che si sta CARICANDO: il caricamento da vault passa dal disco e
        dura, e senza questo la briciola mostrava ancora il nome vecchio mentre la
        console era già tornata al segnaposto (misurato: ~400ms). */
@@ -1781,6 +1782,13 @@
             var CB = window.MappAIConsoleBento;
             if (!box || !CB || !CB.montaPercorso || !CB.specContesto) return;
             var CL = window.MappAIClasses || {};
+            /* quale mappa è caricata ADESSO: serve all'ultima briciola, che
+               esiste solo quando un progetto è stato scelto davvero */
+            var corrente = null;
+            try {
+                var _T = window.MappAITeach;
+                corrente = (_mappe && _T && _T.mappaCorrente) ? _T.mappaCorrente(_mappe) : null;
+            } catch (e) { corrente = null; }
             /* cambiato il contesto cambiano le mappe: l'elenco si rilegge (il
                filtro classe+materia vive in landing-teach, fonte unica) */
             /* CAMBIARE CONTESTO RIPORTA INDIETRO I LIVELLI SEGUENTI (Giacomo,
@@ -1886,11 +1894,41 @@
                    dire non poter mai scegliere un progetto: le materie generiche
                    sono quelle del profilo, e una mappa arrivata da fuori non ne ha
                    nessuna (Giacomo, 9/8). */
-                var pronto = liv.length >= 3 && (clsAttiva ? !!mat : true);
-                /* F5 (v2, D1): le briciole filtrano QUALI progetti — QUALE lo
-                   sceglie la sidebar, dove il progetto attivo è già marcato.
-                   La quarta briciola col suo menu sarebbe un secondo comando per
-                   lo stesso gesto, e due comandi divergono al primo ritocco. */
+                /* ── LA BRICIOLA SI COMPLETA QUANDO SCEGLI UN PROGETTO (14/8) ─
+                   Finché non hai scelto, in alto resta la sola prima domanda:
+                   le altre due sono scese in testa alla COLONNA, dove filtrano
+                   l'elenco, e tenerle anche qui sarebbe lo stesso comando in due
+                   posti mentre si sta ancora cercando. Scelto il progetto, la
+                   testata dice il percorso INTERO — Elabora › classe › materia ›
+                   progetto — e ogni pezzo resta cliccabile.
+                   ⚠️ Rovescia la decisione del 9/8 («la quarta briciola sarebbe
+                   un secondo comando»): con i filtri nella colonna, l'ultima
+                   briciola non duplica più la scelta, è la via BREVE per passare
+                   da una mappa all'altra senza tornare all'elenco. */
+                var _sceltoId = _prog || (corrente && corrente.id) || '';
+                var _scelto = (_mappe || []).filter(function (x) { return String(x.id) === String(_sceltoId); })[0]
+                    || (_sceltoId ? corrente : null);
+                if (!_scelto) liv = liv.slice(0, 1);
+                /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
+                   l'allineamento il filtro si stringe spesso su UNA mappa, e una
+                   tendina con una voce sola — già spuntata — si legge come rotta. */
+                else liv.push((_mappe || []).length > 1
+                    ? {
+                        et: _scelto.nome,
+                        menu: {
+                            tipo: 'lista',
+                            voci: (_mappe || []).map(function (m2) {
+                                return {
+                                    et: m2.nome, on: String(m2.id) === String(_scelto.id),
+                                    onPick: function () {
+                                        if (String(m2.id) === String(_scelto.id)) return;
+                                        _conSalvataggio(function () { _prog = m2.id; _doc = null; _cambiaMappa(m2); });
+                                    }
+                                };
+                            })
+                        }
+                    }
+                    : { statico: _scelto.nome, qui: true });
                 CB.montaPercorso(box, { livelli: liv });
                 /* Le stesse due domande, in testa alla COLONNA: là c'è l'elenco
                    che filtrano, e là si capisce che si può restringere. Stesse
@@ -1959,6 +1997,21 @@
             T.mappeDelContesto().then(function (list) {
                 _mappe = list || [];
                 _contestoCambiato = false;     /* ora si sa: decide `mappaCorrente` */
+                /* ⚠️ Aprendo ELABORA su una mappa GIÀ caricata, il progetto è
+                   scelto — quindi il filtro va allineato a lui come quando lo si
+                   sceglie dalla colonna, o la briciola direbbe «A chi?» accanto
+                   a un progetto che è lì. Una volta sola per sessione di
+                   console: dopo, comanda l'utente. */
+                if (!_allineato) {
+                    _allineato = true;
+                    var cur = null;
+                    try { cur = T.mappaCorrente ? T.mappaCorrente(_mappe) : null; } catch (e) { }
+                    if (cur && T.allineaContestoA) {
+                        try { T.allineaContestoA(cur); } catch (e) { }
+                        _caricaMappe();        /* il filtro è cambiato: l'elenco pure */
+                        return;
+                    }
+                }
                 rifai();
             }).catch(function () { _mappe = []; _contestoCambiato = false; });
             /* il TOTALE (filtro a parte) per la riga del conto sotto i filtri:
@@ -2518,6 +2571,7 @@
             try { _staccaCanale(); } catch (e) { }
             _voce = '';
             _prog = null; _doc = null; _inCorsoV2 = null;
+            _allineato = false;      /* alla prossima apertura si riallinea */
             _aperta = false;
         });
         /* il primo disegno: la console si apre sul segnaposto (nessun documento
