@@ -7,6 +7,12 @@ node tools/smoke/studio-sidebar.js           # le leve della Vista studio
 node tools/smoke/pipeline-lucchetto.js       # il lucchetto e la sentinella della pipeline
 ```
 
+⚠️ **`censimento-maniglia-cdp.js` non è di questa famiglia**: vuole l'APP VERA
+(`npx electron . --remote-debugging-port=9222` e poi lo script) perché misura il
+LAYOUT — dove la maniglia della colonna sconfina nell'area delle console e su
+che cosa finisce sopra. Si rifà dopo ogni intervento su quel confine; il piano
+sta in `docs/HANDOFF-maniglia-layout.md`.
+
 Non sono test della suite (`node --test tests/`), e non lo diventano: caricano i
 moduli dell'app con `vm` dando loro un finto `window`, un finto `appState` e
 finti IPC. Servono a provare quello che i test puri non raggiungono — che cosa

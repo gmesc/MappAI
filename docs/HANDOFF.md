@@ -299,34 +299,44 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    Aperto: la pipeline batch usa il default 40% — `config.quiz.base` è **già letto**
    dal motore, manca solo il campo nel bento (voce nell'inventario dell'Officina +
    `mp-base` in `_readConfig`).
-3. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+3. 🔴 **La maniglia della colonna sconfina di 34px nell'area, e nessuna vista lo
+   sa** (14/8). Sta a cavallo del confine per disegno (`translateX(-50%)`), quindi
+   metà del suo corpo è sopra il contenuto dell'area — e nel CSS dell'area non c'è
+   niente che lo dichiari. È già costata due pezze in due giorni: il titolo della
+   barra dell'editor (`padding-left:46px`, commit `293fa6b`) e prima ancora il
+   disegno che teneva il contenuto più in basso. **Difetto vivo: «Crea nuovo» di
+   ELABORA, coperto per 10px in entrambi gli stati.** Censimento misurato su tutte
+   le console, tre strade e il primo gesto della prossima sessione in
+   **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)** — la scelta fra
+   fascia riservata · maniglia fuori dall'area · maniglia in testata è di Giacomo.
+4. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-4. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-5. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+5. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+6. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-6. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+7. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-7. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+8. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-8. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+9. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-9. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+10. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-10. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+11. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-11. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+12. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**
