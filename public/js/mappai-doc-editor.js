@@ -3112,6 +3112,12 @@ ${_deCornice()}
 
 .de-doc { display:flex; flex-direction:column; height:100%; }
 .de-bar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#fff; border-bottom:1px solid #e2e8f0; flex:0 0 auto; flex-wrap:wrap; }
+/* Dentro la CONSOLE la maniglia della colonna sconfina nell'area proprio alla
+   quota della barra: 17px con la colonna aperta (sta a cavallo del confine),
+   34 da chiusa (scivola tutta dentro). Misurato: copriva i primi 20px del
+   titolo — le lettere «Ca» di «Catena…» — e il clic lì finiva alla maniglia.
+   Il respiro copre il caso peggiore; fuori dalla console non serve e non c'è. */
+.mm-console__area .de-bar { padding-left:46px; }
 .de-bar-t { font-size:13px; font-weight:800; color:#1e293b; }
 .de-dirty { color:#f59e0b; font-size:20px; line-height:0; margin-left:4px; visibility:hidden; }
 .de-spacer { flex:1 1 auto; }
