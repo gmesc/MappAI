@@ -742,17 +742,13 @@ html.manifesto .mn-bric-menu__it.is-bloccata {
     cursor: not-allowed;
     background: none;
 }
-/* le voci del menu sono righe icona + testo (icone Lucide, mai emoji) */
+/* una voce del menu è TESTO, più il lucchetto quando è spenta (icona Lucide,
+   mai un'emoji: un glifo di sistema cambia forma e peso da un computer
+   all'altro, e in mezzo a testo Space Mono si vede) */
 html.manifesto .mn-bric-menu__it {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-html.manifesto .mn-bric-menu__i {
-    width: 15px;
-    height: 15px;
-    flex: 0 0 auto;
-    opacity: .75;
 }
 html.manifesto .mn-bric-menu__et { flex: 1 1 auto; }
 html.manifesto .mn-bric-menu__lock {

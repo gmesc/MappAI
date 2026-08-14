@@ -767,12 +767,11 @@
         it.setAttribute('role', 'menuitemradio');
         it.setAttribute('aria-checked', v.on ? 'true' : 'false');
         it.className = 'mn-bric-menu__it' + (v.on ? ' is-on' : '') + (v.nuovo ? ' mn-bric-menu__nuovo' : '');
-        /* ⚠️ Icone LUCIDE, mai emoji: è la regola §10 del progetto, e vale anche
-           per il lucchetto di una voce spenta — un glifo di sistema cambia forma
-           e peso da un computer all'altro, e in mezzo a testo Space Mono si vede.
-           Il DOM lo disegna `safeCreateIcons()` dopo l'append del menu. */
-        it.innerHTML = (v.icona ? '<i data-lucide="' + _escP(v.icona) + '" class="mn-bric-menu__i"></i>' : '') +
-            '<span class="mn-bric-menu__et">' + _escP(v.et) + '</span>';
+        /* Solo il TESTO. ⚠️ Niente icona decorativa accanto alla voce (Giacomo,
+           14/8): l'unica icona che ha titolo di stare qui è il LUCCHETTO, perché
+           dice una cosa che il testo non dice — che quella voce ora non si può
+           premere. Un glifo messo per bellezza è un secondo alfabeto da imparare. */
+        it.innerHTML = '<span class="mn-bric-menu__et">' + _escP(v.et) + '</span>';
         it.style.fontSize = fs;
         /* ⚠️ Una voce BLOCCATA non si toglie dall'elenco: sparire è peggio che
            essere spenta — chi la cerca crede di aver sbagliato posto. Resta,
@@ -908,15 +907,9 @@
             var gen = function () { return !!(window.MappAIGen && window.MappAIGen.attiva()); };
             var perche = function () { return window.MappAIGen ? window.MappAIGen.motivo() : ''; };
             livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
-                /* ⚠️ Le icone sono quelle che l'app usa GIÀ per le tre sezioni —
-                   la barra delle modalità in `index.html` (`wrench` · `sparkles` ·
-                   `presentation`). Il primo giro aveva preso triangolo · esagono ·
-                   cubo, cioè le forme del RAIL: una UI abbandonata. Un glifo che
-                   viene da un pezzo morto porta con sé un'identità che non
-                   esiste più, e chi la riconosce cerca una cosa che non c'è. */
-                { et: 'Crea', icona: 'wrench', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
-                { et: 'Elabora', icona: 'sparkles', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
-                { et: 'Insegna', icona: 'presentation', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
+                { et: 'Crea', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
+                { et: 'Elabora', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
+                { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }
         if (!cosaScelto && !opts.sempre) return livelli;     // finché «Cosa» non è scelto, si vede solo «Cosa»
