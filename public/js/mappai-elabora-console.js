@@ -2349,10 +2349,11 @@
             if (!_aperta) return;
             if (_doc && _doc.editing) return;
             var d = (ev && ev.detail) || {};
-            if (!d.docId && !d.setId) return;
-            _doc = d.docId
-                ? { id: 'oq:' + d.docId, natura: 'crea', editing: true, docId: d.docId }
-                : { id: 'set:' + d.setId, natura: 'crea', editing: true, setId: d.setId };
+            if (!d.docId && !d.setId && !d.dallaMappa) return;
+            if (d.docId) _doc = { id: 'oq:' + d.docId, natura: 'crea', editing: true, docId: d.docId };
+            else if (d.setId) _doc = { id: 'set:' + d.setId, natura: 'crea', editing: true, setId: d.setId };
+            else _doc = { id: (d.dallaMappa === 'nodesheet' ? 'ns:' : 'cc:') + encodeURIComponent(d.clone || ''),
+                          natura: 'crea', editing: true, dallaMappa: d.dallaMappa, clone: d.clone || '' };
             _voce = _doc.id;
             _disco = null;              /* il documento nuovo può aver scritto: si rilegge */
             rifai();

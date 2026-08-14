@@ -458,6 +458,7 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        _annunciaAperto({ kind: 'nodesheet', dallaMappa: 'nodesheet', clone: _clone || '' });
     }
 
     function _nsSnapshot(label) {
@@ -499,6 +500,7 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        _annunciaAperto({ kind: 'causal', dallaMappa: 'causal', clone: _clone || '' });
     }
 
     function _ccSnapshot(label) { if (_hist) _hist.push({ cc: _cc }, label); }
@@ -3265,25 +3267,47 @@ ${_deCornice()}
 .de-sheet.flash .de-answer { margin-top:14px; padding-top:12px; border-top:1px dashed #cbd5e1; }
 .de-sheet.flash .de-item { display:flex; flex-direction:column; }
 
-/* ── Larghezza e ingrandimento, a scaglioni sulla larghezza del PANNELLO ────
-   Le soglie sono scelte perché ogni colonna resti sopra ~520px. Il prodotto
-   (max-width × zoom) sta sempre sotto la soglia: il foglio non sborda mai. */
-@container (min-width:1120px) {
-  .de-sheet.flash, .de-sheet.ns { --de-max:1180px; }
-  .de-sheet.flash .de-items { grid-template-columns:1fr 1fr; }
-}
-@container (min-width:1360px) {
-  .de-sheet.flash, .de-sheet.quiz, .de-sheet.ns { --de-max:1400px; }
-  .de-sheet.quiz .de-items { grid-template-columns:1fr 1fr; }
-}
-/* Full HD: la larghezza in più va tutta al contenuto (margini minimi), non a
-   colonne più larghe — la carta è contenuto corto, quindi passa a TRE colonne.
-   Il quiz resta a due: le opzioni A/B/C hanno bisogno di riga. */
-@container (min-width:1700px) {
-  .de-sheet.flash, .de-sheet.ns { --de-max:1660px; }
-  .de-sheet.flash .de-items { grid-template-columns:repeat(3,1fr); }
-  .de-sheet.quiz { --de-max:1500px; }
-}
+/* ══ LA SCALA UNICA DELL'EDITOR (13/8 notte — lo standard è Sintesi/Catena) ══
+   Prima c'erano DUE modi di occupare il pannello: Sintesi e Catena crescevano
+   IN SCALA (zoom a gradini), quiz, domande aperte e flashcard si ALLARGAVANO
+   restando a corpo piccolo — colonne da 1400px con testo a 13px, bande chiare
+   ai lati, header minuscoli accanto a fogli enormi. Giacomo ha scelto il primo
+   modo come standard: stessa larghezza visiva, stessi caratteri per riga della
+   stampa (800px), testo che cresce col pannello.
+   --de-lad È IL TOKEN: un gradino solo, deciso dalla larghezza del PANNELLO
+   (container query sul wrap, non sulla finestra: l'editor può essere
+   affiancato alla fonte). Chi deve crescere lo legge; toccando questi cinque
+   numeri si ritara TUTTA la scala dell'editor, ogni genere insieme. */
+.de-sheet { --de-lad:1; }
+@container (min-width:1120px) { .de-sheet { --de-lad:1.3; } }
+@container (min-width:1360px) { .de-sheet { --de-lad:1.6; } }
+@container (min-width:1700px) { .de-sheet { --de-lad:1.85; } }
+@container (min-width:1900px) { .de-sheet { --de-lad:2; } }
+@container (min-width:2300px) { .de-sheet { --de-lad:2.4; } }
+/* I fogli di TESTO seguono il gradino per intero: sintesi, catena, quiz e
+   domande aperte (classe .quiz), flashcard. La larghezza di impaginazione
+   resta 800 (i caratteri per riga del foglio stampato); il max-width
+   min(…, 100%) fa sì che 800 × gradino non sfori mai il pannello. */
+.de-sheet.synth, .de-sheet.causal, .de-sheet.quiz, .de-sheet.flash { --de-zoom:var(--de-lad); }
+/* Le flashcard sono contenuto CORTO: dentro la stessa scala reggono due carte
+   per riga (colonna visiva ≥ ~560px dal gradino 1.3 in su), tre sui pannelli
+   larghi. La griglia divide la larghezza GIÀ scalata: la soglia è visiva.
+   ⚠️ Il tetto largo vale SOLO da quando le colonne sono due: a colonna singola
+   il foglio resta a 800 come tutti gli altri — misurato: a 1180 la carta
+   singola usciva più larga del quiz accanto, e le bande non coincidevano. */
+@container (min-width:1120px) { .de-sheet.flash { --de-max:1180px; }
+                                .de-sheet.flash .de-items { grid-template-columns:1fr 1fr; } }
+@container (min-width:1700px) { .de-sheet.flash .de-items { grid-template-columns:repeat(3,1fr); } }
+/* ── Il foglio dei NODI è l'eccezione dichiarata: specchia la stampa A4 e i
+   corpi DENTRO le card sono calcolati dalla geometria della carta (px/mm) —
+   uno zoom sopra quel calcolo scalerebbe due volte. Quindi le card continuano
+   ad ALLARGARSI (è la carta che cresce), e alla scala unica si aggancia la
+   sola TESTATA, che era rimasta minuscola accanto a card enormi. */
+.de-sheet.ns .de-sheet-head { zoom:var(--de-lad); }
+@container (min-width:1120px) { .de-sheet.ns { --de-max:1180px; } }
+@container (min-width:1360px) { .de-sheet.ns { --de-max:1400px; } }
+@container (min-width:1700px) { .de-sheet.ns { --de-max:1660px; } }
+@container (min-width:2300px) { .de-sheet.ns { --de-max:1720px; } }
 /* Tetto per formato: con 2 card per riga oltre ~1400 la singola card diventa
    sproporzionata rispetto al resto dell'interfaccia. Il 3 × 4 (3 colonne, card
    piccole) può invece usare tutta la larghezza. */
@@ -3291,32 +3315,9 @@ ${_deCornice()}
 /* 2 × 1: la card è verticale (138 × 180 mm). Tetto ancora più basso, se no una
    sola card è più alta dello schermo. */
 .de-sheet.ns.fmt-2x1 { --de-max:1180px; }
-/* Da 2K in su lo schermo è grande davvero: invece di allargare ancora (righe
-   troppo lunghe da leggere) si INGRANDISCE tutto in proporzione. */
-@container (min-width:1900px) {
-  .de-sheet { --de-zoom:1.12; }
-  .de-sheet.flash, .de-sheet.ns { --de-max:1660px; }
-  .de-sheet.quiz { --de-max:1440px; }
-}
-@container (min-width:2300px) {
-  .de-sheet { --de-zoom:1.28; }
-  .de-sheet.flash, .de-sheet.ns { --de-max:1720px; }
-  .de-sheet.quiz { --de-max:1500px; }
-}
 
-/* ── Sintesi: stessa scala degli altri, ma per un documento di TESTO ────────
-   Allargare la colonna come il quiz darebbe righe da 200 caratteri: illeggibili,
-   e per un allievo con DSA peggio che mai. Quindi la sintesi tiene la misura di
-   stampa (800px = i caratteri per riga del foglio) e cresce in SCALA, come fa la
-   card del foglio nodi: stessa larghezza visiva degli altri editor, stessi
-   caratteri per riga, testo più grande. La larghezza di impaginazione resta
-   800; il numero che cambia è lo zoom, e 800 × zoom sta sempre sotto la
-   larghezza del pannello. */
-@container (min-width:1120px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.3; } }   /* → 1040 */
-@container (min-width:1360px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.6; } }   /* → 1280 */
-@container (min-width:1700px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:1.85; } }  /* → 1480 */
-@container (min-width:1900px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:2; } }     /* → 1600 */
-@container (min-width:2300px) { .de-sheet.synth, .de-sheet.causal { --de-zoom:2.4; } }   /* → 1920 */
+/* (La scala di Sintesi e Catena vive nel token --de-lad qui sopra: era il loro
+   modo di crescere, ed è diventato lo standard di tutti i fogli di testo.) */
 
 /* ── Catena dei perché: stessa resa del documento stampato ───────────────── */
 .de-sheet.causal .de-sheet-head { border-bottom-color:#4f46e5; }

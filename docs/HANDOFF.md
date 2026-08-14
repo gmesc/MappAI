@@ -121,6 +121,26 @@ comunque?»).
 ⚠️ Deroga: un documento aperto **DA** un file del vault (la sintesi) continua a riscrivere
 il suo file salvando — lì il file è la sua casa, non una pubblicazione nuova.
 
+### L'EDITOR — la scala unica (13/8 notte, standard = Sintesi/Catena)
+Prima due modi di occupare il pannello: Sintesi e Catena crescevano IN SCALA
+(zoom a gradini), quiz/aperte/flashcard si ALLARGAVANO a corpo piccolo (colonne
+da 1400px, testo 13px, bande chiare, header minuscoli). Ora **un token solo**,
+`--de-lad` in `mappai-doc-editor.js`: cinque gradini sulla larghezza del
+PANNELLO (container query sul wrap — 1120→1.3 · 1360→1.6 · 1700→1.85 ·
+1900→2 · 2300→2.4). Tutti i fogli di TESTO lo seguono per intero: larghezza di
+impaginazione 800 (i caratteri per riga della stampa) × gradino, stessa
+larghezza visiva, stessi header, ovunque. Le flashcard passano a 2 colonne da
+1120 e 3 da 1700 (tetto 1180 SOLO da 2 colonne in su: a colonna singola stanno
+a 800 come gli altri — misurato). **Eccezione dichiarata: il foglio dei NODI**
+specchia la stampa A4 e i corpi dentro le card vengono dalla geometria (px/mm):
+continua ad allargarsi, e alla scala si aggancia la sola testata.
+Misurato in Electron: sidebar aperta → tutti 800/gradino 1/titolo 20; chiusa →
+tutti 1040/gradino 1.3/titolo 26, flash 1160 a 2 colonne. Lo zoom utente (−/+)
+MOLTIPLICA la scala come prima.
+L'editor **annuncia ogni apertura** (`mappai-doc-aperto`: set, aperte, catena,
+foglio nodi) e la console lo accoglie nella tela anche per i generi
+«dalla mappa» — il primo `openCausal` da fuori console restava invisibile.
+
 ### ELABORA — console
 Sidebar dei progetti → tabelle dei documenti → il documento entra nella **tela**.
 `mappai-elabora-console.js`. La vecchia colonna a sette gruppi è stata **potata il
