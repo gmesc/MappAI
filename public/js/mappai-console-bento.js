@@ -769,6 +769,28 @@
         it.className = 'mn-bric-menu__it' + (v.on ? ' is-on' : '') + (v.nuovo ? ' mn-bric-menu__nuovo' : '');
         it.textContent = v.et;
         it.style.fontSize = fs;
+        /* ⚠️ Una voce BLOCCATA non si toglie dall'elenco: sparire è peggio che
+           essere spenta — chi la cerca crede di aver sbagliato posto. Resta,
+           grigia, non cliccabile, e PORTA IL MOTIVO (nel `title` e nel nome
+           accessibile): un comando spento senza motivo si legge come un difetto
+           dell'app, col motivo si legge come un'attesa. */
+        /* ⚠️ `bloccata` può essere una FUNZIONE, e in questo caso lo è: le voci
+           del menu si costruiscono quando il menu si APRE, non quando la
+           briciola si monta. Con un booleano calcolato al montaggio, una
+           generazione partita dopo non avrebbe spento niente — e il comando
+           avrebbe mentito. */
+        var bloccata = (typeof v.bloccata === 'function') ? !!v.bloccata() : !!v.bloccata;
+        var motivo = (typeof v.motivo === 'function') ? v.motivo() : v.motivo;
+        if (bloccata) {
+            it.disabled = true;
+            it.setAttribute('aria-disabled', 'true');
+            it.classList.add('is-bloccata');
+            if (motivo) {
+                it.title = motivo;
+                it.setAttribute('aria-label', v.et + ' — ' + motivo);
+            }
+            return it;
+        }
         it.addEventListener('click', function (ev) { ev.stopPropagation(); _chiudiPercorso(); if (v.onPick) v.onPick(); });
         return it;
     }
@@ -858,9 +880,21 @@
         var achiScelto = !!(cls || stud || _stickyAchi());
         var livelli = [];
         if (cb.onCosa) {
+            /* ── Che cosa si può fare MENTRE una mappa si genera (14/8) ────────
+               CREA: no — una seconda generazione cambierebbe `appState` sotto i
+               piedi della prima (è il guasto che il lucchetto esiste per
+               chiudere). ELABORA: no — la sua sidebar sceglie il PROGETTO, e
+               sceglierlo CARICA quella mappa in `appState`; e il `db` che
+               leggerebbe è proprio quello che si sta costruendo, cioè una mappa
+               a metà. INSEGNA: SÌ — passa tutta dal DISCO (elenca i vault, apre
+               PDF e HTML nell'iframe, stampa, QR, Finder) e non tocca
+               `appState`; a essere spente là dentro sono le sole quattro azioni
+               che caricano una mappa. */
+            var gen = function () { return !!(window.MappAIGen && window.MappAIGen.attiva()); };
+            var perche = function () { return window.MappAIGen ? window.MappAIGen.motivo() : ''; };
             livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
-                { et: 'Crea', on: sez === 'build', onPick: function () { cb.onCosa('build'); } },
-                { et: 'Elabora', on: sez === 'elabora', onPick: function () { cb.onCosa('elabora'); } },
+                { et: 'Crea', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
+                { et: 'Elabora', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
                 { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }

@@ -214,6 +214,14 @@ html.manifesto #manifesto-rail .man-forma {
     transition: background .15s, transform .1s;
 }
 html.manifesto #manifesto-rail .man-forma:hover { transform: scale(1.07); }
+/* forma CHIUSA mentre una mappa si genera: sbiadita, cursore che dice di no,
+   niente ingrandimento al passaggio (l'invito a premere sarebbe una bugia).
+   Il motivo sta nel `title`, che lo mette il JS. */
+html.manifesto #manifesto-rail .man-forma.is-bloccata {
+    opacity: .4;
+    cursor: not-allowed;
+}
+html.manifesto #manifesto-rail .man-forma.is-bloccata:hover { transform: none; }
 html.manifesto #manifesto-rail .man-forma svg { width: 24px; height: 24px; }
 html.manifesto.manifesto-vuota #manifesto-rail .man-forma { background: var(--man-verde); color: var(--man-su-verde); }
 html.manifesto #manifesto-rail .man-forma.attivo { background: var(--man-viola); color: #fff; }

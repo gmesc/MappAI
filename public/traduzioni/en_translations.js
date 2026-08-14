@@ -233,6 +233,9 @@ const en_translations = {
     loading_processing: "MappAI is processing...",
     lav_in_corso: "Working on: ",
     lav_generico: "MappAI is working",
+    gen_motivo: "Generating: available again as soon as it is ready.",
+    gen_motivo_nome: "Generating “",
+    gen_motivo_fine: "”: available again as soon as it is ready.",
     loading_sources: "Interpreting sources with Gemini",
 
     // Modals - AI Config

@@ -671,6 +671,22 @@ html.manifesto .mn-bric-menu__it {
 html.manifesto .mn-bric-menu__it:hover,
 html.manifesto .mn-bric-menu__it:focus-visible { background: #f1f4f8; }
 html.manifesto .mn-bric-menu__it.is-on { color: var(--man-viola); }
+/* Voce spenta mentre una mappa si genera. ⚠️ Non solo il grigio: il colore da
+   solo è un canale che non tutti leggono, e «spento» e «non scelto» si
+   somiglierebbero. Ci sono anche il lucchetto e il cursore che dice di no —
+   più il motivo nel `title` e nel nome accessibile (lo mette il JS). */
+html.manifesto .mn-bric-menu__it.is-bloccata {
+    color: #a0a0a0;
+    cursor: not-allowed;
+    background: none;
+}
+html.manifesto .mn-bric-menu__it.is-bloccata::after {
+    content: '🔒';
+    margin-left: 8px;
+    font-size: .85em;
+    filter: grayscale(1);
+    opacity: .8;
+}
 
 /* «A chi?»: tre colonne affiancate (Generico · Classi · Allievi) */
 html.manifesto .mn-bric-menu--cols {

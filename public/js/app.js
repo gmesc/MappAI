@@ -1469,6 +1469,16 @@ window.startGeneration = async function () {
 
     window.showLoadingOverlay(true, window.t('lo_init', "Inizializzazione elaborazione ") + (appState.extractionMode === 'mindmap' ? window.t('lo_init_mm', "Mappa Mentale...") : "Knowledge Graph..."), appState.extractionMode === 'mindmap' ? 'mindmap' : 'kg');
 
+    /* ⚠️ IL LUCCHETTO DELLA GENERAZIONE (14/8). `mappaiOccupato()` copriva la
+       PIPELINE dei materiali (`Pipeline._running`), non una generazione MM/KG
+       nuda: finché il velo copriva tutto lo schermo non si notava, ma da quando
+       copre la sola area di CREA si può girare per l'app — e senza un lucchetto
+       vero basta un HOME (`backToLanding` fa `location.reload()`) per uccidere
+       la generazione in silenzio, coi token già spesi.
+       Qui si alza attorno all'estrazione e si abbassa SEMPRE, anche se lancia:
+       un lucchetto che resta su dopo un errore blocca l'app per sempre. */
+    window.MappAIGen.inizia(appState.rootNodeLabel, appState.extractionMode);
+    try {
     if (appState.extractionMode === 'mindmap') {
         // PRE-PASS TRIAGE (gated da mappai_mm_triage_enabled; null se OFF/fallito → zero
         // effetto). Legge la struttura della fonte e stima la profondità-essenziale;
@@ -1497,6 +1507,9 @@ window.startGeneration = async function () {
         } else {
             await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
         }
+    }
+    } finally {
+        window.MappAIGen.fine();
     }
 }
 

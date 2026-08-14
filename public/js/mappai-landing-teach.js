@@ -3365,6 +3365,13 @@
 
   function _consAvvia(m, kind) {
     if (!m) return;
+    /* ⚠️ LE UNICHE QUATTRO AZIONI DI INSEGNA CHE TOCCANO `appState` (14/8):
+       aprire la mappa, ELABORA, Studio attivo, Lavagna — tutte caricano una
+       mappa. Tutto il RESTO di questa console passa dal disco (elenca i vault,
+       apre PDF e HTML nell'iframe, stampa, QR, Finder) e durante una
+       generazione resta usabile: è la ragione per cui il blocco è qui, sulle
+       quattro, e non sulla sezione intera. */
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     _consCarica(m);
     _consQuandoPronta(m, function () {
       if (kind === 'elabora') {

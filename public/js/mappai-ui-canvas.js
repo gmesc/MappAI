@@ -197,6 +197,12 @@ window.switchToMapLayout = function () {
 }
 
 window.backToLanding = function () {
+    /* ⚠️ Qui sotto c'è un `location.reload()`: durante una generazione sarebbe
+       un'uccisione silenziosa, coi token già spesi e niente salvato. È la porta
+       che il lucchetto NON copriva (14/8) — `mappaiOccupato` si chiedeva prima
+       di CARICARE una mappa, e tornare alla landing non carica niente: butta
+       via tutto. */
+    if (window.mappaiOccupato && window.mappaiOccupato()) return;
     // Studio attivo in corso = mappa smontata dall'esercizio (link/livelli
     // alterati): ripristina lo snapshot PRIMA di salvare, altrimenti il reload
     // rende permanente lo stato dell'esercizio e la gerarchia è persa.

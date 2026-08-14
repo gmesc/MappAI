@@ -41,6 +41,16 @@
      d'accesso, e senza una prova torna a rompersi in silenzio. */
   Pipeline._sentinella = { identita: function () { return _identita(); }, controlla: function () { return _controllaIdentita(); } };
   window.mappaiOccupato = function () {
+    /* ⚠️ Anche una generazione MM/KG NUDA occupa l'app (14/8): non passa da
+       `Pipeline._running` (la pipeline è un'altra cosa) e fino a ieri i sedici
+       guardiani sparsi per l'app — apri progetto, apri vault, importa, unisci,
+       tutor, quiz, sintesi, timeline, espandi — non la vedevano. Una riga qui
+       li copre tutti; il motivo lo dice `MappAIGen`, che sa anche COSA sta
+       generando. */
+    if (window.MappAIGen && window.MappAIGen.attiva()) {
+      _toast(window.MappAIGen.motivo(), 'warning');
+      return true;
+    }
     if (!window.MappAIPipeline || !window.MappAIPipeline.occupata()) return false;
     _toast(_t('mp_busy_lock', 'Pipeline occupata, riprova più tardi.'), 'warning');
     return true;

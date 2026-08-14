@@ -131,7 +131,21 @@
             b.setAttribute('aria-label', nome);
             b.title = nome;
             b.innerHTML = '<i data-lucide="' + f.icona + '"></i>';
-            b.addEventListener('click', function () { vaiA(f.modo, 0); });
+            /* ⚠️ Mentre una mappa si genera, CREA ed ELABORA sono chiuse — e il
+               rail è la PORTA DI SERVIZIO della briciola «Cosa»: bloccarne una
+               sola lascerebbe l'altra aperta, e con essa il guasto (una seconda
+               generazione, o un caricamento che cambia `appState` sotto i piedi
+               della prima). INSEGNA resta: passa dal disco.
+               Il controllo è al CLIC, non al montaggio: il rail si costruisce
+               una volta sola e non saprebbe di una generazione partita dopo. */
+            b.addEventListener('click', function () {
+                if ((f.modo === 'build' || f.modo === 'elabora') &&
+                    window.MappAIGen && window.MappAIGen.attiva()) {
+                    if (window.showToast) window.showToast(window.MappAIGen.motivo(), 'warning');
+                    return;
+                }
+                vaiA(f.modo, 0);
+            });
             rail.appendChild(b);
         });
         host.appendChild(rail);
@@ -274,9 +288,17 @@
            dentro INSEGNA il chip è il filtro della colonna e deve restare. */
         document.documentElement.classList.toggle('mn-costruisci', m === 'build');
         var forme = document.querySelectorAll('#manifesto-rail .man-forma');
+        var gen = !!(window.MappAIGen && window.MappAIGen.attiva());
         for (var i = 0; i < forme.length; i++) {
             forme[i].classList.toggle('attivo', forme[i].dataset.modo === m);
             forme[i].setAttribute('aria-current', forme[i].dataset.modo === m ? 'true' : 'false');
+            /* le due chiuse durante una generazione si VEDONO chiuse, col motivo:
+               un comando spento senza motivo si legge come un difetto dell'app */
+            var chiusa = gen && (forme[i].dataset.modo === 'build' || forme[i].dataset.modo === 'elabora');
+            forme[i].classList.toggle('is-bloccata', chiusa);
+            forme[i].setAttribute('aria-disabled', chiusa ? 'true' : 'false');
+            if (chiusa) forme[i].title = window.MappAIGen.motivo();
+            else forme[i].title = forme[i].getAttribute('aria-label') || '';
         }
         if (_bentoApp()) montaCascataLanding();
     }
@@ -350,6 +372,15 @@
     function avvio() {
         if (!attivo()) return;
         document.documentElement.classList.add(CLASSE);
+        /* Una generazione che parte (o finisce) cambia quali forme si possono
+           premere: il rail non se ne accorgerebbe da solo — è disegnato una
+           volta sola e nessuno lo ridipinge. */
+        if (!avvio._gen) {
+            avvio._gen = 1;
+            document.addEventListener('mappai-generazione-cambiata', function () {
+                try { sincronizza(); } catch (e) { }
+            });
+        }
         if (_bentoApp()) {
             document.documentElement.classList.add('mn-bento-app');
             if (!avvio._lig) {
