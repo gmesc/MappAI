@@ -63,6 +63,43 @@ tarato, non abbondante. Suite **1075 pass / 0 fail / 2 skip**.
 
 ---
 
+## 2-bis. La colonna viaggia CON la maniglia (round 2, 14/8)
+
+Rilievo di Giacomo subito dopo: la maniglia scivola, **la colonna spariva di
+colpo**. Era `display:none`, da cui non si torna con un'animazione.
+
+Ora la colonna **tiene la sua larghezza** e se ne va con un margine negativo
+(`margin-left: calc(-1 * var(--mm-console-side))`): così il contenuto **non si
+riflette** mentre esce — il difetto di ogni chiusura fatta stringendo la
+larghezza — e il riquadro la ritaglia (`overflow:hidden` su `.mm-body--console`,
+che non toglie niente: l'area ha già il ritaglio suo). Curva e durata sono le
+STESSE della maniglia (`.28s cubic-bezier(.2,.7,.3,1)`); `visibility` si spegne
+a viaggio finito e si riaccende subito, così la colonna chiusa esce davvero
+dall'ordine di tabulazione senza lampeggiare. Stesso passo per il posto del rail
+(`padding-left` del corpo) e per il rail stesso, che ora se ne va con una
+**classe** (`man-rail--via`) invece che con `display:none`.
+
+**Misurato in volo** (campionamento a ogni fotogramma, chiusura):
+
+| ms | margine colonna | x maniglia |
+|---:|---:|---:|
+| 0 | 0 | 272 |
+| 62 | −106 | 166 |
+| 129 | −220 | 52 |
+| 195 | −258 | 14 |
+| 329 | −272 | 0 |
+
+A ogni fotogramma `|margine| = 272 − x`: i due pezzi si muovono **all'unisono**.
+In apertura la colonna è già `visible` al primo fotogramma (nessun lampeggio).
+
+⚠️ **Come si misura un'animazione da qui**: a finestra in secondo piano non ci
+sono fotogrammi, quindi `getAnimations()` torna VUOTO e `requestAnimationFrame`
+non scatta — un campionamento si pianta e sembra che non ci sia animazione.
+`Page.startScreencast` **costringe il renderer a produrre fotogrammi**: è l'unico
+modo di vedere il movimento vero senza avere la finestra davanti.
+
+---
+
 ## 3. Due trappole pagate strada facendo
 
 1. **La maniglia sembrava non muoversi a colonna chiusa** — misurata ferma a

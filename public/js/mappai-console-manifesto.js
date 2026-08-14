@@ -265,7 +265,13 @@
            lei — la maniglia resta l'unico comando, quindi non si può restare
            senza via d'uscita. */
         var nascosto = !!box && box.classList.contains('is-nav-chiusa');
-        rail.style.display = nascosto ? 'none' : '';
+        /* ⚠️ Il rail se ne va con una CLASSE, non con `display:none`: da lì non
+           si torna con un'animazione, e spariva di colpo mentre la colonna e la
+           maniglia scivolavano (rilievo di Giacomo, 14/8). Il `display` inline
+           si toglie comunque, per non restare ostaggio di uno stato scritto
+           prima che questa regola esistesse. */
+        rail.style.removeProperty('display');
+        rail.classList.toggle('man-rail--via', nascosto);
         if (!box) { rail.style.removeProperty('z-index'); return; }
         var ov = box.closest('.mm-overlay');
         var z = parseInt(ov ? getComputedStyle(ov).zIndex : '', 10);

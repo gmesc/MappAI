@@ -178,6 +178,25 @@ html.manifesto #manifesto-rail {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    /* se ne va con la colonna della console (è navigazione anche lui), quindi
+       viaggia col passo della colonna e della maniglia — vedi `.man-rail--via` */
+    transition: opacity .2s ease, transform .28s cubic-bezier(.2, .7, .3, 1);
+}
+/* Il rail «via» con la colonna chiusa. ⚠️ Non `display:none` come prima: da lì
+   non si torna con un'animazione e il rail spariva di colpo mentre la colonna
+   scivolava. `visibility` si spegne a viaggio finito e si riaccende subito. */
+html.manifesto #manifesto-rail.man-rail--via {
+    opacity: 0;
+    transform: translateX(-24px);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .2s ease,
+                transform .28s cubic-bezier(.2, .7, .3, 1),
+                visibility 0s linear .28s;
+}
+@media (prefers-reduced-motion: reduce) {
+    html.manifesto #manifesto-rail,
+    html.manifesto #manifesto-rail.man-rail--via { transition: none; }
 }
 /* ⚠️ Il rail a riposo prende il grigio neutro di ogni altro bottone
    (#f1f4f8, 4/8). Il cerchio chiaro su fondo bianco si vedrebbe appena, e

@@ -258,6 +258,9 @@ html.manifesto .mm-box--piena.mm-box--console > .mm-head .mm-close { display: no
    `html.man-console` in fondo. */
 html.manifesto .mm-box--piena.mm-box--console > .mm-body--console {
     padding-left: var(--mnc-rail);
+    /* il posto del rail si chiude col MEDESIMO passo della colonna e della
+       maniglia: chiudendo, i tre pezzi sono un movimento solo */
+    transition: padding-left .28s cubic-bezier(.2, .7, .3, 1);
 }
 
 html.manifesto .mm-box--console .mm-console__side {

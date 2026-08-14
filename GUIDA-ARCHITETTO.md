@@ -262,6 +262,9 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
 1. **A pannello nascosto le transizioni CSS restano congelate sul frame di partenza** e
    `getComputedStyle` serve quel colore. **Quando nemmeno uno stile inline `!important` cambia
    la misura, non è la cascata: è la misura.** Spegnere `transition` e rimisurare.
+   E per misurare il MOVIMENTO, non lo stato: senza fotogrammi `getAnimations()` torna vuoto e
+   `requestAnimationFrame` non scatta (un campionamento si pianta e sembra che l'animazione non
+   ci sia). `Page.startScreencast` costringe il renderer a produrre fotogrammi.
 2. **Il pannello browser lavora con `visibilityState: hidden`**: rAF fermo, `setTimeout`
    strozzato a ~1/s, animazioni e ResizeObserver sospesi. Schermate bianche e contatori a zero
    non sono difetti della pagina: si misura il DOM e si dichiara che la verifica visiva non è

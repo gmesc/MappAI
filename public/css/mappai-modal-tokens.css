@@ -1252,6 +1252,11 @@ button.mm-ctx__p:focus-visible {
     border-top: 1px solid var(--mm-bordo);
     position: relative;
     /* riferimento per la maniglia in posizione assoluta */
+    /* ⚠️ E la finestra dentro cui la colonna SCIVOLA: chiudendola, la colonna se
+       ne va a sinistra con un margine negativo (vedi sotto) e senza questo
+       ritaglio uscirebbe dal riquadro. Non toglie niente a nessuno: l'area ha
+       già il ritaglio suo (`overflow:hidden`, o `auto` quando scorre). */
+    overflow: hidden;
 }
 
 .mm-console__side {
@@ -1261,6 +1266,11 @@ button.mm-ctx__p:focus-visible {
     padding: 12px;
     overflow-y: auto;
     scrollbar-width: thin;
+    /* La colonna se ne va e torna con lo STESSO passo della maniglia (curva e
+       durata identiche): il comando e la cosa che comanda sono un movimento
+       solo. Prima la maniglia scivolava e la colonna spariva di colpo. */
+    transition: margin-left .28s cubic-bezier(.2, .7, .3, 1),
+                opacity .2s ease;
 }
 
 .mm-console__area {
@@ -1568,10 +1578,27 @@ button.mm-ctx__p:focus-visible {
    secco di prima. */
 @media (prefers-reduced-motion: reduce) {
     .mm-console__man, .mm-console__man svg { transition: none; animation: none; }
+    /* la colonna sparisce e torna secca, senza viaggio — e senza il ritardo di
+       `visibility`, che senza animazione sarebbe solo un ritardo */
+    .mm-console__side,
+    .mm-box--console.is-nav-chiusa .mm-console__side { transition: none; }
 }
 
+/* ⚠️ NON `display:none`: da lì non si torna con un'animazione, e la colonna
+   spariva di colpo mentre la maniglia scivolava (rilievo di Giacomo, 14/8). La
+   colonna tiene la sua larghezza — quindi il contenuto NON si riflette mentre se
+   ne va, che è il difetto di ogni chiusura fatta stringendo la larghezza — e
+   scivola fuori con un margine negativo. `visibility` si spegne solo ALLA FINE
+   del viaggio (ritardo pari alla durata) e si riaccende subito in apertura: così
+   la colonna chiusa esce davvero dall'ordine di tabulazione, ma non lampeggia. */
 .mm-box--console.is-nav-chiusa .mm-console__side {
-    display: none;
+    margin-left: calc(-1 * var(--mm-console-side));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: margin-left .28s cubic-bezier(.2, .7, .3, 1),
+                opacity .2s ease,
+                visibility 0s linear .28s;
 }
 
 /* chiusa: la maniglia si appoggia al bordo sinistro e la freccia si gira */
