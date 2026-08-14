@@ -451,6 +451,68 @@ html.manifesto .mm-box--console .mm-console__side-sez .mm-btn:focus-visible {
    rispetti i margini → 14/14 simmetrici, counter dentro. */
 html.manifesto .mm-box--console .mm-nav__v { width: auto; }
 
+/* ── I FILTRI in testa alla colonna (14/8) ───────────────────────────────
+   Due righe che dicono su che cosa è fermo l'elenco, e una che dice quanto
+   sta nascondendo. Corpo `--mnc-voce-fs`: stanno SOPRA le voci e non devono
+   pesare più di quelle — il filtro guida, non comanda la schermata. */
+html.manifesto .mm-box--console .mn-filtri {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 var(--mnc-col-pad) 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--mm-bordo);
+}
+html.manifesto .mm-box--console .mn-filtro {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    min-height: 26px;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: var(--mnc-voce-r);
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--mnc-voce-fs);
+}
+html.manifesto .mm-box--console .mn-filtro:hover,
+html.manifesto .mm-box--console .mn-filtro:focus-visible { background: var(--man-card); }
+/* la domanda è il contorno, il valore è il dato: pesa lui */
+html.manifesto .mm-box--console .mn-filtro__k {
+    color: #8a8a8a;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+html.manifesto .mm-box--console .mn-filtro__v {
+    color: var(--man-viola);
+    font-weight: 700;
+    /* un nome lungo («Scienze naturali») si tronca e resta intero nel
+       suggerimento: la colonna è 272px e non si allarga per una parola */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+html.manifesto .mm-box--console .mn-filtri__conto {
+    margin: 4px 8px 0;
+    font-size: 11px;
+    color: #8a8a8a;
+    line-height: 1.25;
+}
+html.manifesto .mm-box--console .mn-filtri__tutte {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+    color: var(--man-viola);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 /* ── il tetto di larghezza del contenuto ────────────────────────────────── */
 /* Vale per OGNI figlio diretto dell'area — riquadri, righe di schede, filtri,
    elenchi, tela — perché il tetto è della COLONNA di lettura, non di un pezzo

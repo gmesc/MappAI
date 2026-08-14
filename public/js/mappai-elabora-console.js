@@ -939,6 +939,7 @@
        aggiornava più).
        `null` = elenco non ancora letto dal disco · `[]` = letto e vuoto. */
     var _mappe = null;
+    var _totali = null;      /* quante mappe ci sono in tutto, filtro a parte */
     /* la mappa che si sta CARICANDO: il caricamento da vault passa dal disco e
        dura, e senza questo la briciola mostrava ancora il nome vecchio mentre la
        console era già tornata al segnaposto (misurato: ~400ms). */
@@ -1813,7 +1814,7 @@
                    `montaPercorso` vuole `{livelli: …}`: passarglielo nudo non
                    dava errore, semplicemente non montava niente e il chip
                    restava — un difetto muto. */
-                var liv = CB.specContesto({
+                var _cbCtx = {
                     /* «Cosa» porta fuori da qui: si chiude la console e la
                        landing resta sulla sezione scelta (stessa strada di INSEGNA) */
                     /* Cambiare sezione dal percorso esce dalla console, e la × è
@@ -1864,7 +1865,8 @@
                     },
                     onMateria: function (mm) { dopo(function () { if (CL.setActiveDiscipline) CL.setActiveDiscipline(mm); }); },
                     onNuovaMateria: function () { }
-                }, 'materia');
+                };
+                var liv = CB.specContesto(_cbCtx, 'materia');
                 /* Il progetto sta DIETRO la rivelazione progressiva, come gli
                    altri livelli: senza destinatario la briciola diceva «Nessun
                    progetto» accanto a «A chi?» — una risposta a una domanda non
@@ -1890,6 +1892,15 @@
                    La quarta briciola col suo menu sarebbe un secondo comando per
                    lo stesso gesto, e due comandi divergono al primo ritocco. */
                 CB.montaPercorso(box, { livelli: liv });
+                /* Le stesse due domande, in testa alla COLONNA: là c'è l'elenco
+                   che filtrano, e là si capisce che si può restringere. Stesse
+                   callback, stesso `specContesto` — un solo stato, due rese. */
+                if (CB.montaFiltriSidebar) {
+                    CB.montaFiltriSidebar(box, _cbCtx, {
+                        visibili: (_mappe || []).length,
+                        totale: (_totali == null ? (_mappe || []).length : _totali)
+                    });
+                }
             } catch (e) { /* senza percorso resta il chip: non è un motivo per fermarsi */ }
         }
 
@@ -1921,6 +1932,12 @@
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
             _inCorso = m;
             _inCorsoV2 = m.id;                         /* la nav v2 marca la scelta */
+            /* ⚠️ SCEGLIERE UN PROGETTO ALLINEA IL FILTRO (Giacomo, 14/8): la
+               classe e la materia sono quelle della sua cartella, lette dal
+               disco. Senza, aprendo liberamente un progetto di un'altra classe
+               la briciola avrebbe continuato a dire il filtro — due verità a
+               schermo, e nessun modo di sapere quale conta. */
+            try { if (window.MappAITeach && MappAITeach.allineaContestoA) MappAITeach.allineaContestoA(m); } catch (e) { }
             rifai();                                   /* segnaposto + «apro…» sulla briciola */
             /* ⚠️ Se nel frattempo il contesto è cambiato (`_inCorso` azzerato da
                `dopo`), questa risposta è di una richiesta abbandonata: si lascia
@@ -1944,6 +1961,10 @@
                 _contestoCambiato = false;     /* ora si sa: decide `mappaCorrente` */
                 rifai();
             }).catch(function () { _mappe = []; _contestoCambiato = false; });
+            /* il TOTALE (filtro a parte) per la riga del conto sotto i filtri:
+               senza, «3 progetti» non distingue un filtro che ne nasconde nove
+               da un archivio con tre mappe */
+            if (T.mappeTotali) T.mappeTotali().then(function (n) { _totali = n; rifai(); }).catch(function () { });
         }
 
         /* Le leve che la v2 passa a `_montaFile` (S2 di un file su disco):

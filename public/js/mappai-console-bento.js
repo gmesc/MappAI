@@ -869,7 +869,14 @@
        DERIVATO dai veri store (sezione attiva · classe/allievo attivi · materia
        attiva) + il flag sticky per «A chi?» → persiste anche passando landing↔console
        e cambiando «Cosa». `livello` non serve più (ignorato). */
+    /* opts.sempre = niente rivelazione progressiva: TUTTI i livelli, anche
+       quelli che l'utente non ha ancora scelto. Serve ai filtri della sidebar
+       (14/8): là le due domande sono la guida — «Classe?» e «Materia?» devono
+       vedersi PRIMA di essere state scelte, o non si capisce che l'elenco si
+       può restringere. Nella briciola in alto la rivelazione resta, che lì è
+       un percorso e non un modulo da compilare. */
     function specContesto(cb, livello) {
+        var opts = (livello && typeof livello === 'object') ? livello : {};
         var CL = window.MappAIClasses || {};
         var cls = (CL.getActive && CL.getActive()) || null;
         var mat = CL.activeDiscipline ? CL.activeDiscipline() : '';
@@ -898,14 +905,14 @@
                 { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }
-        if (!cosaScelto) return livelli;                    // finché «Cosa» non è scelto, si vede solo «Cosa»
+        if (!cosaScelto && !opts.sempre) return livelli;     // finché «Cosa» non è scelto, si vede solo «Cosa»
         var achiLabel = achiScelto ? (stud || (cls && cls.name) || 'Generico') : 'A chi?';
         livelli.push({ et: achiLabel, menu: { tipo: 'colonne', colonne: [
             { h: '', voci: [{ et: 'Generico', on: achiScelto && !cls && !stud, onPick: function () { _setStickyAchi(); cb.onGenerico(); } }] },
             { h: '', voci: _classi().map(function (c) { return { et: c.name, on: !!cls && cls.name === c.name, onPick: function () { _setStickyAchi(); cb.onClasse(c); } }; }) },
             { h: '', voci: _allievi().map(function (p) { return { et: p.nickname + (p.grade ? ' — ' + p.grade : ''), on: !!stud && stud === p.nickname, onPick: function () { _setStickyAchi(); cb.onAllievo(p); } }; }) }
         ] } });
-        if (!achiScelto) return livelli;                    // «Materia» solo dopo aver scelto «A chi?»
+        if (!achiScelto && !opts.sempre) return livelli;     // «Materia» solo dopo aver scelto «A chi?»
         var materie = (cls && CL.disciplineChoices) ? (CL.disciplineChoices(cls) || [])
             : ((window.MappAITeacherProfile && window.MappAITeacherProfile.disciplineList()) || []);
         livelli.push({ et: mat || 'Materia', menu: { tipo: 'lista',
@@ -984,6 +991,98 @@
         testi.classList.add('ha-briciole');
     }
 
+    /* ── I FILTRI IN TESTA ALLA SIDEBAR (14/8) ──────────────────────────────
+       Difetto da cui nasce (Giacomo): aprendo ELABORA la colonna elenca tutti i
+       progetti, e che le briciole in alto siano dei FILTRI non lo si capisce.
+       (La causa vera: all'avvio l'app azzera il contesto apposta, quindi la
+       colonna parte sempre senza filtro e le briciole sembrano inerti.)
+       Qui le due domande scendono DOVE STA L'ELENCO: due righe in testa alla
+       colonna, «Classe?» e «Materia?», col valore scelto e il conto di quanto
+       stanno nascondendo.
+
+       ⚠️ Non è un secondo stato da tenere allineato a quello della briciola in
+       alto: è lo STESSO `specContesto`, montato in due posti. Chiunque dei due
+       scriva, l'altro si ridipinge — due stati «da sincronizzare» divergono al
+       primo ritocco, uno stato solo no.
+
+       `info = {visibili, totale}` → la riga del conto. Senza, un filtro che
+       nasconde nove progetti su dodici è indistinguibile da un archivio vuoto:
+       è la stessa regola del «niente tagli silenziosi». */
+    function montaFiltriSidebar(box, cb, info) {
+        if (!box || !cb) return null;
+        var side = box.querySelector('.mm-console__side');
+        if (!side) return null;
+        var vecchio = side.querySelector('.mn-filtri');
+        if (vecchio) vecchio.remove();
+
+        var livelli = specContesto(cb, { sempre: true });
+        /* il primo livello è «Cosa» (Crea · Elabora · Insegna) e resta in alto:
+           qui servono solo il destinatario e la materia */
+        var utili = livelli.filter(function (lv) { return lv.menu; });
+        if (cb.onCosa) utili = utili.slice(1);
+        if (!utili.length) return null;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'mn-filtri';
+        wrap.setAttribute('role', 'group');
+        wrap.setAttribute('aria-label', 'Filtri dell\'elenco');
+
+        var NOMI = ['Classe?', 'Materia?'];
+        utili.forEach(function (lv, i) {
+            var r = document.createElement('button');
+            r.type = 'button';
+            r.className = 'mn-filtro';
+            r.setAttribute('aria-haspopup', 'true');
+            r.setAttribute('aria-expanded', 'false');
+            /* Due informazioni per riga: che cosa filtra e su che cosa è
+               fermo. Il valore è l'etichetta che `specContesto` già calcola —
+               «A chi?» quando non è stato scelto niente, il nome altrimenti. */
+            /* ⚠️ «Generico» è la parola del CONTESTO (mappe senza classe); qui
+               la riga è un FILTRO, e nessun filtro vuol dire «tutte». Stessa
+               scelta, due nomi, perché rispondono a due domande diverse. */
+            var dom = (lv.et === 'A chi?' || lv.et === 'Materia') ? ''
+                : (lv.et === 'Generico' ? 'Tutte' : lv.et);
+            r.innerHTML = '<span class="mn-filtro__k">' + _escP(NOMI[i] || lv.et) + '</span>' +
+                '<span class="mn-filtro__v">' + _escP(dom || '—') + '</span>';
+            r.title = (NOMI[i] || lv.et) + ' ' + (dom || '');
+            (function (btn, ms) {
+                btn.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    _apriPercorsoMenu(box, btn, ms, '13px');
+                });
+            })(r, lv.menu);
+            wrap.appendChild(r);
+        });
+
+        if (info && info.totale != null) {
+            var c = document.createElement('div');
+            c.className = 'mn-filtri__conto';
+            if (info.visibili === info.totale) {
+                c.textContent = info.totale + (info.totale === 1 ? ' progetto' : ' progetti');
+            } else {
+                c.textContent = info.visibili + ' di ' + info.totale + ' — ';
+                /* ⚠️ La via del ritorno, e non è un di più: scegliere un
+                   progetto ALLINEA il filtro a quel progetto, quindi appena ne
+                   apri uno l'elenco si stringe attorno a lui. Senza un modo di
+                   riaprirlo, per cambiare progetto bisognerebbe indovinare che
+                   la strada è rimettere il filtro su «Generico». */
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'mn-filtri__tutte';
+                b.textContent = 'mostra tutti';
+                b.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    if (cb.onGenerico) cb.onGenerico();
+                });
+                c.appendChild(b);
+            }
+            wrap.appendChild(c);
+        }
+
+        side.insertBefore(wrap, side.firstChild);
+        return wrap;
+    }
+
     return {
         COLONNE: COLONNE, FORME: FORME, AREE: AREE, MAX_TELE: MAX_TELE, POPUP: POPUP,
         ASPETTO_BASE: ASPETTO_BASE, TOKEN_BASE: TOKEN_BASE, OMBRE: OMBRE,
@@ -992,6 +1091,6 @@
         aspettoDi: aspettoDi, variabili: variabili, contrasto: contrasto,
         valida: valida, larghezza: larghezza, firma: firma,
         montaPercorso: montaPercorso, chiudiPercorso: _chiudiPercorso,
-        specContesto: specContesto
+        specContesto: specContesto, montaFiltriSidebar: montaFiltriSidebar
     };
 }));

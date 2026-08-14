@@ -2893,7 +2893,7 @@
       /* la rivelazione progressiva e le etichette-valore le calcola specContesto
          dallo stato (uguale a landing e console). Cambiare il destinatario azzera
          la materia (Giacomo): torna il prompt «Materia». */
-      var livelli = CB.specContesto({
+      var _cbCtx = {
         onCosa: function (m) {
           try {
             if (m === 'teach') return;                 // già in INSEGNA
@@ -2913,7 +2913,8 @@
         onAllievo: function (pp) { reset(function () { if (CL.setActiveStudent) CL.setActiveStudent(pp); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
         onMateria: function (m) { reset(function () { CL.setActiveDiscipline(m); }); },
         onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
-      });
+      };
+      var livelli = CB.specContesto(_cbCtx);
       /* `qui: true` = la briciola del posto in cui si è (corsivo). Qui è statica e
          lo prenderebbe comunque, ma dichiararlo è ciò che la tiene in corsivo se un
          giorno anche INSEGNA le darà una tendina — come ha ELABORA. */
@@ -2923,6 +2924,13 @@
          `testiEl`: le briciole vanno in `.mm-head__testi` della testata, come
          in ELABORA e nella Cabina — un solo meccanismo. */
       CB.montaPercorso(node, { livelli: livelli });
+      /* Le stesse due domande in testa alla COLONNA, dove sta l'elenco che
+         filtrano (14/8). Stesse callback della briciola: un solo stato, due
+         rese — e chi apre INSEGNA vede subito che l'elenco si può restringere. */
+      if (CB.montaFiltriSidebar) {
+        var _tot = _consMappe().length, _vis = _consFiltrate().length;
+        CB.montaFiltriSidebar(node, _cbCtx, { visibili: _vis, totale: _tot });
+      }
     }
     function scegliMappa(id) {
       _cons.voce = id; _cons.mat = null; _cons.materiali = null;
@@ -3529,6 +3537,34 @@
     confirmDeleteText: confirmDeleteText,
     mappeDelContesto: function () {
       return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });
+    },
+    /* Quante ce ne sono in TUTTO, filtro a parte (14/8). Serve alla riga del
+       conto sotto i filtri della sidebar: senza il totale, «3 progetti» non
+       distingue un filtro che ne nasconde nove da un archivio con tre mappe. */
+    mappeTotali: function () {
+      return _consCaricaMappe().then(function (all) { return (all || []).length; });
+    },
+    /* Il contesto di UNA mappa, come lo vede il filtro (classe e materia lette
+       dalla cartella su disco). Esposto perché scegliere un progetto ALLINEA il
+       filtro a quel progetto (decisione di Giacomo, 14/8): senza, la briciola
+       direbbe una classe e a schermo ce ne sarebbe un'altra. */
+    contestoDiMappa: function (m) {
+      var v = _comeLaVedo(m || {});
+      return { cls: v.cls || '', disc: v.disc || '' };
+    },
+    /* Allinea il contesto attivo a quella mappa. La classe si cerca per NOME
+       (la cartella porta il nome, non l'id) e se non è una classe di questo
+       docente si resta su Generico: inventare un id non esistente
+       spegnerebbe la taratura senza dirlo. */
+    allineaContestoA: function (m) {
+      try {
+        var CL = window.MappAIClasses; if (!CL) return;
+        var v = _comeLaVedo(m || {});
+        var c = (CL.list() || []).filter(function (x) { return normName(x.name) === normName(v.cls || ''); })[0] || null;
+        if (CL.activeStudentName && CL.activeStudentName()) return;   /* un allievo attivo comanda: non lo si scavalca */
+        if ((c ? c.id : '') !== CL.activeId()) CL.setActive(c ? c.id : '', { silenzioso: true });
+        if ((v.disc || '') !== CL.activeDiscipline()) CL.setActiveDiscipline(v.disc || '');
+      } catch (e) { }
     },
     mappaCorrente: function (list) {
       return (list || []).filter(function (m) { return _consEccoLa(m); })[0] || null;
