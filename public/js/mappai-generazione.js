@@ -67,7 +67,37 @@
         return k;
     }
 
+    /* ── IL VELO DENTRO L'AREA DI CREA ─────────────────────────────────────
+       Il velo di lavorazione è UNO (`#loading-overlay`, col suo cronometro e i
+       suoi messaggi): non se ne disegna un secondo, lo si SPOSTA dentro l'area
+       di CREA e gli si mette `.in-area` (`position:absolute`). Così quando CREA
+       viene nascosta il velo sparisce con lei — è il contenitore a governarlo,
+       non una riga di codice.
+       L'implementazione stava nella pipeline; da qui la usano anche le
+       generazioni MM/KG nude, che prima lasciavano il velo a tutto schermo. */
+    var _segno = null;
+    function veloNellArea() {
+        var el = document.getElementById('loading-overlay');
+        var area = document.getElementById('build-content');
+        if (!el || !area || _segno) return;
+        _segno = document.createComment(' velo: ora dentro CREA ');
+        el.parentNode.insertBefore(_segno, el);
+        if (getComputedStyle(area).position === 'static') area.style.position = 'relative';
+        area.appendChild(el);
+        el.classList.add('in-area');
+    }
+    function veloACasa() {
+        var el = document.getElementById('loading-overlay');
+        if (!el || !_segno || !_segno.parentNode) { _segno = null; return; }
+        el.classList.remove('in-area');
+        _segno.parentNode.insertBefore(el, _segno);
+        _segno.parentNode.removeChild(_segno);
+        _segno = null;
+    }
+
     var API = {
+        veloNellArea: veloNellArea,
+        veloACasa: veloACasa,
         /* Marca un progetto come APPENA NATO. */
         segnaNuovo: function (info) {
             if (!info) return;
@@ -102,6 +132,10 @@
 
         inizia: function (nome, modo) {
             stato.attiva = true;
+            /* il velo scende nell'area di CREA: la topbar resta viva (lo spinner
+               e le briciole servono proprio mentre si lavora) e gli avvii rapidi
+               qui sotto si spengono col foglio (`html.mappai-genera`) */
+            veloNellArea();
             stato.nome = String(nome || '').trim();
             stato.modo = modo || '';
             stato.da = Date.now();
@@ -109,6 +143,7 @@
         },
         fine: function () {
             stato.attiva = false;
+            veloACasa();
             annuncia();
         },
         attiva: function () { return !!stato.attiva; },

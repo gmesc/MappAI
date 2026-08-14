@@ -1674,6 +1674,14 @@ body:not(.font-dyslexic) #ai-modal-body {
    mette `.in-area`: da qui in poi copre la SOLA area di CREA, la topbar resta
    raggiungibile e passando a ELABORA o INSEGNA il velo se ne va con la sezione
    che lo contiene. Torna `fixed` appena la pipeline lo restituisce al body. */
+/* ⚠️ Mentre una mappa si genera, gli AVVII RAPIDI in fondo a CREA (Nuovo
+   progetto · Apri Vault · Apri JSON) si spengono: restavano visibili SOTTO il
+   velo — che copre la sola area di lavoro — e sono i tre comandi che rimpiazzano
+   il progetto, cioè esattamente quelli che il lucchetto rifiuta. Un bottone che
+   si vede acceso e risponde con un avviso è peggio di un bottone che non c'è.
+   La classe la mette `MappAIGen` su <html>. */
+html.mappai-genera #landing-quick-actions { display: none !important; }
+
 #loading-overlay.in-area {
     position: absolute;
     inset: 0;

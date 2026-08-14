@@ -767,7 +767,12 @@
         it.setAttribute('role', 'menuitemradio');
         it.setAttribute('aria-checked', v.on ? 'true' : 'false');
         it.className = 'mn-bric-menu__it' + (v.on ? ' is-on' : '') + (v.nuovo ? ' mn-bric-menu__nuovo' : '');
-        it.textContent = v.et;
+        /* ⚠️ Icone LUCIDE, mai emoji: è la regola §10 del progetto, e vale anche
+           per il lucchetto di una voce spenta — un glifo di sistema cambia forma
+           e peso da un computer all'altro, e in mezzo a testo Space Mono si vede.
+           Il DOM lo disegna `safeCreateIcons()` dopo l'append del menu. */
+        it.innerHTML = (v.icona ? '<i data-lucide="' + _escP(v.icona) + '" class="mn-bric-menu__i"></i>' : '') +
+            '<span class="mn-bric-menu__et">' + _escP(v.et) + '</span>';
         it.style.fontSize = fs;
         /* ⚠️ Una voce BLOCCATA non si toglie dall'elenco: sparire è peggio che
            essere spenta — chi la cerca crede di aver sbagliato posto. Resta,
@@ -785,6 +790,7 @@
             it.disabled = true;
             it.setAttribute('aria-disabled', 'true');
             it.classList.add('is-bloccata');
+            it.insertAdjacentHTML('beforeend', '<i data-lucide="lock" class="mn-bric-menu__lock"></i>');
             if (motivo) {
                 it.title = motivo;
                 it.setAttribute('aria-label', v.et + ' — ' + motivo);
@@ -817,6 +823,8 @@
            posizione = somma degli offset lungo la catena fino al box */
         var box = trigger.closest('.mm-box--console') || node;
         box.appendChild(menu);
+        /* le icone sono `<i data-lucide>`: senza questa chiamata restano tag vuoti */
+        try { if (window.safeCreateIcons) window.safeCreateIcons(); } catch (e) { }
         var top = 0, left = 0, el = trigger;
         while (el && el !== box) { top += el.offsetTop; left += el.offsetLeft; el = el.offsetParent; }
         menu.style.top = (top + trigger.offsetHeight + 6) + 'px';
@@ -900,9 +908,12 @@
             var gen = function () { return !!(window.MappAIGen && window.MappAIGen.attiva()); };
             var perche = function () { return window.MappAIGen ? window.MappAIGen.motivo() : ''; };
             livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
-                { et: 'Crea', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
-                { et: 'Elabora', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
-                { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
+                /* le icone sono quelle del RAIL delle tre forme (triangolo · esagono ·
+                   cubo): stessa sezione, stessa forma — due glifi diversi per la
+                   stessa cosa sarebbero due cose */
+                { et: 'Crea', icona: 'triangle', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
+                { et: 'Elabora', icona: 'hexagon', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
+                { et: 'Insegna', icona: 'box', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }
         if (!cosaScelto && !opts.sempre) return livelli;     // finché «Cosa» non è scelto, si vede solo «Cosa»

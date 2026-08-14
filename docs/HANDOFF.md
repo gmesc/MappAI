@@ -434,8 +434,13 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    decisione. (d) Lo **spinner in topbar non compare sulla mappa aperta** (là quella barra
    non esiste): una generazione lanciata dalla mappa non ha indicatore. (e) Il **titolo di
    un KG dedotto dal FOCUS vince sul nome del file** — una riga per invertirlo.
-5. **La colonna delle console sborda di 11px in orizzontale.** Misurato il 14/8 ed è
-   PREESISTENTE (identico coi filtri spenti): non è dei filtri nuovi.
+5. ✅ **RISOLTO (14/8 sera): la colonna delle console non sborda più.** Sbordava di 11px
+   (106 col bollino NUOVO, che finiva oltre il bordo). Causa: un `<button>` con
+   `width:auto` **non riempie il suo contenitore** — si stringe sul contenuto, come ogni
+   controllo di modulo — e in un contenitore `block` le voci crescevano quanto il nome più
+   lungo. `.mm-nav__gc` è ora flex-colonna: da flex item la voce si stira alla larghezza
+   del contenitore meno i margini, e l'ellissi del testo torna a funzionare perché la riga
+   ha finalmente una larghezza da rispettare. Misurato: sbordo 0, voci tutte a 232px.
 6. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore

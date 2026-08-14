@@ -1519,6 +1519,19 @@ button.mm-ctx__p:focus-visible {
 /* le voci del gruppo vivono in un contenitore proprio: è quello che si chiude
    (nell'elenco piatto non sono figlie del titolo, quindi non ci sarebbe nulla
    da nascondere) */
+/* ⚠️ FLEX COLONNA, e non è un dettaglio (14/8). Un `<button>` con `width:auto`
+   NON riempie il suo contenitore: si stringe sul contenuto (fit-content), che è
+   il comportamento dei controlli di modulo. In un contenitore `block` le voci
+   crescevano quindi quanto il nome più lungo — la colonna scorreva in
+   orizzontale (misurato: contenuto 366 su 260 visibili) e il bollino «NUOVO»
+   finiva oltre il bordo. Da flex item, `align-items: normal` le stira alla
+   larghezza del contenitore MENO i margini, e l'ellissi del testo torna a
+   funzionare perché la riga ha finalmente una larghezza da rispettare. */
+.mm-nav__gc {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
 .mm-nav__gc.is-chiusa { display: none; }
 
 .mm-console__side-sez {

@@ -228,24 +228,11 @@
      codice che lo sappia: è il contenitore a governarlo. Alla fine torna dove
      stava, come i comandi delle impostazioni AI nella Cabina. */
   var _veloSegno = null;
-  function _veloNellArea() {
-    var el = document.getElementById('loading-overlay');
-    var area = document.getElementById('build-content');
-    if (!el || !area || _veloSegno) return;
-    _veloSegno = document.createComment(' velo: ora dentro CREA ');
-    el.parentNode.insertBefore(_veloSegno, el);
-    if (getComputedStyle(area).position === 'static') area.style.position = 'relative';
-    area.appendChild(el);
-    el.classList.add('in-area');
-  }
-  function _veloACasa() {
-    var el = document.getElementById('loading-overlay');
-    if (!el || !_veloSegno || !_veloSegno.parentNode) { _veloSegno = null; return; }
-    el.classList.remove('in-area');
-    _veloSegno.parentNode.insertBefore(el, _veloSegno);
-    _veloSegno.parentNode.removeChild(_veloSegno);
-    _veloSegno = null;
-  }
+  /* ⚠️ Una sola implementazione, in `mappai-generazione.js`: la usano la
+     pipeline E le generazioni MM/KG nude. Due copie si sarebbero contese lo
+     stesso nodo (`#loading-overlay`) e il suo segnaposto di ritorno. */
+  function _veloNellArea() { if (window.MappAIGen) window.MappAIGen.veloNellArea(); }
+  function _veloACasa() { if (window.MappAIGen) window.MappAIGen.veloACasa(); }
   /* `nome` = che cosa si sta creando, per l'indicatore nella barra in alto
      (`mappai-lavori.js`). Il velo lo dice a modo suo («Genero le domande…»);
      nella barra serve il NOME del materiale, che è quello che si sta

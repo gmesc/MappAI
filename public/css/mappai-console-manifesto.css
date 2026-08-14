@@ -742,11 +742,23 @@ html.manifesto .mn-bric-menu__it.is-bloccata {
     cursor: not-allowed;
     background: none;
 }
-html.manifesto .mn-bric-menu__it.is-bloccata::after {
-    content: '🔒';
-    margin-left: 8px;
-    font-size: .85em;
-    filter: grayscale(1);
+/* le voci del menu sono righe icona + testo (icone Lucide, mai emoji) */
+html.manifesto .mn-bric-menu__it {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+html.manifesto .mn-bric-menu__i {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    opacity: .75;
+}
+html.manifesto .mn-bric-menu__et { flex: 1 1 auto; }
+html.manifesto .mn-bric-menu__lock {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
     opacity: .8;
 }
 
