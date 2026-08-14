@@ -97,52 +97,74 @@ window.showLoadingOverlay = function (show, text, mode = 'default') {
     }
 };
 
+/* Scrive il titolo del progetto nella testata della sidebar. UNA funzione, così
+   il titolo si mostra sempre nello stesso posto e nello stesso modo.
+   ⚠️ Prima la rinomina RICOSTRUIVA il markup del contenitore, con classi e corpo
+   diversi da quelli di `index.html` (10px monospaziati e il prefisso «Progetto:»):
+   dopo una rinomina la testata cambiava aspetto e prendeva un'etichetta che non
+   aveva prima. Qui si scrive il TESTO, non la struttura. */
+window.setSidebarProjectTitle = function (titolo) {
+    const t = String(titolo == null ? '' : titolo).trim() || 'Mappa Senza Nome';
+    const el = document.getElementById('sidebar-subtitle');
+    if (el) el.textContent = t;
+    /* il titolo è tagliato a tre righe: quello intero vive nel suggerimento */
+    const box = document.getElementById('project-title-container');
+    if (box) box.setAttribute('title', t + ' — clicca per rinominarlo');
+};
+
 window.startEditingTitle = function () {
     const currentTitle = appState.rootNodeLabel || 'Mappa Senza Nome';
 
     window.showPrompt("Modifica nome del progetto:", currentTitle, (newTitle) => {
-        if (newTitle && newTitle !== currentTitle) {
-            appState.rootNodeLabel = newTitle;
-
-            // Ripristina/Aggiorna l'HTML del contenitore
-            const container = document.getElementById('project-title-container');
-            if (container) {
-                container.innerHTML = `
-                    <p class="text-slate-500 text-[10px] font-mono uppercase tracking-wider break-words flex-grow" id="sidebar-subtitle" style="line-height: 1.4;">
-                        Progetto: ${appState.rootNodeLabel}</p>
-                    <div class="opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400 p-0.5 mt-0.5 shrink-0 bg-indigo-50 rounded">
-                        <i data-lucide="edit-3" class="w-3 h-3"></i>
-                    </div>
-                `;
-                if (window.safeCreateIcons) window.safeCreateIcons();
-            }
-
-            // Aggiorna il nodo radice se in modalità mappa mentale
-            if (appState.extractionMode === 'mindmap' && appState.db.nodes.length > 0) {
-                const rootNode = appState.db.nodes.find(n => n.id === 'root');
-                if (rootNode) {
-                    rootNode.label = appState.rootNodeLabel;
-                    if (window.updateVisualization) window.updateVisualization();
-                    if (window.renderTreeView) window.renderTreeView();
-                }
-            }
-
-            // Forza il salvataggio del progetto con il nuovo nome nel LocalStorage e nel Vault
-            if (window.StorageManager && typeof window.StorageManager.saveCurrentProject === 'function') {
-                window.StorageManager.saveCurrentProject();
-            }
-
-            window.showToast(window.t('tst_title_saved', "Titolo aggiornato e salvato"), "success");
+        /* Il titolo diventa il nome della cartella del vault: si ripulisce con la
+           STESSA regola della generazione (`mappai-files-core.js`), o da qui si
+           potrebbe rientrare un «Il Clima.pdf» che di là è vietato. */
+        const FC = window.MappAIFilesCore;
+        const pulito = FC && FC.titoloProgetto ? FC.titoloProgetto(newTitle, '') : String(newTitle || '').trim();
+        if (!pulito) {
+            if (newTitle) window.showToast(window.t('tst_root_symbols',
+                "Il nome del nodo centrale non può essere fatto solo di simboli: diventa anche il nome della cartella."), "error");
+            return;
         }
+        if (pulito === currentTitle) return;
+
+        appState.rootNodeLabel = pulito;
+        window.setSidebarProjectTitle(pulito);
+
+        // Aggiorna il nodo radice se in modalità mappa mentale
+        if (appState.extractionMode === 'mindmap' && appState.db.nodes.length > 0) {
+            const rootNode = appState.db.nodes.find(n => n.id === 'root');
+            if (rootNode) {
+                rootNode.label = appState.rootNodeLabel;
+                if (window.updateVisualization) window.updateVisualization();
+                if (window.renderTreeView) window.renderTreeView();
+            }
+        }
+
+        // Forza il salvataggio del progetto con il nuovo nome nel LocalStorage e nel Vault
+        if (window.StorageManager && typeof window.StorageManager.saveCurrentProject === 'function') {
+            window.StorageManager.saveCurrentProject();
+        }
+
+        window.showToast(window.t('tst_title_saved', "Titolo aggiornato e salvato"), "success");
     }, "Inserisci il nuovo nome da assegnare al progetto:");
 };
+
+/* `role="button"` senza tastiera è un bottone finto: Invio e Spazio devono
+   aprire la rinomina come il clic. */
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const box = e.target && e.target.closest && e.target.closest('#project-title-container');
+    if (!box) return;
+    e.preventDefault();
+    window.startEditingTitle();
+});
 
 window.switchToMapLayout = function () {
     document.getElementById('landing-view').style.display = 'none';
     const mapView = document.getElementById('map-view');
     mapView.classList.add('active');
-    const subtitleEl = document.getElementById('sidebar-subtitle');
-    if (subtitleEl) subtitleEl.innerText = `${appState.rootNodeLabel || 'Mappa Senza Nome'}`;
+    window.setSidebarProjectTitle(appState.rootNodeLabel);
 
     // Nascondi la barra dei progetti recenti quando si entra nella mappa
     const projectsBar = document.getElementById('projects-bar');

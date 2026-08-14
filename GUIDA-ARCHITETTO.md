@@ -279,7 +279,10 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
 6. **In `style.css` la cascata non è prevedibile a tavolino** (713 `!important`). Con due
    `!important` decide la specificità e un id batte due classi; le regole in `@layer` perdono
    contro quelle fuori, a prescindere. Dove serve certezza: stile inline con priorità, e dirlo
-   nel commento.
+   nel commento. ⚠️ E il rovescio: un `!important` **inline nel markup** uccide in silenzio la
+   regola del foglio scritta per governare quel valore — il corpo del titolo in sidebar aveva
+   un `font-size:18px !important` inline, e la regola che lo faceva crescere con lo zoom testo
+   (a11y) era morta da chissà quando, senza che nulla lo dicesse.
 7. **Il figlio ha un colore SUO** (`.source_btn_text`, gli `<span>` dei bottoni): il contenitore
    obbedisce e il figlio no. La cura è imporre sull'etichetta, con id + `!important`.
 8. **Uno stacking context annulla lo z-index dei figli**: presente nel DOM, invisibile a

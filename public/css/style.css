@@ -2724,9 +2724,40 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     margin-top: 0 !important;
 }
 
-/* Scalabilità del titolo del progetto in sidebar per modalità a11y zoom x1.5 e x2 */
+/* ── IL TITOLO DEL PROGETTO È LA TESTATA DELLA SIDEBAR (14/8) ─────────────
+   ⚠️ Questa regola era MORTA: il markup portava `font-size:18px !important`
+   INLINE, e un inline con priorità batte anche un `!important` del foglio —
+   quindi il titolo restava a 18px e lo zoom testo (a11y) non lo toccava, che è
+   esattamente ciò per cui la regola esisteva. Tolto l'inline, il corpo vive
+   qui e cresce con `--app-zoom`.
+   Il testo va a capo (un titolo di progetto è una frase, non un'etichetta) ma
+   si ferma a tre righe: oltre, la colonna diventa tutta testata. Il titolo
+   intero resta nel `title` del contenitore. */
 #sidebar-subtitle {
-    font-size: calc(9px * var(--app-zoom, 1)) !important;
+    font-size: calc(18px * var(--app-zoom, 1)) !important;
+    line-height: 1.25;
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: #585858;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#project-title-container:hover #sidebar-subtitle,
+#project-title-container:focus-visible #sidebar-subtitle {
+    color: #4f46e5;
+}
+
+#project-title-container:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+    border-radius: 8px;
 }
 
 #edit-project-title-input {

@@ -80,6 +80,33 @@ test('vaultFolderName: titolo mappa FS-safe, fallback "Mappa"', () => {
   assert.strictEqual(FC.vaultFolderName('Storia: 1848'), 'Storia 1848');
 });
 
+// ── titolo del progetto = nome della cartella del vault (14/8) ──────────
+test('titoloProgetto: via l\'estensione, via i simboli che una cartella non ammette', () => {
+  assert.strictEqual(FC.titoloProgetto('Il Clima.pdf'), 'Il Clima');
+  assert.strictEqual(FC.titoloProgetto('Il Clima.PDF'), 'Il Clima');
+  assert.strictEqual(FC.titoloProgetto('appunti.pdf.pdf'), 'appunti');   // doppia coda
+  assert.strictEqual(FC.titoloProgetto('Storia: 1848/49'), 'Storia 1848 49');
+  assert.strictEqual(FC.titoloProgetto('  spazi  in mezzo  '), 'spazi in mezzo');
+  // un titolo NON è un nome di file: i trattini restano
+  assert.strictEqual(FC.titoloProgetto('Storia 1914-1918'), 'Storia 1914-1918');
+  // un punto che non è un'estensione nota non si tocca
+  assert.strictEqual(FC.titoloProgetto('Guerra 1914. Le cause'), 'Guerra 1914. Le cause');
+  // niente da salvare → il fallback lo sceglie il chiamante
+  assert.strictEqual(FC.titoloProgetto('???', 'Mappa'), 'Mappa');
+  assert.strictEqual(FC.titoloProgetto('', 'Mappa'), 'Mappa');
+  assert.strictEqual(FC.titoloProgetto(null, ''), '');
+});
+
+test('titoloDaFile: estensione via SEMPRE, separatori del file → spazi', () => {
+  assert.strictEqual(FC.titoloDaFile('Il Clima.pdf'), 'Il Clima');
+  assert.strictEqual(FC.titoloDaFile('storia_del_papiro.docx'), 'storia del papiro');
+  assert.strictEqual(FC.titoloDaFile('scheda-4R-clima.PDF'), 'scheda 4R clima');
+  assert.strictEqual(FC.titoloDaFile('lezione.xyz'), 'lezione');        // estensione non nota
+  assert.strictEqual(FC.titoloDaFile('Guerra 1914. Le cause.pdf'), 'Guerra 1914. Le cause');
+  assert.strictEqual(FC.titoloDaFile('note:2/3.txt'), 'note 2 3');      // simboli fuori
+  assert.strictEqual(FC.titoloDaFile('', 'Mappa'), 'Mappa');
+});
+
 // ── sanitizeVaultRelPath (011) ──────────────────────────────────────────
 test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', () => {
   assert.strictEqual(FC.sanitizeVaultRelPath('pipeline.json'), 'pipeline.json');

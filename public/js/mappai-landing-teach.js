@@ -3478,7 +3478,10 @@
     } catch (e) { return; }                                   /* senza sessionStorage non si azzera a ogni render */
     var CL = window.MappAIClasses;
     try { if (CL && CL.setActiveDiscipline) CL.setActiveDiscipline(''); } catch (e) { }
-    try { if (CL && CL.setActive) CL.setActive(''); } catch (e) { }
+    /* ⚠️ Silenzioso: è l'app che si azzera all'avvio, non l'utente che sceglie —
+       e l'avviso «Nessuna classe attiva» accoglieva con un cartello su un gesto
+       che nessuno aveva fatto (rilievo di Giacomo, 14/8). */
+    try { if (CL && CL.setActive) CL.setActive('', { silenzioso: true }); } catch (e) { }
     try { if (CL && CL.setActiveStudent) CL.setActiveStudent(null); } catch (e) { }
     try { localStorage.removeItem('mappai_bento_achi'); } catch (e) { }
   }

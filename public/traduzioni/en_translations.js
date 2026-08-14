@@ -1279,6 +1279,7 @@ const en_translations = {
     tst_multipass_off: "Multi-Pass Generation DISABLED",
     tst_need_api_key: "Enter an AI API Key to continue.",
     tst_need_root: "Enter the central node name for the map.",
+    tst_root_symbols: "The central node name cannot be only symbols: it also becomes the folder name.",
     tst_url_error: "URL loading error: ",
     tst_pdf_extract_error: "PDF extraction error: ",
     tst_pdf_error: "PDF error: ",

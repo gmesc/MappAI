@@ -1168,28 +1168,23 @@
             <div id="sidebar-resizer" class="hidden md:block" title="Trascina per ridimensionare"
                 style="position:absolute;top:0;right:0;bottom:0;width:6px;cursor:col-resize;z-index:40"></div>
             <!-- Header -->
-            <div class="p-4 pl-4bg-white border-b border-indigo-200/60 shadow-sm flex flex-col gap-2 shrink-0">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-3xl font-bold text-slate-800 flex items-center gap-2 tracking-tight">
-                            <img src="MappAI_icon.png" class="w-10 h-10 object-contain rounded-lg" alt="MappAI Icon">
-                            MappAI
-                        </h1>
-                        <div id="project-title-container"
-                            class="group flex items-center justify-between items-start gap-2 cursor-pointer"
-                            onclick="window.startEditingTitle()">
-                            <p class="text-slate-700 text-xl font-bold uppercase tracking-wider break-words flex-grow"
-                                id="sidebar-subtitle"
-                                style="margin-top: 4px; margin-left: 4px; line-height: 1.8em; font-size: 18px !important; color: rgb(88, 88, 88) !important;">
-                                Mappa Senza Nome</p>
-                            <div
-                                class="opacity-30 group-hover:opacity-100 transition-opacity text-slate-400 p-0.5 mt-0.5 shrink-0 rounded">
-                                <i data-lucide="edit-3" class="w-4 h-4"></i>
-                            </div>
-                        </div>
+            <!-- Testata della sidebar (14/8): il marchio MappAI è VIA — dentro
+                 l'app si sa in che app si è, e quel logo con la parola «MappAI»
+                 era la cosa più grande della colonna mentre il nome del progetto,
+                 che è l'unica informazione che cambia, stava sotto in piccolo.
+                 Ora il titolo del progetto È la testata: si clicca per
+                 rinominarlo (la matita compare al passaggio, ma il bersaglio è
+                 tutta la riga) e si raggiunge da tastiera. -->
+            <div class="p-4 border-b border-indigo-200/60 shadow-sm flex flex-col gap-2 shrink-0">
+                <div id="project-title-container"
+                    class="group flex items-start justify-between gap-2 cursor-pointer"
+                    onclick="window.startEditingTitle()" role="button" tabindex="0"
+                    title="Nome del progetto — clicca per rinominarlo">
+                    <h1 id="sidebar-subtitle">Mappa Senza Nome</h1>
+                    <div
+                        class="opacity-30 group-hover:opacity-100 transition-opacity text-slate-400 p-0.5 mt-0.5 shrink-0 rounded">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
                     </div>
-
-
                 </div>
             </div>
 

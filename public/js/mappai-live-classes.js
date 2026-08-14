@@ -71,13 +71,20 @@
   STORE.getActive = function () { var id = STORE.activeId(); return id ? STORE.get(id) : null; };
   // Azzera la classe attiva senza toast/eventi (usato dall'esclusione mutua con lo studente)
   STORE._clearActiveClassSilent = function () { try { localStorage.removeItem(ACTIVE_KEY); } catch (e) {} };
-  STORE.setActive = function (id) {
+  /* `opts.silenzioso` = cambia il contesto SENZA dirlo. L'avviso è la risposta a
+     un GESTO («ho scelto Generico»): all'avvio, dove il contesto si azzera da sé
+     (`_contestoVuotoAlLancio`), diventa un cartello che nessuno ha chiesto e che
+     accoglie l'utente con una cosa che non ha fatto. Chip ed evento restano:
+     quelli dicono lo stato, e lo stato è cambiato davvero. */
+  STORE.setActive = function (id, opts) {
     try { if (id) localStorage.setItem(ACTIVE_KEY, id); else localStorage.removeItem(ACTIVE_KEY); } catch (e) {}
     // esclusione mutua: attivare una classe azzera lo studente attivo (nessun accoppiamento)
     if (id && typeof _setActiveStudent === 'function') _setActiveStudent(null);
     renderChip();
     var c = id ? STORE.get(id) : null;
-    if (c) toast(t('cls_active_set', 'Classe attiva: ') + c.name + ' — ' + t('cls_active_note', 'i contenuti AI saranno tarati su questa classe'), 'success');
+    var muto = !!(opts && opts.silenzioso);
+    if (muto) { /* niente avviso */ }
+    else if (c) toast(t('cls_active_set', 'Classe attiva: ') + c.name + ' — ' + t('cls_active_note', 'i contenuti AI saranno tarati su questa classe'), 'success');
     else toast(t('cls_active_none', 'Nessuna classe attiva: contenuti AI generici'), 'info');
     // notifica altri moduli (es. Live setup) che la classe attiva è cambiata
     try { document.dispatchEvent(new CustomEvent('mappai-active-class-changed', { detail: { id: id || '' } })); } catch (e) {}

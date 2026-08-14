@@ -105,6 +105,19 @@ tarato una classe l'ha già deciso una volta), e i master `mp-quiz-on`/`mp-ns-on
 sparisce e la pipeline usa il default. Ogni voce dichiara `seFuori`, cioè *quanto costa*
 non averla.
 
+**Il titolo del progetto è anche il nome della cartella** (14/8). `vaultFolderName` lo
+prende di lì, quindi la ripulitura è UNA e sta in `mappai-files-core.js`
+(`titoloProgetto` · `titoloDaFile`, pure e provate): via l'estensione (da un PDF nasceva
+un progetto «Il Clima.pdf», con la cartella chiamata così) e via i simboli che una
+cartella non ammette. Vale per il titolo **dedotto** e per quello **scritto a mano** — sia
+alla generazione sia alla rinomina dalla sidebar. Sulla MindMap resta il ROOT che scrive
+il docente, e un nome fatto di soli simboli si contesta invece di sostituirlo d'ufficio;
+sul KG, senza titolo e senza focus, si deduce dal nome del primo file.
+**La testata della sidebar è il titolo del progetto** (marchio e logo via: dentro l'app si
+sa in che app si è). Si scrive da un posto solo, `window.setSidebarProjectTitle`: prima la
+rinomina RICOSTRUIVA il markup con classi e corpo diversi da quelli di `index.html`, e
+dopo una rinomina la testata cambiava aspetto e prendeva il prefisso «Progetto:».
+
 ### L'EDITOR dei documenti — tre gesti, non uno
 Salvare non è pubblicare (13/8, modello di Giacomo):
 

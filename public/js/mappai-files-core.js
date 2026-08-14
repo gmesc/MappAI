@@ -92,6 +92,45 @@
     return safeName(rootLabel, 'Mappa');
   }
 
+  /* ── IL TITOLO DEL PROGETTO (14/8) ────────────────────────────────────────
+     Il titolo del progetto E il nome della cartella del vault sono LA STESSA
+     COSA (`vaultFolderName` lo prende di lì): quindi il titolo non può contenere
+     ciò che una cartella non ammette. Prima la ripulitura viveva sparsa — un
+     `replace` nel ramo KG di `startGeneration`, `safeName` al momento di scrivere
+     su disco — e chi scriveva il titolo a mano ne restava fuori: da un PDF
+     nasceva un progetto «Il Clima.pdf», e la cartella si chiamava così.
+     Qui la regola è una sola, pura e provata.
+
+     `titoloDaFile` = dal NOME DI UN FILE: toglie l'estensione e rende i
+     separatori dei file (trattino basso, trattino) spazi, perché in un nome di
+     file stanno al posto degli spazi. `titoloProgetto` = da un titolo QUALUNQUE
+     (scritto a mano o dedotto): toglie una coda che è chiaramente un'estensione
+     e sanifica per il filesystem, ma NON tocca i trattini — «Storia 1914-1918»
+     è un titolo, non un nome di file. */
+  var ESTENSIONI = [
+    'pdf', 'doc', 'docx', 'odt', 'rtf', 'txt', 'md', 'csv', 'tsv', 'epub',
+    'ppt', 'pptx', 'xls', 'xlsx', 'json', 'html', 'htm', 'xml',
+    'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'mp4', 'mov', 'webm', 'mkv', 'avi',
+    'png', 'jpg', 'jpeg', 'webp', 'gif'
+  ];
+  var RE_EST = new RegExp('\\.(' + ESTENSIONI.join('|') + ')\\s*$', 'i');
+
+  function titoloProgetto(raw, fallback) {
+    var s = String(raw == null ? '' : raw).trim();
+    /* Due giri: «appunti.pdf.pdf» capita, e una coda sola lascerebbe l'altra. */
+    for (var i = 0; i < 2 && RE_EST.test(s); i++) s = s.replace(RE_EST, '').trim();
+    return safeName(s, fallback == null ? '' : fallback);
+  }
+
+  function titoloDaFile(fileName, fallback) {
+    var s = String(fileName == null ? '' : fileName).trim();
+    /* qui l'estensione si toglie SEMPRE, anche se non è fra quelle note: è un
+       nome di file, l'ultimo punto è l'estensione per definizione */
+    s = s.replace(/\.[^/.\s]{1,8}\s*$/, '');
+    s = s.replace(/[_-]+/g, ' ');
+    return titoloProgetto(s, fallback);
+  }
+
   // Segmento DISCIPLINA dentro il contenitore di classe (29/7). '' = nessun
   // livello disciplina → il vault resta figlio diretto della classe (comportamento
   // storico, mai rotto per le classi senza discipline assegnate).
@@ -308,6 +347,8 @@
     classFolder: classFolder,
     mapClassFolder: mapClassFolder,
     vaultFolderName: vaultFolderName,
+    titoloProgetto: titoloProgetto,
+    titoloDaFile: titoloDaFile,
     disciplineFolder: disciplineFolder,
     mapVaultParents: mapVaultParents,
     mapVaultRoot: mapVaultRoot,

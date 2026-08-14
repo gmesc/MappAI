@@ -1233,11 +1233,35 @@ window.startGeneration = async function () {
             // Ultimo fallback: nome del primo file caricato
             const firstSrc = appState.sources && appState.sources[0];
             if (firstSrc && firstSrc.file && firstSrc.file.name) {
-                rootName = firstSrc.file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+                rootName = window.MappAIFilesCore
+                    ? window.MappAIFilesCore.titoloDaFile(firstSrc.file.name, '')
+                    : firstSrc.file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
             } else {
                 rootName = '';
             }
         }
+    }
+
+    /* ── IL TITOLO È ANCHE IL NOME DELLA CARTELLA (14/8) ──────────────────
+       `vaultFolderName` costruisce la cartella del vault dal titolo, quindi il
+       titolo non può portare ciò che una cartella non ammette — e da un PDF
+       nasceva un progetto «Il Clima.pdf», con la cartella chiamata così. La
+       ripulitura vale per ENTRAMBE le modalità e anche per il titolo SCRITTO A
+       MANO: chi incolla il nome del file nel campo non deve pagare un prezzo
+       diverso da chi lo lascia dedurre. La regola sta in `mappai-files-core.js`
+       (pura, provata), non qui.
+       ⚠️ Sulla MindMap un titolo che si svuota ripulendosi (tutto simboli) NON
+       si sostituisce d'ufficio: il nodo centrale è la cosa che il docente ha
+       scritto, e chiamarlo «Mappa» al posto suo sarebbe deciderlo per lui. */
+    const FCt = window.MappAIFilesCore;
+    if (FCt && FCt.titoloProgetto) {
+        const pulito = FCt.titoloProgetto(rootName, '');
+        if (appState.extractionMode === 'mindmap' && rootName && !pulito) {
+            window.showToast(window.t('tst_root_symbols',
+                "Il nome del nodo centrale non può essere fatto solo di simboli: diventa anche il nome della cartella."), "error");
+            return;
+        }
+        rootName = pulito || (appState.extractionMode === 'mindmap' ? rootName : '');
     }
 
     appState.rootNodeLabel = rootName;

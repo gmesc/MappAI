@@ -243,7 +243,19 @@ html.manifesto #landing-hero-row { justify-content: center; }
    dal top della riga con margin 0; il termine 40vh tiene il centro al 40% al variare
    dell'altezza. Solo sulla prima pagina vuota (nelle modalità il logo sparisce). */
 html.manifesto.manifesto-vuota #landing-hero-row { margin-top: calc(40vh - 99px) !important; }
-html.manifesto #landing-brand img { width: 150px; height: 150px; padding-top: 0; }
+html.manifesto #landing-brand img {
+    width: 150px; height: 150px; padding-top: 0;
+    /* ⚠️ I due riquadri erano già centrati al pixel (scarto 0): a essere fuori
+       centro è l'INCHIOSTRO. La parola «MappAI» scende sotto la linea di base
+       con le due «p», quindi il suo centro visivo sta più in basso del centro
+       del riquadro — misurato col disegno vero del testo (ascendente 70,
+       discendente 20): centro dell'inchiostro a 320, centro del logo a 307.
+       Il logo scende di quei 13px. `transform` e non `margin`: in una riga
+       centrata un margine si spartisce fra i due lati e ne varrebbe metà, e
+       l'ingombro della riga non deve cambiare (i 13px cadono nel `padding-bottom`
+       che la riga ha già). */
+    transform: translateY(13px);
+}
 html.manifesto:not(.manifesto-vuota) #landing-brand { display: none; }
 html.manifesto:not(.manifesto-vuota) .glass-card { margin-top: 60px; }
 /* CREA centrato verticalmente (Giacomo, 8/8) — CSS puro, niente misure in JS.
