@@ -1102,35 +1102,57 @@
   //   null                                → il docente ha annullato
   // Chiede SOLO quando serve davvero: classe attiva con 2+ discipline. Una sola
   // disciplina (o nessuna) → nessun modale, esattamente come prima.
+  /* ⚠️ SI CHIEDE SEMPRE (14/8, decisione di Giacomo). Prima si chiedeva solo
+     quando la classe attiva insegnava 2+ materie e nessuna era già scelta: nel
+     caso normale la generazione partiva su un contesto DEDOTTO — e quel
+     contesto tara l'AI e decide in quale cartella finisce la mappa. Da oggi il
+     contesto della generazione è una scelta ESPLICITA, fatta una volta e poi
+     congelata (`MappAITune.congela`) per tutta la lavorazione.
+     Il modale arriva già compilato col contesto attivo: nel caso normale è un
+     clic su «Genera», non un questionario.
+     «Generico» resta una risposta valida, e deve: al primo avvio non esistono
+     classi, e senza quella via d'uscita l'app non genererebbe finché non se ne
+     crea una.
+     Kill-switch `mappai_gen_ctx_sempre='0'` → si torna a chiedere solo quando
+     serve (comportamento storico). */
   STORE.ensureGenerationContext = function () {
     var ready = STORE.loaded ? Promise.resolve() : STORE.load();
     return ready.then(function () {
       var cls = STORE.getActive();
-      var choices = cls ? STORE.disciplineChoices(cls) : [];
       var ctx = function (c, d) {
         return { classId: (c && c.id) || '', className: (c && c.name) || '', discipline: d || '' };
       };
-      if (!cls) return ctx(null, '');
-      if (choices.length <= 1) {
-        var only = choices[0] || '';
-        if (only !== STORE.activeDiscipline()) STORE.setActiveDiscipline(only);
-        return ctx(cls, only);
+      var sempre = true;
+      try { sempre = localStorage.getItem('mappai_gen_ctx_sempre') !== '0'; } catch (e) { }
+      /* ⚠️ Non durante la PIPELINE. Lo step A chiama `startGeneration` da
+         dentro, e il destinatario la pipeline l'ha già chiesto nella sua
+         configurazione (`mp-class`): un secondo modale in mezzo a un flusso
+         automatico chiederebbe due volte la stessa cosa — e nel migliore dei
+         casi resterebbe lì ad aspettare una risposta che nessuno sta guardando. */
+      try { if (window.MappAIPipeline && window.MappAIPipeline._interno) sempre = false; } catch (e) { }
+
+      if (!sempre) {
+        var choices0 = cls ? STORE.disciplineChoices(cls) : [];
+        if (!cls) return ctx(null, '');
+        if (choices0.length <= 1) {
+          var only = choices0[0] || '';
+          if (only !== STORE.activeDiscipline()) STORE.setActiveDiscipline(only);
+          return ctx(cls, only);
+        }
+        var att0 = STORE.activeDiscipline();
+        if (att0 && choices0.indexOf(att0) >= 0) return ctx(cls, att0);
       }
-      /* La materia è GIÀ dichiarata? Allora non si chiede. Il box giallo del bento
-         («Chi:» / «Cosa:») e il chip dell'header la scrivono in
-         `mappai_active_discipline`: richiederla qui vorrebbe dire che quella
-         scelta, appena fatta e visibile a schermo, non conta.
-         Si chiede solo quando la materia memorizzata NON è fra quelle che la
-         classe insegna — cioè quando davvero non è stata decisa per questa
-         classe. È anche la difesa di sostanza contro il blocco del 4/8: se non
-         c'è niente da chiedere, non c'è un modale che possa restare appeso. */
-      var att = STORE.activeDiscipline();
-      if (att && choices.indexOf(att) >= 0) return ctx(cls, att);
-      return _askGenerationContext(cls, choices).then(function (res) {
-        if (!res) return null;
-        if (res.classId !== STORE.activeId()) STORE.setActive(res.classId);
+
+      return _askGenerationContext(cls).then(function (res) {
+        if (!res) return null;                                  // annullato: niente generazione
+        /* Con un ALLIEVO attivo il contesto è lui, e la mappa va nella SUA
+           cartella: scegliere una classe lo azzererebbe (esclusione mutua) e
+           la destinazione cambierebbe senza che nessuno l'abbia chiesto.
+           `res.allievo` = «lascia le cose come stanno». */
+        if (!res.allievo && res.classId !== STORE.activeId()) STORE.setActive(res.classId);
         STORE.setActiveDiscipline(res.discipline);
-        return ctx(STORE.get(res.classId) || cls, res.discipline);
+        var c2 = res.allievo ? null : (STORE.get(res.classId) || null);
+        return ctx(c2, res.discipline);
       });
     });
   };
@@ -1138,23 +1160,47 @@
   // Modale «Per quale classe e disciplina?». Le due tendine sono legate: cambiando
   // classe si ricaricano le sue discipline (mai una disciplina che quella classe
   // non insegna).
-  function _askGenerationContext(cls, choices) {
+  /* Le materie proponibili per un destinatario: quelle della CLASSE se c'è
+     (una classe insegna le sue), altrimenti quelle dichiarate nel profilo
+     insegnante — che è l'unico elenco che esiste per «Generico» e per un
+     allievo. Una fonte sola per entrambi i casi. */
+  function _materiePer(c) {
+    if (c) return STORE.disciplineChoices(c) || [];
+    try {
+      return (window.MappAITeacherProfile && window.MappAITeacherProfile.disciplineList
+        ? window.MappAITeacherProfile.disciplineList() : []) || [];
+    } catch (e) { return []; }
+  }
+
+  function _askGenerationContext(cls) {
     return new Promise(function (resolve) {
       var sel = function (id, label, optsHtml) {
         return '<label style="display:block;margin-bottom:12px">' + labelSpan(label) +
           '<select id="' + id + '" style="' + FLD + '">' + optsHtml + '</select></label>';
       };
-      var classOpts = STORE.list().map(function (c) {
-        return '<option value="' + c.id + '"' + (c.id === cls.id ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+      var nick = _activeNick();
+      var scelto = nick ? 'stud:' : ((cls && cls.id) || '');
+      /* Tre famiglie nello stesso elenco, ed è giusto che siano lì: sono le tre
+         risposte possibili alla domanda «per chi è questa mappa». */
+      var classOpts = '';
+      if (nick) classOpts += '<option value="stud:" selected>' +
+        esc(t('cls_gen_stud', 'Allievo: ') + nick) + '</option>';
+      classOpts += '<option value=""' + (scelto === '' ? ' selected' : '') + '>' +
+        esc(t('cls_gen_generico', 'Generico (nessuna classe)')) + '</option>';
+      classOpts += STORE.list().map(function (c) {
+        return '<option value="' + c.id + '"' + (c.id === scelto ? ' selected' : '') + '>' + esc(c.name) + '</option>';
       }).join('');
       var last = STORE.activeDiscipline();
-      var discOpts = choices.map(function (d) {
+      var choices = _materiePer(nick ? null : cls);
+      var nessuna = '<option value=""' + (last ? '' : ' selected') + '>' +
+        esc(t('cls_gen_nodisc', '— nessuna materia —')) + '</option>';
+      var discOpts = nessuna + choices.map(function (d) {
         return '<option value="' + esc(d) + '"' + (d === last ? ' selected' : '') + '>' + esc(d) + '</option>';
       }).join('');
-      var body = '<div style="font-weight:800;font-size:15px;color:#0f172a;margin-bottom:6px">' + esc(t('cls_gen_title', 'Per quale classe e disciplina?')) + '</div>' +
-        '<div style="font-size:12px;color:#64748b;margin-bottom:14px">' + esc(t('cls_gen_hint', 'La mappa viene tarata su questa classe e salvata nella cartella della disciplina scelta.')) + '</div>' +
-        sel('gen-class', t('cls_gen_class', 'Classe'), classOpts) +
-        sel('gen-disc', t('cls_gen_disc', 'Disciplina'), discOpts) +
+      var body = '<div style="font-weight:800;font-size:15px;color:#0f172a;margin-bottom:6px">' + esc(t('cls_gen_title2', 'Per chi è questa mappa?')) + '</div>' +
+        '<div style="font-size:12px;color:#64748b;margin-bottom:14px">' + esc(t('cls_gen_hint2', 'Questa scelta tara il linguaggio dell\'AI e decide in quale cartella finisce la mappa. Resta ferma per tutta la generazione.')) + '</div>' +
+        sel('gen-class', t('cls_gen_dest', 'Destinatario'), classOpts) +
+        sel('gen-disc', t('cls_gen_mat', 'Materia'), discOpts) +
         '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">' +
         btn(t('cls_cancel', 'Annulla'), GHOST).replace('<button', '<button data-gcancel="1"') +
         btn(t('cls_gen_go', 'Genera'), PRIMARY).replace('<button', '<button data-gok="1"') + '</div>';
@@ -1166,16 +1212,22 @@
       ov.addEventListener('click', function (e) { if (e.target === ov) finish(null); });
       var x = ov.querySelector('.cls-close'); if (x) x.onclick = function () { finish(null); };
       var cSel = ov.querySelector('#gen-class'), dSel = ov.querySelector('#gen-disc');
+      /* le due tendine restano legate: cambiando destinatario si ricaricano le
+         SUE materie — mai una materia che quella classe non insegna */
       cSel.onchange = function () {
-        var c2 = STORE.get(cSel.value);
-        var ch2 = STORE.disciplineChoices(c2);
-        dSel.innerHTML = ch2.length
-          ? ch2.map(function (d) { return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('')
-          : '<option value="">' + esc(t('cls_gen_nodisc', '— nessuna disciplina —')) + '</option>';
+        var v = cSel.value;
+        var c2 = (v && v !== 'stud:') ? STORE.get(v) : null;
+        var ch2 = _materiePer(c2);
+        dSel.innerHTML = '<option value="">' + esc(t('cls_gen_nodisc', '— nessuna materia —')) + '</option>' +
+          ch2.map(function (d) { return '<option value="' + esc(d) + '">' + esc(d) + '</option>'; }).join('');
+      };
+      var esito = function () {
+        var v = cSel.value;
+        return { classId: (v === 'stud:') ? '' : v, allievo: v === 'stud:', discipline: dSel.value || '' };
       };
       ov.querySelector('[data-gcancel]').onclick = function () { finish(null); };
-      ov.querySelector('[data-gok]').onclick = function () { finish({ classId: cSel.value, discipline: dSel.value || '' }); };
-      _onEnter = function () { finish({ classId: cSel.value, discipline: dSel.value || '' }); };
+      ov.querySelector('[data-gok]').onclick = function () { finish(esito()); };
+      _onEnter = function () { finish(esito()); };
     });
   }
 
