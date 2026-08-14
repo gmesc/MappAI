@@ -908,12 +908,15 @@
             var gen = function () { return !!(window.MappAIGen && window.MappAIGen.attiva()); };
             var perche = function () { return window.MappAIGen ? window.MappAIGen.motivo() : ''; };
             livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
-                /* le icone sono quelle del RAIL delle tre forme (triangolo · esagono ·
-                   cubo): stessa sezione, stessa forma — due glifi diversi per la
-                   stessa cosa sarebbero due cose */
-                { et: 'Crea', icona: 'triangle', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
-                { et: 'Elabora', icona: 'hexagon', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
-                { et: 'Insegna', icona: 'box', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
+                /* ⚠️ Le icone sono quelle che l'app usa GIÀ per le tre sezioni —
+                   la barra delle modalità in `index.html` (`wrench` · `sparkles` ·
+                   `presentation`). Il primo giro aveva preso triangolo · esagono ·
+                   cubo, cioè le forme del RAIL: una UI abbandonata. Un glifo che
+                   viene da un pezzo morto porta con sé un'identità che non
+                   esiste più, e chi la riconosce cerca una cosa che non c'è. */
+                { et: 'Crea', icona: 'wrench', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
+                { et: 'Elabora', icona: 'sparkles', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
+                { et: 'Insegna', icona: 'presentation', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }
         if (!cosaScelto && !opts.sempre) return livelli;     // finché «Cosa» non è scelto, si vede solo «Cosa»
