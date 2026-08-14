@@ -516,8 +516,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
         window.showLoadingOverlay(false);
-        window.switchToMapLayout();
-        setTimeout(() => { initD3Visualization(); }, 200);
+        /* «pronta» e non «passa al canvas»: se il docente si è spostato in una
+           console mentre generavamo, la mappa non gli strappa la schermata —
+           avvisa, e il progetto resta marcato NUOVO negli elenchi. Il grafo si
+           disegna solo se il canvas si vede davvero. */
+        if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
 
         // Show Generation Report
         setTimeout(() => { window.showGenerationReport(); }, 1500);
@@ -1218,8 +1221,11 @@ ${textParts.join('\n\n')}`;
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
 
         window.showLoadingOverlay(false);
-        window.switchToMapLayout();
-        setTimeout(() => { initD3Visualization(); }, 200);
+        /* «pronta» e non «passa al canvas»: se il docente si è spostato in una
+           console mentre generavamo, la mappa non gli strappa la schermata —
+           avvisa, e il progetto resta marcato NUOVO negli elenchi. Il grafo si
+           disegna solo se il canvas si vede davvero. */
+        if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
         setTimeout(() => { window.showGenerationReport(); }, 1500);
 
     } catch (err) {

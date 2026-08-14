@@ -160,6 +160,37 @@ document.addEventListener('keydown', function (e) {
     window.startEditingTitle();
 });
 
+/* ── LA MAPPA È PRONTA (14/8) ────────────────────────────────────────────
+   Fine generazione. Prima si passava SEMPRE al canvas: chi nel frattempo era
+   andato a lavorare in INSEGNA si vedeva strappare la schermata sotto le mani —
+   ed è il contrario di «lavora pure mentre genero».
+   Regola: se sei ancora dov'eri (nessuna console aperta), il salto è giusto,
+   perché stai guardando il velo aspettando la mappa. Se ti sei spostato, la
+   mappa NON si prende la scena: si avvisa, e il progetto resta marcato NUOVO
+   negli elenchi finché non lo apri.
+   Ritorna `true` se è passata al canvas — chi chiama disegna il grafo solo
+   allora (disegnarlo dentro una vista nascosta è lavoro buttato). */
+window.mappaPronta = function () {
+    /* ⚠️ Una console si guarda per DISPLAY, non per presenza nel DOM: un
+       riquadro rimasto nascosto direbbe «sono altrove» per sempre, e la mappa
+       non passerebbe mai al canvas (stessa cura della guardia degli strumenti
+       compensativi). */
+    var aperta = false;
+    try {
+        document.querySelectorAll('.mm-box--console').forEach(function (b) {
+            if (getComputedStyle(b).display !== 'none') aperta = true;
+        });
+    } catch (e) { aperta = false; }
+    if (!aperta) { window.switchToMapLayout(); return true; }
+    var nome = (appState && appState.rootNodeLabel) || '';
+    if (window.showToast) {
+        window.showToast(nome
+            ? (window.t('tst_mappa_pronta_nome', 'Il progetto «') + nome + window.t('tst_mappa_pronta_fine', '» è pronto: lo trovi negli elenchi, marcato NUOVO.'))
+            : window.t('tst_mappa_pronta', 'Il progetto è pronto: lo trovi negli elenchi, marcato NUOVO.'), 'success');
+    }
+    return false;
+};
+
 window.switchToMapLayout = function () {
     document.getElementById('landing-view').style.display = 'none';
     const mapView = document.getElementById('map-view');

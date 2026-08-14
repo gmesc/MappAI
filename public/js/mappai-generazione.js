@@ -34,7 +34,72 @@
         try { document.documentElement.classList.toggle('mappai-genera', stato.attiva); } catch (e) { }
     }
 
+    /* ── I PROGETTI APPENA NATI ────────────────────────────────────────────
+       Richiesta di Giacomo: finita la generazione, il progetto nuovo dev'essere
+       facile da ritrovare negli elenchi — «chi magari distrattamente non
+       ricorda più il nome». Un bollino sulla riga, che sparisce al primo clic.
+       ⚠️ DUE chiavi per riga, e servono entrambe: ELABORA elenca progetti (id in
+       localStorage) e INSEGNA elenca vault letti dal DISCO (percorso della
+       cartella). Con una chiave sola il bollino comparirebbe in una lista e non
+       nell'altra. */
+    var NUOVI = 'mappai_progetti_nuovi';
+    var CAP = 20;
+
+    function leggiNuovi() {
+        try { return JSON.parse(localStorage.getItem(NUOVI) || '[]') || []; } catch (e) { return []; }
+    }
+    function scriviNuovi(l) {
+        try { localStorage.setItem(NUOVI, JSON.stringify(l.slice(-CAP))); } catch (e) { }
+        try { document.dispatchEvent(new CustomEvent('mappai-nuovi-cambiati')); } catch (e) { }
+    }
+    /* Le chiavi con cui una riga di elenco si riconosce, comunque sia fatta:
+       ELABORA passa `{id, p, v}`, INSEGNA `{id, v}`, e chi salva passa
+       l'id del progetto e il percorso del vault. */
+    function chiavi(m) {
+        if (!m) return [];
+        var k = [];
+        if (typeof m === 'string') return [m];
+        if (m.id) k.push('i:' + m.id);
+        if (m.p && m.p.id) k.push('i:' + m.p.id);
+        if (m.v && m.v.fullPath) k.push('v:' + m.v.fullPath);
+        if (m.vault) k.push('v:' + m.vault);
+        if (m.fullPath) k.push('v:' + m.fullPath);
+        return k;
+    }
+
     var API = {
+        /* Marca un progetto come APPENA NATO. */
+        segnaNuovo: function (info) {
+            if (!info) return;
+            var k = chiavi(info);
+            if (!k.length) return;
+            var l = leggiNuovi().filter(function (x) {
+                return !(x.chiavi || []).some(function (c) { return k.indexOf(c) >= 0; });
+            });
+            l.push({ chiavi: k, nome: String(info.nome || '').trim() });
+            scriviNuovi(l);
+        },
+        eNuovo: function (m) {
+            var k = chiavi(m);
+            if (!k.length) return false;
+            return leggiNuovi().some(function (x) {
+                return (x.chiavi || []).some(function (c) { return k.indexOf(c) >= 0; });
+            });
+        },
+        /* Visto: il bollino sparisce al PRIMO clic, e sparisce da tutte e due le
+           liste insieme — l'annuncio serve a questo (una superficie che mostra
+           dati scritti altrove non si aggiorna da sé). */
+        visto: function (m) {
+            var k = chiavi(m);
+            if (!k.length) return;
+            var l = leggiNuovi();
+            var resta = l.filter(function (x) {
+                return !(x.chiavi || []).some(function (c) { return k.indexOf(c) >= 0; });
+            });
+            if (resta.length !== l.length) scriviNuovi(resta);
+        },
+        nuovi: function () { return leggiNuovi(); },
+
         inizia: function (nome, modo) {
             stato.attiva = true;
             stato.nome = String(nome || '').trim();

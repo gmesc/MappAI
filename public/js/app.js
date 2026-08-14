@@ -1851,7 +1851,23 @@ window.showGenerationReport = function () {
     // Riordino su disco (22/7): a fine generazione crea/aggiorna in automatico la
     // cartella vault della mappa in «Mappe» (nome = ROOT; annidata nella classe
     // attiva se presente). Non bloccante — kill-switch mappai_autovault='0'.
-    try { if (window.ensureProjectVault) window.ensureProjectVault({ reason: 'generation' }); } catch (e) { }
+    try {
+        if (window.ensureProjectVault) {
+            var _pv = window.ensureProjectVault({ reason: 'generation' });
+            /* Appena la cartella c'è, il progetto si marca NUOVO: da lì lo
+               ritrovano gli elenchi di ELABORA e INSEGNA col bollino. Si aspetta
+               il vault perché una delle due chiavi È il suo percorso — INSEGNA
+               elenca cartelle, non progetti. */
+            if (_pv && _pv.then) _pv.then(function (res) {
+                if (!window.MappAIGen || !window.MappAIGen.segnaNuovo) return;
+                window.MappAIGen.segnaNuovo({
+                    nome: appState.rootNodeLabel || '',
+                    vault: (res && res.folderPath) || appState.activeVaultPath || '',
+                    id: (window.StorageManager && window.StorageManager.currentProjectId) || ''
+                });
+            }).catch(function () { });
+        }
+    } catch (e) { }
 
     // Log for debugging
     console.log("--- Generation Report ---");

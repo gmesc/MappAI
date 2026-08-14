@@ -2452,7 +2452,11 @@
       progetti.forEach(function (x) {
         nav.push({
           id: x.id, etichetta: x.nome, attiva: _cons.voce === x.id,
-          icona: x.type === 'kg' ? 'network' : 'git-merge'
+          icona: x.type === 'kg' ? 'network' : 'git-merge',
+          /* «NUOVO» = generato in questa sessione e mai ancora aperto. La lista
+             è la stessa di ELABORA (`MappAIGen`): il bollino sparisce dai due
+             elenchi insieme, al primo clic. */
+          badge: (window.MappAIGen && MappAIGen.eNuovo && MappAIGen.eNuovo(x)) ? _t('ec_nuovo', 'NUOVO') : ''
         });
       });
     }
@@ -2973,6 +2977,8 @@
          domanda «A chi?» mentre a schermo c'è già il progetto — e la sequenza
          non si completerebbe mai. */
       if (_m0 && MappAITeach.allineaContestoA) { try { MappAITeach.allineaContestoA(_m0); } catch (e) { } }
+      /* visto: il bollino «NUOVO» sparisce al PRIMO clic */
+      try { if (_m0 && window.MappAIGen && MappAIGen.visto) MappAIGen.visto(_m0); } catch (e) { }
       rifai();
       var m = _consMappaScelta();
       if (!m) return;

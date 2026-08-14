@@ -460,6 +460,13 @@ window.loadSavedProject = function (id) {
 window.toggleProjectsBar = function () { /* drawer rimosso: no-op */ };
 
 setInterval(() => {
+    /* ⚠️ Non mentre una mappa si sta costruendo (14/8): il salvataggio
+       periodico scriverebbe un progetto A METÀ — nodi appena arrivati, rami
+       ancora da espandere — e se poi la generazione fallisse resterebbe quello.
+       Il salvataggio VERO lo fa la fine della generazione (`ensureProjectVault`
+       → `saveCurrentProject`), che scrive quando c'è qualcosa di finito. */
+    if (window.MappAIGen && window.MappAIGen.attiva()) return;
+    if (window.MappAIPipeline && window.MappAIPipeline.occupata && window.MappAIPipeline.occupata()) return;
     StorageManager.saveCurrentProject();
 }, 120000); // periodic background save just in case
 

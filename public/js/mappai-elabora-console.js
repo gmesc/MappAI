@@ -1078,6 +1078,10 @@
                 /* mentre una mappa si sta aprendo è LEI la scelta, non quella
                    ancora caricata sotto */
                 attiva: _inCorsoV2 ? _inCorsoV2 === m.id : !!(corrente && corrente.id === m.id),
+                /* «NUOVO» = generato in questa sessione e mai ancora aperto.
+                   Sparisce al primo clic, e sparisce anche in INSEGNA: la
+                   lista dei nuovi è una sola (`MappAIGen`). */
+                badge: (window.MappAIGen && MappAIGen.eNuovo && MappAIGen.eNuovo(m)) ? t('ec_nuovo', 'NUOVO') : '',
                 chiude: false
             };
         });
@@ -2539,6 +2543,8 @@
                     if (!_inCorsoV2 && corr && corr.id === m.id) return;   /* è già quello */
                     _conSalvataggio(function () {
                         _prog = m.id; _doc = null;
+                        /* visto: il bollino «NUOVO» sparisce al PRIMO clic */
+                        try { if (window.MappAIGen && MappAIGen.visto) MappAIGen.visto(m); } catch (e) { }
                         _cambiaMappa(m);
                     });
                     return;

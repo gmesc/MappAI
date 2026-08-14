@@ -415,6 +415,10 @@
                 ' data-nav="' + esc(v.id) + '"' + (v.attiva ? ' aria-current="page"' : '') + '>' +
                 (v.icona ? icona(v.icona) : '') +
                 '<span class="mm-nav__t">' + esc(v.etichetta) + '</span>' +
+                /* il BADGE della voce: il core lo normalizzava già e nessuno lo
+                   disegnava. È in coda alla riga, prima del contatore — dice uno
+                   STATO della voce («NUOVO»), non quante cose contiene. */
+                (v.badge ? '<span class="mm-nav__b">' + esc(v.badge) + '</span>' : '') +
                 (v.contatore !== null ? '<span class="mm-nav__n">' + esc(v.contatore) + '</span>' : '') +
                 '</button>';
         });
