@@ -4,6 +4,8 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
+> Ultimo allineamento: **14 agosto 2026** (generare mentre si lavora · filtri nella
+> colonna · briciola che si completa · bollino NUOVO).
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
@@ -65,6 +67,9 @@ tabella è la mappa per tornare indietro di un passo alla volta quando qualcosa 
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
 | `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
 | `mappai_archivio_insegna` | spento | `'1'` rimostra in INSEGNA le voci d'archivio dei fogli cartacei (`quizpaper`/`flashsheet` senza PDF proprio), nascoste dal 13/8: la loro sorgente vive in ELABORA |
+| `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
+| `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
+| `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
 
 ---
 
@@ -232,6 +237,83 @@ passo si controlla che titolo, vault e id di progetto siano ancora quelli; se no
 pipeline **si ferma e lo dice**, col manifesto già scritto (da lì «Riprendi»). Il numero
 dei nodi NON entra nel confronto: la pipeline stessa lo cambia.
 
+### GENERARE MENTRE SI LAVORA — il lucchetto, il contesto, l'avviso (14/8)
+Cinque pezzi decisi con Giacomo, in quest'ordine. Il **velo su CREA resta** (sua
+decisione, 14/8): oggi però non è più lui a impedire i danni — lo fanno i pezzi qui sotto.
+
+**Il lucchetto** (`public/js/mappai-generazione.js`, `window.MappAIGen`). `mappaiOccupato()`
+copriva la PIPELINE, non una generazione MM/KG nuda: finché il velo copriva tutto lo
+schermo non si notava, ma da quando copre la sola area di CREA si gira per l'app — e
+bastava un HOME (`backToLanding` fa `location.reload()`) per ucciderla in silenzio, coi
+token già spesi. `startGeneration` alza il lucchetto attorno all'estrazione e lo abbassa
+in un `finally`; una riga in `mappaiOccupato` lo fa vedere ai **sedici** guardiani già
+sparsi per l'app, più la guardia nuova su `backToLanding`. `MappAIGen.motivo()` è il testo
+che dicono tutti — un comando spento senza motivo si legge come un difetto dell'app.
+
+**I comandi si spengono e lo mostrano**: nella briciola «Cosa» Crea ed Elabora sono grigie
+col lucchetto, nel rail delle forme le due sagome sono sbiadite col cursore che dice di
+no. INSEGNA **resta usabile**: passa tutta dal DISCO (elenca i vault, apre PDF e HTML
+nell'iframe, stampa, QR, Finder) e non tocca `appState` — bloccate le sole quattro azioni
+che caricano una mappa (`_consAvvia`).
+⚠️ `bloccata` nelle voci del percorso è una **funzione**, non un booleano: le voci del
+menu si costruiscono quando il menu si APRE, e un valore calcolato al montaggio non
+vedrebbe una generazione partita dopo.
+
+**Il contesto si congela** (`MappAITune.congela()` / `scongela()`). `classTuningPrompt()`
+è chiamata a OGNI chiamata all'AI e `generaSet` ne fa una PER RAMO: cambiando classe a
+metà, un foglio su cinque aree usciva metà tarato per una classe e metà per un'altra —
+output plausibile, nessun errore. E la voce d'archivio, che senza `cls`/`disc` li prende
+dal contesto ATTIVO, finiva etichettata con la classe di FINE pipeline. Congelano
+`startGeneration`, `Pipeline.run` e `Pipeline.generaSet`. Si congela il **testo già
+risolto**, non le sue fonti (nasce da due posti: `appState.userProfile` e
+`MappAIClasses`); `scongela()` SEMPRE, anche su errore.
+
+**Il destinatario si sceglie sempre** (`ensureGenerationContext`, kill-switch
+`mappai_gen_ctx_sempre`). Il modale «Per chi è questa mappa?» arriva già compilato col
+contesto attivo — nel caso normale un clic su «Genera» — con tre famiglie nello stesso
+elenco: **Generico · le classi · l'allievo attivo**. «Generico» deve restare valido (al
+primo avvio non esistono classi); scegliere l'allievo non tocca la classe (sono in
+esclusione mutua e cambierebbe la cartella di destinazione).
+⚠️ Non si chiede con `Pipeline._interno`: lo step A chiama `startGeneration` da dentro e
+il destinatario la pipeline l'ha già nella sua configurazione.
+
+**L'autosave periodico si sospende** durante generazione e pipeline: scriveva un progetto
+a metà costruzione, e se la generazione falliva restava quello.
+
+**Alla fine, `window.mappaPronta()`**: se sei ancora dov'eri (nessuna console **visibile**)
+passa al canvas come prima; se ti sei spostato, avvisa e non ti strappa la schermata.
+Ritorna `true` solo se ha cambiato vista — i cinque punti di fine generazione disegnano il
+grafo solo allora. Il progetto resta marcato **NUOVO** negli elenchi finché non lo apri.
+⚠️ La console si guarda per DISPLAY, non per presenza nel DOM: un riquadro rimasto
+nascosto direbbe «sono altrove» per sempre.
+
+**Il bollino NUOVO** vive in `MappAIGen` con **due chiavi per riga** — ELABORA elenca
+progetti (id in localStorage), INSEGNA elenca vault dal DISCO (percorso della cartella):
+con una chiave sola comparirebbe in una lista e non nell'altra. Sparisce al primo clic,
+da entrambe insieme. È una PAROLA e non solo un colore; il pulsare è un di più.
+
+### I FILTRI e la BRICIOLA (14/8)
+Difetto: aprendo ELABORA la colonna elencava tutti i progetti, e che le briciole in alto
+fossero dei FILTRI non si capiva. (Causa vera: all'avvio l'app **azzera il contesto**
+apposta, quindi la colonna parte sempre senza filtro.)
+- Le due domande scendono **in testa alla colonna** (`CB.montaFiltriSidebar`), col valore
+  scelto e la riga del conto «15 di 30 — mostra tutti». Corpo `--mnc-voce-fs`: stanno
+  sopra le voci e non devono pesare più di quelle.
+- ⚠️ **Non è un secondo stato da sincronizzare**: è lo stesso `specContesto` montato in
+  due posti. Chi dei due scrive, l'altro si ridipinge. `opts.sempre` spegne la rivelazione
+  progressiva **solo** in sidebar: là le due domande sono la guida e devono vedersi prima
+  di essere scelte.
+- **Aprire un progetto ALLINEA il filtro** a quel progetto (classe e materia lette dalla
+  cartella, `MappAITeach.allineaContestoA`). Perciò «mostra tutti» non è un ornamento: è
+  la via del ritorno, o l'elenco resta stretto attorno a una mappa sola.
+- **La briciola in alto si completa quando scegli un progetto**: prima resta la sola
+  «Cosa», poi il percorso intero fino al progetto, con l'ultima briciola che apre le altre
+  mappe del filtro. ⚠️ Rovescia la decisione del 9/8 («sarebbe un secondo comando»): coi
+  filtri nella colonna non duplica più niente, è la via breve. Il menu c'è **solo se c'è
+  altro fra cui scegliere** — una tendina con una voce già spuntata si legge come rotta.
+- Il **chip di INSEGNA** sparisce da sé: `montaPercorso` marca il box `mn-percorso` e la
+  veste non glielo rimette.
+
 ### VISTA STUDIO — il passo «STUDIO» del ciclo LAYOUT
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
@@ -342,34 +424,46 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    trappole pagate in
    **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)**; la regola è la
    trappola §8.19 della guida.
-4. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
+4. 🆕 **Cinque code del lavoro del 14/8, lasciate aperte di proposito.**
+   (a) Il ramo **ALLIEVO** del modale «Per chi è questa mappa?» non è mai stato provato:
+   questa installazione non ha schede allievo. È l'unico codice nuovo che nessuno ha visto
+   girare. (b) Le quattro azioni di INSEGNA bloccate durante una generazione lo sono **a
+   runtime** (clic → avviso), non si *vedono* spente. (c) **«Solo le mappe senza classe»
+   non è filtrabile**: sarebbe un terzo stato di `mappai_active_class`, che è anche il
+   contesto di taratura dell'AI — un filtro non può prendersi quella leva, serve una
+   decisione. (d) Lo **spinner in topbar non compare sulla mappa aperta** (là quella barra
+   non esiste): una generazione lanciata dalla mappa non ha indicatore. (e) Il **titolo di
+   un KG dedotto dal FOCUS vince sul nome del file** — una riga per invertirlo.
+5. **La colonna delle console sborda di 11px in orizzontale.** Misurato il 14/8 ed è
+   PREESISTENTE (identico coi filtri spenti): non è dei filtri nuovi.
+6. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-5. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-6. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
+7. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
+8. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
    l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
    (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
    fa. Sono i resti del modello a un file solo, superato dai due file
    (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
-7. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
+9. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
    Lucide». ⚠️ I token `--mm-doc-*` vivono **in quel file, non nel foglio dei token**: la
    barra sta per metà in finestre `window.open`, che il CSS dell'app non lo caricano — ed è
    anche il motivo per cui `doc-bar` disegna le icone come SVG in linea (là
    `lucide.createIcons()` non esiste).
-8. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
+10. **Codice senza ingresso**: `StorageManager.renderRecentProjects` e `MappAITeach.editGrade`
    dopo l'eliminazione di «Progetti salvati». Degradano in silenzio, non lanciano.
-9. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
+11. **713 `!important` in `style.css`** — il 59% delle dichiarazioni. È il motivo per cui la
    cascata non è prevedibile a tavolino (GUIDA-ARCHITETTO §8, trappola 6).
-10. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
+12. **`mappai-landing-teach.js` è a 3.544 righe** e fa quattro mestieri (landing · console
    INSEGNA · tabelle condivise · archivio). Le tabelle, che ormai servono due console, sono
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
-11. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
+13. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
-12. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
+14. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
 La versione VIVA dell'elenco delle superfici da migrare è il **cantiere dell'Atlante**
@@ -382,6 +476,15 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 Il pannello browser non ha IPC, non ha disco e serve i file dalla cache: quello che segue
 si può vedere **solo** nell'app vera.
+
+0. 🆕 **UNA GENERAZIONE VERA, dall'inizio alla fine** — è il collaudo che manca dopo il
+   14/8. I pezzi sono stati verificati uno per uno via CDP (lucchetto, contesto congelato,
+   modale del destinatario, `mappaPronta`, bollino NUOVO), il **flusso intero con l'AI
+   vera no**: premere Genera → rispondere al modale → andare in INSEGNA mentre lavora →
+   vedere lo spinner in topbar → a fine lavoro l'avviso invece del salto → il progetto
+   negli elenchi marcato **NUOVO** → un clic e il bollino sparisce da entrambe le liste.
+   Da guardare anche: che Crea ed Elabora siano davvero spente mentre gira, e che HOME non
+   uccida più la generazione.
 
 1. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
    scatta il ripiego (il file si apre nell'applicazione di sistema).
