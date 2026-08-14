@@ -508,3 +508,37 @@ test('validateOpenDoc: dice che cosa manca, domanda per domanda', () => {
   assert.deepStrictEqual(
     D.validateOpenDoc({ items: [{ question: 'Q', guide: 'G', areas: ['A'] }] }), []);
 });
+
+/* Il LIVELLO di una domanda aperta, cambiato a mano nell'editor (13/8/26).
+   Lo dichiara l'AI quando genera, ma è chi CORREGGE ad avere l'ultima parola:
+   a una domanda d'avvio si aggiunge un collegamento e quella smette di
+   esserlo — il foglio delle tracce continuerebbe a dire di sì. */
+test('setOpenField: il livello si cambia, e resta ai due valori', () => {
+  let items = [D.blankOpenItem()];
+  assert.strictEqual(items[0].livello, 'ponte', 'una domanda scritta a mano nasce di ponte');
+  items = D.setOpenField(items, 0, 'livello', 'base');
+  assert.strictEqual(items[0].livello, 'base');
+  items = D.setOpenField(items, 0, 'livello', 'PONTE');
+  assert.strictEqual(items[0].livello, 'ponte');
+  /* qualunque altra cosa vale ponte: il caso prudente, che non promette
+     all'allievo un avvio che non c'è */
+  items = D.setOpenField(items, 0, 'livello', 'facile');
+  assert.strictEqual(items[0].livello, 'ponte');
+});
+test('setOpenField: cambiare il livello non tocca il resto della domanda', () => {
+  let items = [{ question: 'Perché?', guide: 'traccia', lines: 8, areas: ['Clima'], livello: 'base' }];
+  items = D.setOpenField(items, 0, 'livello', 'ponte');
+  assert.strictEqual(items[0].question, 'Perché?');
+  assert.strictEqual(items[0].guide, 'traccia');
+  assert.strictEqual(items[0].lines, 8);
+  assert.deepStrictEqual(items[0].areas, ['Clima']);
+});
+test('normOpenItem: il livello sopravvive al giro archivio → editor → archivio', () => {
+  /* è il difetto che questa riga chiude: senza, si perdeva al primo
+     salvataggio e il foglio ristampato non lo diceva più */
+  const a = D.normOpenItems([{ domanda: 'q', traccia: 't', righe: 5, livello: 'base' }]);
+  assert.strictEqual(a[0].livello, 'base');
+  const b = D.normOpenItems(a);
+  assert.strictEqual(b[0].livello, 'base', 'idempotente');
+  assert.strictEqual(D.normOpenItems([{ domanda: 'q' }])[0].livello, 'ponte', 'assente = ponte');
+});

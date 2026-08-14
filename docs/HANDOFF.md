@@ -270,8 +270,15 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    sembrava non fare niente. Ora è `required`, più l'ordine operativo «scrivi per
    prime le N di avvio». Provato su «Il Clima» (4R): 2 base + 3 ponte esatti su due
    angoli opposti, esempi concreti dove prima non ce n'erano.
-   Aperto: la pipeline batch usa il default 40% (nel bento la leva non è montata) e
-   l'editor non permette ancora di cambiare `livello` a mano su una domanda.
+   **Nell'editor il livello si cambia** (13/8 notte): due chip **AVVIO · PONTE** nella
+   testata di ogni domanda (ambra / indaco, `oqLivello` → `setOpenField(…,'livello')`),
+   perché è chi CORREGGE ad avere l'ultima parola — a una domanda d'avvio si aggiunge
+   un collegamento e quella smette di esserlo, mentre le tracce continuerebbero a dire
+   di sì. Provato in Electron: clic → livello cambiato → salvato → riletto
+   dall'archivio → il foglio soluzioni porta due segni «avvio» invece di uno.
+   Aperto: la pipeline batch usa il default 40% — `config.quiz.base` è **già letto**
+   dal motore, manca solo il campo nel bento (voce nell'inventario dell'Officina +
+   `mp-base` in `_readConfig`).
 3. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore

@@ -901,6 +901,15 @@
         _doc.items = DE().setOpenField(_doc.items, i, 'area:' + nome);
         _dirty = true; render();
     }
+    /* Il LIVELLO della domanda, cambiato a mano (13/8 sera).
+       Lo dichiara l'AI quando genera, ma è chi CORREGGE ad avere l'ultima
+       parola: una domanda d'avvio a cui si aggiunge un collegamento non è più
+       un avvio, e il foglio delle tracce continuerebbe a dire di sì. */
+    function oqLivello(i, valore) {
+        _snapshot(t('de_oq_op_liv', 'livello della domanda'));
+        _doc.items = DE().setOpenField(_doc.items, i, 'livello', valore);
+        _dirty = true; render();
+    }
     function addQuestion(after) {
         _snapshot(t('de_op_add_q', 'aggiungi domanda'));
         const at = (after == null) ? _doc.items.length : after + 1;
@@ -2436,9 +2445,32 @@
                     ' aria-pressed="' + (on ? 'true' : 'false') + '"' +
                     ' onclick="MappAIDocEditor.oqArea(' + i + ',\'' + _q(a) + '\')">' + esc(a) + '</button>';
             }).join('');
+            /* ── AVVIO / PONTE, accanto al numero della domanda (13/8 sera) ──
+               Il livello lo dichiara l'AI, ma è chi corregge ad avere l'ultima
+               parola: aggiungendo un collegamento a una domanda d'avvio quella
+               smette di esserlo, e le tracce continuerebbero a dire di sì.
+               Sta nella TESTATA della domanda e non fra le «Aree» perché non è
+               un attributo del contenuto: è che cosa quella domanda chiede.
+               ⚠️ Due bottoni-chip, non una tendina: gli stati sono due e si
+               vedono entrambi senza aprire niente — e si vede a colpo d'occhio
+               com'è graduato il foglio scorrendolo. */
+            const liv = String(it.livello || '').toLowerCase() === 'base' ? 'base' : 'ponte';
+            const chipLiv = '<span class="de-liv" role="group" aria-label="' +
+                esc(t('de_oq_liv_a11y', 'Livello della domanda') + ' — ' + (i + 1)) + '">' +
+                ['base', 'ponte'].map(function (v) {
+                    const on = liv === v;
+                    const et = v === 'base' ? t('de_oq_liv_base', 'Avvio') : t('de_oq_liv_ponte', 'Ponte');
+                    const tip = v === 'base'
+                        ? t('de_oq_liv_base_tip', 'Si risponde con UN concetto solo: la può affrontare anche chi ha studiato una parte della scheda. Sul foglio degli allievi non si vede — compare solo nelle tue tracce di correzione.')
+                        : t('de_oq_liv_ponte_tip', 'Richiede di collegare due o più concetti, o di applicarli a un caso nuovo.');
+                    return '<button type="button" class="de-liv-b' + (on ? ' on ' + v : '') + '"' +
+                        ' aria-pressed="' + (on ? 'true' : 'false') + '" title="' + esc(tip) + '"' +
+                        ' onclick="MappAIDocEditor.oqLivello(' + i + ',\'' + v + '\')">' + esc(et) + '</button>';
+                }).join('') + '</span>';
             return '<div class="de-item">' +
                 '<div class="de-item-h">' +
                 '<span class="de-qn">' + esc(t('de_q_n', 'Domanda')) + ' ' + (i + 1) + '</span>' +
+                chipLiv +
                 '<span class="de-item-tools">' +
                 '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
                 '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
@@ -3190,6 +3222,21 @@ ${_deCornice()}
 .de-answer, .de-expl-row { margin-top:12px; }
 .de-lbl { display:block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin-bottom:4px; }
 /* DOMANDE APERTE: le aree (chip che si accendono, max due) e le righe. */
+/* AVVIO / PONTE nella testata della domanda: due chip, uno acceso.
+   ⚠️ margin-right:auto spinge gli strumenti (su · giù · + · cestino) a destra
+   come prima — senza, il chip li trascinerebbe verso il centro e la colonna
+   dei comandi ballerebbe da una domanda all'altra.
+   L'AVVIO è ambra e non verde: non è uno stato «giusto», è un grado di
+   difficoltà — il verde lo si legge come una spunta.
+   (Niente apici inversi in questo commento: è dentro un template literal.) */
+.de-liv { display:inline-flex; gap:4px; margin-right:auto; }
+.de-liv-b { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    padding:2px 8px; border-radius:999px; border:1px solid #e2e8f0; background:#fff;
+    color:#94a3b8; cursor:pointer; }
+.de-liv-b:hover { border-color:#cbd5e1; color:#475569; }
+.de-liv-b.on.base { background:#fef3c7; border-color:#fcd34d; color:#92400e; }
+.de-liv-b.on.ponte { background:#eef2ff; border-color:#c7d2fe; color:#4338ca; }
+.de-liv-b:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
 .de-oq-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .de-oq-meta .de-lbl { margin-bottom:0; }
 .de-oq-lbl-righe { margin-left:8px; }
@@ -3489,7 +3536,7 @@ ${_deCornice()}
         creaPdf: creaPdf,
         /* Domande aperte: si aprono dalla voce d'ARCHIVIO (il foglio HTML porta
            la sua sorgente incorporata) — non da `studySets`, dove non entrano. */
-        openOpenQuestions: openOpenQuestions, oqArea: oqArea,
+        openOpenQuestions: openOpenQuestions, oqArea: oqArea, oqLivello: oqLivello,
         /* L'uscita a due stati (vedi `esci()`). `save()` resta esposta perché la
            console di ELABORA la chiama per conto suo quando si cambia documento
            con del lavoro in sospeso (`_conSalvataggio`). */

@@ -668,6 +668,12 @@
                terza deve togliere prima, e vedere che cosa sta togliendo */
         } else if (path === 'lines') {
             it.lines = _lines(value);
+        } else if (path === 'livello') {
+            /* due valori soli, come ovunque: quello che non è «base» è «ponte».
+               Chi corregge una domanda ne cambia la natura — un avvio a cui si
+               aggiunge un collegamento non è più un avvio — e il foglio delle
+               tracce lo deve dire. */
+            it.livello = _s(value).trim().toLowerCase() === 'base' ? 'base' : 'ponte';
         } else if (path === 'question' || path === 'guide') {
             it[path] = _s(value);
         }
