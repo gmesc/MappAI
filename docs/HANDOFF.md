@@ -118,6 +118,23 @@ sa in che app si è). Si scrive da un posto solo, `window.setSidebarProjectTitle
 rinomina RICOSTRUIVA il markup con classi e corpo diversi da quelli di `index.html`, e
 dopo una rinomina la testata cambiava aspetto e prendeva il prefisso «Progetto:».
 
+**Il lavoro in corso si vede nella barra in alto** (14/8, `public/js/mappai-lavori.js`,
+kill-switch `mappai_lavori_barra='0'`): lo spinner di MappAI — quello VERO del velo, senza
+didascalie — col nome di ciò che si sta creando alla sua sinistra. Taglia e margine del
+bottone della Cabina ma **dal lato opposto** (la Cabina sta a sinistra a 28px, lo spinner a
+destra a 28px). Si mostra **solo dove c'è quel bottone**: landing e testata delle console —
+sulla mappa nuda quella barra non esiste. Aggancio UNO: `window.showLoadingOverlay`, che è
+il collo di bottiglia di ogni lavorazione lunga (una ventina di moduli lo chiamano); il
+nome viaggia come **quarto argomento** e senza di esso si ricade sul titolo del progetto.
+⚠️ Due tarature che sembrano dettagli e non lo sono: l'attesa di 600ms prima di comparire
+(sotto, sarebbe un lampo, e un lampo si legge come un difetto) **non si riarma** a ogni
+fase — una MindMap multi-pass ne annuncia una dozzina e l'indicatore non sarebbe mai
+comparso; e il contenitore non riceve il puntatore (è largo quanto il nome e starebbe sopra
+i comandi sotto), lo ricevono i due pezzi dipinti.
+**Il bottone degli strumenti compensativi** vive solo nel contesto di LETTURA, e da oggi le
+CONSOLE lo spengono: erano nate dopo quella guardia, che conosceva solo l'ELABORA v1 —
+con una mappa aperta sotto restava a schermo, e per giunta SOPRA la console.
+
 ### L'EDITOR dei documenti — tre gesti, non uno
 Salvare non è pubblicare (13/8, modello di Giacomo):
 

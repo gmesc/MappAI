@@ -236,11 +236,16 @@
     _veloSegno.parentNode.removeChild(_veloSegno);
     _veloSegno = null;
   }
-  function _overlay(msg) {
+  /* `nome` = che cosa si sta creando, per l'indicatore nella barra in alto
+     (`mappai-lavori.js`). Il velo lo dice a modo suo («Genero le domande…»);
+     nella barra serve il NOME del materiale, che è quello che si sta
+     aspettando — e dal 13/8 il velo vive dentro l'area di CREA, quindi chi si
+     sposta altrove non lo vede più. */
+  function _overlay(msg, nome) {
     if (!window.showLoadingOverlay) return;
     if (msg === false) { window.showLoadingOverlay(false); _veloACasa(); return; }
     _veloNellArea();
-    window.showLoadingOverlay(true, msg);
+    window.showLoadingOverlay(true, msg, 'default', nome);
   }
   function _setContext(sub) { if (window.MappAIUsage) window.MappAIUsage.setContext('pipeline', sub); }
 
@@ -1624,7 +1629,8 @@
 
     Pipeline._running = true;                 // il lucchetto vale anche per il gesto singolo
     try {
-      _overlay(_t('cq_genero', 'Genero le domande…'));
+      _overlay(_t('cq_genero', 'Genero le domande…'),
+        spec.typeLabel + (nome ? ' · ' + nome : '') + ' — ' + mapName);
       _setContext(spec.sub);
       const raw = [];
       for (let i = 0; i < scelte.length; i++) {

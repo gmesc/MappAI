@@ -231,6 +231,8 @@ const en_translations = {
 
     // Loading
     loading_processing: "MappAI is processing...",
+    lav_in_corso: "Working on: ",
+    lav_generico: "MappAI is working",
     loading_sources: "Interpreting sources with Gemini",
 
     // Modals - AI Config

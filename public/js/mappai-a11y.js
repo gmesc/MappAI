@@ -270,6 +270,20 @@ window.resetA11yTools = function () {
             // esistere + non essere display:none basta e avanza.
             const ov = document.getElementById('elab-overlay');
             if (ov && getComputedStyle(ov).display !== 'none') return false;
+            /* ⚠️ E le CONSOLE del motore (14/8). Erano nate dopo questa guardia,
+               che conosceva solo l'ELABORA v1: con una mappa aperta sotto,
+               `map-view` resta `active` anche quando davanti c'è la console di
+               ELABORA, INSEGNA o la Cabina — quindi il bottone restava a
+               schermo, e per giunta SOPRA la console (misurato con
+               `elementFromPoint`: l'elemento in cima era la sua icona).
+               Una console è una schermata di lavoro, non una di lettura: gli
+               strumenti compensativi lì non hanno niente da compensare.
+               `.mm-box--console` e non `.mm-overlay`: un modale qualunque può
+               benissimo essere una superficie di LETTURA (la Scheda Focus di un
+               nodo lo è), e spegnere gli strumenti proprio lì sarebbe il
+               contrario di quello che serve. */
+            const cons = document.querySelector('.mm-box--console');
+            if (cons && getComputedStyle(cons).display !== 'none') return false;
             return true;
         } catch (e) { return true; }
     }
