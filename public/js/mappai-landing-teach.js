@@ -339,7 +339,7 @@
     var curClsId = (p && p.clsId) || '';
     // Se il progetto non porta l'id ma il nome, recupera l'id dalla lista.
     if (!curClsId && p && p.cls) {
-      var byName = classes.find(function (c) { return c.name === p.cls; });
+      var byName = classes.find(function (c) { return _egualeNome(c.name, p.cls); });
       if (byName) curClsId = byName.id;
     }
     var curDisc = (p && p.disc) || (v && v.discDir ? prettyClass(v.discDir) : '');
@@ -570,7 +570,7 @@
   function _diskMaterialsFor(p) {
     if (!p || !p.vault || !window.electronAPI || !window.electronAPI.getAllVaults || !window.electronAPI.vaultMaterialsList) return Promise.resolve([]);
     return window.electronAPI.getAllVaults().then(function (all) {
-      var v = (all || []).find(function (x) { return x.folderName === p.vault; });
+      var v = (all || []).find(function (x) { return _egualeNome(x.folderName, p.vault); });
       if (!v) return [];
       return window.electronAPI.vaultMaterialsList({ vaultPath: v.fullPath }).then(function (res) {
         if (!res || !res.ok) return [];
@@ -678,7 +678,7 @@
     try {
       var arr = projectsRead();
       var p = projectId ? arr.find(function (x) { return x.id === projectId; }) : null;
-      if (!p && mapName) p = arr.find(function (x) { return x.name === mapName; });
+      if (!p && mapName) p = arr.find(function (x) { return _egualeNome(x.name, mapName); });
       if (!p) return '';
       return p.disc || prettyClass(p.discDir || '') || '';
     } catch (e) { return ''; }
@@ -867,20 +867,30 @@
   function prettyClass(dir) { return String(dir || '').replace(/_/g, ' '); }
   // Match progetto localStorage ↔ vault su disco per folderName + classDir.
   // Legacy (progetto senza classDir) → match sul solo folderName.
+  /* Confronto di NOMI fra disco e memoria: NFC su entrambi i lati (guida §8,
+     trappola 25). Il disco scrive «à» scomposta, `appState` composta: `===`
+     può dire falso sulla stessa parola, e il sintomo è zero righe — che sembra
+     una risposta. La regola vive nel core: qui solo la scorciatoia. */
+  function _nfc(x) {
+    var TC = window.MappAITeachCore;
+    return (TC && TC.nfc) ? TC.nfc(x) : String(x == null ? '' : x);
+  }
+  function _egualeNome(a, b) { return _nfc(a) === _nfc(b); }
+
   function matchProjectToVault(projects, v) {
     // Match stretto: stessa cartella, stessa classe, stessa disciplina (29/7) —
     // due mappe omonime in discipline diverse della stessa classe sono distinte.
     var byAll = projects.find(function (p) {
-      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null) && (p.discDir || null) === (v.discDir || null);
+      return _egualeNome(p.vault, v.folderName) && _egualeNome(p.classDir || '', v.classDir || '') && _egualeNome(p.discDir || '', v.discDir || '');
     });
     if (byAll) return byAll;
     // Progetti scritti prima del livello disciplina: hanno classDir ma non discDir.
     var byBoth = projects.find(function (p) {
-      return p.vault === v.folderName && (p.classDir || null) === (v.classDir || null) && !p.discDir;
+      return _egualeNome(p.vault, v.folderName) && _egualeNome(p.classDir || '', v.classDir || '') && !p.discDir;
     });
     if (byBoth) return byBoth;
     if (v.classDir) return null;
-    return projects.find(function (p) { return p.vault === v.folderName && !p.classDir; }) || null;
+    return projects.find(function (p) { return _egualeNome(p.vault, v.folderName) && !p.classDir; }) || null;
   }
   // Progetti localStorage privi di cartella su disco (per la barra "Riordina").
   function orphanProjects() {
@@ -903,7 +913,7 @@
     (vaults || []).forEach(function (v) {
       var p = matchProjectToVault(projects, v);
       if (allowSet) {
-        var ok = (p && allowSet[p.id]) || (acFolder && v.classDir === acFolder);
+        var ok = (p && allowSet[p.id]) || (acFolder && _egualeNome(v.classDir, acFolder));
         if (!ok) return;
       }
       out.push({ v: v, p: p });

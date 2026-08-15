@@ -515,20 +515,18 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    sempre truthy) — anche nelle prove CDP va usato il nome lessicale nudo, o si misura un
    oggetto che non è quello dell'app (invariante 3, versione da banco).
 
-0. 🆕 **Un accento può impedire a una mappa di ritrovare il suo progetto** (visto il 15/8
-   lavorando sui dati veri). `matchProjectToVault`
-   ([mappai-landing-teach.js](../public/js/mappai-landing-teach.js)) confronta
-   `p.vault === v.folderName` con `===`, e i due lati arrivano da mondi diversi: il nome
-   della CARTELLA lo dà il filesystem di macOS in forma **scomposta** (NFD), il campo
-   `vault` del progetto nasce da `appState.rootNodeLabel` in forma **composta** (NFC).
-   `'Elettricità' === 'Elettricità'` può essere falso pur essendo la stessa parola. Nei dati
-   di Giacomo **entrambe le forme esistono già**: filtrando i progetti per `'Elettricità - KG'`
-   in NFC il conto dava **0**, normalizzando **13**. Sintomo per l'utente: una mappa col
-   nome accentato che in ELABORA/INSEGNA non porta il suo progetto (grado, classe, badge),
-   o che compare due volte. Cura: normalizzare a NFC entrambi i lati di ogni confronto fra
-   nome di cartella e nome tenuto in memoria — non solo qui: la stessa forma di confronto
-   c'è in più punti degli elenchi. (15/8 sera: il percorso dell'ADOZIONE è già in NFC via
-   `progettoDelVault`; restano i confronti degli elenchi, `matchProjectToVault` in testa.)
+0. ✅ **RISOLTO (15/8 sera): l'accento non scollega più una mappa dal suo progetto.**
+   `MappAITeachCore.nfc` / `stessoNome` (esportati, +4 test con le due forme VERE) e
+   normalizzazione nei confronti che incrociano disco e memoria: `matchProjectToVault` e
+   gli altri sei di `mappai-landing-teach.js`, `filterByClass` e `matchesSelectedProject`
+   nel core, la posizione del ripiego in `storage-lang`, la guardia «mappa cambiata»
+   della pipeline (che avrebbe fermato una pipeline per un accento).
+   ⚠️ Correzione di una cosa scritta male ieri: **non è vero che macOS scrive sempre in
+   forma scomposta** — HFS+ lo imponeva, APFS PRESERVA la forma di chi crea il nome. Sul
+   disco di Giacomo convivono: `Présent` NFC e `Elettricità - MM` NFD; fra le voci di
+   progetto, 2 e 2. Provato sull'app viva sul caso vero (cartella NFD contro voce NFC):
+   confronto vecchio `false`, nuovo `true`.
+
 
 1. ✅ **RISOLTO (13/8 sera): creare un materiale a mano arriva in fondo.** Il ramo
    documento di `generaSet` ora scrive la SORGENTE prima della resa (archivio → PDF →

@@ -279,9 +279,13 @@ const StorageManager = {
                            può stare in Mappe/Generico/ oppure piatto (preesistente),
                            e solo l'elenco sa quale dei due. Ripiego: il nesting di
                            FilesCore, se l'elenco non è disponibile. */
-                        const stessaPos = (v) => v && v.folderName === p.vault
-                            && (v.classDir || null) === (p.classDir || null)
-                            && (v.discDir || null) === (p.discDir || null) && !v.studentDir;
+                        /* NFC sui due lati: il nome viene dal DISCO (scomposto)
+                           e p.vault dalla memoria (composto) — guida §8.25 */
+                        const _n = (x) => (window.MappAITeachCore && window.MappAITeachCore.nfc)
+                            ? window.MappAITeachCore.nfc(x) : String(x == null ? '' : x);
+                        const stessaPos = (v) => v && _n(v.folderName) === _n(p.vault)
+                            && _n(v.classDir || '') === _n(p.classDir || '')
+                            && _n(v.discDir || '') === _n(p.discDir || '') && !v.studentDir;
                         const daElenco = window.electronAPI.getAllVaults
                             ? window.electronAPI.getAllVaults().then(all => (all || []).find(stessaPos)).catch(() => null)
                             : Promise.resolve(null);

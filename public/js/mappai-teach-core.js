@@ -36,6 +36,27 @@
       .replace(/\s+/g, ' ');
   }
 
+  /* ── nfc: l'accento che il filesystem scrive in un altro modo (15/8) ──────
+     macOS scrive i nomi di file e cartella in forma SCOMPOSTA (NFD: «a» + il
+     segno d'accento), mentre le stringhe nate in JS e in `appState` sono
+     COMPOSTE (NFC: un carattere solo). A schermo sono identiche, per `===` no:
+     `'Elettricità' === 'Elettricità'` può essere FALSO. E il sintomo è il
+     peggiore possibile — non un errore, ma zero risultati, che sembra una
+     risposta. Misurato sui dati veri: filtrando i progetti per la cartella
+     «Elettricità - KG» il conto dava 0 in una forma e 13 nell'altra.
+     Regola: OGNI confronto fra un nome che viene dal DISCO e un nome tenuto in
+     MEMORIA passa di qui, sui due lati. (Guida §8, trappola 25.) */
+  function nfc(s) {
+    var str = String(s == null ? '' : s);
+    try { return str.normalize('NFC'); } catch (e) { return str; }
+  }
+  /* confronto di nomi: NFC su entrambi i lati. `''` non combacia con `''`
+     (due «senza nome» non sono la stessa cosa: lo decide il chiamante). */
+  function stessoNome(a, b) {
+    var x = nfc(a), y = nfc(b);
+    return !!x && x === y;
+  }
+
   function _sameGrade(a, b) {
     var na = normGrade(a), nb = normGrade(b);
     return !!na && na === nb;
@@ -189,7 +210,7 @@
 
     return list.filter(function (it) {
       if (!it) return false;
-      if (it.cls != null && String(it.cls) === name) return true;
+      if (it.cls != null && stessoNome(it.cls, name)) return true;
       if (it.projectId != null && startedIds[it.projectId]) return true;
       var mapRef = it.mapName != null ? it.mapName : it.map;
       if (mapRef != null && startedMaps[String(mapRef)]) return true;
@@ -209,7 +230,7 @@
     if (!item) return false;
     if (item.projectId != null && sel.id != null && String(item.projectId) === String(sel.id)) return true;
     var mapRef = item.mapName != null ? item.mapName : item.map;
-    if (mapRef != null && sel.name != null && String(mapRef) === String(sel.name)) return true;
+    if (mapRef != null && sel.name != null && stessoNome(mapRef, sel.name)) return true;
     return false;
   }
 
@@ -228,10 +249,6 @@
   // pos = { vault, classDir, discDir } — la posizione su disco, già relativa
   // alla base delle mappe (la ricava il chiamante, che ha l'IPC).
   // Ritorna la voce più RECENTE che combacia, o null.
-  function nfc(s) {
-    var str = String(s == null ? '' : s);
-    try { return str.normalize('NFC'); } catch (e) { return str; }
-  }
   function progettoDelVault(projects, pos) {
     if (!Array.isArray(projects) || !pos) return null;
     var vault = nfc(pos.vault), cls = nfc(pos.classDir || ''), disc = nfc(pos.discDir || '');
@@ -315,6 +332,8 @@
     filterByClass: filterByClass,
     matchesSelectedProject: matchesSelectedProject,
     progettoDelVault: progettoDelVault,
+    nfc: nfc,
+    stessoNome: stessoNome,
     vociDaPotare: vociDaPotare,
     anteprimaPotatura: anteprimaPotatura,
     REGISTRY_CAP: REGISTRY_CAP

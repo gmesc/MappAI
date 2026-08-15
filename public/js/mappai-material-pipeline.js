@@ -84,7 +84,13 @@
        (i set di studio finiscono in `db.studySets`, e certi passi ritoccano il
        grafo). Contano il titolo, la cartella e l'id del progetto — cioè
        l'identità, non il contenuto. */
-    if (a.titolo === b.titolo && a.vault === b.vault && a.progetto === b.progetto) return;
+    /* NFC sul nome della cartella: il vault arriva dal disco (accento
+       scomposto) e il confronto con quello in memoria (composto) direbbe
+       «mappa cambiata» su una mappa che non è cambiata — e la pipeline si
+       fermerebbe a metà per niente (guida §8.25). */
+    var _n = (x) => (window.MappAITeachCore && window.MappAITeachCore.nfc)
+      ? window.MappAITeachCore.nfc(x) : String(x == null ? '' : x);
+    if (a.titolo === b.titolo && _n(a.vault) === _n(b.vault) && a.progetto === b.progetto) return;
     throw new Error(_t('mp_mappa_cambiata',
       'La mappa aperta è cambiata mentre la pipeline lavorava: mi fermo qui per non scrivere i materiali nella cartella sbagliata. Riapri quella mappa e usa «Riprendi».'));
   }

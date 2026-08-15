@@ -284,3 +284,34 @@ test('anteprimaPotatura: una copia sola per mappa → niente da potare', () => {
     assert.deepStrictEqual(ant.via, []);
     assert.strictEqual(ant.byte, 0);
 });
+
+// ── NFC: l'accento del filesystem contro quello di appState (15/8 sera) ──────
+// Le due stringhe si costruiscono con \u espliciti: scritte a mano nel file
+// sarebbero indistinguibili all'occhio e il test proverebbe un'altra cosa.
+const NFD = 'Elettricità - KG';   // «a» + accento: come lo scrive macOS
+const NFC_ = 'Elettricità - KG';   // «à» in un carattere: come nasce in JS
+
+test('nfc: le due forme sono diverse per === e uguali dopo la normalizzazione', () => {
+    assert.notStrictEqual(NFD, NFC_, 'se fossero uguali il test non proverebbe nulla');
+    assert.strictEqual(TC.nfc(NFD), TC.nfc(NFC_));
+    assert.ok(TC.stessoNome(NFD, NFC_));
+    assert.ok(!TC.stessoNome('', ''), 'due «senza nome» non sono la stessa cosa');
+    assert.ok(!TC.stessoNome('Elettricità - KG', 'Elettricità - MM'));
+});
+
+test('progettoDelVault: la cartella scomposta trova il progetto composto', () => {
+    const P = [{ id: 'x', vault: NFC_, classDir: '4R', discDir: 'Scienze', date: 5 }];
+    const hit = TC.progettoDelVault(P, { vault: NFD, classDir: '4R', discDir: 'Scienze' });
+    assert.strictEqual(hit && hit.id, 'x');
+});
+
+test('filterByClass: una classe accentata filtra anche in forma scomposta', () => {
+    const cls = { id: 'c1', name: 'Città 1A' };            // composta
+    const items = [{ cls: 'Città 1A' }, { cls: 'Altro' }]; // scomposta
+    const out = TC.filterByClass(items, cls, []);
+    assert.strictEqual(out.length, 1);
+});
+
+test('matchesSelectedProject: nome mappa accentato, due forme', () => {
+    assert.ok(TC.matchesSelectedProject({ mapName: 'Présent' }, { name: 'Présent' }));
+});

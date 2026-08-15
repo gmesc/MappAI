@@ -359,14 +359,17 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     un'ora («11:46») quel due punti è dentro il dato. Con un valore che può contenerne uno,
     si passa l'oggetto `{etichetta, valore}`.
 
-25. **Un accento scritto da macOS non è l'accento scritto da JS.** I nomi di file e cartella
-    che arrivano dal filesystem sono in forma **scomposta** (NFD: `a` + segno), le stringhe
-    dei letterali JS e di `appState` in forma **composta** (NFC). `'Elettricità' === 'Elettricità'`
-    può essere **falso** pur essendo la stessa parola a schermo, e un filtro che cerca una
-    cartella con l'accento torna **zero** invece che sbagliato — il che è peggio, perché
-    sembra una risposta. Chi confronta un nome di cartella con un nome tenuto in memoria
-    normalizza prima (`.normalize('NFC')` su entrambi i lati). Nei dati veri di Giacomo le
-    due forme convivono già.
+25. **Lo stesso accento esiste in due forme, e sul disco convivono.** «à» può essere un
+    carattere solo (**NFC**, composta) o «a» + segno (**NFD**, scomposta): identiche a
+    schermo, diverse per `===`. ⚠️ Non è vero che «macOS scrive sempre NFD» — HFS+ lo
+    imponeva, **APFS PRESERVA** la forma di chi crea il nome. Misurato sul disco di
+    Giacomo: `1A/Francese/Présent` è **NFC** e `4R/Scienze/Elettricità - MM` è **NFD**,
+    nello stesso `Mappe/`; e fra le voci di progetto, 2 NFC e 2 NFD. Quindi la forma non
+    si può prevedere da quale lato arriva la stringa: **si normalizza e basta**, sui due
+    lati di ogni confronto fra un nome di cartella e un nome tenuto in memoria
+    (`MappAITeachCore.nfc` / `stessoNome`). Il sintomo, se non lo si fa, non è un errore:
+    è **zero risultati** — che sembra una risposta. Filtrando i progetti per
+    «Elettricità - KG» il conto dava 0 in una forma e 13 nell'altra.
 
 26. **Il livello di cartella È il dato.** `get-all-vaults` deduce `classDir` dalla
     POSIZIONE: una cartella figlia di `Mappe/` senza `index.yaml` è letta come contenitore
