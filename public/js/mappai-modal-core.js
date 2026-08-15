@@ -387,7 +387,14 @@
             tela: s.tela ? {
                 id: (s.tela.id || 'tela'),
                 segnaposto: String(s.tela.segnaposto || ''),
-                altezza: s.tela.altezza || ''
+                altezza: s.tela.altezza || '',
+                /* FORMA (15/8 sera): la tela nasce per UN pezzo solo — un
+                   cruscotto, un'anteprima — quindi centra il contenuto. Con
+                   PIÙ blocchi (le Impostazioni AI, che ci spostano dentro tre
+                   pezzi del markup storico) il centraggio li mette in FILA e
+                   la vista si scompone. `colonna` = impilati, in alto a
+                   sinistra, con una larghezza di lettura. */
+                forma: s.tela.forma === 'colonna' ? 'colonna' : ''
             } : null,
             nav: (s.nav || []).map(normalizzaVoce),
             schede: (s.schede || []).map(normalizzaVoce),

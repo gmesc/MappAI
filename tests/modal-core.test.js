@@ -800,3 +800,13 @@ test('sezione nuda e sezione richiudibile', () => {
     const bloccata = MC.normalizzaSezione({ titolo: 'x', chiusa: true }, 0);
     assert.strictEqual(bloccata.chiusa, false);
 });
+
+/* La tela nasce per UN pezzo e lo centra; con più blocchi il centraggio li
+   mette in fila (è successo alle Impostazioni AI, tre pezzi del markup
+   storico). `forma: 'colonna'` è la deroga, e come ogni deroga si dichiara. */
+test('tela: la forma «colonna» si dichiara, e nient’altro è ammesso', () => {
+    const s = MC.normalizzaSchema({ titolo: 'x', tela: { id: 'ai', forma: 'colonna' } });
+    assert.strictEqual(s.tela.forma, 'colonna');
+    assert.strictEqual(MC.normalizzaSchema({ titolo: 'x', tela: { id: 'ai' } }).tela.forma, '');
+    assert.strictEqual(MC.normalizzaSchema({ titolo: 'x', tela: { id: 'ai', forma: 'griglia' } }).tela.forma, '');
+});

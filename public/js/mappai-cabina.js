@@ -983,7 +983,11 @@
        quando la console si chiude, o alla riapertura non esisterebbero più
        (il motore butta via il riquadro, e con lui tutto ciò che contiene). */
     function _vistaAi(s) {
-        s.tela = { id: 'ai', segnaposto: '' };
+        /* `forma: 'colonna'`: la tela centra il contenuto (nasce per UN pezzo,
+           il cruscotto dei consumi). Qui dentro ne spostiamo TRE, e centrati
+           finivano in fila — provider e chiave in una colonna stretta a destra,
+           la lingua a mezz'altezza, 300px di vuoto in cima. */
+        s.tela = { id: 'ai', segnaposto: '', forma: 'colonna' };
         s.nota = t('cb_ai_nota', 'Le chiavi restano su questo computer: non vengono mai inviate se non al provider che scegli qui.');
         return s;
     }
@@ -1023,7 +1027,18 @@
            in un riquadro buttato via, e alla riapertura la Cabina mostrava una
            schermata muta). Coi nodi in mano il ritorno è esatto comunque. */
         _aiPezzi = c.pezzi.slice();
-        for (var i = 0; i < c.pezzi.length; i++) host.appendChild(c.pezzi[i]);
+        /* ORDINE di lettura: prima quello per cui si apre questa vista
+           (provider · chiave · modello), poi le due righe della lingua, che
+           riguardano l'app intera. Nel modale storico stavano in cima perché
+           erano due righe sottili sopra un form; qui, a tutta larghezza,
+           mettevano l'essenziale sotto la piega. Si RIORDINA l'append, non il
+           markup: gli elementi restano gli stessi e tornano al loro posto. */
+        var ordinati = c.pezzi.slice().sort(function (a, b) {
+            var pa = a.querySelector && a.querySelector('#provider-google') ? 0 : 1;
+            var pb = b.querySelector && b.querySelector('#provider-google') ? 0 : 1;
+            return pa - pb;
+        });
+        for (var i = 0; i < ordinati.length; i++) host.appendChild(ordinati[i]);
         /* Il modale storico non si apre più da nessuna parte, ma resta nel DOM
            col suo velo: senza questo, un click a vuoto lo riporterebbe davanti. */
         var m = document.getElementById('config-ai-modal');

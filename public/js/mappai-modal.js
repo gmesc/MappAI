@@ -604,7 +604,7 @@
                 : (main.length ? '<div class="mm-console__sez' + areaMod + '">' + main.map(sezioneHtml).join('') + '</div>' : '') +
                 tabellaHtml(s.tabella) +
                 tabelleHtml(s.tabelle) +
-                (s.tela ? '<div class="mm-tela" data-tela="' + esc(s.tela.id) + '"' +
+                (s.tela ? '<div class="mm-tela' + (s.tela.forma === 'colonna' ? ' mm-tela--colonna' : '') + '" data-tela="' + esc(s.tela.id) + '"' +
                     (s.tela.altezza ? ' style="flex:0 0 ' + esc(s.tela.altezza) + '"' : '') + '>' +
                     (s.tela.segnaposto ? '<span class="mm-tela__vuota">' + esc(s.tela.segnaposto) + '</span>' : '') +
                     '</div>' : '')) +

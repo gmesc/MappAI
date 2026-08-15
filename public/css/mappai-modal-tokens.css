@@ -985,6 +985,61 @@ button.mm-ctx__p:focus-visible {
     justify-content: center;
 }
 
+/* ── tela a COLONNA (15/8 sera) ──────────────────────────────────────────────
+   La tela nasce per UN pezzo solo (un cruscotto, un'anteprima) e lo CENTRA.
+   Le Impostazioni AI ci spostano dentro TRE blocchi del markup storico, e il
+   centraggio li metteva in FILA: la riga della lingua a mezz'altezza a
+   sinistra, provider e chiave schiacciati in una colonna di 423px a destra,
+   300px di vuoto in cima (misurato prima del rimedio). Qui il blocco grosso
+   prende la riga tutta per sé e i due comandi corti della lingua si affiancano
+   sotto — invece di diventare due fasce vuote larghe mezzo schermo. */
+.mm-tela--colonna {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-content: flex-start;
+    align-items: flex-start;
+    justify-content: flex-start;
+    /* ⚠️ In alto a sinistra ci sta la MANIGLIA della colonna (guida §8.19):
+       con la tela l'area va a `padding:0`, quindi il posto se lo riprende chi
+       ospita — o il primo titolo finisce sotto il bottone (misurato: «PROVIDER
+       AI» tagliato a metà). Stesso token della maniglia, non un numero a mano. */
+    padding: 18px 20px 18px calc(var(--mnc-man-size, 34px) + 16px);
+    overflow: auto;
+}
+
+/* il blocco principale (provider · chiave · modello): riga sua, con una
+   larghezza di lettura — un campo per la chiave API lungo 1000px non aiuta */
+.mm-tela--colonna>*:has(#provider-google) {
+    flex: 0 0 100%;
+    max-width: 720px;
+}
+
+/* le due righe della lingua: si stringono sul contenuto e prendono la STESSA
+   veste. Nel markup storico una ha il suo riquadro e l'altra è nuda: in un
+   modale da 600, incolonnate, non si notava; affiancate qui, la differenza si
+   legge come un errore invece che come una scelta. */
+.mm-tela--colonna>*:not(:has(#provider-google)) {
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid var(--mm-bordo);
+    border-radius: var(--mm-r-box);
+}
+
+/* ⚠️ Il blocco principale del modale storico porta `overflow-y-auto flex-1`:
+   dentro la console diventerebbe una SECONDA barra di scorrimento annidata in
+   quella dell'area. A scorrere è uno solo — la tela. */
+.mm-tela--colonna>.overflow-y-auto {
+    overflow: visible !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    padding-right: 0 !important;
+}
+
 .mm-tela__vuota {
     font-size: 12px;
     color: var(--mm-testo-3);
