@@ -38,7 +38,7 @@
     <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
          Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
          modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
-    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=cm12">
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=dh16">
 
     <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
          Ogni regola è scoped sotto html.manifesto: senza quella classe questo
@@ -48,7 +48,7 @@
     <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=oq11">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
-    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh10">
+    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh16">
 
     <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
          Le classi `manifesto` e `mappai-ridotta` le mettevano i due moduli a
@@ -610,7 +610,7 @@
                     <div class="pt-4 mt-2 border-t border-teal-400 flex flex-col gap-3">
                         <h3 class="text-[11px] font-black uppercase tracking-widest text-amber-500 mb-1"
                             id="feedback-section-title">Feedback & Bug</h3>
-                        <button onclick="window.openFeedbackModal()" class="btn_feedback_action">
+                        <button onclick="window.openCabina && window.openCabina('feedback')" class="btn_feedback_action">
                             <div
                                 class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
@@ -2077,77 +2077,6 @@
         </div>
     </div>
 
-    <!-- MODALE SEGNALAZIONI & FEEDBACK -->
-    <div id="feedback-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
-            id="feedback-box">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
-                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="alert-triangle" class="text-amber-500"></i>
-                    <span id="feedback-modal-title-lbl">Invia Segnalazione</span>
-                </h3>
-                <button onclick="window.closeFeedbackModal()" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-5">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2"
-                        id="feedback-cat-label-lbl">Categoria della segnalazione</label>
-                    <div class="grid grid-cols-2 gap-2" id="feedback-category-group">
-                        <button type="button" onclick="window.selectFeedbackCategory('ui')" id="fb-cat-ui"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            🎨 Interfaccia / UI
-                        </button>
-                        <button type="button" onclick="window.selectFeedbackCategory('ai')" id="fb-cat-ai"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            🤖 Generazione AI
-                        </button>
-                        <button type="button" onclick="window.selectFeedbackCategory('storage')" id="fb-cat-storage"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            💾 Salvataggio / File
-                        </button>
-                        <button type="button" onclick="window.selectFeedbackCategory('bug')" id="fb-cat-bug"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            ⚠️ Bug / Errore
-                        </button>
-                        <button type="button" onclick="window.selectFeedbackCategory('suggestion')"
-                            id="fb-cat-suggestion"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            💡 Suggerimento
-                        </button>
-                        <button type="button" onclick="window.selectFeedbackCategory('other')" id="fb-cat-other"
-                            class="py-2 px-3 text-xs font-bold border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all text-center focus:outline-none">
-                            ➕ Altro
-                        </button>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
-                        id="feedback-desc-label-lbl">Dettagli della segnalazione</label>
-                    <textarea id="feedback-text"
-                        placeholder="Descrivi il problema riscontrato o la tua proposta per migliorare MappAI..."
-                        class="form_input min-h-[120px] resize-none"></textarea>
-                </div>
-            </div>
-
-            <div class="mt-8 flex flex-col gap-3 flex-shrink-0">
-                <button onclick="window.submitFeedback()"
-                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
-                    <i data-lucide="send" class="w-4 h-4"></i> <span id="feedback-submit-btn-lbl">Invia Feedback via
-                        Email</span>
-                </button>
-                <button onclick="window.closeFeedbackModal()"
-                    class="w-full py-3 bg-slate-100 text-slate-500 hover:bg-slate-200 font-bold rounded-xl transition-all">
-                    Annulla
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- MODALE ESPLORA VAULT -->
     <div id="vault-manager-modal"
         class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
@@ -3581,7 +3510,7 @@
          SCRIPT UNIFICATI (JS)
          ========================================== -->
     <script src="traduzioni/it_translations.js"></script>
-    <script src="traduzioni/en_translations.js?v=cm6"></script>
+    <script src="traduzioni/en_translations.js?v=dh16"></script>
     <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/hypher.js"></script>
     <script src="js/it.js"></script>
@@ -3599,12 +3528,12 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=dh15"></script>
+    <script src="js/app.js?v=dh16"></script>
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
-    <script src="js/mappai-modal-core.js"></script>
-    <script src="js/mappai-modal.js?v=dh12"></script>
+    <script src="js/mappai-modal-core.js?v=dh16"></script>
+    <script src="js/mappai-modal.js?v=dh16"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
@@ -3615,7 +3544,7 @@
     <script src="js/mappai-console-bento.js?v=dh13"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=dh15"></script>
+    <script src="js/mappai-storage-lang.js?v=dh16"></script>
     <script src="js/mappai-d3-render.js?v=dh11"></script>
     <script src="js/mappai-ui-canvas.js?v=dh15"></script>
     <!-- Moduli MappAI estesi -->
@@ -3766,9 +3695,13 @@
     <script src="js/mappai-pomodoro.js"></script>
     <script src="js/mappai-user-profile.js"></script>
     <script src="js/mappai-teacher-profile.js"></script>
+    <!-- Registro LOCALE degli errori (15/8): niente parte da solo — le righe
+         stanno su disco e la Cabina le allega alla segnalazione. Prima della
+         Cabina, che le legge. -->
+    <script src="js/mappai-errori.js?v=dh16"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=dh13"></script>
+    <script src="js/mappai-cabina.js?v=dh16"></script>
     <script src="js/mappai-search-finder.js"></script>
     <script src="js/mappai-vault-manager.js?v=dh15"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>

@@ -47,7 +47,20 @@
         { id: 'tutorial', chiave: 'cb_v_tutorial', testo: 'Tutorial', icona: 'book-open' },
         { gruppo: 'cb_g_note', gruppoTesto: 'Note d’uso' },
         { id: 'termini', chiave: 'cb_v_termini', testo: 'Termini & Condizioni', icona: 'scroll-text' },
-        { id: 'privacy', chiave: 'cb_v_privacy', testo: 'Privacy', icona: 'shield-check' }
+        { id: 'privacy', chiave: 'cb_v_privacy', testo: 'Privacy', icona: 'shield-check' },
+        /* Sviluppo: chi fa l'app e come gli si scrive. Sono le due cose che
+           finora vivevano SOLO nel cassetto insegnai — visibile a schermo solo
+           sulla landing vuota, quindi irraggiungibile appena si comincia a
+           lavorare (e con la veste manifesto anche prima). */
+        { gruppo: 'cb_g_dev', gruppoTesto: 'Sviluppo' },
+        { id: 'insegnai', chiave: 'cb_v_insegnai', testo: 'insegnai.ch', icona: 'globe' },
+        /* ⚠️ La sola voce con una veste sua: è il CLONE del bottone ambra del
+           cassetto (`.btn_feedback_action`), stesso comando in due posti. */
+        {
+            id: 'feedback', chiave: 'cb_v_feedback', testo: 'Segnalazione', icona: 'alert-triangle',
+            sottoChiave: 'cb_v_feedback_sub', sottoTesto: 'Invia feedback o bug',
+            classe: 'mm-nav__v--segnala'
+        }
     ];
     var IDS = VOCI.filter(function (v) { return v.id; }).map(function (v) { return v.id; });
     /* «classe» era il nome della vista prima che diventasse l'elenco dei due
@@ -64,8 +77,51 @@
     function _vuoto() {
         return {
             voce: 'profilo', profilo: null, rid: null,
-            ud: { stato: 'vuoto', records: [], ctx: null, sel: '', fCtx: '', fMat: '', drill: null }
+            ud: { stato: 'vuoto', records: [], ctx: null, sel: '', fCtx: '', fMat: '', drill: null },
+            err: { stato: 'vuoto', records: [], totale: 0, file: '', disco: false },
+            cart: { stato: 'vuoto', organizzata: false, root: '', documenti: '' },
+            /* la segnalazione che si sta scrivendo: sopravvive al cambio di
+               categoria (che ridisegna) e al giro in un'altra vista */
+            fb: { cat: 'ui', testo: '' }
         };
+    }
+
+    /* Dove finiscono i file: la risposta la sa il main (le impostazioni vivono
+       in `userData`), quindi si chiede via IPC entrando nel profilo. */
+    function _caricaCartelle() {
+        var C = _st.cart;
+        if (C.stato !== 'vuoto') return;
+        var api = window.electronAPI;
+        if (!api || !api.filesRootGet) { C.stato = 'nonapp'; return; }
+        C.stato = 'carico';
+        api.filesRootGet().then(function (st) {
+            C.organizzata = !!(st && st.organized);
+            C.root = (st && (st.rootDir || st.filesRoot)) || '';
+            C.documenti = (st && st.documentsDir) || '';
+        }).catch(function () { }).then(function () {
+            C.stato = 'pronto';
+            _ridisegna();
+        });
+    }
+
+    /* Gli errori arrivano dal disco (IPC): si leggono entrando nella vista, non
+       all'apertura della console — chi va in «Consigli di studio» non ha motivo
+       di far leggere un file. */
+    function _caricaErrori() {
+        var E = _st.err;
+        if (E.stato !== 'vuoto') return;
+        E.stato = 'carico';
+        var M = window.MappAIErrori;
+        if (!M || !M.ultimi) { E.stato = 'pronto'; return; }
+        M.ultimi(8).then(function (r) {
+            E.records = (r && r.records) || [];
+            E.totale = (r && r.totale) || 0;
+            E.file = (r && r.file) || '';
+            E.disco = !!(r && r.disco);
+        }).catch(function () { }).then(function () {
+            E.stato = 'pronto';
+            _ridisegna();
+        });
     }
 
     function _classi() {
@@ -123,6 +179,16 @@
        motore tiene la sua pila e non sa niente di queste: senza questo elenco,
        ESC scavalcherebbe quella in cima. */
     function _legacySopra() {
+        /* la finestra delle cartelle non ha un id: si riconosce dalla classe.
+           Ha un ESC suo, ma senza questa riga lo stesso tasto chiuderebbe
+           ANCHE la console sotto — due strati in un colpo. */
+        var f = document.querySelector('.mappai-files-overlay');
+        if (f) {
+            return function () {
+                f.remove();
+                if (_st) { _st.cart.stato = 'vuoto'; _caricaCartelle(); }
+            };
+        }
         var m = document.getElementById('class-accounts-modal');
         if (m) {
             return function () {
@@ -435,12 +501,226 @@
             testo: t('cb_pv_lan_d', 'Lavagna, quiz LIVE e Tutor restano sulla rete locale: i telefoni parlano col tuo computer, non con Internet, e le risposte finiscono in una cartella tua. L’eccezione è il Tutor QR, dove i messaggi che gli allievi scrivono vengono inoltrati all’AI per ottenere la risposta.')
         });
         s.sezioni.push({
+            id: 'pv-errori', titolo: t('cb_pv_errori_t', 'Il registro degli errori'),
+            testo: t('cb_pv_errori_d', 'Quando qualcosa va storto MappAI scrive una riga in «Diagnostica», sul tuo computer: messaggio, file e riga, provider e modello attivi, titolo della mappa aperta. Non contiene il testo delle fonti né i profili di allievi e classi, e non parte da solo — lo si allega alla segnalazione, che spedisci tu dal tuo programma di posta. Si svuota dalla Cabina, in «Segnalazione».')
+        });
+        s.sezioni.push({
             id: 'pv-cancella', titolo: t('cb_pv_cancella_t', 'Cancellare'),
             testo: t('cb_pv_cancella_d', 'Le cartelle sono file normali: si eliminano dal Finder e spariscono davvero. Le identità degli allievi (emoji + numero) esistono solo dentro la classe, sul tuo disco, e si rigenerano quando vuoi.'),
             azioni: [{ id: 'apri-cartella-consumi', etichetta: t('cb_pv_apri', 'Apri la cartella dei consumi'), icona: 'folder-open', chiude: false }]
         });
         s.nota = t('cb_note_nota', 'Sintesi informativa, non un contratto. Per le condizioni complete: insegnai.ch — giacomo@insegnai.ch');
         return s;
+    }
+
+    /* ── GESTIONE CARTELLE (in coda al profilo insegnante) ───────────────────
+       Dice DOVE finiscono i file e ci porta. Il nome è quello che si cerca
+       («cartelle»), non quello del codice («files root»).
+       ⚠️ Le sottocartelle NON sono un elenco scritto qui: arrivano da
+       `FilesCore.SUB`, che è ciò che il main crea davvero — una lista a mano
+       resterebbe indietro alla prima cartella nuova (com'è successo con
+       «Allievi» e «Diagnostica», nate dopo). */
+    function _sottocartelle() {
+        var FC = window.MappAIFilesCore;
+        var base = (FC && FC.SUB) ? Object.keys(FC.SUB).map(function (k) { return FC.SUB[k]; }) : [];
+        return base.concat([t('cb_ca_diag', 'Diagnostica')]).join(' · ');
+    }
+    /* Aspetta che la finestra delle cartelle sparisca, poi rilegge e ridisegna.
+       Un osservatore invece di un timer: la finestra può restare aperta un
+       minuto (c'è un dialogo di sistema per scegliere la cartella, e una
+       migrazione di mezzo), e un'attesa a tempo o scatta troppo presto o fa
+       aspettare per niente. */
+    function _quandoChiusaCartelle() {
+        if (typeof MutationObserver === 'undefined') return;
+        var obs = new MutationObserver(function () {
+            if (document.querySelector('.mappai-files-overlay')) return;
+            obs.disconnect();
+            if (!_st) return;
+            _st.cart.stato = 'vuoto';
+            _caricaCartelle();          // al termine ridisegna da sé
+        });
+        obs.observe(document.body, { childList: true });
+    }
+
+    function _sezCartelle() {
+        var C = _st.cart;
+        /* ⚠️ La lettura si avvia DA QUI e non solo dagli agganci di apertura e
+           cambio vista: dopo «Cambia posizione» lo stato torna «da rileggere»,
+           e se la finestra delle cartelle si chiude con la × o col velo nessuno
+           la richiamerebbe — il riquadro resterebbe su «Cerco la cartella…»
+           per sempre. Idempotente: al secondo giro lo stato non è più vuoto. */
+        if (C.stato === 'vuoto') { _caricaCartelle(); C = _st.cart; }
+        var sez = { id: 'pr-cartelle', titolo: t('cb_ca_t', 'Gestione cartelle'), largo: true };
+        if (C.stato === 'nonapp') {
+            sez.testo = t('cb_ca_nonapp', 'I file di MappAI si gestiscono dall’app installata: qui, nel browser, non c’è un disco da mostrare.');
+            return sez;
+        }
+        if (C.stato !== 'pronto') { sez.testo = t('cb_ca_leggo', 'Cerco la cartella…'); return sez; }
+        if (!C.organizzata) {
+            sez.testo = t('cb_ca_sparsi', 'I documenti che MappAI produce sono sparsi in più cartelle dentro Documenti. Puoi raccoglierli in una sola — «MappAI - file» — nella posizione che scegli tu: quelli che ci sono già vengono spostati, non copiati.');
+            sez.azioni = [{ id: 'cart-cambia', etichetta: t('cb_ca_scegli', 'Scegli la posizione'), ruolo: 'primario', icona: 'folder-plus', chiude: false }];
+            return sez;
+        }
+        sez.testo = t('cb_ca_d', 'Tutto quello che MappAI scrive — mappe e vault, materiali, sessioni delle attività, profili, registri — vive in questa cartella sul tuo computer. È una cartella normale: puoi aprirla, copiarla su un disco esterno, metterla in un backup.');
+        sez.dati = [
+            { etichetta: t('cb_ca_dove', 'Cartella'), valore: C.root },
+            { etichetta: t('cb_ca_dentro', 'Dentro'), valore: _sottocartelle() }
+        ];
+        sez.azioni = [
+            { id: 'cart-apri', etichetta: t('cb_ca_apri', 'Apri la cartella'), ruolo: 'primario', icona: 'folder-open', chiude: false },
+            { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cambia posizione'), icona: 'folder-cog', chiude: false }
+        ];
+        return sez;
+    }
+
+    /* ── SVILUPPO ────────────────────────────────────────────────────────────
+       Le due voci che finora vivevano SOLO nel cassetto insegnai. Il testo di
+       presentazione arriva dalle stesse chiavi del cassetto (`about_desc*`):
+       una fonte sola, o le due superfici divergono al primo ritocco.
+       I collegamenti sono AZIONI, non link: in Electron un `<a target=_blank>`
+       passa da `setWindowOpenHandler` e apre una finestra dell'app, mentre
+       `openExternal` li consegna al browser di sistema — che è dove ci si
+       aspetta di trovare un profilo social. */
+    function _senzaTag(s) {
+        return String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    }
+    var LINK_INSEGNAI = [
+        { id: 'ins:sito', url: 'https://insegnai.ch', chiave: 'cb_in_sito', testo: 'insegnai.ch', icona: 'globe' },
+        { id: 'ins:mail', url: 'mailto:giacomo@insegnai.ch', chiave: 'cb_in_mail', testo: 'giacomo@insegnai.ch', icona: 'mail' },
+        { id: 'ins:ig', url: 'https://www.instagram.com/insegnai.ch/', chiave: 'cb_in_ig', testo: 'Instagram', icona: 'instagram' },
+        { id: 'ins:fb', url: 'https://www.facebook.com/insegnai.ch/', chiave: 'cb_in_fb', testo: 'Facebook', icona: 'facebook' }
+    ];
+    function _vistaInsegnai(s) {
+        s.area = 'due';
+        s.sezioni.push({
+            id: 'in-chi', titolo: t('cb_in_chi_t', 'Chi c’è dietro MappAI'), largo: true,
+            /* il ritratto tondo del sito, non una foto nuova: è la stessa
+               immagine con cui insegnai.ch si presenta altrove */
+            figura: { src: 'insegnai_profilo.png', alt: t('cb_in_foto_alt', 'Ritratto di Giacomo Meschini, autore di MappAI'), tonda: true },
+            /* ⚠️ Quelle chiavi nascono per il cassetto, che è HTML: `about_desc1`
+               porta un `<strong>`. Il motore ESCAPA il testo (giustamente), e
+               senza questa pulizia a schermo si leggeva «<strong>MappAI</strong>». */
+            testo: _senzaTag([
+                t('about_desc1', 'Ciao, mi chiamo Giacomo e sono lo sviluppatore di MappAI.'),
+                t('about_desc2', 'Ho creato questo software come strumento di organizzazione e assistenza per lo studio.'),
+                t('about_desc3', 'Sono anche un docente di scuola media e da anni mi interesso all’utilizzo dell’Intelligenza Artificiale in ambito educativo e non solo. Spero che questo software possa esservi d’aiuto.')
+            ].join(' '))
+        });
+        s.sezioni.push({
+            id: 'in-prog', titolo: t('cb_in_prog_t', 'Il progetto insegnai.ch'), largo: true,
+            testo: t('cb_in_prog_d', 'insegnai.ch è il posto dove il lavoro viene pubblicato. Oltre allo sviluppo di MappAI e delle altre applicazioni, il sito propone approfondimenti ad ampio spettro sull’AI literacy: come funzionano davvero questi strumenti, che cosa cambiano nel modo di pensare, di scrivere e di insegnare, e come portarli in classe con criterio.')
+        });
+        s.sezioni.push({
+            id: 'in-link', titolo: t('cb_in_link_t', 'Dove trovarmi'), largo: true,
+            testo: t('cb_in_link_d', 'Sito, posta e i due profili su cui pubblico il lavoro su AI e didattica. Si aprono nel browser di sistema, fuori da MappAI.'),
+            azioni: LINK_INSEGNAI.map(function (l) {
+                return { id: l.id, etichetta: t(l.chiave, l.testo), icona: l.icona, chiude: false };
+            })
+        });
+        s.nota = t('cb_in_nota', 'Questa vista crescerà: qui finiranno versione, note di rilascio e i canali dove seguire lo sviluppo.');
+        return s;
+    }
+
+    /* ── FEEDBACK & BUG ──────────────────────────────────────────────────────
+       ⚠️ La vista dice come funziona DAVVERO: nessun crash reporter, nessuna
+       telemetria (verificato nel repo: zero `crashReporter`, zero Sentry, zero
+       endpoint). Se l'app si chiude di colpo non resta niente da spedire —
+       quindi la descrizione di che cosa si stava facendo È la segnalazione,
+       e chi scrive deve saperlo prima di scrivere «si è chiuso». */
+    /* ⚠️ Il MODALE «Invia segnalazione» è stato pensionato (15/8): scrivere una
+       segnalazione è la cosa che si viene a fare qui, e una finestra sopra la
+       console era una superficie in più per lo stesso gesto (con le sue emoji
+       nei bottoni, contro la regola: solo Lucide). Categorie, testo e invio
+       stanno nell'area, e il cassetto insegnai porta QUI. */
+    function _vistaFeedback(s) {
+        s.area = 'due';
+        var F = _st.fb;
+        var cats = (window.categorieSegnalazione ? window.categorieSegnalazione() : []);
+        s.sezioni.push({
+            id: 'fb-cat', titolo: t('cb_fb_cat_t', 'Che cosa vuoi segnalare'), largo: true,
+            /* voci e non radio: la scelta è una sola, si fa con un colpo e si
+               vede da lontano quale è accesa — con sei radio in fila servirebbe
+               leggerle tutte per sapere dove si è */
+            voci: cats.map(function (c) {
+                return { id: 'fb-cat:' + c.id, etichetta: c.etichetta, icona: c.icona, attiva: F.cat === c.id, chiude: false };
+            })
+        });
+        s.sezioni.push({
+            id: 'fb-testo', titolo: t('cb_fb_testo_t', 'Racconta cosa è successo'), largo: true,
+            testo: t('cb_fb_testo_d', 'Più sei preciso, più è probabile che si possa correggere: che cosa stavi facendo, che cosa ti aspettavi, che cosa è successo invece. Se è un suggerimento, dimmi il problema che risolverebbe.'),
+            campi: [{
+                id: 'fb-txt', tipo: 'area', etichetta: t('cb_fb_txt_lbl', 'Descrizione della segnalazione'),
+                valore: F.testo
+            }],
+            azioni: [{ id: 'fb-invia', etichetta: t('cb_fb_invia', 'Prepara l’email'), ruolo: 'primario', icona: 'send', chiude: false }]
+        });
+        s.sezioni.push({
+            id: 'fb-come', titolo: t('cb_fb_come_t', 'Come arriva la segnalazione'),
+            testo: t('cb_fb_come_d', 'MappAI prepara un’email, la copia negli appunti e apre il tuo programma di posta con giacomo@insegnai.ch già compilato. Niente parte da solo: fino a quando non premi «invia» nel tuo client, la segnalazione non ha lasciato il computer.')
+        });
+        s.sezioni.push({
+            id: 'fb-cosa', titolo: t('cb_fb_cosa_t', 'Che cosa viene allegato'),
+            testo: t('cb_fb_cosa_d', 'La categoria che scegli, il modello AI selezionato, la versione dell’app e la stringa del browser interno. Nient’altro: né le tue mappe, né le fonti caricate, né i profili di classi e allievi.')
+        });
+        s.sezioni.push({
+            id: 'fb-crash', titolo: t('cb_fb_crash_t', 'Gli errori restano su questo computer'),
+            testo: t('cb_fb_crash_d', 'MappAI registra gli errori in un file sul tuo disco e non li spedisce a nessuno: nessun servizio esterno, nessun invio automatico. Le ultime righe finiscono in coda alla segnalazione quando apri il modulo — e partono solo se premi «invia» nel tuo programma di posta.')
+        });
+        s.sezioni.push(_sezErrori());
+        s.nota = t('cb_fb_nota', 'Consigli e richieste valgono quanto i bug: la scelta di che cosa costruire dopo si fa anche così.');
+        return s;
+    }
+
+    /* Il registro visto da qui. Mostra le ULTIME righe, non tutte: chi guarda
+       vuole sapere se è successo qualcosa e che cosa, non leggere un file di
+       log — quello si apre nella cartella. */
+    function _sezErrori() {
+        var E = _st.err;
+        var sez = {
+            id: 'fb-reg', titolo: t('cb_fb_reg_t', 'Errori registrati'), largo: true,
+            azioni: [
+                { id: 'err-copia', etichetta: t('cb_fb_reg_copia', 'Copia gli ultimi errori'), icona: 'clipboard-copy', chiude: false },
+                /* «Apri Diagnostica», non «Apri la cartella»: nella stessa
+                   console c'è già un bottone con quel nome (Gestione cartelle,
+                   nel profilo) e porta ALTROVE — alla cartella madre. Due
+                   comandi omonimi che aprono due posti diversi sono un modo di
+                   sbagliare. L'icona resta la stessa: il gesto è lo stesso. */
+                { id: 'err-cartella', etichetta: t('cb_fb_reg_cartella', 'Apri Diagnostica'), icona: 'folder-open', chiude: false },
+                { id: 'err-svuota', etichetta: t('cb_fb_reg_svuota', 'Svuota il registro'), ruolo: 'distruttivo', icona: 'trash-2', chiude: false }
+            ]
+        };
+        if (!window.MappAIErrori) {
+            sez.testo = t('cb_fb_reg_off', 'Il registro degli errori non è caricato.');
+            sez.azioni = [];
+            return sez;
+        }
+        if (E.stato !== 'pronto') {
+            sez.testo = t('cb_fb_reg_leggo', 'Leggo il registro…');
+            return sez;
+        }
+        if (!E.records.length) {
+            sez.testo = t('cb_fb_reg_vuoto', 'Nessun errore registrato. È la condizione normale: qui compaiono solo i guasti veri, non i messaggi di lavoro dell’app.');
+            /* niente da copiare e niente da svuotare: resta la cartella */
+            sez.azioni = sez.azioni.filter(function (a) { return a.id === 'err-cartella'; });
+            return sez;
+        }
+        sez.testo = t('cb_fb_reg_d', 'Le ultime righe scritte sul disco. Ogni riga porta il messaggio, il file e la riga, il provider e il modello attivi e il titolo della mappa aperta — mai il contenuto delle fonti o i profili di allievi e classi.');
+        /* ⚠️ Le righe si passano come OGGETTI, non come stringhe «etichetta:
+           valore»: la forma breve spezza al PRIMO due punti, e nell'ora
+           («11:46») il primo due punti è dentro il dato — l'etichetta sarebbe
+           «2026-08-15 11». */
+        sez.dati = E.records.slice().reverse().map(function (e) {
+            var q = e.ctx || {};
+            var dove = e.file ? (' — ' + String(e.file).split('/').pop() + ':' + (e.riga || 0)) : '';
+            var chi = q.modello ? (' · ' + q.modello) : '';
+            return {
+                etichetta: String(e.ts || '').replace('T', ' ').slice(0, 16),
+                valore: String(e.messaggio || '').slice(0, 120) + dove + chi
+            };
+        });
+        sez.sotto = t('cb_fb_reg_tot', 'Registrati in tutto: ') + E.totale +
+            (E.disco ? '' : ' · ' + t('cb_fb_reg_nodisco', 'copia in memoria del browser (fuori dall’app installata)'));
+        return sez;
     }
 
     /* ── Allievi · Classi ────────────────────────────────────────────────────
@@ -606,7 +886,12 @@
             invio: false, veloChiude: false, sporco: _st.voce === 'profilo',
             nav: VOCI.map(function (v) {
                 if (v.gruppo) return { gruppo: t(v.gruppo, v.gruppoTesto) };
-                return { id: v.id, etichetta: t(v.chiave, v.testo), icona: v.icona, attiva: _st.voce === v.id };
+                return {
+                    id: v.id, etichetta: t(v.chiave, v.testo), icona: v.icona,
+                    sotto: v.sottoChiave ? t(v.sottoChiave, v.sottoTesto) : '',
+                    classe: v.classe || '',
+                    attiva: _st.voce === v.id
+                };
             }),
             sezioni: [],
             azioni: []
@@ -621,6 +906,13 @@
             if (!_st.profilo) _st.profilo = JSON.parse(JSON.stringify(TP.get()));
             s.area = 'due';
             s.sezioni = TP.sezioni(_st.profilo);
+            /* In coda al profilo, non dentro: `TP.sezioni` è la fonte condivisa
+               col modale storico e queste non sono cose del docente, sono cose
+               dell'installazione. Stanno QUI perché è la prima schermata che si
+               apre — e perché la domanda «dove me li ha messi?» arriva a
+               chiunque, mentre la finestra che risponde non aveva più un
+               ingresso da nessuna parte. */
+            s.sezioni.push(_sezCartelle());
             /* `chiude:false`: salvare NON è uscire. La Cabina è la casa del
                profilo — si salva e si continua, magari passando alla classe
                attiva. Col default un'azione di piè conclude, e per giunta non
@@ -635,6 +927,8 @@
         if (_st.voce === 'tutorial') return _vistaTutorial(s);
         if (_st.voce === 'termini') return _vistaTermini(s);
         if (_st.voce === 'privacy') return _vistaPrivacy(s);
+        if (_st.voce === 'insegnai') return _vistaInsegnai(s);
+        if (_st.voce === 'feedback') return _vistaFeedback(s);
 
         return _vistaAi(s);
     }
@@ -739,6 +1033,8 @@
             _st.rid = ridisegna;
             _riempiTela(box);
             if (_st.voce === 'consumi') _caricaConsumi();
+            if (_st.voce === 'feedback') _caricaErrori();
+            if (_st.voce === 'profilo') _caricaCartelle();
         };
 
         s.suAzione = function (ev, box, ridisegna) {
@@ -751,10 +1047,20 @@
                 window.MappAITeacherProfile.assorbi(_st.profilo, ev.valori);
             }
 
+            /* ⚠️ Ogni comando di questa vista RIDISEGNA (scegliere la categoria,
+               inviare): senza raccogliere il campo prima, il testo scritto
+               sparirebbe al primo clic — il riquadro viene ricostruito da capo
+               e il valore lo porta lo SCHEMA, non il DOM. */
+            if (_st.voce === 'feedback' && ev.valori && ev.valori['fb-txt'] !== undefined) {
+                _st.fb.testo = ev.valori['fb-txt'];
+            }
+
             if (id === '__nav') {
                 if (_st.voce === 'ai') _restituisciAi();
                 _st.voce = ev.voce;
                 if (_st.voce === 'consumi') _caricaConsumi();
+                if (_st.voce === 'feedback') _caricaErrori();
+                if (_st.voce === 'profilo') _caricaCartelle();
                 _ridisegna();
                 return;
             }
@@ -872,6 +1178,89 @@
             }
             if (id === 'apri-consigli') {
                 if (window.showAppTutorial) { window.showAppTutorial(); _alza('#app-tutorial-modal'); }
+                return;
+            }
+            // ── Segnalazione ────────────────────────────────────────────────
+            if (id.indexOf('fb-cat:') === 0) {
+                _st.fb.cat = id.slice(7);
+                _ridisegna();
+                return;
+            }
+            if (id === 'fb-invia') {
+                if (!window.inviaSegnalazione) {
+                    toast(t('cb_fb_no_modulo', 'Il modulo di segnalazione non è caricato.'), 'warning');
+                    return;
+                }
+                window.inviaSegnalazione(_st.fb.cat, _st.fb.testo).then(function (partita) {
+                    if (!partita) return;          // testo vuoto: l'avviso l'ha già dato
+                    _st.fb = { cat: 'ui', testo: '' };
+                    _ridisegna();
+                });
+                return;
+            }
+
+            // ── Gestione cartelle ───────────────────────────────────────────
+            if (id === 'cart-apri') {
+                if (window.electronAPI && window.electronAPI.filesOpenRoot) window.electronAPI.filesOpenRoot();
+                else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+            if (id === 'cart-cambia') {
+                if (window.MappAIFiles && window.MappAIFiles.openSettings) {
+                    window.MappAIFiles.openSettings();
+                    _alza('.mappai-files-overlay');
+                    /* La posizione può cambiare lì dentro, e quella finestra non
+                       avvisa nessuno quando si chiude (× · velo · ESC): si
+                       aspetta che sparisca dal DOM e si rilegge. Senza, il
+                       riquadro continuerebbe a dichiarare il percorso VECCHIO
+                       dopo che i file sono già stati spostati. */
+                    _quandoChiusaCartelle();
+                } else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+
+            // ── Registro locale degli errori ────────────────────────────────
+            if (id === 'err-copia') {
+                if (!window.MappAIErrori) return;
+                window.MappAIErrori.blocco(8).then(function (txt) {
+                    if (!txt) { toast(t('cb_fb_reg_niente', 'Nessun errore da copiare.'), 'info'); return; }
+                    navigator.clipboard.writeText(txt).then(function () {
+                        toast(t('cb_fb_reg_copiati', 'Errori copiati: incollali nella segnalazione.'), 'success');
+                    }, function () { toast(t('cb_fb_reg_nocopia', 'Copia non riuscita.'), 'warning'); });
+                });
+                return;
+            }
+            if (id === 'err-cartella') {
+                if (window.electronAPI && window.electronAPI.errorOpenFolder) window.electronAPI.errorOpenFolder();
+                else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+            if (id === 'err-svuota') {
+                /* distruttivo: si conferma. Il registro è l'unica traccia di
+                   quello che è andato storto — svuotarlo per sbaglio significa
+                   perdere proprio la segnalazione che si stava per scrivere. */
+                MM().conferma({
+                    titolo: t('cb_fb_reg_svuota', 'Svuota il registro'),
+                    testo: t('cb_fb_reg_conf', 'Cancella le righe degli errori registrati su questo computer. Non si torna indietro, e con esse sparisce il dettaglio da allegare alla segnalazione.'),
+                    conferma: t('cb_fb_reg_svuota', 'Svuota il registro'), distruttivo: true
+                }).then(function (si) {
+                    if (!si || !window.MappAIErrori) return;
+                    window.MappAIErrori.pulisci().then(function () {
+                        _st.err = { stato: 'vuoto', records: [], totale: 0, file: '', disco: false };
+                        _caricaErrori();
+                        _ridisegna();
+                        toast(t('cb_fb_reg_svuotato', 'Registro svuotato.'), 'success');
+                    });
+                });
+                return;
+            }
+
+            // ── Sviluppo: i collegamenti di insegnai.ch ─────────────────────
+            if (id.indexOf('ins:') === 0) {
+                var L = LINK_INSEGNAI.filter(function (x) { return x.id === id; })[0];
+                if (!L) return;
+                if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(L.url);
+                else window.open(L.url, '_blank', 'noopener');
                 return;
             }
         };

@@ -65,7 +65,6 @@ window.closeActiveModals = function () {
         { id: 'study-player-modal', close: () => window.closeStudyPlayer() },
         { id: 'contextual-ai-extension-modal', close: () => window.closeContextualAIModal() },
         { id: 'vault-manager-modal', close: () => window.closeVaultManager() },
-        { id: 'feedback-modal', close: () => window.closeFeedbackModal() },
         { id: 'validate-link-modal', close: () => window.closeValidateModal() },
         {
             id: 'api-tutorial-modal', close: () => {
@@ -1979,82 +1978,41 @@ window.applyAppTranslations = null;
         } catch (e) { }
     }
 
-    // Gestione Segnalazioni e Feedback
-    let selectedFeedbackCategory = 'ui';
-
-    window.selectFeedbackCategory = function (cat) {
-        selectedFeedbackCategory = cat;
-        const categories = ['ui', 'ai', 'storage', 'bug', 'suggestion', 'other'];
-        categories.forEach(c => {
-            const btn = document.getElementById(`fb-cat-${c}`);
-            if (btn) {
-                btn.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600');
-                btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
-            }
-        });
-
-        const activeBtn = document.getElementById(`fb-cat-${cat}`);
-        if (activeBtn) {
-            activeBtn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
-            activeBtn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
-        }
+    /* SEGNALAZIONI — il modale è stato PENSIONATO (15/8/26): categorie, testo
+       e invio vivono nella Cabina, vista «Segnalazione». Qui resta solo ciò che
+       non è interfaccia: l'elenco delle categorie (una fonte sola per chi le
+       disegna) e la composizione dell'email, che nessuna schermata deve
+       riscriversi. */
+    window.categorieSegnalazione = function () {
+        return [
+            { id: 'ui', etichetta: window.t('fb_cat_ui', 'Interfaccia'), icona: 'palette' },
+            { id: 'ai', etichetta: window.t('fb_cat_ai', 'Generazione AI'), icona: 'bot' },
+            { id: 'storage', etichetta: window.t('fb_cat_storage', 'Salvataggio e file'), icona: 'save' },
+            { id: 'bug', etichetta: window.t('fb_cat_bug', 'Bug o errore'), icona: 'alert-triangle' },
+            { id: 'suggestion', etichetta: window.t('fb_cat_suggestion', 'Suggerimento'), icona: 'lightbulb' },
+            { id: 'other', etichetta: window.t('fb_cat_other', 'Altro'), icona: 'circle-ellipsis' }
+        ];
     };
 
-    window.openFeedbackModal = function () {
-        const modal = document.getElementById('feedback-modal');
-        const box = document.getElementById('feedback-box');
-        if (!modal || !box) return;
-
-        document.getElementById('feedback-text').value = '';
-        window.selectFeedbackCategory('ui');
-
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            box.classList.remove('scale-95');
-        }, 10);
-        if (window.safeCreateIcons) window.safeCreateIcons();
-    };
-
-    window.closeFeedbackModal = function () {
-        const modal = document.getElementById('feedback-modal');
-        const box = document.getElementById('feedback-box');
-        if (!modal || !box) return;
-
-        modal.classList.add('opacity-0');
-        box.classList.add('scale-95');
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }, 200);
-    };
-
-    window.submitFeedback = function () {
-        const text = document.getElementById('feedback-text').value.trim();
+    /* Invia la segnalazione: unica strada, chiamata dalla Cabina. Ritorna una
+       promessa così chi la chiama sa quando ha finito (e può svuotare il campo
+       solo se è partita davvero). */
+    window.inviaSegnalazione = function (catId, testo) {
+        const text = String(testo || '').trim();
         if (!text) {
             if (window.showToast) window.showToast(window.t('tst_fill_report', "Inserisci i dettagli della segnalazione"), "warning");
-            return;
+            return Promise.resolve(false);
         }
-
-        const catLabels = {
-            'ui': 'Interfaccia / UI',
-            'ai': 'Generazione AI',
-            'storage': 'Salvataggio / File',
-            'bug': 'Bug / Errore',
-            'suggestion': 'Suggerimento',
-            'other': 'Altro'
-        };
-
-        const categoryLabel = catLabels[selectedFeedbackCategory] || 'Altro';
+        const cat = (window.categorieSegnalazione() || []).filter(c => c.id === catId)[0];
+        const categoryLabel = (cat && cat.etichetta) || 'Altro';
         const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
 
         const appVersion = "1.0.0";
-        const osInfo = "iOS / iPadOS (Capacitor)";
+        const osInfo = navigator.platform || 'sconosciuto';
         const userAgent = navigator.userAgent;
         const model = document.getElementById('model-select')?.value || 'Non specificato';
 
-        const emailBody = `SEGNALAZIONE UTENTE MAPPAI\n` +
+        const emailBase = `SEGNALAZIONE UTENTE MAPPAI\n` +
             `========================================\n` +
             `Categoria: ${categoryLabel}\n` +
             `Dispositivo: ${osInfo}\n` +
@@ -2064,17 +2022,30 @@ window.applyAppTranslations = null;
             `========================================\n\n` +
             `DESCRIZIONE:\n${text}\n\n`;
 
-        navigator.clipboard.writeText(emailBody).then(() => {
+        /* Gli ULTIMI ERRORI registrati in locale finiscono in coda alla
+           segnalazione: «non funziona» diventa un messaggio con file e riga.
+           Solo il testo, mai lo stack intero — un `mailto:` con tre stack
+           supera la lunghezza che alcuni client accettano, e l'email non si
+           aprirebbe affatto. Il registro resta sul computer: parte solo di qui,
+           e solo quando è l'utente a premere «invia». */
+        const spedisci = (coda) => {
+            const emailBody = emailBase + (coda ? coda + '\n' : '');
             const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-            window.location.href = mailtoUrl;
-            if (window.showToast) window.showToast(window.t('tst_report_copied', "Segnalazione copiata e client email aperto!"), "success");
-            window.closeFeedbackModal();
-        }).catch(err => {
-            const mailtoUrl = `mailto:giacomo@insegnai.ch?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-            window.location.href = mailtoUrl;
-            if (window.showToast) window.showToast(window.t('tst_email_ready', "Email preparata!"), "success");
-            window.closeFeedbackModal();
-        });
+            const apri = (msg) => {
+                window.location.href = mailtoUrl;
+                if (window.showToast) window.showToast(msg, "success");
+                return true;
+            };
+            return navigator.clipboard.writeText(emailBody).then(
+                () => apri(window.t('tst_report_copied', "Segnalazione copiata e client email aperto!")),
+                () => apri(window.t('tst_email_ready', "Email preparata!"))
+            );
+        };
+
+        if (window.MappAIErrori && window.MappAIErrori.blocco) {
+            return window.MappAIErrori.blocco(3).then(spedisci, () => spedisci(''));
+        }
+        return spedisci('');
     };
 
     // Inizializza i modelli all'avvio se c'è una chiave

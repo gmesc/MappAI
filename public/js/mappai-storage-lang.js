@@ -513,20 +513,16 @@ window.changeLanguage = function (lang, silent) {
         'estimator-cost-lbl': t.estimator_cost_label,
         'feedback-section-title': t.feedback_section,
         'feedback-btn-title': t.feedback_btn_title,
-        'feedback-btn-desc': t.feedback_btn_desc,
-        'feedback-modal-title-lbl': t.feedback_modal_title,
-        'feedback-cat-label-lbl': t.feedback_cat_label,
-        'feedback-desc-label-lbl': t.feedback_desc_label,
-        'feedback-submit-btn-lbl': t.feedback_submit_btn
+        'feedback-btn-desc': t.feedback_btn_desc
+        /* del modale segnalazioni restano solo le tre voci del CASSETTO: il
+           modale è stato pensionato (15/8) e le sue etichette vivono nella
+           Cabina, che passa da `t()` e non da questa mappa di id. */
     };
 
     for (let id in els) {
         const el = document.getElementById(id);
         if (el) el.innerText = els[id];
     }
-
-    const feedbackText = document.getElementById('feedback-text');
-    if (feedbackText) feedbackText.placeholder = t.feedback_desc_placeholder;
 
     // Process data-i18n attributes automatically
     document.querySelectorAll('[data-i18n]').forEach(el => {

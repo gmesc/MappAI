@@ -243,11 +243,6 @@ const it_translations = {
     feedback_section: "Feedback & Bug",
     feedback_btn_title: "Segnalazione",
     feedback_btn_desc: "Invia feedback o bug",
-    feedback_modal_title: "Invia Segnalazione",
-    feedback_cat_label: "Categoria della segnalazione",
-    feedback_desc_label: "Dettagli della segnalazione",
-    feedback_desc_placeholder: "Descrivi il problema riscontrato o la tua proposta per migliorare MappAI...",
-    feedback_submit_btn: "Invia Feedback",
 
     // UI statica index.html (i18n completa, 6 lug 2026)
     app_title: "MappAI — Generatore AI di mappe e grafici di conoscenza",
