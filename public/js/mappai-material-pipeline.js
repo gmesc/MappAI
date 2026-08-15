@@ -176,7 +176,10 @@
   // Cartella vault della mappa dentro il contenitore di classe, con suffisso su collisione.
   async function _resolveFolderPath(cls) {
     const base = await _mapsBase();
-    const classFolder = cls ? FC().mapClassFolder(cls.sede, cls.name) : FC().classFolder('');
+    /* Senza classe → null: il contenitore lo decide FilesCore.mapVaultParents
+       (dal 15/8 sera «Generico»). Prima qui usciva 'Senza classe' — un
+       contenitore che get-all-vaults leggeva come una classe fantasma. */
+    const classFolder = cls ? FC().mapClassFolder(cls.sede, cls.name) : null;
     // Livello disciplina (29/7): quella della generazione in corso se coerente con
     // la classe scelta nel modale della pipeline, altrimenti l'unica della classe.
     let discName = '';
@@ -194,7 +197,7 @@
     let siblings = [];
     try {
       const all = await window.electronAPI.getAllVaults();
-      siblings = (all || []).filter(v => v.classDir === classFolder && (v.discDir || '') === (discFolder || '')).map(v => v.folderName);
+      siblings = (all || []).filter(v => (v.classDir || null) === (classFolder || null) && (v.discDir || '') === (discFolder || '')).map(v => v.folderName);
     } catch (e) { siblings = []; }
     let finalName = vaultName;
     if (siblings.indexOf(vaultName) >= 0) {

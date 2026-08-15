@@ -138,13 +138,33 @@
     return safeName(discipline, '');
   }
 
+  /* «Generico» (15/8 sera): il contenitore dei vault SENZA classe. Prima
+     restavano piatti in Mappe/, mescolati agli export .json; ora stanno in
+     Mappe/Generico/<vault>. È un NOME RISERVATO, dichiarato qui e basta:
+     chi scrive lo usa (mapVaultParents), chi legge lo RITRADUCE in classDir
+     null (classDirDaCartella) — perché get-all-vaults deduce la classe dalla
+     POSIZIONE, e senza la ritraduzione «Generico» diventerebbe una classe
+     fantasma nei chip e nei filtri, e i progetti generici (classDir null)
+     perderebbero la loro mappa. Sotto Generico NON ci sono sottocartelle di
+     materia. Non è in VAULT_CONTAINER_EXCLUDE: va scandito come contenitore. */
+  var GENERICO = 'Generico';
+
+  // Il lettore ritraduce il nome del contenitore in classDir: Generico → null.
+  function classDirDaCartella(nome) {
+    var n = String(nome == null ? '' : nome);
+    if (!n || n === GENERICO) return null;
+    return n;
+  }
+
   // Segmenti RELATIVI a Mappe/ del vault di una mappa:
-  //   [] flat · [classe] · [classe, disciplina]
+  //   [Generico] senza classe · [classe] · [classe, disciplina]
   // Unica fonte del nesting: renderer (auto-vault, backfill, pipeline) e main.js
-  // costruiscono il path da qui, non concatenando a mano.
+  // costruiscono il path da qui, non concatenando a mano. I vault piatti già
+  // su disco (comportamento storico) restano leggibili: qui si decide solo dove
+  // vanno quelli NUOVI.
   function mapVaultParents(classDir, discipline) {
     var c = safeName(classDir, '');
-    if (!c) return [];
+    if (!c) return [GENERICO];
     var d = disciplineFolder(discipline);
     return d ? [c, d] : [c];
   }
@@ -350,6 +370,8 @@
     titoloProgetto: titoloProgetto,
     titoloDaFile: titoloDaFile,
     disciplineFolder: disciplineFolder,
+    GENERICO: GENERICO,
+    classDirDaCartella: classDirDaCartella,
     mapVaultParents: mapVaultParents,
     mapVaultRoot: mapVaultRoot,
     mapVaultParentsFor: mapVaultParentsFor,

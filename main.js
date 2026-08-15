@@ -2794,14 +2794,66 @@ ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {
     }
 });
 
+/* Cammina Mappe/ e restituisce le POSIZIONI dei vault (cartelle con index.yaml):
+   { vaultPath, folderName, classDir, discDir }. Nessuna lettura dell'index:
+   solo la geometria delle cartelle. La usano get-all-vaults e la risoluzione
+   per nome (open-vault-folder / zip-vault-to-materials).
+   ⚠️ Il livello di cartella È il dato: la classe si deduce dalla POSIZIONE.
+   - Livello 1: cartella CON index.yaml = vault piatto (comportamento storico,
+     i vault preesistenti restano leggibili) → classDir assente.
+   - Livello 2: contenitore SENZA index.yaml = classe → i figli con index.yaml
+     hanno classDir = nome del contenitore. «Generico» (15/8 sera) è il
+     contenitore dei vault SENZA classe: nome riservato in FilesCore.GENERICO,
+     che qui si RITRADUCE in classDir null — così un vault in Mappe/Generico/
+     esce con la stessa shape di un vault piatto e Generico non diventa una
+     classe fantasma nei chip e nei filtri.
+   - Livello 3 (29/7): cartella DISCIPLINA dentro la classe. Solo qui — oltre
+     non si scende, così una cartella spuria non fa esplodere la scansione.
+     Sotto Generico NON ci sono sottocartelle di materia: una cartella senza
+     index.yaml lì è spuria, non una disciplina — non si scende. */
+function walkMappe(saveDir) {
+    const out = [];
+    const EXCLUDE = (FilesCore && FilesCore.VAULT_CONTAINER_EXCLUDE) || [];
+    let top; try { top = fs.readdirSync(saveDir); } catch (e) { return out; }
+    top.forEach(f => {
+        const p = path.join(saveDir, f);
+        let st; try { st = fs.statSync(p); } catch (e) { return; }
+        if (!st.isDirectory() || EXCLUDE.indexOf(f) >= 0) return;
+        if (fs.existsSync(path.join(p, 'index.yaml'))) {
+            out.push({ vaultPath: p, folderName: f, classDir: null, discDir: null });
+            return;
+        }
+        const classDir = FilesCore.classDirDaCartella(f);   // null per Generico
+        let children; try { children = fs.readdirSync(p); } catch (e) { return; }
+        children.forEach(c => {
+            const cp = path.join(p, c);
+            let cst; try { cst = fs.statSync(cp); } catch (e) { return; }
+            if (!cst.isDirectory()) return;
+            if (fs.existsSync(path.join(cp, 'index.yaml'))) {
+                out.push({ vaultPath: cp, folderName: c, classDir: classDir, discDir: null });
+                return;
+            }
+            if (!classDir) return;   // sotto Generico non c'è il livello materia
+            let gchildren; try { gchildren = fs.readdirSync(cp); } catch (e) { return; }
+            gchildren.forEach(g => {
+                const gp = path.join(cp, g);
+                let gst; try { gst = fs.statSync(gp); } catch (e) { return; }
+                if (!gst.isDirectory() || !fs.existsSync(path.join(gp, 'index.yaml'))) return;
+                out.push({ vaultPath: gp, folderName: g, classDir: classDir, discDir: c });
+            });
+        });
+    });
+    return out;
+}
+
 ipcMain.handle('get-all-vaults', async () => {
     try {
         const saveDir = mapsBaseDir();   // 010
         if (!fs.existsSync(saveDir)) return [];
-        const EXCLUDE = (FilesCore && FilesCore.VAULT_CONTAINER_EXCLUDE) || [];
 
         // Legge un vault (cartella con index.yaml). classDir = basename del contenitore
-        // di classe se annidato (011), assente per i vault flat. Shape INVARIATA.
+        // di classe se annidato (011), assente per i vault flat E per quelli in
+        // Generico (walkMappe ritraduce). Shape INVARIATA.
         function readVaultInfo(vaultPath, folderName, classDir, discDir) {
             const indexPath = path.join(vaultPath, 'index.yaml');
             if (!fs.existsSync(indexPath)) return null;
@@ -2838,39 +2890,9 @@ ipcMain.handle('get-all-vaults', async () => {
         }
 
         const vaults = [];
-        fs.readdirSync(saveDir).forEach(f => {
-            const p = path.join(saveDir, f);
-            let st; try { st = fs.statSync(p); } catch (e) { return; }
-            if (!st.isDirectory() || EXCLUDE.indexOf(f) >= 0) return;
-            // Livello 1: cartella CON index.yaml = vault (comportamento storico).
-            if (fs.existsSync(path.join(p, 'index.yaml'))) {
-                const vi = readVaultInfo(p, f, null);
-                if (vi) vaults.push(vi);
-                return;
-            }
-            // Livello 2: contenitore di classe (nessun index.yaml) → scandire 1 livello.
-            let children; try { children = fs.readdirSync(p); } catch (e) { return; }
-            children.forEach(c => {
-                const cp = path.join(p, c);
-                let cst; try { cst = fs.statSync(cp); } catch (e) { return; }
-                if (!cst.isDirectory()) return;
-                if (fs.existsSync(path.join(cp, 'index.yaml'))) {
-                    const vi = readVaultInfo(cp, c, f, null);   // folderName = basename del vault; classDir = contenitore
-                    if (vi) vaults.push(vi);
-                    return;
-                }
-                // Livello 3 (29/7): cartella DISCIPLINA dentro la classe. Solo qui —
-                // oltre non si scende, così una cartella spuria non fa esplodere la
-                // scansione. Classi senza discipline restano a 2 livelli.
-                let gchildren; try { gchildren = fs.readdirSync(cp); } catch (e) { return; }
-                gchildren.forEach(g => {
-                    const gp = path.join(cp, g);
-                    let gst; try { gst = fs.statSync(gp); } catch (e) { return; }
-                    if (!gst.isDirectory()) return;
-                    const vi = readVaultInfo(gp, g, f, c);   // classDir = classe · discDir = disciplina
-                    if (vi) vaults.push(vi);
-                });
-            });
+        walkMappe(saveDir).forEach(v => {
+            const vi = readVaultInfo(v.vaultPath, v.folderName, v.classDir, v.discDir);
+            if (vi) vaults.push(vi);
         });
 
         /* Le mappe fatte per un ALLIEVO (2/8) stanno in «Allievi/<nome>/Mappe»,
@@ -2943,12 +2965,26 @@ ipcMain.handle('open-save-folder', async () => {
 });
 
 // ── Apri la cartella vault di una mappa nel Finder (sezione Progetti, Insegna 19/7) ──
+/* Cartella di un vault dato il solo NOME (open-vault-folder, zip-vault-to-materials).
+   Storicamente si guardava solo Mappe/<nome> (piatto). Dal 15/8 sera i vault
+   senza classe stanno in Mappe/Generico/, quindi il piatto da solo non li
+   troverebbe più: prima il piatto (vault preesistenti), poi la stessa
+   camminata di get-all-vaults (Generico, classe, classe/materia). Vince il
+   primo che esiste. Solo I/O: il nesting resta di FilesCore. */
+function findVaultDirByName(safe) {
+    const base = mapsBaseDir();
+    const flat = path.join(base, safe);
+    if (fs.existsSync(path.join(flat, 'index.yaml'))) return flat;
+    const hit = walkMappe(base).find(v => v.folderName === safe);
+    return hit ? hit.vaultPath : null;
+}
+
 ipcMain.handle('open-vault-folder', async (event, { vaultName } = {}) => {
     try {
         const safe = path.basename(String(vaultName || ''));
         if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
-        const dir = path.join(mapsBaseDir(), safe);
-        if (!fs.existsSync(dir)) return { success: false, error: 'cartella-non-trovata' };
+        const dir = findVaultDirByName(safe);
+        if (!dir) return { success: false, error: 'cartella-non-trovata' };
         await shell.openPath(dir);
         return { success: true, dir };
     } catch (err) { return { success: false, error: err.message }; }
@@ -2962,8 +2998,8 @@ ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
         if (!liveMatInfo) return { success: false, error: 'nessun server materiali attivo' };
         const safe = path.basename(String(vaultName || ''));
         if (!safe || safe === '.' || safe === '..') return { success: false, error: 'nome-non-valido' };
-        const srcDir = path.join(mapsBaseDir(), safe);
-        if (!fs.existsSync(srcDir)) return { success: false, error: 'cartella-non-trovata' };
+        const srcDir = findVaultDirByName(safe);
+        if (!srcDir) return { success: false, error: 'cartella-non-trovata' };
         const JSZip = require('jszip');
         const zip = new JSZip();
         const root = zip.folder(safe);

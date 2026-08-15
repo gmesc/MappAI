@@ -152,7 +152,7 @@ window.ensureProjectVault = async function (opts) {
 
         // (2) Contesto attivo → dove va la cartella. Allievo e classe si escludono
         //     a vicenda: con un allievo la mappa è sua, con una classe si annida
-        //     per classe/disciplina, senza nessuno dei due resta flat in Mappe.
+        //     per classe/disciplina, senza nessuno dei due va in Mappe/Generico/ (FilesCore.GENERICO, 15/8 sera).
         var cls = null, allievo = '';
         try { cls = (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { cls = null; }
         try { allievo = (window.MappAIClasses && window.MappAIClasses.activeStudentName) ? window.MappAIClasses.activeStudentName() : ''; } catch (e) { allievo = ''; }
@@ -163,7 +163,7 @@ window.ensureProjectVault = async function (opts) {
         var vaultName = FC.vaultFolderName(appState.rootNodeLabel || 'Mappa');
         var classDir = (cls && cls.name) ? FC.mapClassFolder(cls.sede, cls.name) : null;
         // Disciplina scelta all'avvio della generazione (29/7) → livello di cartella
-        // dentro la classe. Senza classe non c'è disciplina: la mappa resta flat.
+        // dentro la classe. Senza classe non c'è disciplina: la mappa va in Generico.
         var discDir = classDir ? FC.disciplineFolder(appState.generationDiscipline || '') : '';
 
         // (3) Collisione → suffisso « · 0N ». I fratelli sono quelli della STESSA

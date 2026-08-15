@@ -368,6 +368,17 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     normalizza prima (`.normalize('NFC')` su entrambi i lati). Nei dati veri di Giacomo le
     due forme convivono già.
 
+26. **Il livello di cartella È il dato.** `get-all-vaults` deduce `classDir` dalla
+    POSIZIONE: una cartella figlia di `Mappe/` senza `index.yaml` è letta come contenitore
+    di classe, e i suoi figli prendono quel nome come classe. Un contenitore che NON è una
+    classe (`Generico`, dal 15/8 sera la casa dei vault senza classe) deve essere un **nome
+    riservato** dichiarato in un posto solo (`FilesCore.GENERICO`) che il lettore
+    **ritraduce** in `classDir` null (`FilesCore.classDirDaCartella`) — altrimenti diventa una
+    classe fantasma nei chip e nei filtri, e i progetti generici (`classDir` null) non
+    ritrovano più la loro mappa. Chi ricava classe e materia da un percorso (main.js,
+    `adottaVault`) passa per la ritraduzione; chi costruisce un percorso passa per
+    `mapVaultParents`. Mai un nome di contenitore scritto a mano.
+
 ---
 
 ## 9. Protocollo per un braindump

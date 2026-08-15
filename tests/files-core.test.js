@@ -65,12 +65,30 @@ test('disciplineFolder: nome FS-safe, vuoto = nessun livello', () => {
   assert.strictEqual(FC.disciplineFolder(null), '');
 });
 
-test('mapVaultParents: flat / classe / classe+disciplina', () => {
-  assert.deepStrictEqual(FC.mapVaultParents(null, 'Storia'), []);      // senza classe niente disciplina
-  assert.deepStrictEqual(FC.mapVaultParents('', 'Storia'), []);
+test('mapVaultParents: Generico / classe / classe+disciplina', () => {
+  // 15/8 sera: senza classe il vault va in Mappe/Generico/, non più piatto —
+  // e senza classe non c'è disciplina (Generico non ha sottocartelle di materia)
+  assert.deepStrictEqual(FC.mapVaultParents(null, 'Storia'), ['Generico']);
+  assert.deepStrictEqual(FC.mapVaultParents('', 'Storia'), ['Generico']);
+  assert.deepStrictEqual(FC.mapVaultParents(''), [FC.GENERICO]);
   assert.deepStrictEqual(FC.mapVaultParents('Bellinzona-2A', ''), ['Bellinzona-2A']);
   assert.deepStrictEqual(FC.mapVaultParents('2A', 'Storia'), ['2A', 'Storia']);
+  assert.deepStrictEqual(FC.mapVaultParents('4R', 'Scienze'), ['4R', 'Scienze']);
   assert.deepStrictEqual(FC.mapVaultParents('2A', 'Sto/ria'), ['2A', 'Sto ria']);
+});
+
+test('GENERICO è un nome riservato: chi legge lo ritraduce in classDir null', () => {
+  assert.strictEqual(FC.GENERICO, 'Generico');
+  assert.strictEqual(FC.classDirDaCartella('Generico'), null);
+  assert.strictEqual(FC.classDirDaCartella(FC.GENERICO), null);
+  assert.strictEqual(FC.classDirDaCartella('4R'), '4R');
+  assert.strictEqual(FC.classDirDaCartella('Bellinzona-2A'), 'Bellinzona-2A');
+  assert.strictEqual(FC.classDirDaCartella(''), null);
+  assert.strictEqual(FC.classDirDaCartella(null), null);
+  // Generico non è un contenitore di sistema: va scandito, non escluso
+  assert.strictEqual(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Generico'), -1);
+  // andata e ritorno: quello che lo scrittore mette, il lettore lo toglie
+  assert.strictEqual(FC.classDirDaCartella(FC.mapVaultParents('')[0]), null);
 });
 
 test('vaultFolderName: titolo mappa FS-safe, fallback "Mappa"', () => {

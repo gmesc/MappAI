@@ -35,9 +35,14 @@ const StorageManager = {
                     if (String(folderPath).indexOf(pref) !== 0) continue;
                     const segs = String(folderPath).slice(pref.length).split('/').filter(Boolean);
                     // [vault] · [classe, vault] · [classe, materia, vault] ·
-                    // (base allievi) [nome, 'Mappe', vault] → posizione flat
-                    if (segs.length === 2 && b === info.mapsBaseDir) classDir = segs[0];
-                    if (segs.length === 3 && b === info.mapsBaseDir) { classDir = segs[0]; discDir = segs[1]; }
+                    // (base allievi) [nome, 'Mappe', vault] → posizione flat.
+                    // «Generico» (15/8 sera) è il contenitore dei vault senza
+                    // classe: nome riservato, si RITRADUCE in classDir null o
+                    // l'identità del progetto generico non verrebbe adottata.
+                    const FC = window.MappAIFilesCore;
+                    const ritraduci = (n) => (FC && FC.classDirDaCartella) ? FC.classDirDaCartella(n) : (n || null);
+                    if (segs.length === 2 && b === info.mapsBaseDir) classDir = ritraduci(segs[0]);
+                    if (segs.length === 3 && b === info.mapsBaseDir) { classDir = ritraduci(segs[0]); discDir = segs[1]; }
                     vault = segs[segs.length - 1];
                     break;
                 }
@@ -140,7 +145,7 @@ const StorageManager = {
                 : null,
             // Contenitore di classe che annida il vault (22/7, auto-vault): serve a
             // disambiguare il match col disco (get-all-vaults ritorna folderName +
-            // classDir). null = vault flat in Mappe (progetto senza classe).
+            // classDir). null = progetto senza classe (vault piatto storico o in Mappe/Generico/).
             classDir: appState.activeVaultClassDir
                 || (existing ? existing.classDir : null)
                 || null,
@@ -269,13 +274,23 @@ const StorageManager = {
                     const p = (JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]') || [])
                         .find(x => x && x.id === id);
                     if (p && p.vault && window.electronAPI && window.electronAPI.filesRootGet && window.directLoadVault) {
-                        window.electronAPI.filesRootGet().then(info => {
+                        /* La POSIZIONE la dice il disco (get-all-vaults), non si
+                           ricostruisce a mano: dal 15/8 sera un vault senza classe
+                           può stare in Mappe/Generico/ oppure piatto (preesistente),
+                           e solo l'elenco sa quale dei due. Ripiego: il nesting di
+                           FilesCore, se l'elenco non è disponibile. */
+                        const stessaPos = (v) => v && v.folderName === p.vault
+                            && (v.classDir || null) === (p.classDir || null)
+                            && (v.discDir || null) === (p.discDir || null) && !v.studentDir;
+                        const daElenco = window.electronAPI.getAllVaults
+                            ? window.electronAPI.getAllVaults().then(all => (all || []).find(stessaPos)).catch(() => null)
+                            : Promise.resolve(null);
+                        Promise.all([daElenco, window.electronAPI.filesRootGet()]).then(([hit, info]) => {
+                            if (hit && hit.fullPath) { window.directLoadVault(hit.fullPath); return; }
                             if (!info || !info.mapsBaseDir) return;
-                            const segs = [info.mapsBaseDir];
-                            if (p.classDir) segs.push(p.classDir);
-                            if (p.discDir) segs.push(p.discDir);
-                            segs.push(p.vault);
-                            window.directLoadVault(segs.join('/'));
+                            const FC = window.MappAIFilesCore;
+                            const parents = (FC && FC.mapVaultParents) ? FC.mapVaultParents(p.classDir || '', p.discDir || '') : [];
+                            window.directLoadVault([info.mapsBaseDir].concat(parents, [p.vault]).join('/'));
                         });
                         return true;   // il caricamento prosegue per la via del disco
                     }

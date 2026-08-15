@@ -335,6 +335,19 @@ nelle posizioni storiche. `adottaRootEsistente()` (main.js, una volta al boot) l
 se esiste ed è **abitata** (almeno una sottocartella nota) e scrive il flag; cartella
 assente o vuota → non fa niente, non inventa e non sposta. Cerca solo in Documenti: una
 cartella madre su un disco esterno resta da dichiarare con «Cambia posizione».
+
+**I vault senza classe vanno in `Mappe/Generico/` (15/8 sera).** Prima restavano piatti in
+`Mappe/`, mescolati ai file .json di export. «Generico» è un nome **riservato**, dichiarato
+in un posto solo (`FilesCore.GENERICO`): chi scrive lo usa (`mapVaultParents('')` →
+`['Generico']`, quindi auto-vault, pipeline e `vault-relocate` lo ereditano), chi legge lo
+**ritraduce in `classDir` null** (`FilesCore.classDirDaCartella`, usata da `walkMappe` in
+main.js — la camminata condivisa da `get-all-vaults` e dalla risoluzione per nome — e da
+`adottaVault`). Senza la ritraduzione «Generico» sarebbe una classe fantasma nei chip e nei
+filtri, e i progetti generici (`classDir` null) perderebbero la loro mappa. Sotto Generico
+non c'è il livello materia: una cartella senza `index.yaml` lì non si scandisce. I vault
+**piatti preesistenti restano leggibili** (livello 1, comportamento storico) e trovano il
+loro progetto; nessuno spostamento su disco. Il ripiego «voce senza snapshot ma con vault»
+chiede la posizione a `get-all-vaults` invece di ricostruirla a mano.
 ⚠️ Quei comandi non sono riscritti come schema: si **spostano**. Sono cablati per ID a
 una dozzina di funzioni globali, e ricostruirli come dati vorrebbe dire due superfici
 con gli stessi id. La console li porta nella sua area e li **restituisce** al
