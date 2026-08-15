@@ -287,6 +287,7 @@ function adottaRootEsistente() {
 
 app.whenReady().then(() => {
     adottaRootEsistente();
+    apriSessione();          // e registra la chiusura improvvisa di quella prima
     initDefaultVaultFolder();
     bootPrimaryWindow();
 
@@ -2577,6 +2578,39 @@ ipcMain.handle('error-open-folder', () => {
     try { fs.mkdirSync(errorsBaseDir(), { recursive: true }); shell.openPath(errorsBaseDir()); return { success: true }; }
     catch (err) { return { success: false, error: err.message }; }
 });
+
+/* ── La chiusura che nessuno può registrare, registrata al giro dopo ─────────
+   `render-process-gone` prende il crash della FINESTRA col main ancora vivo.
+   Non prende — e nessun programma può prendere — l'Uscita forzata, un `kill -9`
+   o il computer che si spegne: lì muore anche chi dovrebbe scrivere (macOS manda
+   SIGKILL, che non si intercetta). Provato da Giacomo il 15/8: dopo un'uscita
+   forzata il registro non diceva niente, e sembrava rotto.
+   Si guarda quindi dall'altra parte: al boot si posa un segnaposto e alla
+   chiusura pulita lo si toglie. Se al boot successivo il segnaposto è ancora lì,
+   la sessione prima è finita di colpo — e ORA lo si può scrivere. */
+const SESSIONE_FILE = () => path.join(errorsBaseDir(), 'sessione-aperta.json');
+function apriSessione() {
+    try {
+        const f = SESSIONE_FILE();
+        if (fs.existsSync(f)) {
+            let prima = {};
+            try { prima = JSON.parse(fs.readFileSync(f, 'utf8')) || {}; } catch (e) { }
+            errorAppend({
+                dove: 'chiusura-improvvisa',
+                messaggio: 'La sessione aperta il ' + (prima.avvio || '?') + ' non si è chiusa: uscita forzata, blocco o spegnimento. Nessun errore può essere stato registrato in quel momento.',
+                versione: app.getVersion ? app.getVersion() : ''
+            });
+        }
+        fs.mkdirSync(errorsBaseDir(), { recursive: true });
+        fs.writeFileSync(f, JSON.stringify({ avvio: new Date().toISOString(), pid: process.pid }), 'utf8');
+    } catch (e) { console.warn('[errori] segnaposto di sessione:', e.message); }
+}
+function chiudiSessione() {
+    try { const f = SESSIONE_FILE(); if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) { }
+}
+/* `will-quit` arriva anche su ⌘Q e sulla chiusura dell'ultima finestra: è la
+   fine PULITA. Se non arriva, il segnaposto resta ed è esattamente il segnale. */
+app.on('will-quit', chiudiSessione);
 
 /* Gli errori del MAIN e i processi che se ne vanno. `render-process-gone` è il
    crash vero e proprio della finestra: è l'unico modo di lasciarne una traccia,

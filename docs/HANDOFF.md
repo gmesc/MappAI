@@ -268,7 +268,15 @@ diagnosticabile.
 - `public/js/mappai-errori.js` cattura `error`, `unhandledrejection` e le risorse che non
   caricano; `main.js` registra anche `render-process-gone` (**il crash vero**: lì il
   renderer non c'è più per registrarsi da sé), `child-process-gone`, `uncaughtException`,
-  `unhandledRejection`.
+  `unhandledRejection`. Provato sull'app viva con `Page.crash`: riga
+  `{"dove":"renderer-gone","motivo":"crashed","exit":5}`, main sopravvissuto.
+- ⚠️ **L'Uscita forzata NON è registrabile, e non lo sarà mai**: macOS manda `SIGKILL`,
+  muore anche chi dovrebbe scrivere. Giacomo l'ha provata il 15/8 e il registro taceva —
+  sembrava rotto, era fisica. Coperta **al giro dopo**: al boot si posa
+  `Diagnostica/sessione-aperta.json` e `will-quit` lo toglie; se al boot successivo è
+  ancora lì, la sessione prima è finita di colpo e si scrive `dove: 'chiusura-improvvisa'`
+  con l'ora di quell'avvio. Provato: kill -9 → al riavvio la riga c'è; chiusura pulita →
+  segnaposto rimosso e **nessun** falso allarme.
 - File: `<cartella madre>/Diagnostica/errori.jsonl` (o `~/Documents/MappAI - Diagnostica`
   se la riorganizzazione non è attiva), rotazione a 1 MB con **una** copia precedente.
 - Due difese, perché un registro che si riempie da solo è peggio di nessun registro:
@@ -648,7 +656,9 @@ si può vedere **solo** nell'app vera.
    non una finestra dentro MappAI — nel pannello si prova solo che l'URL giusto arrivi a
    `openExternal`, l'ultimo anello lo vedi solo qui;
    (b) la cartella **Diagnostica** che nasce davvero, e una riga dentro `errori.jsonl`;
-   (c) una **chiusura brutale** della finestra, che deve lasciare la riga `renderer-gone`;
+   (c) una **chiusura brutale**: Uscita forzata → **riapri** l'app → in Cabina › Segnalazione
+   deve comparire `chiusura-improvvisa` (la riga arriva al riavvio, non sul momento: chi
+   viene ucciso da SIGKILL non scrive niente);
    (d) **Gestione cartelle**: «Apri la cartella» sul Finder giusto e un giro vero di
    «Cambia posizione» con lo spostamento dei file;
    (e) la **segnalazione** dal principio: categoria, testo, «Prepara l'email» → il client
