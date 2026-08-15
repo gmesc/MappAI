@@ -257,6 +257,28 @@
     return null;
   }
 
+  // ── anteprimaPotatura (15/8 sera) ────────────────────────────────────────
+  // La stessa potatura di vociDaPotare, ma RACCONTATA prima di farla: quante
+  // copie per mappa, e il riassunto per la conferma. `pesoDi(id)` la passa il
+  // chiamante (nel core non c'è localStorage): null = niente pesi.
+  function anteprimaPotatura(projects, keep, pesoDi) {
+    var via = vociDaPotare(projects, keep, null);
+    var viaSet = {};
+    via.forEach(function (id) { viaSet[id] = 1; });
+    var perMappa = {};
+    var byte = 0;
+    (projects || []).forEach(function (p) {
+      if (!p || !viaSet[p.id]) return;
+      var k = nfc(p.vault || p.name || '');
+      perMappa[k] = (perMappa[k] || 0) + 1;
+      if (pesoDi) { try { byte += pesoDi(p.id) || 0; } catch (e) { } }
+    });
+    var righe = Object.keys(perMappa)
+      .map(function (k) { return { mappa: k, tolte: perMappa[k] }; })
+      .sort(function (a, b) { return b.tolte - a.tolte; });
+    return { via: via, perMappa: righe, byte: byte };
+  }
+
   // ── vociDaPotare (15/8) ───────────────────────────────────────────────────
   // Le voci di progetto in ECCESSO: per ogni mappa (chiave = vault, NFC) si
   // tengono le `keep` più recenti, il resto è da togliere. Usata dal
@@ -294,6 +316,7 @@
     matchesSelectedProject: matchesSelectedProject,
     progettoDelVault: progettoDelVault,
     vociDaPotare: vociDaPotare,
+    anteprimaPotatura: anteprimaPotatura,
     REGISTRY_CAP: REGISTRY_CAP
   };
 

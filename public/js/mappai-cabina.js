@@ -566,11 +566,46 @@
             { etichetta: t('cb_ca_dove', 'Cartella'), valore: C.root },
             { etichetta: t('cb_ca_dentro', 'Dentro'), valore: _sottocartelle() }
         ];
+        /* Lo spazio di lavoro interno (localStorage) e le copie in eccesso.
+           Il conto si fa QUI, alla costruzione della vista: è una passata su
+           chiavi già in memoria, e mostrare un numero vecchio in un riquadro
+           che offre di liberarlo sarebbe una bugia. */
+        var ant = _anteprimaCassetto();
+        if (ant) {
+            sez.dati.push({
+                etichetta: t('cb_ca_spazio', 'Spazio di lavoro'),
+                valore: ant.totMB + ' MB' + (ant.via.length
+                    ? ' · ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') + ' (' + ant.MB + ' MB)'
+                    : ' · ' + t('cb_ca_pulito', 'nessuna copia in eccesso'))
+            });
+        }
         sez.azioni = [
             { id: 'cart-apri', etichetta: t('cb_ca_apri', 'Apri la cartella'), ruolo: 'primario', icona: 'folder-open', chiude: false },
             { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cambia posizione'), icona: 'folder-cog', chiude: false }
         ];
+        if (ant && ant.via.length) {
+            sez.azioni.push({ id: 'cart-pota', etichetta: t('cb_ca_pota', 'Libera spazio'), icona: 'brush-cleaning', chiude: false });
+        }
         return sez;
+    }
+
+    /* La potatura RACCONTATA prima di farla: per ogni mappa resta la copia più
+       recente — quella che l'app apre comunque (il match prende sempre
+       l'ultima; le altre nessuna schermata sa aprirle). Il core dice CHI va
+       via; qui solo i pesi, perché localStorage sta di qua. */
+    function _anteprimaCassetto() {
+        var TC = window.MappAITeachCore;
+        if (!TC || !TC.anteprimaPotatura) return null;
+        try {
+            var P = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]');
+            var ant = TC.anteprimaPotatura(P, 1, function (id) { return (localStorage.getItem(id) || '').length; });
+            var tot = 0;
+            for (var i = 0; i < localStorage.length; i++) tot += (localStorage.getItem(localStorage.key(i)) || '').length;
+            ant.MB = (ant.byte / 1048576).toFixed(1);
+            ant.totMB = (tot / 1048576).toFixed(1);
+            ant.progetti = P;
+            return ant;
+        } catch (e) { return null; }
     }
 
     /* ── SVILUPPO ────────────────────────────────────────────────────────────
@@ -1216,6 +1251,38 @@
                        dopo che i file sono già stati spostati. */
                     _quandoChiusaCartelle();
                 } else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+
+            if (id === 'cart-pota') {
+                var ant = _anteprimaCassetto();
+                if (!ant || !ant.via.length) { toast(t('cb_ca_pulito', 'nessuna copia in eccesso'), 'info'); return; }
+                /* l'ANTEPRIMA sta nella conferma: si vede che cosa va via e
+                   quanto si libera PRIMA di dire sì. Le prime mappe per nome,
+                   il resto in un conteggio — un elenco di 98 righe non è
+                   un'anteprima, è un muro. */
+                var prime = ant.perMappa.slice(0, 5).map(function (r) {
+                    return r.mappa + ' (' + r.tolte + ')';
+                }).join(' · ');
+                var altre = ant.perMappa.length > 5 ? ' · +' + (ant.perMappa.length - 5) + ' ' + t('cb_ca_altre', 'altre mappe') : '';
+                MM().conferma({
+                    titolo: t('cb_ca_pota', 'Libera spazio'),
+                    testo: t('cb_ca_pota_d', 'Di ogni mappa resta la copia più recente — quella che l’app apre. Le copie più vecchie non sono raggiungibili da nessuna schermata, e le mappe su disco non vengono toccate.') +
+                        '\n\n' + t('cb_ca_pota_via', 'Vanno via') + ' ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') +
+                        ' (' + ant.MB + ' MB): ' + prime + altre,
+                    conferma: t('cb_ca_pota', 'Libera spazio')
+                }).then(function (si) {
+                    if (!si) return;
+                    var viaSet = {};
+                    ant.via.forEach(function (vid) { viaSet[vid] = 1; try { localStorage.removeItem(vid); } catch (e) { } });
+                    try {
+                        localStorage.setItem('tutor_ai_projects',
+                            JSON.stringify(ant.progetti.filter(function (p) { return !viaSet[p.id]; })));
+                    } catch (e) { }
+                    toast(t('cb_ca_potato', 'Spazio liberato: ') + ant.MB + ' MB (' + ant.via.length + ')', 'success');
+                    _st.cart.stato = 'vuoto';
+                    _ridisegna();
+                });
                 return;
             }
 

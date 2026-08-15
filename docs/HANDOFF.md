@@ -316,9 +316,16 @@ Provato sull'app viva, per intero: salva → `vista.json` su disco → cambio
 mappa (campi azzerati) → ritorno (campi tornati) → HOME col segno non salvato
 → segno nel vault → ⌘Q vero via Apple Event → app uscita, vista aggiornata,
 segnaposto di sessione rimosso → snapshot tolto a mano → la mappa si apre dal
-disco con la sua vista. ⚠️ Il cassetto pesa ancora ~42 MB: è il debito delle
-copie STORICHE (la potatura con anteprima resta da fare — le voci nuove non si
-accumulano più dal fix dell'identità).
+disco con la sua vista. **La potatura con anteprima è FATTA** (15/8
+sera): Cabina › Gestione cartelle mostra «Spazio di lavoro: N MB · X copie
+vecchie» e il comando «Libera spazio» — la conferma RACCONTA che cosa va via
+(le prime 5 mappe col conteggio, mai un muro di 98 righe) e che le mappe su
+disco non si toccano. Core: `anteprimaPotatura` in teach-core (+2 test), la
+stessa `vociDaPotare` del salvataggio a quota piena. Eseguita sui dati veri di
+Giacomo premendo i bottoni veri: 243 copie via, **42,6 → 17,4 MB**, 98 voci
+con 0 snapshot mancanti, e le mappe si aprono ancora (dal cassetto e dal
+disco). A cassetto pulito il comando sparisce: un bottone che non ha niente da
+fare non deve esserci.
 
 ### La cartella madre si ADOTTA da sé (15/8)
 Le impostazioni vivono in `userData`, che è **diverso** fra `npm start` (sotto `dev/`) e

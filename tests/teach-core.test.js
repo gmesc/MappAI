@@ -264,3 +264,23 @@ test('vociDaPotare: tiene le keep più recenti per mappa, mai la voce protetta',
     ];
     assert.deepStrictEqual(TC.vociDaPotare(Q, 1), ['n1']);
 });
+
+// ── anteprimaPotatura: la potatura raccontata prima di farla (15/8 sera) ────
+test('anteprimaPotatura: dice quante copie per mappa e quanto pesano', () => {
+    const P = [
+        { id: 'a1', vault: 'Clima', date: 3 }, { id: 'a2', vault: 'Clima', date: 2 },
+        { id: 'a3', vault: 'Clima', date: 1 }, { id: 'b1', vault: 'Carta', date: 9 },
+        { id: 'b2', vault: 'Carta', date: 8 }
+    ];
+    const pesi = { a2: 1000, a3: 2000, b2: 500 };
+    const ant = TC.anteprimaPotatura(P, 1, id => pesi[id] || 0);
+    assert.deepStrictEqual(ant.via.sort(), ['a2', 'a3', 'b2']);
+    assert.deepStrictEqual(ant.perMappa, [{ mappa: 'Clima', tolte: 2 }, { mappa: 'Carta', tolte: 1 }]);
+    assert.strictEqual(ant.byte, 3500);
+});
+
+test('anteprimaPotatura: una copia sola per mappa → niente da potare', () => {
+    const ant = TC.anteprimaPotatura([{ id: 'x', vault: 'Sola', date: 1 }], 1, null);
+    assert.deepStrictEqual(ant.via, []);
+    assert.strictEqual(ant.byte, 0);
+});
