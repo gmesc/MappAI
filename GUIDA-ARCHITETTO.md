@@ -359,6 +359,15 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     un'ora («11:46») quel due punti è dentro il dato. Con un valore che può contenerne uno,
     si passa l'oggetto `{etichetta, valore}`.
 
+25. **Un accento scritto da macOS non è l'accento scritto da JS.** I nomi di file e cartella
+    che arrivano dal filesystem sono in forma **scomposta** (NFD: `a` + segno), le stringhe
+    dei letterali JS e di `appState` in forma **composta** (NFC). `'Elettricità' === 'Elettricità'`
+    può essere **falso** pur essendo la stessa parola a schermo, e un filtro che cerca una
+    cartella con l'accento torna **zero** invece che sbagliato — il che è peggio, perché
+    sembra una risposta. Chi confronta un nome di cartella con un nome tenuto in memoria
+    normalizza prima (`.normalize('NFC')` su entrambi i lati). Nei dati veri di Giacomo le
+    due forme convivono già.
+
 ---
 
 ## 9. Protocollo per un braindump

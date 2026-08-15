@@ -436,6 +436,20 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
+0. 🆕 **Un accento può impedire a una mappa di ritrovare il suo progetto** (visto il 15/8
+   lavorando sui dati veri). `matchProjectToVault`
+   ([mappai-landing-teach.js](../public/js/mappai-landing-teach.js)) confronta
+   `p.vault === v.folderName` con `===`, e i due lati arrivano da mondi diversi: il nome
+   della CARTELLA lo dà il filesystem di macOS in forma **scomposta** (NFD), il campo
+   `vault` del progetto nasce da `appState.rootNodeLabel` in forma **composta** (NFC).
+   `'Elettricità' === 'Elettricità'` può essere falso pur essendo la stessa parola. Nei dati
+   di Giacomo **entrambe le forme esistono già**: filtrando i progetti per `'Elettricità - KG'`
+   in NFC il conto dava **0**, normalizzando **13**. Sintomo per l'utente: una mappa col
+   nome accentato che in ELABORA/INSEGNA non porta il suo progetto (grado, classe, badge),
+   o che compare due volte. Cura: normalizzare a NFC entrambi i lati di ogni confronto fra
+   nome di cartella e nome tenuto in memoria — non solo qui: la stessa forma di confronto
+   c'è in più punti degli elenchi.
+
 1. ✅ **RISOLTO (13/8 sera): creare un materiale a mano arriva in fondo.** Il ramo
    documento di `generaSet` ora scrive la SORGENTE prima della resa (archivio → PDF →
    vault: un `htmlToPdf` che fallisce AVVISA col motivo, `pdfErrore`, senza perdere la
