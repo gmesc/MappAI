@@ -508,14 +508,16 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 Il pannello browser non ha IPC, non ha disco e serve i file dalla cache: quello che segue
 si può vedere **solo** nell'app vera.
 
-0. 🆕 **UNA GENERAZIONE VERA, dall'inizio alla fine** — è il collaudo che manca dopo il
-   14/8. I pezzi sono stati verificati uno per uno via CDP (lucchetto, contesto congelato,
-   modale del destinatario, `mappaPronta`, bollino NUOVO), il **flusso intero con l'AI
-   vera no**: premere Genera → rispondere al modale → andare in INSEGNA mentre lavora →
-   vedere lo spinner in topbar → a fine lavoro l'avviso invece del salto → il progetto
-   negli elenchi marcato **NUOVO** → un clic e il bollino sparisce da entrambe le liste.
-   Da guardare anche: che Crea ed Elabora siano davvero spente mentre gira, e che HOME non
-   uccida più la generazione.
+0. ✅ **La generazione vera, dall'inizio alla fine: PASSATA** (Giacomo, 14/8 sera, mappa
+   «La Svizzera Politica»). Premere Genera → rispondere al modale → andare in INSEGNA
+   mentre lavora → spinner in topbar → a fine lavoro l'avviso invece del salto → il
+   progetto negli elenchi marcato **NUOVO** → un clic e il bollino sparisce da entrambe le
+   liste: tutto verificato sull'app vera, e il bollino corretto è stato confermato da lui.
+   ⚠️ **Restano da guardare le due correzioni fatte DOPO quella prova**, e si vedono nei
+   primi trenta secondi di una generazione piccola: (a) il velo che copre la sola area di
+   lavoro di CREA, con i tre avvii rapidi spariti; (b) il menu «Cosa» aperto mentre lavora
+   — Crea ed Elabora grigie col solo lucchetto, nessun'altra icona.
+   Da guardare, se capita: che HOME non uccida più la generazione.
 
 1. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
    scatta il ripiego (il file si apre nell'applicazione di sistema).
