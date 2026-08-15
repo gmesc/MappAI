@@ -246,7 +246,18 @@ window.backToLanding = function () {
         appState.layoutMode = 'default';
     }
     StorageManager.saveCurrentProject();
-    window.location.reload();
+    /* USCIRE dalla mappa scrive anche il VAULT (15/8): il vault si riscriveva
+       solo a fine generazione o nei salvataggi espliciti — i nodi spostati a
+       mano vivevano solo nello snapshot di QUESTO computer, e con lo snapshot
+       viaggia... niente. Il reload ucciderebbe l'IPC in volo: si aspetta, con
+       un tetto — la HOME non deve poter restare appesa a un disco lento. */
+    var _vai = function () { window.location.reload(); };
+    if (appState.activeVaultPath && window.electronAPI && window.electronAPI.saveVault && window.buildVaultMapData) {
+        Promise.race([
+            window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() }),
+            new Promise(function (r) { setTimeout(r, 4000); })
+        ]).then(_vai, _vai);
+    } else _vai();
 }
 
 // toggleSidebar moved to index.html for smoother animation integration

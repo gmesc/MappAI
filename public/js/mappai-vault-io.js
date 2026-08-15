@@ -59,7 +59,12 @@ window.buildVaultMapData = function () {
         aiProvider: appState.aiProvider,
         aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
         generationUsage: appState.generationUsage,
-        customColors: appState.db.customColors || {}
+        customColors: appState.db.customColors || {},
+        /* vista.json (15/8): Vista studio · focus · timeline · foglio nodi —
+           le quattro cose che il vault non aveva e che restavano prigioniere
+           del localStorage di UN computer. Il core decide che cosa entra;
+           null = niente da scrivere (e main.js toglie un file stantio). */
+        vista: window.MappAIVistaCore ? window.MappAIVistaCore.raccogli(appState) : undefined
     };
 };
 

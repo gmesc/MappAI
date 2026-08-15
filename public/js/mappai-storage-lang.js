@@ -172,7 +172,13 @@ const StorageManager = {
            passa dal match che prende sempre l'ultima) e si riprova. Niente
            domande in mezzo al lavoro: si fa, e lo si DICE col toast. */
         const _scrivi = () => {
-            localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
+            /* SNELLO (15/8): dopo il disegno D3 ogni arco porta dentro l'intero
+               nodo di partenza e di arrivo — misurato su un foglio vero: 120 KB
+               di link per 8,8 KB di dati. I link tornano coppie di id (il
+               caricamento li accetta già così: è la forma dei vault). */
+            const daScrivere = (window.MappAIVistaCore && window.MappAIVistaCore.statoSnello)
+                ? window.MappAIVistaCore.statoSnello(appState) : appState;
+            localStorage.setItem(this.currentProjectId, JSON.stringify(daScrivere));
             localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         };
         try { _scrivi(); }
@@ -254,7 +260,28 @@ const StorageManager = {
     if (window.mappaiOccupato && window.mappaiOccupato()) return false;
         try {
             const data = localStorage.getItem(id);
-            if (!data) return false;
+            /* Senza snapshot ma con un VAULT, la mappa non è persa: si apre
+               dalla cartella (15/8). È il ripiego che rende innocua una futura
+               pulizia del cassetto — e già oggi una voce può restare senza
+               foglio (quota piena, pulizia a mano di localStorage). */
+            if (!data) {
+                try {
+                    const p = (JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]') || [])
+                        .find(x => x && x.id === id);
+                    if (p && p.vault && window.electronAPI && window.electronAPI.filesRootGet && window.directLoadVault) {
+                        window.electronAPI.filesRootGet().then(info => {
+                            if (!info || !info.mapsBaseDir) return;
+                            const segs = [info.mapsBaseDir];
+                            if (p.classDir) segs.push(p.classDir);
+                            if (p.discDir) segs.push(p.discDir);
+                            segs.push(p.vault);
+                            window.directLoadVault(segs.join('/'));
+                        });
+                        return true;   // il caricamento prosegue per la via del disco
+                    }
+                } catch (e) { /* niente ripiego possibile */ }
+                return false;
+            }
 
             // Vista studio (1/8): stessa guardia di backToLanding/importGraph/
             // loadMapVault/directLoadVault — senza, l'overlay resterebbe attivo
@@ -899,6 +926,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (labelEl) {
         labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
     }
+});
+
+// ── I salvataggi d'USCITA (15/8) ─────────────────────────────────────────────
+// ⌘Q: il main trattiene l'uscita e chiede di salvare. Si scrive lo snapshot
+// (sincrono) e, se c'è un vault, anche la cartella — poi si risponde e il main
+// riparte. Il tetto di 3s sta nel main: qui non serve un secondo orologio.
+// ⚠️ Con Studio attivo in corso NON si scrive il vault: la mappa in memoria è
+// quella smontata dall'esercizio, e renderla permanente perderebbe la
+// gerarchia (stessa guardia di saveCurrentProject, che salta da sé).
+if (window.electronAPI && window.electronAPI.onSalvaPrimaDiUscire) {
+    window.electronAPI.onSalvaPrimaDiUscire(async () => {
+        const fatto = () => { try { window.electronAPI.salvataggioUscitaFatto(); } catch (e) { } };
+        try {
+            StorageManager.saveCurrentProject();
+            const inEsercizio = window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active;
+            if (!inEsercizio && appState.activeVaultPath && window.buildVaultMapData && window.electronAPI.saveVault) {
+                await window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() });
+            }
+        } catch (e) { /* si esce comunque: il main ha il suo tetto */ }
+        fatto();
+    });
+}
+// Rete in più per le uscite che non passano dal main (reload compresi): lo
+// snapshot è sincrono e fa in tempo; il vault no, e qui non si tenta.
+window.addEventListener('beforeunload', () => {
+    try { StorageManager.saveCurrentProject(); } catch (e) { }
 });
 
 // STUDY SESSION (config/player/punteggi/report) → estratto in js/mappai-study-session.js

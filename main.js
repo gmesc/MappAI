@@ -1346,6 +1346,24 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const indexYaml = yaml.dump(indexData, { lineWidth: -1, quotingType: '"', forceQuotes: false });
         fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
 
+        /* 1-bis. vista.json (15/8): le quattro cose che vivevano SOLO nello
+           snapshot in localStorage — Vista studio, focus/lenti, timeline,
+           foglio dei nodi rivisto — viaggiano con la cartella. Il contenuto lo
+           decide il core (mappai-vista-core, lato renderer): qui solo I/O
+           (invariante 19). `vista === null` = niente da dire: il file non si
+           scrive, e uno VECCHIO si toglie — un vista.json stantio riporterebbe
+           in vita una timeline cancellata apposta. `undefined` = il chiamante
+           non sa di viste (flussi legacy, jigsaw): non si tocca nulla. */
+        const vistaPath = path.join(folderPath, 'vista.json');
+        if (mapData.vista !== undefined) {
+            if (mapData.vista) {
+                const v = Object.assign({}, mapData.vista, { salvato: new Date().toISOString() });
+                fs.writeFileSync(vistaPath, JSON.stringify(v, null, 2), 'utf-8');
+            } else if (fs.existsSync(vistaPath)) {
+                try { fs.unlinkSync(vistaPath); } catch (e) { /* resta stantio: pazienza */ }
+            }
+        }
+
         // 2. Save Links (Relationship index) — i PONTI JIGSAW vanno isolati in Nodi/_ponti/_bridges.json
         const _mapLink = l => ({
             source: typeof l.source === 'object' ? l.source.id : l.source,
@@ -1767,6 +1785,13 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 } catch(e) {}
             });
         }
+
+        // vista.json (15/8): Vista studio · focus · timeline · foglio nodi.
+        // Solo lettura e consegna: ad applicarla è il core, lato renderer.
+        try {
+            const vp = path.join(folderPath, 'vista.json');
+            if (fs.existsSync(vp)) mapData.vista = JSON.parse(fs.readFileSync(vp, 'utf-8'));
+        } catch (e) { /* vista corrotta: la mappa si apre lo stesso, senza */ }
 
         return { success: true, data: mapData };
     } catch (err) {
@@ -2611,6 +2636,31 @@ function chiudiSessione() {
 /* `will-quit` arriva anche su ⌘Q e sulla chiusura dell'ultima finestra: è la
    fine PULITA. Se non arriva, il segnaposto resta ed è esattamente il segnale. */
 app.on('will-quit', chiudiSessione);
+
+/* ── ⌘Q salva prima di uscire (15/8) ─────────────────────────────────────────
+   Con una mappa aperta, chiudere l'app perdeva ciò che era successo dopo
+   l'ultimo autosave (tipicamente: i nodi spostati). Qui si trattiene l'uscita
+   UNA volta, si chiede al renderer di salvare (snapshot + vault), e si riparte
+   al suo cenno — o allo scadere del tetto: un'app che non si chiude più perché
+   il salvataggio è appeso sarebbe un guasto peggiore di quello curato. */
+let _uscitaSalvata = false;
+app.on('before-quit', (e) => {
+    if (_uscitaSalvata) return;
+    const w = BrowserWindow.getAllWindows()[0];
+    if (!w || w.isDestroyed() || w.webContents.isDestroyed()) { _uscitaSalvata = true; return; }
+    e.preventDefault();
+    let chiuso = false;
+    const via = () => {
+        if (chiuso) return;
+        chiuso = true;
+        _uscitaSalvata = true;
+        ipcMain.removeListener('salvataggio-uscita-fatto', via);
+        app.quit();
+    };
+    ipcMain.once('salvataggio-uscita-fatto', via);
+    try { w.webContents.send('salva-prima-di-uscire'); } catch (err) { return via(); }
+    setTimeout(via, 3000);
+});
 
 /* Gli errori del MAIN e i processi che se ne vanno. `render-process-gone` è il
    crash vero e proprio della finestra: è l'unico modo di lasciarne una traccia,

@@ -27,6 +27,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     errorLogRead: (limite) => ipcRenderer.invoke('error-log-read', limite),
     errorLogClear: () => ipcRenderer.invoke('error-log-clear'),
     errorOpenFolder: () => ipcRenderer.invoke('error-open-folder'),
+    // ⌘Q salva prima di uscire (15/8): il main trattiene l'uscita e chiede;
+    // il renderer salva e risponde. Il tetto di 3s sta nel main.
+    onSalvaPrimaDiUscire: (cb) => ipcRenderer.on('salva-prima-di-uscire', cb),
+    salvataggioUscitaFatto: () => ipcRenderer.send('salvataggio-uscita-fatto'),
     studyReportOpen: (filePath) => ipcRenderer.invoke('study-report-open', filePath),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
     getPathForFile: (file) => webUtils.getPathForFile(file),

@@ -169,6 +169,25 @@ window.directLoadVault = async function (folderPath) {
                 sourcesDict: {}
             };
 
+            /* vista.json (15/8): Vista studio · focus · timeline · foglio nodi
+               tornano dalla cartella. PRIMA di questo vivevano solo nello
+               snapshot in localStorage: stesso vault su un altro computer =
+               quattro cose sparite in silenzio.
+               ⚠️ L'ordine conta: PRIMA si azzera tutto (i residui della mappa
+               PRECEDENTE non devono sopravvivere al cambio — stessa regola del
+               tutorState qui sotto), POI si applica la vista se c'è. La regola
+               di fusione di `applica` («non azzerare ciò che manca») serve ad
+               altri contesti; qui ciò che manca è di un'altra mappa. */
+            appState.studioProfile = undefined;
+            appState.focusTopic = '';
+            appState.db.timelineEvents = [];
+            appState.db.timelineAI = [];
+            appState.db.nodeSheet = undefined;
+            if (window.MappAIVistaCore && loadRes.data.vista) {
+                var _vApplicati = window.MappAIVistaCore.applica(appState, loadRes.data.vista);
+                if (_vApplicati.length) console.log('[Vault] vista.json applicata:', _vApplicati.join(', '));
+            }
+
             if (window.MappAIJigsaw) {
                 window.MappAIJigsaw.syncModeToVault(loadRes.data.branchLocks);
                 window.MappAIJigsaw.applyLocks(appState.db.nodes, loadRes.data.branchLocks);

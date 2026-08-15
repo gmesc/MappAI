@@ -290,6 +290,36 @@ diagnosticabile.
 - ⚠️ Il modulo ha una guardia di idempotenza: caricato due volte aggancerebbe due ascolti
   e terrebbe due tabelle di dedup — ogni errore in doppia copia, e la difesa che non vale.
 
+### La VISTA viaggia col vault — vista.json (15/8 sera)
+Quattro cose vivevano SOLO nello snapshot in localStorage di UN computer:
+profilo della Vista studio, focus/lenti, timeline, foglio dei nodi rivisto.
+Misurato su un foglio vero (251 KB): il 99% era fotocopia del vault, il pezzo
+insostituibile pesa qualche KB. Ora:
+- `mappai-vista-core.js` (core puro, +7 test): `raccogli` → che cosa entra in
+  `vista.json` (null = niente file, e main.js toglie quello stantio);
+  `applica` → il rientro, che non azzera ciò che la vista non porta;
+  `statoSnello` → lo snapshot coi link a coppie di id (dopo il disegno D3 ogni
+  arco portava dentro i due nodi INTERI: 120 KB di link per 8,8 di dati).
+- `buildVaultMapData` allega la vista; `save-vault` la scrive; `load-vault` la
+  legge; `directLoadVault` PRIMA azzera i cinque campi (i residui della mappa
+  precedente non sopravvivono al cambio — stessa regola del tutorState) e POI
+  applica.
+- **Uscire scrive il vault**: HOME attende il `saveVault` (tetto 4s, la HOME
+  non resta appesa a un disco lento) prima del reload; **⌘Q** passa da
+  `before-quit` → il main trattiene l'uscita UNA volta, il renderer salva
+  snapshot+vault e risponde, tetto 3s nel main (un'app che non si chiude più è
+  peggio del guasto curato). `beforeunload` resta la rete sincrona.
+- **Ripiego**: `loadProject` senza snapshot ma con `p.vault` apre dal disco
+  (percorso ricostruito da mapsBaseDir + classDir/discDir/vault). È ciò che
+  rende innocua una futura potatura del cassetto.
+Provato sull'app viva, per intero: salva → `vista.json` su disco → cambio
+mappa (campi azzerati) → ritorno (campi tornati) → HOME col segno non salvato
+→ segno nel vault → ⌘Q vero via Apple Event → app uscita, vista aggiornata,
+segnaposto di sessione rimosso → snapshot tolto a mano → la mappa si apre dal
+disco con la sua vista. ⚠️ Il cassetto pesa ancora ~42 MB: è il debito delle
+copie STORICHE (la potatura con anteprima resta da fare — le voci nuove non si
+accumulano più dal fix dell'identità).
+
 ### La cartella madre si ADOTTA da sé (15/8)
 Le impostazioni vivono in `userData`, che è **diverso** fra `npm start` (sotto `dev/`) e
 l'app pacchettizzata — e diverso di nuovo dopo una reinstallazione. Risultato: la stessa
