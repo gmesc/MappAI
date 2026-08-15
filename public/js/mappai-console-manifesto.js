@@ -35,7 +35,11 @@
     }
     /* il cablaggio bento: è lui che porta il percorso al posto del chip */
     function bentoApp() {
-        try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; }
+    /* ⚠️ IL FLAG È IN PENSIONE (14/8 sera): il suo «passo indietro» era il rail
+       delle tre forme, che non esiste più — a '0' la landing sarebbe rimasta
+       senza modo di cambiare sezione. Risponde sempre di sì; la funzione resta
+       perché la chiamano da più punti. */
+        return true;
     }
 
     /* Tracciati Lucide, copiati: `panel-left-close` e `panel-left-open`. */
@@ -250,33 +254,12 @@
         m.dataset.manIcona = vuole;
     }
 
-    /* Il rail deve stare SOPRA la console e SOTTO qualunque finestra aperta da
-       lì. Il piano non si può scrivere nel foglio: il motore lo assegna a
-       runtime (`prossimoZ()` sale di 100 a ogni finestra), quindi un numero
-       fisso indovina finché non sbaglia — misurato: la console si era aperta a
-       12100 e il rail a 12050 spariva sotto. Si legge il piano vero e ci si
-       mette un gradino sopra. */
-    function alzaRail(box) {
-        var rail = document.getElementById('manifesto-rail');
-        if (!rail) return;
-        /* ⚠️ Il rail se ne va con la COLONNA (5/8, regola di Giacomo): chi chiude
-           la colonna per leggere un documento a tutta larghezza sta chiedendo di
-           togliere di mezzo la navigazione, e il rail è navigazione. Torna con
-           lei — la maniglia resta l'unico comando, quindi non si può restare
-           senza via d'uscita. */
-        var nascosto = !!box && box.classList.contains('is-nav-chiusa');
-        /* ⚠️ Il rail se ne va con una CLASSE, non con `display:none`: da lì non
-           si torna con un'animazione, e spariva di colpo mentre la colonna e la
-           maniglia scivolavano (rilievo di Giacomo, 14/8). Il `display` inline
-           si toglie comunque, per non restare ostaggio di uno stato scritto
-           prima che questa regola esistesse. */
-        rail.style.removeProperty('display');
-        rail.classList.toggle('man-rail--via', nascosto);
-        if (!box) { rail.style.removeProperty('z-index'); return; }
-        var ov = box.closest('.mm-overlay');
-        var z = parseInt(ov ? getComputedStyle(ov).zIndex : '', 10);
-        rail.style.zIndex = (isFinite(z) ? z + 1 : 12001);
-    }
+    /* ⚠️ Qui viveva `alzaRail()`: il rail delle tre forme andava tenuto SOPRA la
+       console e SOTTO qualunque finestra aperta da lì, leggendo il piano vero
+       (`prossimoZ` sale di 100 a ogni finestra) invece di indovinare un numero.
+       Il rail è stato pensionato il 14/8 e con lui quella cura — resta scritta
+       qui perché il problema tornerà al primo elemento che deve galleggiare
+       sopra una console. */
 
     /* ⚠️ NON si sposta `#header-utils` dentro le console (provato l'8/8, e la
        pagina si piantava): quel nodo è CONDIVISO con la landing, e la veste
@@ -292,7 +275,6 @@
         if (!vesteAccesa()) return;
         var box = consolePiena();
         document.documentElement.classList.toggle(CLASSE, !!box);
-        alzaRail(box);
         if (box) { marcaSezione(box); vestiTestata(box); vestiManiglia(box); }
         /* Il rail dice dove sei: cambia quando una console si apre E quando si
            chiude (là sotto c'è di nuovo una modalità della landing). */

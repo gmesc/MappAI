@@ -53,10 +53,12 @@ Il working tree a fine sessione è VUOTO. Il **misuratore** è un repo a sé dal
 
 Tutto il lavoro dell'ultimo mese è dietro un kill-switch in `localStorage`. Questa
 tabella è la mappa per tornare indietro di un passo alla volta quando qualcosa si rompe.
+⚠️ **`mappai_console_bento_app` non c'è più** (14/8 sera): il suo passo indietro era il rail
+delle tre forme, pensionato — a `'0'` la landing sarebbe rimasta senza modo di cambiare
+sezione. Il cablaggio bento non è più opzionale.
 
 | chiave | stato | che cosa spegne |
 |---|---|---|
-| `mappai_console_bento_app` | **`'1'` nel userData di Giacomo** | il cablaggio bento delle console. ⚠️ Col bento acceso **il rail delle tre forme non si monta**: la sezione la dicono le briciole in alto, che sono anche l'unica uscita. ⚠️ NON è più un vero passo indietro: il rail è codice morto e nessuno lo prova più (§4 punto 6) |
 | `mappai_stile_manifesto` | acceso | la veste «manifesto»: landing, CREA, bento. `'0'` → la landing torna esattamente com'era e il modale «Genera materiali» si riapre |
 | `mappai_bento_layout` | assente = composizione del file | la composizione scritta dall'Officina §7. Assente, comanda `mappai-bento-composizione.js` |
 | `mappai_teach_console` | acceso | la console INSEGNA. `'0'` → le tre sezioni storiche della landing |
@@ -250,11 +252,16 @@ in un `finally`; una riga in `mappaiOccupato` lo fa vedere ai **sedici** guardia
 sparsi per l'app, più la guardia nuova su `backToLanding`. `MappAIGen.motivo()` è il testo
 che dicono tutti — un comando spento senza motivo si legge come un difetto dell'app.
 
-**I comandi si spengono e lo mostrano**: nella briciola «Cosa» Crea ed Elabora sono grigie
-col lucchetto, nel rail delle forme le due sagome sono sbiadite col cursore che dice di
-no. INSEGNA **resta usabile**: passa tutta dal DISCO (elenca i vault, apre PDF e HTML
-nell'iframe, stampa, QR, Finder) e non tocca `appState` — bloccate le sole quattro azioni
-che caricano una mappa (`_consAvvia`).
+**I comandi si spengono e lo mostrano**: nella briciola «Cosa», mentre genera, **si resta
+in CREA** — «Crea» resta scegliibile (è dove si è, e il modulo lo copre il velo), ELABORA e
+INSEGNA sono grigie col lucchetto e il motivo.
+⚠️ Rovescia il primo giro, dove avevo bloccato Crea (per la seconda generazione) e lasciato
+aperta INSEGNA, che legge dal disco e non tocca `appState`. Decisione di Giacomo, 14/8
+sera: il prezzo è che mentre genera non si guardano più i materiali di un'altra mappa, il
+guadagno è un modello solo — «finché lavora, sei in CREA» — invece di una sezione mezza
+usabile da spiegare. La seconda generazione la ferma comunque il lucchetto: qui si tolgono
+le porte, non i lucchetti. In INSEGNA le quattro azioni che caricano una mappa restano
+guardate a runtime (`_consAvvia`), come rete.
 ⚠️ `bloccata` nelle voci del percorso è una **funzione**, non un booleano: le voci del
 menu si costruiscono quando il menu si APRE, e un valore calcolato al montaggio non
 vedrebbe una generazione partita dopo.
@@ -453,20 +460,17 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    lungo. `.mm-nav__gc` è ora flex-colonna: da flex item la voce si stira alla larghezza
    del contenitore meno i margini, e l'ellissi del testo torna a funzionare perché la riga
    ha finalmente una larghezza da rispettare. Misurato: sbordo 0, voci tutte a 232px.
-6. 🆕 **Il RAIL delle tre forme è codice morto, e il suo kill-switch è una TRAPPOLA.**
-   `montaRail()` esce quando il cablaggio bento è acceso; `montaCascataLanding()` esce
-   quando è spento: sono le due facce dello stesso interruttore, e uno dei due c'è sempre.
-   Oggi il bento è acceso, quindi il rail non si monta: ~110 righe fra
-   `mappai-stile-manifesto.js` (FORME · `montaRail` · mini-logo · ramo rail di
-   `sincronizza`), `alzaRail()` in `mappai-console-manifesto.js` e 23 righe di CSS.
-   ⚠️ Toglierlo NON è una potatura: senza rail, `mappai_console_bento_app='0'` lascia la
-   landing **senza nessun modo di cambiare sezione** e CREA senza uscita (è già successo
-   l'11/8). Il lavoro vero è **pensionare il flag** — decisione, non pulizia.
-   ⚠️ `vaiA()` NON è del rail: è anche l'`onCosa` della briciola (chiude la console
-   chiedendo conferma, poi cambia sezione). Resta.
-   ⚠️ Si perde davvero una cosa: **«torna alla prima pagina»** (la landing vuota) esiste
-   solo sul mini-logo, che col bento è già nascosto — oggi non è raggiungibile da nessuna
-   parte. Se serve, va rimessa altrove (una voce «Home» nel menu «Cosa» sarebbe naturale).
+6. ✅ **RISOLTO (14/8 sera): il rail è stato pensionato, e il flag con lui.** Via `FORME`,
+   `montaRail`, il mini-logo, `alzaRail()` e ~50 righe di CSS; `mappai_console_bento_app`
+   non esiste più (`_bentoApp()` risponde sempre di sì in tutti e quattro i moduli che lo
+   chiedevano) e `--mnc-rail` resta a 0 perché due calcoli lo sommano.
+   ⚠️ **Si è perso davvero il ritorno alla PRIMA PAGINA** (la landing vuota, `setMode('')`):
+   viveva solo sul mini-logo. Nessun rimpiazzo, per scelta — se serve, la strada naturale è
+   una voce «Home» nel menu «Cosa».
+   ⚠️ Trappola pagata mentre lo facevo: cancellando il blocco del rail sono spariti con lui
+   `consoleInCima`, `sezioneDelBox` e `vaiA`, che stavano lì dentro ma servono alla
+   BRICIOLA — la landing è rimasta senza modo di cambiare sezione finché non li ho rimessi
+   (guida, trappola 16).
 7. **Sedici superfici senza destinazione.** La console «Mappa» (D1) è stata **ritirata il
    13/8**: il menu radiale resta quello che è e gira. Le superfici che le erano state
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore

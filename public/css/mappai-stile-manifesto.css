@@ -171,75 +171,12 @@ html.manifesto #active-class-chip .mm-ctx__p.is-vuoto svg { color: #5c5c5c; stro
 /* ── il rail delle tre forme (montato dal JS): triangolo=Costruisci ·
       esagono=Elabora · cubo=Insegna. Verde=invito (landing vuota) ·
       viola=attivo · grigio=sei altrove. ─────────────────────────────────── */
-html.manifesto #manifesto-rail {
-    position: fixed;
-    left: 18px; top: 96px;
-    z-index: 56;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    /* se ne va con la colonna della console (è navigazione anche lui), quindi
-       viaggia col passo della colonna e della maniglia — vedi `.man-rail--via` */
-    transition: opacity .2s ease, transform .28s cubic-bezier(.2, .7, .3, 1);
-}
-/* Il rail «via» con la colonna chiusa. ⚠️ Non `display:none` come prima: da lì
-   non si torna con un'animazione e il rail spariva di colpo mentre la colonna
-   scivolava. `visibility` si spegne a viaggio finito e si riaccende subito. */
-html.manifesto #manifesto-rail.man-rail--via {
-    opacity: 0;
-    transform: translateX(-24px);
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity .2s ease,
-                transform .28s cubic-bezier(.2, .7, .3, 1),
-                visibility 0s linear .28s;
-}
-@media (prefers-reduced-motion: reduce) {
-    html.manifesto #manifesto-rail,
-    html.manifesto #manifesto-rail.man-rail--via { transition: none; }
-}
-/* ⚠️ Il rail a riposo prende il grigio neutro di ogni altro bottone
-   (#f1f4f8, 4/8). Il cerchio chiaro su fondo bianco si vedrebbe appena, e
-   un'icona bianca dentro sparirebbe del tutto: quindi si INVERTE — fondo chiaro,
-   segno scuro. Il codice resta a due canali (forma + colore), non solo colore. */
-html.manifesto #manifesto-rail .man-forma {
-    width: 46px; height: 46px;
-    border-radius: 50%;
-    border: none;
-    padding: 0;
-    background: var(--man-card);
-    color: #404040;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: background .15s, transform .1s;
-}
-html.manifesto #manifesto-rail .man-forma:hover { transform: scale(1.07); }
-/* forma CHIUSA mentre una mappa si genera: sbiadita, cursore che dice di no,
-   niente ingrandimento al passaggio (l'invito a premere sarebbe una bugia).
-   Il motivo sta nel `title`, che lo mette il JS. */
-html.manifesto #manifesto-rail .man-forma.is-bloccata {
-    opacity: .4;
-    cursor: not-allowed;
-}
-html.manifesto #manifesto-rail .man-forma.is-bloccata:hover { transform: none; }
-html.manifesto #manifesto-rail .man-forma svg { width: 24px; height: 24px; }
-html.manifesto.manifesto-vuota #manifesto-rail .man-forma { background: var(--man-verde); color: var(--man-su-verde); }
-html.manifesto #manifesto-rail .man-forma.attivo { background: var(--man-viola); color: #fff; }
+/* ⚠️ Il RAIL delle tre forme e il mini-logo sono stati PENSIONATI (14/8 sera):
+   qui c'erano le loro regole (cerchi da 46px, forma attiva viola, la classe
+   `man-rail--via` che li portava via con la colonna della console). Con loro se
+   ne va il ritorno alla PRIMA PAGINA, che viveva solo sul mini-logo. La storia
+   sta in docs/HANDOFF-manifesto.md; lo stato in docs/HANDOFF.md. */
 
-/* ── con una CONSOLE aperta il rail resta visibile, e si spegne ──────────── */
-/* La console non è una finestra sopra l'app: è la schermata. Il rail è la
-   costante della finestra, quindi si alza SOPRA di lei invece di sparirci
-   sotto (la console parte da z 12000; il piano successivo che il motore
-   assegna a una finestra aperta DA QUI è 12100, e resta sopra il rail — una
-   conferma non deve avere il rail davanti). Lo spazio glielo lascia
-   `--mnc-rail` in mappai-console-manifesto.css. */
-html.manifesto.man-console #manifesto-rail { z-index: 12050; }
-/* Il verde del rail è un INVITO a scegliere una modalità: con una console
-   aperta non si sta scegliendo, e le forme tornano neutre (disegno di Giacomo). */
-html.manifesto.man-console.manifesto-vuota #manifesto-rail .man-forma {
-    background: var(--man-card);
-    color: #404040;
-}
 
 /* ── landing vuota: solo il marchio, centrato — la prima pagina è una
       domanda, non la ripresa di ieri ──────────────────────────────────────── */
@@ -355,19 +292,6 @@ html.mn-bento-app.manifesto #landing-view .glass-card {
    della console INSEGNA spento). */
 html.manifesto #landing-mode-bar > div:has(> #landing-mode-build) { display: none; }
 
-/* ── il mini-logo in basso a sinistra = torna alla prima pagina ──────────── */
-html.manifesto #manifesto-home {
-    position: fixed;
-    left: 20px; bottom: 18px;
-    z-index: 56;
-    background: none; border: none;
-    padding: 4px;
-    cursor: pointer;
-    display: none;
-}
-html.manifesto:not(.manifesto-vuota) #manifesto-home { display: block; }
-html.manifesto #manifesto-home img { width: 46px; height: 46px; display: block; }
-html.manifesto #manifesto-home:hover { transform: scale(1.07); }
 
 /* ── il cassetto di insegnai: viola, in basso, solo sulla prima pagina
       (nelle modalità quel posto è del mini-logo, come nel disegno).
@@ -1051,12 +975,6 @@ html.manifesto .btn_quick_action:focus-visible {
 html.manifesto .btn_quick_action:hover svg,
 html.manifesto .btn_quick_action:focus-visible svg { color: var(--man-su-verde); }
 
-/* ── con una mappa aperta (landing nascosta) rail e mini-logo spariscono:
-      sono comandi della landing, non dell'app ──────────────────────────── */
-html.manifesto:has(#landing-view.hidden) #manifesto-rail,
-html.manifesto:has(#landing-view.hidden) #manifesto-home,
-html.manifesto:has(#landing-view[style*="display: none"]) #manifesto-rail,
-html.manifesto:has(#landing-view[style*="display: none"]) #manifesto-home { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    IL MEGA-BENTO: un solo passo verticale (5/8)

@@ -1,17 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   STILE «MANIFESTO» — il rail delle tre forme + il ritorno alla prima pagina
+   STILE «MANIFESTO» — la veste della landing
    Dal progetto Inkscape di Giacomo (Inkscape/landing MappAI.pdf, 3/8/26).
 
    Che cosa fa, in una riga: accende la classe `manifesto` su <html> (il foglio
-   mappai-stile-manifesto.css è inerte senza), monta il RAIL delle tre forme al
-   posto del selettore centrale, e tiene lo stato allineato alla modalità vera.
+   mappai-stile-manifesto.css è inerte senza), sgancia l'header dalla lastra,
+   monta il percorso «Cosa · A chi? · Materia» nella barra in alto e tiene lo
+   stato allineato alla modalità vera.
 
-   Perché il rail lo monta il JS e non index.html: le tre forme SONO il
-   selettore Costruisci/Elabora/Insegna uscito dalla barra centrale, e il loro
-   comando è già scritto — window.MappAITeach.setMode(). Duplicarlo nel markup
-   vorrebbe dire due sorgenti per la stessa azione, che divergono al primo
-   ritocco. Qui il rail è una VESTE del selettore: chiama gli stessi setMode e
-   si ridipinge leggendo la modalità corrente, mai una copia sua.
+   ⚠️ IL RAIL DELLE TRE FORME NON C'È PIÙ (14/8 sera): triangolo · esagono ·
+   cubo e il mini-logo sono stati pensionati insieme al loro interruttore. A
+   dire dove sei — e a portarti altrove — sono le briciole in alto. La storia di
+   quella superficie sta in `docs/HANDOFF-manifesto.md`.
 
    ⚠️ Memoria: i CHIP (classe · materia · allievo) vivono in localStorage e
    sopravvivono alla chiusura — è il contesto di lavoro. La POSIZIONE
@@ -19,12 +18,8 @@
    a ogni avvio, e questo modulo non tocca quella chiave. La prima pagina è una
    domanda, non la ripresa di ieri.
 
-   Kill-switch: localStorage `mappai_stile_manifesto` = '0' → niente classe,
-   niente rail, la landing torna esattamente com'era.
-
-   ⚠️ Le forme sono un codice DOPPIO (forma + colore) ma restano icone mute:
-   l'audit del 31/7 aveva contato 26 bottoni solo-icona senza nome. Qui ognuna
-   porta aria-label + title, e l'etichetta compare al passaggio.
+   Kill-switch: localStorage `mappai_stile_manifesto` = '0' → niente classe, la
+   landing torna esattamente com'era.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
@@ -64,25 +59,21 @@
         } catch (e) { return ''; }
     }
 
-    /* Le tre forme del disegno. `icona` è il nome Lucide; `modo` è ciò che
-       passiamo a setMode — la stessa stringa dei tre segmenti storici. */
-    var FORME = [
-        { modo: 'build', icona: 'triangle', chiave: 'ui_landing_build', testo: 'Crea' },
-        { modo: 'elabora', icona: 'hexagon', chiave: 'ui_landing_elabora', testo: 'Elabora' },
-        { modo: 'teach', icona: 'box', chiave: 'ui_landing_teach', testo: 'Insegna' }
-    ];
+    /* ⚠️ IL RAIL DELLE TRE FORME È STATO PENSIONATO (14/8 sera, decisione di
+       Giacomo). Era la barra rotonda con triangolo · esagono · cubo a sinistra
+       della landing, più il mini-logo che riportava alla prima pagina. Non si
+       montava più da quando il cablaggio bento è acceso — la sezione la dicono
+       le briciole in alto — ed era diventato una faccia morta di un
+       interruttore: `montaRail` usciva col bento acceso, `montaCascataLanding`
+       col bento spento, quindi uno dei due c'era sempre e nessuno provava più
+       il primo. Con lui se ne va anche l'unico modo di tornare alla PRIMA
+       PAGINA (la landing vuota, `setMode('')`): dichiarato, non dimenticato.
+       ⚠️ `vaiA()` NON era del rail e resta: è anche l'`onCosa` della briciola —
+       chiude la console aperta (chiedendo conferma se c'è lavoro) e poi cambia
+       sezione. */
 
-    /* ⚠️ Il rail sta SOPRA la console (deve restare visibile), quindi le tre
-       forme si possono premere anche da lì dentro — e allora devono portare
-       via davvero. Prima cambiavano la modalità della landing NASCOSTA sotto:
-       lo stato cambiava, a schermo non succedeva niente e i due bottoni si
-       leggevano come morti (segnalato da Giacomo, 4/8).
-       Scegliere una forma è quindi anche il modo di USCIRE da una console.
-       Si esce dalla stessa porta della × (`__chiudi`, che nel markup c'è ancora
-       ma è nascosta): così una console `sporco` continua a chiedere conferma
-       invece di buttare via quello che stavi scrivendo. Il cambio di modalità
-       avviene DOPO, e solo se la console se n'è andata davvero: se rispondi
-       «Torna indietro» resti dove sei. */
+    /* Chi è la console in cima alla pila (o `null`): serve alla briciola, che non
+       si monta dentro una console — là il percorso lo porta la testata. */
     function consoleInCima() {
         var b = document.querySelectorAll('.mm-overlay .mm-box--piena.mm-box--console');
         return b.length ? b[b.length - 1] : null;
@@ -93,6 +84,17 @@
         return v ? (v.dataset.manSezione || '') : '';
     }
 
+    /* CAMBIARE SEZIONE, da qualunque posto lo si chieda (oggi: la briciola
+       «Cosa»). ⚠️ Con una console aperta non basta cambiare la modalità della
+       landing NASCOSTA sotto: lo stato cambierebbe, a schermo non succederebbe
+       niente e il comando si leggerebbe come morto (segnalato da Giacomo, 4/8).
+       Quindi prima si ESCE, e si esce dalla stessa porta della × (`__chiudi`):
+       così una console `sporco` continua a chiedere conferma invece di buttare
+       via quello che stavi scrivendo. Il cambio avviene DOPO, e solo se la
+       console se n'è andata davvero — se rispondi «Torna indietro» resti dove
+       sei. Si bussa UNA volta sola e poi si aspetta: un segno lasciato
+       sull'elemento resterebbe anche dopo un rifiuto, e il clic successivo non
+       busserebbe più. */
     function vaiA(m, tentativi) {
         var box = consoleInCima();
         if (!box) {
@@ -101,68 +103,11 @@
         }
         if (sezioneDelBox(box) === m) return;        /* sei già lì: niente da fare */
         if ((tentativi || 0) > 60) return;           /* ~9s: la conferma è stata rifiutata */
-        /* si bussa una volta sola per clic sul rail, poi si aspetta: un segno
-           lasciato sull'elemento resterebbe anche dopo un rifiuto, e il clic
-           successivo non busserebbe più (il bottone tornerebbe morto). */
         if (!tentativi) {
             var x = box.querySelector('.mm-head .mm-close');
             if (x) x.click();
         }
         setTimeout(function () { vaiA(m, (tentativi || 0) + 1); }, 150);
-    }
-
-    function montaRail() {
-        if (_bentoApp()) return;   /* cablaggio bento: niente rail, «Cosa» del percorso lo sostituisce */
-        if (document.getElementById('manifesto-rail')) return;
-        var host = document.getElementById('landing-view');
-        if (!host) return;
-
-        var rail = document.createElement('div');
-        rail.id = 'manifesto-rail';
-        rail.setAttribute('role', 'group');
-        rail.setAttribute('aria-label', t('mn_rail_aria', 'Modalità di lavoro'));
-
-        FORME.forEach(function (f) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'man-forma';
-            b.dataset.modo = f.modo;
-            var nome = t(f.chiave, f.testo);
-            b.setAttribute('aria-label', nome);
-            b.title = nome;
-            b.innerHTML = '<i data-lucide="' + f.icona + '"></i>';
-            /* ⚠️ Mentre una mappa si genera, CREA ed ELABORA sono chiuse — e il
-               rail è la PORTA DI SERVIZIO della briciola «Cosa»: bloccarne una
-               sola lascerebbe l'altra aperta, e con essa il guasto (una seconda
-               generazione, o un caricamento che cambia `appState` sotto i piedi
-               della prima). INSEGNA resta: passa dal disco.
-               Il controllo è al CLIC, non al montaggio: il rail si costruisce
-               una volta sola e non saprebbe di una generazione partita dopo. */
-            b.addEventListener('click', function () {
-                if ((f.modo === 'build' || f.modo === 'elabora') &&
-                    window.MappAIGen && window.MappAIGen.attiva()) {
-                    if (window.showToast) window.showToast(window.MappAIGen.motivo(), 'warning');
-                    return;
-                }
-                vaiA(f.modo, 0);
-            });
-            rail.appendChild(b);
-        });
-        host.appendChild(rail);
-
-        /* il mini-logo: torna alla prima pagina (setMode('') è uno stato vero,
-           lo accetta da quando la landing si apre vuota) */
-        var home = document.createElement('button');
-        home.id = 'manifesto-home';
-        home.type = 'button';
-        home.setAttribute('aria-label', t('mn_home', 'Torna alla prima pagina'));
-        home.title = t('mn_home', 'Torna alla prima pagina');
-        home.innerHTML = '<img src="MappAI_logo.svg" alt="">';
-        /* stessa strada delle forme: se c'è una console aperta, prima si esce */
-        home.addEventListener('click', function () { vaiA('', 0); });
-        host.appendChild(home);
-
-        if (window.safeCreateIcons) window.safeCreateIcons();
     }
 
     /* ── Il NOME di dove sei, nella barra in alto (5/8, richiesta di Giacomo) ──
@@ -215,7 +160,13 @@
        ⚠️ Non tocca la landing DENTRO una console (INSEGNA ha già il suo percorso).
        ⚠️ Re-mount solo se lo stato cambia (firma): montaPercorso muta il DOM, e un
        rebuild a ogni `sincronizza` sarebbe lavoro inutile. */
-    function _bentoApp() { try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; } }
+    /* ⚠️ IL FLAG È IN PENSIONE (14/8 sera). Era `mappai_console_bento_app`, e il
+       suo «passo indietro» era il rail — che ora non esiste più: metterlo a '0'
+       avrebbe lasciato la landing SENZA nessun modo di cambiare sezione e CREA
+       senza uscita. Un interruttore che porta in un vicolo cieco è peggio di
+       nessun interruttore. La funzione resta (la chiamano in cinque posti) e
+       risponde sempre di sì: il cablaggio bento non è più opzionale. */
+    function _bentoApp() { return true; }
     var _sigCascata = '';
     function montaCascataLanding() {
         if (!_bentoApp() || consoleInCima()) return;
@@ -287,19 +238,6 @@
            ⚠️ `modo()` ritorna la sezione della CONSOLE quando ce n'è una aperta:
            dentro INSEGNA il chip è il filtro della colonna e deve restare. */
         document.documentElement.classList.toggle('mn-costruisci', m === 'build');
-        var forme = document.querySelectorAll('#manifesto-rail .man-forma');
-        var gen = !!(window.MappAIGen && window.MappAIGen.attiva());
-        for (var i = 0; i < forme.length; i++) {
-            forme[i].classList.toggle('attivo', forme[i].dataset.modo === m);
-            forme[i].setAttribute('aria-current', forme[i].dataset.modo === m ? 'true' : 'false');
-            /* le due chiuse durante una generazione si VEDONO chiuse, col motivo:
-               un comando spento senza motivo si legge come un difetto dell'app */
-            var chiusa = gen && (forme[i].dataset.modo === 'build' || forme[i].dataset.modo === 'elabora');
-            forme[i].classList.toggle('is-bloccata', chiusa);
-            forme[i].setAttribute('aria-disabled', chiusa ? 'true' : 'false');
-            if (chiusa) forme[i].title = window.MappAIGen.motivo();
-            else forme[i].title = forme[i].getAttribute('aria-label') || '';
-        }
         if (_bentoApp()) montaCascataLanding();
     }
 
@@ -390,7 +328,6 @@
         }
         marcaHero();
         sganciaHeader();
-        montaRail();
         titoliAvvii();
         aggancia();
         sincronizza();
@@ -402,8 +339,6 @@
         if (on) { avvio(); }
         else {
             document.documentElement.classList.remove(CLASSE, VUOTA);
-            var r = document.getElementById('manifesto-rail'); if (r) r.remove();
-            var h = document.getElementById('manifesto-home'); if (h) h.remove();
         }
     }
 

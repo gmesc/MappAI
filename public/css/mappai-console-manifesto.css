@@ -3,9 +3,9 @@
    (disegno di Giacomo: Inkscape/console cabina profilo insegnante.pdf, 4/8/26)
 
    La console smette di essere una FINESTRA sopra l'app e diventa la SCHERMATA:
-   testata a tutta larghezza col marchio, e sotto — in fila — il rail delle tre
-   forme, la colonna della navigazione, l'area. Il rail è la costante della
-   finestra: non lo si copre, ci si lavora accanto.
+   testata a tutta larghezza col marchio, e sotto la colonna della navigazione e
+   l'area. (Fino al 14/8 fra le due c'era il rail delle tre forme, ora
+   pensionato: `--mnc-rail` resta a 0 per i calcoli che lo sommano.)
 
    ⚠️ Ogni regola sta sotto `html.manifesto`: senza quella classe il foglio è
    INERTE e le console restano quelle di prima (kill-switch
@@ -19,13 +19,11 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 html.manifesto {
-    /* Spazio a sinistra per il rail fisso del manifesto che galleggia sopra la
-       console (left:18, largo 46 → 82 col respiro). ⚠️ NELL'APP serve ANCORA: i
-       suoi consoli (INSEGNA/Cabina/ELABORA) hanno il rail finché non si fa il
-       cablaggio. Nel BANCO il rail è già tolto → override a 0 più sotto
-       (`#oc-anteprima`), così l'app resta com'è e il banco mostra il futuro.
-       6/8: NON mettere 0 qui — è un token CONDIVISO e sposterebbe i consoli veri. */
-    --mnc-rail: 82px;
+    /* ⚠️ 0 dal 14/8: qui c'era lo spazio riservato al RAIL delle tre forme, che
+       è stato pensionato. Il token resta perché lo somma il `left` della
+       maniglia e il padding del corpo — a zero non sposta niente, e toglierlo
+       vorrebbe dire riscrivere quei due calcoli per un guadagno di una riga. */
+    --mnc-rail: 0px;
     /* Il tetto di larghezza del contenuto. È lo STESSO numero della landing
        (§10.16): una superficie dell'app si legge sempre sulla stessa colonna,
        e su uno schermo largo restano fasce bianche ai lati — scelta di Giacomo,
@@ -44,19 +42,11 @@ html.manifesto {
     --mnc-hairline: #ebebeb;
 }
 
-/* BANCO (officina-console): qui il rail è già stato tolto, quindi niente spazio
-   da riservare a sinistra. Scoped a `#oc-anteprima` (esiste solo nel banco) →
-   l'app, che non ha quell'id, tiene i suoi 82px finché non si fa il cablaggio. */
-html.manifesto #oc-anteprima .mm-box--console { --mnc-rail: 0px; }
-
-/* CABLAGGIO nell'app (flag `mappai_console_bento_app` → classe `mn-bento-app` su
-   <html>): via il rail e il suo spazio, via il chip e il nome-sezione della
-   landing; il percorso «Cosa · A chi? · Materia» prende il loro posto sull'header
-   (montaCascataLanding in mappai-stile-manifesto.js). Opt-in: senza la classe,
-   niente di tutto questo. */
-html.mn-bento-app { --mnc-rail: 0px; }
-html.mn-bento-app #manifesto-rail,
-html.mn-bento-app #manifesto-home,
+/* CABLAGGIO nell'app (classe `mn-bento-app` su <html>): via il chip e il
+   nome-sezione della landing, perché il percorso «Cosa · A chi? · Materia»
+   prende il loro posto sull'header (montaCascataLanding in
+   mappai-stile-manifesto.js). ⚠️ Dal 14/8 non è più opt-in: il flag è in
+   pensione insieme al rail, che era il suo unico passo indietro. */
 html.mn-bento-app #mn-sezione,
 html.mn-bento-app #active-class-chip,
 html.mn-bento-app #header-utils .mm-ctx { display: none !important; }

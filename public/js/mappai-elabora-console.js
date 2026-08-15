@@ -44,7 +44,11 @@
         catch (e) { return window.appState; }
     }
     function _bentoApp() {
-        try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; }
+    /* ⚠️ IL FLAG È IN PENSIONE (14/8 sera): il suo «passo indietro» era il rail
+       delle tre forme, che non esiste più — a '0' la landing sarebbe rimasta
+       senza modo di cambiare sezione. Risponde sempre di sì; la funzione resta
+       perché la chiamano da più punti. */
+        return true;
     }
     /* ── Che cosa c'è da elaborare ─────────────────────────────────────────────
        Le stesse fonti dell'elenco dell'editor, lette qui per costruire la

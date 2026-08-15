@@ -313,7 +313,11 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     annuncio (`CustomEvent`), o l'utente ricarica per vedere un'eliminazione. E se il dato
     cambia da DUE strade, servono DUE eventi (classe e materia ne hanno uno ciascuno).
 16. **Prima di dire «quel comando c'è già altrove», guardare se c'è.** Una briciola tolta
-    «perché c'è il rail» ha lasciato una schermata senza uscita: col bento il rail non si monta.
+    «perché c'è il rail» ha lasciato una schermata senza uscita: col bento il rail non si
+    montava. ⚠️ E vale anche togliendo: cancellando il rail (14/8) sono spariti con lui
+    `consoleInCima`, `sezioneDelBox` e `vaiA` — che stavano nel suo blocco ma servono alla
+    BRICIOLA. La landing è rimasta senza modo di cambiare sezione finché non li ho rimessi.
+    Prima di cancellare un blocco, cercare i suoi nomi ALTROVE.
 17. **L'ARCHIVIO e il DISCO sono due mondi che non si parlano.** Le voci d'archivio
     (`MappAIStudyDocs`, in localStorage) e i file nel vault vivono separati: cancellare un
     file dal Finder non toglie la voce, e cancellare la voce non toglie il file. Gli

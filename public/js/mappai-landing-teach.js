@@ -1872,7 +1872,11 @@
      `mappai_console_bento_app='1'` accende la veste nuova (cascata «Cosa/A chi/
      Materia» al posto del chip; poi area a bento, poi via il rail). Spenta =
      console INSEGNA identica a oggi. Va accesa e provata in Electron. */
-  function _bentoApp() { try { return localStorage.getItem('mappai_console_bento_app') === '1'; } catch (e) { return false; } }
+  /* ⚠️ IL FLAG È IN PENSIONE (14/8 sera): il suo «passo indietro» era il rail
+     delle tre forme, che non esiste più — a '0' la landing sarebbe rimasta
+     senza modo di cambiare sezione. Risponde sempre di sì; la funzione resta
+     perché la chiamano da più punti. */
+  function _bentoApp() { return true; }
   /* gli allievi per la colonna «A chi?»: i profili studente (taratura), nome +
      grado. Picking → `setActiveStudent` (esclude la classe attiva). */
   function _allieviProfili() {

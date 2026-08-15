@@ -894,22 +894,26 @@
         var achiScelto = !!(cls || stud || _stickyAchi());
         var livelli = [];
         if (cb.onCosa) {
-            /* ── Che cosa si può fare MENTRE una mappa si genera (14/8) ────────
-               CREA: no — una seconda generazione cambierebbe `appState` sotto i
-               piedi della prima (è il guasto che il lucchetto esiste per
-               chiudere). ELABORA: no — la sua sidebar sceglie il PROGETTO, e
-               sceglierlo CARICA quella mappa in `appState`; e il `db` che
-               leggerebbe è proprio quello che si sta costruendo, cioè una mappa
-               a metà. INSEGNA: SÌ — passa tutta dal DISCO (elenca i vault, apre
-               PDF e HTML nell'iframe, stampa, QR, Finder) e non tocca
-               `appState`; a essere spente là dentro sono le sole quattro azioni
-               che caricano una mappa. */
+            /* ── Che cosa si può fare MENTRE una mappa si genera ───────────────
+               Decisione di Giacomo (14/8 sera): **si resta in CREA**. Il menu si
+               apre, «Crea» resta scegliibile — è dove si è già, e il modulo lo
+               copre comunque il velo — mentre ELABORA e INSEGNA sono spente col
+               lucchetto e il motivo.
+               ⚠️ Rovescia il primo giro, dove avevo bloccato Crea (per la
+               seconda generazione) e lasciato aperta INSEGNA (che legge dal
+               disco e non tocca `appState`). Il prezzo di questa regola è quello:
+               mentre genera non si guardano più i materiali di un'altra mappa.
+               In cambio il modello è uno solo — «finché lavora, sei in CREA» —
+               e non c'è una sezione mezza usabile da spiegare.
+               La seconda generazione la ferma comunque il lucchetto
+               (`mappaiOccupato`), che è la difesa vera: qui si tolgono le porte,
+               non i lucchetti. */
             var gen = function () { return !!(window.MappAIGen && window.MappAIGen.attiva()); };
             var perche = function () { return window.MappAIGen ? window.MappAIGen.motivo() : ''; };
             livelli.push({ et: cosaScelto ? (SEZ[sez] || 'Cosa') : 'Cosa', menu: { tipo: 'lista', voci: [
-                { et: 'Crea', on: sez === 'build', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('build'); } },
+                { et: 'Crea', on: sez === 'build', onPick: function () { cb.onCosa('build'); } },
                 { et: 'Elabora', on: sez === 'elabora', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('elabora'); } },
-                { et: 'Insegna', on: sez === 'teach', onPick: function () { cb.onCosa('teach'); } }
+                { et: 'Insegna', on: sez === 'teach', bloccata: gen, motivo: perche, onPick: function () { cb.onCosa('teach'); } }
             ] } });
         }
         if (!cosaScelto && !opts.sempre) return livelli;     // finché «Cosa» non è scelto, si vede solo «Cosa»
