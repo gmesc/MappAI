@@ -559,6 +559,30 @@ html.manifesto .mm-box--console .mm-nav__v svg {
     width: var(--mnc-col-icona);
     height: var(--mnc-col-icona);
 }
+/* La voce «segnalazione» tiene la sua veste anche sotto la pelle manifesto:
+   qui le regole della colonna (taglia dell'icona, raggio, corpo, pillola viola
+   da attiva) sono più specifiche di `.mm-nav__v--segnala` nei token e
+   vincerebbero — la voce diventerebbe una riga come le altre, cioè
+   esattamente ciò che il clone deve evitare. */
+html.manifesto .mm-box--console .mm-nav__v--segnala {
+    min-height: 0;
+    border-radius: 12px;
+    font-size: 15px;
+    background: #fffbeb;
+    color: #92400e;
+}
+html.manifesto .mm-box--console .mm-nav__v--segnala:hover,
+html.manifesto .mm-box--console .mm-nav__v--segnala.is-attiva {
+    background: #fef3c7;
+    color: #92400e;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+html.manifesto .mm-box--console .mm-nav__v--segnala svg,
+html.manifesto .mm-box--console .mm-nav__v--segnala.is-attiva svg {
+    width: 32px;
+    height: 32px;
+    color: #fff;
+}
 html.manifesto .mm-box--console .mm-nav__g {
     margin: 10px var(--mnc-col-pad) 2px;
 }

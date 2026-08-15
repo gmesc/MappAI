@@ -472,6 +472,31 @@
     line-height: 1.65;
 }
 
+/* figura della sezione: sta a sinistra e il testo le scorre attorno. `float`
+   e non flex — con un blocco affiancato un testo di tre righe diventa una
+   colonna stretta accanto a una foto alta il doppio. */
+.mm-fig {
+    float: left;
+    width: 112px;
+    height: 112px;
+    margin: 0 16px 8px 0;
+    object-fit: cover;
+    border-radius: var(--mm-r-box);
+}
+
+.mm-fig--tonda {
+    border-radius: 999px;
+}
+
+/* il testo scorre accanto alla figura, ma ciò che viene DOPO (comandi, elenchi,
+   riga di esito) ricomincia sotto: senza, i bottoni si infilavano nell'incavo
+   di fianco alla foto */
+.mm-sez__c::after {
+    content: '';
+    display: block;
+    clear: both;
+}
+
 .mm-piede-nota {
     margin: 14px 0 0;
     font-size: 11.5px;
@@ -1414,6 +1439,84 @@ button.mm-ctx__p:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* con la seconda riga il testo è una colonna: titolo sopra, spiegazione sotto */
+.mm-nav__tt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mm-nav__s {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: .7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── voce «segnalazione»: il CLONE del bottone ambra del cassetto insegnai ──
+   (index.html `.btn_feedback_action`). Non è vezzo grafico: è lo STESSO comando
+   in due posti, e chi l'ha già usato dal cassetto deve riconoscerlo nella
+   colonna della Cabina senza rileggere l'etichetta. I valori sono quelli di
+   Tailwind del bottone originale, trascritti: amber-50 · amber-200/80 ·
+   amber-800 · amber-100 all'hover · pastiglia amber-500 col segno bianco.
+   ⚠️ Misurato: testo 6,84:1 sul fondo ✓ · segno bianco sulla pastiglia
+   ambra 2,16:1 — sotto i 3:1 che WCAG chiede a una grafica che porta
+   informazione. Resta com'è perché è la copia fedele del bottone che esiste
+   (richiesta di Giacomo); la leva per rientrare è una riga: dare al segno
+   `color:#7c2d12` porta la pastiglia a 5,4:1. */
+.mm-nav__v--segnala {
+    align-items: center;
+    gap: 12px;
+    /* ⚠️ I valori NON sono le classi Tailwind lette dal markup (`p-3`,
+       `text-sm`): sono quelli MISURATI sul bottone vero, dove le regole
+       globali dell'app li hanno già cambiati — padding 8, corpo 15, seconda
+       riga 13/700 a opacità .7. Copiare le classi avrebbe prodotto un bottone
+       simile ma non identico, che è il difetto che si voleva evitare. */
+    padding: 8px;
+    border: 1px solid rgba(253, 230, 138, .8);
+    border-radius: 12px;
+    background: #fffbeb;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+    color: #92400e;
+    font-size: 15px;
+}
+
+.mm-nav__v--segnala:hover,
+.mm-nav__v--segnala.is-attiva {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* la pastiglia tonda attorno al segno: nel cassetto è un <div>, qui è l'icona
+   stessa vestita — un contenitore in più vorrebbe dire un pezzo di markup che
+   solo questa voce usa */
+.mm-nav__v--segnala svg {
+    width: 32px;
+    height: 32px;
+    padding: 7px;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #fff;
+    box-sizing: border-box;
+}
+
+.mm-nav__v--segnala .mm-nav__t {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 20px;
+}
+
+.mm-nav__v--segnala .mm-nav__s {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 20px;
+    opacity: .7;
 }
 
 .mm-nav__n {

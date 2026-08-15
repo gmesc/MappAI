@@ -656,6 +656,31 @@ test('voce: si comporta come un bottone — conclude, salvo dirlo', () => {
     assert.strictEqual(resta.chiude, false);
 });
 
+/* La figura della sezione: il ritratto accanto al testo che presenta. L'`alt`
+   è la parte che conta — un ritratto senza nome, per chi legge con lo schermo,
+   è un buco. Una figura senza `src` non esiste: non si emette un <img> vuoto. */
+test('sezione: la figura porta il suo alt, e senza src non c’è', () => {
+    const s = MC.normalizzaSezione({ titolo: 'Chi c’è dietro', figura: { src: 'foto.png', alt: 'Ritratto', tonda: true } }, 0);
+    assert.strictEqual(s.figura.src, 'foto.png');
+    assert.strictEqual(s.figura.alt, 'Ritratto');
+    assert.strictEqual(s.figura.tonda, true);
+    assert.strictEqual(MC.normalizzaSezione({ figura: { alt: 'orfana' } }, 0).figura, null);
+    assert.strictEqual(MC.normalizzaSezione({ titolo: 'x' }, 0).figura, null);
+});
+
+/* La classe di deroga serve alla voce «Segnalazione» della Cabina, che è il
+   clone del bottone ambra del cassetto insegnai. Deve sopravvivere alla DOPPIA
+   normalizzazione (`open()` normalizza, `render()` rinormalizza): senza, la
+   veste si perdeva al primo ridisegno e la voce tornava una riga come le altre
+   — è la trappola già vista sulle intestazioni di gruppo. */
+test('voce: la classe di deroga resta, e regge la doppia normalizzazione', () => {
+    const una = MC.normalizzaVoce({ id: 'feedback', etichetta: 'Segnalazione', classe: 'mm-nav__v--segnala' }, 0);
+    assert.strictEqual(una.classe, 'mm-nav__v--segnala');
+    const due = MC.normalizzaVoce(una, 0);
+    assert.strictEqual(due.classe, 'mm-nav__v--segnala');
+    assert.strictEqual(MC.normalizzaVoce({ etichetta: 'Privacy' }, 0).classe, '', 'senza deroga la voce resta standard');
+});
+
 test('voce: i comandi in coda NON concludono (si elimina e l’elenco resta aperto)', () => {
     const v = MC.normalizzaVoce({
         id: 'doc-1', etichetta: 'Sintesi',

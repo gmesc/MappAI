@@ -181,6 +181,13 @@
 
     function sezioneHtml(s) {
         var dentro = '';
+        /* la figura apre la sezione e il testo le scorre accanto (`float`): con
+           un blocco affiancato in flex, un testo lungo diventerebbe una colonna
+           stretta accanto a una foto alta un dito */
+        if (s.figura) {
+            dentro += '<img class="mm-fig' + (s.figura.tonda ? ' mm-fig--tonda' : '') + '" src="' +
+                esc(s.figura.src) + '" alt="' + esc(s.figura.alt) + '">';
+        }
         if (s.testo) dentro += '<p class="mm-testo">' + esc(s.testo) + '</p>';
         dentro += datiHtml(s.dati);
         dentro += s.campi.map(campoHtml).join('');
@@ -411,10 +418,17 @@
                 aperto = true;
                 return;
             }
-            out += '<button type="button" class="mm-nav__v' + (v.attiva ? ' is-attiva' : '') + '"' +
+            out += '<button type="button" class="mm-nav__v' + (v.attiva ? ' is-attiva' : '') +
+                (v.classe ? ' ' + esc(v.classe) : '') + '"' +
                 ' data-nav="' + esc(v.id) + '"' + (v.attiva ? ' aria-current="page"' : '') + '>' +
                 (v.icona ? icona(v.icona) : '') +
-                '<span class="mm-nav__t">' + esc(v.etichetta) + '</span>' +
+                /* con la seconda riga il testo diventa una colonna: il titolo
+                   sopra, la riga di spiegazione sotto. `sotto` era normalizzato
+                   dal core e nessuno lo disegnava — stessa storia del badge. */
+                (v.sotto
+                    ? '<span class="mm-nav__tt"><span class="mm-nav__t">' + esc(v.etichetta) + '</span>' +
+                      '<span class="mm-nav__s">' + esc(v.sotto) + '</span></span>'
+                    : '<span class="mm-nav__t">' + esc(v.etichetta) + '</span>') +
                 /* il BADGE della voce: il core lo normalizzava già e nessuno lo
                    disegnava. È in coda alla riga, prima del contatore — dice uno
                    STATO della voce («NUOVO»), non quante cose contiene. */

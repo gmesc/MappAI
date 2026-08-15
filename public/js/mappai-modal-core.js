@@ -133,6 +133,15 @@
             id: s.id || ('sez-' + (i + 1)),
             titolo: String(s.titolo || '').trim(),
             testo: s.testo ? String(s.testo) : '',
+            /* FIGURA: un'immagine accanto al testo della sezione — il ritratto
+               di chi scrive, la copertina di un materiale. Non è decorazione
+               libera: porta un `alt` obbligatorio (un ritratto senza nome, per
+               chi legge con lo schermo, è un buco) e la sola forma dichiarabile
+               è `tonda`. La `tela` non andava bene: sta SOTTO le sezioni, e la
+               foto qui deve stare accanto al testo che presenta. */
+            figura: (s.figura && s.figura.src)
+                ? { src: String(s.figura.src), alt: String(s.figura.alt || ''), tonda: !!s.figura.tonda }
+                : null,
             dati: normalizzaDati(s.dati),
             /* riga di ESITO sotto le azioni: dice com'è andata o che cosa è
                stato scelto (il file caricato, l'ultimo salvataggio, quanti
@@ -222,6 +231,12 @@
                ciò che distingue due voci che si chiamano quasi uguale */
             sotto: v.sotto ? String(v.sotto) : '',
             icona: v.icona || '',
+            /* Deroga di veste, dichiarata dalla voce: una classe in più sul
+               bottone. Serve alle voci che devono essere RICONOSCIUTE come un
+               comando già visto altrove (la segnalazione della Cabina è il
+               bottone ambra del cassetto insegnai) — non è un modo di vestire
+               una navigazione a piacere: senza classe la voce resta standard. */
+            classe: v.classe ? String(v.classe) : '',
             /* in coda alla riga: una data, un grado, uno stato */
             badge: (v.badge === 0 || v.badge) ? String(v.badge) : '',
             contatore: (v.contatore === 0 || v.contatore) ? v.contatore : null,
