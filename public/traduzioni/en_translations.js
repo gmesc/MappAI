@@ -2693,6 +2693,8 @@ const en_translations = {
     cb_fb_reg_niente: "No errors to copy.",
     cb_fb_reg_tot: "Recorded in total: ",
     cb_fb_reg_nodisco: "copy held in browser memory (outside the installed app)",
+    tst_quota_potata: "Local space nearly full: freed old project copies (maps on disk untouched).",
+    tst_quota_piena: "Local space exhausted: the project was NOT saved. The map on disk (vault) is intact.",
     cb_pv_errori_t: "The error log",
     cb_pv_errori_d: "When something goes wrong MappAI writes a line in «Diagnostica», on your computer: message, file and line, active provider and model, title of the open map. It holds neither the text of your sources nor student and class profiles, and it never leaves on its own — you attach it to a report and send it yourself from your mail client. You can clear it from the Cabina, under «Report».",
     cb_fb_nota: "Suggestions and requests count as much as bugs: what gets built next is decided this way too.",

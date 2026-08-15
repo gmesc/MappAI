@@ -10,6 +10,56 @@
 // ==========================================
 const StorageManager = {
     currentProjectId: null,
+
+    /* ── adottaVault (15/8) ──────────────────────────────────────────────────
+       Aprire una mappa dal disco DICHIARA CHI È. Prima nessuno toccava
+       `currentProjectId`: l'identità restava quella della mappa precedente e
+       il salvataggio successivo scriveva la mappa nuova nella scheda della
+       vecchia — misurato sull'app viva (`stessoId: true` dopo directLoadVault)
+       e nei dati (46 copie di una mappa, una voce col vault di un'altra).
+       Cerca la voce che corrisponde alla POSIZIONE su disco (core puro,
+       confronti in NFC — trappola §8.25) e la adotta; se non c'è ne conia una
+       nuova SUBITO, così nemmeno un salvataggio parte con l'identità altrui.
+       Allinea anche classDir/discDir di appState: erano il residuo della mappa
+       precedente, e l'autosave li congelava nella voce sbagliata. */
+    adottaVault: async function (folderPath, stato) {
+        const st = stato || (typeof appState !== 'undefined' ? appState : window.appState);
+        try {
+            let classDir = null, discDir = null, vault = String(folderPath).split(/[\\/]/).filter(Boolean).pop();
+            try {
+                const info = (window.electronAPI && window.electronAPI.filesRootGet)
+                    ? await window.electronAPI.filesRootGet() : null;
+                const basi = [info && info.mapsBaseDir, info && info.studentsBaseDir].filter(Boolean);
+                for (const b of basi) {
+                    const pref = String(b).replace(/\/+$/, '') + '/';
+                    if (String(folderPath).indexOf(pref) !== 0) continue;
+                    const segs = String(folderPath).slice(pref.length).split('/').filter(Boolean);
+                    // [vault] · [classe, vault] · [classe, materia, vault] ·
+                    // (base allievi) [nome, 'Mappe', vault] → posizione flat
+                    if (segs.length === 2 && b === info.mapsBaseDir) classDir = segs[0];
+                    if (segs.length === 3 && b === info.mapsBaseDir) { classDir = segs[0]; discDir = segs[1]; }
+                    vault = segs[segs.length - 1];
+                    break;
+                }
+            } catch (e) { /* fuori dalle basi (vault scelto a mano): si va di solo nome */ }
+
+            if (st) { st.activeVaultClassDir = classDir; st.activeVaultDiscDir = discDir; }
+
+            const TC = window.MappAITeachCore;
+            const projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]');
+            const hit = (TC && TC.progettoDelVault)
+                ? TC.progettoDelVault(projects, { vault: vault, classDir: classDir, discDir: discDir })
+                : null;
+            this.currentProjectId = hit ? hit.id : ('proj_' + Date.now());
+            return this.currentProjectId;
+        } catch (e) {
+            // mai lasciare l'identità della mappa precedente: meglio una scheda
+            // nuova che una scheda scambiata
+            this.currentProjectId = 'proj_' + Date.now();
+            return this.currentProjectId;
+        }
+    },
+
     saveCurrentProject: function () {
         // GUARDIA Studio attivo: durante una sessione la mappa sul canvas è
         // volutamente smontata dall'esercizio (link rimossi, livelli/label
@@ -22,6 +72,24 @@ const StorageManager = {
         if (!this.currentProjectId) {
             this.currentProjectId = 'proj_' + Date.now();
         }
+
+        /* ⚠️ RETE (15/8): l'identità deve appartenere alla mappa A SCHERMO.
+           `adottaVault` la riallinea a ogni apertura dal disco, ma se una
+           strada nuova dimenticasse di chiamarla, qui si scriverebbe la mappa
+           nuova nella scheda della VECCHIA — è il difetto che ha prodotto una
+           voce «2.1 PROJECT E» puntata su un altro vault, e 46 copie di una
+           stessa mappa. Se la voce esistente dichiara un vault DIVERSO da
+           quello attivo, l'identità si stacca e se ne conia una nuova. */
+        try {
+            const attivo = appState.activeVaultPath
+                ? String(appState.activeVaultPath).split(/[\\/]/).filter(Boolean).pop() : null;
+            const nfc = s => { try { return String(s || '').normalize('NFC'); } catch (e) { return String(s || ''); } };
+            const prevStr = localStorage.getItem('tutor_ai_projects');
+            const prev = (prevStr ? JSON.parse(prevStr) : []).find(p => p.id === this.currentProjectId);
+            if (attivo && prev && prev.vault && nfc(prev.vault) !== nfc(attivo)) {
+                this.currentProjectId = 'proj_' + Date.now();
+            }
+        } catch (e) { /* best-effort: peggio bloccare un salvataggio che coniare un id */ }
 
         const projectsStr = localStorage.getItem('tutor_ai_projects');
         let projects = projectsStr ? JSON.parse(projectsStr) : [];
@@ -91,8 +159,52 @@ const StorageManager = {
         // Sort by desc date
         projects.sort((a, b) => b.date - a.date);
 
-        localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
-        localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
+        /* ── Scrittura a prova di quota (15/8) ──────────────────────────────
+           Prima erano due `setItem` nudi: a localStorage pieno il primo
+           passava e il secondo lanciava — una voce in elenco che promette uno
+           snapshot che non c'è. Misurato sul profilo vero: 45,8 MB occupati su
+           ~48, margine 4 MB ≈ 8-15 salvataggi.
+           Ordine rovesciato (PRIMA lo snapshot, poi l'indice): se lo snapshot
+           non entra, l'indice resta quello di prima e tutto è ancora coerente
+           — è la regola sorgente→resa dell'invariante 18, applicata qui.
+           A quota piena si libera lo spazio dei DOPPIONI (le copie non più
+           recenti della stessa mappa: nessuna schermata sa aprirle, chi apre
+           passa dal match che prende sempre l'ultima) e si riprova. Niente
+           domande in mezzo al lavoro: si fa, e lo si DICE col toast. */
+        const _scrivi = () => {
+            localStorage.setItem(this.currentProjectId, JSON.stringify(appState));
+            localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
+        };
+        try { _scrivi(); }
+        catch (e) {
+            let potate = 0;
+            try {
+                const TC = window.MappAITeachCore;
+                const via = (TC && TC.vociDaPotare) ? TC.vociDaPotare(projects, 1, this.currentProjectId) : [];
+                const viaSet = {};
+                via.forEach(id => { viaSet[id] = 1; try { localStorage.removeItem(id); } catch (x) { } });
+                projects = projects.filter(p => !viaSet[p.id]);
+                potate = via.length;
+                _scrivi();
+                if (potate && window.showToast) {
+                    /* il conteggio NON entra nella chiave i18n (la traduzione è
+                       statica): va in coda, uguale nelle due lingue */
+                    window.showToast(window.t('tst_quota_potata',
+                        'Spazio quasi esaurito: liberate copie vecchie dei progetti (le mappe su disco non sono toccate).')
+                        + ' (' + potate + ')', 'info');
+                }
+                console.log('[Storage] quota piena: potate ' + potate + ' voci doppie, salvataggio riuscito al secondo giro');
+            } catch (e2) {
+                /* nemmeno potando ci sta: si dice FORTE — un salvataggio perso
+                   in silenzio è il guasto peggiore di questo file. Il vault su
+                   disco resta la rete (l'autosave JSON qui sotto è già partito
+                   nelle chiamate precedenti). */
+                console.error('[Storage] salvataggio non riuscito, quota piena:', e2 && e2.message);
+                if (window.showToast) window.showToast(window.t('tst_quota_piena',
+                    'Spazio locale esaurito: il progetto NON è stato salvato. La mappa su disco (vault) resta intatta.'), 'error');
+                return;
+            }
+        }
 
         // Indice leggero Quiz & flashcard (005): rigenera le voci di QUESTO
         // progetto da appState.db.studySets (in memoria) — mai riparsando snapshot.

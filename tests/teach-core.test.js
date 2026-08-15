@@ -210,3 +210,57 @@ test('_chiaveDoc: il GENERE è la rete contro i falsi positivi', () => {
         _chiaveDoc('Foglio nodi — Mappa (rivisto)', 'Foglio nodi'),
         _chiaveDoc('Foglio-nodi-Mappa-card.pdf', 'Foglio nodi'));
 });
+
+// ── progettoDelVault: l'adozione dell'identità (15/8) ────────────────────────
+test('progettoDelVault: la posizione esatta vince, e a parità vince la più recente', () => {
+    const P = [
+        { id: 'a', vault: 'Il Clima', classDir: '4R', discDir: 'Geografia', date: 10 },
+        { id: 'b', vault: 'Il Clima', classDir: '4R', discDir: 'Geografia', date: 20 },
+        { id: 'c', vault: 'Il Clima', classDir: null, discDir: null, date: 99 },
+    ];
+    const hit = TC.progettoDelVault(P, { vault: 'Il Clima', classDir: '4R', discDir: 'Geografia' });
+    assert.strictEqual(hit.id, 'b', 'stessa posizione, data più alta');
+    // vault flat: la voce senza classe, non la gemella di 4R
+    assert.strictEqual(TC.progettoDelVault(P, { vault: 'Il Clima' }).id, 'c');
+});
+
+test('progettoDelVault: NFC — il nome del filesystem (NFD) trova la voce nata in appState (NFC)', () => {
+    /* macOS scrive gli accenti scomposti nei nomi di cartella; appState li ha
+       composti. Senza normalizzazione il filtro rispondeva ZERO sui dati veri
+       (0 contro 13 voci per «Elettricità - KG»). */
+    const nfd = 'Elettricità - KG'.normalize('NFD');
+    const P = [{ id: 'x', vault: 'Elettricità - KG'.normalize('NFC'), classDir: '4R', discDir: 'Scienze', date: 1 }];
+    const hit = TC.progettoDelVault(P, { vault: nfd, classDir: '4R', discDir: 'Scienze' });
+    assert.ok(hit && hit.id === 'x');
+});
+
+test('progettoDelVault: voce pre-disciplina (classDir sì, discDir no) e ripiego sul solo nome', () => {
+    const P = [
+        { id: 'vecchia', vault: 'La Carta', classDir: '2A', discDir: null, date: 5 },
+        { id: 'altra', vault: 'La Carta', classDir: '1B', discDir: 'Storia', date: 9 },
+    ];
+    // vault ora annidato a 3 livelli, la voce è di prima del livello disciplina
+    assert.strictEqual(TC.progettoDelVault(P, { vault: 'La Carta', classDir: '2A', discDir: 'Storia' }).id, 'vecchia');
+    // posizione mai vista → il solo nome, la più recente
+    assert.strictEqual(TC.progettoDelVault(P, { vault: 'La Carta', classDir: '9Z', discDir: 'Arte' }).id, 'altra');
+    assert.strictEqual(TC.progettoDelVault(P, { vault: 'Mai vista' }), null);
+});
+
+// ── vociDaPotare: i doppioni da liberare quando lo spazio finisce ────────────
+test('vociDaPotare: tiene le keep più recenti per mappa, mai la voce protetta', () => {
+    const P = [
+        { id: 'a1', vault: 'Il Clima', date: 1 }, { id: 'a2', vault: 'Il Clima', date: 2 },
+        { id: 'a3', vault: 'Il Clima', date: 3 },
+        { id: 'b1', vault: 'La Carta', date: 1 },
+    ];
+    assert.deepStrictEqual(TC.vociDaPotare(P, 1).sort(), ['a1', 'a2']);
+    assert.deepStrictEqual(TC.vociDaPotare(P, 2), ['a1']);
+    // la voce che si sta salvando non si pota nemmeno se è la più vecchia
+    assert.deepStrictEqual(TC.vociDaPotare(P, 1, 'a1'), ['a2']);
+    // NFC anche qui: le due forme dello stesso nome sono UN gruppo
+    const Q = [
+        { id: 'n1', vault: 'Présent'.normalize('NFC'), date: 1 },
+        { id: 'n2', vault: 'Présent'.normalize('NFD'), date: 2 },
+    ];
+    assert.deepStrictEqual(TC.vociDaPotare(Q, 1), ['n1']);
+});

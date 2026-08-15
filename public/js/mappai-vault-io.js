@@ -310,6 +310,11 @@ window.loadMapVault = async function () {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = result.folderPath;
+            /* stessa adozione di directLoadVault (15/8): l'identità del
+               progetto appartiene alla mappa a schermo, mai alla precedente */
+            if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+                await StorageManager.adottaVault(result.folderPath, appState);
+            }
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             /* la mappa PORTA la sua classe e la sua materia (9/8): un vault
                ricevuto da un collega non cambia materia perché lo apre un altro */

@@ -213,6 +213,77 @@
     return false;
   }
 
+  // ── progettoDelVault (15/8) ───────────────────────────────────────────────
+  // La voce di progetto che CORRISPONDE a un vault aperto dal disco. Serve
+  // all'adozione dell'identità: `directLoadVault`/`loadMapVault` non toccavano
+  // mai `currentProjectId`, quindi il salvataggio scriveva la mappa nuova nella
+  // scheda della mappa PRECEDENTE (una voce «2.1 PROJECT E» che puntava a un
+  // altro vault — trovata nei dati veri), e a ogni avvio nasceva una scheda in
+  // più (46 copie di una stessa mappa).
+  // ⚠️ Ogni confronto passa da NFC: i nomi che arrivano dal FILESYSTEM di macOS
+  //    portano gli accenti in forma scomposta (NFD), quelli nati in appState in
+  //    forma composta. `'Elettricità' === 'Elettricità'` può essere falso pur
+  //    essendo la stessa parola — e un filtro non normalizzato risponde «zero»,
+  //    che sembra una risposta (trappola §8.25 della guida).
+  // pos = { vault, classDir, discDir } — la posizione su disco, già relativa
+  // alla base delle mappe (la ricava il chiamante, che ha l'IPC).
+  // Ritorna la voce più RECENTE che combacia, o null.
+  function nfc(s) {
+    var str = String(s == null ? '' : s);
+    try { return str.normalize('NFC'); } catch (e) { return str; }
+  }
+  function progettoDelVault(projects, pos) {
+    if (!Array.isArray(projects) || !pos) return null;
+    var vault = nfc(pos.vault), cls = nfc(pos.classDir || ''), disc = nfc(pos.discDir || '');
+    if (!vault) return null;
+    // Priorità: posizione esatta → stessa classe senza materia (voci scritte
+    // prima del livello disciplina) → vault flat → solo il nome. A parità di
+    // priorità vince la più recente: è quella che l'app aggiornava finora.
+    var livelli = [
+      function (p) { return nfc(p.vault) === vault && nfc(p.classDir || '') === cls && nfc(p.discDir || '') === disc; },
+      function (p) { return cls && nfc(p.vault) === vault && nfc(p.classDir || '') === cls && !p.discDir; },
+      function (p) { return nfc(p.vault) === vault && !p.classDir; },
+      function (p) { return nfc(p.vault) === vault; }
+    ];
+    for (var i = 0; i < livelli.length; i++) {
+      var meglio = null;
+      for (var j = 0; j < projects.length; j++) {
+        var p = projects[j];
+        if (!p || !livelli[i](p)) continue;
+        if (!meglio || (p.date || 0) > (meglio.date || 0)) meglio = p;
+      }
+      if (meglio) return meglio;
+    }
+    return null;
+  }
+
+  // ── vociDaPotare (15/8) ───────────────────────────────────────────────────
+  // Le voci di progetto in ECCESSO: per ogni mappa (chiave = vault, NFC) si
+  // tengono le `keep` più recenti, il resto è da togliere. Usata dal
+  // salvataggio quando localStorage è pieno: si libera lo spazio dei doppioni
+  // — che nessuna schermata sa aprire (chi apre passa dal match, che prende
+  // sempre la più recente) — invece di fallire a metà. `protectedId` non si
+  // tocca mai: è la voce che si sta salvando.
+  function vociDaPotare(projects, keep, protectedId) {
+    if (!Array.isArray(projects)) return [];
+    var n = Math.max(1, keep || 1);
+    var gruppi = {};
+    projects.forEach(function (p) {
+      if (!p || !p.id) return;
+      var k = nfc(p.vault || p.name || '');
+      (gruppi[k] = gruppi[k] || []).push(p);
+    });
+    var via = [];
+    Object.keys(gruppi).forEach(function (k) {
+      gruppi[k]
+        .slice()
+        .sort(function (a, b) { return (b.date || 0) - (a.date || 0); })
+        .slice(n)
+        .forEach(function (p) { if (p.id !== protectedId) via.push(p.id); });
+    });
+    return via;
+  }
+
   var CORE = {
     normGrade: normGrade,
     registryAdd: registryAdd,
@@ -221,6 +292,8 @@
     buildSetsIndex: buildSetsIndex,
     filterByClass: filterByClass,
     matchesSelectedProject: matchesSelectedProject,
+    progettoDelVault: progettoDelVault,
+    vociDaPotare: vociDaPotare,
     REGISTRY_CAP: REGISTRY_CAP
   };
 

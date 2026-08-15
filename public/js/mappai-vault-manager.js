@@ -105,6 +105,14 @@ window.directLoadVault = async function (folderPath) {
         window.showLoadingOverlay(false);
         if (loadRes.success) {
             appState.activeVaultPath = folderPath;
+            /* Aprire dal disco DICHIARA CHI È (15/8): senza, l'identità restava
+               quella della mappa precedente e il prossimo salvataggio scriveva
+               questa mappa nella scheda di un'altra (46 copie accumulate, una
+               voce col vault sbagliato — misurato sui dati veri). Allinea anche
+               classDir/discDir, che erano il residuo della mappa di prima. */
+            if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+                await StorageManager.adottaVault(folderPath, appState);
+            }
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             /* la mappa PORTA la sua classe e la sua materia (9/8): si tengono da
                parte così un salvataggio successivo non le riscrive col contesto di
