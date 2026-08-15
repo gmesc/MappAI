@@ -11,7 +11,7 @@
 
 ---
 
-## 0. Le prime tre cose da sapere
+## 0. Le prime quattro cose da sapere
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -24,6 +24,12 @@
    `<script src="js/…?v=…">` in `index.html` esiste solo per questo. Due volte Giacomo ha
    provato l'app e non ha visto il codice nuovo. Il sintomo sembra «la funzione non c'è»,
    e si perde un giro a cercarla nel posto sbagliato.
+4. **Dal 14/8 una generazione non blocca più l'app, ma non si esce da CREA.** Il velo copre
+   la sola area di lavoro, lo spinner in barra dice che si sta lavorando, e nel menu «Cosa»
+   Elabora e Insegna sono col lucchetto: si aspetta lì. Le porte che caricano o
+   sostituiscono una mappa sono chiuse dal lucchetto (`MappAIGen` + `mappaiOccupato`), il
+   contesto è congelato per tutta la lavorazione, e alla fine il progetto compare negli
+   elenchi marcato **NUOVO** invece di strappare la schermata. Dettagli in §3.
 
 ---
 
@@ -31,7 +37,7 @@
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # b1a9636 o più recente in testa
+git log --oneline -5                              # a7ab432 o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
 node --test tests/                                # atteso: 0 fail
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
@@ -39,6 +45,10 @@ node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
 node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
 ```
+⚠️ `tools/smoke/censimento-maniglia-cdp.js` NON sta in questa lista: vuole l'app VERA
+aperta con `npx electron . --remote-debugging-port=9222` e la pilota via CDP. Si lancia
+dopo ogni intervento sulla maniglia o sulla colonna delle console — dice se qualcosa è
+finito sotto la maniglia, ed è l'unico modo di saperlo.
 
 I banchi in `tools/smoke/` non sono test della suite e non lo diventano: caricano i
 moduli VERI con un finto `window`, un finto `appState` e finti IPC. `tools/smoke/LEGGIMI.md`
@@ -446,8 +456,10 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
 4. 🆕 **Cinque code del lavoro del 14/8, lasciate aperte di proposito.**
    (a) Il ramo **ALLIEVO** del modale «Per chi è questa mappa?» non è mai stato provato:
    questa installazione non ha schede allievo. È l'unico codice nuovo che nessuno ha visto
-   girare. (b) Le quattro azioni di INSEGNA bloccate durante una generazione lo sono **a
-   runtime** (clic → avviso), non si *vedono* spente. (c) **«Solo le mappe senza classe»
+   girare. (b) Le quattro azioni di INSEGNA che caricano una mappa restano guardate solo **a
+   runtime** (clic → avviso), non si *vedono* spente. Da stasera pesa meno: durante una
+   generazione in INSEGNA non ci si entra proprio (la voce è col lucchetto), quindi quella
+   guardia è diventata una rete, non la porta. (c) **«Solo le mappe senza classe»
    non è filtrabile**: sarebbe un terzo stato di `mappai_active_class`, che è anche il
    contesto di taratura dell'AI — un filtro non può prendersi quella leva, serve una
    decisione. (d) Lo **spinner in topbar non compare sulla mappa aperta** (là quella barra
