@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     usageLogAppend: (rec) => ipcRenderer.invoke('usage-log-append', rec),
     usageLogRead: () => ipcRenderer.invoke('usage-log-read'),
     usageOpenFolder: () => ipcRenderer.invoke('usage-open-folder'),
+    // Registro locale degli errori (niente esce da solo: lo legge la Cabina)
+    errorLogAppend: (rec) => ipcRenderer.invoke('error-log-append', rec),
+    errorLogRead: (limite) => ipcRenderer.invoke('error-log-read', limite),
+    errorLogClear: () => ipcRenderer.invoke('error-log-clear'),
+    errorOpenFolder: () => ipcRenderer.invoke('error-open-folder'),
     studyReportOpen: (filePath) => ipcRenderer.invoke('study-report-open', filePath),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),
     getPathForFile: (file) => webUtils.getPathForFile(file),

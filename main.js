@@ -258,7 +258,35 @@ function bootPrimaryWindow() {
     else createWindow();
 }
 
+/* ADOZIONE DELLA CARTELLA MADRE ESISTENTE (15/8/26)
+ * Le impostazioni vivono in `userData`, che è DIVERSO fra `npm start` (sotto
+ * `dev/`) e l'app pacchettizzata — e diverso di nuovo dopo una reinstallazione
+ * o un cambio di macchina. Risultato: la stessa cartella «MappAI - file» piena
+ * di dati esisteva su disco, ma senza il flag l'app tornava a scrivere nelle
+ * posizioni storiche, come se non l'avesse mai vista.
+ * Qui la CARTELLA torna a essere la fonte di verità, com'è già per vault e
+ * classi: se esiste ed è abitata (almeno una sottocartella nota), la si adotta
+ * e il flag si scrive una volta sola. Chi non l'ha mai creata non è toccato —
+ * non si inventa nessuna cartella e non si sposta niente.
+ */
+function adottaRootEsistente() {
+    try {
+        if (filesOrganized()) return false;
+        const root = path.join(documentsDir(), FilesCore.ROOT_FOLDER);
+        if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) return false;
+        /* «Abitata» = almeno una delle sottocartelle che crea il setup. Una
+           cartella vuota (o omonima creata a mano) non basta: adottarla
+           nasconderebbe i dati storici di chi non ha mai fatto il setup. */
+        const abitata = Object.keys(FilesCore.SUB).some(k => fs.existsSync(path.join(root, FilesCore.SUB[k])));
+        if (!abitata) return false;
+        writeSettings({ filesRoot: documentsDir(), filesOrganized: true });
+        console.log('[files] adottata la cartella madre già presente:', root);
+        return true;
+    } catch (e) { console.warn('[files] adozione fallita:', e.message); return false; }
+}
+
 app.whenReady().then(() => {
+    adottaRootEsistente();
     initDefaultVaultFolder();
     bootPrimaryWindow();
 
@@ -2486,6 +2514,85 @@ ipcMain.handle('usage-log-read', () => {
 ipcMain.handle('usage-open-folder', () => {
     try { fs.mkdirSync(usageBaseDir(), { recursive: true }); shell.openPath(usageBaseDir()); return { success: true }; }
     catch (err) { return { success: false, error: err.message }; }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// REGISTRO LOCALE DEGLI ERRORI (15/8/26)
+// Non è telemetria: NIENTE parte da qui. Le righe si scrivono su disco e le
+// legge la Cabina, che le allega alla segnalazione solo quando il docente
+// preme «invia» nel suo programma di posta.
+// Perché serve: fino a oggi un crash non lasciava traccia — l'app si chiudeva
+// e la segnalazione diceva «si è chiuso», che non è diagnosticabile. Metà
+// degli errori muore nel MAIN (finestre, IPC, scritture su disco): il
+// renderer non può vederli, quindi si registrano anche da questa parte.
+// ══════════════════════════════════════════════════════════════════════════
+function errorsBaseDir() {
+    return filesOrganized()
+        ? path.join(mappaiRootDir(), 'Diagnostica')
+        : path.join(documentsDir(), 'MappAI - Diagnostica');
+}
+function errorLogFile() { return path.join(errorsBaseDir(), 'errori.jsonl'); }
+const ERR_MAX_BYTES = 1024 * 1024;   // 1 MB: oltre, il file precedente scala di un posto
+function errorAppend(rec) {
+    try {
+        fs.mkdirSync(errorsBaseDir(), { recursive: true });
+        const f = errorLogFile();
+        /* Rotazione a UNA copia: un registro che cresce senza fine è un file
+           che nessuno apre più (e che finisce nei backup). Con due file si
+           tiene comunque la sessione precedente, che è quella in cui il guasto
+           è cominciato. */
+        try {
+            if (fs.existsSync(f) && fs.statSync(f).size > ERR_MAX_BYTES) {
+                fs.renameSync(f, path.join(errorsBaseDir(), 'errori-precedenti.jsonl'));
+            }
+        } catch (e) { /* rotazione fallita: si continua ad accodare */ }
+        const riga = Object.assign({ ts: new Date().toISOString() }, rec || {});
+        fs.appendFileSync(f, JSON.stringify(riga) + '\n', 'utf8');
+        return true;
+    } catch (e) { console.error('[errori] append fallito:', e.message); return false; }
+}
+ipcMain.handle('error-log-append', (event, rec) => ({ success: errorAppend(rec || {}) }));
+ipcMain.handle('error-log-read', (event, limite) => {
+    try {
+        if (!fs.existsSync(errorLogFile())) return { success: true, records: [], file: errorLogFile() };
+        const records = [];
+        fs.readFileSync(errorLogFile(), 'utf8').split('\n').forEach(ln => {
+            const t = ln.trim();
+            if (!t) return;
+            try { records.push(JSON.parse(t)); } catch (e) { /* riga corrotta: skip */ }
+        });
+        const n = parseInt(limite, 10);
+        return { success: true, file: errorLogFile(), totale: records.length, records: (n > 0 ? records.slice(-n) : records) };
+    } catch (err) { return { success: false, error: err.message, records: [] }; }
+});
+ipcMain.handle('error-log-clear', () => {
+    try {
+        [errorLogFile(), path.join(errorsBaseDir(), 'errori-precedenti.jsonl')].forEach(f => {
+            if (fs.existsSync(f)) fs.unlinkSync(f);
+        });
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+ipcMain.handle('error-open-folder', () => {
+    try { fs.mkdirSync(errorsBaseDir(), { recursive: true }); shell.openPath(errorsBaseDir()); return { success: true }; }
+    catch (err) { return { success: false, error: err.message }; }
+});
+
+/* Gli errori del MAIN e i processi che se ne vanno. `render-process-gone` è il
+   crash vero e proprio della finestra: è l'unico modo di lasciarne una traccia,
+   perché in quel momento il renderer non c'è più per registrarla da sé. */
+app.on('render-process-gone', (event, contents, details) => {
+    errorAppend({ dove: 'renderer-gone', motivo: details && details.reason, exit: details && details.exitCode });
+});
+app.on('child-process-gone', (event, details) => {
+    errorAppend({ dove: 'child-gone', tipo: details && details.type, motivo: details && details.reason, exit: details && details.exitCode });
+});
+process.on('uncaughtException', (err) => {
+    errorAppend({ dove: 'main', messaggio: String(err && err.message || err), stack: String(err && err.stack || '').slice(0, 4000) });
+    console.error('[main] uncaughtException:', err);
+});
+process.on('unhandledRejection', (motivo) => {
+    errorAppend({ dove: 'main-promise', messaggio: String(motivo && motivo.message || motivo), stack: String(motivo && motivo.stack || '').slice(0, 4000) });
 });
 
 // ══════════════════════════════════════════════════════════════════════════
