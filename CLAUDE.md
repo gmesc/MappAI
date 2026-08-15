@@ -624,6 +624,43 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
 
+### ✅ FATTO (15/8/26): Cabina › SVILUPPO — insegnai.ch, segnalazioni, registro degli errori
+Stato completo in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §2-§3-§5**; qui il diario del perché.
+Suite **0 fail**, validatore 0 errori/0 avvisi su tutte e undici le viste della Cabina.
+- **Gruppo «Sviluppo» nella colonna**: `insegnai.ch` (ritratto tondo + chi c'è dietro + il
+  progetto + i quattro collegamenti) e `Segnalazione`. Erano le due cose che vivevano SOLO
+  nel cassetto insegnai — visibile sulla landing vuota e irraggiungibile appena si comincia
+  a lavorare.
+- **Il modale «Invia segnalazione» è PENSIONATO**: markup fuori da `index.html` (68 righe),
+  via `openFeedbackModal`/`closeFeedbackModal`/`submitFeedback`/`selectFeedbackCategory`, e
+  con loro le 5 chiavi i18n rimaste orfane in ENTRAMBI i dizionari. Restano
+  `categorieSegnalazione()` e `inviaSegnalazione(cat, testo)` — l'elenco delle categorie e
+  la composizione dell'email non sono interfaccia e non devono stare in una schermata.
+  Le sei categorie sono **voci del motore con icone Lucide** (zero emoji, verificato).
+- **Registro locale degli errori** (`mappai-errori.js` + IPC in main.js):
+  `Diagnostica/errori.jsonl`, dedup a 60s, tetto di 200 distinti, rotazione a 1 MB. Gli
+  ultimi 3 in coda all'email. Kill-switch `mappai_error_log`.
+- **«Gestione cartelle»** in coda al Profilo insegnante: era l'unica strada per la finestra
+  di `MappAIFiles`, che non aveva più un ingresso da nessuna parte.
+- **`adottaRootEsistente()`**: la cartella madre torna a essere la fonte di verità quando
+  le impostazioni non ci sono (pacchettizzata, reinstallazione, `userData` diverso).
+- **Le sei cose trovate misurando** (sono la parte utile):
+  1. **Cloni fedeli si copiano dal RESO, non dalle classi.** Il bottone ambra del cassetto
+     dichiara `p-3`/`text-sm`, ma le regole globali dell'app lo rendono **padding 8 · corpo
+     15 · seconda riga 13/700 a .7**. Copiare le classi dava un bottone *simile*.
+  2. **Testo escapato**: `about_desc1` nasce per il cassetto (HTML) e porta un `<strong>`;
+     il motore escapa, e a schermo si leggeva `<strong>MappAI</strong>`.
+  3. **`dati` in forma breve spezza al PRIMO due punti**, e nell'ora («11:46») quel due
+     punti è dentro il dato: le righe si passano come oggetti `{etichetta, valore}`.
+  4. **Modulo caricato due volte = due ascolti e due tabelle di dedup** (ogni errore in
+     doppia copia): guardia di idempotenza in testa a `mappai-errori.js`.
+  5. **Tagliando markup a mano restano orfani**: due `</div>` di troppo, visti contando i
+     tag contro `HEAD` (508/513 → 500/507), non a occhio.
+  6. **La finestra delle cartelle non avvisa quando si chiude**: senza un osservatore, dopo
+     lo spostamento dei file il riquadro dichiarava ancora il percorso vecchio.
+- **Bugia corretta**: l'email diceva `Dispositivo: iOS / iPadOS (Capacitor)` **scritto a
+  mano** — falso su Mac. Ora `navigator.platform`.
+
 ### 🔵 IN CORSO (1/8/26): VISTA STUDIO — layout deterministici nel ciclo LAYOUT (banco → app)
 Percorso completo in 3 sessioni: banco di prova → decisioni con Giacomo → integrazione in app.
 Decisioni utente: tutti e 7 i motori in app · card anche sul canvas · PDF A4 orizzontale ·

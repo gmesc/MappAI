@@ -341,6 +341,24 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     La cura è rendere il contenitore un **flex colonna**: da flex item la voce si stira alla
     larghezza del contenitore meno i margini. Vale per qualunque elenco di bottoni.
 
+21. **Un clone fedele si copia dal RESO, non dalle classi.** Il bottone-modello dichiarava
+    `p-3` e `text-sm`, ma le regole globali dell'app lo rendevano padding 8 e corpo 15:
+    trascrivere le classi Tailwind produce un pezzo *simile* — che è il difetto che il clone
+    doveva evitare. Si misura l'originale a schermo, campo per campo, e si copiano i numeri.
+
+22. **Un modulo caricato due volte aggancia due ascolti** e tiene due copie del suo stato.
+    Nel registro degli errori voleva dire ogni riga in doppia copia e la difesa contro le
+    ripetizioni che non valeva più — un difetto che si vede solo nei DATI, mai a schermo.
+    Ogni modulo con ascolti globali comincia con `if (window.NomeModulo) return;`.
+
+23. **Il testo che il motore ESCAPA non può portare markup.** Le chiavi i18n nate per una
+    superficie HTML contengono `<strong>`: riusarle in uno schema mostra i tag a schermo.
+    Riusare la chiave resta giusto (una fonte sola), ma va ripulita.
+
+24. **La forma breve dei `dati` (`'etichetta: valore'`) spezza al PRIMO due punti**, e in
+    un'ora («11:46») quel due punti è dentro il dato. Con un valore che può contenerne uno,
+    si passa l'oggetto `{etichetta, valore}`.
+
 ---
 
 ## 9. Protocollo per un braindump

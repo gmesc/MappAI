@@ -128,7 +128,6 @@ const DESTINAZIONI = [
     /* ── fuori perimetro (verdetti officina, 31/7) ─────────────────────── */
     { id: 'dyn-dyn-qr', dove: '—', stato: 'fuori', nota: 'Pagina di proiezione: non è un modale.' },
     { id: 'st-loading-overlay', dove: '—', stato: 'fuori', nota: 'Velo di sistema. Copertura misurata: 0% — è tutto stile inline.' },
-    { id: 'st-feedback-modal', dove: '—', stato: 'fuori' },
     { id: 'st-api-tutorial-modal', dove: 'Cabina › Impostazioni AI', stato: 'daFare',
       nota: 'Segue config-ai: è la sua guida, va dove va lei.' }
 ];
@@ -151,6 +150,10 @@ const FUORI_ATLANTE = [
       dove: 'StorageManager.renderRecentProjects · MappAITeach.editGrade',
       file: ['public/js/mappai-storage-lang.js', 'public/js/mappai-landing-teach.js'],
       nota: 'Dopo l\'eliminazione della sezione non hanno più un ingresso nella UI: degradano in silenzio, non lanciano.' },
+    { nome: 'Modale «Invia segnalazione»', stato: 'pensione',
+      dove: 'Cabina › Segnalazione',
+      file: ['public/index.html', 'public/js/app.js', 'public/js/mappai-cabina.js'],
+      nota: 'ELIMINATO il 15/8: markup via da index.html, le sei categorie sono voci con icone Lucide, il testo un campo del motore, l\'invio un\'azione. Il cassetto insegnai apre la Cabina. Sta qui e non fra le superfici perché una superficie non ce l\'ha più.' },
     { nome: 'I 713 !important di style.css', stato: 'daFare',
       dove: 'public/css/style.css',
       file: ['public/css/style.css'],

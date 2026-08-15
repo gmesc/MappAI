@@ -4,8 +4,9 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **14 agosto 2026, sera** (generare mentre si lavora · filtri nella
-> colonna · briciola che si completa · bollino NUOVO · velo sull'area di CREA).
+> Ultimo allineamento: **15 agosto 2026** (gruppo «Sviluppo» in Cabina · registro locale
+> degli errori · «Gestione cartelle» nel profilo · modale delle segnalazioni pensionato ·
+> la cartella madre si adotta da sé).
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
@@ -82,6 +83,8 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
+| `mappai_error_log` | acceso | il **registro locale degli errori** (15/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
+| `mappai_errori_recenti` | scritto dall'uso | la copia in `localStorage` degli ultimi 50 errori: serve dove non c'è il disco (browser) e a mostrarli subito. La fonte resta il file |
 
 ---
 
@@ -100,6 +103,15 @@ sezione. Il cablaggio bento non è più opzionale.
   morto senza errori** — è già costato quattro bottoni che non facevano niente;
 - `Core.validaSchema(schema)` va chiamato su ogni schema nuovo: ha trovato **nove**
   difetti veri. La normalizzazione è idempotente (`open` normalizza, `render` rinormalizza).
+
+**Pezzi aggiunti il 15/8** (piccoli, e ognuno nato da un bisogno preciso):
+- `voce.sotto` **si disegna anche nella navigazione** — era normalizzato dal core e
+  nessuno lo emetteva, come il badge prima di lui;
+- `voce.classe` = deroga di veste su una voce di colonna. Serve al clone del bottone
+  ambra; senza, la voce resta standard. Regge la doppia normalizzazione (c'è il test);
+- `sezione.figura` = `{src, alt, tonda}`, immagine a `float` con il testo che le scorre
+  accanto (la `tela` non andava: sta SOTTO le sezioni, e il ritratto deve stare accanto al
+  testo che presenta). L'`alt` è la parte che conta; senza `src` non si emette nulla.
 
 ### La landing e CREA — veste «manifesto»
 Disegnata da Giacomo in Inkscape. Non è una riarchitettura: è la pelle sopra i moduli che
@@ -214,10 +226,70 @@ Uscendo verso una mappa si lascia un **segnalibro** in `sessionStorage`
 `location.reload()`, quindi niente sopravvive tranne lo storage.
 
 ### CABINA — console
-`window.openCabina(voce)` in `mappai-cabina.js`: nove viste in quattro gruppi (Profilo
-insegnante · Allievi · Classi · Impostazioni AI · Consumi AI · Consigli di studio ·
-Tutorial · Termini · Privacy). **Nessun ponte**: dal 13/8 anche «Impostazioni AI» vive
+`window.openCabina(voce)` in `mappai-cabina.js`: **undici viste in cinque gruppi** (Profilo
+insegnante · Allievi · Classi — poi *L'app*: Impostazioni AI · Consumi AI — *Imparare*:
+Consigli di studio · Tutorial — *Note d'uso*: Termini · Privacy — e dal 15/8 **Sviluppo**:
+insegnai.ch · Segnalazione). **Nessun ponte**: dal 13/8 anche «Impostazioni AI» vive
 qui — provider, chiave, Product ID, modello e listino.
+
+**Sviluppo (15/8)** — le due cose che vivevano SOLO nel cassetto insegnai, cioè visibili
+solo sulla landing vuota e irraggiungibili appena si comincia a lavorare:
+- **insegnai.ch**: ritratto tondo (`public/insegnai_profilo.png`), chi c'è dietro (testo
+  dalle STESSE chiavi `about_desc*` del cassetto — una fonte sola), il progetto insegnai.ch
+  e i quattro collegamenti. Sono **azioni**, non link: in Electron un `<a target=_blank>`
+  passa da `setWindowOpenHandler` e apre una finestra dell'app, mentre `openExternal` li
+  consegna al browser di sistema, che è dove ci si aspetta un profilo social.
+- **Segnalazione**: sei categorie (voci con icone Lucide), il testo, «Prepara l'email», e
+  il **registro degli errori** con Copia · Apri Diagnostica · Svuota.
+  ⚠️ La voce nella colonna è l'unica con una veste sua (`mm-nav__v--segnala`): è il CLONE
+  del bottone ambra del cassetto, misurato sul bottone vero e non copiato dalle sue classi
+  Tailwind (le regole globali dell'app lo rendono padding 8 / corpo 15 / seconda riga
+  13-700 a .7, non quello che il markup dichiara).
+- **Il modale «Invia segnalazione» è PENSIONATO** (markup fuori da `index.html`, e con lui
+  `openFeedbackModal`/`closeFeedbackModal`/`submitFeedback`/`selectFeedbackCategory`). Di
+  app.js restano `categorieSegnalazione()` — fonte unica di quelle sei voci — e
+  `inviaSegnalazione(cat, testo)`, che compone l'email. Il bottone del cassetto apre la
+  Cabina. ⚠️ In quella vista **ogni comando ridisegna**: il testo digitato si raccoglie
+  nello stato PRIMA del ridisegno, o sparisce al primo clic (il valore lo porta lo schema,
+  non il DOM).
+
+**Gestione cartelle** — ultimo riquadro del *Profilo insegnante*: dice dove finiscono i
+file, con il percorso vero, l'elenco delle sottocartelle letto da `FilesCore.SUB` (mai
+scritto a mano: «Allievi» e «Diagnostica» sono nate dopo) e i comandi **Apri la cartella**
+· **Cambia posizione**, che apre la finestra storica di `MappAIFiles`. Quella finestra non
+avvisa nessuno quando si chiude: un `MutationObserver` aspetta che sparisca e rilegge,
+altrimenti il riquadro dichiarerebbe il percorso VECCHIO dopo che i file sono già stati
+spostati.
+
+### Il REGISTRO LOCALE DEGLI ERRORI (15/8)
+Non è telemetria e non è un crash reporter: **niente parte da solo**. Prima di oggi un
+errore non lasciava traccia e la segnalazione diceva «si è chiuso», che non è
+diagnosticabile.
+- `public/js/mappai-errori.js` cattura `error`, `unhandledrejection` e le risorse che non
+  caricano; `main.js` registra anche `render-process-gone` (**il crash vero**: lì il
+  renderer non c'è più per registrarsi da sé), `child-process-gone`, `uncaughtException`,
+  `unhandledRejection`.
+- File: `<cartella madre>/Diagnostica/errori.jsonl` (o `~/Documents/MappAI - Diagnostica`
+  se la riorganizzazione non è attiva), rotazione a 1 MB con **una** copia precedente.
+- Due difese, perché un registro che si riempie da solo è peggio di nessun registro:
+  **dedup** (stesso errore nella stessa posizione entro 60s = contatore, non riga nuova:
+  50 ripetizioni → 1 riga) e **tetto di 200 errori distinti** per sessione, dichiarato
+  nell'ultima riga.
+- Contenuto: messaggio, file e riga, provider, modello e titolo della mappa aperta. **Mai**
+  il testo delle fonti né i profili di allievi e classi. Detto anche nella vista Privacy.
+- Nell'email della segnalazione finiscono gli **ultimi 3**, senza stack: tre stack interi
+  sfondano la lunghezza che alcuni client accettano e il `mailto:` non si aprirebbe.
+- ⚠️ Il modulo ha una guardia di idempotenza: caricato due volte aggancerebbe due ascolti
+  e terrebbe due tabelle di dedup — ogni errore in doppia copia, e la difesa che non vale.
+
+### La cartella madre si ADOTTA da sé (15/8)
+Le impostazioni vivono in `userData`, che è **diverso** fra `npm start` (sotto `dev/`) e
+l'app pacchettizzata — e diverso di nuovo dopo una reinstallazione. Risultato: la stessa
+`MappAI - file` piena di dati esisteva su disco, ma senza il flag l'app tornava a scrivere
+nelle posizioni storiche. `adottaRootEsistente()` (main.js, una volta al boot) la adotta
+se esiste ed è **abitata** (almeno una sottocartella nota) e scrive il flag; cartella
+assente o vuota → non fa niente, non inventa e non sposta. Cerca solo in Documenti: una
+cartella madre su un disco esterno resta da dichiarare con «Cambia posizione».
 ⚠️ Quei comandi non sono riscritti come schema: si **spostano**. Sono cablati per ID a
 una dozzina di funzioni globali, e ricostruirli come dati vorrebbe dire due superfici
 con gli stessi id. La console li porta nella sua area e li **restituisce** al
@@ -535,15 +607,28 @@ si può vedere **solo** nell'app vera.
    — Crea ed Elabora grigie col solo lucchetto, nessun'altra icona.
    Da guardare, se capita: che HOME non uccida più la generazione.
 
-1. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
+1. **Il lavoro del 15/8, in un giro solo** (Cabina › Sviluppo):
+   (a) i **quattro collegamenti** di insegnai.ch devono aprire il **browser di sistema**,
+   non una finestra dentro MappAI — nel pannello si prova solo che l'URL giusto arrivi a
+   `openExternal`, l'ultimo anello lo vedi solo qui;
+   (b) la cartella **Diagnostica** che nasce davvero, e una riga dentro `errori.jsonl`;
+   (c) una **chiusura brutale** della finestra, che deve lasciare la riga `renderer-gone`;
+   (d) **Gestione cartelle**: «Apri la cartella» sul Finder giusto e un giro vero di
+   «Cambia posizione» con lo spostamento dei file;
+   (e) la **segnalazione** dal principio: categoria, testo, «Prepara l'email» → il client
+   di posta si apre con gli ultimi errori in coda.
+   ⚠️ L'**adozione della cartella madre** è già stata provata sull'app vera (impostazioni
+   tolte → adottata e flag riscritto identico; cartella spostata via → zero adozioni),
+   quindi non è in questa lista.
+2. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
    scatta il ripiego (il file si apre nell'applicazione di sistema).
-2. Le **colonne allineate** fra gli elenchi impilati di INSEGNA: l'ultima colonna deve
+3. Le **colonne allineate** fra gli elenchi impilati di INSEGNA: l'ultima colonna deve
    essere **134px** e uguale in tutte le tabelle (nel banco esce 58 perché la cache dei
    file è vuota).
-3. Il **dossier** stampato: è il documento cambiato di più (testata ora stampata, piè
+4. Il **dossier** stampato: è il documento cambiato di più (testata ora stampata, piè
    presente anche a pagina 1).
-4. Il **PDF della catena dei perché** scritto davvero in `Materiale Studio/`.
-5. La **combo da tastiera** SHIFT+CTRL+L,K,J,H (provata l'API, mai la sequenza di tasti).
+5. Il **PDF della catena dei perché** scritto davvero in `Materiale Studio/`.
+6. La **combo da tastiera** SHIFT+CTRL+L,K,J,H (provata l'API, mai la sequenza di tasti).
 
 Fatti e verificati: il **PDF di una copia** che non sovrascrive più l'originale (12/8), il
 rientro automatico in STUDIO col motore giusto (12/8), la veste manifesto in Electron
