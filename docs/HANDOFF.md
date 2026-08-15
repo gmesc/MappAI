@@ -4,15 +4,15 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **15 agosto 2026** (gruppo «Sviluppo» in Cabina · registro locale
-> degli errori · «Gestione cartelle» nel profilo · modale delle segnalazioni pensionato ·
-> la cartella madre si adotta da sé).
+> Ultimo allineamento: **15 agosto 2026, sera** (Cabina › Sviluppo · registro locale degli
+> errori · Gestione cartelle · l'identità della mappa aperta · `vista.json` nel vault ·
+> salvataggi d'uscita · potatura del cassetto · `Mappe/Generico/` · NFC negli elenchi).
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
 ---
 
-## 0. Le prime quattro cose da sapere
+## 0. Le prime cinque cose da sapere
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -32,13 +32,22 @@
    contesto è congelato per tutta la lavorazione, e alla fine il progetto compare negli
    elenchi marcato **NUOVO** invece di strappare la schermata. Dettagli in §3.
 
+5. **Dal 15/8 sera il DISCO è davvero la casa di una mappa.** Aprire un vault dichiara
+   l'identità del progetto (prima si ereditava quella della mappa precedente, e il
+   salvataggio scriveva la mappa nuova nella scheda della vecchia); **uscire salva** — HOME
+   attende la scrittura del vault, ⌘Q passa da `before-quit`; e le quattro cose che
+   vivevano solo in `localStorage` (Vista studio · focus · timeline · foglio dei nodi)
+   viaggiano col vault in `vista.json`. Conseguenza pratica: `localStorage` è tornato un
+   **indice** potabile — da 42,6 a 17,4 MB, con la valvola che libera i doppioni se la
+   quota si esaurisce mentre lavori. Dettagli in §3.
+
 ---
 
 ## 1. Come si verifica che tutto sia a posto
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # a7ab432 o più recente in testa
+git log --oneline -5                              # c4dadbd o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
 node --test tests/                                # atteso: 0 fail
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
@@ -112,6 +121,11 @@ sezione. Il cablaggio bento non è più opzionale.
 - `sezione.figura` = `{src, alt, tonda}`, immagine a `float` con il testo che le scorre
   accanto (la `tela` non andava: sta SOTTO le sezioni, e il ritratto deve stare accanto al
   testo che presenta). L'`alt` è la parte che conta; senza `src` non si emette nulla.
+- `tela.forma: 'colonna'` (sera) — la tela CENTRA il contenuto perché nasce per un pezzo
+  solo; con più blocchi dentro (le Impostazioni AI ne spostano tre) il centraggio li mette
+  in fila e la vista si scompone. Il default non cambia: la deroga si dichiara.
+  ⚠️ E chi usa la tela si riprende il posto della **maniglia** (guida §8.19): con la tela
+  l'area va a `padding:0`, e il primo titolo finisce sotto il bottone.
 
 ### La landing e CREA — veste «manifesto»
 Disegnata da Giacomo in Inkscape. Non è una riarchitettura: è la pelle sopra i moduli che
@@ -699,30 +713,36 @@ si può vedere **solo** nell'app vera.
    — Crea ed Elabora grigie col solo lucchetto, nessun'altra icona.
    Da guardare, se capita: che HOME non uccida più la generazione.
 
-1. **Il lavoro del 15/8, in un giro solo** (Cabina › Sviluppo):
-   (a) i **quattro collegamenti** di insegnai.ch devono aprire il **browser di sistema**,
-   non una finestra dentro MappAI — nel pannello si prova solo che l'URL giusto arrivi a
-   `openExternal`, l'ultimo anello lo vedi solo qui;
-   (b) la cartella **Diagnostica** che nasce davvero, e una riga dentro `errori.jsonl`;
-   (c) una **chiusura brutale**: Uscita forzata → **riapri** l'app → in Cabina › Segnalazione
-   deve comparire `chiusura-improvvisa` (la riga arriva al riavvio, non sul momento: chi
-   viene ucciso da SIGKILL non scrive niente);
-   (d) **Gestione cartelle**: «Apri la cartella» sul Finder giusto e un giro vero di
-   «Cambia posizione» con lo spostamento dei file;
-   (e) la **segnalazione** dal principio: categoria, testo, «Prepara l'email» → il client
-   di posta si apre con gli ultimi errori in coda.
-   ⚠️ L'**adozione della cartella madre** è già stata provata sull'app vera (impostazioni
-   tolte → adottata e flag riscritto identico; cartella spostata via → zero adozioni),
-   quindi non è in questa lista.
-2. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
+1. **Un GIRO DI LAVORO NORMALE, che è la prova vera del 15/8 sera.** Apri una mappa dagli
+   elenchi, sposta qualche nodo, tocca la Vista studio, esci con **HOME**; riapri la stessa
+   mappa: posizioni e vista devono essere quelle che hai lasciato. Poi ripeti uscendo con
+   **⌘Q**. Infine guarda che negli elenchi ci sia **una riga sola** per quella mappa.
+   ⚠️ Il pezzo che nessuna misura può darti: che dopo una giornata d'uso il cassetto non
+   torni a gonfiarsi (Cabina › Gestione cartelle lo dice: «Spazio di lavoro»).
+2. **Il resto del 15/8, in un giro solo** (Cabina › Sviluppo):
+   (a) i **quattro collegamenti** di insegnai.ch devono aprire il **browser di sistema**
+   (provato solo il primo: gli altri tre sono gli stessi tre id, ma guardali);
+   (b) una **chiusura brutale**: Uscita forzata → **riapri** l'app → in Cabina ›
+   Segnalazione deve comparire `chiusura-improvvisa` (la riga arriva al riavvio, non sul
+   momento: chi viene ucciso da SIGKILL non scrive niente);
+   (c) **Gestione cartelle**: «Cambia posizione» con lo spostamento vero dei file;
+   (d) la **segnalazione** dal principio: categoria, testo, «Prepara l'email» → il client
+   di posta si apre con gli ultimi errori in coda;
+   (e) una **generazione senza classe**: la mappa deve nascere in `Mappe/Generico/` e negli
+   elenchi NON deve comparire un chip di classe «Generico».
+   ✅ Già provati da me sull'app viva, non ripeterli: adozione della cartella madre,
+   `vista.json` (scrittura, cambio mappa, ritorno), HOME e ⌘Q, ripiego dal disco senza
+   snapshot, potatura (42,6 → 17,4 MB), lettura di un vault in `Generico`, l'accento NFD
+   contro la voce NFC, la vista Impostazioni AI ricomposta.
+3. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
    scatta il ripiego (il file si apre nell'applicazione di sistema).
-3. Le **colonne allineate** fra gli elenchi impilati di INSEGNA: l'ultima colonna deve
+4. Le **colonne allineate** fra gli elenchi impilati di INSEGNA: l'ultima colonna deve
    essere **134px** e uguale in tutte le tabelle (nel banco esce 58 perché la cache dei
    file è vuota).
-4. Il **dossier** stampato: è il documento cambiato di più (testata ora stampata, piè
+5. Il **dossier** stampato: è il documento cambiato di più (testata ora stampata, piè
    presente anche a pagina 1).
-5. Il **PDF della catena dei perché** scritto davvero in `Materiale Studio/`.
-6. La **combo da tastiera** SHIFT+CTRL+L,K,J,H (provata l'API, mai la sequenza di tasti).
+6. Il **PDF della catena dei perché** scritto davvero in `Materiale Studio/`.
+7. La **combo da tastiera** SHIFT+CTRL+L,K,J,H (provata l'API, mai la sequenza di tasti).
 
 Fatti e verificati: il **PDF di una copia** che non sovrascrive più l'originale (12/8), il
 rientro automatico in STUDIO col motore giusto (12/8), la veste manifesto in Electron

@@ -158,6 +158,17 @@ I piani li citano per numero («viola l'invariante 6»). Ognuno è stato pagato.
     senza toccare quello che c'è già.
 19. **`main.js` è I/O e finestre: IPC sottili, la logica sta nei core del renderer.** Le guardie
     sui percorsi (`sanitizeVaultRelPath`, allowlist) stanno nell'IPC; il resto no.
+20. **Aprire una mappa DICHIARA la sua identità, e uscire la scrive.** Chi carica un vault
+    adotta l'id del progetto che gli corrisponde (`StorageManager.adottaVault`) o ne conia uno
+    subito: **mai** ereditare quello della mappa precedente. Guasto d'origine, misurato sui dati
+    veri il 15/8: `directLoadVault` non toccava `currentProjectId`, quindi il salvataggio
+    successivo scriveva la mappa nuova **nella scheda della vecchia** — una voce «2.1 PROJECT E»
+    puntata su un altro vault, e 46 copie della stessa mappa in localStorage (355 schede per 98
+    mappe, cassetto pieno al 95%). Corollari: il salvataggio ha una **rete** (se la voce dichiara
+    un vault diverso da quello attivo, l'identità si stacca); **uscire salva** (HOME attende la
+    scrittura del vault, ⌘Q passa da `before-quit` con un tetto — un'app che non si chiude più è
+    peggio del guasto curato); e ciò che vive solo in memoria viaggia col vault (`vista.json`),
+    perché il disco è la casa (invariante 7) e localStorage è un indice che si può potare.
 
 ---
 
@@ -173,6 +184,9 @@ public/
   css/mappai-*-manifesto.css    la veste «manifesto», tutta scoped sotto html.manifesto
   js/app.js                 core storico in smontaggio (bootstrap, appState, fetchModelAPI)
   js/mappai-*-core.js       LOGICA PURA, UMD, testata in Node (invariante 4)
+                            (fra gli ultimi: vista-core = che cosa viaggia col vault;
+                             errori.js = il registro locale, con la sua guardia di
+                             idempotenza — due caricamenti = due ascolti)
   js/mappai-*.js            moduli UI, script globali, caricati dopo app.js
   js/riuso/ (nel misuratore) copie dichiarate, mai import a runtime fra le due app
   js/vendor/                librerie vendorizzate: si lavora OFFLINE, niente CDN a runtime
@@ -199,12 +213,15 @@ in main.js — mai comporre percorsi a mano).
 
 | cartella | di chi è | note |
 |---|---|---|
-| `Mappe/<classe>/<materia>/<mappa>/` | **dell'utente** (vault, compatibile Obsidian) | dentro: `Nodi/*.md`, `links.json`, `Materiale Studio/`, `Allegati/`. La posizione nella gerarchia È il dato classe/materia (invariante 7) |
+| `Mappe/<classe>/<materia>/<mappa>/` | **dell'utente** (vault, compatibile Obsidian) | dentro: `Nodi/*.md`, `links.json`, `vista.json`, `Materiale Studio/`, `Allegati/`. La posizione nella gerarchia È il dato classe/materia (invariante 7) |
+| `Mappe/Generico/<mappa>/` | dell'utente | i vault senza classe (15/8). **Nome riservato** (`FilesCore.GENERICO`): chi legge lo ritraduce in «nessuna classe», o diventa una classe fantasma nei chip e nei filtri |
+| `…/<mappa>/vista.json` | dell'app, per-mappa | Vista studio · focus/lenti · timeline · foglio dei nodi: vivevano solo nello snapshot di UN computer. Vuoto = il file non c'è (e uno stantio si toglie) |
+| `Diagnostica/` | dell'app | `errori.jsonl` (dedup 60s, tetto 200, rotazione 1 MB) + `sessione-aperta.json`, il segnaposto che smaschera una chiusura improvvisa al boot dopo |
 | `Allievi/<nome>/Mappe/` | dell'utente | le mappe generate con un allievo attivo vivono QUI, non fra quelle di classe: sono materiale suo |
 | `Classi/<classe>/` | dell'app, rigenerabile | credenziali PDF, riscritte al salvataggio della classe |
 | `Attività di studio/<classe>/<sessione>/` | dell'app, storico | sessioni Live/Tutor/Lavagna: `session.json` (MAI i token a schermo), report HTML |
 | `Registro consumi AI/` | dell'app, append-only | `consumi-ai.jsonl`: token e contesto, MAI i costi (si calcolano a display-time) |
-| localStorage | indice e preferenze | progetti (snapshot), contesto attivo, kill-switch, profili utente |
+| localStorage | **indice** e preferenze | contesto attivo, kill-switch, profili, e la scheda di ogni progetto con il suo snapshot. ⚠️ Ha una quota (~48 MB): era pieno al 95% per 355 schede di 98 mappe. Si pota da Cabina › Gestione cartelle, e il salvataggio a quota piena libera i doppioni invece di fallire a metà |
 
 Un piano che fa scrivere un generatore dentro una cartella dell'utente, o che duplica nella
 struttura un dato che la gerarchia delle cartelle già dice, va rifatto.

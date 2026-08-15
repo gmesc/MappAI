@@ -661,6 +661,38 @@ Suite **0 fail**, validatore 0 errori/0 avvisi su tutte e undici le viste della 
 - **Bugia corretta**: l'email diceva `Dispositivo: iOS / iPadOS (Capacitor)` **scritto a
   mano** — falso su Mac. Ora `navigator.platform`.
 
+### ✅ FATTO (15/8/26 sera): il DISCO diventa la casa della mappa
+Seguito della mattina, e il lavoro più sostanziale della giornata. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 5 e §3**; qui il perché.
+- **La causa di tutto, trovata misurando**: `directLoadVault` non toccava `currentProjectId`.
+  Aprire una mappa dal disco lasciava l'identità della mappa PRECEDENTE, e il salvataggio
+  successivo scriveva la mappa nuova **nella scheda della vecchia**. Provato sull'app viva
+  (`stessoId: true`) e nei dati: 46 copie di una mappa, una voce «2.1 PROJECT E» puntata su un
+  altro vault, **355 schede per 98 mappe**. Ora aprire DICHIARA chi è (`adottaVault`), con una
+  rete nel salvataggio se la voce dichiara un vault diverso. → invariante 20.
+- **`vista.json`**: Vista studio · focus/lenti · timeline · foglio dei nodi vivevano SOLO nello
+  snapshot di UN computer. Misurato su un foglio vero (251 KB): il 99% era fotocopia del vault,
+  il pezzo insostituibile pesa qualche KB. Ora viaggia con la cartella.
+- **Uscire salva**: HOME attende la scrittura del vault (tetto 4s), ⌘Q passa da `before-quit`
+  (il main trattiene l'uscita UNA volta, tetto 3s: un'app che non si chiude più è peggio).
+- **Snapshot snello**: i link tornano coppie di id — dopo il disegno D3 ogni arco portava dentro
+  i due nodi INTERI (120 KB di link per 8,8 KB di dati).
+- **Potatura con anteprima** in Gestione cartelle: **42,6 → 17,4 MB**, 243 copie via. La
+  conferma racconta le prime 5 mappe col conteggio; a cassetto pulito il bottone sparisce.
+- **`Mappe/Generico/`** per i vault senza classe: nome riservato in `FilesCore`, ritradotto in
+  «nessuna classe» da chi legge — o diventa una classe fantasma nei chip e nei filtri
+  (trappola 26). Trovato strada facendo: la pipeline scriveva già in `Mappe/Senza classe/`.
+- **NFC negli elenchi**: «à» esiste in due forme e sul disco **convivono** — misurato:
+  `Présent` è NFC e `Elettricità - MM` è NFD, nello stesso `Mappe/`. ⚠️ Corretta una cosa che
+  avevo scritto male la mattina: non è vero che macOS scrive sempre scomposto (HFS+ lo
+  imponeva, APFS PRESERVA la forma di chi crea il nome).
+- **Impostazioni AI ricomposte** (dallo screenshot di Giacomo): `.mm-tela` centra perché nasce
+  per UN pezzo; con tre blocchi dentro li metteva in fila. Ora `tela.forma: 'colonna'`.
+- **Le tre lezioni che restano**: la potatura si RACCONTA prima di farla (mai una domanda
+  uscendo da una mappa: si fa una volta, da un posto solo) · un'uscita forzata **non è
+  registrabile** e si smaschera al giro dopo col segnaposto di sessione · quando una misura
+  torna **zero**, sospettare la misura: zero sembra una risposta.
+
 ### 🔵 IN CORSO (1/8/26): VISTA STUDIO — layout deterministici nel ciclo LAYOUT (banco → app)
 Percorso completo in 3 sessioni: banco di prova → decisioni con Giacomo → integrazione in app.
 Decisioni utente: tutti e 7 i motori in app · card anche sul canvas · PDF A4 orizzontale ·

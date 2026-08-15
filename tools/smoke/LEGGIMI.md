@@ -13,6 +13,21 @@ LAYOUT — dove la maniglia della colonna sconfina nell'area delle console e su
 che cosa finisce sopra. Si rifà dopo ogni intervento su quel confine; il piano
 sta in `docs/HANDOFF-maniglia-layout.md`.
 
+⚠️ **`cdp.js` non è nemmeno un banco: è il PONTE verso l'app viva** (15/8).
+`node tools/smoke/cdp.js "<espressione>" [attesaMs]` valuta un'espressione nel
+renderer dell'app aperta con `--remote-debugging-port=9222` e stampa valore,
+eccezioni ed errori di console. Da solo non prova NIENTE: è uno strumento di
+misura, per ciò che il pannello browser non può toccare (IPC, disco, vault,
+`localStorage` vero, finestre, uscita dall'app).
+Due trappole pagate lo stesso giorno: se la porta 9222 è tenuta da un'istanza
+VECCHIA si parla con quella — e se il suo renderer è morto `Runtime.evaluate`
+non risponde mai, il che sembra un blocco dell'app (`lsof -ti :9222` prima di
+accusare il codice); e `appState`/`StorageManager` sono const lessicali, da qui
+si vedono solo i `window.*` (invariante 3). Per GUARDARE, non solo misurare, c'è
+`Page.captureScreenshot`: due difetti della vista Impostazioni AI (il titolo
+sotto la maniglia, le due righe della lingua con vesti diverse) si vedevano solo
+nell'immagine.
+
 Non sono test della suite (`node --test tests/`), e non lo diventano: caricano i
 moduli dell'app con `vm` dando loro un finto `window`, un finto `appState` e
 finti IPC. Servono a provare quello che i test puri non raggiungono — che cosa
