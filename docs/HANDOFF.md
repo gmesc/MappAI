@@ -436,6 +436,27 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
+0-bis. ✅ **RISOLTO (15/8 sera): aprire una mappa dal disco ADOTTA la sua identità.**
+   `directLoadVault`/`loadMapVault` non toccavano mai `currentProjectId`: il salvataggio
+   scriveva la mappa nuova nella scheda della PRECEDENTE (trovata una voce «2.1 PROJECT E»
+   puntata su un altro vault) e a ogni avvio nasceva una scheda in più — 355 voci per 98
+   mappe, 43 MB su ~48 di quota, 46 copie di una sola mappa. Ora:
+   `StorageManager.adottaVault` (chiamato dai due ingressi) trova la voce per POSIZIONE su
+   disco via `MappAITeachCore.progettoDelVault` (confronti in NFC) o conia un id nuovo, e
+   allinea `activeVaultClassDir/DiscDir`, che erano il residuo della mappa precedente.
+   RETE nel salvataggio: voce esistente con un vault DIVERSO da quello attivo → l'identità
+   si stacca e se ne conia una — mai scambiare. E la QUOTA non spezza più il salvataggio:
+   snapshot PRIMA dell'indice (invariante 18), a spazio esaurito si libera coi doppioni
+   (`vociDaPotare`, mai la voce in corso) e si riprova, col toast; se non basta, errore
+   DETTO. Provato sull'app viva: Clima → Project E cambia identità e aggancia la voce
+   giusta; due salvataggi → zero voci nuove; identità sporcata a mano → conia senza toccare
+   la voce di Clima. Ramo quota provato in harness Node.
+   ⚠️ Resta la pulizia UNA TANTUM delle ~257 copie già accumulate (da Cabina, con
+   anteprima): il difetto è fermo, l'accumulo storico è ancora lì.
+   ⚠️ Trappola vista provando: `window.StorageManager` è la CLASSE DOM nativa (funzione,
+   sempre truthy) — anche nelle prove CDP va usato il nome lessicale nudo, o si misura un
+   oggetto che non è quello dell'app (invariante 3, versione da banco).
+
 0. 🆕 **Un accento può impedire a una mappa di ritrovare il suo progetto** (visto il 15/8
    lavorando sui dati veri). `matchProjectToVault`
    ([mappai-landing-teach.js](../public/js/mappai-landing-teach.js)) confronta
@@ -448,7 +469,8 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    nome accentato che in ELABORA/INSEGNA non porta il suo progetto (grado, classe, badge),
    o che compare due volte. Cura: normalizzare a NFC entrambi i lati di ogni confronto fra
    nome di cartella e nome tenuto in memoria — non solo qui: la stessa forma di confronto
-   c'è in più punti degli elenchi.
+   c'è in più punti degli elenchi. (15/8 sera: il percorso dell'ADOZIONE è già in NFC via
+   `progettoDelVault`; restano i confronti degli elenchi, `matchProjectToVault` in testa.)
 
 1. ✅ **RISOLTO (13/8 sera): creare un materiale a mano arriva in fondo.** Il ramo
    documento di `generaSet` ora scrive la SORGENTE prima della resa (archivio → PDF →
