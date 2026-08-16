@@ -1445,6 +1445,29 @@ window.changeDistance = function (dir) {
     }
 }
 
+/* L'ULTIMO LAYOUT FISSATO (16/8). Le posizioni che «Fissa Layout» (tasto destro
+   sul canvas → `salvaLayout`) ha congelato in `savedX/savedY`. Vive qui e non
+   nel pannello della Vista studio perché serve `simulation`, che è una const
+   lessicale di questo file e da fuori non si raggiunge — la stessa ragione per
+   cui il pannello chiede a `window` invece di rifarsi il lavoro.
+   Torna `false` quando non c'è niente da ripristinare: chi chiama lo dice, così
+   un bottone premuto a vuoto non resta muto. */
+window.applyPinnedLayout = function (silenzioso) {
+    const ns = (appState && appState.db && appState.db.nodes) || [];
+    const conSnapshot = ns.filter(n => n.savedX !== undefined && n.savedY !== undefined);
+    if (!conSnapshot.length) return false;
+    conSnapshot.forEach(n => {
+        n.x = n.savedX; n.y = n.savedY;
+        n.fx = n.savedX; n.fy = n.savedY;
+        n.pinned = true;
+    });
+    if (typeof simulation !== 'undefined' && simulation) simulation.alpha(0.3).restart();
+    if (!silenzioso && window.showToast) {
+        window.showToast(window.t('tst_layout_restored', "Layout Personale Ripristinato"), "success");
+    }
+    return true;
+};
+
 window.toggleLayout = function () {
     if (!simulation) return;
     const isMindmap = appState.extractionMode === 'mindmap';
@@ -1513,16 +1536,7 @@ window.toggleLayout = function () {
     }
 
     // Applica logic layout
-    if (appState.layoutMode === 'personal') {
-        appState.db.nodes.forEach(n => {
-            if (n.savedX !== undefined && n.savedY !== undefined) {
-                n.x = n.savedX; n.y = n.savedY;
-                n.fx = n.savedX; n.fy = n.savedY;
-                n.pinned = true;
-            }
-        });
-        window.showToast(window.t('tst_layout_restored', "Layout Personale Ripristinato"), "success");
-    }
+    if (appState.layoutMode === 'personal') window.applyPinnedLayout();
 
     window.updateLayoutButtonLabel();
 

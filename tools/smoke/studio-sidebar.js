@@ -101,6 +101,23 @@ ok(q.w === 176, 'e la larghezza dell\'albero, non il 99 dei fasci');
 V.setMotore('fasci');
 ok(q.w === 99, 'e i Fasci ricordano il loro 99');
 
+/* ── il pannello sulla MAPPA LIBERA (16/8) ───────────────────────────────── */
+console.log('\n· il pannello quando NON si è nella vista studio');
+V._state.active = false;
+V.buildControls();
+const hm = pannello.innerHTML;
+ok(hm.indexOf('data-v="__mappa"') >= 0 && hm.indexOf('>Albero<') >= 0, 'la scelta della vista c\'è');
+ok(hm.indexOf('sv-reset') >= 0, 'e il comando di ripristino');
+ok(hm.indexOf('data-sv-sl="gapLayer"') < 0 && hm.indexOf('data-sv-seg="hier"') < 0,
+    'ma NON le leve che qui non disegnerebbero niente');
+ok(hm.indexOf('sv-pdf') < 0, 'né l\'esporta PDF: non c\'è una vista da esportare');
+ok(hm.indexOf('Nessun layout fissato') >= 0, 'e dice che non c\'è un layout fissato (questa mappa non ne ha)');
+// con uno snapshot sui nodi il testo cambia
+global.appState.db.nodes[0].savedX = 10; global.appState.db.nodes[0].savedY = 20;
+V.buildControls();
+ok(pannello.innerHTML.indexOf('dove li avevi lasciati') >= 0, 'con un layout fissato lo dichiara');
+delete global.appState.db.nodes[0].savedX; delete global.appState.db.nodes[0].savedY;
+
 console.log('\n· «Mappa» è l\'uscita, non un motore');
 V._state.active = true;
 global.appState.layoutMode = 'studio';
@@ -117,10 +134,20 @@ V._state.active = false;
 delete store['mappai_studio_attivo'];
 
 console.log('\n· «Ripristina default» vale per la vista ATTIVA');
+/* ⚠️ Va provato con la vista ACCESA: da spenta lo stesso bottone fa un'altra
+   cosa (rimette il layout fissato, vedi sotto) — ed è il motivo per cui questa
+   prova è passata da «Fasci» a «DAG»: con la vista accesa `ripristina` disegna,
+   e qui d3 non c'è; il DAG è l'unico motore che non glielo chiede. */
+V._state.active = true;
+V.setMotore('dag');
+V.profile().gapLayer = 77;
 V.ripristina();
-ok(q.w === 80 && q.mode === 'fasci', 'i Fasci tornano a 80px');
+ok(q.gapLayer === 260 && q.mode === 'dag', 'il DAG torna ai suoi 260');
+V._state.active = false;
 V.setMotore('td');
 ok(q.gapLayer === 111, 'e l\'Albero NON è stato toccato: il suo 111 è ancora lì');
+V.setMotore('fasci');
+ok(q.w === 99, 'né i Fasci: il loro 99 è ancora lì');
 
 /* ── 3. un profilo vecchio viene riportato ai default nuovi, UNA volta ───── */
 console.log('\n· un profilo salvato con la taratura vecchia');

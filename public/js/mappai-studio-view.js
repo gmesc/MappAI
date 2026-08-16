@@ -190,6 +190,21 @@
        posto quella. Cancella anche la copia riposta, altrimenti tornando su
        questo motore ricomparirebbe la taratura appena buttata via. */
     function ripristina() {
+        /* Sulla mappa libera «Ripristina» vuol dire un'altra cosa, ed è l'unica
+           che lì ha senso: rimettere i nodi dove «Fissa Layout» li ha lasciati.
+           Il ripristino vero sta in `applyPinnedLayout` (d3-render), che è dove
+           vive `simulation`; qui si dice solo com'è andata — un bottone premuto
+           a vuoto che non risponde si legge come rotto. */
+        if (!S.active) {
+            const fatto = window.applyPinnedLayout && window.applyPinnedLayout(true);
+            if (window.showToast) {
+                window.showToast(fatto
+                    ? t('tst_layout_restored', 'Layout Personale Ripristinato')
+                    : t('sv_fissato_no', 'Nessun layout fissato per questa mappa: si crea col tasto destro sullo sfondo → «Fissa Layout».'),
+                    fatto ? 'success' : 'info');
+            }
+            return;
+        }
         const p = profile();
         applicaDefault(p, p.mode);
         delete p.perMotore[p.mode];
@@ -415,9 +430,47 @@
        guarda un pezzo di mappa da vicino, cioè quando servono. Uguale dentro e
        fuori: cambia solo la testata (dentro il focus dice su quale nodo si è, e
        come uscirne) e a quale profilo va ogni leva (`profiloDi`). */
+    /* IL PANNELLO SULLA MAPPA LIBERA (16/8). Il tab è sempre visibile, quindi
+       ci si arriva anche fuori dalla vista studio — e lì le sedici leve non
+       disegnano niente: governano l'overlay a card, che non c'è. Mostrare
+       comandi inerti è peggio che non mostrarli, quindi qui resta solo ciò che
+       sulla mappa libera fa davvero qualcosa: scegliere la vista, e rimettere
+       le posizioni dell'ultimo «Fissa Layout». */
+    function pannelloMappa(panel) {
+        const fissato = leLeggo().length;
+        panel.innerHTML =
+            '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
+            '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
+            t('sv_title', 'Vista studio') + '</div>' +
+            fld(t('sv_motore', 'Vista'), seg('mode', MOTORI, USCITA)) +
+            '<div class="text-[11px] text-slate-400 leading-snug mb-3">' +
+            t('sv_mappa_desc', 'Stai guardando la mappa libera. Scegli Albero, DAG o Fasci per passare alla vista di studio.') +
+            '</div>' +
+            '<button type="button" id="sv-reset" class="w-full py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2' +
+            (fissato ? '' : ' opacity-50') + '">' +
+            '<i data-lucide="pin" class="w-3.5 h-3.5"></i>' +
+            t('sv_reset_fissato', 'Ripristina il layout fissato') + '</button>' +
+            '<div class="text-[10px] text-slate-400 mt-2 leading-snug">' +
+            (fissato
+                ? t('sv_fissato_ok', 'Rimette i nodi dove li avevi lasciati con «Fissa Layout».')
+                : t('sv_fissato_no', 'Nessun layout fissato per questa mappa: si crea col tasto destro sullo sfondo → «Fissa Layout».')) +
+            '</div>';
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        bindControls(panel);
+    }
+    /* I nodi che portano davvero uno snapshot: il conteggio serve a dire se il
+       comando ha qualcosa da fare PRIMA che lo si prema. */
+    function leLeggo() {
+        try {
+            return ((appState && appState.db && appState.db.nodes) || [])
+                .filter(n => n.savedX !== undefined && n.savedY !== undefined);
+        } catch (e) { return []; }
+    }
+
     function buildControls() {
         const panel = document.getElementById('sidebar-panel-vista');
         if (!panel) return;
+        if (!S.active) { pannelloMappa(panel); return; }
         const p = profile();
         const g = S.focus ? fprofile() : p;                 // geometria e corpi
         const { maxD, choices } = currentData();
@@ -536,6 +589,16 @@
                     if (v === USCITA) { tornaAllaMappa(); return; }
                     cambiaMotore(profile(), v);
                     if (profile().mode !== 'anelli') profile().centerId = null;
+                    /* Dal pannello della mappa libera scegliere un motore vuol
+                       dire ENTRARE nella vista: senza, si cambierebbe un motore
+                       che nessuno sta disegnando e il bottone sembrerebbe rotto. */
+                    if (!S.active) {
+                        if (typeof appState !== 'undefined') appState.layoutMode = 'studio';
+                        enter(true);
+                        try { if (window.updateLayoutButtonLabel) window.updateLayoutButtonLabel(); } catch (e) { }
+                        persist();
+                        return;
+                    }
                 } else {
                     profiloDi(k)[k] = b.getAttribute('data-v');
                 }
@@ -913,8 +976,7 @@
         try { localStorage.setItem(ATTIVO_KEY, '1'); } catch (e) { /* best-effort */ }
         ensureOverlay();
         watchResize();
-        const tab = document.getElementById('sidebar-tab-vista');
-        if (tab) { tab.classList.remove('hidden'); tab.classList.add('flex'); }
+        // il tab è SEMPRE visibile (16/8): qui non c'è più niente da accendere
         buildControls();
         if (window.switchSidebarTab) window.switchSidebarTab('vista');
         render();
@@ -927,6 +989,11 @@
        montarsi senza trovare una mappa a metà. Torna true se ha ripreso. */
     function riprendi() {
         if (S.active) return false;
+        /* Il tab è sempre visibile, quindi il pannello dev'essere già pronto
+           PRIMA che qualcuno lo apra — anche quando non si rientra nella vista.
+           Costruirlo solo entrando lasciava un pannello vuoto a chi clicca il
+           tab su una mappa appena aperta. */
+        try { buildControls(); } catch (e) { /* mappa non ancora pronta */ }
         try { if (localStorage.getItem(ATTIVO_KEY) !== '1') return false; } catch (e) { return false; }
         if (localStorage.getItem('mappai_studio_view') === '0') return false;   // kill-switch
         if (!appState || !appState.db || !(appState.db.nodes || []).length) return false;
@@ -946,9 +1013,11 @@
         closeMenu(); closeFocus();
         const ov = document.getElementById('studio-overlay');
         if (ov) ov.remove();
-        const tab = document.getElementById('sidebar-tab-vista');
-        if (tab) { tab.classList.add('hidden'); tab.classList.remove('flex'); }
-        if (window.switchSidebarTab) window.switchSidebarTab('structure');
+        /* Il tab resta, e il pannello si ridisegna nella forma «mappa libera»:
+           prima si nascondeva il tab e si scappava su «Struttura», che sulla
+           mappa è il posto sbagliato dove finire — si usciva dalla vista e si
+           perdeva anche il modo di rientrarci. */
+        buildControls();
     }
 
     /* Il ciclo LAYOUT entra nella vista già su un motore preciso (Albero,

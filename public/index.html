@@ -1222,10 +1222,13 @@
                     title="LIM" data-i18n-title="tt_lim_tab">
                     <i data-lucide="presentation" class="w-5 h-5"></i>
                 </button>
-                <!-- Tab Vista studio (1/8): compare SOLO col ciclo LAYOUT su STUDIO.
-                     Kill-switch: localStorage mappai_studio_view='0' → lo step non esiste. -->
+                <!-- Tab Vista studio: SEMPRE visibile (16/8). Prima compariva solo
+                     dentro la vista studio, quindi il modo di entrarci era il bottone
+                     LAYOUT e nient'altro. Ora il pannello vale anche sulla mappa
+                     libera, dove mostra la scelta della vista e il ripristino del
+                     layout fissato. -->
                 <button id="sidebar-tab-vista" onclick="window.switchSidebarTab('vista')"
-                    class="flex-1 py-4 hidden items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
+                    class="flex-1 py-4 flex items-center justify-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all"
                     title="Vista studio" data-i18n-title="tt_vista_tab">
                     <i data-lucide="layout-panel-top" class="w-5 h-5"></i>
                 </button>
@@ -3342,7 +3345,7 @@
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
     <script src="js/mappai-storage-lang.js?v=dh24"></script>
-    <script src="js/mappai-d3-render.js?v=dh25"></script>
+    <script src="js/mappai-d3-render.js?v=dh26"></script>
     <script src="js/mappai-ui-canvas.js?v=dh18"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
@@ -3394,7 +3397,7 @@
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
     <script src="js/mappai-studio-layouts.js?v=dh24"></script>
     <script src="js/mappai-studio-draw.js?v=dh24"></script>
-    <script src="js/mappai-studio-view.js?v=dh25"></script>
+    <script src="js/mappai-studio-view.js?v=dh26"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>
