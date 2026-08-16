@@ -697,60 +697,59 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ---
 
-## 5. Da provare in Electron, in ordine
+## 5. Provato in Electron — la coda è VUOTA
 
-Il pannello browser non ha IPC, non ha disco e serve i file dalla cache: quello che segue
-si può vedere **solo** nell'app vera.
+> **Aggiornato il 16 agosto 2026: Giacomo ha provato sull'app vera tutto quello che
+> questa sezione elencava, e funziona.** La coda «da provare» non esiste più. Quello
+> che segue è il registro di ciò che è stato visto girare: serve a non riprovarlo, e a
+> sapere che cosa dare per acquisito quando qualcosa si romperà più avanti.
 
-0. ✅ **La generazione vera, dall'inizio alla fine: PASSATA** (Giacomo, 14/8 sera, mappa
-   «La Svizzera Politica»). Premere Genera → rispondere al modale → andare in INSEGNA
-   mentre lavora → spinner in topbar → a fine lavoro l'avviso invece del salto → il
-   progetto negli elenchi marcato **NUOVO** → un clic e il bollino sparisce da entrambe le
-   liste: tutto verificato sull'app vera, e il bollino corretto è stato confermato da lui.
-   ⚠️ **Restano da guardare le due correzioni fatte DOPO quella prova**, e si vedono nei
-   primi trenta secondi di una generazione piccola: (a) il velo che copre la sola area di
-   lavoro di CREA, con i tre avvii rapidi spariti; (b) il menu «Cosa» aperto mentre lavora
-   — Crea ed Elabora grigie col solo lucchetto, nessun'altra icona.
-   Da guardare, se capita: che HOME non uccida più la generazione.
+Il pannello browser non ha IPC, non ha disco e serve i file dalla cache: tutto quello
+che c'è qui sotto si poteva vedere **solo** nell'app vera, ed è stato visto lì.
 
-1. **Un GIRO DI LAVORO NORMALE, che è la prova vera del 15/8 sera.** Apri una mappa dagli
-   elenchi, sposta qualche nodo, tocca la Vista studio, esci con **HOME**; riapri la stessa
-   mappa: posizioni e vista devono essere quelle che hai lasciato. Poi ripeti uscendo con
-   **⌘Q**. Infine guarda che negli elenchi ci sia **una riga sola** per quella mappa.
-   ⚠️ Il pezzo che nessuna misura può darti: che dopo una giornata d'uso il cassetto non
-   torni a gonfiarsi (Cabina › Gestione cartelle lo dice: «Spazio di lavoro»).
-2. **Il resto del 15/8, in un giro solo** (Cabina › Sviluppo):
-   (a) i **quattro collegamenti** di insegnai.ch devono aprire il **browser di sistema**
-   (provato solo il primo: gli altri tre sono gli stessi tre id, ma guardali);
-   (b) una **chiusura brutale**: Uscita forzata → **riapri** l'app → in Cabina ›
-   Segnalazione deve comparire `chiusura-improvvisa` (la riga arriva al riavvio, non sul
-   momento: chi viene ucciso da SIGKILL non scrive niente);
-   (c) **Gestione cartelle**: «Cambia posizione» con lo spostamento vero dei file;
-   (d) la **segnalazione** dal principio: categoria, testo, «Prepara l'email» → il client
-   di posta si apre con gli ultimi errori in coda;
-   (e) una **generazione senza classe**: la mappa deve nascere in `Mappe/Generico/` e negli
-   elenchi NON deve comparire un chip di classe «Generico».
-   ✅ Già provati da me sull'app viva, non ripeterli: adozione della cartella madre,
-   `vista.json` (scrittura, cambio mappa, ritorno), HOME e ⌘Q, ripiego dal disco senza
-   snapshot, potatura (42,6 → 17,4 MB), lettura di un vault in `Generico`, l'accento NFD
-   contro la voce NFC, la vista Impostazioni AI ricomposta.
-3. Il **bottone stampa** delle righe di INSEGNA: se si apre il dialogo di sistema o se
-   scatta il ripiego (il file si apre nell'applicazione di sistema).
-4. Le **colonne allineate** fra gli elenchi impilati di INSEGNA: l'ultima colonna deve
-   essere **134px** e uguale in tutte le tabelle (nel banco esce 58 perché la cache dei
-   file è vuota).
-5. Il **dossier** stampato: è il documento cambiato di più (testata ora stampata, piè
-   presente anche a pagina 1).
-6. Il **PDF della catena dei perché** scritto davvero in `Materiale Studio/`.
-7. La **combo da tastiera** SHIFT+CTRL+L,K,J,H (provata l'API, mai la sequenza di tasti).
+**Provato il 16/8 (Giacomo, app vera)** — era la coda aperta il 15/8 sera:
+- il **giro di lavoro normale**: apri una mappa dagli elenchi, sposta i nodi, tocca la
+  Vista studio, esci con HOME, riapri → posizioni e vista sono quelle lasciate; stesso
+  esito uscendo con ⌘Q; negli elenchi **una riga sola** per quella mappa;
+- Cabina › Sviluppo: i **quattro collegamenti** di insegnai.ch aprono il browser di
+  sistema · **chiusura brutale** → al riavvio `chiusura-improvvisa` compare in
+  Segnalazione · **Gestione cartelle**, «Cambia posizione» con lo spostamento vero dei
+  file · la **segnalazione** dal principio (categoria → testo → «Prepara l'email», col
+  client di posta che si apre con gli ultimi errori in coda) · una **generazione senza
+  classe** → la mappa nasce in `Mappe/Generico/` e negli elenchi non compare il chip
+  «Generico»;
+- il **bottone stampa** delle righe di INSEGNA; le **colonne allineate** (ultima a
+  134px, uguale in tutte le tabelle impilate); il **dossier** stampato con testata e
+  piè anche a pagina 1; il **PDF della catena dei perché** scritto in
+  `Materiale Studio/`; la **combo da tastiera** SHIFT+CTRL+L,K,J,H.
 
-Fatti e verificati: il **PDF di una copia** che non sovrascrive più l'originale (12/8), il
-rientro automatico in STUDIO col motore giusto (12/8), la veste manifesto in Electron
-(4/8), ELABORA su 28 vault reali (9/8), e il **gesto «crea un documento» intero** (13/8
-sera, via CDP sull'app viva: generazione con AI vera, PDF nel vault, PDF rotto a mano →
-la sorgente resta con l'avviso, nome doppio rifiutato, righe di ELABORA con copia+file).
-Restano da guardare A OCCHIO (il CDP non vede i pixel): i due toast nuovi
-(`cq_ok_no_pdf`, `cq_nome_preso`) e l'elenco INSEGNA senza le voci d'archivio cartacee.
+**Provato prima, e già acquisito:**
+- **la generazione vera dall'inizio alla fine** (14/8 sera, «La Svizzera Politica»):
+  Genera → modale → INSEGNA mentre lavora → spinner in topbar → avviso invece del salto
+  → progetto marcato **NUOVO** → un clic e il bollino sparisce da entrambe le liste; con
+  esso le due correzioni fatte dopo quella prova (il velo sulla sola area di lavoro di
+  CREA, il menu «Cosa» col lucchetto su Crea ed Elabora) e HOME che non uccide più la
+  generazione;
+- il 15/8 sera, sull'app viva: adozione della cartella madre, `vista.json` (scrittura,
+  cambio mappa, ritorno), HOME e ⌘Q, ripiego dal disco senza snapshot, potatura
+  (42,6 → 17,4 MB), lettura di un vault in `Generico`, l'accento NFD contro la voce NFC,
+  la vista Impostazioni AI ricomposta;
+- il **PDF di una copia** che non sovrascrive l'originale (12/8), il rientro automatico
+  in STUDIO col motore giusto (12/8), la veste manifesto in Electron (4/8), ELABORA su
+  28 vault reali (9/8), e il **gesto «crea un documento» intero** (13/8 sera, via CDP:
+  generazione con AI vera, PDF nel vault, PDF rotto a mano → la sorgente resta con
+  l'avviso, nome doppio rifiutato, righe di ELABORA con copia+file), coi due toast nuovi
+  (`cq_ok_no_pdf`, `cq_nome_preso`) e l'elenco INSEGNA senza le voci d'archivio cartacee.
+
+⚠️ **Resta una sola cosa che nessuna prova può dare**, e si vede solo con l'uso: che dopo
+una giornata di lavoro il cassetto non torni a gonfiarsi. Il posto dove guardarlo è
+Cabina › Gestione cartelle, riga «Spazio di lavoro». Se risale, il sospetto numero uno è
+un percorso di salvataggio che scrive ancora una scheda nuova invece di adottare quella
+del vault (§4 punto 0-bis).
+
+⚠️ **Non è mai stato visto girare** il ramo **ALLIEVO** del modale «Per chi è questa
+mappa?»: questa installazione non ha schede allievo, quindi non è una prova rimandata —
+è codice che aspetta il primo dato vero (§4 punto 4a).
 
 ---
 
@@ -803,3 +802,34 @@ cambia la misura, non è la cascata — è la misura.**
 ⚠️ I tre diari sono in ordine cronologico **inverso** e contengono sezioni che dicono
 «UNCOMMITTED»: lo dicevano nel momento in cui sono state scritte. **Non sono lo stato del
 repo.** Lo stato del repo è §1 di questo file.
+
+### I rami, dopo la potatura del 16/8/2026
+
+Sul remoto restano **quattro** rami: `main`, `backup/main-pre-mappai-re` (il backup di
+prima di «MappAI re», da non toccare) e i due iPadOS `MappAI_iPad` /
+`MappAI_iPad_studente`, che sono in **standby dichiarato**, non morti.
+
+Gli altri undici — `dev`, `global`, `feat/structural-suggestions` e la sua variante
+`-GEMINI-lavora-bene`, `experiment/atomic-suggestions`, `atomic-suggestions-sigma`,
+`feat/kg-hub-extraction`, `feat/infomaniak-jsonl-sse`, i due `claude/*` e
+`010-file-organization` — sono stati cancellati. **Erano tutti fermi fra il 28 maggio e
+il 15 giugno e indietro di 277 commit da `main`**: non rebasabili in pratica, e il
+lavoro vivo che contenevano (merge/relink dei nodi, KG hub) è dentro `main` da giugno.
+
+**Nessun commit è andato perso.** Prima di cancellare, ogni ramo ha ricevuto un tag
+annotato `archivio/<nome del ramo>` sullo stesso commit, spinto su GitHub. Per rivedere
+uno di quei rami:
+
+```bash
+git fetch origin --tags && git log --oneline archivio/dev
+```
+
+e per farlo tornare un ramo vero:
+
+```bash
+git switch -c dev archivio/dev
+```
+
+Il tag porta nel messaggio la data dell'ultimo commit del ramo. **Non cancellare i tag
+`archivio/*`**: sono l'unica cosa che tiene raggiungibili quei commit — senza, la
+raccolta rifiuti di GitHub se li porta via.
