@@ -136,9 +136,26 @@
                 (c.max !== undefined ? ' max="' + esc(c.max) + '"' : '') +
                 ' value="' + esc(c.valore) + '" data-campo="' + esc(c.id) + '">';
         }
-        var etichettaVisibile = STILE.etichette === 'sopra'
-            ? '<span class="mm-label">' + esc(c.etichetta) + '</span>' : '';
-        return '<div class="mm-campo-riga' + (c.larghezza === 'meta' ? ' mm-campo-riga--meta' : '') + '">' +
+        /* ── QUANDO IL SEGNAPOSTO NON PUÒ FARE IL SUO MESTIERE (16/8) ─────────
+           La decisione 4 (31/7) dice «solo segnaposto, niente etichetta sopra»,
+           e per un campo di testo vuoto funziona: il nome si legge finché non
+           si scrive. Ma un SELECT mostra sempre un'opzione, un campo con un
+           valore di partenza mostra sempre quel valore, e un campo colore un
+           colore: lì il segnaposto non compare MAI, e il campo resta anonimo.
+           Nel modale delle domande aperte si leggevano «5» e «40» senza sapere
+           che cosa fossero — è il difetto che Giacomo ha segnalato.
+           Qui l'etichetta si emette PER FORZA. La decisione 4 resta dov'è utile
+           (campi da riempire), e non vale dove non poteva reggere. */
+        var haValore = c.valore !== undefined && c.valore !== null && String(c.valore) !== '';
+        var segnaMai = c.tipo === 'scelta' || c.tipo === 'colore' || haValore;
+        var etichettaVisibile = (STILE.etichette === 'sopra' || segnaMai)
+            ? '<label class="mm-label" for="mmf-' + esc(c.id) + '">' + esc(c.etichetta) + '</label>' : '';
+        /* ⚠️ Un campo a metà larghezza con una spiegazione: la spiegazione NON
+           si stringe con lui. `--meta` restringe il controllo, non la riga —
+           altrimenti quattro righe di testo si incolonnano in una striscia
+           larga un dito (misurato nel modale delle domande aperte). */
+        var meta = c.larghezza === 'meta' ? ' mm-campo-riga--meta' + (c.aiuto ? ' mm-campo-riga--spiegato' : '') : '';
+        return '<div class="mm-campo-riga' + meta + '">' +
             etichettaVisibile + dentro +
             (c.aiuto ? '<span class="mm-hint">' + esc(c.aiuto) + '</span>' : '') + '</div>';
     }

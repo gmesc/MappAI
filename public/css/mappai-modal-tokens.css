@@ -523,6 +523,34 @@
     margin-left: 10px;
 }
 
+/* ── Metà larghezza CON una spiegazione (16/8) ────────────────────────────
+   La riga torna piena e a stringersi è il solo CONTROLLO. Con la riga a
+   metà, quattro righe di aiuto si incolonnavano in una striscia larga un
+   dito — visto nel modale «Genera con l'AI» delle domande aperte, dove la
+   spiegazione delle domande d'avvio scendeva per otto righe. Le coppie di
+   campi affiancati (metà SENZA aiuto) restano come prima. */
+.mm-campo-riga--spiegato {
+    display: block;
+    width: auto;
+    margin-left: 0 !important;
+}
+
+.mm-campo-riga--spiegato>.mm-campo {
+    max-width: calc(50% - 5px);
+}
+
+/* ── Il NOME del campo, quando il segnaposto non può dirlo (16/8) ──────────
+   Vedi `campoHtml`: select, campi già pieni e campi colore non mostrano mai
+   il segnaposto. Corpo e colore sono quelli del titolo di sezione — è la
+   stessa cosa (dire che cos'è), un gradino più in basso nella gerarchia. */
+.mm-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--mm-testo-2);
+    margin-bottom: 4px;
+}
+
 .mm-campo--colore {
     padding: 4px;
     height: 40px;

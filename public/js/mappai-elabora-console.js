@@ -183,7 +183,7 @@
                (tipo → a mano o con l'AI → parametri) vive in
                `mappai-crea-quiz.js`; il motore resta quello della pipeline. */
             id: 'quiz', da: 'misto', icona: 'list-checks',
-            et: function () { return t('ec_quiz', 'Quiz o flashcard'); },
+            et: function () { return t('ec_quiz', 'Quiz, Domande aperte e Flashcard'); },
             desc: function () { return t('ec_quiz_d2', 'Scelta multipla, Vero/Falso, domande aperte o flashcard: le scrivi tu o le genera l\'AI.'); },
             puo: function () { return !!window.MappAICreaQuiz; },
             perche: function () { return t('ec_quiz_no', 'Il percorso «crea un quiz» non è caricato.'); },

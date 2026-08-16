@@ -138,31 +138,52 @@
 
         MM().open({
             titolo: t('cq_t3', 'Genera con l\'AI'), icona: 'sparkles', taglia: 'm', invio: false,
-            sezioni: [{
-                id: 'par', titolo: tp.et(),
-                testo: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
-                    .replace('{es}', _esempioNome(tp)),
-                /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
-                   `normalizzaCampo` lo trasforma in un campo di testo vuoto
-                   senza etichetta, che a schermo è una riga misteriosa. */
-                campi: [
-                    { id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'), aiuto: t('cq_nome_ph', 'verifica di ottobre') },
-                    { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'), valore: 5, min: 1, max: 30, larghezza: 'meta' },
-                    { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'), opzioni: opzAree, valore: 'all' },
-                    { id: 'angolo', tipo: 'scelta', etichetta: t('cq_ang', 'Angolazione'), opzioni: opzAngoli, valore: 'auto',
-                      aiuto: t('cq_ang_d', 'Che cosa devono chiedere le domande. Scegliendone una, TUTTE le domande avranno quel taglio; «Automatico» le distribuisce fra i tipi di ragionamento.') },
-                    /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────────
-                       Solo per le domande aperte: nei quiz a scelta multipla
-                       la graduazione non ha lo stesso senso — lì le opzioni
-                       orientano già, e una domanda «facile» diventa un
-                       indovinello. Qui invece è la differenza fra un foglio
-                       che si può cominciare e uno su cui chi sa metà scrive
-                       zero righe. */
-                    tp.documento ? { id: 'base', tipo: 'numero', etichetta: t('cq_base', 'Domande d\'avvio (%)'),
-                      valore: 40, min: 0, max: 100, larghezza: 'meta',
-                      aiuto: t('cq_base_d', 'Quante domande si possono risolvere con UN concetto solo, da chi ha studiato una parte della scheda. Le altre chiedono di collegare due o più concetti. Sul foglio degli allievi la differenza non si vede: compare solo sulle tue tracce di correzione.') } : null
-                ].filter(Boolean)
-            }],
+            /* ── TRE GRUPPI, non un elenco unico (16/8) ──────────────────────
+               Erano cinque campi di fila sotto un titolo solo: il nome del
+               file, che cosa chiedere e quanto chiedere stavano tutti insieme,
+               e la spiegazione del nome apriva il modale come se fosse il
+               tema. Ora ogni gruppo risponde a una domanda, e il titolo di
+               sezione la fa — è la stessa gerarchia delle card di «Crea un
+               documento», dove ogni riga dice prima che cos'è. */
+            sezioni: [
+                {
+                    id: 'che', titolo: t('cq_g_che', 'Che cosa chiedono'),
+                    campi: [
+                        { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'), opzioni: opzAree, valore: 'all' },
+                        { id: 'angolo', tipo: 'scelta', etichetta: t('cq_ang', 'Angolazione'), opzioni: opzAngoli, valore: 'auto',
+                          aiuto: t('cq_ang_d', 'Che cosa devono chiedere le domande. Scegliendone una, TUTTE le domande avranno quel taglio; «Automatico» le distribuisce fra i tipi di ragionamento.') }
+                    ]
+                },
+                {
+                    id: 'quante', titolo: t('cq_g_quante', 'Quante e come graduate'),
+                    /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
+                       `normalizzaCampo` lo trasforma in un campo di testo vuoto
+                       senza etichetta, che a schermo è una riga misteriosa. */
+                    campi: [
+                        { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'), valore: 5, min: 1, max: 30, larghezza: 'meta' },
+                        /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────
+                           Solo per le domande aperte: nei quiz a scelta multipla
+                           la graduazione non ha lo stesso senso — lì le opzioni
+                           orientano già, e una domanda «facile» diventa un
+                           indovinello. Qui invece è la differenza fra un foglio
+                           che si può cominciare e uno su cui chi sa metà scrive
+                           zero righe. */
+                        tp.documento ? { id: 'base', tipo: 'numero', etichetta: t('cq_base', 'Domande d\'avvio (%)'),
+                          valore: 40, min: 0, max: 100, larghezza: 'meta',
+                          aiuto: t('cq_base_d', 'Quante domande si possono risolvere con UN concetto solo, da chi ha studiato una parte della scheda. Le altre chiedono di collegare due o più concetti. Sul foglio degli allievi la differenza non si vede: compare solo sulle tue tracce di correzione.') } : null
+                    ].filter(Boolean)
+                },
+                {
+                    id: 'nome', titolo: t('cq_g_nome', 'Come si chiama il file'),
+                    campi: [
+                        /* La spiegazione del nome sta SUL campo, non in testa al
+                           modale: è l'aiuto di quella riga, non l'argomento. */
+                        { id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'),
+                          aiuto: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
+                              .replace('{es}', _esempioNome(tp)) }
+                    ]
+                }
+            ],
             azioni: [
                 { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
                 { id: 'vai', etichetta: t('cq_vai', 'Genera'), icona: 'sparkles', ruolo: 'primario' }
@@ -221,11 +242,14 @@
            «Quiz-MC-La Fotosintesi» a mano e se lo ritrova due volte nel file. */
         MM().open({
             titolo: t('cq_nome_t', 'Come si chiama'), icona: tp.icona, taglia: 'm',
+            /* Stessa forma del modale dei parametri (16/8): la spiegazione del
+               nome sta SUL campo — è l'aiuto di quella riga, non il tema del
+               modale. Il titolo di sezione dice che cosa si sta facendo. */
             sezioni: [{
-                id: 'n', titolo: tp.et(),
-                testo: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
-                    .replace('{es}', _esempioNome(tp)),
-                campi: [{ id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'), aiuto: t('cq_nome_ph', 'verifica di ottobre') }]
+                id: 'n', titolo: t('cq_g_nome', 'Come si chiama il file'),
+                campi: [{ id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'),
+                    aiuto: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
+                        .replace('{es}', _esempioNome(tp)) }]
             }],
             azioni: [
                 { id: 'no', etichetta: t('mm_annulla', 'Annulla') },
