@@ -12,7 +12,7 @@
 
 ---
 
-## 0. Le prime cinque cose da sapere
+## 0. Le prime sei cose da sapere
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -41,15 +41,23 @@
    **indice** potabile — da 42,6 a 17,4 MB, con la valvola che libera i doppioni se la
    quota si esaurisce mentre lavori. Dettagli in §3.
 
+6. **Dal 16/8 la MAPPA si guarda dalla sidebar, non dalla barra.** La barra è rimasta a
+   `CENTRA · LAYOUT · TESTO · «mostra fino al livello»`: tutto il resto (PIN, attrazione,
+   dimensione dei testi, scelta della vista, ripristino del layout fissato) sta nel tab
+   **Vista studio**, che ora è sempre visibile e ha **due forme** — piena dentro una vista
+   di studio, ridotta sulla mappa libera. Aprire una mappa dà **Albero + Indice**, e da lì
+   il ciclo del bottone è `Mappa → Albero → Fasci → DAG`. FISSA, LINK, RIORDINA, PATH e i
+   due `+/−` non ci sono più. Dettagli in §3.
+
 ---
 
 ## 1. Come si verifica che tutto sia a posto
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # c4dadbd o più recente in testa
+git log --oneline -5                              # 16/8 o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
-node --test tests/                                # atteso: 0 fail
+node --test tests/                                # atteso: 0 fail (1122 pass al 16/8)
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
 node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
@@ -84,6 +92,8 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_teach_console` | acceso | la console INSEGNA. `'0'` → le tre sezioni storiche della landing |
 | `mappai_studio_view` | acceso | il passo **STUDIO** nel ciclo LAYOUT. `'0'` → il ciclo storico, e nessun rientro automatico |
 | `mappai_layout_ciclo_storico` | spento | `'1'` rimette il **ciclo lungo** del bottone LAYOUT (Default · Orbita · Radiale/Separato · Studio · Personale · salvati). Dal 16/8 il ciclo è **Default → Albero → Fasci → DAG**: orbita, radiale, separato e personale non hanno più un ingresso, i layout salvati restano sotto il bottone FISSA |
+| `mappai_map_fs_node` · `mappai_map_fs_rel` | scritto dall'uso | le due scale del testo sul canvas (nodi · linking words). Assenti = 1.0 |
+| `mappai_map_rel_labels` | scritto dall'uso | le linking words sul canvas: `off` · `short` · `full` (il ciclo del bottone TESTO). Assente = intere |
 | `mappai_studio_profile` | scritto dall'uso | il profilo della Vista studio a livello UTENTE (non di progetto), **con una taratura per motore** (`perMotore`) |
 | `mappai_vista_ridotta` | scritto dalla combo | la vista ridotta di CREA (SHIFT+CTRL+L,K,J,H) |
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
@@ -112,6 +122,19 @@ sezione. Il cablaggio bento non è più opzionale.
   morto senza errori** — è già costato quattro bottoni che non facevano niente;
 - `Core.validaSchema(schema)` va chiamato su ogni schema nuovo: ha trovato **nove**
   difetti veri. La normalizzazione è idempotente (`open` normalizza, `render` rinormalizza).
+
+**La regola dei CAMPI, corretta il 16/8.** La decisione 4 (31/7) diceva «solo segnaposto,
+niente etichetta sopra il campo». Regge per un campo di testo **vuoto** — il nome si legge
+finché non si scrive — e **non regge** dove il segnaposto non compare mai: una tendina
+mostra sempre un'opzione, un campo con un valore di partenza mostra sempre quel valore, un
+campo colore un colore. Nel modale delle domande aperte si leggevano un «5» e un «40»
+senza sapere che cosa fossero. Ora in quei casi `campoHtml` emette **per forza** un
+`<label for>`; il campo vuoto resta al solo segnaposto.
+⚠️ `.mm-label` era citata dal motore e **non esisteva nel CSS** (con `STILE.etichette
+='sopra'` sarebbe uscita senza stile). Aggiunta.
+⚠️ Una riga `larghezza:'meta'` **con** un aiuto non stringe più l'aiuto: si restringe il
+controllo, non la riga (`--spiegato`). Le coppie di campi affiancati senza aiuto non
+cambiano. Otto test in `tests/modal-campi-etichette.test.js`.
 
 **Pezzi aggiunti il 15/8** (piccoli, e ognuno nato da un bisogno preciso):
 - `voce.sotto` **si disegna anche nella navigazione** — era normalizzato dal core e
@@ -487,6 +510,45 @@ apposta, quindi la colonna parte sempre senza filtro.)
   dice una cosa che il testo non dice. Le icone accanto a Crea/Elabora/Insegna sono state
   tolte — un glifo messo per bellezza è un secondo alfabeto da imparare (invariante 15).
 
+### LA BARRA DELLA MAPPA — asciugata il 16/8
+`CENTRA · LAYOUT · PIN¹ · TESTO · «mostra fino al livello»` — dove **PIN¹** e ATTR sono
+*usciti* e vivono nel pannello della Vista studio (sono leve del force layout, e nella
+barra stavano anche mentre si guardava una vista di studio, dove non toccano niente).
+
+**Che cosa è uscito, e dov'è finito**
+
+| pezzo | dove |
+|---|---|
+| RIORDINA · `+/−` distanza · `+/−` testo · PATH | **fuori dalla barra**; le funzioni restano nel codice, senza ingresso (§4) |
+| PIN · ATTR | pannello della Vista studio, forma «mappa libera» |
+| `+/−` testo | due **slider** nel pannello (nodi e linking words, separati) |
+| LINK (tutti/gerarchia/cross) | **pensionato** con la lente delle famiglie di relazione |
+| FISSA | **pensionata per intero** — 996 righe di `app.js`, due modali, 66 di CSS, 41 chiavi i18n |
+
+**TESTO cicla `no → brevi → intere`** e agisce su ciò che si sta guardando: dentro una
+vista di studio sul profilo di quella vista, sulla mappa libera sul canvas. Dice lo
+**stato** (`NO`/`BREVI`/`INTERE`), come fa LAYOUT.
+⚠️ Su quello span **niente `data-i18n`**: `changeLanguage` lo riscriverebbe con «TESTO» al
+primo cambio di lingua, cancellando lo stato. Le tre parole le traduce
+`aggiornaBottoneTesto`.
+⚠️ «Brevi» tronca a 14 caratteri, e la regola **non è riscritta**: `CAP_REL` esce da
+`mappai-studio-draw.js` e la legge anche il canvas — due tabelle darebbero due lunghezze
+diverse per la stessa parola.
+
+**Lo slider dei livelli è UNO** e governa tutte e quattro le viste. ⚠️ Il numero **non si
+copia**: la barra arriva a `max(node.level, 5)`, la vista studio usa la profondità
+**topologica** del sottografo, che cambia perfino fra un motore e l'altro. Si sincronizza
+il concetto: *in fondo alla corsa = tutti*. Conseguenza visibile: alla stessa tacca le tre
+viste mostrano quantità diverse (su «Il Clima» a livello 2: Albero 24 card, DAG e Fasci 6),
+perché in Albero «livello» è la profondità della gerarchia e nelle altre i cross-link
+allungano i cammini.
+
+📌 Con LINK esce di scena l'**ultimo chiamante di `markMmCrossLinks`** — ed è un bene: era
+quella chiamata a ricalcolare gli `isCross` a ogni pressione e a persisterli, cioè il modo
+in cui il difetto del tronco finiva scritto nei `links.json`. Da ora, in una MindMap
+`isCross` lo mette solo chi crea davvero un cross-link (Fase 4, dedup): un dato, non
+un'euristica. Per i KG niente cambia (`markKgCrossLinks` è chiamata in generazione).
+
 ### VISTA STUDIO — il passo «STUDIO» del ciclo LAYOUT
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
@@ -526,6 +588,14 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
   sua (Anelli, Colonne…) eredita quella dell'**Albero**, non quella dei Fasci.
   Le leve VIVE restano piatte su `p` (il renderer non deve sapere che esiste una taratura
   per motore); `perMotore` è solo la fotografia che si ripone cambiando motore.
+- **Sulla mappa libera il pannello ha quattro leve** (16/8): «Mostra fino al livello»
+  (gemello della barra), **testo dei nodi** e **testo delle linking words** — due scale
+  separate, prima erano una sola (`testo × 0.765`), e si ricordano fra le sessioni
+  (`mappai_map_fs_node/rel`) —, il gruppo a tre delle linking words, e le due spunte
+  **PIN** e **attrazione** arrivate dalla barra.
+  ⚠️ Portano un attributo LORO (`data-sv-map`, `data-sv-mapchk`, `data-sv-map-seg`):
+  mescolarle con `data-sv-sl` scriverebbe nel profilo della Vista studio valori che quel
+  disegno non usa.
 - **«Ripristina default»** nel pannello, e dice sempre di quale vista parla («Ripristina
   default · Fasci»): dove ogni motore ha la sua taratura, «ripristina» da solo non
   direbbe che cosa sta per tornare indietro.
@@ -714,6 +784,18 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    trappole pagate in
    **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)**; la regola è la
    trappola §8.19 della guida.
+3-bis. 🆕 **Codice rimasto senza ingresso il 16/8, e va deciso se tenerlo.**
+   Togliendo i bottoni dalla barra sono rimaste nel codice funzioni che non chiama più
+   nessuno: `riordinaMappa` (ui-canvas), `changeDistance`, `changeFontScale`,
+   `togglePathfinder` e con lui tutta la macchina del pathfinder (`pathfinderState`,
+   `calculatePath`, lo sbiadimento in `applyVisualFilters`) in d3-render.
+   ⚠️ Non le ho tolte perché la richiesta era «elimina dalla navbar», mentre per FISSA era
+   «elimina tutte le funzioni»: il contrasto è parso deliberato. `changeFontScale` è
+   l'unica che resta utile — è l'involucro che muove insieme le due scale del testo.
+   La pulizia del pathfinder è la più grossa: ha ramificazioni nel renderer.
+   📌 `markMmCrossLinks` non ha più chiamanti (§3, «La barra della mappa»), e questo è
+   voluto: era la sua chiamata a riscrivere gli `isCross` e a persisterli.
+
 4. 🆕 **Cinque code del lavoro del 14/8, lasciate aperte di proposito.**
    (a) Il ramo **ALLIEVO** del modale «Per chi è questa mappa?» non è mai stato provato:
    questa installazione non ha schede allievo. È l'unico codice nuovo che nessuno ha visto
@@ -780,12 +862,15 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ---
 
-## 5. Provato in Electron — la coda è VUOTA
+## 5. Provato in Electron — che cosa è acquisito
 
-> **Aggiornato il 16 agosto 2026: Giacomo ha provato sull'app vera tutto quello che
-> questa sezione elencava, e funziona.** La coda «da provare» non esiste più. Quello
-> che segue è il registro di ciò che è stato visto girare: serve a non riprovarlo, e a
-> sapere che cosa dare per acquisito quando qualcosa si romperà più avanti.
+> **Aggiornato il 16 agosto 2026, sera.** La coda «da provare» aperta il 15/8 è chiusa:
+> Giacomo l'ha percorsa tutta e funziona. Quello che segue è il registro di ciò che è
+> stato visto girare — serve a non riprovarlo, e a sapere che cosa dare per acquisito
+> quando qualcosa si romperà più avanti.
+> ⚠️ Resta una cosa che nessuna prova via CDP può dare: **l'aspetto**. Il DOM si legge,
+> i pixel no. Le tre superfici cambiate oggi vanno guardate a occhio (in fondo a questa
+> sezione).
 
 Il pannello browser non ha IPC, non ha disco e serve i file dalla cache: tutto quello
 che c'è qui sotto si poteva vedere **solo** nell'app vera, ed è stato visto lì.
@@ -805,6 +890,22 @@ che c'è qui sotto si poteva vedere **solo** nell'app vera, ed è stato visto l�
   134px, uguale in tutte le tabelle impilate); il **dossier** stampato con testata e
   piè anche a pagina 1; il **PDF della catena dei perché** scritto in
   `Materiale Studio/`; la **combo da tastiera** SHIFT+CTRL+L,K,J,H.
+
+**Provato il 16/8 (io, via CDP sull'app viva)** — tutto il lavoro della giornata è stato
+verificato lì mentre lo scrivevo, su «Il Clima» (4R › Geografia) e su un secondo vault:
+la barra ridotta e zero superstiti dei pezzi tolti · il ciclo `Mappa → Albero → Fasci →
+DAG` coi default di ogni motore · la taratura che ogni motore ricorda · «Ripristina
+default» e «Ripristina il layout fissato» (nodo spostato a 9999 → tornato a 414/437) ·
+HOME che salva le opzioni · il tronco riparato (6 radici → 1, e la controprova che
+rimette il difetto) · TESTO che cicla e i tre posti che dicono la stessa cosa · «brevi»
+che accorcia (17 → 14 caratteri) · le due scale del testo indipendenti · lo slider dei
+livelli che governa tutte e tre le viste nei due versi · mappa nuova → Albero + Indice,
+e un `initD3Visualization()` a mano che non tocca niente · i tre gruppi del modale delle
+domande aperte coi nomi dei campi a schermo.
+⚠️ **Che cosa quella verifica NON copre**: il CDP legge il DOM, non i pixel. Restano da
+guardare a occhio l'**aspetto** della barra ridotta (quattro comandi e uno slider più
+largo: l'equilibrio dei pesi), il pannello della vista Mappa con le sue sei leve, e i tre
+gruppi del modale nuovo. Se qualcosa stona è lì che si vede.
 
 **Provato prima, e già acquisito:**
 - **la generazione vera dall'inizio alla fine** (14/8 sera, «La Svizzera Politica»):

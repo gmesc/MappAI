@@ -1,12 +1,14 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: 5-6 agosto 2026 (STILE «MANIFESTO»: landing e COSTRUISCI sul progetto
-> Inkscape di Giacomo — rail delle tre forme, riquadri chiari, e il **bento** delle opzioni al posto
-> del modale «Genera materiali». La composizione del bento è un DATO e si compone trascinando
-> nell'**Officina §7**. Dal 5/8 anche le CONSOLE hanno il loro bento e la loro officina
-> (`public/dev/officina-console.html`), coi parametri divisi per gerarchia: globale → vista →
-> riquadro → voce.
+> Ultimo aggiornamento: **16 agosto 2026** — l'area di lavoro della mappa si guarda dalla
+> SIDEBAR: la barra resta a quattro comandi, il tab «Vista studio» è sempre visibile e ha due
+> forme, una mappa nuova si apre in Albero con l'Indice. Fuori FISSA, LINK, RIORDINA, PATH e i
+> due `+/−`. Corretto un difetto che riguardava OGNI MindMap: gli archi ROOT→L1 erano marcati
+> come cross-link. La voce del giorno è in §11, in cima al diario.
+> (Prima: 5-6 agosto — stile «MANIFESTO», il **bento** delle opzioni al posto del modale
+> «Genera materiali», composto trascinando nell'**Officina §7**; dal 5/8 anche le CONSOLE
+> hanno il loro bento e la loro officina, `public/dev/officina-console.html`.)
 > **👉 PUNTO DI RIPRESA: [`docs/HANDOFF.md`](docs/HANDOFF.md)** — unico documento di STATO
 > (che cosa c'è in `main`, che cosa è acceso e con quale interruttore, che cosa manca, come si
 > verifica). I tre `HANDOFF-*.md` sono **diari**: si leggono per il perché di una decisione, mai
@@ -660,6 +662,55 @@ Suite **0 fail**, validatore 0 errori/0 avvisi su tutte e undici le viste della 
      lo spostamento dei file il riquadro dichiarava ancora il percorso vecchio.
 - **Bugia corretta**: l'email diceva `Dispositivo: iOS / iPadOS (Capacitor)` **scritto a
   mano** — falso su Mac. Ora `navigator.platform`.
+
+### ✅ FATTO (16/8/26): la mappa si guarda dalla SIDEBAR, e la barra si asciuga
+Giornata lunga di rifinitura sull'area di lavoro della mappa, tutta guidata da rilievi di
+Giacomo dal vivo. Stato in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 6 e §3**; qui il
+perché e le cose trovate misurando. Suite **1122/0**, provato in Electron via CDP a ogni
+passo su «Il Clima» (4R › Geografia).
+- **La barra resta a quattro comandi**: CENTRA · LAYOUT · TESTO · lo slider dei livelli.
+  Fuori RIORDINA, i due `+/−`, PATH, LINK e **FISSA**, quest'ultima pensionata per intero
+  (996 righe di `app.js`, due modali, 66 di CSS, 41 chiavi i18n orfane ricavate dal codice
+  tolto, non a memoria). PIN e ATTR non sono spariti: sono **scesi nel pannello**, perché
+  sono leve del force layout e nella barra stavano anche mentre si guardava una vista di
+  studio, dove non toccano niente.
+- **Il tab «Vista studio» è sempre visibile e ha due forme.** Piena dentro una vista;
+  ridotta sulla mappa libera, dove restano solo le leve che lì disegnano qualcosa. Il
+  criterio: *comandi inerti sono peggio che assenti*.
+- **Una taratura per MOTORE.** I tre motori disegnano cose di scala diversa (Albero e DAG
+  card da leggere, Fasci l'intreccio): con una taratura sola o si sceglieva per l'uno o
+  per l'altro. Ora ognuno ricorda la sua, e «Ripristina default» dice **di quale vista**
+  parla.
+- **Il ciclo è `Mappa → Albero → Fasci → DAG`**, e una mappa nuova si apre **sempre in
+  Albero con l'Indice**. Con questo il flag «ero dentro STUDIO quando ho chiuso» è uscito:
+  la vista di partenza è diventata una regola, non una preferenza da ricordare.
+- **Le sei cose trovate misurando** (sono la parte utile):
+  1. **Il TRONCO di ogni MindMap era un cross-link.** `markMmCrossLinks` chiede «stesso
+     group» per dire che un arco è gerarchia, ma il ROOT ha `group 0` e ogni L1 un intero
+     suo: per il tronco quella condizione è falsa **per costruzione**. Con «solo gerarchia»
+     il root si staccava e i suoi L1 diventavano radici. Non era di quella mappa: valeva
+     per **ogni** MindMap. Corretto alla radice + riparazione al caricamento, perché il
+     flag era già scritto nei `links.json`.
+  2. **E il modo in cui ci finiva**: `markMmCrossLinks` girava dentro `cycleLinkVisibility`,
+     cioè il bottone LINK. Premerlo ricalcolava i flag e l'autosave li persisteva.
+     Pensionando LINK, quell'euristica non ha più chiamanti — ed è un bene.
+  3. **Un campo che porta già un valore non ha nome.** La decisione 4 («solo segnaposto»)
+     regge per un campo vuoto e non dove il segnaposto non compare mai: si leggevano un
+     «5» e un «40». Ora la `<label>` si emette per forza in quei casi.
+  4. **`.mm-label` era citata dal motore e non esisteva nel CSS.**
+  5. **`mappai-studio-layouts.js` e `-draw.js` non avevano un marcatore di cache**:
+     modificarli non bastava a farli arrivare all'app.
+  6. **Le due scale del testo erano una sola** (`nodi × 0.765`): chi voleva le parole sugli
+     archi più grandi si portava dietro i nomi dei nodi.
+- **Le tre lezioni che restano**: quando due documenti si contraddicono, **misurare** (la
+  potatura del cassetto risultava «da fare» nell'handoff e «fatta» nel diario: era fatta) ·
+  una sonda che dà un numero assurdo va sospettata prima del codice (il filtro dei livelli
+  «47 su 47 nascosti» era la mia euristica, non l'app) · e un confronto fra nomi va provato
+  su un caso vero prima di trarne una conclusione (`Elettricità` sul disco è
+  `Elettricità - MM`: il primo confronto diceva «18 mappe perse», erano 2).
+- ⚠️ **Aperto, ed è una decisione di Giacomo**: RIORDINA, i due `+/−` e PATH hanno perso
+  l'ingresso ma le funzioni restano nel codice (la richiesta era «elimina dalla navbar»,
+  per FISSA era «elimina tutte le funzioni»). La pulizia del pathfinder è la più grossa.
 
 ### ✅ FATTO (15/8/26 sera): il DISCO diventa la casa della mappa
 Seguito della mattina, e il lavoro più sostanziale della giornata. Stato in

@@ -170,6 +170,19 @@ I piani li citano per numero («viola l'invariante 6»). Ognuno è stato pagato.
     peggio del guasto curato); e ciò che vive solo in memoria viaggia col vault (`vista.json`),
     perché il disco è la casa (invariante 7) e localStorage è un indice che si può potare.
 
+21. **Un comando sta dove agisce, e ne esiste UNO per cosa.** Se la stessa domanda ha due
+    controlli (lo slider dei livelli nella barra e quello del pannello, il chip in due
+    posti, le linking words come spunta di qua e gruppo a tre di là), i due divergono al
+    primo uso: o condividono la SORGENTE — lo stesso `<input>`, la stessa funzione che
+    scrive l'etichetta — oppure sono un difetto in attesa. E se le due scale non
+    coincidono (la barra conta i `level`, la vista studio la profondità topologica), si
+    sincronizza il **concetto** («in fondo = tutti»), non il numero grezzo.
+    Corollario opposto: un comando che non agisce sulla vista corrente non va mostrato lì.
+    PIN e attrazione erano nella barra anche dentro una vista di studio, dove non toccano
+    niente; le leve del canvas non compaiono nel pannello quando l'overlay a card è
+    spento. **Comandi inerti sono peggio che assenti**: chi li preme conclude che l'app è
+    rotta.
+
 ---
 
 ## 4. Mappa del codice
@@ -398,6 +411,41 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     ritrovano più la loro mappa. Chi ricava classe e materia da un percorso (main.js,
     `adottaVault`) passa per la ritraduzione; chi costruisce un percorso passa per
     `mapVaultParents`. Mai un nome di contenitore scritto a mano.
+
+27. **Una condizione che è falsa PER COSTRUZIONE non è un caso limite: è un difetto.**
+    `markMmCrossLinks` dichiarava «un arco è gerarchia se i livelli sono adiacenti E i due
+    nodi hanno lo stesso `group`». Il ROOT però ha `group 0` e ogni L1 riceve un intero suo
+    (è il colore della macro-area): per gli archi del tronco la seconda condizione **non
+    può** essere vera, mai, in nessuna mappa. Il risultato era che ogni MindMap aveva i
+    cinque archi che la tengono insieme marcati come cross-link.
+    Il modo per accorgersene è chiedersi, per ogni `&&` in una regola: *esiste un caso in
+    cui questo termine è vero?* Se il termine parla di un'entità speciale (la radice, il
+    primo elemento, il caso vuoto), la risposta è spesso no.
+    ⚠️ E quando un flag così è **persistito**, correggere la regola non basta: il dato
+    sbagliato è già sul disco. Serve una riparazione al caricamento, e va tenuta **stretta**
+    — solo il caso in cui «giusto» è una definizione e non un'euristica.
+
+28. **Un `<button>` con `width:auto` non riempie il suo contenitore**, e un select mostra
+    sempre un'opzione: due forme dello stesso errore, cioè dare per scontato che un
+    controllo si comporti come un blocco di testo. La seconda è costata la regola dei campi
+    (decisione 4): «solo segnaposto» funziona per un campo VUOTO, e in un select o in un
+    campo con un valore di partenza il segnaposto **non compare mai** — il campo resta
+    anonimo. Prima di applicare una regola a «tutti i campi», elencare i tipi e chiedersi in
+    quale il meccanismo non può funzionare.
+
+29. **Quando due documenti dello stesso repo si contraddicono, misurare — non scegliere.**
+    L'handoff diceva «resta la pulizia una tantum delle ~257 copie», il diario diceva «243
+    copie via». Erano lo stesso fatto scritto in due momenti: la riga dell'handoff era stata
+    scritta PRIMA di eseguirla e mai aggiornata. Trenta secondi di lettura di `localStorage`
+    dall'app viva hanno chiuso la questione. Vale anche per una sonda: **un numero assurdo
+    va sospettato prima del codice** (il filtro dei livelli dava «47 su 47 nascosti» perché
+    la mia misura leggeva l'opacità invece della classe).
+
+30. **Un confronto fra NOMI va provato su un caso vero prima di trarne una conclusione.**
+    Cercando quante mappe fossero andate perse, il primo confronto (uguaglianza) ne dava 18,
+    il secondo (contenimento) 4, il terzo (token) 2. I primi due erano falsi: `Elettricità`
+    sul disco è `Elettricità - MM`, `La Politica Svizzera` è `La Svizzera Politica`.
+    Riportare il primo numero avrebbe fatto credere a una perdita che non c'era.
 
 ---
 
