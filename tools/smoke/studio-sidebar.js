@@ -101,6 +101,21 @@ ok(q.w === 176, 'e la larghezza dell\'albero, non il 99 dei fasci');
 V.setMotore('fasci');
 ok(q.w === 99, 'e i Fasci ricordano il loro 99');
 
+console.log('\n· «Mappa» è l\'uscita, non un motore');
+V._state.active = true;
+global.appState.layoutMode = 'studio';
+const primaDelloUscita = V.profile().mode;
+V.tornaAllaMappa();
+ok(global.appState.layoutMode === 'default', 'riporta al layout libero');
+ok(V.profile().mode === primaDelloUscita, 'e NON scrive «__mappa» come motore nel profilo');
+ok(V._state.active === false, 'la vista si smonta');
+ok(store['mappai_studio_attivo'] === '0', 'ed è un\'uscita VOLONTARIA: l\'app non ci rientra da sola');
+/* ⚠️ si torna a «non attiva»: con la vista attiva `setMotore` DISEGNA, e qui
+   d3 non c'è (il motore Albero chiede `d3.hierarchy`). È la stessa ragione per
+   cui più sotto il ricordo del ciclo si prova col DAG. */
+V._state.active = false;
+delete store['mappai_studio_attivo'];
+
 console.log('\n· «Ripristina default» vale per la vista ATTIVA');
 V.ripristina();
 ok(q.w === 80 && q.mode === 'fasci', 'i Fasci tornano a 80px');
@@ -129,7 +144,8 @@ V.buildControls();
 const html = pannello.innerHTML;
 const seg = k => (html.match(new RegExp('data-sv-seg="' + k + '"', 'g')) || []).length;
 ok(seg('mode') === 1, 'un solo blocco «Motore» col pieghevole chiuso');
-['Albero', 'DAG', 'Fasci'].forEach(x => ok(html.indexOf('>' + x + '<') >= 0, 'a vista: ' + x));
+['Mappa', 'Albero', 'DAG', 'Fasci'].forEach(x => ok(html.indexOf('>' + x + '<') >= 0, 'a vista: ' + x));
+ok(html.indexOf('data-v="__mappa"') < html.indexOf('data-v="td"'), '«Mappa» viene PRIMA di «Albero»');
 ['Anelli', 'Colonne', 'Percorso', 'Matrice'].forEach(x => ok(html.indexOf('>' + x + '<') < 0, 'nascosto: ' + x));
 ok(html.indexOf('data-sv-seg="routing"') < 0, 'nascosto: instradamento archi');
 ok(html.indexOf('data-sv-chk="hops"') < 0, 'nascosto: ponticelli');

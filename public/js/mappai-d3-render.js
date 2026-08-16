@@ -1449,7 +1449,6 @@ window.toggleLayout = function () {
     if (!simulation) return;
     const isMindmap = appState.extractionMode === 'mindmap';
     const hasSnapshot = appState.db.nodes.some(n => n.savedX !== undefined);
-    const hasSavedLayouts = appState.savedLayouts && appState.savedLayouts.length > 0;
 
     // Vista studio (1/8): step STUDIO fra radiale/separato e personale.
     // Kill-switch: mappai_studio_view='0' → lo step non esiste e il ciclo
@@ -1486,7 +1485,12 @@ window.toggleLayout = function () {
         return;
     }
 
-    // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Studio) -> (Personal) -> (Custom Layouts)
+    /* Ciclo storico (kill-switch): Default -> Orbit -> Radiale/Separato ->
+       Studio -> Personale. I «layout salvati» sono usciti dal giro il 16/8
+       insieme a FISSA, che li creava: senza di lei non se ne fanno di nuovi, e
+       un passo che esiste solo per chi ne aveva già è un passo che quasi
+       nessuno incontra. Un progetto vecchio che porta ancora `custom_…` cade
+       nell'ultimo ramo e torna al layout libero. */
     if (appState.layoutMode === 'default') {
         appState.layoutMode = 'orbit';
     } else if (appState.layoutMode === 'orbit') {
@@ -1494,24 +1498,9 @@ window.toggleLayout = function () {
     } else if (appState.layoutMode === 'radial' || appState.layoutMode === 'separated') {
         if (studioOn) appState.layoutMode = 'studio';
         else if (hasSnapshot) appState.layoutMode = 'personal';
-        else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
         else appState.layoutMode = 'default';
     } else if (appState.layoutMode === 'studio') {
-        if (hasSnapshot) appState.layoutMode = 'personal';
-        else if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
-        else appState.layoutMode = 'default';
-    } else if (appState.layoutMode === 'personal') {
-        if (hasSavedLayouts) appState.layoutMode = 'custom_' + appState.savedLayouts[0].id;
-        else appState.layoutMode = 'default';
-    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
-        const currentId = appState.layoutMode.replace('custom_', '');
-        const layouts = appState.savedLayouts || [];
-        const idx = layouts.findIndex(l => l.id === currentId);
-        if (idx >= 0 && idx < layouts.length - 1) {
-            appState.layoutMode = 'custom_' + layouts[idx + 1].id;
-        } else {
-            appState.layoutMode = 'default';
-        }
+        appState.layoutMode = hasSnapshot ? 'personal' : 'default';
     } else {
         appState.layoutMode = 'default';
     }
@@ -1533,28 +1522,6 @@ window.toggleLayout = function () {
             }
         });
         window.showToast(window.t('tst_layout_restored', "Layout Personale Ripristinato"), "success");
-    } else if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
-        const layoutId = appState.layoutMode.replace('custom_', '');
-        const layout = appState.savedLayouts.find(l => l.id === layoutId);
-        if (layout) {
-            appState.db.nodes.forEach(n => {
-                const savedPos = layout.positions[n.id];
-                if (savedPos) {
-                    n.x = savedPos.x; n.y = savedPos.y;
-                    n.fx = savedPos.fx; n.fy = savedPos.fy;
-                    n.pinned = savedPos.pinned;
-                }
-            });
-            // Applica inquadratura zoom e pan
-            const svgEl = document.getElementById("map-svg");
-            if (svgEl && typeof d3 !== 'undefined' && zoom) {
-                d3.select("#map-svg").transition().duration(750).call(
-                    zoom.transform,
-                    d3.zoomIdentity.translate(layout.viewState.x, layout.viewState.y).scale(layout.viewState.k)
-                );
-            }
-            window.showToast(window.t('tst_layout_x_restored', 'Layout "{x}" Ripristinato').replace('{x}', layout.name), "success");
-        }
     }
 
     window.updateLayoutButtonLabel();
@@ -1562,7 +1529,7 @@ window.toggleLayout = function () {
     if (appState.layoutMode === 'studio') {
         // l'overlay disegna da sé; il force sotto resta congelato
         window.MappAIStudioView.enter();
-    } else if (appState.layoutMode !== 'personal' && (!appState.layoutMode || !appState.layoutMode.startsWith('custom_'))) {
+    } else if (appState.layoutMode !== 'personal') {
         window.applyLayoutForces();
     } else {
         simulation.alpha(0.3).restart();
@@ -1595,15 +1562,15 @@ window.updateLayoutButtonLabel = function () {
             } catch (e) { /* il nome generico basta */ }
             span.innerText = nome;
         }
-        if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
-            const layoutId = appState.layoutMode.replace('custom_', '');
-            const layout = (appState.savedLayouts || []).find(l => l.id === layoutId);
-            span.innerText = layout ? layout.keyword : 'CUSTOM';
-        }
     } else {
         btn.classList.remove('bg-indigo-100', 'text-indigo-600');
         btn.classList.add('bg-slate-100', 'text-slate-600');
-        span.innerText = 'LAYOUT';
+        /* Il passo libero si chiama MAPPA, non «LAYOUT» (16/8): col ciclo corto
+           i quattro passi sono quattro viste, e tre dicono il loro nome. Un
+           passo che dice il nome del BOTTONE invece del nome della vista
+           lasciava indovinare che cosa si stia guardando — ed è lo stesso nome
+           che porta il bottone nel pannello della Vista studio. */
+        span.innerText = 'MAPPA';
     }
 };
 

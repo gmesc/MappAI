@@ -371,7 +371,15 @@
        quattro sono letture oblique — utili, ma non nella prima schermata di chi
        apre la vista per la prima volta. Stessa chiave `mode` per entrambi i
        gruppi: è una scelta sola, spezzata in due posti. */
-    const MOTORI = [['td', 'Albero'], ['dag', 'DAG'], ['fasci', 'Fasci']];
+    /* «Mappa» non è un motore: è l'USCITA dalla vista studio, cioè il passo
+       `default` del ciclo — la mappa libera, col force layout. Sta qui, primo
+       fra le scelte del motore, perché da dentro la vista è una delle forme
+       fra cui si sceglie, e cercarla altrove (il bottone LAYOUT premuto tre
+       volte) non è quello che uno si aspetta.
+       Porta un valore RISERVATO, non un `mode`: se finisse nel profilo, alla
+       riapertura la vista proverebbe a disegnare con un motore inesistente. */
+    const USCITA = '__mappa';
+    const MOTORI = [[USCITA, 'Mappa'], ['td', 'Albero'], ['dag', 'DAG'], ['fasci', 'Fasci']];
     const MOTORI_ALT = [['anelli', 'Anelli'], ['colonne', 'Colonne'], ['percorso', 'Percorso'], ['matrice', 'Matrice']];
     /* Il nome del motore in chiaro: lo usano il bottone «Ripristina default» e
        l'etichetta del bottone LAYOUT. Una fonte sola — i due posti dicono lo
@@ -524,7 +532,9 @@
                 /* Il motore non è una leva come le altre: cambiandolo si ripone
                    la taratura di quello che si lascia e si tira fuori la sua. */
                 if (k === 'mode') {
-                    cambiaMotore(profile(), b.getAttribute('data-v'));
+                    const v = b.getAttribute('data-v');
+                    if (v === USCITA) { tornaAllaMappa(); return; }
+                    cambiaMotore(profile(), v);
                     if (profile().mode !== 'anelli') profile().centerId = null;
                 } else {
                     profiloDi(k)[k] = b.getAttribute('data-v');
@@ -946,6 +956,18 @@
        tarature come farebbe il segmento nel pannello — una strada sola per la
        stessa cosa. Chiamabile anche a vista chiusa: `enter()` disegnerà con
        quello appena scelto. */
+    /* Torna alla mappa libera — lo stesso posto in cui porta il bottone LAYOUT
+       uscendo dal giro. Passa da `exit(true)`: è una scelta del docente («non
+       voglio più la vista studio»), non un'uscita di servizio, quindi riaprendo
+       l'app non deve ritrovarsi la vista addosso. Le forze si riapplicano qui,
+       perché nessuno ce le rimette: `exit` smonta l'overlay e basta. */
+    function tornaAllaMappa() {
+        if (typeof appState !== 'undefined') appState.layoutMode = 'default';
+        exit(true);
+        try { if (window.updateLayoutButtonLabel) window.updateLayoutButtonLabel(); } catch (e) { }
+        try { if (window.applyLayoutForces) window.applyLayoutForces(); } catch (e) { }
+    }
+
     function setMotore(mode) {
         const p = profile();
         cambiaMotore(p, mode);
@@ -958,7 +980,7 @@
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S,
         setMotore, ripristina, nomeMotore, salvaProfilo: scriviUtente,
-        _defaultsDi: defaultsDi, MOTORI
+        tornaAllaMappa, _defaultsDi: defaultsDi, MOTORI, USCITA
     };
     console.log('[MappAIStudioView] vista studio caricata (kill-switch: mappai_studio_view=0)');
 })();

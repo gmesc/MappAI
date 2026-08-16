@@ -224,10 +224,6 @@ window.ctxAction = function (action) {
     const data = ctxTarget.data;
     hideContextMenu();
 
-    if (action === 'fissa_layout') {
-        window.openLayoutModal();
-        return;
-    }
     if (action === 'expand_ai') {
         window.openContextualAIExtensionModal(data);
         return;
