@@ -92,7 +92,7 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
-| `mappai_error_log` | acceso | il **registro locale degli errori** (15/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
+| `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
 | `mappai_errori_recenti` | scritto dall'uso | la copia in `localStorage` degli ultimi 50 errori: serve dove non c'è il disco (browser) e a mostrarli subito. La fonte resta il file |
 
 ---
@@ -757,10 +757,13 @@ che c'è qui sotto si poteva vedere **solo** nell'app vera, ed è stato visto l�
   (`cq_ok_no_pdf`, `cq_nome_preso`) e l'elenco INSEGNA senza le voci d'archivio cartacee.
 
 ✅ **Anche il cassetto ha retto** (misurato il 16/8, §4 punto 0-bis): 99 voci per 99
-mappe, zero copie in eccesso, 17,4 MB. Resta da tenere d'occhio nel tempo, e il posto è
-Cabina › Gestione cartelle, riga «Spazio di lavoro»: se risale, il sospetto numero uno è
-un percorso di salvataggio che conia una scheda nuova invece di adottare quella del
-vault, e il secondo è `mappai_saved_documents`, che nessuna potatura tocca.
+mappe, zero copie in eccesso, **36% di ~48 MB**. E dal 16/8 non c'è più bisogno di
+ricordarsi di guardarlo: la saturazione **si scrive da sola nel registro degli errori**
+quando supera il 60 / 80 / 90%, quindi arriva in coda a una segnalazione senza che il
+tester sappia di doverla cercare. In app la riga di Cabina › Gestione cartelle dice ora
+anche la percentuale. Se risale, il sospetto numero uno è un salvataggio che conia una
+scheda nuova invece di adottare quella del vault; il secondo è `mappai_saved_documents`
+(1,9 MB, la chiave più pesante), che **nessuna potatura tocca**.
 
 ⚠️ **Non è mai stato visto girare** il ramo **ALLIEVO** del modale «Per chi è questa
 mappa?»: questa installazione non ha schede allievo, quindi non è una prova rimandata —
@@ -807,6 +810,7 @@ cambia la misura, non è la cascata — è la misura.**
 | | |
 |---|---|
 | il **diario** giorno per giorno, coi motivi e le misure | `CLAUDE.md` §11 |
+| **assistere un beta tester da remoto** (comandi per la console, per sintomo) | [`ASSISTENZA-REMOTA.md`](ASSISTENZA-REMOTA.md) |
 | il diario di «creare un materiale a mano» (**chiuso il 13/8 sera**) | [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md) |
 | il diario del filone **console-bento / ELABORA** (6-12 agosto) | [`HANDOFF-console-bento.md`](HANDOFF-console-bento.md) |
 | il diario del filone **manifesto** (3-6 agosto) | [`HANDOFF-manifesto.md`](HANDOFF-manifesto.md) |
