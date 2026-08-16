@@ -83,7 +83,8 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_bento_layout` | assente = composizione del file | la composizione scritta dall'Officina §7. Assente, comanda `mappai-bento-composizione.js` |
 | `mappai_teach_console` | acceso | la console INSEGNA. `'0'` → le tre sezioni storiche della landing |
 | `mappai_studio_view` | acceso | il passo **STUDIO** nel ciclo LAYOUT. `'0'` → il ciclo storico, e nessun rientro automatico |
-| `mappai_studio_profile` | scritto dall'uso | il profilo della Vista studio a livello UTENTE (non di progetto) |
+| `mappai_layout_ciclo_storico` | spento | `'1'` rimette il **ciclo lungo** del bottone LAYOUT (Default · Orbita · Radiale/Separato · Studio · Personale · salvati). Dal 16/8 il ciclo è **Default → Albero → Fasci → DAG**: orbita, radiale, separato e personale non hanno più un ingresso, i layout salvati restano sotto il bottone FISSA |
+| `mappai_studio_profile` | scritto dall'uso | il profilo della Vista studio a livello UTENTE (non di progetto), **con una taratura per motore** (`perMotore`) |
 | `mappai_studio_attivo` | scritto dall'uso | «ero dentro STUDIO quando ho chiuso»: fa rientrare l'app in STUDIO all'apertura di una mappa |
 | `mappai_vista_ridotta` | scritto dalla combo | la vista ridotta di CREA (SHIFT+CTRL+L,K,J,H) |
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
@@ -491,13 +492,42 @@ apposta, quindi la colonna parte sempre senza filtro.)
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 `mappai-studio-draw.js`, pannello in `mappai-studio-view.js`.
-- **Default (12/8)**: Albero · dall'alto · solo gerarchia · niente linking words · niente
-  gerarchia visiva · evidenzia «vicini» · frecce separate · bande off · curva · ponticelli
-  off. È la mappa più semplice che la vista sa produrre: da lì si aggiunge.
+- **Il ciclo del bottone LAYOUT è `Default → Albero → Fasci → DAG`** (16/8). La decisione
+  è una funzione PURA — `MappAIStudioLayouts.cicloStudio(passo, motore)` — e non più una
+  catena di `else if` dentro `toggleLayout`, che vuole d3 e mezza app per girare: è la
+  cosa che l'utente incontra a ogni pressione del bottone, e non era provabile. Il
+  bottone dice il **nome del motore**, non «STUDIO» per tutti e tre.
+  ⚠️ Da un motore fuori dai tre (Anelli, Colonne… presi da «Altre opzioni») il passo dopo
+  è l'**uscita**: chi l'ha scelto non viene spostato su Albero senza averlo chiesto.
+  ⚠️ Orbita, radiale, separato e personale **hanno perso il loro ingresso**; i layout
+  salvati restano sotto il bottone FISSA. Kill-switch `mappai_layout_ciclo_storico='1'`.
+- **Una taratura per MOTORE** (16/8, `p.perMotore`). I tre motori disegnano cose di scala
+  diversa e con una taratura sola o si sceglieva per l'uno o per l'altro:
+
+  | | archi | parole | livelli | card | testo |
+  |---|---|---|---|---|---|
+  | **Albero** | solo gerarchia | intere | 260 · 28 | 176×120 | 22 |
+  | **DAG** | + cross | intere | 260 · 28 | 176×120 | 22 |
+  | **Fasci** | + cross | no | 50 · 30 | 80×30 | 11 |
+
+  Comune ai tre: dall'alto · gerarchia visiva no · evidenzia **la parentela** · tutti i
+  livelli · testo dei legami 9 · frecce separate · bande spente. Un motore senza taratura
+  sua (Anelli, Colonne…) eredita quella dell'**Albero**, non quella dei Fasci.
+  Le leve VIVE restano piatte su `p` (il renderer non deve sapere che esiste una taratura
+  per motore); `perMotore` è solo la fotografia che si ripone cambiando motore.
+- **«Ripristina default»** nel pannello, e dice sempre di quale vista parla («Ripristina
+  default · Fasci»): dove ogni motore ha la sua taratura, «ripristina» da solo non
+  direbbe che cosa sta per tornare indietro.
+- **Dove si salva**: nel progetto (`saveCurrentProject`, è dentro `appState`) e a livello
+  UTENTE (`mappai_studio_profile`) — quest'ultimo è la taratura con cui si riapre la
+  prossima mappa. HOME passa da `exit()`, ⌘Q da `onSalvaPrimaDiUscire` (⚠️ non da
+  `beforeunload`, che con ⌘Q non è garantito).
 - **Un pannello solo**, uguale dentro e fuori dal focus: `profiloDi(k)` manda la geometria
   al profilo del focus e la resa a quello della vista.
 - Le opzioni oblique (anelli · colonne · percorso · matrice · instradamento · ponticelli)
   stanno nel pieghevole **«Altre opzioni»**, dopo Esporta PDF.
+- ⚠️ **`mappai-studio-layouts.js` e `-draw.js` non avevano un marcatore di cache** fino al
+  16/8: modificarli non bastava a farli arrivare all'app.
 - ⚠️ `exit()` viene chiamato in **due situazioni diverse**: col bottone LAYOUT è
   **volontaria** (`exit(true)`, spegne il ricordo), al cambio mappa è **di servizio** (lo
   lascia). Confonderle rende il ricordo inutile — si perderebbe a ogni cambio di mappa.
