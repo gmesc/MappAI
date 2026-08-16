@@ -1614,7 +1614,8 @@
                 <!-- Toggle Layout -->
                 <button id="card-btn-layout" onclick="window.toggleLayout()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Cambia Layout (Default / Orbit / Radiale / Separato / Personal)">
+                    data-i18n-title="tt_layout_cycle"
+                    title="Cambia vista (Default / Albero / Fasci / DAG)">
                     <i data-lucide="network" class="w-5 h-5"></i>
                     <span class="text-[9px] font-bold mt-1 uppercase" id="layout-label-text">Layout</span>
                 </button>
@@ -3544,8 +3545,8 @@
     <script src="js/mappai-console-bento.js?v=dh13"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=dh23"></script>
-    <script src="js/mappai-d3-render.js?v=dh11"></script>
+    <script src="js/mappai-storage-lang.js?v=dh24"></script>
+    <script src="js/mappai-d3-render.js?v=dh24"></script>
     <script src="js/mappai-ui-canvas.js?v=dh18"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
@@ -3595,9 +3596,9 @@
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
-    <script src="js/mappai-studio-layouts.js"></script>
-    <script src="js/mappai-studio-draw.js"></script>
-    <script src="js/mappai-studio-view.js?v=dh11"></script>
+    <script src="js/mappai-studio-layouts.js?v=dh24"></script>
+    <script src="js/mappai-studio-draw.js?v=dh24"></script>
+    <script src="js/mappai-studio-view.js?v=dh24"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>

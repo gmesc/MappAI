@@ -709,6 +709,7 @@ const en_translations = {
     tt_study: "Study",
     tt_lim_tab: "Whiteboard",
     tt_vista_tab: "Study view",
+    tt_layout_cycle: "Change view (Default / Tree / Bundles / DAG)",
 
     // ── Vista studio (1/8) — layout deterministici sul canvas ──
     tst_studio_on: "Study view: deterministic, made for reading. The free layout stays underneath.",
@@ -745,6 +746,8 @@ const en_translations = {
     sv_fs_rel: "Linking word text size",
     sv_bands: "Macro-area bands",
     sv_pdf: "Export PDF (A4)",
+    sv_reset: "Reset to defaults",
+    sv_reset_ok: "Options reset to their starting values.",
     sv_hint: "Right-click a card: Description, Focus on neighbours or on the whole lineage.",
     sv_desc_cmd: "Description",
     sv_desc_none: "This node has no description yet.",

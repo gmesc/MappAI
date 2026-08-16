@@ -212,3 +212,30 @@ test('etichette: polilinea a gomito → sceglie il braccio lungo', () => {
   const p = r.pos.get(0);
   assert.ok(Math.abs(p.y - 20) < 0.6, 'non è sul braccio orizzontale: y=' + p.y);
 });
+
+/* ── il ciclo del bottone LAYOUT (16/8) ─────────────────────────────────────
+   Default → Albero → Fasci → DAG → Default. Prima era una catena di `else if`
+   dentro toggleLayout, che vuole d3 e mezza app per girare: non si poteva
+   provare, ed è la cosa che l'utente incontra a ogni pressione del bottone. */
+test('cicloStudio: i quattro passi, in giro chiuso', () => {
+    const c = (p, m) => L.cicloStudio(p, m);
+    assert.deepStrictEqual(c('default', null), { passo: 'studio', motore: 'td' }, 'dal libero si entra sull\'Albero');
+    assert.deepStrictEqual(c('studio', 'td'), { passo: 'studio', motore: 'fasci' });
+    assert.deepStrictEqual(c('studio', 'fasci'), { passo: 'studio', motore: 'dag' });
+    assert.strictEqual(c('studio', 'dag').passo, 'default', 'dopo il DAG si esce');
+});
+
+test('cicloStudio: si entra nel giro da qualunque passo storico', () => {
+    // orbita/radiale/personale non sono più nel ciclo: se un progetto salvato
+    // li porta ancora, il bottone deve comunque portare dentro la vista
+    ['orbit', 'radial', 'separated', 'personal', 'custom_abc', undefined]
+        .forEach(p => assert.deepStrictEqual(L.cicloStudio(p, null), { passo: 'studio', motore: 'td' },
+            'da ' + p + ' si entra sull\'Albero'));
+});
+
+test('cicloStudio: da un motore fuori dai tre si ESCE, non si viene spostati', () => {
+    ['anelli', 'colonne', 'percorso', 'matrice'].forEach(m => {
+        assert.strictEqual(L.cicloStudio('studio', m).passo, 'default',
+            m + ': chi l\'ha scelto esce, non finisce sull\'Albero senza averlo chiesto');
+    });
+});

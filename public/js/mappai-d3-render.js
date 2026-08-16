@@ -1457,6 +1457,35 @@ window.toggleLayout = function () {
     const studioOn = localStorage.getItem('mappai_studio_view') !== '0' && window.MappAIStudioView;
     const wasStudio = appState.layoutMode === 'studio';
 
+    /* ── CICLO CORTO (16/8): Default → Albero → Fasci → DAG ──────────────────
+       Il ciclo storico aveva sei passi e i primi tre erano varianti dello
+       stesso force layout (orbita, radiale, separato): si premeva LAYOUT tre
+       volte per arrivare alla vista che si voleva davvero. Ora i tre passi
+       sono i tre MOTORI della vista studio, che è dove si legge una mappa.
+       ⚠️ Orbita, radiale, separato, personale e i layout salvati NON sono
+       più nel ciclo. I layout salvati restano raggiungibili dal gestore dei
+       layout (il bottone FISSA); orbita/radiale/separato/personale perdono
+       il loro ingresso — kill-switch `mappai_layout_ciclo_storico='1'` per
+       rimettere il ciclo di prima finché non si decide dove vivono. */
+    const cicloCorto = studioOn && window.MappAIStudioLayouts
+        && localStorage.getItem('mappai_layout_ciclo_storico') !== '1';
+    if (cicloCorto) {
+        // la decisione è pura e sta in mappai-studio-layouts.js: qui solo l'effetto
+        const passo = window.MappAIStudioLayouts.cicloStudio(
+            appState.layoutMode, wasStudio ? window.MappAIStudioView.profile().mode : null);
+        appState.layoutMode = passo.passo;
+        if (passo.passo === 'studio') window.MappAIStudioView.setMotore(passo.motore);
+        if (wasStudio && passo.passo !== 'studio') window.MappAIStudioView.exit(true);
+        window.updateLayoutButtonLabel();
+        if (passo.passo === 'studio') {
+            // già dentro: `setMotore` ha già ridisegnato, non si rimonta l'overlay
+            if (!wasStudio) window.MappAIStudioView.enter();
+        } else {
+            window.applyLayoutForces();
+        }
+        return;
+    }
+
     // Ciclo Layout: Default -> (Orbit) -> (Radial/Separated) -> (Studio) -> (Personal) -> (Custom Layouts)
     if (appState.layoutMode === 'default') {
         appState.layoutMode = 'orbit';
@@ -1555,7 +1584,17 @@ window.updateLayoutButtonLabel = function () {
         if (appState.layoutMode === 'radial') span.innerText = 'RADIALE';
         if (appState.layoutMode === 'orbit') span.innerText = 'ORBITA';
         if (appState.layoutMode === 'personal') span.innerText = 'PERSONAL';
-        if (appState.layoutMode === 'studio') span.innerText = 'STUDIO';
+        /* Col ciclo corto i passi sono i motori: il bottone dice ALBERO,
+           FASCI o DAG — «STUDIO» per tutti e tre non direbbe dove si è, e il
+           passo successivo resterebbe da indovinare. */
+        if (appState.layoutMode === 'studio') {
+            let nome = 'STUDIO';
+            try {
+                const SV = window.MappAIStudioView;
+                if (SV && SV.nomeMotore) nome = String(SV.nomeMotore(SV.profile().mode)).toUpperCase();
+            } catch (e) { /* il nome generico basta */ }
+            span.innerText = nome;
+        }
         if (appState.layoutMode && appState.layoutMode.startsWith('custom_')) {
             const layoutId = appState.layoutMode.replace('custom_', '');
             const layout = (appState.savedLayouts || []).find(l => l.id === layoutId);

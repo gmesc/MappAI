@@ -1556,10 +1556,34 @@
         }
     }
 
+    /* ── IL CICLO DEL BOTTONE LAYOUT (16/8) ──────────────────────────────────
+       Default → Albero → Fasci → DAG → Default. Vive qui, e non dentro
+       `toggleLayout`, per una ragione sola: così si può provare. Il ciclo è
+       la cosa che un utente incontra a ogni pressione del bottone, e finora
+       era una catena di `else if` dentro una funzione che vuole d3, un
+       `simulation` e mezza app per girare — cioè non provabile.
+
+       `passo` = appState.layoutMode · `motore` = il motore della vista studio
+       (null se non si è dentro). Torna che cosa diventa il passo e, quando si
+       resta nella vista, su quale motore.
+       ⚠️ Da un motore FUORI dai tre (Anelli, Colonne… presi da «Altre
+       opzioni») il passo dopo è l'uscita: entrare nel giro dal primo dei tre
+       farebbe sembrare che il bottone non abbia fatto quello che ci si
+       aspetta. Chi ha scelto Anelli esce dalla vista, non viene spostato su
+       Albero senza averlo chiesto. */
+    var CICLO_MOTORI = ['td', 'fasci', 'dag'];
+    function cicloStudio(passo, motore) {
+        if (passo !== 'studio') return { passo: 'studio', motore: CICLO_MOTORI[0] };
+        var i = CICLO_MOTORI.indexOf(motore);
+        if (i < 0 || i === CICLO_MOTORI.length - 1) return { passo: 'default', motore: motore };
+        return { passo: 'studio', motore: CICLO_MOTORI[i + 1] };
+    }
+
     return {
         DEFAULTS, edgeList, components, breakCycles, assignLayers,
         spanningForest, layoutDAG, layoutTD, layoutAnelli, layoutColonne,
         layoutPercorso, layoutFasci, layoutMatrice, run, measure, addHops, depths, assignPorts,
-        placeEdgeLabels, labelSize, labelRect, segRectHit, rectHit
+        placeEdgeLabels, labelSize, labelRect, segRectHit, rectHit,
+        cicloStudio, CICLO_MOTORI
     };
 }));

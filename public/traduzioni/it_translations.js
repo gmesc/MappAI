@@ -253,6 +253,7 @@ const it_translations = {
     tt_study: "Studio",
     tt_lim_tab: "LIM",
     tt_vista_tab: "Vista studio",
+    tt_layout_cycle: "Cambia vista (Default / Albero / Fasci / DAG)",
     tt_embedding_call: "Include 1 chiamata di embedding per rilevare entità duplicate tra rami",
     ui_click_analyze: "Clicca \"Analizza struttura\" per i suggerimenti.",
     ui_no_node_selected: "Nessun nodo selezionato",

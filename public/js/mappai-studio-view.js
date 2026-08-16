@@ -30,13 +30,55 @@
         bands: false, centerId: null,
         hops: false, ports: true, hl: 'vicini'
     };
-    /* Le leve di resa su cui il default del 12/8 deve VINCERE anche sui profili
-       già salvati: senza, chi ha aperto la vista una volta si porta dietro per
-       sempre la taratura vecchia e il miglioramento non lo vede nessuno.
-       Si applica UNA volta sola (`defv`), poi comanda la scelta dell'utente —
-       è la stessa regola dei default del bento (§ round 21). */
-    const DEF_VER = 2;
-    const DEF_RESA = ['mode', 'orient', 'routing', 'set', 'labels', 'hier', 'hl', 'bands', 'ports', 'hops'];
+
+    /* ── UNA TARATURA PER MOTORE (16/8) ──────────────────────────────────────
+       Prima la taratura era UNA sola per tutta la vista, e passando da un
+       motore all'altro restavano addosso le misure del precedente. Non è un
+       dettaglio: i tre motori disegnano cose di scala diversa — l'albero e il
+       DAG vogliono card grandi e corridoi larghi (si leggono da vicino, una
+       card è una scheda), i fasci vogliono card piccole e livelli stretti
+       (si guarda la forma dell'intreccio, non il testo). Con una taratura sola
+       o si sceglieva per l'uno o per l'altro, e l'altro usciva illeggibile.
+
+       Ora ogni motore ricorda la SUA taratura (`p.perMotore`), e questi sono i
+       punti di partenza scelti da Giacomo dal vivo (16/8, dagli screenshot).
+       Albero e DAG sono la stessa geometria: cambia solo QUALI archi si
+       disegnano — «solo gerarchia» contro «gerarchia + cross», che è esattamente
+       la differenza fra i due motori. */
+    const DEF_BASE = {
+        orient: 'td', routing: 'curva', hier: 'no', hl: 'parenti', depth: 999,
+        bands: false, hops: false, ports: true, fsRel: 9
+    };
+    const DEF_MOTORE = {
+        // Albero: la gerarchia e basta, card da leggere
+        td: { set: 'hier', labels: 'full', gapLayer: 260, gapNode: 28, w: 176, h: 120, fsNode: 22 },
+        // DAG: stessa geometria, ma i cross-link entrano nel disegno
+        dag: { set: 'all', labels: 'full', gapLayer: 260, gapNode: 28, w: 176, h: 120, fsNode: 22 },
+        // Fasci: si guarda l'intreccio. Card minime, niente parole sugli archi
+        // (in un fascio l'etichetta cadrebbe sul bundle e non si leggerebbe).
+        fasci: { set: 'all', labels: 'off', gapLayer: 50, gapNode: 30, w: 80, h: 30, fsNode: 11 }
+    };
+    /* Le leve che appartengono al MOTORE e viaggiano con lui. Fuori restano
+       `mode` (quale motore), `centerId` (vale per una mappa, non è una
+       preferenza), `focus` e `defv`. */
+    const LEVE_MOTORE = ['orient', 'routing', 'set', 'labels', 'hier', 'hl', 'depth',
+        'gapLayer', 'gapNode', 'w', 'h', 'fsNode', 'fsRel', 'bands', 'hops', 'ports'];
+
+    /* La taratura di partenza di un motore. I quattro motori di «Altre opzioni»
+       non hanno una taratura loro: ereditano quella dell'albero, che è la più
+       neutra (chi apre «Anelli» non si aspetta le card da 80px dei fasci). */
+    function defaultsDi(mode) {
+        return Object.assign({}, DEF_BASE, DEF_MOTORE[mode] || DEF_MOTORE.td);
+    }
+
+    /* I default nuovi devono VINCERE una volta sola anche sui profili già
+       salvati: senza, chi ha aperto la vista prima d'oggi si porta dietro per
+       sempre la taratura vecchia e non vede il miglioramento. Poi comanda la
+       scelta dell'utente — è la stessa regola dei default del bento.
+       ⚠️ Alla versione 3 si azzerano anche le tarature per-motore: erano
+       state scritte con le misure vecchie, e tenerle vorrebbe dire che i
+       default nuovi valgono per il motore aperto adesso e non per gli altri. */
+    const DEF_VER = 3;
     // Il Focus ha una geometria SUA: poche card, grandi, molto spazio. Vive a
     // parte per non travasare la taratura della vista d'insieme (e viceversa):
     // le stesse leve regolano cose diverse nei due contesti. Persiste col
@@ -100,12 +142,67 @@
         Object.keys(DEF_PROFILE).forEach(k => {
             if (p[k] === undefined) p[k] = DEF_PROFILE[k];
         });
-        // le leve di resa nuove vincono una volta sola (vedi DEF_VER)
+        // i default nuovi vincono una volta sola (vedi DEF_VER)
         if (p.defv !== DEF_VER) {
-            DEF_RESA.forEach(k => { p[k] = DEF_PROFILE[k]; });
+            p.perMotore = {};
+            applicaDefault(p, p.mode);
             p.defv = DEF_VER;
         }
+        if (!p.perMotore || typeof p.perMotore !== 'object') p.perMotore = {};
         return p;
+    }
+
+    /* Le leve del motore corrente, in una copia. Le leve VIVE restano piatte su
+       `p` — tutto il resto del modulo (e il renderer) legge `p.gapLayer`,
+       `p.w`… e non deve sapere che esiste una taratura per motore. Questa è
+       solo la fotografia da riporre quando si cambia motore. */
+    function leveCorrenti(p) {
+        const o = {};
+        LEVE_MOTORE.forEach(k => { o[k] = p[k]; });
+        return o;
+    }
+    function applicaLeve(p, o) {
+        LEVE_MOTORE.forEach(k => { if (o[k] !== undefined) p[k] = o[k]; });
+    }
+    function applicaDefault(p, mode) {
+        applicaLeve(p, defaultsDi(mode));
+    }
+
+    /* Cambio di motore: si ripone la taratura di quello che si lascia e si
+       tira fuori quella di quello che si prende — la sua, se c'è già stata
+       toccata, altrimenti il default del motore.
+       ⚠️ `set` va ricontrollato dopo: le scelte disponibili («solo gerarchia»
+       esiste solo dove c'è una gerarchia) dipendono dalla MAPPA, non dal
+       motore, e un valore che quella mappa non offre lascerebbe il segmento
+       senza nessuna scelta accesa. */
+    function cambiaMotore(p, nuovo) {
+        if (p.mode === nuovo) return;
+        p.perMotore[p.mode] = leveCorrenti(p);
+        p.mode = nuovo;
+        const salvato = p.perMotore[nuovo];
+        if (salvato) applicaLeve(p, salvato); else applicaDefault(p, nuovo);
+        const ok = currentData().choices.map(c => c.v);
+        if (ok.indexOf(p.set) < 0) p.set = ok[0];
+    }
+
+    /* «Ripristina default» — la taratura di partenza del motore ATTIVO, non di
+       tutti: chi la preme sta guardando una vista sola e vuole rimettere a
+       posto quella. Cancella anche la copia riposta, altrimenti tornando su
+       questo motore ricomparirebbe la taratura appena buttata via. */
+    function ripristina() {
+        const p = profile();
+        applicaDefault(p, p.mode);
+        delete p.perMotore[p.mode];
+        const ok = currentData().choices.map(c => c.v);
+        if (ok.indexOf(p.set) < 0) p.set = ok[0];
+        if (S.focus) { p.focus = Object.assign({}, DEF_FOCUS); }
+        render();
+        if (S.focus) openFocus(S.focus.id, S.focus.mode);
+        buildControls();
+        persist(); scriviUtente();
+        if (window.showToast) {
+            window.showToast(t('sv_reset_ok', 'Opzioni riportate ai valori di partenza.'), 'success');
+        }
     }
     function fprofile() {
         const p = profile();
@@ -276,6 +373,13 @@
        gruppi: è una scelta sola, spezzata in due posti. */
     const MOTORI = [['td', 'Albero'], ['dag', 'DAG'], ['fasci', 'Fasci']];
     const MOTORI_ALT = [['anelli', 'Anelli'], ['colonne', 'Colonne'], ['percorso', 'Percorso'], ['matrice', 'Matrice']];
+    /* Il nome del motore in chiaro: lo usano il bottone «Ripristina default» e
+       l'etichetta del bottone LAYOUT. Una fonte sola — i due posti dicono lo
+       stesso nome per costruzione. */
+    function nomeMotore(m) {
+        const v = MOTORI.concat(MOTORI_ALT).find(o => o[0] === m);
+        return v ? v[1] : String(m || '');
+    }
     function seg(k, opts, cur) {
         return '<div class="flex flex-wrap gap-1" data-sv-seg="' + k + '">' + opts.map(o =>
             '<button type="button" data-v="' + o[0] + '" class="px-2 py-1.5 rounded-lg text-[11px] font-bold border ' +
@@ -339,6 +443,12 @@
             (f ? t('sv_pdf_focus', 'Esporta PDF del Focus') : t('sv_pdf', 'Esporta PDF (A4)')) + '</button>' +
             (f ? '<button type="button" id="sv-focus-exit" class="w-full mt-2 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 flex items-center justify-center gap-2">' +
                 '<i data-lucide="corner-up-left" class="w-4 h-4"></i>' + t('sv_focus_exit', 'Chiudi il focus') + '</button>' : '') +
+            /* Dice SEMPRE di quale vista parla: «ripristina» da solo, in un
+               pannello dove ogni motore ha la sua taratura, non direbbe che
+               cosa sta per tornare indietro (e quanto). */
+            '<button type="button" id="sv-reset" class="w-full mt-2 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2">' +
+            '<i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>' +
+            t('sv_reset', 'Ripristina default') + ' · ' + nomeMotore(p.mode) + '</button>' +
             avanzate(p) +
             '<div class="text-[10px] text-slate-400 mt-2">' +
             t('sv_hint', 'Tasto destro su una card: Descrizione, Focus sui vicini o sulla parentela.') + '</div>';
@@ -407,11 +517,18 @@
                 buildControls();
                 return;
             }
+            if (ev.target.closest('#sv-reset')) { ripristina(); return; }
             const b = ev.target.closest('[data-sv-seg] button');
             if (b) {
                 const k = b.closest('[data-sv-seg]').getAttribute('data-sv-seg');
-                profiloDi(k)[k] = b.getAttribute('data-v');
-                if (k === 'mode' && profile().mode !== 'anelli') profile().centerId = null;
+                /* Il motore non è una leva come le altre: cambiandolo si ripone
+                   la taratura di quello che si lascia e si tira fuori la sua. */
+                if (k === 'mode') {
+                    cambiaMotore(profile(), b.getAttribute('data-v'));
+                    if (profile().mode !== 'anelli') profile().centerId = null;
+                } else {
+                    profiloDi(k)[k] = b.getAttribute('data-v');
+                }
                 persist(); buildControls(); ridisegna(k);
                 return;
             }
@@ -824,9 +941,24 @@
         if (window.switchSidebarTab) window.switchSidebarTab('structure');
     }
 
+    /* Il ciclo LAYOUT entra nella vista già su un motore preciso (Albero,
+       Fasci, DAG): passa DA QUI, così il cambio di motore ripone e ritira le
+       tarature come farebbe il segmento nel pannello — una strada sola per la
+       stessa cosa. Chiamabile anche a vista chiusa: `enter()` disegnerà con
+       quello appena scelto. */
+    function setMotore(mode) {
+        const p = profile();
+        cambiaMotore(p, mode);
+        if (mode !== 'anelli') p.centerId = null;
+        if (S.active) { render(); buildControls(); }
+        persist();
+    }
+
     window.MappAIStudioView = {
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
-        openDescModal, profile, focusProfile: fprofile, _state: S
+        openDescModal, profile, focusProfile: fprofile, _state: S,
+        setMotore, ripristina, nomeMotore, salvaProfilo: scriviUtente,
+        _defaultsDi: defaultsDi, MOTORI
     };
     console.log('[MappAIStudioView] vista studio caricata (kill-switch: mappai_studio_view=0)');
 })();

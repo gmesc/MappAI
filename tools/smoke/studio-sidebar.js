@@ -63,21 +63,62 @@ global.appState = {
 require(path.join(RADICE, 'public/js/mappai-studio-view.js'));
 const V = global.window.MappAIStudioView;
 
-/* ── 1. i default nuovi ──────────────────────────────────────────────────── */
-console.log('\n· i default che vede un docente alla prima apertura');
+/* ── 1. i default nuovi, uno per MOTORE (16/8) ───────────────────────────── */
+console.log('\n· i default che vede un docente alla prima apertura (Albero)');
 const p = V.profile();
-const attesi = { mode: 'td', orient: 'td', hier: 'no', hl: 'vicini', labels: 'off', set: 'hier', routing: 'curva', ports: true, bands: false, hops: false };
-Object.keys(attesi).forEach(k => ok(p[k] === attesi[k], k + ' = ' + JSON.stringify(p[k]) + ' (atteso ' + JSON.stringify(attesi[k]) + ')'));
+const ALBERO = {
+    mode: 'td', orient: 'td', hier: 'no', hl: 'parenti', labels: 'full', set: 'hier',
+    routing: 'curva', ports: true, bands: false, hops: false,
+    gapLayer: 260, gapNode: 28, w: 176, h: 120, fsNode: 22, fsRel: 9
+};
+Object.keys(ALBERO).forEach(k => ok(p[k] === ALBERO[k], k + ' = ' + JSON.stringify(p[k]) + ' (atteso ' + JSON.stringify(ALBERO[k]) + ')'));
 ok(V.focusProfile().orient === 'td', 'anche il focus parte «dall\'alto»');
 
-/* ── 2. un profilo vecchio viene riportato ai default nuovi, UNA volta ───── */
+console.log('\n· e i default degli altri due motori');
+const DAG = V._defaultsDi('dag'), FASCI = V._defaultsDi('fasci');
+ok(DAG.set === 'all' && DAG.labels === 'full' && DAG.w === 176 && DAG.h === 120 && DAG.gapLayer === 260 && DAG.fsNode === 22,
+    'DAG: come l\'albero ma con i cross-link');
+ok(V._defaultsDi('td').set === 'hier',
+    'e l\'unica differenza fra i due è QUALI archi si disegnano');
+ok(FASCI.set === 'all' && FASCI.labels === 'off' && FASCI.w === 80 && FASCI.h === 30 && FASCI.gapLayer === 50 && FASCI.gapNode === 30 && FASCI.fsNode === 11,
+    'Fasci: card minime, livelli stretti, niente parole sugli archi');
+ok(['td', 'dag', 'fasci'].every(k => V._defaultsDi(k).hl === 'parenti' && V._defaultsDi(k).fsRel === 9 && V._defaultsDi(k).depth === 999),
+    'e le tre cose che non cambiano fra i motori: parentela, testo dei legami, tutti i livelli');
+ok(JSON.stringify(V._defaultsDi('anelli')) === JSON.stringify(V._defaultsDi('td')),
+    'un motore senza taratura sua eredita quella dell\'albero, non quella dei fasci');
+
+/* ── 2. ogni motore ricorda la SUA taratura ──────────────────────────────── */
+console.log('\n· cambiando motore la taratura non resta addosso');
+global.appState.studioProfile = null;
+const q = V.profile();
+q.gapLayer = 111;                       // l'utente ritocca l'albero
+V.setMotore('fasci');
+ok(q.gapLayer === 50 && q.w === 80, 'passando ai Fasci arrivano le misure dei Fasci');
+q.w = 99;                               // e ritocca i fasci
+V.setMotore('td');
+ok(q.gapLayer === 111, 'tornando all\'Albero si ritrova il 111 di prima');
+ok(q.w === 176, 'e la larghezza dell\'albero, non il 99 dei fasci');
+V.setMotore('fasci');
+ok(q.w === 99, 'e i Fasci ricordano il loro 99');
+
+console.log('\n· «Ripristina default» vale per la vista ATTIVA');
+V.ripristina();
+ok(q.w === 80 && q.mode === 'fasci', 'i Fasci tornano a 80px');
+V.setMotore('td');
+ok(q.gapLayer === 111, 'e l\'Albero NON è stato toccato: il suo 111 è ancora lì');
+
+/* ── 3. un profilo vecchio viene riportato ai default nuovi, UNA volta ───── */
 console.log('\n· un profilo salvato con la taratura vecchia');
-global.appState.studioProfile = { mode: 'dag', orient: 'lr', hier: 'foglie', hl: 'parenti', labels: 'short', set: 'all', routing: 'orto', ports: true, bands: true, hops: true, gapLayer: 200, depth: 999, fsNode: 12, fsRel: 10, w: 118, h: 54, gapNode: 30, centerId: null };
+global.appState.studioProfile = { mode: 'dag', orient: 'lr', hier: 'foglie', hl: 'vicini', labels: 'short', set: 'all', routing: 'orto', ports: true, bands: true, hops: true, gapLayer: 200, depth: 999, fsNode: 12, fsRel: 10, w: 118, h: 54, gapNode: 30, centerId: null, defv: 2 };
 const m = V.profile();
-ok(m.mode === 'td' && m.hier === 'no' && m.labels === 'off', 'le leve di resa tornano ai default nuovi');
-ok(m.gapLayer === 200, 'la GEOMETRIA scelta dall\'utente resta (200px)');
-m.mode = 'anelli';
-ok(V.profile().mode === 'anelli', 'e la seconda volta non si riscrive più: la scelta dell\'utente vince');
+ok(m.hier === 'no' && m.labels === 'full' && m.hl === 'parenti', 'le leve di resa tornano ai default nuovi');
+/* ⚠️ Cambio rispetto al 12/8: ora si azzera anche la GEOMETRIA. I default
+   nuovi SONO misure (260/28/176/120/22): tenere quelle dell'utente vorrebbe
+   dire che chi ha aperto la vista prima d'oggi non li vede mai. */
+ok(m.gapLayer === 260 && m.w === 176, 'e con esse la geometria, perché i default nuovi sono misure');
+ok(m.mode === 'dag', 'il MOTORE scelto resta: si ritara la sua vista, non si cambia vista');
+m.gapLayer = 200;
+ok(V.profile().gapLayer === 200, 'e la seconda volta non si riscrive più: la scelta dell\'utente vince');
 
 /* ── 3. il pannello: che cosa è a vista e che cosa no ───────────────────── */
 console.log('\n· il pannello della mappa intera');

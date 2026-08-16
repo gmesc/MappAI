@@ -996,6 +996,15 @@ if (window.electronAPI && window.electronAPI.onSalvaPrimaDiUscire) {
     window.electronAPI.onSalvaPrimaDiUscire(async () => {
         const fatto = () => { try { window.electronAPI.salvataggioUscitaFatto(); } catch (e) { } };
         try {
+            /* Le opzioni della Vista studio vivono in DUE posti: nel progetto
+               (ci pensa saveCurrentProject, sono dentro appState) e a livello
+               UTENTE, che è la taratura con cui si riapre la prossima mappa.
+               La seconda si scriveva solo su `beforeunload`, che con ⌘Q non è
+               garantito: qui il main ci sta aspettando, quindi è il posto
+               giusto per esserne certi. */
+            if (window.MappAIStudioView && window.MappAIStudioView.salvaProfilo) {
+                try { window.MappAIStudioView.salvaProfilo(); } catch (e) { }
+            }
             StorageManager.saveCurrentProject();
             const inEsercizio = window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active;
             if (!inEsercizio && appState.activeVaultPath && window.buildVaultMapData && window.electronAPI.saveVault) {
