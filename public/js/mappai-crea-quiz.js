@@ -124,80 +124,134 @@
         });
     }
 
-    /* ── passo 3: i parametri della generazione ─────────────────────────── */
+    /* ── passo 3: i parametri della generazione ───────────────────────────
+       ⚠️ L'ANGOLAZIONE È UNA SCELTA MULTIPLA (16/8, richiesta di Giacomo). Era
+       una tendina: un angolo per volta, e per avere due versioni della stessa
+       verifica bisognava rifare tutto il giro. Ora si spuntano gli angoli che
+       servono e si generano ALTRETTANTI fogli in un colpo — che è il modo in
+       cui un docente prepara le varianti (la riga A chiede le cause, la riga B
+       le conseguenze, sullo stesso materiale).
+       Costa: un foglio per angolo, e ogni foglio è una chiamata all'AI per
+       ramo. Per questo la stima sta nel modale e si aggiorna mentre si sceglie:
+       si decide vedendo quanto costa, non dopo. */
     function _passoParametri(tp) {
         var aree = _aree();
         var opzAree = [{ valore: 'all', etichetta: t('cq_area_tutta', 'Tutta la mappa') }].concat(
             aree.map(function (a) { return { valore: a.id, etichetta: a.et }; }));
-        /* Le angolazioni le dichiara il motore dei quiz (`QUIZ_ANGLES`), non
-           questo modale: sono le stesse del modale «Genera materiali», e una
-           seconda lista qui divergerebbe alla prima angolazione nuova. */
-        var opzAngoli = ((window.QUIZ_ANGLES) || [{ key: 'auto' }]).map(function (a) {
-            return { valore: a.key, etichetta: window.quizAngleLabel ? window.quizAngleLabel(a.key) : a.key };
-        });
+        /* Gli angoli li dichiara il motore dei quiz (`QUIZ_ANGLES`), non questo
+           modale: sono gli stessi del modale «Genera materiali», e una seconda
+           lista qui divergerebbe al primo angolo nuovo. */
+        var ANG = (window.QUIZ_ANGLES) || [{ key: 'auto' }];
+        var etAng = function (k) { return window.quizAngleLabel ? window.quizAngleLabel(k) : k; };
 
-        MM().open({
-            titolo: t('cq_t3', 'Genera con l\'AI'), icona: 'sparkles', taglia: 'm', invio: false,
-            /* ── TRE GRUPPI, non un elenco unico (16/8) ──────────────────────
-               Erano cinque campi di fila sotto un titolo solo: il nome del
-               file, che cosa chiedere e quanto chiedere stavano tutti insieme,
-               e la spiegazione del nome apriva il modale come se fosse il
-               tema. Ora ogni gruppo risponde a una domanda, e il titolo di
-               sezione la fa — è la stessa gerarchia delle card di «Crea un
-               documento», dove ogni riga dice prima che cos'è. */
-            sezioni: [
-                {
-                    id: 'che', titolo: t('cq_g_che', 'Che cosa chiedono'),
-                    campi: [
-                        { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'), opzioni: opzAree, valore: 'all' },
-                        { id: 'angolo', tipo: 'scelta', etichetta: t('cq_ang', 'Angolazione'), opzioni: opzAngoli, valore: 'auto',
-                          aiuto: t('cq_ang_d', 'Che cosa devono chiedere le domande. Scegliendone una, TUTTE le domande avranno quel taglio; «Automatico» le distribuisce fra i tipi di ragionamento.') }
-                    ]
+        /* Quali angoli sono spuntati adesso. Alla prima apertura: «auto», che è
+           il comportamento di sempre. */
+        function scelti(v) {
+            if (!v) return ['auto'];
+            var out = ANG.filter(function (a) { return v['ang_' + a.key]; }).map(function (a) { return a.key; });
+            return out;
+        }
+        /* La stima: fogli × rami. `area` diversa da «tutta» = un ramo solo. */
+        function stima(v) {
+            var n = scelti(v).length;
+            var rami = (v && v.area && v.area !== 'all') ? 1 : Math.max(1, aree.length);
+            return { fogli: n, chiamate: n * rami };
+        }
+
+        function schema(v) {
+            var st = stima(v);
+            return {
+                titolo: t('cq_t3', 'Genera con l\'AI'), icona: 'sparkles', taglia: 'm', invio: false,
+                sezioni: [
+                    {
+                        id: 'che', titolo: t('cq_g_che', 'Che cosa chiedono'),
+                        campi: [
+                            { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'),
+                              opzioni: opzAree, valore: (v && v.area) || 'all' }
+                        ]
+                    },
+                    {
+                        id: 'ang', titolo: t('cq_g_ang', 'Angolazioni'),
+                        testo: t('cq_ang_d2', 'Che cosa devono chiedere le domande. Ogni angolazione spuntata produce un FOGLIO SUO sullo stesso materiale: è il modo di preparare due versioni della stessa verifica. «Automatico» distribuisce i tipi di ragionamento dentro un foglio solo.'),
+                        campi: ANG.map(function (a) {
+                            return { id: 'ang_' + a.key, tipo: 'spunta', etichetta: etAng(a.key),
+                                valore: v ? !!v['ang_' + a.key] : (a.key === 'auto') };
+                        }),
+                        /* La stima sotto le spunte, non altrove: è la conseguenza
+                           di quello che si sta spuntando. */
+                        /* «1 fogli» è il genere di dettaglio che fa sembrare un
+                           testo scritto da una macchina: due chiavi, non un
+                           conteggio con la «i» appiccicata. */
+                        sotto: st.fogli
+                            ? (st.fogli === 1
+                                ? t('cq_stima_uno', 'Un foglio · circa {c} chiamate all\'AI').replace('{c}', st.chiamate)
+                                : t('cq_stima', '{f} fogli · circa {c} chiamate all\'AI')
+                                    .replace('{f}', st.fogli).replace('{c}', st.chiamate))
+                            : t('cq_stima_zero', 'Nessuna angolazione scelta: spuntane almeno una.')
+                    },
+                    {
+                        id: 'quante', titolo: t('cq_g_quante', 'Quante e come graduate'),
+                        /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
+                           `normalizzaCampo` lo trasforma in un campo di testo vuoto
+                           senza etichetta, che a schermo è una riga misteriosa. */
+                        campi: [
+                            { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'),
+                              valore: (v && v.quante) || 5, min: 1, max: 30, larghezza: 'meta' },
+                            /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────
+                               Solo per le domande aperte: nei quiz a scelta multipla
+                               la graduazione non ha lo stesso senso — lì le opzioni
+                               orientano già, e una domanda «facile» diventa un
+                               indovinello. Qui invece è la differenza fra un foglio
+                               che si può cominciare e uno su cui chi sa metà scrive
+                               zero righe. */
+                            tp.documento ? { id: 'base', tipo: 'numero', etichetta: t('cq_base', 'Domande d\'avvio (%)'),
+                              valore: (v && v.base != null && v.base !== '') ? v.base : 40, min: 0, max: 100, larghezza: 'meta',
+                              aiuto: t('cq_base_d', 'Quante domande si possono risolvere con UN concetto solo, da chi ha studiato una parte della scheda. Le altre chiedono di collegare due o più concetti. Sul foglio degli allievi la differenza non si vede: compare solo sulle tue tracce di correzione.') } : null
+                        ].filter(Boolean)
+                    },
+                    {
+                        id: 'nome', titolo: t('cq_g_nome', 'Come si chiama il file'),
+                        campi: [
+                            /* La spiegazione del nome sta SUL campo, non in testa al
+                               modale: è l'aiuto di quella riga, non l'argomento. */
+                            { id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'), valore: (v && v.nome) || '',
+                              aiuto: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
+                                  .replace('{es}', _esempioNome(tp)) }
+                        ]
+                    }
+                ],
+                /* La stima si aggiorna mentre si sceglie: ridisegnare col valori
+                   correnti è la strada che il motore prevede (`__campo`), e
+                   rimette il fuoco dov'era. */
+                suAzione: function (ev, box, ridisegna) {
+                    if (ev.azione === '__campo') ridisegna(schema(ev.valori));
                 },
-                {
-                    id: 'quante', titolo: t('cq_g_quante', 'Quante e come graduate'),
-                    /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
-                       `normalizzaCampo` lo trasforma in un campo di testo vuoto
-                       senza etichetta, che a schermo è una riga misteriosa. */
-                    campi: [
-                        { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'), valore: 5, min: 1, max: 30, larghezza: 'meta' },
-                        /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────
-                           Solo per le domande aperte: nei quiz a scelta multipla
-                           la graduazione non ha lo stesso senso — lì le opzioni
-                           orientano già, e una domanda «facile» diventa un
-                           indovinello. Qui invece è la differenza fra un foglio
-                           che si può cominciare e uno su cui chi sa metà scrive
-                           zero righe. */
-                        tp.documento ? { id: 'base', tipo: 'numero', etichetta: t('cq_base', 'Domande d\'avvio (%)'),
-                          valore: 40, min: 0, max: 100, larghezza: 'meta',
-                          aiuto: t('cq_base_d', 'Quante domande si possono risolvere con UN concetto solo, da chi ha studiato una parte della scheda. Le altre chiedono di collegare due o più concetti. Sul foglio degli allievi la differenza non si vede: compare solo sulle tue tracce di correzione.') } : null
-                    ].filter(Boolean)
-                },
-                {
-                    id: 'nome', titolo: t('cq_g_nome', 'Come si chiama il file'),
-                    campi: [
-                        /* La spiegazione del nome sta SUL campo, non in testa al
-                           modale: è l'aiuto di quella riga, non l'argomento. */
-                        { id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'),
-                          aiuto: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
-                              .replace('{es}', _esempioNome(tp)) }
-                    ]
-                }
-            ],
-            azioni: [
-                { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
-                { id: 'vai', etichetta: t('cq_vai', 'Genera'), icona: 'sparkles', ruolo: 'primario' }
-            ]
-        }).then(function (r) {
+                azioni: [
+                    { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
+                    { id: 'vai', etichetta: t('cq_vai', 'Genera'), icona: 'sparkles', ruolo: 'primario' }
+                ]
+            };
+        }
+
+        MM().open(schema(null)).then(function (r) {
             if (!r || r.azione !== 'vai') return;
             var v = r.valori || {};
-            _genera(tp, { nome: v.nome || '', quantita: v.quante || 5, area: v.area || 'all',
-                angolo: v.angolo || 'auto', base: (v.base != null && v.base !== '') ? v.base : null });
+            var angoli = scelti(v);
+            if (!angoli.length) {
+                toast(t('cq_no_ang', 'Spunta almeno un\'angolazione: è quella che dice che cosa chiedere.'), 'warning');
+                _passoParametri(tp);   // si riapre com'era: non si perde quello che era già scritto
+                return;
+            }
+            _generaVarianti(tp, {
+                nome: v.nome || '', quantita: v.quante || 5, area: v.area || 'all',
+                base: (v.base != null && v.base !== '') ? v.base : null
+            }, angoli);
         });
     }
 
-    /* Come si chiamerà il file: si mostra PRIMA di generare, così il docente sa
-       che cosa sta scegliendo (e che il resto del nome non è negoziabile). */
+    /* L'esempio di nome che il modale mostra: si costruisce col MOTORE che
+       comporrà il nome vero (`buildFileName`), non a mano — un esempio che
+       diverge dal file prodotto è peggio di nessun esempio. */
     function _esempioNome(tp) {
         var PC = window.MappAIPipelineCore;
         var kind = { mc: 'quiz_mc', tf: 'quiz_tf', flashcards: 'flashcards', open: 'open_questions' }[tp.id];
@@ -205,32 +259,94 @@
         return PC.buildFileName(kind, null, false, { mappa: _mappa(), nome: t('cq_nome_ph', 'verifica di ottobre') });
     }
 
-    /* ── genera davvero (il motore è della pipeline) ────────────────────── */
-    function _genera(tp, opts) {
+    /* ── PIÙ ANGOLAZIONI = PIÙ FOGLI, uno per volta (16/8) ───────────────────
+       Due vincoli decidono la forma di questa funzione, e nessuno dei due è
+       negoziabile:
+       1. `generaSet` mette il LUCCHETTO (`Pipeline._running`) e lo rilascia nel
+          `finally`. Due chiamate insieme: la seconda torna «occupata» e il
+          foglio non si fa. Quindi in SEQUENZA, una dopo l'altra.
+       2. `generaSet` RIFIUTA un nome già preso (`_nomeGiaPreso`) — ed è giusto,
+          perché due file con lo stesso nome si sovrascriverebbero. Quindi ogni
+          variante porta il suo angolo nel nome.
+       ⚠️ Con UN angolo solo il nome resta quello scritto dal docente: aggiungere
+       sempre il suffisso cambierebbe il nome di ogni generazione singola, che
+       finora non ce l'ha.
+       ⚠️ Un foglio che fallisce NON ferma gli altri: si raccoglie l'esito e si
+       dice alla fine quanti ne sono usciti. Perdere quattro fogli riusciti per
+       il quinto che non è andato sarebbe il guasto peggiore qui dentro. */
+    function _generaVarianti(tp, opts, angoli) {
         if (!P() || !P().generaSet) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
-        P().generaSet({
-            tipo: tp.id, nome: opts.nome, quantita: opts.quantita,
-            area: opts.area, angolo: opts.angolo, base: opts.base
-        }).then(function (r) {
-            if (!r || !r.ok) { toast((r && r.errore) || t('cq_ko', 'Generazione non riuscita.'), 'error'); return; }
-            /* Che cosa è successo, detto per intero: dove si corregge e dove si
-               stampa. Sono due posti diversi, ed è la domanda che il docente si
-               farebbe subito dopo.
-               ⚠️ `pdfErrore` = la SORGENTE c'è (si corregge in ELABORA) ma la
-               resa PDF è fallita: va detto col suo motivo, non confuso con
-               «manca il vault» — sono due rimedi diversi. */
-            if (r.pdfErrore) {
-                toast(t('cq_ok_no_pdf', '✓ {titolo} — si corregge in ELABORA. Il PDF non è stato scritto: {err}')
-                    .replace('{titolo}', r.titolo).replace('{err}', r.pdfErrore), 'warning');
-            } else {
-                toast(r.file
-                    ? t('cq_ok', '✓ {titolo} — si corregge in ELABORA, si stampa da INSEGNA ({file})')
-                        .replace('{titolo}', r.titolo).replace('{file}', r.file)
-                    : t('cq_ok_no_vault', '✓ {titolo} — si corregge in ELABORA. Senza un vault sul disco il PDF non è stato scritto.')
-                        .replace('{titolo}', r.titolo), 'success');
-            }
-            if (r.setId && DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(r.setId); }
-        });
+        var piu = angoli.length > 1;
+        var fatti = [], falliti = [];
+
+        function passo(i) {
+            if (i >= angoli.length) return _fineVarianti(fatti, falliti, piu);
+            var k = angoli[i];
+            var nome = piu ? ((opts.nome ? opts.nome + ' · ' : '') + _etAng(k)) : opts.nome;
+            return P().generaSet({
+                tipo: tp.id, nome: nome, quantita: opts.quantita,
+                area: opts.area, angolo: k, base: opts.base
+            }).then(function (r) {
+                if (r && r.ok) fatti.push({ angolo: k, r: r });
+                else falliti.push({ angolo: k, errore: (r && r.errore) || t('cq_ko', 'Generazione non riuscita.') });
+                return passo(i + 1);
+            }, function (e) {
+                falliti.push({ angolo: k, errore: (e && e.message) ? e.message : String(e) });
+                return passo(i + 1);
+            });
+        }
+        passo(0);
+    }
+    function _etAng(k) { return window.quizAngleLabel ? window.quizAngleLabel(k) : k; }
+
+    /* Che cosa è successo, detto per intero. Con un foglio solo il messaggio
+       resta quello di sempre (dove si corregge, dove si stampa); con più fogli
+       conta prima QUANTI, perché è la domanda che ci si fa. */
+    function _fineVarianti(fatti, falliti, piu) {
+        if (!piu) {
+            if (!fatti.length) { toast(falliti[0] ? falliti[0].errore : t('cq_ko', 'Generazione non riuscita.'), 'error'); return; }
+            _diciEsito(fatti[0].r);
+            _apriPrimo(fatti);
+            return;
+        }
+        var tot = fatti.length + falliti.length;
+        if (!fatti.length) {
+            toast(t('cq_var_ko', 'Nessun foglio generato ({n} tentativi). {err}')
+                .replace('{n}', tot).replace('{err}', falliti[0] ? falliti[0].errore : ''), 'error');
+            return;
+        }
+        var msg = t('cq_var_ok', '✓ {n} fogli su {tot} — si correggono in ELABORA, si stampano da INSEGNA: {lista}')
+            .replace('{n}', fatti.length).replace('{tot}', tot)
+            .replace('{lista}', fatti.map(function (f) { return _etAng(f.angolo); }).join(' · '));
+        if (falliti.length) {
+            msg += ' — ' + t('cq_var_parz', 'non riuscite: {lista} ({err})')
+                .replace('{lista}', falliti.map(function (f) { return _etAng(f.angolo); }).join(' · '))
+                .replace('{err}', falliti[0].errore);
+        }
+        toast(msg, falliti.length ? 'warning' : 'success');
+        _apriPrimo(fatti);
+    }
+    /* Si apre il PRIMO, non l'ultimo: chi ha chiesto tre varianti comincia a
+       correggere dalla prima, e le altre sono già negli elenchi. */
+    function _apriPrimo(fatti) {
+        var r = fatti[0] && fatti[0].r;
+        if (r && r.setId && DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(r.setId); }
+    }
+    /* Il messaggio del foglio singolo, estratto per non averne due copie.
+       ⚠️ `pdfErrore` = la SORGENTE c'è (si corregge in ELABORA) ma la resa PDF
+       è fallita: va detto col suo motivo, non confuso con «manca il vault» —
+       sono due rimedi diversi. */
+    function _diciEsito(r) {
+        if (r.pdfErrore) {
+            toast(t('cq_ok_no_pdf', '✓ {titolo} — si corregge in ELABORA. Il PDF non è stato scritto: {err}')
+                .replace('{titolo}', r.titolo).replace('{err}', r.pdfErrore), 'warning');
+            return;
+        }
+        toast(r.file
+            ? t('cq_ok', '✓ {titolo} — si corregge in ELABORA, si stampa da INSEGNA ({file})')
+                .replace('{titolo}', r.titolo).replace('{file}', r.file)
+            : t('cq_ok_no_vault', '✓ {titolo} — si corregge in ELABORA. Senza un vault sul disco il PDF non è stato scritto.')
+                .replace('{titolo}', r.titolo), 'success');
     }
 
     /* ── a mano: un foglio vuoto e l'editor ────────────────────────────── */
