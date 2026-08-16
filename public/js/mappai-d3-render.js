@@ -57,7 +57,16 @@ function getNodeRadius(d) {
 }
 
 let forceDistMult = 1, forceChargeMult = 1;
-let labelsHidden = false, pathfinderActive = false;
+/* Le linking words sul canvas hanno TRE stati come nelle viste di studio
+   (16/8): niente · brevi · intere. Prima era un interruttore e il bottone
+   TESTO poteva solo spegnerle, mentre nella vista studio le stesse parole si
+   potevano accorciare: un ciclo solo per la stessa cosa, ovunque. */
+let relLabelMode = 'full';
+try {
+    const _m = localStorage.getItem('mappai_map_rel_labels');
+    if (_m === 'off' || _m === 'short' || _m === 'full') relLabelMode = _m;
+} catch (e) { /* default: intere */ }
+let pathfinderActive = false;
 let linkingState = { active: false, sourceNode: null };
 let pathfinderState = { active: false, source: null, target: null };
 
@@ -156,6 +165,8 @@ function initD3Visualization() {
     if (window.MappAIStudioView && window.MappAIStudioView.riprendi) {
         try { window.MappAIStudioView.riprendi(); } catch (e) { console.warn('[StudioView] rientro:', e); }
     }
+    // il bottone TESTO parte dallo stato vero (il modo si ricorda fra sessioni)
+    window.aggiornaBottoneTesto();
     // 006: collassa i rami di default al primo render della mappa (no-op se
     // kill-switch mappai_tree_expanded_default o già collassato per questa mappa)
     if (window.collapseAllTree) window.collapseAllTree();
@@ -434,11 +445,11 @@ function renderGraph() {
         .on("touchmove", handleTouchMove);
 
     linkEnter.append("path").attr("class", "link").attr("fill", "none").attr("stroke", "#94a3b8").attr("stroke-width", 1.5).attr("marker-end", "url(#arrowhead)");
-    linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => d.rel);
+    linkEnter.append("text").attr("class", "link-label").attr("text-anchor", "middle").attr("dy", -4).text(d => _testoRel(d.rel, relLabelMode));
 
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
-        .text(d => d.rel)
+        .text(d => _testoRel(d.rel, relLabelMode))
         .style("font-size", (8 * relFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     // Marker-start per link bidirezionali
@@ -812,7 +823,7 @@ function renderGraph() {
         });
 
     nodeSelection.exit().remove();
-    d3.select("#d3-container").classed("labels-hidden", labelsHidden);
+    d3.select("#d3-container").classed("labels-hidden", relLabelMode === 'off');
 
     // Adatta il max dello slider di profondità alla profondità reale della mappa.
     // Necessario quando operazioni come relink o merge creano nodi oltre L5.
@@ -1105,7 +1116,13 @@ window.setRelFontScale = function (v) {
 /* Quanto valgono adesso: serve al pannello per aprirsi sul valore vero invece
    che su un default che a schermo non c'è. */
 window.getFontScales = function () { return { node: globalFontScale, rel: relFontScale }; };
-window.areLabelsHidden = function () { return labelsHidden; };
+window.areLabelsHidden = function () { return relLabelMode === 'off'; };
+window.getRelLabelMode = function () { return relLabelMode; };
+/* Lo stato del canvas che il pannello della vista Mappa mostra: si legge dal
+   vivo, così quel pannello non tiene una seconda copia di niente. */
+window.getCanvasFlags = function () {
+    return { pinned: isPinned, attrazione: attractionEnabled, labels: relLabelMode };
+};
 
 // Il passo +/- storico, ora un involucro: muove entrambe insieme, com'era.
 window.changeFontScale = function (dir) {
@@ -1654,12 +1671,59 @@ window.applyLayoutForces = function () {
    prima consultava anche la lente delle famiglie di relazione, che è uscita
    con lei: un bottone che a volte spegne le etichette e a volte azzera un
    filtro non dice mai che cosa sta per fare. */
-window.toggleLabels = function () {
-    labelsHidden = !labelsHidden;
-    d3.select("#d3-container").classed("labels-hidden", labelsHidden);
+/* Il testo di una parola-legame secondo il modo. La regola del troncamento è
+   quella della vista studio (`MappAIStudioDraw.CAP_REL`), letta a runtime: due
+   tabelle darebbero due lunghezze diverse per la stessa parola. */
+function _testoRel(rel, modo) {
+    if (!rel || modo === 'off') return '';
+    const D = window.MappAIStudioDraw;
+    const cap = (D && D.CAP_REL && D.CAP_REL[modo]) || (modo === 'short' ? 14 : 40);
+    return rel.length > cap ? rel.slice(0, cap - 1) + '…' : rel;
+}
+
+window.setRelLabelMode = function (modo) {
+    if (modo !== 'off' && modo !== 'short' && modo !== 'full') return;
+    relLabelMode = modo;
+    try { localStorage.setItem('mappai_map_rel_labels', modo); } catch (e) { }
+    d3.select("#d3-container").classed("labels-hidden", modo === 'off');
+    if (g) g.selectAll("text.link-label").text(d => _testoRel(d.rel, modo));
+    window.aggiornaBottoneTesto();
+    const seg = document.querySelector('[data-sv-map-seg="labels"]');
+    if (seg && window.MappAIStudioView && window.MappAIStudioView.buildControls) {
+        window.MappAIStudioView.buildControls();
+    }
+};
+
+/* Il bottone TESTO dice lo STATO, come fa LAYOUT: «NO», «BREVI», «INTERE».
+   Un bottone che si chiama sempre allo stesso modo su tre stati lascia
+   indovinare che cosa succederà al clic. */
+window.aggiornaBottoneTesto = function () {
     const btn = document.getElementById('card-btn-labels');
-    if (labelsHidden) { btn.classList.replace('bg-slate-100', 'bg-red-50'); btn.classList.replace('text-slate-600', 'text-red-500'); }
-    else { btn.classList.replace('bg-red-50', 'bg-slate-100'); btn.classList.replace('text-red-500', 'text-slate-600'); }
+    const span = document.getElementById('labels-label-text');
+    if (!btn) return;
+    /* Dentro una vista di studio comanda il profilo di quella vista: il bottone
+       deve dire che cosa si vede ADESSO, non che cosa farebbe il canvas sotto. */
+    const SV = window.MappAIStudioView;
+    const modo = (SV && SV.labelsCorrenti && SV.labelsCorrenti()) || relLabelMode;
+    const spento = modo === 'off';
+    if (spento) { btn.classList.remove('bg-slate-100', 'text-slate-600'); btn.classList.add('bg-red-50', 'text-red-500'); }
+    else { btn.classList.remove('bg-red-50', 'text-red-500'); btn.classList.add('bg-slate-100', 'text-slate-600'); }
+    if (span) {
+        const t = (k, f) => (window.t ? window.t(k, f) : f);
+        span.innerText = (spento ? t('sv_no', 'no')
+            : modo === 'short' ? t('sv_brevi', 'brevi') : t('sv_intere', 'intere')).toUpperCase();
+    }
+};
+
+/* Il ciclo del bottone TESTO: no → brevi → intere. Agisce su QUELLO CHE SI
+   STA GUARDANDO — nella vista studio sul profilo di quella vista, sulla mappa
+   libera sul canvas. Un bottone che tocca sempre il canvas mentre a schermo
+   c'è l'overlay a card sembrerebbe non fare niente. */
+window.toggleLabels = function () {
+    const giro = { off: 'short', short: 'full', full: 'off' };
+    const SV = window.MappAIStudioView;
+    if (SV && SV._state && SV._state.active && SV.cicloLabels) { SV.cicloLabels(giro); return; }
+    window.setRelLabelMode(giro[relLabelMode] || 'off');
 }
 
 window.updateDegreeStats = function () {

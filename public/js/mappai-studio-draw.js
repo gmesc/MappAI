@@ -147,6 +147,12 @@
                hier, evidenzia, bands, interactive, prefix,
                onNodeClick(ev,node), onNodeContext(ev,node) }
        Ritorna { svg, g, bbox, fit(mode) }.                                  */
+    /* Quanto si accorcia una parola-legame. Vive QUI perché qui si è deciso, e
+       dal 16/8 la legge anche il canvas D3 (il bottone TESTO cicla no/brevi/
+       intere anche sulla mappa libera): due tabelle di troncamento per la
+       stessa parola darebbero due lunghezze diverse per la stessa cosa. */
+    const CAP_REL = { short: 14, full: 40 };
+
     function draw(svgEl, res, nodes, opts) {
         opts = opts || {};
         const d3 = opts.d3 || (typeof window !== 'undefined' && window.d3);
@@ -269,7 +275,7 @@
         }
 
         if (opts.labels && opts.labels !== 'off') {
-            const cap = opts.labels === 'short' ? 14 : 40;
+            const cap = CAP_REL[opts.labels] || CAP_REL.full;
             const lista = res.edges.concat(res.extraEdges || []);
             const testo = ed => {
                 if (!ed || !ed.rel) return '';
@@ -392,5 +398,5 @@
         return bboxOf(res);
     }
 
-    return { MAPPAI_COLORS, colorOf, tint, wrap, labelAt, hierOf, bboxOf, arrowHead, draw };
+    return { MAPPAI_COLORS, CAP_REL, colorOf, tint, wrap, labelAt, hierOf, bboxOf, arrowHead, draw };
 }));

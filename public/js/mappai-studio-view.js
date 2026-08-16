@@ -447,7 +447,7 @@
         const maxL = sl ? (parseInt(sl.max) || 5) : 5;
         const valL = sl ? (parseInt(sl.value) || 0) : maxL;
         const fs = (window.getFontScales && window.getFontScales()) || { node: 1, rel: 1 };
-        const etichetteVia = !!(window.areLabelsHidden && window.areLabelsHidden());
+        const flags = (window.getCanvasFlags && window.getCanvasFlags()) || {};
         const scritta = (valL >= maxL) ? t('sv_tutti', 'tutti') : ('0–' + valL);
 
         panel.innerHTML =
@@ -466,9 +466,20 @@
                 '<div class="flex items-center gap-2">' +
                 '<input type="range" data-sv-map="depth" min="0" max="' + maxL + '" step="1" value="' + valL + '" class="flex-1 accent-indigo-600">' +
                 '<b class="text-[11px] tabular-nums w-11 text-right" id="sv-map-depth-out">' + scritta + '</b></div>') +
+            /* Le linking words hanno le STESSE tre scelte delle viste di studio
+               (16/8, su rilievo di Giacomo): qui era una spunta e là un gruppo a
+               tre, quindi il bottone TESTO della barra non poteva avere un ciclo
+               solo. Ora ce l'ha — no → brevi → intere — e vale ovunque. */
+            fld(t('sv_labels', 'Linking words'), segMappa('labels',
+                [['off', t('sv_no', 'no')], ['short', t('sv_brevi', 'brevi')], ['full', t('sv_intere', 'intere')]],
+                flags.labels || 'full')) +
             fld(t('sv_fs_node', 'Testo dei nodi'), sliderScala('fsNode', fs.node)) +
             fld(t('sv_fs_rel', 'Testo linking words'), sliderScala('fsRel', fs.rel)) +
-            chkMappa('labels', t('sv_map_labels', 'Mostra le linking words'), !etichetteVia) +
+            /* PIN e ATTRAZIONE arrivano dalla barra (16/8): sono leve del force
+               layout, cioè di QUESTA vista, e nella barra stavano anche mentre
+               si guardava una vista di studio, dove non toccano niente. */
+            chkMappa('pin', t('sv_map_pin', 'Blocca i nodi dove sono'), !!flags.pinned) +
+            chkMappa('attr', t('sv_map_attr', 'Attrazione fra i nodi'), flags.attrazione !== false) +
             '<button type="button" id="sv-reset" class="w-full py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2' +
             (fissato ? '' : ' opacity-50') + '">' +
             '<i data-lucide="pin" class="w-3.5 h-3.5"></i>' +
@@ -487,6 +498,15 @@
         return '<div class="flex items-center gap-2">' +
             '<input type="range" data-sv-map="' + k + '" min="50" max="250" step="5" value="' + Math.round(val * 100) + '" class="flex-1 accent-indigo-600">' +
             '<b class="text-[11px] tabular-nums w-11 text-right" data-sv-mapout="' + k + '">' + Math.round(val * 100) + '%</b></div>';
+    }
+    /* Gruppo di scelte che governa il canvas. Stessa veste di `seg()`, ma con
+       un attributo suo: mescolarli scriverebbe nel profilo della vista studio. */
+    function segMappa(k, opts, cur) {
+        return '<div class="flex flex-wrap gap-1" data-sv-map-seg="' + k + '">' + opts.map(o =>
+            '<button type="button" data-v="' + o[0] + '" class="px-2 py-1.5 rounded-lg text-[11px] font-bold border ' +
+            (String(cur) === String(o[0]) ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50') + '">' + o[1] + '</button>'
+        ).join('') + '</div>';
     }
     /* Spunta che governa il canvas, non il profilo: attributo suo, o finirebbe
        nel gestore delle leve della vista studio. */
@@ -617,6 +637,16 @@
                 return;
             }
             if (ev.target.closest('#sv-reset')) { ripristina(); return; }
+            // scelte della MAPPA LIBERA (canvas), non del profilo della vista
+            const mb = ev.target.closest('[data-sv-map-seg] button');
+            if (mb) {
+                const k = mb.closest('[data-sv-map-seg]').getAttribute('data-sv-map-seg');
+                if (k === 'labels' && window.setRelLabelMode) {
+                    window.setRelLabelMode(mb.getAttribute('data-v'));
+                    buildControls();
+                }
+                return;
+            }
             const b = ev.target.closest('[data-sv-seg] button');
             if (b) {
                 const k = b.closest('[data-sv-seg]').getAttribute('data-sv-seg');
@@ -676,12 +706,16 @@
         panel.addEventListener('change', ev => {
             const mc = ev.target.closest('[data-sv-mapchk]');
             if (mc) {
-                /* La spunta dice «mostra», `toggleLabels` ragiona per «nascondi»:
-                   si chiama solo se i due sono in disaccordo, o due clic di fila
-                   la lascerebbero fuori sincrono col canvas. */
-                const mostra = mc.checked;
-                const nascoste = !!(window.areLabelsHidden && window.areLabelsHidden());
-                if (mostra === nascoste && window.toggleLabels) window.toggleLabels();
+                const k = mc.getAttribute('data-sv-mapchk');
+                /* Le due leve del force layout. `applyPinning` prende un valore,
+                   `toggleAttraction` no: quella si chiama solo se lo stato vero
+                   è diverso da quello della spunta, o due clic di fila la
+                   lascerebbero fuori sincrono col canvas. */
+                if (k === 'pin' && window.applyPinning) window.applyPinning(mc.checked);
+                if (k === 'attr') {
+                    const f = (window.getCanvasFlags && window.getCanvasFlags()) || {};
+                    if (!!mc.checked !== (f.attrazione !== false) && window.toggleAttraction) window.toggleAttraction();
+                }
                 return;
             }
             const c = ev.target.closest('[data-sv-chk]');
@@ -1086,6 +1120,8 @@
            mappa è il posto sbagliato dove finire — si usciva dalla vista e si
            perdeva anche il modo di rientrarci. */
         buildControls();
+        // uscendo comanda di nuovo il canvas: il bottone TESTO lo rispecchia
+        if (window.aggiornaBottoneTesto) window.aggiornaBottoneTesto();
     }
 
     /* Il ciclo LAYOUT entra nella vista già su un motore preciso (Albero,
@@ -1105,6 +1141,22 @@
         try { if (window.applyLayoutForces) window.applyLayoutForces(); } catch (e) { }
     }
 
+    /* Il bottone TESTO della barra, quando si sta guardando una vista di studio:
+       cicla le linking words del PROFILO di quella vista, non del canvas — che
+       in quel momento sta sotto l'overlay e non si vede. Il giro glielo passa
+       il chiamante, così esiste una definizione sola di «no → brevi → intere». */
+    function cicloLabels(giro) {
+        const p = profile();
+        p.labels = (giro && giro[p.labels]) || 'off';
+        render(); buildControls(); persist();
+        if (window.aggiornaBottoneTesto) window.aggiornaBottoneTesto();
+    }
+    /* Che cosa mostrare sul bottone TESTO adesso: dentro una vista di studio è
+       il profilo a comandare, fuori il canvas. */
+    function labelsCorrenti() {
+        return S.active ? profile().labels : null;
+    }
+
     function setMotore(mode) {
         const p = profile();
         cambiaMotore(p, mode);
@@ -1117,7 +1169,8 @@
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S,
         setMotore, ripristina, nomeMotore, salvaProfilo: scriviUtente,
-        tornaAllaMappa, _defaultsDi: defaultsDi, MOTORI, USCITA
+        tornaAllaMappa, cicloLabels, labelsCorrenti,
+        _defaultsDi: defaultsDi, MOTORI, USCITA
     };
     console.log('[MappAIStudioView] vista studio caricata (kill-switch: mappai_studio_view=0)');
 })();

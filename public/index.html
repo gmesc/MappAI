@@ -1548,34 +1548,19 @@
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 
-                <!-- Pinning -->
-                <button id="card-btn-physics" onclick="window.togglePhysics()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Pinning: Blocca Nodi" data-i18n-title="tt_pin_nodes">
-                    <i data-lucide="anchor" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">PIN</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Attrazione -->
-                <button id="toggle-attraction-btn" onclick="window.toggleAttraction()"
-                    class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                    title="Attiva/Disattiva forze di attrazione tra nodi" data-i18n-title="tt_toggle_forces">
-                    <i data-lucide="magnet" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1">ATTR</span>
-                </button>
-                <div class="w-px h-8 bg-slate-200"></div>
-
-                <!-- Mostra/nascondi le linking words. Una cosa sola: la lente
-                     delle famiglie di relazione e il suo caret sono usciti il
-                     16/8 — il bottone faceva due mestieri e il secondo si
-                     raggiungeva da una freccina di 8px dentro il primo. -->
+                <!-- Le linking words: cicla no → brevi → intere, sulla vista che
+                     si sta guardando (canvas o vista di studio). L'etichetta dice
+                     lo STATO, come fa LAYOUT.
+                     ⚠️ Niente `data-i18n` su quello span: `changeLanguage` lo
+                     riscriverebbe con «TESTO» al primo cambio di lingua,
+                     cancellando lo stato. La traduzione la fa
+                     `aggiornaBottoneTesto`, che le tre parole le prende da t(). -->
                 <button id="card-btn-labels" type="button"
                     onclick="window.toggleLabels()"
                     class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
-                    title="Mostra o nascondi le parole sugli archi" data-i18n-title="tt_toggle_labels">
+                    title="Linking words: niente, brevi o intere" data-i18n-title="tt_toggle_labels">
                     <i data-lucide="tag" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1" data-i18n="ui_text_caps">TESTO</span>
+                    <span class="text-[9px] font-bold mt-1" id="labels-label-text">INTERE</span>
                 </button>
                 <div class="w-px h-8 bg-slate-200"></div>
 
@@ -3268,7 +3253,7 @@
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
     <script src="js/mappai-storage-lang.js?v=dh24"></script>
-    <script src="js/mappai-d3-render.js?v=dh29"></script>
+    <script src="js/mappai-d3-render.js?v=dh30"></script>
     <script src="js/mappai-ui-canvas.js?v=dh29"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
@@ -3319,8 +3304,8 @@
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
     <script src="js/mappai-studio-layouts.js?v=dh24"></script>
-    <script src="js/mappai-studio-draw.js?v=dh24"></script>
-    <script src="js/mappai-studio-view.js?v=dh29"></script>
+    <script src="js/mappai-studio-draw.js?v=dh30"></script>
+    <script src="js/mappai-studio-view.js?v=dh30"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>

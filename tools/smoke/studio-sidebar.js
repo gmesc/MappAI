@@ -114,7 +114,11 @@ ok(hm.indexOf('sv-pdf') < 0, 'né l\'esporta PDF: non c\'è una vista da esporta
 // i quattro comandi che sulla mappa libera fanno qualcosa (16/8)
 [['depth', 'mostra fino al livello'], ['fsNode', 'testo dei nodi'], ['fsRel', 'testo linking words']]
     .forEach(([k, n]) => ok(hm.indexOf('data-sv-map="' + k + '"') >= 0, 'c\'è lo slider ' + n));
-ok(hm.indexOf('data-sv-mapchk="labels"') >= 0, 'e la spunta delle linking words');
+ok(hm.indexOf('data-sv-map-seg="labels"') >= 0, 'e le linking words come GRUPPO A TRE, come nelle viste di studio');
+[['no', 'off'], ['brevi', 'short'], ['intere', 'full']].forEach(([n, v]) =>
+    ok(hm.indexOf('data-v="' + v + '"') >= 0, '  scelta «' + n + '»'));
+ok(hm.indexOf('data-sv-mapchk="pin"') >= 0 && hm.indexOf('data-sv-mapchk="attr"') >= 0,
+    'e le due leve del force layout (PIN e attrazione) arrivate dalla barra');
 ok(hm.indexOf('data-sv-sl="fsNode"') < 0,
     '⚠️ e usano un attributo LORO: piloterebbero il canvas scrivendo nel profilo della vista studio');
 ok(hm.indexOf('Nessun layout fissato') >= 0, 'e dice che non c\'è un layout fissato (questa mappa non ne ha)');
