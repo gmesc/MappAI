@@ -64,10 +64,42 @@ window.markMmCrossLinks = function (nodes, links) {
         const sameGroup = groupOf[sId] === groupOf[tId];
         const adjacentLevels = (sLvl !== undefined && tLvl !== undefined)
             && Math.abs(sLvl - tLvl) === 1;
-        const hierarchical = adjacentLevels && sameGroup;
+        /* ⚠️ IL TRONCO (16/8). La regola «stesso group» serve a riconoscere i
+           salti fra RAMI diversi, ma il ROOT non sta in nessun ramo: ha
+           `group: 0` e ogni L1 riceve un intero suo (è il colore della
+           macro-area, vedi `_nextFreeGroup`). Quindi per gli archi ROOT→L1
+           `sameGroup` è falso PER COSTRUZIONE, e senza questa deroga ogni
+           MindMap si ritrovava i cinque archi che la tengono insieme marcati
+           come cross-link: col filtro «solo gerarchia» il root restava
+           isolato e i suoi L1 diventavano radici a sé.
+           Misurato sul vault «4R › Geografia › Il Clima»: root group 0, L1
+           group 1-5, tutti e 5 gli archi del tronco marcati isCross. */
+        const tronco = (sLvl === 0 || tLvl === 0);
+        const hierarchical = adjacentLevels && (sameGroup || tronco);
         l.isCross = !hierarchical;
     });
     return links;
+};
+
+/* LA RIPARAZIONE delle mappe già generate (16/8). Il difetto qui sopra ha
+   scritto `isCross: true` sugli archi del tronco dentro i `links.json` già su
+   disco: correggere la regola non basta, perché quei flag sono un DATO e
+   nessuno li ricalcola finché non si preme il bottone LINK.
+   Volutamente STRETTA: tocca solo gli archi fra un livello 0 e un livello 1 di
+   una MindMap, dove «è gerarchia» non è un'euristica ma la definizione. Tutto
+   il resto degli isCross resta com'è — compresi quelli messi a mano. */
+window.repairRootHierarchy = function (nodes, links) {
+    const levelOf = {};
+    (nodes || []).forEach(n => { levelOf[n.id] = n.level; });
+    let corretti = 0;
+    (links || []).forEach(l => {
+        if (l.isCross !== true) return;
+        const sId = typeof l.source === 'object' ? l.source.id : l.source;
+        const tId = typeof l.target === 'object' ? l.target.id : l.target;
+        const a = levelOf[sId], b = levelOf[tId];
+        if ((a === 0 && b === 1) || (a === 1 && b === 0)) { l.isCross = false; corretti++; }
+    });
+    return corretti;
 };
 
 window._assignHubGroup = function (nodeId, links, hubGroupMap) {

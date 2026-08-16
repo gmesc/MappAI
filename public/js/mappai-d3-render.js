@@ -120,6 +120,17 @@ function initD3Visualization() {
         });
     svg.call(zoom);
 
+    /* Riparazione del TRONCO (16/8), prima di disegnare. Le mappe generate
+       finora hanno gli archi ROOT→L1 marcati come cross-link (difetto di
+       `markMmCrossLinks`, corretto lo stesso giorno) e quel flag è un DATO già
+       scritto nei `links.json`: col filtro «solo gerarchia» il root restava
+       isolato. Qui, che è l'unico istante attraversato da tutte le strade di
+       caricamento, si rimette a posto — poi l'autosave lo scrive. */
+    if (window.repairRootHierarchy && appState.extractionMode !== 'kg') {
+        const n = window.repairRootHierarchy(appState.db.nodes, appState.db.links);
+        if (n) console.log('[Tronco] ' + n + ' archi ROOT→L1 erano marcati cross-link: corretti.');
+    }
+
     window.updateDegreeStats();
     renderGraph();
     /* Rientro nella vista studio (12/8). QUI e non nei cinque punti che
