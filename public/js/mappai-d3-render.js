@@ -819,10 +819,6 @@ function renderGraph() {
     }
 
     window.applyVisualFilters();
-    // Riapplica la lente relazioni se attiva (dopo ogni render)
-    if (window.activeLensFamily) window.applyLensFamily();
-    // Applica il filtro di visibilità link (cycle 3 stati)
-    if (window.linkVisibilityMode && window.linkVisibilityMode !== 'all') window.applyLinkVisibility();
 
     // Applica subito le posizioni pre-calcolate (tick manuale)
     tick();
@@ -1622,188 +1618,17 @@ window.applyLayoutForces = function () {
     simulation.alpha(1).restart();
 }
 
+/* TESTO: mostra o nasconde le parole sugli archi. Una cosa sola (16/8) —
+   prima consultava anche la lente delle famiglie di relazione, che è uscita
+   con lei: un bottone che a volte spegne le etichette e a volte azzera un
+   filtro non dice mai che cosa sta per fare. */
 window.toggleLabels = function () {
-    // Se la lente è attiva, click su TESTO azzera la lente (non toglia label globali)
-    if (window.activeLensFamily) {
-        window.resetLensFamily();
-        return;
-    }
     labelsHidden = !labelsHidden;
     d3.select("#d3-container").classed("labels-hidden", labelsHidden);
     const btn = document.getElementById('card-btn-labels');
     if (labelsHidden) { btn.classList.replace('bg-slate-100', 'bg-red-50'); btn.classList.replace('text-slate-600', 'text-red-500'); }
     else { btn.classList.replace('bg-red-50', 'bg-slate-100'); btn.classList.replace('text-red-500', 'text-slate-600'); }
 }
-
-// ── Lente Relazioni ────────────────────────────────────────────────────────
-
-// Click sul bottone TESTO: dispatching tra toggle label e apertura menu lente
-window.handleLabelsButtonClick = function (event) {
-    const tgt = event.target;
-    if (tgt && (tgt.id === 'lens-caret' || (tgt.closest && tgt.closest('#lens-caret')))) {
-        event.stopPropagation();
-        window.openLensMenu();
-        return;
-    }
-    window.toggleLabels();
-};
-
-window.openLensMenu = function () {
-    const menu = document.getElementById('lens-menu');
-    if (!menu) return;
-
-    if (!menu.classList.contains('hidden')) {
-        menu.classList.add('hidden');
-        return;
-    }
-
-    const families = window.getActiveFamiliesInMap();
-    let html = '';
-
-    const allActive = window.activeLensFamily === null;
-    html += `<button type="button" class="lens-item${allActive ? ' active' : ''}"
-        onclick="window.selectLensFamily(null)">
-        <span class="lens-dot" style="background:#94a3b8;"></span>
-        Tutte le relazioni
-    </button>`;
-
-    if (families.length > 1 || (families.length === 1 && families[0] !== 'altro')) {
-        html += `<div class="lens-divider"></div>`;
-    }
-
-    families.forEach(key => {
-        const fam = EDGE_FAMILIES[key];
-        const isActive = window.activeLensFamily === key;
-        html += `<button type="button" class="lens-item${isActive ? ' active' : ''}"
-            onclick="window.selectLensFamily('${key}')"
-            onmouseenter="this.style.color='${fam.color}'"
-            onmouseleave="this.style.color=''">
-            <span class="lens-dot" style="background:${fam.color};"></span>
-            <i data-lucide="${fam.icon}" style="width:12px;height:12px;flex-shrink:0;"></i>
-            ${window.MappAIRelations.getFamilyLabel(key, (window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? 'en' : 'it')}
-        </button>`;
-    });
-
-    menu.innerHTML = html;
-    menu.classList.remove('hidden');
-    window.safeCreateIcons();
-
-    setTimeout(() => {
-        const closer = (e) => {
-            if (!menu.contains(e.target)
-                && e.target.id !== 'card-btn-labels'
-                && e.target.id !== 'lens-caret'
-                && !(e.target.closest && e.target.closest('#lens-caret'))) {
-                menu.classList.add('hidden');
-                document.removeEventListener('click', closer);
-            }
-        };
-        document.addEventListener('click', closer);
-    }, 0);
-};
-
-window.selectLensFamily = function (familyKey) {
-    window.activeLensFamily = familyKey;
-    document.getElementById('lens-menu')?.classList.add('hidden');
-    window.applyLensFamily();
-};
-
-window.applyLensFamily = function () {
-    const key = window.activeLensFamily;
-    const btn = document.getElementById('card-btn-labels');
-    const caret = document.getElementById('lens-caret');
-    if (!btn || !g) return;
-
-    // Reset stili inline
-    g.selectAll('.link')
-        .style('stroke', null)
-        .style('stroke-width', null)
-        .style('stroke-opacity', null)
-        .attr('marker-end', 'url(#arrowhead)')
-        .attr('marker-start', d => d.bidirectional ? 'url(#arrowhead-rev)' : null);
-    g.selectAll('.link-group').classed('lens-dimmed', false);
-    g.selectAll('.node-group').classed('lens-dimmed', false);
-    g.selectAll('circle.node-circle')
-        .style('stroke', null)
-        .style('stroke-width', null);
-    g.selectAll('text.link-label')
-        .style('font-size', null)
-        .style('fill', null)
-        .style('opacity', null)
-        .style('stroke', null)
-        .style('stroke-width', null)
-        .style('stroke-linejoin', null)
-        .style('paint-order', null)
-        .style('font-weight', null);
-
-    if (!key) {
-        btn.style.background = '';
-        btn.style.color = '';
-        if (caret) caret.style.color = '';
-        return;
-    }
-
-    const fam = EDGE_FAMILIES[key];
-    if (!fam) return;
-
-    const activeLinkSet = new Set();
-    const activeNodeIds = new Set();
-    appState.db.links.forEach(l => {
-        if (window.getEdgeFamilyKey(l.rel) === key) {
-            activeLinkSet.add(l);
-            const s = typeof l.source === 'object' ? l.source.id : l.source;
-            const t = typeof l.target === 'object' ? l.target.id : l.target;
-            activeNodeIds.add(s);
-            activeNodeIds.add(t);
-        }
-    });
-
-    const baseFontSize = 8 * globalFontScale * 0.765;
-
-    g.selectAll('.link-group').each(function (d) {
-        const isActive = activeLinkSet.has(d);
-        d3.select(this).classed('lens-dimmed', !isActive);
-        // Path + frecce colorate per i link attivi
-        d3.select(this).select('.link')
-            .style('stroke', isActive ? fam.color : null)
-            .style('stroke-width', isActive ? '2.5px' : null)
-            .style('stroke-opacity', isActive ? '1' : null)
-            .attr('marker-end', isActive ? `url(#arrowhead-${key})` : 'url(#arrowhead)')
-            .attr('marker-start', d => d.bidirectional
-                ? (isActive ? `url(#arrowhead-rev-${key})` : 'url(#arrowhead-rev)')
-                : null);
-        // Label: forza visibile + font ×1.5 + colore famiglia + outline NERO per contrasto
-        // (replica il pattern di .node-text, ma stroke nero come richiesto)
-        d3.select(this).select('text.link-label')
-            .style('opacity', isActive ? '1' : null)
-            .style('font-size', isActive ? (baseFontSize * 1.5) + 'px' : null)
-            .style('fill', isActive ? fam.color : null)
-            .style('font-weight', isActive ? 'bold' : null)
-            .style('stroke', isActive ? 'black' : null)
-            .style('stroke-width', isActive ? '1px' : null)
-            .style('stroke-linejoin', isActive ? 'round' : null)
-            .style('paint-order', isActive ? 'stroke fill' : null);
-    });
-
-    g.selectAll('.node-group').each(function (d) {
-        const active = activeNodeIds.has(d.id) || d.level === 0;
-        d3.select(this).classed('lens-dimmed', !active);
-        if (active && d.level > 0) {
-            d3.select(this).select('circle.node-circle')
-                .style('stroke', fam.color)
-                .style('stroke-width', '3px');
-        }
-    });
-
-    btn.style.background = fam.colorBtn;
-    btn.style.color = 'white';
-    if (caret) caret.style.color = 'rgba(255,255,255,0.85)';
-};
-
-window.resetLensFamily = function () {
-    window.activeLensFamily = null;
-    window.applyLensFamily();
-};
 
 window.updateDegreeStats = function () {
     let deg = {};
@@ -1895,58 +1720,6 @@ const LINK_VIS_STATES = {
     cross:     { icon: 'shuffle',  label: 'CROSS', tooltip: 'Solo cross-link (click per tornare a tutti)',               bg: '#fef3c7',    color: '#d97706' }
 };
 const LINK_VIS_CYCLE = ['all', 'hierarchy', 'cross'];
-
-window.cycleLinkVisibility = function () {
-    const idx = LINK_VIS_CYCLE.indexOf(window.linkVisibilityMode);
-    const next = LINK_VIS_CYCLE[(idx + 1) % LINK_VIS_CYCLE.length];
-    window.linkVisibilityMode = next;
-    localStorage.setItem('mappai_link_vis_mode', next);
-    window.applyLinkVisibility();
-};
-
-window.applyLinkVisibility = function () {
-    const mode = window.linkVisibilityMode || 'all';
-    const state = LINK_VIS_STATES[mode] || LINK_VIS_STATES.all;
-
-    // Aggiorna bottone (icona + colore + label + tooltip)
-    const btn = document.getElementById('card-btn-link-vis');
-    const iconEl = document.getElementById('card-btn-link-vis-icon');
-    const labelEl = document.getElementById('card-btn-link-vis-label');
-    if (btn) {
-        btn.style.background = state.bg;
-        btn.style.color = state.color;
-        btn.title = state.tooltip;
-    }
-    if (iconEl) {
-        iconEl.setAttribute('data-lucide', state.icon);
-        // Reset SVG e ri-render via lucide
-        const parent = iconEl.parentNode;
-        const fresh = document.createElement('i');
-        fresh.id = 'card-btn-link-vis-icon';
-        fresh.setAttribute('data-lucide', state.icon);
-        fresh.className = 'w-5 h-5';
-        if (state.color) fresh.style.color = state.color;
-        parent.replaceChild(fresh, iconEl);
-        window.safeCreateIcons();
-    }
-    if (labelEl) labelEl.textContent = state.label;
-
-    // Applica filtro al rendering: marca i link come hidden via classe CSS
-    if (!g) return;
-    // Assicura che i link abbiano isCross calcolato in base alla modalità corrente
-    if (appState.extractionMode === 'kg') {
-        window.markKgCrossLinks(appState.db.nodes, appState.db.links);
-    } else {
-        window.markMmCrossLinks(appState.db.nodes, appState.db.links);
-    }
-
-    g.selectAll('.link-group').classed('link-hidden', function (d) {
-        if (mode === 'all') return false;
-        if (mode === 'hierarchy') return d.isCross === true;
-        if (mode === 'cross') return d.isCross !== true;
-        return false;
-    });
-};
 
 window.togglePathfinder = function () {
     pathfinderActive = !pathfinderActive;

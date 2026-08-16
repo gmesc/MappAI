@@ -400,25 +400,6 @@ const EDGE_FAMILIES = window.MappAIRelations.EDGE_FAMILIES;
 const REL_FAMILY_MAP = window.MappAIRelations.REL_FAMILY_MAP;
 window.getEdgeFamilyKey = window.MappAIRelations.getEdgeFamilyKey;
 
-// Restituisce le famiglie presenti nella mappa corrente (dinamico)
-window.getActiveFamiliesInMap = function () {
-    const links = appState.db?.links || [];
-    const found = new Set();
-    links.forEach(l => found.add(window.getEdgeFamilyKey(l.rel)));
-    // ordine canonico delle famiglie definite, poi 'altro' in fondo
-    const order = Object.keys(EDGE_FAMILIES);
-    return order.filter(k => found.has(k));
-};
-
-// Stato corrente della lente (null = spenta)
-window.activeLensFamily = null;
-
-// Modalità visibilità link: 'all' | 'hierarchy' | 'cross'
-// 'all'       → tutti i link visibili (cross-link con stile dashed esistente)
-// 'hierarchy' → solo gerarchia (parent-child stesso group), nasconde cross-link
-// 'cross'     → solo cross-link, nasconde gerarchia (vista reticolare)
-window.linkVisibilityMode = localStorage.getItem('mappai_link_vis_mode') || 'all';
-
 window.updateInfomaniakProductId = function (value) {
     const val = value ? value.trim() : "";
     localStorage.setItem('infomaniak_product_id', val);

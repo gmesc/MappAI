@@ -28,7 +28,6 @@
  *      buildRelVocabularyBlock }
  * Alias globale: window.getEdgeFamilyKey
  *
- * NOTA: getActiveFamiliesInMap resta in app.js (dipende da appState, non è pura).
  * NOTA: l'estensione a 10 famiglie (Identity, Brother) per il Precision Teaching
  *       andrà fatta QUI (vedi docs/rules/07-relations-taxonomy.md).
  */
