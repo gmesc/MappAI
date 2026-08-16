@@ -165,12 +165,9 @@ V.tornaAllaMappa();
 ok(global.appState.layoutMode === 'default', 'riporta al layout libero');
 ok(V.profile().mode === primaDelloUscita, 'e NON scrive «__mappa» come motore nel profilo');
 ok(V._state.active === false, 'la vista si smonta');
-ok(store['mappai_studio_attivo'] === '0', 'ed è un\'uscita VOLONTARIA: l\'app non ci rientra da sola');
 /* ⚠️ si torna a «non attiva»: con la vista attiva `setMotore` DISEGNA, e qui
-   d3 non c'è (il motore Albero chiede `d3.hierarchy`). È la stessa ragione per
-   cui più sotto il ricordo del ciclo si prova col DAG. */
+   d3 non c'è (il motore Albero chiede `d3.hierarchy`). */
 V._state.active = false;
-delete store['mappai_studio_attivo'];
 
 console.log('\n· «Ripristina default» vale per la vista ATTIVA');
 /* ⚠️ Va provato con la vista ACCESA: da spenta lo stesso bottone fa un'altra
@@ -244,46 +241,54 @@ ok(conFocus.indexOf('sv-focus-exit') >= 0, 'in più: il comando per chiudere il 
 ok(conFocus.indexOf('Esporta PDF del Focus') >= 0, 'e il PDF diventa quello del focus');
 
 /* ── 5. il ricordo del passo del ciclo ───────────────────────────────────── */
-console.log('\n· «ci ero dentro quando ho chiuso»');
+console.log('\n· una MAPPA NUOVA: Albero e Indice');
 elementi['card-btn-layout'] = { classList: { add() { }, remove() { } } };
 elementi['layout-label-text'] = { innerText: '' };
 global.window.updateLayoutButtonLabel = () => {
     elementi['layout-label-text'].innerText = (global.appState.layoutMode === 'studio') ? 'STUDIO' : 'LAYOUT';
 };
 V._state.active = false; V._state.focus = null;
-/* ⚠️ `enter()` disegna, e il motore «Albero» chiede `d3.hierarchy`, che qui non
-   c'è. Il DAG non usa d3: si prova la strada vera (entra → esce → rientra) col
-   motore che il DOM finto sa reggere. Che l'albero disegni lo dicono i test di
+/* ⚠️ `riprendi()` disegna, e il motore «Albero» chiede `d3.hierarchy`, che qui
+   non c'è: il render fallirebbe. Si prova quindi quello che questa funzione
+   DECIDE (quale vista, quale tab, una volta per mappa), catturando l'errore
+   del disegno — che i motori disegnino lo dicono i test di
    `mappai-studio-layouts.js`, che d3 ce l'hanno. */
-V.profile().mode = 'dag';
-global.appState.layoutMode = 'default';
-delete store['mappai_studio_attivo'];
-ok(V.riprendi() === false, 'senza ricordo non rientra da solo');
+let tabScelto = null;
+global.window.switchSidebarTab = (t) => { tabScelto = t; };
+const riprendiSicuro = () => { try { return V.riprendi(); } catch (e) { return 'errore-di-disegno'; } };
 
-V.enter(true);
-ok(store['mappai_studio_attivo'] === '1', 'entrando, il ricordo si accende');
-
-// uscita di SERVIZIO (cambio mappa): il ricordo resta
-V.exit();
-ok(store['mappai_studio_attivo'] === '1', 'cambiando mappa il ricordo NON si perde');
-V._state.active = false;
 global.appState.layoutMode = 'default';
-ok(V.riprendi() === true, 'e alla mappa dopo rientra da solo');
-ok(global.appState.layoutMode === 'studio', 'col passo del ciclo su STUDIO');
-ok(elementi['layout-label-text'].innerText === 'STUDIO', 'e il bottone che lo dice');
+V.profile().mode = 'fasci';               // l'utente aveva lasciato i Fasci
+tabScelto = null;
+riprendiSicuro();
+ok(global.appState.layoutMode === 'studio', 'una mappa nuova si apre nella vista di studio');
+ok(V.profile().mode === 'td', 'e SEMPRE in Albero, qualunque fosse l\'ultima vista usata');
+ok(tabScelto === 'structure', 'con l\'INDICE nella sidebar');
 
-// uscita VOLONTARIA (bottone LAYOUT): il ricordo si spegne
-V.exit(true);
-ok(store['mappai_studio_attivo'] === '0', 'uscendo col bottone LAYOUT il ricordo si spegne');
-V._state.active = false;
-global.appState.layoutMode = 'default';
-ok(V.riprendi() === false, 'e da lì in poi non rientra più');
+console.log('\n· e sulla STESSA mappa non si rimette in mezzo');
+V._state.active = true;
+V.profile().mode = 'dag';                 // l'utente passa al DAG
+tabScelto = null;
+ok(riprendiSicuro() === false, 'un ridisegno del canvas (espansione AI, merge…) non fa niente');
+ok(V.profile().mode === 'dag', '  la vista scelta dall\'utente resta');
+ok(tabScelto === null, '  e il tab a schermo non viene toccato');
+
+console.log('\n· una mappa DIVERSA fa ripartire il default');
+global.appState.rootNodeLabel = 'Un\'altra mappa';
+tabScelto = null;
+riprendiSicuro();
+ok(V.profile().mode === 'td', 'torna Albero');
+ok(tabScelto === 'structure', 'e torna l\'Indice');
+global.appState.rootNodeLabel = 'Prova';
 
 // kill-switch
-store['mappai_studio_attivo'] = '1';
 store['mappai_studio_view'] = '0';
-ok(V.riprendi() === false, 'col kill-switch della vista non rientra comunque');
+V._state.active = false;
+global.appState.layoutMode = 'default';
+global.appState.rootNodeLabel = 'Terza mappa';
+ok(riprendiSicuro() === false, 'col kill-switch della vista non entra comunque');
 delete store['mappai_studio_view'];
+global.appState.rootNodeLabel = 'Prova';
 
 /* ── 6. la focus-map OBBEDISCE alle leve del pannello ────────────────────── */
 console.log('\n· le leve arrivano davvero alla focus-map');

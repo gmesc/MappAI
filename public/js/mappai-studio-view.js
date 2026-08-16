@@ -105,17 +105,12 @@
        vista e chiudendo l'app; si legge quando un progetto non ha ancora un
        profilo suo. Il profilo del progetto resta la fonte per quella mappa. */
     const USER_KEY = 'mappai_studio_profile';
-    /* «Ci ero dentro quando ho chiuso» (12/8). Il MOTORE (albero, DAG…) sta nel
-       profilo e si ritrovava già; a non tornare era il PASSO DEL CICLO — si
-       riapriva l'app sul layout libero e bisognava ripremere LAYOUT quattro
-       volte. Il flag dice solo «l'utente vuole la vista studio»: si accende
-       entrando e si spegne SOLO uscendo col bottone LAYOUT.
-       ⚠️ Le uscite di servizio (cambio mappa, ritorno alla landing) chiamano
-       `exit()` senza volontarietà e NON lo spengono: quelle smontano l'overlay
-       da un canvas che sta per essere ricostruito, non dicono che il docente ha
-       cambiato idea. Confonderle rendeva il ricordo inutile — si perdeva a ogni
-       cambio di mappa, che è il momento in cui serve di più. */
-    const ATTIVO_KEY = 'mappai_studio_attivo';
+    /* ⚠️ Il flag «ero dentro STUDIO quando ho chiuso» (`mappai_studio_attivo`)
+       è uscito il 16/8: da quando una mappa nuova si apre SEMPRE in Albero, non
+       c'è più un ricordo da consultare — la vista di partenza è una regola, non
+       una preferenza. `exit(volontaria)` mantiene il parametro perché distingue
+       ancora l'uscita col bottone LAYOUT dalle uscite di servizio, ma non
+       scrive più niente. */
     function letto() {
         try {
             const raw = localStorage.getItem(USER_KEY);
@@ -862,7 +857,6 @@
         // misure in #sv-metrics, che deve già essere quello del pannello Focus
         buildControls();
         renderFocus();
-        if (window.switchSidebarTab && S.active) window.switchSidebarTab('vista');
         document.getElementById('sv-f-close').onclick = closeFocus;
         if (!wasOpen && nodes.length <= 1 && window.showToast) {
             window.showToast(t('sv_focus_solo', 'Questo nodo non ha relazioni nell\'insieme di archi selezionato.'), 'info');
@@ -1081,7 +1075,6 @@
     function enter(silenzioso) {
         if (!appState.db.nodes || !appState.db.nodes.length) return;
         S.active = true;
-        try { localStorage.setItem(ATTIVO_KEY, '1'); } catch (e) { /* best-effort */ }
         ensureOverlay();
         watchResize();
         /* Si entra adottando il livello che la barra mostra: era l'ultima cosa
@@ -1094,9 +1087,11 @@
                 profile().depth = (_v >= _max) ? 999 : _v;
             }
         } catch (e) { /* mappa non pronta */ }
-        // il tab è SEMPRE visibile (16/8): qui non c'è più niente da accendere
+        /* Il tab è SEMPRE visibile (16/8) e NON si cambia da soli: il tab a
+           schermo è quello che il docente ha scelto, e ciclare i layout non è
+           una richiesta di guardare un altro pannello. Prima ogni giro del
+           bottone LAYOUT strappava via l'Indice o le Note. */
         buildControls();
-        if (window.switchSidebarTab) window.switchSidebarTab('vista');
         render();
         // Rientrando da soli il messaggio non serve: spiega una scelta che in
         // quel momento l'utente non ha fatto, e comparirebbe a ogni apertura.
@@ -1105,26 +1100,47 @@
     /* Rientro automatico: la chiama chi ha appena finito di disegnare il canvas
        (initD3Visualization), che è l'unico momento in cui l'overlay può
        montarsi senza trovare una mappa a metà. Torna true se ha ripreso. */
+    /* L'IDENTITÀ della mappa a schermo. Serve a distinguere «ho aperto una mappa
+       nuova» da «il canvas si è ridisegnato»: `initD3Visualization` gira anche
+       dopo un'espansione con l'AI, un merge o una modifica dal tutor, e
+       applicare lì il default rispedirebbe il docente in Albero a metà lavoro.
+       ⚠️ NON entra il numero dei nodi: cambia a ogni espansione, che è
+       esattamente il caso da non confondere con una mappa nuova.
+       ⚠️ `StorageManager` è una const lessicale, non sta su window (invariante 3). */
+    let _defaultDato = null;
+    function firmaMappa() {
+        let id = '';
+        try { if (typeof StorageManager !== 'undefined') id = StorageManager.currentProjectId || ''; } catch (e) { }
+        const vault = (appState && appState.activeVaultPath) || '';
+        const nome = (appState && appState.rootNodeLabel) || '';
+        return id + '|' + vault + '|' + nome;
+    }
+
+    /* Che cosa succede quando una mappa arriva a schermo. Chiamata a ogni
+       disegno del canvas, agisce UNA volta per mappa. */
     function riprendi() {
-        if (S.active) return false;
         /* Il tab è sempre visibile, quindi il pannello dev'essere già pronto
-           PRIMA che qualcuno lo apra — anche quando non si rientra nella vista.
-           Costruirlo solo entrando lasciava un pannello vuoto a chi clicca il
-           tab su una mappa appena aperta. */
+           PRIMA che qualcuno lo apra — anche quando non si entra nella vista. */
         try { buildControls(); } catch (e) { /* mappa non ancora pronta */ }
-        try { if (localStorage.getItem(ATTIVO_KEY) !== '1') return false; } catch (e) { return false; }
         if (localStorage.getItem('mappai_studio_view') === '0') return false;   // kill-switch
         if (!appState || !appState.db || !(appState.db.nodes || []).length) return false;
+
+        const firma = firmaMappa();
+        if (firma === _defaultDato) return false;   // stessa mappa: si resta dove si è
+        _defaultDato = firma;
+
+        /* MAPPA NUOVA (16/8, richiesta di Giacomo): si apre in ALBERO e con
+           l'INDICE nella sidebar. Prima si riapriva l'ultima vista usata — che
+           su una mappa mai vista è una scelta fatta per un'altra mappa. */
+        if (window.switchSidebarTab) window.switchSidebarTab('structure');
         appState.layoutMode = 'studio';
-        enter(true);
+        if (S.active) { setMotore('td'); }
+        else { cambiaMotore(profile(), 'td'); enter(true); }
         if (window.updateLayoutButtonLabel) window.updateLayoutButtonLabel();
         return true;
     }
     function exit(volontaria) {
         S.active = false;
-        // Solo il bottone LAYOUT dice «non voglio più la vista studio»: le
-        // uscite di servizio lasciano il ricordo dov'è (vedi ATTIVO_KEY).
-        if (volontaria) { try { localStorage.setItem(ATTIVO_KEY, '0'); } catch (e) { /* best-effort */ } }
         // La taratura con cui si esce è quella con cui si vuole rientrare, anche
         // su una mappa diversa: si scrive qui e alla chiusura dell'app.
         scriviUtente();
