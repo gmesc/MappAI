@@ -523,8 +523,23 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    DETTO. Provato sull'app viva: Clima → Project E cambia identità e aggancia la voce
    giusta; due salvataggi → zero voci nuove; identità sporcata a mano → conia senza toccare
    la voce di Clima. Ramo quota provato in harness Node.
-   ⚠️ Resta la pulizia UNA TANTUM delle ~257 copie già accumulate (da Cabina, con
-   anteprima): il difetto è fermo, l'accumulo storico è ancora lì.
+   ✅ **Anche la pulizia una tantum è FATTA, e ha tenuto.** Misurato nell'app vera il
+   **16/8** (CDP, sola lettura): `localStorage` pesa **17,4 MB**, ci sono **99 voci di
+   progetto per 99 mappe distinte** — una riga per mappa — e **zero copie in eccesso**.
+   Il 15/8 sera erano 355 voci per 98 mappe. Che dopo un giorno di lavoro il rapporto sia
+   ancora 1:1 è la prova che vale più della potatura stessa: il difetto a monte è fermo
+   davvero, non si stanno riformando doppioni.
+   ⚠️ Questa riga diceva il contrario fino al 16/8 («resta la pulizia una tantum delle
+   ~257 copie»): era stata scritta PRIMA di eseguirla, nella stessa sessione, e mai
+   aggiornata. Il diario in `CLAUDE.md` diceva già «243 copie via». Quando due documenti
+   si contraddicono, **misurare** — qui è bastato leggere `localStorage` dall'app viva.
+   Il conto si rifà così, con l'app aperta su `--remote-debugging-port=9222`: leggere
+   `tutor_ai_projects` e passarlo a `MappAITeachCore.anteprimaPotatura(P, 1, pesoDi)`,
+   che è la STESSA funzione della Cabina (se qui e là uscissero due numeri, uno dei due
+   sarebbe una bugia). In app lo dice Cabina › Gestione cartelle, riga «Spazio di lavoro».
+   📌 La chiave più pesante non è più una mappa ma **`mappai_saved_documents` (1,9 MB)**,
+   l'archivio dei documenti: se il cassetto tornerà a crescere, è lì che va guardato
+   prima — nessuna potatura lo tocca.
    ⚠️ Trappola vista provando: `window.StorageManager` è la CLASSE DOM nativa (funzione,
    sempre truthy) — anche nelle prove CDP va usato il nome lessicale nudo, o si misura un
    oggetto che non è quello dell'app (invariante 3, versione da banco).
@@ -741,11 +756,11 @@ che c'è qui sotto si poteva vedere **solo** nell'app vera, ed è stato visto l�
   l'avviso, nome doppio rifiutato, righe di ELABORA con copia+file), coi due toast nuovi
   (`cq_ok_no_pdf`, `cq_nome_preso`) e l'elenco INSEGNA senza le voci d'archivio cartacee.
 
-⚠️ **Resta una sola cosa che nessuna prova può dare**, e si vede solo con l'uso: che dopo
-una giornata di lavoro il cassetto non torni a gonfiarsi. Il posto dove guardarlo è
-Cabina › Gestione cartelle, riga «Spazio di lavoro». Se risale, il sospetto numero uno è
-un percorso di salvataggio che scrive ancora una scheda nuova invece di adottare quella
-del vault (§4 punto 0-bis).
+✅ **Anche il cassetto ha retto** (misurato il 16/8, §4 punto 0-bis): 99 voci per 99
+mappe, zero copie in eccesso, 17,4 MB. Resta da tenere d'occhio nel tempo, e il posto è
+Cabina › Gestione cartelle, riga «Spazio di lavoro»: se risale, il sospetto numero uno è
+un percorso di salvataggio che conia una scheda nuova invece di adottare quella del
+vault, e il secondo è `mappai_saved_documents`, che nessuna potatura tocca.
 
 ⚠️ **Non è mai stato visto girare** il ramo **ALLIEVO** del modale «Per chi è questa
 mappa?»: questa installazione non ha schede allievo, quindi non è una prova rimandata —
