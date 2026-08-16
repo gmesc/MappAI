@@ -749,6 +749,7 @@ const en_translations = {
     sv_reset: "Reset to defaults",
     sv_mappa_desc: "You are looking at the free map. Pick Tree, DAG or Bundles to switch to the study view.",
     sv_reset_fissato: "Restore the pinned layout",
+    sv_map_labels: "Show linking words",
     sv_fissato_ok: "Puts the nodes back where you left them with «Pin Layout».",
     sv_fissato_no: "No pinned layout for this map: create one by right-clicking the background → «Pin Layout».",
     sv_reset_ok: "Options reset to their starting values.",
@@ -831,7 +832,7 @@ const en_translations = {
     tt_toggle_forces: "Toggle attraction forces between nodes",
     tt_toggle_labels: "Show or hide the words on the links",
     ui_depth: "Depth",
-    ui_show_depth: "Show up to",
+    ui_show_depth: "Show up to level",
     ui_gen_depth_label: "Generate up to:",
     // ⚠️ Chiave DICHIARATA UNA VOLTA SOLA: era ripetuta in fondo al file («Depth»)
     // e in un oggetto letterale vince l'ultima — cioè la prima dichiarazione qui

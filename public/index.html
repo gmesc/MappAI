@@ -1592,15 +1592,18 @@
                         class="w-full accent-indigo-600 cursor-pointer" oninput="window.updateFilter(this.value)">
                 </div>
 
-                <!-- Slider Filtro Livelli (Solo Mappa Mentale) -->
-                <div class="flex-col w-32 px-2 hidden" id="level-filter-control">
-                    <div class="flex justify-between w-full mb-1">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase" data-i18n="ui_show_depth" title="Filtro di vista: nasconde i nodi più profondi senza cancellarli. La profondità dei DATI si imposta con «Genera fino a» nella config AI.">Mostra fino a</span>
-                        <span id="level-slider-val"
-                            class="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">L5</span>
+                <!-- Filtro dei livelli (solo MindMap). Dal 16/8 ha la veste dei
+                     layout: etichetta intera sopra, e a destra «tutti» invece del
+                     badge «L5» — «L5» dice dove sta la manopola, «tutti» dice che
+                     cosa si sta guardando. Il gemello nella sidebar scrive QUI:
+                     l'input è uno solo, così i due non possono divergere. -->
+                <div class="flex-col w-44 px-2 hidden" id="level-filter-control">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wide block mb-1" data-i18n="ui_show_depth" title="Filtro di vista: nasconde i nodi più profondi senza cancellarli. La profondità dei DATI si imposta con «Genera fino a» nella config AI.">Mostra fino al livello</span>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="level-slider" min="0" max="5" value="5"
+                            class="flex-1 accent-indigo-600 cursor-pointer" oninput="window.onLevelSliderInput(this.value)">
+                        <b id="level-slider-val" class="text-[11px] font-bold text-slate-700 tabular-nums w-11 text-right">tutti</b>
                     </div>
-                    <input type="range" id="level-slider" min="0" max="5" value="5"
-                        class="w-full accent-indigo-600 cursor-pointer" oninput="window.onLevelSliderInput(this.value)">
                 </div>
 
                 <div class="w-px h-8 bg-slate-200 hidden" id="dynamic-foto-divider"></div>
@@ -3265,8 +3268,8 @@
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
     <script src="js/mappai-storage-lang.js?v=dh24"></script>
-    <script src="js/mappai-d3-render.js?v=dh28"></script>
-    <script src="js/mappai-ui-canvas.js?v=dh18"></script>
+    <script src="js/mappai-d3-render.js?v=dh29"></script>
+    <script src="js/mappai-ui-canvas.js?v=dh29"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
     <script src="js/mappai-lenses.js"></script>
@@ -3317,7 +3320,7 @@
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
     <script src="js/mappai-studio-layouts.js?v=dh24"></script>
     <script src="js/mappai-studio-draw.js?v=dh24"></script>
-    <script src="js/mappai-studio-view.js?v=dh26"></script>
+    <script src="js/mappai-studio-view.js?v=dh29"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>

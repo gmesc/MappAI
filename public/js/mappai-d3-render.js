@@ -11,7 +11,20 @@
    ========================================== */
 
 let simulation, svg, g, link, node, zoom;
+/* DUE scale, non una (16/8). Fino a ieri le linking words erano il testo dei
+   nodi × 0.765: chi voleva le parole sugli archi più grandi si portava dietro
+   anche i nomi dei nodi. Sono due leve perché sono due letture — il nome si
+   riconosce, la parola-legame si legge. Si ricordano fra una sessione e
+   l'altra: una taratura del testo che si azzera a ogni apertura non serve a
+   chi l'ha alzata perché ne ha bisogno. */
 let globalFontScale = 1.0;
+let relFontScale = 1.0;
+try {
+    const _fn = parseFloat(localStorage.getItem('mappai_map_fs_node'));
+    const _fr = parseFloat(localStorage.getItem('mappai_map_fs_rel'));
+    if (_fn >= 0.5 && _fn <= 2.5) globalFontScale = _fn;
+    if (_fr >= 0.5 && _fr <= 2.5) relFontScale = _fr;
+} catch (e) { /* default 1.0 */ }
 let attractionEnabled = true;
 let isPinned = true;
 
@@ -426,7 +439,7 @@ function renderGraph() {
     const linkMerge = linkEnter.merge(linkSelection);
     linkMerge.select("text.link-label")
         .text(d => d.rel)
-        .style("font-size", (8 * globalFontScale * 0.765) + "px");
+        .style("font-size", (8 * relFontScale * 0.765) + "px");
     linkMerge.classed("ai-suggested", d => d.aiSuggested === true);
     // Marker-start per link bidirezionali
     linkMerge.select('.link')
@@ -810,12 +823,10 @@ function renderGraph() {
         if (actualMax !== sliderMax) {
             const wasAtMax = parseInt(ls.value) === sliderMax;
             ls.max = actualMax;
-            if (wasAtMax) {
-                ls.value = actualMax;
-                const lv = document.getElementById('level-slider-val');
-                if (lv) lv.textContent = 'L' + actualMax;
-            }
+            if (wasAtMax) ls.value = actualMax;
         }
+        // il massimo è cambiato: «tutti» vale ora per un numero diverso
+        if (window.aggiornaScrittaLivelli) window.aggiornaScrittaLivelli();
     }
 
     window.applyVisualFilters();
@@ -1065,20 +1076,41 @@ window.toggleAttraction = function () {
     }
 };
 
-window.changeFontScale = function (dir) {
-    globalFontScale = Math.max(0.5, Math.min(2.5, globalFontScale + (dir * 0.1)));
-    if (g) {
-        g.selectAll("text.node-text").style("font-size", d => {
-            let baseSize = 8;
-            if (d.level === 0) baseSize = 14;
-            else if (d.level === 1) baseSize = 12;
-            else if (d.level === 2) baseSize = 10;
-            else if (d.level === 3) baseSize = 9;
-            return (baseSize * globalFontScale) + "px";
-        });
+/* Riapplica le due scale al disegno vivo. Una funzione sola: i tre chiamanti
+   (i due slider e il vecchio passo +/-) devono per forza fare la stessa cosa. */
+function _applyFontScales() {
+    if (!g) return;
+    g.selectAll("text.node-text").style("font-size", d => {
+        let baseSize = 8;
+        if (d.level === 0) baseSize = 14;
+        else if (d.level === 1) baseSize = 12;
+        else if (d.level === 2) baseSize = 10;
+        else if (d.level === 3) baseSize = 9;
+        return (baseSize * globalFontScale) + "px";
+    });
+    g.selectAll("text.link-label").style("font-size", (8 * relFontScale * 0.765) + "px");
+}
+const _clampScala = v => Math.max(0.5, Math.min(2.5, Number(v) || 1));
 
-        g.selectAll("text.link-label").style("font-size", (8 * globalFontScale * 0.765) + "px");
-    }
+window.setNodeFontScale = function (v) {
+    globalFontScale = _clampScala(v);
+    try { localStorage.setItem('mappai_map_fs_node', String(globalFontScale)); } catch (e) { }
+    _applyFontScales();
+};
+window.setRelFontScale = function (v) {
+    relFontScale = _clampScala(v);
+    try { localStorage.setItem('mappai_map_fs_rel', String(relFontScale)); } catch (e) { }
+    _applyFontScales();
+};
+/* Quanto valgono adesso: serve al pannello per aprirsi sul valore vero invece
+   che su un default che a schermo non c'è. */
+window.getFontScales = function () { return { node: globalFontScale, rel: relFontScale }; };
+window.areLabelsHidden = function () { return labelsHidden; };
+
+// Il passo +/- storico, ora un involucro: muove entrambe insieme, com'era.
+window.changeFontScale = function (dir) {
+    window.setNodeFontScale(globalFontScale + dir * 0.1);
+    window.setRelFontScale(relFontScale + dir * 0.1);
 };
 
 window.exportSnapshot = async function () {
@@ -1702,8 +1734,26 @@ window.applyVisualFilters = function () {
     g.selectAll(".link").classed("pathfinder-active", d => linkPathSet.has(d));
 }
 
+/* La scritta a destra dello slider dei livelli. «tutti» quando la manopola è
+   in fondo, «0–N» altrimenti: la stessa lingua del pannello della Vista studio
+   — e la stessa funzione la scrive in tutti e due i posti, così non possono
+   dire due cose diverse dello stesso stato. */
+window.aggiornaScrittaLivelli = function () {
+    const sl = document.getElementById('level-slider');
+    if (!sl) return;
+    const max = parseInt(sl.max) || 5, val = parseInt(sl.value);
+    const testo = (val >= max) ? (window.t ? window.t('sv_tutti', 'tutti') : 'tutti') : ('0–' + val);
+    const out = document.getElementById('level-slider-val');
+    if (out) out.textContent = testo;
+    // il gemello nella sidebar, se il pannello è montato
+    const g2 = document.querySelector('[data-sv-map="depth"]');
+    if (g2) { g2.max = max; g2.value = val; }
+    const o2 = document.getElementById('sv-map-depth-out');
+    if (o2) o2.textContent = testo;
+};
+
 window.onLevelSliderInput = function (val) {
-    document.getElementById('level-slider-val').textContent = 'L' + val;
+    window.aggiornaScrittaLivelli();
     window.applyVisualFilters();
 }
 

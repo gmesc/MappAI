@@ -214,11 +214,12 @@ window.switchToMapLayout = function () {
         if (levelControl) levelControl.classList.remove('hidden');
         if (minLinkControl) minLinkControl.classList.add('hidden');
         if (sliderDivider) sliderDivider.classList.remove('hidden');
-        // Reset slider a L5 di default
+        // Reset slider al massimo di default. La scritta la scrive
+        // `aggiornaScrittaLivelli`: tre posti che la componevano a mano
+        // dicevano «L5» dove ora si legge «tutti» (16/8).
         const ls = document.getElementById('level-slider');
-        const lv = document.getElementById('level-slider-val');
-        if (ls) { ls.value = 5; }
-        if (lv) { lv.textContent = 'L5'; }
+        if (ls) { ls.value = ls.max || 5; }
+        if (window.aggiornaScrittaLivelli) window.aggiornaScrittaLivelli();
     } else {
         if (levelControl) levelControl.classList.add('hidden');
         if (minLinkControl) minLinkControl.classList.remove('hidden');

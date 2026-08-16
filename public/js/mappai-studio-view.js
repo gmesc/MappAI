@@ -438,6 +438,18 @@
        le posizioni dell'ultimo «Fissa Layout». */
     function pannelloMappa(panel) {
         const fissato = leLeggo().length;
+        /* Le leve della mappa libera NON stanno nel profilo della Vista studio:
+           governano il canvas D3, che è un altro disegno. Si leggono dal vivo
+           (`getFontScales`, `areLabelsHidden`, l'input dei livelli della barra)
+           così il pannello si apre sui valori VERI — un pannello che mostra un
+           default mentre a schermo c'è altro è peggio di un pannello assente. */
+        const sl = document.getElementById('level-slider');
+        const maxL = sl ? (parseInt(sl.max) || 5) : 5;
+        const valL = sl ? (parseInt(sl.value) || 0) : maxL;
+        const fs = (window.getFontScales && window.getFontScales()) || { node: 1, rel: 1 };
+        const etichetteVia = !!(window.areLabelsHidden && window.areLabelsHidden());
+        const scritta = (valL >= maxL) ? t('sv_tutti', 'tutti') : ('0–' + valL);
+
         panel.innerHTML =
             '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
             '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
@@ -446,6 +458,17 @@
             '<div class="text-[11px] text-slate-400 leading-snug mb-3">' +
             t('sv_mappa_desc', 'Stai guardando la mappa libera. Scegli Albero, DAG o Fasci per passare alla vista di studio.') +
             '</div>' +
+            /* Lo slider dei livelli è un GEMELLO di quello della barra, non una
+               copia dello stato: scrive nello stesso input e chiama lo stesso
+               `onLevelSliderInput`. Due stati per lo stesso filtro divergono al
+               primo trascinamento. */
+            fld(t('sv_depth', 'Mostra fino al livello'),
+                '<div class="flex items-center gap-2">' +
+                '<input type="range" data-sv-map="depth" min="0" max="' + maxL + '" step="1" value="' + valL + '" class="flex-1 accent-indigo-600">' +
+                '<b class="text-[11px] tabular-nums w-11 text-right" id="sv-map-depth-out">' + scritta + '</b></div>') +
+            fld(t('sv_fs_node', 'Testo dei nodi'), sliderScala('fsNode', fs.node)) +
+            fld(t('sv_fs_rel', 'Testo linking words'), sliderScala('fsRel', fs.rel)) +
+            chkMappa('labels', t('sv_map_labels', 'Mostra le linking words'), !etichetteVia) +
             '<button type="button" id="sv-reset" class="w-full py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2' +
             (fissato ? '' : ' opacity-50') + '">' +
             '<i data-lucide="pin" class="w-3.5 h-3.5"></i>' +
@@ -458,6 +481,21 @@
         if (window.safeCreateIcons) window.safeCreateIcons();
         bindControls(panel);
     }
+    /* Le scale del testo sul canvas vanno da 0.5 a 2.5 e si mostrano in
+       PERCENTUALE: «×1.3» dice poco, «130%» si legge. Il passo è 5%. */
+    function sliderScala(k, val) {
+        return '<div class="flex items-center gap-2">' +
+            '<input type="range" data-sv-map="' + k + '" min="50" max="250" step="5" value="' + Math.round(val * 100) + '" class="flex-1 accent-indigo-600">' +
+            '<b class="text-[11px] tabular-nums w-11 text-right" data-sv-mapout="' + k + '">' + Math.round(val * 100) + '%</b></div>';
+    }
+    /* Spunta che governa il canvas, non il profilo: attributo suo, o finirebbe
+       nel gestore delle leve della vista studio. */
+    function chkMappa(k, label, on) {
+        return '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 mb-3 cursor-pointer">' +
+            '<input type="checkbox" data-sv-mapchk="' + k + '" ' + (on ? 'checked' : '') + ' class="accent-indigo-600">' +
+            label + '</label>';
+    }
+
     /* I nodi che portano davvero uno snapshot: il conteggio serve a dire se il
        comando ha qualcosa da fare PRIMA che lo si prema. */
     function leLeggo() {
@@ -607,6 +645,26 @@
             }
         });
         panel.addEventListener('input', ev => {
+            /* Le leve della MAPPA LIBERA: pilotano il canvas D3, non il profilo
+               della vista studio. Attributo distinto apposta — mescolarle
+               scriverebbe nel profilo valori che quel disegno non usa. */
+            const mp = ev.target.closest('[data-sv-map]');
+            if (mp) {
+                const k = mp.getAttribute('data-sv-map');
+                if (k === 'depth') {
+                    // scrive nell'input della barra: la fonte è UNA
+                    const canvas = document.getElementById('level-slider');
+                    if (canvas) { canvas.value = mp.value; }
+                    if (window.onLevelSliderInput) window.onLevelSliderInput(mp.value);
+                    return;
+                }
+                const scala = (+mp.value) / 100;
+                if (k === 'fsNode' && window.setNodeFontScale) window.setNodeFontScale(scala);
+                if (k === 'fsRel' && window.setRelFontScale) window.setRelFontScale(scala);
+                const out = panel.querySelector('[data-sv-mapout="' + k + '"]');
+                if (out) out.textContent = mp.value + '%';
+                return;
+            }
             const sl = ev.target.closest('[data-sv-sl]');
             if (!sl) return;
             const k = sl.getAttribute('data-sv-sl');
@@ -616,6 +674,16 @@
             persist(); ridisegna(k);
         });
         panel.addEventListener('change', ev => {
+            const mc = ev.target.closest('[data-sv-mapchk]');
+            if (mc) {
+                /* La spunta dice «mostra», `toggleLabels` ragiona per «nascondi»:
+                   si chiama solo se i due sono in disaccordo, o due clic di fila
+                   la lascerebbero fuori sincrono col canvas. */
+                const mostra = mc.checked;
+                const nascoste = !!(window.areLabelsHidden && window.areLabelsHidden());
+                if (mostra === nascoste && window.toggleLabels) window.toggleLabels();
+                return;
+            }
             const c = ev.target.closest('[data-sv-chk]');
             if (!c) return;
             const k = c.getAttribute('data-sv-chk');

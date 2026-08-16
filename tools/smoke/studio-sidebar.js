@@ -111,6 +111,12 @@ ok(hm.indexOf('sv-reset') >= 0, 'e il comando di ripristino');
 ok(hm.indexOf('data-sv-sl="gapLayer"') < 0 && hm.indexOf('data-sv-seg="hier"') < 0,
     'ma NON le leve che qui non disegnerebbero niente');
 ok(hm.indexOf('sv-pdf') < 0, 'né l\'esporta PDF: non c\'è una vista da esportare');
+// i quattro comandi che sulla mappa libera fanno qualcosa (16/8)
+[['depth', 'mostra fino al livello'], ['fsNode', 'testo dei nodi'], ['fsRel', 'testo linking words']]
+    .forEach(([k, n]) => ok(hm.indexOf('data-sv-map="' + k + '"') >= 0, 'c\'è lo slider ' + n));
+ok(hm.indexOf('data-sv-mapchk="labels"') >= 0, 'e la spunta delle linking words');
+ok(hm.indexOf('data-sv-sl="fsNode"') < 0,
+    '⚠️ e usano un attributo LORO: piloterebbero il canvas scrivendo nel profilo della vista studio');
 ok(hm.indexOf('Nessun layout fissato') >= 0, 'e dice che non c\'è un layout fissato (questa mappa non ne ha)');
 // con uno snapshot sui nodi il testo cambia
 global.appState.db.nodes[0].savedX = 10; global.appState.db.nodes[0].savedY = 20;

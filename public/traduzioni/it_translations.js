@@ -279,7 +279,7 @@ const it_translations = {
     tt_toggle_forces: "Attiva/Disattiva forze di attrazione tra nodi",
     tt_toggle_labels: "Mostra o nascondi le parole sugli archi",
     ui_depth: "Profondità",
-    ui_show_depth: "Mostra fino a",
+    ui_show_depth: "Mostra fino al livello",
     ui_gen_depth_label: "Genera fino a:",
     ui_gen_depth_title: "Profondità",
     ui_manual_depth: "manuale",
