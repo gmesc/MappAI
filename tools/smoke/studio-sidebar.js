@@ -128,6 +128,35 @@ V.buildControls();
 ok(pannello.innerHTML.indexOf('dove li avevi lasciati') >= 0, 'con un layout fissato lo dichiara');
 delete global.appState.db.nodes[0].savedX; delete global.appState.db.nodes[0].savedY;
 
+/* ── lo slider dei livelli è UNO, anche dentro le viste di studio (16/8) ──── */
+console.log('\n· la profondità non è più una leva per-motore');
+ok(V._defaultsDi('td').depth === 999 && V._defaultsDi('fasci').depth === 999,
+    'i default la lasciano su «tutti» in tutti i motori');
+{
+    const r = V.profile();
+    r.depth = 2;
+    V.setMotore('dag');
+    ok(r.depth === 2, 'cambiando motore il livello scelto NON cambia');
+    V.setMotore('fasci');
+    ok(r.depth === 2, 'né passando a un terzo');
+    r.depth = 999;
+}
+// la barra finta: l'input che il modulo va a leggere
+elementi['level-slider'] = { max: '5', value: '5' };
+console.log('\n· la barra governa anche la vista di studio');
+V._state.active = true;
+elementi['level-slider'].value = '2';
+ok(V.adottaLivello() === true, 'muovendo la barra la vista adotta il livello');
+ok(V.profile().depth === 2, '  e il profilo dice 2');
+ok(V.adottaLivello() === false, 'una seconda chiamata sullo stesso valore non ridisegna');
+elementi['level-slider'].value = '5';
+V.adottaLivello();
+ok(V.profile().depth === 999,
+    '⚠️ in fondo alla corsa vuol dire «tutti» (999), non «5»: le due scale non sono la stessa');
+V._state.active = false;
+ok(V.adottaLivello() === false, 'e sulla mappa libera la barra non tocca il profilo');
+delete elementi['level-slider'];
+
 console.log('\n· «Mappa» è l\'uscita, non un motore');
 V._state.active = true;
 global.appState.layoutMode = 'studio';

@@ -1809,7 +1809,10 @@ window.aggiornaScrittaLivelli = function () {
     const testo = (val >= max) ? (window.t ? window.t('sv_tutti', 'tutti') : 'tutti') : ('0–' + val);
     const out = document.getElementById('level-slider-val');
     if (out) out.textContent = testo;
-    // il gemello nella sidebar, se il pannello è montato
+    /* I gemelli nella sidebar: quello della vista Mappa (stessa scala, si copia
+       il numero) e quello delle viste di studio (scala DIVERSA — profondità
+       topologica — quindi si copia solo la scritta, il valore lo tiene il
+       profilo di quella vista). */
     const g2 = document.querySelector('[data-sv-map="depth"]');
     if (g2) { g2.max = max; g2.value = val; }
     const o2 = document.getElementById('sv-map-depth-out');
@@ -1819,6 +1822,11 @@ window.aggiornaScrittaLivelli = function () {
 window.onLevelSliderInput = function (val) {
     window.aggiornaScrittaLivelli();
     window.applyVisualFilters();
+    /* Lo stesso slider governa anche le viste di studio (16/8): là non nasconde
+       i nodi, RICALCOLA il layout sul sottografo — due effetti diversi, ma una
+       domanda sola («fino a che livello guardo»), quindi una leva sola. */
+    const SV = window.MappAIStudioView;
+    if (SV && SV.adottaLivello) { try { SV.adottaLivello(); } catch (e) { } }
 }
 
 window.updateFilter = function (val) {

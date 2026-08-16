@@ -61,7 +61,11 @@
     /* Le leve che appartengono al MOTORE e viaggiano con lui. Fuori restano
        `mode` (quale motore), `centerId` (vale per una mappa, non è una
        preferenza), `focus` e `defv`. */
-    const LEVE_MOTORE = ['orient', 'routing', 'set', 'labels', 'hier', 'hl', 'depth',
+    /* ⚠️ `depth` è USCITA da qui il 16/8: dal momento in cui lo slider della
+       barra governa anche le viste di studio, «fino a che livello guardo» è UNA
+       domanda sola. Se restasse per-motore, passare da Albero a Fasci
+       cambierebbe in silenzio il numero che la barra sta mostrando. */
+    const LEVE_MOTORE = ['orient', 'routing', 'set', 'labels', 'hier', 'hl',
         'gapLayer', 'gapNode', 'w', 'h', 'fsNode', 'fsRel', 'bands', 'hops', 'ports'];
 
     /* La taratura di partenza di un motore. I quattro motori di «Altre opzioni»
@@ -702,6 +706,8 @@
             const out = panel.querySelector('[data-sv-out="' + k + '"]');
             if (out) out.textContent = sl.value + 'px';
             persist(); ridisegna(k);
+            // la profondità è condivisa con la barra: si scrive anche là
+            if (k === 'depth') scriviLivelloInBarra();
         });
         panel.addEventListener('change', ev => {
             const mc = ev.target.closest('[data-sv-mapchk]');
@@ -1078,6 +1084,16 @@
         try { localStorage.setItem(ATTIVO_KEY, '1'); } catch (e) { /* best-effort */ }
         ensureOverlay();
         watchResize();
+        /* Si entra adottando il livello che la barra mostra: era l'ultima cosa
+           che il docente ha scelto guardando la mappa, e ritrovarsi un taglio
+           diverso appena si cambia vista non si spiega. */
+        try {
+            const _sl = document.getElementById('level-slider');
+            if (_sl) {
+                const _max = parseInt(_sl.max) || 5, _v = parseInt(_sl.value);
+                profile().depth = (_v >= _max) ? 999 : _v;
+            }
+        } catch (e) { /* mappa non pronta */ }
         // il tab è SEMPRE visibile (16/8): qui non c'è più niente da accendere
         buildControls();
         if (window.switchSidebarTab) window.switchSidebarTab('vista');
@@ -1157,6 +1173,38 @@
         return S.active ? profile().labels : null;
     }
 
+    /* ── LO SLIDER DEI LIVELLI È UNO SOLO (16/8) ─────────────────────────────
+       Il numero però non si copia: le due scale non sono la stessa. La barra
+       arriva al massimo fra il livello più profondo e 5 (`node.level`); la
+       vista studio usa la profondità TOPOLOGICA del sottografo disegnato, che
+       cambia perfino fra un motore e l'altro (con «solo gerarchia» un ramo può
+       essere più corto). Quello che si sincronizza è il CONCETTO: in fondo alla
+       corsa vuol dire «tutti», e in mezzo vuol dire quel livello. */
+    function adottaLivello() {
+        if (!S.active) return false;
+        const sl = document.getElementById('level-slider');
+        if (!sl) return false;
+        const max = parseInt(sl.max) || 5, val = parseInt(sl.value);
+        const p = profile();
+        const nuovo = (val >= max) ? 999 : val;     // in fondo = tutti
+        if (p.depth === nuovo) return false;
+        p.depth = nuovo;
+        render(); buildControls(); persist();
+        return true;
+    }
+    /* Il verso opposto: la leva del pannello scrive nella barra, così la barra
+       non resta a dire un numero che a schermo non è più vero. */
+    function scriviLivelloInBarra() {
+        const sl = document.getElementById('level-slider');
+        if (!sl) return;
+        const max = parseInt(sl.max) || 5;
+        const p = profile();
+        let maxD = max;
+        try { maxD = currentData().maxD || max; } catch (e) { /* mappa non pronta */ }
+        sl.value = (p.depth >= maxD) ? max : Math.min(p.depth, max);
+        if (window.aggiornaScrittaLivelli) window.aggiornaScrittaLivelli();
+    }
+
     function setMotore(mode) {
         const p = profile();
         cambiaMotore(p, mode);
@@ -1169,7 +1217,7 @@
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S,
         setMotore, ripristina, nomeMotore, salvaProfilo: scriviUtente,
-        tornaAllaMappa, cicloLabels, labelsCorrenti,
+        tornaAllaMappa, cicloLabels, labelsCorrenti, adottaLivello, scriviLivelloInBarra,
         _defaultsDi: defaultsDi, MOTORI, USCITA
     };
     console.log('[MappAIStudioView] vista studio caricata (kill-switch: mappai_studio_view=0)');
