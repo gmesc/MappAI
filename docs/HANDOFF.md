@@ -546,6 +546,23 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 
 ---
 
+### Il TRONCO della MindMap non è un cross-link (16/8)
+`markMmCrossLinks` chiedeva livelli adiacenti **e stesso `group`** per dire che un arco è
+gerarchia. Il ROOT però non sta in nessun ramo: ha `group: 0` e ogni L1 riceve un intero
+suo (il colore della macro-area). Per gli archi del tronco «stesso group» era falso **per
+costruzione** → tutti marcati `isCross`, e col filtro «solo gerarchia» il root si staccava
+e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa sola.
+- La regola ora deroga sugli archi **0↔1**, e solo lì.
+- ⚠️ Il flag è un **DATO** già scritto nei `links.json`: `markMmCrossLinks` gira dentro
+  `cycleLinkVisibility` (il bottone LINK), quindi premerlo lo persisteva. Le mappe vecchie
+  le rimette a posto **`repairRootHierarchy`**, chiamata in `initD3Visualization` — l'unico
+  istante attraversato da tutte le strade di caricamento. È **stretta di proposito**: tocca
+  solo gli archi 0↔1 marcati cross in una MindMap, dove «è gerarchia» è la definizione, non
+  un'euristica.
+- Misurato su «4R › Geografia › Il Clima»: 5 archi su 5, 6 radici → 1.
+
+---
+
 ## 4. I debiti aperti, in ordine di quanto mordono
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
