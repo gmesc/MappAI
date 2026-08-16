@@ -186,7 +186,18 @@ const StorageManager = {
             localStorage.setItem(this.currentProjectId, JSON.stringify(daScrivere));
             localStorage.setItem('tutor_ai_projects', JSON.stringify(projects));
         };
-        try { _scrivi(); }
+        try {
+            _scrivi();
+            /* Il cassetto si guarda DOPO un salvataggio riuscito: è il momento
+               in cui è appena cresciuto, ed è l'unico posto attraversato da
+               tutti. Il controllo si autolimita (una misura al minuto) e
+               scrive nel registro solo quando la saturazione PEGGIORA, così un
+               beta tester che si avvicina al muro lascia una traccia PRIMA di
+               sbatterci — quando c'è ancora tempo per potare. */
+            if (window.MappAIErrori && window.MappAIErrori.controllaCassetto) {
+                try { window.MappAIErrori.controllaCassetto('salvataggio'); } catch (x) { }
+            }
+        }
         catch (e) {
             let potate = 0;
             try {
@@ -205,12 +216,39 @@ const StorageManager = {
                         + ' (' + potate + ')', 'info');
                 }
                 console.log('[Storage] quota piena: potate ' + potate + ' voci doppie, salvataggio riuscito al secondo giro');
+                /* Andata bene, ma il muro c'è stato: nel registro ci va comunque.
+                   È il segnale che su quel computer il cassetto è al limite —
+                   senza, l'unica traccia sarebbe un toast già scomparso. */
+                if (window.MappAIErrori) {
+                    try {
+                        window.MappAIErrori.registra({
+                            dove: 'cassetto',
+                            messaggio: 'Spazio locale ESAURITO durante un salvataggio: liberate ' + potate +
+                                ' copie doppie, il salvataggio è poi riuscito. (' + (e && e.name || 'QuotaExceededError') + ')'
+                        });
+                        window.MappAIErrori.controllaCassetto('dopo la potatura', true);
+                    } catch (x) { }
+                }
             } catch (e2) {
                 /* nemmeno potando ci sta: si dice FORTE — un salvataggio perso
                    in silenzio è il guasto peggiore di questo file. Il vault su
                    disco resta la rete (l'autosave JSON qui sotto è già partito
                    nelle chiamate precedenti). */
                 console.error('[Storage] salvataggio non riuscito, quota piena:', e2 && e2.message);
+                /* Il guasto peggiore di questo file, e finora lasciava traccia
+                   SOLO in console: un tester non la apre, e la segnalazione
+                   sarebbe arrivata come «non mi salva più». Ora è una riga del
+                   registro, quindi viaggia da sola nella segnalazione. */
+                if (window.MappAIErrori) {
+                    try {
+                        window.MappAIErrori.registra({
+                            dove: 'cassetto',
+                            messaggio: 'SALVATAGGIO PERSO: spazio locale esaurito e nemmeno potando le copie ci sta. ' +
+                                'Il vault su disco resta intatto. (' + (e2 && e2.message || '') + ')'
+                        });
+                        window.MappAIErrori.controllaCassetto('salvataggio perso', true);
+                    } catch (x) { }
+                }
                 if (window.showToast) window.showToast(window.t('tst_quota_piena',
                     'Spazio locale esaurito: il progetto NON è stato salvato. La mappa su disco (vault) resta intatta.'), 'error');
                 return;

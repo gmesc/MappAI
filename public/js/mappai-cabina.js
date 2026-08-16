@@ -572,9 +572,22 @@
            che offre di liberarlo sarebbe una bugia. */
         var ant = _anteprimaCassetto();
         if (ant) {
+            /* La PERCENTUALE, non solo i MB: «17,4 MB» non dice se è tanto o
+               poco, «36% di ~48» sì — ed è lo stesso numero su cui il registro
+               alza l'allarme, letto dalla stessa funzione (due conti diversi
+               per la stessa cosa sarebbero due verità). */
+            var sat = '';
+            try {
+                var E = window.MappAIErrori;
+                if (E && E.cassetto) {
+                    var m = E.cassetto();
+                    if (m) sat = ' · ' + m.pct + '% ' + t('cb_ca_di_quota', 'dello spazio disponibile') +
+                        (m.livello ? ' — ' + t('cb_ca_sat_' + m.livello, m.livello.toUpperCase()) : '');
+                }
+            } catch (e) { }
             sez.dati.push({
                 etichetta: t('cb_ca_spazio', 'Spazio di lavoro'),
-                valore: ant.totMB + ' MB' + (ant.via.length
+                valore: ant.totMB + ' MB' + sat + (ant.via.length
                     ? ' · ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') + ' (' + ant.MB + ' MB)'
                     : ' · ' + t('cb_ca_pulito', 'nessuna copia in eccesso'))
             });
