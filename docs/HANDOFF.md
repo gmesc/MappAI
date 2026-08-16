@@ -492,7 +492,9 @@ apposta, quindi la colonna parte sempre senza filtro.)
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 `mappai-studio-draw.js`, pannello in `mappai-studio-view.js`.
-- **Il ciclo del bottone LAYOUT è `Default → Albero → Fasci → DAG`** (16/8). La decisione
+- **Il ciclo del bottone LAYOUT è `Mappa → Albero → Fasci → DAG`** (16/8; il passo libero
+  si chiama **MAPPA**, non «LAYOUT» — tre passi su quattro dicevano il nome della vista e
+  il quarto diceva il nome del bottone). La decisione
   è una funzione PURA — `MappAIStudioLayouts.cicloStudio(passo, motore)` — e non più una
   catena di `else if` dentro `toggleLayout`, che vuole d3 e mezza app per girare: è la
   cosa che l'utente incontra a ogni pressione del bottone, e non era provabile. Il
@@ -522,6 +524,16 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
   UTENTE (`mappai_studio_profile`) — quest'ultimo è la taratura con cui si riapre la
   prossima mappa. HOME passa da `exit()`, ⌘Q da `onSalvaPrimaDiUscire` (⚠️ non da
   `beforeunload`, che con ⌘Q non è garantito).
+- **Il tab è SEMPRE visibile** (16/8) e il pannello ha **due forme**. Dentro la vista:
+  tutte le leve. Sulla **mappa libera**: solo la scelta della vista (con «Mappa» accesa) e
+  **«Ripristina il layout fissato»**, che rimette i nodi dove `salvaLayout` («Fissa
+  Layout», tasto destro sul canvas) li ha lasciati. Le altre leve lì non disegnerebbero
+  niente, e comandi inerti sono peggio che assenti. Scegliere Albero/DAG/Fasci dal
+  pannello ENTRA nella vista.
+  ⚠️ `exit()` non nasconde più il tab e non scappa su «Struttura»: ridisegna il pannello
+  nella forma «mappa libera». Il ripristino vero è `window.applyPinnedLayout()` in
+  `mappai-d3-render.js` (là vive `simulation`), che usa anche il ramo `personal` del ciclo
+  storico — una scrittura sola.
 - **Un pannello solo**, uguale dentro e fuori dal focus: `profiloDi(k)` manda la geometria
   al profilo del focus e la resa a quello della vista.
 - Le opzioni oblique (anelli · colonne · percorso · matrice · instradamento · ponticelli)
