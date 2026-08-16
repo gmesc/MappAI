@@ -85,7 +85,6 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_studio_view` | acceso | il passo **STUDIO** nel ciclo LAYOUT. `'0'` → il ciclo storico, e nessun rientro automatico |
 | `mappai_layout_ciclo_storico` | spento | `'1'` rimette il **ciclo lungo** del bottone LAYOUT (Default · Orbita · Radiale/Separato · Studio · Personale · salvati). Dal 16/8 il ciclo è **Default → Albero → Fasci → DAG**: orbita, radiale, separato e personale non hanno più un ingresso, i layout salvati restano sotto il bottone FISSA |
 | `mappai_studio_profile` | scritto dall'uso | il profilo della Vista studio a livello UTENTE (non di progetto), **con una taratura per motore** (`perMotore`) |
-| `mappai_studio_attivo` | scritto dall'uso | «ero dentro STUDIO quando ho chiuso»: fa rientrare l'app in STUDIO all'apertura di una mappa |
 | `mappai_vista_ridotta` | scritto dalla combo | la vista ridotta di CREA (SHIFT+CTRL+L,K,J,H) |
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
 | `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
@@ -492,6 +491,16 @@ apposta, quindi la colonna parte sempre senza filtro.)
 Overlay a card sopra il canvas; il force layout resta intatto sotto e si ritrova uscendo.
 Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
 `mappai-studio-draw.js`, pannello in `mappai-studio-view.js`.
+- **Una mappa nuova si apre in ALBERO, con l'INDICE nella sidebar** (16/8). Vale UNA volta
+  per mappa, riconosciuta dalla sua identità (id del progetto · vault · titolo).
+  ⚠️ `initD3Visualization` non gira solo all'apertura: la chiamano anche l'espansione con
+  l'AI, il merge e le modifiche dal tutor. Senza la firma, il default rispedirebbe il
+  docente in Albero a metà lavoro. Nella firma **non** entra il numero dei nodi — cambia a
+  ogni espansione, che è il caso da non confondere con una mappa nuova.
+  ⚠️ Il flag `mappai_studio_attivo` **non esiste più**: la vista di partenza è una regola,
+  non una preferenza da ricordare.
+- **Il tab della sidebar non si sposta da solo**: ciclare i layout (e aprire un Focus) non
+  porta più al tab «Vista studio». Il tab a schermo è quello che il docente ha scelto.
 - **Il ciclo del bottone LAYOUT è `Mappa → Albero → Fasci → DAG`** (16/8; il passo libero
   si chiama **MAPPA**, non «LAYOUT» — tre passi su quattro dicevano il nome della vista e
   il quarto diceva il nome del bottone). La decisione
