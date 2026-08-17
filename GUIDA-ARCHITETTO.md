@@ -574,6 +574,24 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     prima: un numero falso, e per giunta scoraggiante proprio quando la corsa è a un terzo
     dalla fine. Chi mostra un costo deve sottrarre ciò che è già stato pagato.
 
+43. **Ogni superficie che PRODUCE qualcosa deve dire dove si tiene.** Il modale che mostra
+    la sintesi appena generata archiviava in `localStorage` e offriva «Chiudi» e «Stampa»:
+    nessuna delle due tiene il documento, e non c'era una terza via. Un vicolo cieco, e per
+    giunta silenzioso — chi genera crede di aver perso il lavoro. L'azione conclusiva di una
+    superficie di risultato è la **strada verso il posto dove si salva**, non un secondo
+    posto dove si salva (qui l'editor, dove «Salva» e «Crea PDF» vivono già).
+    ⚠️ Corollario, pagato due volte: portare l'utente in un editor che si disegna dentro un
+    contenitore di qualcun altro richiede di **aprire prima quel contenitore**, o il
+    documento si carica e non si vede.
+
+44. **`list()` che restituisce metadati NON è `get()`.** Verificando un salvataggio ho letto
+    `d.html` da una voce di `MappAIStudyDocs.list()` e ho concluso che l'archivio fosse
+    vuoto: `listDocs` **toglie apposta** i campi pesanti e al loro posto mette `hasHtml`.
+    Il salvataggio era integro. Terza volta in una giornata che una misura sbagliata ha
+    accusato il codice (le altre: la spia su `electronAPI` congelato, il conteggio dei
+    livelli): prima di dichiarare un difetto, leggere che cosa la funzione di lettura
+    **promette** di restituire.
+
 ---
 
 ## 9. Protocollo per un braindump

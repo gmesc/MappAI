@@ -256,6 +256,27 @@ Ora è la quarta forma, con gli id **della colonna** (`syn:` · `synfile:`) e no
 convenzione. ⚠️ `_doc` non può restare `null`: è lui a far emettere la `tela`
 (`if (_doc) s.tela = …` in `_schemaV2`), e senza tela non c'è dove appendere l'host.
 
+### IL MODALE DI RISULTATO NON È PIÙ UN VICOLO CIECO (17/8)
+🐛 Generando una sintesi nuova, il modale che la mostra **archiviava** in `localStorage` ma
+non scriveva nessun file, e le sue tre azioni non portavano da nessuna parte: «Stampa» apre
+una finestra stampabile, non salva. Giacomo: «non posso salvare la nuova sintesi».
+Salvare e pubblicare vivono nell'**editor** (13/8: «Salva» tiene il documento, «Crea PDF»
+lo pubblica in «Materiale Studio»), quindi l'azione conclusiva del modale è **andarci**:
+`Chiudi · Stampa · **Rivedi e salva**` → `apriSintesiNellEditor()`. Non è un secondo posto
+dove si salva: è la strada per l'unico che c'è.
+⚠️ Apre la **casa** prima (la console ELABORA, se è quella attiva): l'editor si disegna solo
+dentro `#elab-doc-host`, e chiamare `openSynthesis` con la console chiusa caricherebbe il
+documento senza mostrarlo — il difetto già pagato il 13/8 coi quiz.
+🐛 E **«Audio voce naturale» è stato tolto da quel modale**: faceva partire la registrazione
+**senza scrivere la copia parlante**, cioè ricadeva esattamente nel difetto segnalato la
+mattina stessa. Erano due porte per lo stesso gesto con esiti diversi (invariante 21), e
+questa faceva di meno. La voce si registra dall'editor, dove il bottone scrive anche il file
+e apre lo stesso menu di scarico/QR: qui non si perde niente. Chiavi `bs_audio_btn`/
+`bs_audio_tip` rimosse dal dizionario, erano orfane.
+Provato in Electron su «Funzioni Urbane»: generata una sintesi vera di ramo → modale con i
+tre bottoni → «Rivedi e salva» → editor con 14 blocchi editabili e la barra completa →
+modifica → Salva → l'archivio contiene il testo rivisto.
+
 ### LA VOCE NATURALE su una sintesi già esistente (17/8)
 Bottone **«Voce»** nella barra dell'editor, solo sulle sintesi. Prima la registrazione si
 poteva chiedere **solo** nel modale che compare subito dopo la generazione: riaperta il

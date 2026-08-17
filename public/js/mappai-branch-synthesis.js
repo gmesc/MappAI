@@ -626,12 +626,32 @@
                 '</div>' +
                 '<div class="flex gap-3 p-6 pt-4 border-t border-slate-100 items-center">' +
                     '<span class="mai-tts-slot" data-tts-body="#branch-synthesis-body" data-tts-sections></span>' +
-                    '<button type="button" onclick="window.generateSynthesisAudio()" class="pm-btn-cancel" title="' + _escBS(window.t('bs_audio_tip', 'Scarica un audio con voce naturale (Google) — utile per allievi dislessici')) + '">' +
-                        '<i data-lucide="headphones" class="w-4 h-4"></i> ' + _escBS(window.t('bs_audio_btn', 'Audio voce naturale')) +
+                    /* 🐛 «Audio voce naturale» è stato TOLTO da qui (17/8, dal
+                       rilievo di Giacomo). Faceva partire la registrazione senza
+                       scrivere la copia parlante nella cartella della mappa —
+                       cioè ricadeva esattamente nel difetto segnalato stamattina:
+                       voce registrata, nessun file in «Materiale Studio». Erano
+                       due porte per lo stesso gesto con esiti diversi
+                       (invariante 21), e questa faceva di meno. La voce si
+                       registra dall'EDITOR, dove il bottone «Voce» scrive anche
+                       il file — e apre lo stesso menu di scarico/QR, quindi qui
+                       non si perde niente. */
+                    '<button type="button" onclick="document.getElementById(\'branch-synthesis-modal\').remove()" class="pm-btn-cancel">' + _escBS(window.t('mm_chiudi', 'Chiudi')) + '</button>' +
+                    '<button type="button" onclick="window.printBranchSynthesis()" class="pm-btn-cancel">' +
+                        '<i data-lucide="printer" class="w-4 h-4"></i> ' + _escBS(window.t('de_print', 'Stampa')) +
                     '</button>' +
-                    '<button type="button" onclick="document.getElementById(\'branch-synthesis-modal\').remove()" class="pm-btn-cancel">Chiudi</button>' +
-                    '<button type="button" onclick="window.printBranchSynthesis()" class="pm-btn-primary">' +
-                        '<i data-lucide="printer" class="w-4 h-4"></i> Stampa' +
+                    /* 🐛 IL VICOLO CIECO (17/8): questo modale ARCHIVIA la sintesi
+                       in localStorage ma non scrive nessun file, e le sue azioni
+                       non portavano da nessuna parte — «Stampa» apre una finestra
+                       stampabile, non salva. Dopo aver generato non c'era modo di
+                       tenere il documento: «non posso salvare la nuova sintesi».
+                       Salvare e pubblicare vivono nell'EDITOR (decisione del
+                       13/8: «Salva» tiene il documento, «Crea PDF» lo pubblica in
+                       «Materiale Studio»), quindi l'azione conclusiva di questo
+                       modale è ANDARCI. Non è un secondo posto dove si salva: è
+                       la strada per l'unico che c'è. */
+                    '<button type="button" onclick="window.apriSintesiNellEditor()" class="pm-btn-primary">' +
+                        '<i data-lucide="pencil-line" class="w-4 h-4"></i> ' + _escBS(window.t('bs_rivedi', 'Rivedi e salva')) +
                     '</button>' +
                 '</div>' +
             '</div>';
@@ -1306,6 +1326,29 @@ ${_bsPie(data.mapName)}
     }
 
     // ── Stampa ─────────────────────────────────────────────────────────────
+    /* Dal modale di risultato all'EDITOR, che è dove si salva e si pubblica.
+       ⚠️ L'editor si disegna SOLO dentro `#elab-doc-host`, che monta la console
+       ELABORA quando è in modalità documento: chiamando `openSynthesis` con la
+       console chiusa il documento si caricherebbe e non si vedrebbe (è il
+       difetto già pagato il 13/8 coi quiz). Quindi la casa si apre PRIMA — la
+       stessa mossa di `_casaDocumenti` in `mappai-crea-quiz.js`; l'annuncio
+       `mappai-doc-aperto` fa il resto. */
+    window.apriSintesiNellEditor = function () {
+        const m = document.getElementById('branch-synthesis-modal');
+        if (m) m.remove();
+        const DEd = window.MappAIDocEditor;
+        if (!DEd || !DEd.openSynthesis) {
+            window.showToast && window.showToast(window.t('bs_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
+            return;
+        }
+        try {
+            const EC = window.MappAIElaboraConsole;
+            if (EC && EC.attiva && EC.attiva() && EC.aperta && !EC.aperta() && EC.open) EC.open();
+        } catch (e) { /* senza console si prova comunque: c'è il workspace classico */ }
+        try { DEd.openSynthesis('current'); }
+        catch (e) { window.showToast && window.showToast(window.t('bs_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning'); }
+    };
+
     window.printBranchSynthesis = function () {
         if (!_lastSynthesis) return;
         window.MappAIStudyExport.openPrintable(_buildSynthesisPrintHtml(_lastSynthesis), {
