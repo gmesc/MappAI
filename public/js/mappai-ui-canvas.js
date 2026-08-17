@@ -61,24 +61,70 @@ window.loadingMessagesConfig = {
 
 window.currentLoadingMode = 'default';
 
-window.showLoadingOverlay = function (show, text, mode = 'default') {
+/* ── IL VELO, E LA VIA D'USCITA ──────────────────────────────────────────────
+   `nome` (4° argomento) è per l'indicatore in barra (`mappai-lavori.js`), che
+   senza di esso ripiega sul titolo del progetto attivo.
+   `onAnnulla` (5°) è la novità del 17/8: se chi apre il velo sa fermarsi, qui
+   compare un bottone «Annulla».
+   🐛 Perché serviva: la registrazione della voce naturale dura decine di minuti
+   e il velo copre tutto. L'unico modo di fermarla era chiudere l'app — che è
+   anche il gesto che distrugge il lavoro già pagato. Le due cose peggiori
+   possibili nello stesso comando.
+   Il bottone si emette SOLO se un annullamento esiste davvero: un «Annulla»
+   che non annulla niente sarebbe peggio della sua assenza (invariante 21). */
+function _veloAnnulla(mostra, onAnnulla) {
+    const el = document.getElementById('loading-overlay');
+    if (!el) return;
+    let btn = document.getElementById('loading-cancel');
+    if (!mostra || typeof onAnnulla !== 'function') { if (btn) btn.remove(); return; }
+    if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'loading-cancel';
+        btn.type = 'button';
+        btn.className = 'mt-5 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-bold hover:bg-slate-100';
+        el.appendChild(btn);
+    }
+    btn.textContent = (window.t ? window.t('mm_annulla', 'Annulla') : 'Annulla');
+    btn.disabled = false;
+    btn.onclick = function () {
+        /* Il lavoro non si ferma all'istante — finisce la chiamata in corso e
+           poi si arrende. Dirlo evita il secondo clic e l'impressione che il
+           bottone sia morto. */
+        btn.disabled = true;
+        btn.textContent = (window.t ? window.t('ui_annullo', 'Sto annullando…') : 'Sto annullando…');
+        try { onAnnulla(); } catch (e) { /* chi annulla non deve poter rompere il velo */ }
+    };
+}
+
+window.showLoadingOverlay = function (show, text, mode = 'default', nome, onAnnulla) {
     const el = document.getElementById('loading-overlay');
     const desc = document.getElementById('loading-desc');
     const title = document.getElementById('loading-title');
     const a11yBtn = document.getElementById('a11y-panel-toggle');
+
+    _veloAnnulla(show, onAnnulla);
 
     if (show) {
         window.currentLoadingMode = mode;
         el.classList.add('visible');
         if (a11yBtn) a11yBtn.classList.add('hidden');
         if (text) desc.textContent = text;
+        /* ⚠️ I messaggi che ruotano ogni 4 secondi («Estrazione concetti
+           chiave…») servono a far compagnia durante un'attesa MUTA. Quando chi
+           lavora sa dire a che punto è — «Genero audio 23/78», «attendo 12s» —
+           quella rotazione CANCELLA l'unica informazione utile, e il docente
+           resta senza modo di capire se sta avanzando o se è appeso. Trovato
+           misurando il 17/8, mentre si verificava l'annullamento: il velo
+           diceva un messaggio generico in mezzo a una registrazione che stava
+           contando i blocchi. Chi passa un testo comanda. */
+        window._loadingTestoProprio = !!text;
 
         if (!loadingInterval) {
             loadingSeconds = 0;
             let msgIdx = 0;
             loadingInterval = setInterval(() => {
                 loadingSeconds++;
-                if (loadingSeconds % 4 === 0) {
+                if (loadingSeconds % 4 === 0 && !window._loadingTestoProprio) {
                     const messages = window.loadingMessagesConfig[window.currentLoadingMode] || window.loadingMessagesConfig['default'];
                     msgIdx = (msgIdx + 1) % messages.length;
                     desc.textContent = messages[msgIdx];
@@ -88,6 +134,7 @@ window.showLoadingOverlay = function (show, text, mode = 'default') {
         }
     } else {
         el.classList.remove('visible');
+        window._loadingTestoProprio = false;   /* il prossimo velo riparte coi messaggi */
         if (a11yBtn) a11yBtn.classList.remove('hidden');
         if (loadingInterval) {
             clearInterval(loadingInterval);

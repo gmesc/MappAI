@@ -1441,14 +1441,42 @@ ${_bsPie(data.mapName)}
        Vive quanto la sessione: è un risparmio, non un archivio. */
     var _ttsCache = Object.create(null);
     function _ttsChiave(testo, voice, model) { return model + '|' + voice + '|' + testo; }
+
+    /* ── ANNULLARE UNA REGISTRAZIONE IN CORSO (17/8) ─────────────────────────
+       Finora non si poteva: l'unica uscita era chiudere l'app, che è anche il
+       gesto che butta via i clip già pagati (la cache vive in memoria). Il
+       flag lo alza il bottone del velo; lo leggono l'attesa e il giro dei
+       blocchi, che sono i due posti dove il lavoro si ferma senza lasciare
+       niente a metà.
+       ⚠️ Annullare NON consegna un audio parziale: una sintesi letta a metà si
+       scopre solo riascoltandola. Quello che resta è la CACHE — riprovando
+       nella stessa sessione si riparte da dove si era arrivati. */
+    var _ttsAnnulla = false;
+    function _nomeLavoroVoce() { return window.t('bs_audio_lavoro', 'Voce naturale'); }
+    /** Il velo, col nome del lavoro e la via d'uscita. */
+    function _veloVoce(testo) {
+        if (window.showLoadingOverlay) {
+            window.showLoadingOverlay(true, testo, 'default', _nomeLavoroVoce(),
+                function () { _ttsAnnulla = true; });
+        }
+    }
+    function _seAnnullato() {
+        if (!_ttsAnnulla) return false;
+        throw new Error(window.t('bs_audio_annullato', 'Registrazione annullata'));
+    }
+
     function _attendi(ms, testo) {
         return new Promise(function (res) {
             var fine = Date.now() + ms;
             (function tic() {
+                /* Annullare durante l'attesa deve funzionare SUBITO: è proprio
+                   lì che si passa la maggior parte del tempo, ed è lì che si
+                   decide di rinunciare. */
+                if (_ttsAnnulla) return res();
                 var manca = Math.max(0, Math.ceil((fine - Date.now()) / 1000));
                 /* l'attesa si DICE, secondo per secondo: un minuto di silenzio
                    su un overlay fermo si legge come un blocco dell'app */
-                if (window.showLoadingOverlay) window.showLoadingOverlay(true, testo.replace('{s}', manca));
+                _veloVoce(testo.replace('{s}', manca));
                 if (manca <= 0) return res();
                 setTimeout(tic, 1000);
             })();
@@ -1457,16 +1485,32 @@ ${_bsPie(data.mapName)}
     async function _ttsChiamata(payload, key, model, n, tot) {
         var prog = window.t('bs_audio_prog', 'Genero audio') + ' ' + n + '/' + tot;
         for (var tentativo = 0; tentativo < 3; tentativo++) {
+            _seAnnullato();
             /* PRIMA di chiamare: c'è posto nella finestra? */
             var attesa = UC() ? UC().nextSlotMs(_ttsChiamate, Date.now(), _ttsLimite()) : 0;
             if (attesa > 0) {
                 await _attendi(attesa, prog + ' — ' + window.t('bs_audio_wait', 'attendo {s}s (limite del provider)'));
+                _seAnnullato();
             }
-            if (window.showLoadingOverlay) window.showLoadingOverlay(true, prog + '…');
+            _veloVoce(prog + '…');
             _ttsChiamate.push(Date.now());
             try {
                 return await window.electronAPI.generateGemini({ apiKey: key, payload: payload, model: model });
             } catch (err) {
+                /* 🐛 «Aspetta un attimo» e «per oggi hai finito» arrivano nella
+                   STESSA forma (un 429 con un ritardo dichiarato), e finora si
+                   obbediva a entrambi allo stesso modo. Il 17/8 questo ha fatto
+                   contare a Giacomo un timer da MILLE SECONDI su una quota che
+                   non si sarebbe liberata prima di domani — e alla fine il
+                   codice si sarebbe arreso comunque, dopo tre tentativi.
+                   Il tetto giornaliero si riconosce e si dice SUBITO: aspettare
+                   è tempo buttato, e nascondere il motivo dietro un conto alla
+                   rovescia fa credere che basti pazientare. */
+                if (UC() && UC().limiteGiornaliero(err)) {
+                    var e = new Error(window.t('bs_audio_giorno', 'Hai esaurito la quota GIORNALIERA del modello vocale. Oggi non si può registrare: riprova domani, oppure cambia modello nelle impostazioni (ogni modello ha un contatore suo).'));
+                    e.quotaGiornaliera = true;
+                    throw e;
+                }
                 var ritenta = UC() ? UC().retryDelayMs(err) : 0;
                 /* non è un limite di frequenza: è un errore vero, e ritentarlo
                    tre volte non lo fa diventare buono */
@@ -1527,7 +1571,9 @@ ${_bsPie(data.mapName)}
         const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
         const pcmParts = []; let rate = 24000; const cues = []; let cum = 0;
         const saltati = [];   /* blocchi che nessun modello ha voluto leggere */
+        _ttsAnnulla = false;  /* ogni registrazione riparte da zero, mai col «no» di prima */
         for (let i = 0; i < blocks.length; i++) {
+            _seAnnullato();
             const payload = {
                 contents: [{ parts: [{ text: blocks[i] }] }],
                 generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
@@ -1545,7 +1591,7 @@ ${_bsPie(data.mapName)}
                 /* già generato in un tentativo precedente: non si ripaga, e non
                    consuma un posto nella finestra del limite */
                 rate = _ttsCache[chiave].rate || rate;
-                if (window.showLoadingOverlay) window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
+                _veloVoce(window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
             } else {
                 let inline = _inlineAudio(await _ttsChiamataConto(payload, key, model, i + 1, blocks.length));
                 /* ⚠️ UN BLOCCO DI UNA PAROLA SOLA IL MODELLO NON LO LEGGE (17/8).
@@ -1658,6 +1704,46 @@ ${_bsPie(data.mapName)}
         if (shareBtn) shareBtn.onclick = async function () { if (!guard()) return; const uri = await _blobToDataUri(blob); modal.remove(); window.MappAILive.shareDocQr(fname + '.html', _buildSynthesisPrintHtml(data, { audioDataUri: uri, audioMime: mime, cues: cues })); };
     }
 
+    /* ── DIRLO PRIMA, NON DOPO VENTI MINUTI ─────────────────────────────────
+       🐛 Il bento dice «circa 15 chiamate all'AI» PRIMA di generare i
+       materiali; la voce non diceva niente. Il 17/8 Giacomo ha avviato la
+       registrazione della sintesi di un'intera mappa — 78 blocchi, cioè 78
+       chiamate contro un tetto di 10 al minuto — e l'ha scoperto guardando lo
+       spinner per venti minuti, per poi perdere tutto contro la quota
+       giornaliera. Il numero che decide c'era già: nessuno glielo mostrava.
+       Non si chiede per le registrazioni brevi: una conferma che compare
+       sempre smette di essere letta, e un ramo di sei blocchi finisce in mezzo
+       minuto. → true = si procede.
+       ⚠️ Solo per il gesto manuale: la pipeline chiama
+       `_generateSynthesisAudioWithCues` direttamente e resta headless. */
+    async function _preavviso(data) {
+        const MM = window.MappAIModal;
+        if (!MM || !MM.conferma || !UC() || !UC().stimaTts) return true;
+        let blocchi;
+        try { blocchi = _blocksForAudio(data); } catch (e) { return true; }
+        if (!blocchi || blocchi.length < 12) return true;   /* corta: si fa e basta */
+        const unaParola = blocchi.filter(function (b) {
+            return String(b || '').trim().split(/\s+/).length === 1;
+        }).length;
+        const s = UC().stimaTts({
+            blocchi: blocchi.length, unaParola: unaParola,
+            ripiego: !!_ttsRipiego(''), rpm: _ttsLimite()
+        });
+        const righe = [
+            window.t('bs_pre_blocchi', '{n} blocchi di testo da leggere').replace('{n}', blocchi.length),
+            window.t('bs_pre_chiamate', 'circa {n} chiamate all\'AI').replace('{n}', s.chiamate),
+            window.t('bs_pre_tempo', 'circa {n} minuti, per il limite di {r} chiamate al minuto')
+                .replace('{n}', s.minuti).replace('{r}', _ttsLimite())
+        ];
+        return MM.conferma({
+            titolo: window.t('bs_pre_t', 'Registrare la voce naturale?'),
+            icona: 'headphones',
+            testo: righe.join(' · ') + '\n\n' + window.t('bs_pre_nota',
+                'Una sintesi di tutta la mappa è lunga: se ti serve solo una parte, registra la sintesi di un RAMO. Puoi annullare mentre registra, e i blocchi già fatti non si ripagano finché non chiudi l\'app.'),
+            conferma: window.t('bs_pre_ok', 'Registra')
+        });
+    }
+
     window.generateSynthesisAudio = async function (dataOverride) {
         const data = dataOverride || _lastSynthesis;
         if (!data) { window.showToast && window.showToast(window.t('bs_audio_need', 'Genera prima una sintesi'), 'warning'); return; }
@@ -1671,6 +1757,7 @@ ${_bsPie(data.mapName)}
                 return;
             }
         } catch (e) { /* editor assente: si procede */ }
+        if (!(await _preavviso(data))) return;
         try {
             const res = await _generateSynthesisAudioWithCues(data);
             window.showLoadingOverlay && window.showLoadingOverlay(false);
@@ -1702,8 +1789,20 @@ ${_bsPie(data.mapName)}
             return res;
         } catch (err) {
             window.showLoadingOverlay && window.showLoadingOverlay(false);
+            /* Le tre uscite non sono la stessa cosa e non si dicono allo stesso
+               modo: chi ha annullato lo sa già (non è un errore, e va detto che
+               il lavoro fatto non è perduto); chi ha finito la quota del giorno
+               deve sapere che riprovare fra un minuto non serve a niente. */
+            if (_ttsAnnulla) {
+                _ttsAnnulla = false;
+                window.showToast && window.showToast(window.t('bs_audio_annullato_ok',
+                    'Registrazione annullata. I blocchi già letti restano pronti: riprovando ora non si ripagano (finché non chiudi l\'app).'), 'info');
+                return;
+            }
             console.error('[BranchSynthesis] audio TTS fallito:', err);
-            window.showToast && window.showToast(err && err.message ? err.message : window.t('bs_audio_fail', 'Audio non generato'), 'error');
+            window.showToast && window.showToast(
+                err && err.message ? err.message : window.t('bs_audio_fail', 'Audio non generato'),
+                (err && err.quotaGiornaliera) ? 'warning' : 'error');
         }
     };
 

@@ -186,3 +186,67 @@ test('nextSlotMs: finestra scorrevole — le prime passano subito, poi si aspett
   // limite diverso (un piano a pagamento ne ammette di più)
   assert.strictEqual(U.nextSlotMs(dieci, now, 20), 0);
 });
+
+/* ══ «ASPETTA UN ATTIMO» O «PER OGGI HAI FINITO» ═════════════════════════════
+   Nato dal guasto del 17/8: la voce naturale si è fermata al blocco 23 di 78
+   con un conto alla rovescia di MILLE secondi, perché il codice leggeva solo il
+   ritardo dichiarato e obbediva. Le due forme di 429 arrivano uguali e vogliono
+   risposte opposte. Gli errori qui sotto hanno la forma vera di Google.        */
+test('limiteGiornaliero: il nome della quota basta, anche con ritardo breve', () => {
+    const err = new Error('[429] Quota exceeded for quota metric ' +
+        'GenerateRequestsPerDayPerProjectPerModel. retryDelay: "12s"');
+    assert.strictEqual(U.limiteGiornaliero(err), true);
+});
+
+test('limiteGiornaliero: un ritardo enorme è giornaliero anche senza il nome', () => {
+    // Un limite al MINUTO non chiede mai due minuti: è la firma di una
+    // finestra molto più larga. È il caso che Giacomo ha incontrato.
+    assert.strictEqual(U.limiteGiornaliero('429 RESOURCE_EXHAUSTED retryDelay: "1043s"'), true);
+});
+
+test('limiteGiornaliero: il limite al minuto NON lo è (si aspetta e basta)', () => {
+    assert.strictEqual(U.limiteGiornaliero('429 rate limit, retryDelay: "8s"'), false);
+});
+
+test('limiteGiornaliero: un errore che non è un 429 non è una quota', () => {
+    assert.strictEqual(U.limiteGiornaliero(new Error('500 Internal')), false);
+    assert.strictEqual(U.limiteGiornaliero(null), false);
+});
+
+test('limiteGiornaliero: la soglia è regolabile', () => {
+    const e = '429 quota retryDelay: "90s"';
+    assert.strictEqual(U.limiteGiornaliero(e), false);        // sotto i 120s di default
+    assert.strictEqual(U.limiteGiornaliero(e, 60000), true);  // soglia più severa
+});
+
+/* ══ QUANTO COSTA E QUANTO CI METTE, PRIMA DI COMINCIARE ═════════════════════ */
+test('stimaTts: i titoli di una parola costano una chiamata in più col ripiego', () => {
+    const con = U.stimaTts({ blocchi: 78, unaParola: 15, ripiego: true, rpm: 10 });
+    const senza = U.stimaTts({ blocchi: 78, unaParola: 15, ripiego: false, rpm: 10 });
+    assert.strictEqual(con.chiamate, 93);
+    assert.strictEqual(senza.chiamate, 78);
+    assert.ok(con.secondi > senza.secondi, 'più chiamate = più tempo');
+});
+
+test('stimaTts: sotto il tetto al minuto non si aspetta, si paga solo la latenza', () => {
+    const s = U.stimaTts({ blocchi: 6, unaParola: 0, rpm: 10, latenzaMs: 4000 });
+    assert.strictEqual(s.chiamate, 6);
+    assert.strictEqual(s.secondi, 24);   // 6 × 4s, nessuna attesa
+});
+
+test('stimaTts: il caso vero di Giacomo sta in decine di minuti, non in due', () => {
+    const s = U.stimaTts({ blocchi: 78, unaParola: 15, ripiego: true, rpm: 10 });
+    assert.ok(s.minuti >= 10, 'atteso ≥10 minuti, ottenuto ' + s.minuti);
+});
+
+test('stimaTts: un tetto più alto (piano a pagamento) accorcia davvero', () => {
+    const gratis = U.stimaTts({ blocchi: 78, unaParola: 0, rpm: 10 });
+    const pagato = U.stimaTts({ blocchi: 78, unaParola: 0, rpm: 60 });
+    assert.ok(pagato.secondi < gratis.secondi / 2);
+});
+
+test('stimaTts: valori assenti o sporchi non producono NaN', () => {
+    const s = U.stimaTts({});
+    assert.strictEqual(s.chiamate, 0);
+    assert.ok(Number.isFinite(s.secondi) && Number.isFinite(s.minuti));
+});

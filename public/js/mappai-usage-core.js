@@ -245,6 +245,53 @@
         return ms || 60000;
     }
 
+    /* ── «ASPETTA UN ATTIMO» O «PER OGGI HAI FINITO»? ────────────────────────
+       Un 429 non dice sempre la stessa cosa, e le due cose vogliono risposte
+       opposte: il limite al MINUTO si risolve aspettando qualche secondo, quello
+       GIORNALIERO no — aspettare è tempo buttato, e va detto subito.
+       🐛 Da qui il guasto visto da Giacomo il 17/8: la voce si è fermata al
+       blocco 23 di 78 con «limite raggiunto, riprendo fra 1000s». Il codice
+       leggeva solo il ritardo dichiarato e obbediva: un conto alla rovescia di
+       diciassette minuti che, alla fine, si sarebbe comunque arreso. Con 23
+       blocchi già pagati persi alla chiusura dell'app.
+       Due segnali, e basta che uno sia vero:
+        · il nome della quota nell'errore (Google scrive `…PerDay`, `daily`…);
+        · un ritardo ENORME. Un limite al minuto non chiede mai due minuti:
+          quella è la firma di una finestra molto più larga.
+       Pura, così la si prova in Node su errori veri copiati dal provider. */
+    function limiteGiornaliero(err, sogliaMs) {
+        if (err == null) return false;
+        var soglia = parseInt(sogliaMs, 10); if (!(soglia > 0)) soglia = 120000;
+        var s = (typeof err === 'string') ? err
+            : String((err && (err.message || err.error)) || JSON.stringify(err) || '');
+        if (!/429|RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(s)) return false;
+        if (/per.?day|daily|al.?giorno|giornalier/i.test(s)) return true;
+        return retryDelayMs(err) >= soglia;
+    }
+
+    /* ── QUANTO CI METTE, E QUANTE CHIAMATE COSTA ────────────────────────────
+       La voce naturale fa UNA chiamata per blocco di testo, contro un tetto al
+       minuto: una sintesi dell'intera mappa sono decine di minuti, e finora
+       nessuno lo diceva PRIMA di cominciare — si scopriva guardando lo spinner.
+       `unaParola` = i blocchi di una parola sola (i titoli): il modello di
+       default li rifiuta, quindi con il ripiego acceso ognuno costa DUE
+       chiamate, una buttata e una buona.
+       Il tempo non è `chiamate / rpm`: la finestra è scorrevole, quindi le prime
+       `rpm` partono subito e solo dopo si aspetta. A questo si somma il tempo
+       della chiamata stessa, che è sequenziale — con poche chiamate è lui a
+       dominare, non l'attesa. */
+    function stimaTts(o) {
+        o = o || {};
+        var blocchi = Math.max(0, parseInt(o.blocchi, 10) || 0);
+        var unaParola = Math.max(0, parseInt(o.unaParola, 10) || 0);
+        var rpm = parseInt(o.rpm, 10); if (!(rpm > 0)) rpm = 10;
+        var lat = parseInt(o.latenzaMs, 10); if (!(lat > 0)) lat = 4000;
+        var chiamate = blocchi + (o.ripiego ? Math.min(unaParola, blocchi) : 0);
+        var attesa = chiamate > rpm ? (chiamate - rpm) * (60 / rpm) : 0;
+        var secondi = Math.round(chiamate * (lat / 1000) + attesa);
+        return { chiamate: chiamate, secondi: secondi, minuti: Math.max(1, Math.round(secondi / 60)) };
+    }
+
     /* Fra quanti ms si può fare la prossima chiamata senza sfondare il limite.
        Finestra SCORREVOLE, non una pausa fissa: le prime `limite` chiamate
        partono subito (una sintesi corta non rallenta di un secondo) e solo dopo
@@ -264,6 +311,8 @@
 
     return {
         retryDelayMs: retryDelayMs,
+        limiteGiornaliero: limiteGiornaliero,
+        stimaTts: stimaTts,
         nextSlotMs: nextSlotMs,
         CATS: CATS,
         catLabel: catLabel,

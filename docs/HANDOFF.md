@@ -320,11 +320,57 @@ Due rimedi, e il primo vale a prescindere dal modello:
   singole le leggono, provato, e tornano PCM 16 bit a 24 kHz come il primo — quindi i clip
   si concatenano senza conversioni. `''` spegne il ripiego.
 Se TUTTI i blocchi vengono saltati si lancia invece di consegnare un file muto.
-📌 **La registrazione è lunga, e va saputo**: una chiamata per blocco contro un tetto di
-**10 al minuto** (piano gratuito) → 78 blocchi ≈ **8 minuti** di spinner. L'overlay conta
-(`Genero audio 5/78…`), ma chi guarda solo la barra in alto crede che sia appeso.
 📌 Chi mette `mappai_tts_model = 'gemini-3.1-flash-tts-preview'` evita la chiamata doppia
 sui titoli (una rifiutata + una buona).
+
+### LA REGISTRAZIONE DELLA VOCE: dirlo prima, potersi fermare, capire perché (17/8)
+Tre difetti scoperti da Giacomo in una corsa sola: la voce si è fermata al **blocco 23 di
+78** con «limite raggiunto, riprendo fra **1000s**», lui ha chiuso l'app e i 23 blocchi
+già pagati sono spariti con la cache.
+
+**1. «Aspetta un attimo» e «per oggi hai finito» arrivano nella STESSA forma.** Un 429 con
+un ritardo dichiarato. Il codice leggeva il ritardo e obbediva: un conto alla rovescia da
+diciassette minuti su una quota che non si sarebbe liberata prima del giorno dopo — e alla
+fine si sarebbe arreso comunque, dopo tre tentativi.
+`MappAIUsageCore.limiteGiornaliero(err, soglia)` (pura, 5 test con errori nella forma vera
+di Google) riconosce il tetto **giornaliero** da due segnali: il nome della quota
+(`…PerDay`, `daily`) **oppure** un ritardo oltre i 120s — un limite al minuto non chiede
+mai due minuti. Riconosciuto, si lancia SUBITO col motivo e il rimedio: riprova domani, o
+cambia modello (ogni modello ha un contatore suo).
+⚠️ Questo ramo è provato **dai test**, non osservato dal vivo: non so forzare un 429
+giornaliero a comando.
+
+**2. Non si poteva annullare.** L'unica uscita era chiudere l'app — che è anche il gesto
+che distrugge i clip già pagati. Ora il velo mostra un **«Annulla»** quando chi lo apre sa
+fermarsi: `showLoadingOverlay(show, testo, mode, nome, onAnnulla)`, quinto argomento
+opzionale. Il bottone si emette **solo** se un annullamento esiste davvero (invariante 21),
+e diventa «Sto annullando…» perché il lavoro finisce la chiamata in corso prima di
+arrendersi. Annullare **non consegna un audio parziale** (una sintesi letta a metà si
+scopre solo riascoltandola): resta la CACHE, quindi riprovando nella stessa sessione non si
+ripaga niente. Provato dal vivo: bottone → «Sto annullando…» → si ferma → toast **info**,
+non errore.
+
+**3. Nessuno diceva quanto sarebbe costato.** Il bento dice «circa 15 chiamate all'AI»
+prima di generare i materiali; la voce non diceva niente. Ora un preavviso — solo **sopra i
+12 blocchi**, o una conferma che compare sempre smette di essere letta — con i numeri di
+`MappAIUsageCore.stimaTts` e il consiglio di registrare un **ramo**. Misurato sul documento
+vero: «**78 blocchi di testo da leggere · circa 79 chiamate all'AI · circa 12 minuti, per il
+limite di 10 chiamate al minuto**».
+📌 I titoli di una parola in quel documento erano **uno**, non quindici: il costo del
+ripiego è molto minore di quanto avevo stimato a occhio.
+
+**4. E il velo cancellava il conteggio.** Trovato misurando l'annullamento: i messaggi che
+ruotano ogni 4 secondi («Estrazione concetti chiave…») **sovrascrivevano** «Genero audio
+23/78», cioè l'unica informazione che dice se sta avanzando o se è appeso. Ora **chi passa
+un testo comanda** (`window._loadingTestoProprio`): la rotazione serve alle attese mute.
+Misurato: 7 letture in 14 secondi, **zero messaggi generici**.
+
+⚠️ **Resta aperto** (era il punto 2 dell'elenco, non fatto): la cache dei clip vive in
+MEMORIA. Chiudere l'app butta via il lavoro pagato. Deve andare su disco, con una chiave
+che leghi ogni clip al testo che l'ha generato.
+⚠️ E resta aperto il **tetto di 10/min**, che è una stima ottimistica: i dati del 17/8
+dicono che il vero limite del TTS gratuito è più basso. Tarato troppo alto fa partire
+chiamate destinate al rifiuto, e ogni rifiuto costa più dell'attesa che avrebbe evitato.
 ⚠️ `_audioMatchesText` confrontava con `_lastSynthesis` invece che col `data` passato: con
 l'editor aperto su una sintesi del VAULT quello è un altro documento, e la guardia
 avvisava «il testo è cambiato» su una voce appena registrata.

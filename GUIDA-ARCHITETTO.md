@@ -525,6 +525,32 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     (12 caratteri, 1 parola) no. Chi si fosse fermato a «i modelli preview scadono» avrebbe
     cambiato modello e il difetto sarebbe rimasto.
 
+38. **Un'attesa lunga va SPIEGATA, non solo mostrata.** Il 429 di un provider arriva nella
+    stessa forma sia che significhi «aspetta otto secondi» sia che significhi «per oggi hai
+    finito»: un ritardo dichiarato. Obbedendo e basta, l'app faceva contare a Giacomo mille
+    secondi su una quota che si sarebbe liberata il giorno dopo — e poi si sarebbe arresa
+    comunque. Il segnale che distingue i due casi c'è quasi sempre (il nome della quota,
+    `…PerDay`), e dove manca lo dice la MAGNITUDINE: un limite al minuto non chiede mai due
+    minuti. Regola: quando due condizioni molto diverse condividono la stessa forma, si
+    classificano prima di reagire, e la reazione dice il **rimedio**, non solo il fatto.
+
+39. **Un lavoro lungo deve poter essere fermato, e la via d'uscita non può essere quella
+    che distrugge il lavoro.** La registrazione della voce durava decine di minuti dietro un
+    velo, e l'unico modo di interromperla era chiudere l'app — cioè anche l'unico modo di
+    perdere i clip già pagati, che stavano in memoria. Le due cose peggiori nello stesso
+    gesto. Un velo che dura più di qualche secondo offre un annullamento; un annullamento
+    non consegna un risultato parziale quando il parziale è indistinguibile dal completo
+    (un audio letto a metà si scopre riascoltandolo); e ciò che è già stato pagato deve
+    sopravvivere all'interruzione.
+    ⚠️ Corollario dei costi: un lavoro che spende va **preventivato prima**, come fa il
+    bento con «circa 15 chiamate all'AI». Il numero c'era già — bastava mostrarlo.
+
+40. **Un'animazione «di compagnia» non deve coprire un dato.** I messaggi che il velo ruota
+    ogni quattro secondi servono a un'attesa muta; quando chi lavora sa dire a che punto è
+    («Genero audio 23/78»), quella rotazione cancella l'unica informazione che distingue
+    «sta avanzando» da «è appeso». Chi passa un testo esplicito comanda. Vale in generale:
+    fra un riempitivo e un dato, vince il dato.
+
 ---
 
 ## 9. Protocollo per un braindump
