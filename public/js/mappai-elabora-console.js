@@ -2235,9 +2235,26 @@
             if (!ok) { _doc.editing = false; }   /* ha già avvisato: si resta in anteprima */
             rifai();
         }
+        /** C'è un'anteprima dove tornare uscendo dall'editing?
+            Ce l'hanno i documenti che vengono da un FILE del vault (`disk:`, si
+            rilegge dal disco) e i set d'archivio (`set:`, il builder li
+            ridisegna). Non ce l'hanno quelli nati qui (`crea`) né le SINTESI,
+            per cui l'editor È l'unica resa.
+            🐛 17/8: senza questa domanda, ESC su una sintesi metteva
+            `editing = false`, azzerava l'editor e ridisegnava — e siccome
+            `_dipingi` non ha un ramo d'anteprima per le sintesi, cadeva su
+            quello finale, che rimonta un editor ormai vuoto: **l'area
+            diventava grigia**, e serviva un secondo ESC per tornare
+            all'elenco. Chi non ha un'anteprima esce dal documento in un colpo. */
+        function _haAnteprima() {
+            if (!_doc) return false;
+            if (_doc.natura === 'crea' || _doc.natura === 'syn') return false;
+            return !!_doc.relPath || String(_doc.id || '').indexOf('set:') === 0;
+        }
+
         function _tornaAnteprima() {
             if (!_doc) return;
-            if (_doc.natura === 'crea') { _chiudiDocumento(); return; }
+            if (!_haAnteprima()) { _chiudiDocumento(); return; }
             _doc.editing = false;
             _fermaLettura();
             try { if (DEd().reset) DEd().reset(); } catch (e) { }
@@ -2465,6 +2482,20 @@
                 /* Apertura partita DALLA console: la voce è già quella, e
                    ridisegnare due volte lo stesso stato è lavoro sprecato. */
                 if (_voce === idSyn) return;
+                /* ⚠️ Se la console stava già mostrando l'ANTEPRIMA di questo
+                   stesso file (si è premuto «Modifica» su una riga `disk:`), il
+                   suo `_doc` porta il `relPath` — cioè la strada del ritorno.
+                   Sostituirlo con un `_doc` di sintesi la cancellerebbe, e
+                   uscendo dall'editing si chiuderebbe il documento invece di
+                   tornare all'anteprima da cui si era partiti. */
+                if (_doc && d.dalVault && _doc.relPath === d.dalVault) {
+                    _doc.editing = true;
+                    _voce = idSyn;
+                    _disco = null;
+                    rifai();
+                    _caricaDisco();
+                    return;
+                }
                 /* ⚠️ `_doc` NON può restare `null`: è lui a far emettere la tela
                    (`if (_doc) s.tela = …` in `_schemaV2`), e senza tela
                    `_montaHost` non trova dove appendere `#elab-doc-host` — cioè

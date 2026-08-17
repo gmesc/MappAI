@@ -256,6 +256,25 @@ Ora è la quarta forma, con gli id **della colonna** (`syn:` · `synfile:`) e no
 convenzione. ⚠️ `_doc` non può restare `null`: è lui a far emettere la `tela`
 (`if (_doc) s.tela = …` in `_schemaV2`), e senza tela non c'è dove appendere l'host.
 
+### ESC SU UNA SINTESI: un colpo solo, senza il passaggio grigio (17/8)
+🐛 Modificando una sintesi in ELABORA, il primo ESC lasciava **l'area grigia** e serviva un
+secondo ESC per rivedere i documenti. Difetto mio, nato ieri: montando la sintesi nella
+console le avevo dato `natura: 'syn'` con `editing: true`, e ESC in editing chiama
+`_tornaAnteprima` — che mette `editing = false`, azzera l'editor e ridisegna. Ma per una
+SINTESI un'anteprima non esiste (l'avevo scritto nel commento e poi non l'avevo detto a
+ESC): `_dipingi` cadeva sul ramo finale e rimontava un editor ormai vuoto.
+Ora la domanda la fa `_haAnteprima()`: ce l'hanno i documenti che vengono da un FILE del
+vault (`disk:`, si rilegge dal disco) e i set d'archivio (`set:`, il builder li ridisegna);
+non ce l'hanno quelli nati qui (`crea`) né le sintesi. Chi non ha un'anteprima **esce dal
+documento in un colpo**.
+⚠️ E il ramo della sintesi in `_suDocAperto` non sostituisce più il `_doc` quando la console
+stava già mostrando l'anteprima di QUELLO stesso file: quel `_doc` porta il `relPath`, cioè
+la strada del ritorno — buttarlo avrebbe chiuso il documento invece di riportare
+all'anteprima da cui si era partiti.
+Provato in Electron sui due percorsi: dal vault (riga → anteprima → Modifica → ESC →
+domanda «Salvi le modifiche?» → **anteprima**, secondo ESC → elenco) e senza anteprima
+(editor → **un ESC** → elenco). In nessuno dei due l'area resta vuota.
+
 ### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
 🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
 lanciando una lavorazione in ELABORA e cliccando un altro progetto, **lo spinner in barra si
