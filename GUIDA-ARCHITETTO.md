@@ -551,6 +551,29 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     «sta avanzando» da «è appeso». Chi passa un testo esplicito comanda. Vale in generale:
     fra un riempitivo e un dato, vince il dato.
 
+41. **Ciò che è stato PAGATO deve sopravvivere al processo.** I clip della voce naturale
+    stavano in una cache in memoria: perfetta per un secondo tentativo nella stessa
+    sessione, inutile nel caso che conta — la quota giornaliera esaurita, l'app chiusa, e
+    ventitré blocchi già comprati da ricomprare il giorno dopo. Una cache di sole
+    prestazioni può stare in RAM; una cache che protegge una **spesa** va su disco.
+    Tre regole che ne discendono, tutte imparate qui:
+    - **si scrive appena si ottiene**, non in fondo al giro: se il giro si interrompe al
+      passo dopo, scrivere alla fine perde proprio ciò che la cache doveva salvare;
+    - **il metadato che non sta nei byte va nel nome del file.** Il PCM grezzo non porta la
+      frequenza di campionamento: ripresa domani, un default silenzioso sbaglierebbe
+      l'intestazione del WAV e i tempi del karaoke. `<sha1>-<rate>.pcm`;
+    - **è lavoro in corso, non un materiale**: sta in `userData`, non nel vault, o
+      finirebbe sincronizzata da Obsidian e da iCloud e comparirebbe fra i documenti di
+      classe.
+    ⚠️ E una regola di scadenza scelta sul caso buono («si cancella quando il prodotto è
+    scritto») lascia sempre orfani — annullamenti, crash, un secondo consumatore che non la
+    svuota. Serve **anche** una valvola a tempo, o la cartella cresce e basta.
+
+42. **Un preventivo va ricalcolato sullo stato, non sul documento.** Il preavviso della
+    voce diceva «78 blocchi · 12 minuti» anche quando 20 erano già pronti dalla volta
+    prima: un numero falso, e per giunta scoraggiante proprio quando la corsa è a un terzo
+    dalla fine. Chi mostra un costo deve sottrarre ciò che è già stato pagato.
+
 ---
 
 ## 9. Protocollo per un braindump

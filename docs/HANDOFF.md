@@ -365,12 +365,45 @@ ruotano ogni 4 secondi («Estrazione concetti chiave…») **sovrascrivevano** �
 un testo comanda** (`window._loadingTestoProprio`): la rotazione serve alle attese mute.
 Misurato: 7 letture in 14 secondi, **zero messaggi generici**.
 
-⚠️ **Resta aperto** (era il punto 2 dell'elenco, non fatto): la cache dei clip vive in
-MEMORIA. Chiudere l'app butta via il lavoro pagato. Deve andare su disco, con una chiave
-che leghi ogni clip al testo che l'ha generato.
-⚠️ E resta aperto il **tetto di 10/min**, che è una stima ottimistica: i dati del 17/8
+**5. E la cache dei clip ora SOPRAVVIVE alla chiusura.** Era il punto che costava soldi:
+i 23 blocchi pagati sono spariti chiudendo l'app. I clip vanno su disco in
+**`<userData>/tts-cache/`** (scelta di Giacomo: è lavoro in corso, non un materiale — nel
+vault sarebbero ~20 MB di roba tecnica in mezzo ai documenti di classe, risincronizzati a
+ogni ritocco). IPC sottili in `main.js`: `tts-cache-has` · `-get` · `-put` · `-clear`.
+- **La ripresa è per BLOCCO**, perché la chiave è quella di sempre — `modello|voce|TESTO`.
+  Correggendo una frase si rigenera quella e nient'altro; cambiando modello o voce si
+  rigenera tutto, e deve essere così: clip di due voci diverse nello stesso audio si
+  sentono. 📌 Quindi il modello si cambia PRIMA di cominciare, non a metà.
+- **Si scrive subito, non alla fine**: se la quota si esaurisce al blocco dopo, quello
+  precedente è già salvo. Scriverli tutti in fondo li perderebbe proprio nel caso per cui
+  la cache esiste.
+- ⚠️ **La frequenza viaggia nel NOME del file** (`<sha1>-<rate>.pcm`): il PCM grezzo non la
+  porta dentro di sé, e riprendendo domani un default silenzioso sbaglierebbe sia
+  l'intestazione del WAV sia i tempi del karaoke, che si calcolano dividendo i byte per la
+  frequenza.
+- **Si svuota quando la copia parlante è scritta** (regola di Giacomo), e la chiama chi ha
+  scritto il file, non il motore: finché quel file non è su disco i clip servono ancora —
+  è proprio la scrittura fallita che non deve costare una seconda registrazione.
+  ⚠️ **Valvola**: annullamenti, crash e la pipeline lasciano orfani, quindi al primo uso di
+  ogni sessione si buttano i clip più vecchi di **7 giorni**. Senza, la cartella cresce e
+  basta.
+- **Il preavviso conta il MANCANTE**: «58 blocchi da leggere — 20 già pronti dalla volta
+  scorsa». Dire «78 blocchi · 12 minuti» il giorno dopo sarebbe falso, e farebbe rinunciare
+  a una corsa ormai a un terzo dalla fine.
+
+**Provato dal vivo su «Funzioni Urbane»** (17/8), compresa la parte che conta: seminati 20
+clip, **chiusa e riaperta l'app**, la registrazione è ripartita da **21/78** senza una
+chiamata, col preavviso che diceva i numeri giusti. Il round-trip dell'IPC è provato a sé
+(scrive → trova → rilegge byte e frequenza → cancella).
+📌 E la **quota giornaliera è stata vista dal vivo**, non solo nei test: sulla chiave di
+Giacomo, esaurita, il toast dice «Hai esaurito la quota GIORNALIERA del modello vocale…»
+invece di far contare mille secondi.
+
+⚠️ Resta aperto il **tetto di 10/min**, che è una stima ottimistica: i dati del 17/8
 dicono che il vero limite del TTS gratuito è più basso. Tarato troppo alto fa partire
 chiamate destinate al rifiuto, e ogni rifiuto costa più dell'attesa che avrebbe evitato.
+⚠️ E la **pipeline** popola la cache ma non la svuota (scrive la sua copia parlante da sé):
+per ora ci pensa la valvola dei 7 giorni.
 ⚠️ `_audioMatchesText` confrontava con `_lastSynthesis` invece che col `data` passato: con
 l'editor aperto su una sintesi del VAULT quello è un altro documento, e la guardia
 avvisava «il testo è cambiato» su una voce appena registrata.

@@ -2543,6 +2543,112 @@ ipcMain.handle('usage-open-folder', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+// CACHE DEI CLIP DELLA VOCE NATURALE (17/8/26)
+// Il TTS fa una chiamata per blocco di testo. Fino a ieri i clip vivevano
+// SOLO in memoria: Giacomo ha esaurito la quota giornaliera al blocco 23 di
+// 78, ha chiuso l'app, e i 23 già pagati sono spariti. Il giorno dopo si
+// ricominciava da capo — cioè si ripagava.
+// Sta in `userData` e NON nel vault (decisione di Giacomo): è lavoro in corso,
+// non un materiale. Nel vault sarebbero ~20 MB di roba tecnica in mezzo ai
+// documenti di classe, sincronizzati da Obsidian e da iCloud a ogni ritocco.
+// Qui il main fa solo I/O (invariante 19): la chiave la compone il renderer
+// (modello|voce|testo), l'hash serve solo a farne un nome di file.
+// ⚠️ Il PCM è grezzo e pesa: ~250 KB per blocco, ~20 MB per una sintesi
+// intera. Per questo si svuota appena la copia parlante è scritta.
+const TTS_CACHE_TTL_MS = 7 * 24 * 3600 * 1000;   /* la valvola, vedi sotto */
+function ttsCacheDir() { return path.join(app.getPath('userData'), 'tts-cache'); }
+function ttsCacheHash(chiave) {
+    return require('crypto').createHash('sha1').update(String(chiave || ''), 'utf8').digest('hex');
+}
+/* ⚠️ La FREQUENZA di campionamento viaggia nel NOME del file. Il PCM grezzo non
+   la porta dentro di sé: cachando i soli byte, un clip ripreso domani userebbe
+   il default (24 kHz) e, se un modello ne restituisse un'altra, sarebbero
+   sbagliati sia l'intestazione del WAV sia i tempi del karaoke — che si
+   calcolano proprio dividendo i byte per la frequenza. Tutti i modelli visti il
+   17/8 danno 24000, ma un default silenzioso è la premessa del difetto di
+   domani. Forma: `<sha1>-<rate>.pcm`.
+   Un solo `readdir` per chiamata: i lookup poi sono in memoria. */
+function ttsCacheIndice() {
+    const idx = Object.create(null);
+    try {
+        const dir = ttsCacheDir();
+        if (!fs.existsSync(dir)) return idx;
+        fs.readdirSync(dir).forEach(n => {
+            const m = /^([0-9a-f]{40})-(\d+)\.pcm$/.exec(n);
+            if (m) idx[m[1]] = { file: path.join(dir, n), rate: parseInt(m[2], 10) };
+        });
+    } catch (e) { /* cartella illeggibile: si riparte da zero, si ripaga */ }
+    return idx;
+}
+/* La regola di Giacomo — «si cancella quando la copia parlante è scritta» —
+   copre il caso buono. Ma un annullamento, un crash o la pipeline lasciano
+   clip orfani, e senza una seconda regola la cartella cresce e basta. Questa
+   passata è la valvola: al primo uso di ogni sessione butta ciò che ha più di
+   una settimana. Non tocca i clip recenti, che sono esattamente quelli di una
+   registrazione da riprendere domani. */
+let _ttsSpazzato = false;
+function ttsCacheSpazza() {
+    if (_ttsSpazzato) return;
+    _ttsSpazzato = true;
+    try {
+        const dir = ttsCacheDir();
+        if (!fs.existsSync(dir)) return;
+        const ora = Date.now();
+        fs.readdirSync(dir).forEach(n => {
+            if (!/\.pcm$/.test(n)) return;
+            const f = path.join(dir, n);
+            try { if (ora - fs.statSync(f).mtimeMs > TTS_CACHE_TTL_MS) fs.unlinkSync(f); } catch (e) { }
+        });
+    } catch (e) { /* la cache è un risparmio: se non si può spazzare, pazienza */ }
+}
+/* Quali di queste chiavi sono già su disco. Non legge i byte: serve al
+   preavviso, che deve dire «55 blocchi da leggere — 23 già pronti» e non
+   spaventare con un numero che non è più vero. */
+ipcMain.handle('tts-cache-has', (event, o) => {
+    try {
+        ttsCacheSpazza();
+        const idx = ttsCacheIndice();
+        const chiavi = (o && o.chiavi) || [];
+        return { success: true, presenti: chiavi.map(k => !!idx[ttsCacheHash(k)]) };
+    } catch (err) { return { success: false, error: err.message, presenti: [] }; }
+});
+ipcMain.handle('tts-cache-get', (event, o) => {
+    try {
+        const v = ttsCacheIndice()[ttsCacheHash(o && o.chiave)];
+        if (!v) return { success: true, trovato: false };
+        return { success: true, trovato: true, rate: v.rate, base64: fs.readFileSync(v.file).toString('base64') };
+    } catch (err) { return { success: false, error: err.message, trovato: false }; }
+});
+ipcMain.handle('tts-cache-put', (event, o) => {
+    try {
+        fs.mkdirSync(ttsCacheDir(), { recursive: true });
+        const rate = parseInt(o && o.rate, 10) || 24000;
+        const h = ttsCacheHash(o && o.chiave);
+        /* Stessa chiave con una frequenza diversa: si toglie il vecchio, o
+           resterebbero due file per lo stesso blocco e vincerebbe il primo che
+           l'indice incontra. */
+        const vecchio = ttsCacheIndice()[h];
+        if (vecchio) { try { fs.unlinkSync(vecchio.file); } catch (e) { } }
+        fs.writeFileSync(path.join(ttsCacheDir(), h + '-' + rate + '.pcm'),
+            Buffer.from(String((o && o.base64) || ''), 'base64'));
+        return { success: true };
+    } catch (err) { return { success: false, error: err.message }; }
+});
+ipcMain.handle('tts-cache-clear', (event, o) => {
+    try {
+        const idx = ttsCacheIndice();
+        const chiavi = (o && o.chiavi) || [];
+        let tolti = 0;
+        chiavi.forEach(k => {
+            const v = idx[ttsCacheHash(k)];
+            if (!v) return;
+            try { fs.unlinkSync(v.file); tolti++; } catch (e) { }
+        });
+        return { success: true, tolti };
+    } catch (err) { return { success: false, error: err.message, tolti: 0 }; }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 // REGISTRO LOCALE DEGLI ERRORI (15/8/26)
 // Non è telemetria: NIENTE parte da qui. Le righe si scrivono su disco e le
 // legge la Cabina, che le allega alla segnalazione solo quando il docente

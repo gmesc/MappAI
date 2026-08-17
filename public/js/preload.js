@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Registro consumi AI
     usageLogAppend: (rec) => ipcRenderer.invoke('usage-log-append', rec),
     usageLogRead: () => ipcRenderer.invoke('usage-log-read'),
+    /* Cache su disco dei clip della voce naturale: una registrazione fermata
+       dalla quota giornaliera riprende domani senza ripagare i blocchi già
+       letti. Sta in userData, non nel vault: è lavoro in corso. */
+    ttsCacheHas: (o) => ipcRenderer.invoke('tts-cache-has', o),
+    ttsCacheGet: (o) => ipcRenderer.invoke('tts-cache-get', o),
+    ttsCachePut: (o) => ipcRenderer.invoke('tts-cache-put', o),
+    ttsCacheClear: (o) => ipcRenderer.invoke('tts-cache-clear', o),
     usageOpenFolder: () => ipcRenderer.invoke('usage-open-folder'),
     // Registro locale degli errori (niente esce da solo: lo legge la Cabina)
     errorLogAppend: (rec) => ipcRenderer.invoke('error-log-append', rec),

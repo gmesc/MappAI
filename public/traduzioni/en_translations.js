@@ -1229,6 +1229,7 @@ const en_translations = {
     bs_pre_tempo: "about {n} minutes, because of the limit of {r} calls per minute",
     bs_pre_nota: "A synthesis of the whole map is long: if you only need part of it, record the synthesis of a BRANCH. You can cancel while it records, and the blocks already done are not paid for again until you close the app.",
     bs_pre_ok: "Record",
+    bs_pre_restano: "{n} blocks left to read — {p} already done from last time",
     ui_annullo: "Cancelling…",
     bs_audio_done: "✓ Audio downloaded",
     bs_audio_fail: "Audio not generated",

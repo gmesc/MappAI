@@ -2043,7 +2043,14 @@
            una sintesi corretta prima di registrare l'audio verrebbe scartato
            subito come «già superato». */
         _syn.base = JSON.parse(JSON.stringify(_syn.blocks));
-        await _scriviCopiaParlante(res);
+        const scritta = await _scriviCopiaParlante(res);
+        /* La cache dei clip si svuota SOLO a copia scritta (regola di Giacomo):
+           finché quel file non è sul disco i clip servono ancora, ed è proprio
+           il caso in cui la scrittura fallisce che non deve costare una seconda
+           registrazione da capo. */
+        if (scritta && res.chiavi && window.MappAISynthesis && window.MappAISynthesis.svuotaCache) {
+            try { await window.MappAISynthesis.svuotaCache(res.chiavi); } catch (e) { }
+        }
     }
 
     /* ── LA COPIA PARLANTE, nella cartella della mappa ───────────────────────
@@ -2077,7 +2084,7 @@
             /* Registrata comunque: vive nel documento aperto e finisce in HTML e
                nella stampa. Manca solo il file, e si dice quale manca. */
             toast(t('de_voce_no_vault', 'Voce registrata, ma non ho una cartella dove scrivere la copia parlante: resta nel documento aperto.'), 'warning');
-            return;
+            return false;
         }
         try {
             const uri = await _blobToDataUri(res.blob);
@@ -2098,10 +2105,12 @@
                 if (window.MappAIVaults) window.MappAIVaults.segnala('doc-salvato', { vaultPath: vaultPath, relPath: rel });
             } catch (e) { /* canale assente: il file è comunque scritto */ }
             toast(t('de_voce_ok', '✓ Voce registrata — copia parlante scritta: ') + nome, 'success');
+            return true;
         } catch (e) {
             /* Degradabile come nella pipeline: la voce c'è comunque nel documento
                aperto, si perde solo la copia su disco — e si dice il perché. */
             toast(t('de_voce_file_ko', 'Voce registrata, ma la copia parlante non è stata scritta: ') + (e.message || e), 'warning');
+            return false;
         }
     }
 

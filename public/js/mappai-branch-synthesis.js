@@ -1442,6 +1442,55 @@ ${_bsPie(data.mapName)}
     var _ttsCache = Object.create(null);
     function _ttsChiave(testo, voice, model) { return model + '|' + voice + '|' + testo; }
 
+    /* ── LA CACHE SOPRAVVIVE ALLA CHIUSURA (17/8) ────────────────────────────
+       🐛 Fino a oggi i clip vivevano SOLO in memoria. Giacomo ha esaurito la
+       quota giornaliera al blocco 23 di 78, ha chiuso l'app — l'unico modo di
+       fermarla, allora — e i 23 blocchi già pagati sono spariti. Il giorno dopo
+       si ricominciava da capo, cioè si ripagava.
+       Ora ogni clip va anche su DISCO, in `userData` (scelta di Giacomo: è
+       lavoro in corso, non un materiale — nel vault sarebbero ~20 MB di roba
+       tecnica in mezzo ai documenti di classe, sincronizzati a ogni ritocco).
+       La chiave resta la stessa — modello|voce|TESTO — quindi la ripresa è per
+       BLOCCO: correggendo una frase si rigenera quella e nient'altro, e
+       cambiando modello o voce si rigenera tutto, com'è giusto (clip di due
+       voci diverse nello stesso audio si sentono).
+       Fuori da Electron non c'è disco: resta la cache di sessione, come prima. */
+    function _cacheApi() {
+        var a = window.electronAPI;
+        return (a && a.ttsCacheGet && a.ttsCachePut) ? a : null;
+    }
+    async function _cacheDaDisco(chiave) {
+        var a = _cacheApi(); if (!a) return null;
+        try {
+            var r = await a.ttsCacheGet({ chiave: chiave });
+            if (!r || !r.trovato || !r.base64) return null;
+            return { bytes: _b64ToBytes(r.base64), rate: parseInt(r.rate, 10) || 24000 };
+        } catch (e) { return null; }
+    }
+    async function _cacheSuDisco(chiave, bytes, rate) {
+        var a = _cacheApi(); if (!a) return;
+        try {
+            await a.ttsCachePut({ chiave: chiave, rate: rate, base64: _bytesToB64(bytes) });
+        } catch (e) { /* la cache è un risparmio: se non si scrive, si ripagherà */ }
+    }
+    /** Byte → base64 senza sfondare lo stack: `apply` su 250 KB lo fa. */
+    function _bytesToB64(bytes) {
+        var s = '', CH = 0x8000;
+        for (var i = 0; i < bytes.length; i += CH) {
+            s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+        }
+        return btoa(s);
+    }
+    /** Quante di queste chiavi sono già pronte (per il preavviso). */
+    async function _giaPronti(chiavi) {
+        var a = window.electronAPI;
+        if (!a || !a.ttsCacheHas) return 0;
+        try {
+            var r = await a.ttsCacheHas({ chiavi: chiavi });
+            return (r && r.presenti) ? r.presenti.filter(Boolean).length : 0;
+        } catch (e) { return 0; }
+    }
+
     /* ── ANNULLARE UNA REGISTRAZIONE IN CORSO (17/8) ─────────────────────────
        Finora non si poteva: l'unica uscita era chiudere l'app, che è anche il
        gesto che butta via i clip già pagati (la cache vive in memoria). Il
@@ -1571,6 +1620,8 @@ ${_bsPie(data.mapName)}
         const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
         const pcmParts = []; let rate = 24000; const cues = []; let cum = 0;
         const saltati = [];   /* blocchi che nessun modello ha voluto leggere */
+        const chiavi = [];    /* le chiavi di cache di QUESTA registrazione: si
+                                 svuotano quando la copia parlante è scritta */
         _ttsAnnulla = false;  /* ogni registrazione riparte da zero, mai col «no» di prima */
         for (let i = 0; i < blocks.length; i++) {
             _seAnnullato();
@@ -1586,7 +1637,13 @@ ${_bsPie(data.mapName)}
                dieci partono subito) e, se il 429 arriva lo stesso, si ritenta
                dopo l'attesa che l'API stessa dichiara. */
             const chiave = _ttsChiave(blocks[i], voice, model);
+            chiavi.push(chiave);
             let bytes = _ttsCache[chiave] && _ttsCache[chiave].bytes;
+            if (!bytes) {
+                /* non in memoria: forse è di ieri, e sta su disco */
+                const daDisco = await _cacheDaDisco(chiave);
+                if (daDisco) { _ttsCache[chiave] = daDisco; bytes = daDisco.bytes; }
+            }
             if (bytes) {
                 /* già generato in un tentativo precedente: non si ripaga, e non
                    consuma un posto nella finestra del limite */
@@ -1628,6 +1685,11 @@ ${_bsPie(data.mapName)}
                 const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
                 bytes = _b64ToBytes(inline.data);
                 _ttsCache[chiave] = { bytes: bytes, rate: rate };
+                /* Su disco SUBITO, non alla fine: se la quota si esaurisce al
+                   blocco dopo, questo è già salvo. Scriverli tutti in fondo
+                   vorrebbe dire perderli proprio nel caso per cui la cache
+                   esiste. */
+                await _cacheSuDisco(chiave, bytes, rate);
             }
             pcmParts.push(bytes);
             cues.push(Math.round(cum * 1000) / 1000);
@@ -1645,7 +1707,7 @@ ${_bsPie(data.mapName)}
         const enc = _encodeAudio(all, rate); // MP3 se possibile
         // Firma del parlato al momento della registrazione: serve a non
         // consegnare mai un documento con testo nuovo e voce vecchia.
-        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, saltati: saltati, sig: blocks.join('') };
+        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, saltati: saltati, chiavi: chiavi, sig: blocks.join('') };
     }
 
     /** Il testo di adesso è ancora quello registrato? (altrimenti i cue slittano)
@@ -1725,12 +1787,25 @@ ${_bsPie(data.mapName)}
         const unaParola = blocchi.filter(function (b) {
             return String(b || '').trim().split(/\s+/).length === 1;
         }).length;
+        /* ⚠️ Si conta quello che MANCA, non il documento. Riprendendo il giorno
+           dopo una registrazione fermata dalla quota, dire «78 blocchi · 12
+           minuti» sarebbe falso — e farebbe rinunciare a una corsa ormai a un
+           terzo dalla fine. I clip già su disco non si ripagano e non
+           consumano nemmeno un posto nel limite al minuto. */
+        const model = (function () { try { return localStorage.getItem('mappai_tts_model') || 'gemini-2.5-flash-preview-tts'; } catch (e) { return 'gemini-2.5-flash-preview-tts'; } })();
+        const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
+        const pronti = await _giaPronti(blocchi.map(function (b) { return _ttsChiave(b, voice, model); }));
+        const restano = Math.max(0, blocchi.length - pronti);
+        if (!restano) return true;   /* tutto già pronto: non c'è niente da preventivare */
         const s = UC().stimaTts({
-            blocchi: blocchi.length, unaParola: unaParola,
+            blocchi: restano, unaParola: Math.min(unaParola, restano),
             ripiego: !!_ttsRipiego(''), rpm: _ttsLimite()
         });
         const righe = [
-            window.t('bs_pre_blocchi', '{n} blocchi di testo da leggere').replace('{n}', blocchi.length),
+            (pronti
+                ? window.t('bs_pre_restano', '{n} blocchi da leggere — {p} già pronti dalla volta scorsa')
+                    .replace('{n}', restano).replace('{p}', pronti)
+                : window.t('bs_pre_blocchi', '{n} blocchi di testo da leggere').replace('{n}', restano)),
             window.t('bs_pre_chiamate', 'circa {n} chiamate all\'AI').replace('{n}', s.chiamate),
             window.t('bs_pre_tempo', 'circa {n} minuti, per il limite di {r} chiamate al minuto')
                 .replace('{n}', s.minuti).replace('{r}', _ttsLimite())
@@ -1851,7 +1926,21 @@ ${_bsPie(data.mapName)}
             }
         },
         buildHtml: function (data, opts) { return _buildSynthesisPrintHtml(data, opts); },
-        generateAudio: function (data) { return _generateSynthesisAudioWithCues(data); }
+        generateAudio: function (data) { return _generateSynthesisAudioWithCues(data); },
+        /* «Si cancella quando la copia parlante è scritta» (regola di Giacomo,
+           17/8). La chiama chi ha scritto il file, non il motore: finché quel
+           file non è su disco i clip servono ancora — è proprio il caso in cui
+           la scrittura fallisce che non deve costare una seconda registrazione.
+           Le chiavi arrivano da `res.chiavi`. */
+        svuotaCache: async function (chiavi) {
+            var a = window.electronAPI;
+            if (!a || !a.ttsCacheClear || !chiavi || !chiavi.length) return 0;
+            try {
+                chiavi.forEach(function (k) { delete _ttsCache[k]; });
+                var r = await a.ttsCacheClear({ chiavi: chiavi });
+                return (r && r.tolti) || 0;
+            } catch (e) { return 0; }
+        }
     };
 
     console.log('[MappAI] mappai-branch-synthesis.js caricato ✓');
