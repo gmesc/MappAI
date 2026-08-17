@@ -427,7 +427,73 @@
     }).map(function (f) { return f.nome; });
   }
 
+  /* ══ MATERIALI CHE NOMINANO UN'ALTRA MAPPA ═══════════════════════════════
+     Per i SET la cartella si può allineare: l'app possiede la lista completa.
+     Per i MATERIALI no — PDF e HTML si accumulano apposta (i sette «Domande
+     aperte», i vari «Studio»), e non esiste una lista di ciò che «dovrebbe»
+     esserci. Una potatura lì cancellerebbe lavoro vero. Quindi qui non si pota:
+     si RICONOSCE e si dice, e a decidere è il docente.
+     ⚠️ La trappola è la sottostringa: nel vault «Il Clima» ogni file nomina
+     «Clima», che è ANCHE un'altra mappa — e una ricerca ingenua li segnala
+     tutti. Un'etichetta contenuta nella mia non è mai un estraneo, e un nome
+     che contiene già la MIA etichetta nemmeno.
+     `nodi` (facoltativo) toglie l'altro falso positivo: un `Focus-<nodo>-…`
+     porta il nome di un NODO, che può coincidere con quello di un'altra mappa.
+     → l'etichetta estranea, o '' se il file è di casa. */
+  function materialeEstraneo(nomeFile, mia, altre, nodi) {
+    var n = _s(nomeFile);
+    if (!n) return '';
+    var mio = _s(mia);
+    if (mio && _contiene(n, mio)) return '';        /* nomina già la mia mappa */
+    var trovata = '';
+    (altre || []).forEach(function (lab) {
+      if (trovata) return;
+      var l = _s(lab);
+      if (!l || l.length <= 4) return;              /* nomi corti: troppi falsi */
+      if (_norm(l) === _norm(mio)) return;
+      if (mio && _contiene(mio, l)) return;         /* «Clima» dentro «Il Clima» */
+      if (!_contiene(n, l)) return;
+      /* un nodo con quel nome spiega il file meglio di una mappa estranea */
+      var eNodo = (nodi || []).some(function (x) { return _norm(x) === _norm(l); });
+      if (!eNodo) trovata = l;
+    });
+    return trovata;
+  }
+  /* «ago» compare in «pagliaio» come PAROLA, non come pezzo di un'altra parola:
+     ai bordi ci vuole un separatore (o il bordo della stringa). */
+  function _contiene(testo, ago) {
+    var t = _norm(testo), a = _norm(ago);
+    if (!a) return false;
+    var i = t.indexOf(a);
+    while (i >= 0) {
+      var prima = i === 0 ? ' ' : t.charAt(i - 1);
+      var dopo = (i + a.length >= t.length) ? ' ' : t.charAt(i + a.length);
+      if (/[\s\-_.]/.test(prima) && /[\s\-_.]/.test(dopo)) return true;
+      i = t.indexOf(a, i + 1);
+    }
+    return false;
+  }
+
+  /* Il nome del file dice a quale mappa appartiene?
+     Non basta cercare l'etichetta intera: le etichette cambiano nel tempo (il
+     vault «1-2 Orientarsi nel Paesaggio» ha materiali che dicono solo
+     «Orientarsi nel Paesaggio») e un confronto secco li darebbe tutti per muti.
+     Si guardano le PAROLE che contano — quelle lunghe, che i numeri di capitolo
+     e gli articoli non sono: se almeno una compare nel nome, il file si sa
+     attribuire. Muto è `Foglio-nodi-card -VERDE.pdf`, che non ne ha nessuna. */
+  function nomeDiceLaMappa(nomeFile, mappa) {
+    var n = _norm(nomeFile), parole = _paroleChiave(mappa);
+    if (!parole.length) return true;        /* mappa senza nome: non si giudica */
+    return parole.some(function (p) { return n.indexOf(p) >= 0; });
+  }
+  function _paroleChiave(mappa) {
+    return _norm(mappa).split(/[^a-zà-ÿ0-9]+/i)
+      .filter(function (p) { return p.length >= 4; });
+  }
+
   var CORE = {
+    materialeEstraneo: materialeEstraneo,
+    nomeDiceLaMappa: nomeDiceLaMappa,
     ROOT_FOLDER: ROOT_FOLDER,
     SUB: SUB,
     LEGACY: LEGACY,

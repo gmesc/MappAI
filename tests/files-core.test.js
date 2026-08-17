@@ -380,3 +380,78 @@ test('setFileDaPotare: con ZERO set non si pota niente', () => {
     const suDisco = [{ nome: 'set-x.json', id: 'x' }, { nome: 'set-y.json', id: 'y' }];
     assert.deepStrictEqual(FC.setFileDaPotare(suDisco, []), []);
 });
+
+/* ══ MATERIALI CHE NOMINANO UN'ALTRA MAPPA ═══════════════════════════════════
+   I casi qui sotto sono TUTTI veri, presi dai vault di Giacomo il 17/8: quelli
+   che vanno segnalati e — soprattutto — quelli che una ricerca ingenua segnala
+   a torto. La prima ricognizione ne diede 28: quattro veri e ventiquattro no. */
+
+test('materialeEstraneo: il caso VERO — un PDF di Elettricità dentro Project E', () => {
+    assert.strictEqual(
+        FC.materialeEstraneo('Quiz-MC-Elettricità -VERDE.pdf', 'Project E', ['Elettricità', 'Il Clima']),
+        'Elettricità');
+});
+
+test('materialeEstraneo: «Clima» dentro «Il Clima» NON è un estraneo', () => {
+    // Esiste davvero una mappa «Clima» accanto a «Il Clima»: senza questa
+    // regola tutti i materiali di «Il Clima» risultavano estranei.
+    assert.strictEqual(
+        FC.materialeEstraneo('Quiz-MC-Il Clima -VERDE.pdf', 'Il Clima', ['Clima']), '');
+    assert.strictEqual(
+        FC.materialeEstraneo('Studio-Il Clima-td-00.pdf', 'Il Clima', ['Clima']), '');
+});
+
+test('materialeEstraneo: un file che nomina la MIA mappa è di casa', () => {
+    assert.strictEqual(
+        FC.materialeEstraneo('Domande-aperte-Project E-causa.pdf', 'Project E', ['Elettricità']), '');
+});
+
+test('materialeEstraneo: un Focus porta il nome di un NODO, non di una mappa', () => {
+    const altre = ['Geografia Fisica'];
+    assert.strictEqual(
+        FC.materialeEstraneo('Focus-Geografia Fisica-parentela.pdf', '4-6 Geografie', altre),
+        'Geografia Fisica', 'senza l\'elenco dei nodi si segnala, ed è giusto');
+    assert.strictEqual(
+        FC.materialeEstraneo('Focus-Geografia Fisica-parentela.pdf', '4-6 Geografie', altre,
+            ['Geografia Fisica', 'Clima']),
+        '', 'se quel nodo esiste nella mappa, il file è di casa');
+});
+
+test('materialeEstraneo: il nome deve comparire come PAROLA, non dentro un\'altra', () => {
+    // «Roma» non deve far scattare «Romagna»
+    assert.strictEqual(FC.materialeEstraneo('Quiz-MC-Romagna.pdf', 'Storia', ['Romani']), '');
+});
+
+test('materialeEstraneo: le etichette corte non si usano (troppi falsi)', () => {
+    assert.strictEqual(FC.materialeEstraneo('Quiz-MC-Il Po -VERDE.pdf', 'Fiumi', ['Po']), '');
+});
+
+test('materialeEstraneo: accenti nelle due forme, stessa mappa', () => {
+    const nfd = 'Elettricità';   // scomposto, come lo scrive a volte macOS
+    assert.strictEqual(FC.materialeEstraneo('Quiz-MC-Elettricità -VERDE.pdf', nfd, ['Il Clima']), '',
+        'la mia mappa scritta nell\'altra forma non rende il file estraneo');
+});
+
+test('materialeEstraneo: un foglio nodi SENZA il nome della mappa non si può giudicare', () => {
+    // È il difetto corretto il 17/8 in print-dossier: un nome muto non dice
+    // niente, né a favore né contro. Non si segnala: non si sa.
+    assert.strictEqual(FC.materialeEstraneo('Foglio-nodi-card -VERDE.pdf', 'Project E', ['Elettricità']), '');
+});
+
+test('nomeDiceLaMappa: un\'etichetta cambiata nel tempo si riconosce lo stesso', () => {
+    // Il vault dichiara «1-2 Orientarsi nel Paesaggio», i suoi materiali dicono
+    // solo «Orientarsi nel Paesaggio»: un confronto secco li darebbe per muti.
+    assert.strictEqual(
+        FC.nomeDiceLaMappa('Quiz-MC-Orientarsi nel Paesaggio -VERDE.pdf', '1-2 Orientarsi nel Paesaggio'), true);
+});
+
+test('nomeDiceLaMappa: muto è quello che non nomina nulla della mappa', () => {
+    assert.strictEqual(FC.nomeDiceLaMappa('Foglio-nodi-card -VERDE.pdf', 'Project E'), false);
+    assert.strictEqual(FC.nomeDiceLaMappa('Sintesi -VERDE.html', 'Il Clima'), false);
+});
+
+test('nomeDiceLaMappa: i numeri di capitolo non contano come nome', () => {
+    // «5-6» non deve bastare a dire che il file è di «5-6 Morfologia…»
+    assert.strictEqual(FC.nomeDiceLaMappa('Foglio-nodi-card -VERDE.pdf', '5-6 Morfologia & Demografia'), false);
+    assert.strictEqual(FC.nomeDiceLaMappa('Quiz-MC-Morfologia & Demografia -VERDE.pdf', '5-6 Morfologia & Demografia'), true);
+});

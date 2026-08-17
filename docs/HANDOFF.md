@@ -306,6 +306,41 @@ file col nome dall'id, col marchio, e porta via i vecchi.
 verificato che ognuno avesse un gemello identico (i tre di Elettricità) o un successore con
 lo stesso id (i tre `2_1_project_e`).
 
+### I MATERIALI: il nome dice la mappa, e una diagnosi ripetibile (17/8)
+Seguito del trattamento dei set. ⚠️ **La potatura NON si estende ai materiali**: i `.json`
+dei set derivano da una lista che l'app possiede per intero, i PDF e gli HTML no — si
+accumulano apposta (i sette «Domande aperte», i vari «Studio») e non esiste un elenco di
+ciò che «dovrebbe» esserci. Allineare quella cartella cancellerebbe lavoro vero.
+- 🐛 **`mappai-print-dossier.js` non passava la mappa** a `buildFileName`: da lì usciva
+  `Foglio-nodi-card -VERDE.pdf`, un nome che non dice a quale mappa appartiene. Sono
+  proprio i file così che, finiti nella cartella sbagliata, ci restano senza che nessuno
+  se ne accorga. Ora compone come la **pipeline** (`{mappa, dettaglio}`), non in un secondo
+  modo (invariante 6).
+- **`tools/diagnosi/vault-estranei.js`** — sola lettura, usa le funzioni VERE del core:
+  set di un'altra mappa · set duplicati · vault annidati dentro «Materiale Studio» ·
+  materiali di un'altra mappa · **nomi muti**. Si rilancia quando qualcosa non torna,
+  invece di rifare l'indagine a mano.
+- Nel core, pure e provate: `materialeEstraneo(nome, mia, altre, nodi)` e
+  `nomeDiceLaMappa(nome, mappa)`.
+  ⚠️ Le due trappole che le hanno formate, ed erano il grosso del lavoro: **«Clima» è
+  sottostringa di «Il Clima»** (una ricerca ingenua dava 28 estranei, di cui 24 falsi) e un
+  **`Focus-…` porta il nome di un NODO**, non di una mappa. E «muto» non si decide col nome
+  intero: le etichette cambiano nel tempo (il vault «1-2 Orientarsi nel Paesaggio» ha
+  materiali che dicono solo «Orientarsi nel Paesaggio»), quindi si guardano le parole ≥4
+  lettere — i numeri di capitolo non contano.
+
+**Esito sui 31 vault**: zero set estranei, zero duplicati, zero vault annidati. Restano
+**cinque materiali** da decidere a mano (quattro `Caratteri ereditari-ALBERO-td-*.pdf` in
+«Riproduzione Sessuata» — trovati dallo strumento, non dalla ricognizione a mano — e un
+`Focus-Geografia Fisica-parentela.pdf`) e **102 nomi muti**, che non sono un difetto ma la
+convenzione vecchia: rigenerandoli il nome diventa parlante.
+
+⚠️ **Non fatto, e dichiarato**: la **guardia alla scrittura** — un materiale dovrebbe poter
+essere scritto solo nel vault della mappa APERTA, e chi ci prova dovrebbe essere fermato.
+È il pezzo che previene invece di diagnosticare, ma tocca 17 punti di scrittura in 5 file e
+non è verificabile senza provare l'app: va fatto con Electron libero, e conviene che nasca
+come **avviso** (con kill-switch) prima di diventare un rifiuto.
+
 ### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
 🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
 lanciando una lavorazione in ELABORA e cliccando un altro progetto, **lo spinner in barra si

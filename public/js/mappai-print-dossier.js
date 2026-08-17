@@ -630,9 +630,18 @@ window.printAllNodeLabels = async function (opts) {
     // Modalità headless (pipeline / «Nel vault» dell'editor): ritorna il PDF come
     // base64, nessun effetto UI. Il nome canonico lo decide l'orchestratore.
     if (toDisk) {
+        /* 🐛 17/8: qui la MAPPA non veniva passata, e usciva
+           `Foglio-nodi-card -VERDE.pdf` — un nome che non dice a quale mappa
+           appartiene. Sono file così che, finiti nella cartella sbagliata, ci
+           restano senza che nessuno se ne accorga: nel vault di «Project E» ce
+           n'erano quattro di un'altra mappa, dal 30 luglio.
+           La forma è quella della PIPELINE (`{mappa, dettaglio}`), non una
+           seconda: due compositori dello stesso nome divergono al primo ritocco
+           (invariante 6) — ed è già successo con le copie, il 11/8. */
         var pipeName = (window.MappAIPipelineCore && window.MappAIPipelineCore.buildFileName)
-            ? window.MappAIPipelineCore.buildFileName('nodesheet', layoutName, tuned)
-            : ('Foglio-nodi-' + layoutName + verde + '.pdf');
+            ? window.MappAIPipelineCore.buildFileName('nodesheet', null, tuned,
+                { mappa: projectTitle, dettaglio: layoutName })
+            : ('Foglio-nodi-' + (projectTitle ? projectTitle + '-' : '') + layoutName + verde + '.pdf');
         return { ok: true, base64: doc.output('datauristring'), fileName: pipeName };
     }
 
