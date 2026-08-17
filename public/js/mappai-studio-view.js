@@ -479,6 +479,20 @@
                si guardava una vista di studio, dove non toccano niente. */
             chkMappa('pin', t('sv_map_pin', 'Blocca i nodi dove sono'), !!flags.pinned) +
             chkMappa('attr', t('sv_map_attr', 'Attrazione fra i nodi'), flags.attrazione !== false) +
+            /* 🐛 Il PDF mancava proprio qui (17/8, rilievo di Giacomo). La regola
+               fissata il 1/8 è «**Esporta PDF segue quello che guardi**» — nel
+               focus esporta la focus-map, nella vista di studio la vista — e
+               sulla mappa libera semplicemente non c'era, quindi la regola aveva
+               un buco esattamente nel passo di partenza.
+               ⚠️ Non è lo stesso PDF: `exportPDF` esporta il CANVAS in vettori,
+               inquadrando l'intera mappa (il `getBBox` ignora lo zoom), e la
+               pagina prende la misura del disegno — non è un A4 come quello
+               delle viste di studio. L'etichetta lo dice, o si prometterebbe un
+               foglio che non esce. Il motore resta uno solo: si chiama quello
+               della barra, non se ne scrive un secondo (invariante 21). */
+            '<button type="button" id="sv-map-pdf" class="w-full py-2 mb-2 rounded-xl bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 flex items-center justify-center gap-2">' +
+            '<i data-lucide="file-down" class="w-3.5 h-3.5"></i>' +
+            t('sv_pdf_mappa', 'Esporta PDF della mappa') + '</button>' +
             '<button type="button" id="sv-reset" class="w-full py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2' +
             (fissato ? '' : ' opacity-50') + '">' +
             '<i data-lucide="pin" class="w-3.5 h-3.5"></i>' +
@@ -636,6 +650,15 @@
                 return;
             }
             if (ev.target.closest('#sv-reset')) { ripristina(); return; }
+            /* Il PDF della mappa libera: si chiama il motore della barra
+               (`window.exportPDF`, vettoriale, con il suo ripiego raster), non
+               se ne scrive un secondo. Se manca lo si dice, invece di lasciare
+               un bottone che non fa niente. */
+            if (ev.target.closest('#sv-map-pdf')) {
+                if (typeof window.exportPDF === 'function') window.exportPDF();
+                else if (window.showToast) window.showToast(t('sv_pdf_missing', 'Librerie PDF non disponibili'), 'error');
+                return;
+            }
             // scelte della MAPPA LIBERA (canvas), non del profilo della vista
             const mb = ev.target.closest('[data-sv-map-seg] button');
             if (mb) {

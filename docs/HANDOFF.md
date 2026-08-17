@@ -935,6 +935,13 @@ Sette motori deterministici in `mappai-studio-layouts.js`, renderer condiviso in
   sua (Anelli, Colonne…) eredita quella dell'**Albero**, non quella dei Fasci.
   Le leve VIVE restano piatte su `p` (il renderer non deve sapere che esiste una taratura
   per motore); `perMotore` è solo la fotografia che si ripone cambiando motore.
+- **Sulla mappa libera c'è anche «Esporta PDF della mappa»** (17/8, rilievo di Giacomo).
+  Mancava proprio lì: la regola del 1/8 è «**Esporta PDF segue quello che guardi**» — nel
+  focus la focus-map, nella vista di studio la vista — e sul passo di partenza aveva un
+  buco. ⚠️ Non è lo stesso PDF: chiama `window.exportPDF` (il motore della barra, non un
+  secondo), che esporta il CANVAS in vettori inquadrando l'intera mappa (`getBBox` ignora
+  lo zoom) e dà alla pagina la misura del disegno — non è un A4 come quello delle viste di
+  studio, e l'etichetta lo dice.
 - **Sulla mappa libera il pannello ha quattro leve** (16/8): «Mostra fino al livello»
   (gemello della barra), **testo dei nodi** e **testo delle linking words** — due scale
   separate, prima erano una sola (`testo × 0.765`), e si ricordano fra le sessioni

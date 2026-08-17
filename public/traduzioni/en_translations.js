@@ -754,6 +754,7 @@ const en_translations = {
     sv_fs_node: "Node text size",
     sv_fs_rel: "Linking word text size",
     sv_bands: "Macro-area bands",
+    sv_pdf_mappa: "Export the map as PDF",
     sv_pdf: "Export PDF (A4)",
     sv_reset: "Reset to defaults",
     sv_mappa_desc: "You are looking at the free map. Pick Tree, DAG or Bundles to switch to the study view.",
