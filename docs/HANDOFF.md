@@ -256,6 +256,28 @@ Ora è la quarta forma, con gli id **della colonna** (`syn:` · `synfile:`) e no
 convenzione. ⚠️ `_doc` non può restare `null`: è lui a far emettere la `tela`
 (`if (_doc) s.tela = …` in `_schemaV2`), e senza tela non c'è dove appendere l'host.
 
+### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
+🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
+lanciando una lavorazione in ELABORA e cliccando un altro progetto, **lo spinner in barra si
+ribattezzava col nome di quel progetto** — sembrava che MappAI stesse generando per tutti.
+La radice non era del chiamante ma della patch in `mappai-lavori.js`: **ogni** chiamata col
+velo acceso chiudeva il lavoro e ne apriva uno nuovo, ricalcolando il nome; e senza un nome
+esplicito il ripiego legge `rootNodeLabel`, cioè il progetto aperto **in quel momento**. Una
+lavorazione è fatta di decine di fasi che si annunciano una dopo l'altra (la MindMap
+multi-pass ne ha una dozzina, la voce **una per blocco**), quindi bastava un clic.
+Ora una chiamata che non dichiara un nome è una **fase** del lavoro in corso, non un lavoro
+nuovo: il nome resta quello di quando è cominciato. Si ribattezza **solo** se arriva un nome
+esplicito diverso — cioè se è davvero un'altra cosa.
+📌 Vale per tutti i chiamanti, anche quelli che il nome non lo passano: era il punto.
+In più il nome ora viaggia dalla sintesi («Sintesi: <ramo>») e dalla voce («Voce naturale»):
+dicono *che cosa* si sta creando, non *dove ci si trova*.
+⚠️ `mappai-lavori.js` **non aveva un marcatore di cache** (trappola §0.3): modificarlo non
+bastava a farlo arrivare all'app. Aggiunto.
+Provato in Electron: generata una sintesi di ramo, cliccato un altro progetto a metà — il
+nome resta «Sintesi: Funzione Educativa». E il meccanismo è provato sui tre casi, a costo
+zero: senza nome tiene il primo · con nome esplicito lo tiene attraverso le fasi · con un
+nome diverso si ribattezza.
+
 ### IL MODALE DI RISULTATO NON È PIÙ UN VICOLO CIECO (17/8)
 🐛 Generando una sintesi nuova, il modale che la mostra **archiviava** in `localStorage` ma
 non scriveva nessun file, e le sue tre azioni non portavano da nessuna parte: «Stampa» apre

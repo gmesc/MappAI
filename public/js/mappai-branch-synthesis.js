@@ -26,7 +26,15 @@
     // Modalità silenziosa (pipeline 011): niente overlay né modale risultato.
     // Default false → il flusso manuale è invariato. runWholeMap la alza/abbassa.
     let _silent = false;
-    function _ovl(show, msg) { if (!_silent && window.showLoadingOverlay) window.showLoadingOverlay(show, msg); }
+    /* Il nome del lavoro (quarto argomento) viaggia SEMPRE: senza, l'indicatore
+       in barra ripiega sul titolo del progetto attivo, e una generazione lunga
+       si ribattezzava a ogni fase se nel frattempo si sceglieva un altro
+       progetto in ELABORA. «Sintesi» dice anche più di un nome di mappa: quello
+       che si sta creando, non dove ci si trova. */
+    function _ovl(show, msg) {
+        if (_silent || !window.showLoadingOverlay) return;
+        window.showLoadingOverlay(show, msg, 'default', window.t('bs_lavoro', 'Sintesi'));
+    }
     function _maybeResultModal(data) { if (!_silent) _openBranchSynthesisResultModal(data); }
 
     function _escBS(s) {
@@ -433,7 +441,10 @@
             if (!root) { window.showToast('Ramo non trovato', 'error'); return; }
             const branchLabel = window.cleanLabel ? window.cleanLabel(root.label) : root.label;
 
-            window.showLoadingOverlay(true, 'Sintesi del ramo in corso…');
+            /* col nome del RAMO: l'indicatore dice che cosa si sta scrivendo,
+               non in quale progetto ci si trova (che può cambiare sotto) */
+            window.showLoadingOverlay(true, 'Sintesi del ramo in corso…', 'default',
+                window.t('bs_lavoro', 'Sintesi') + ': ' + branchLabel);
             const out = await _synthesizeOnce(_collectBranchNodes(selectedId), branchLabel, apiKey);
             window.showLoadingOverlay(false);
             if (!out) {

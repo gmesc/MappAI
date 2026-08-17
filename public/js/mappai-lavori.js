@@ -185,13 +185,33 @@
     function aggancia() {
         var orig = window.showLoadingOverlay;
         if (typeof orig !== 'function' || orig.__lavori) return false;
-        var corrente = null;
+        var corrente = null, nomeCorrente = '';
         var patched = function (show, testo, mode, nome) {
             if (show) {
-                if (corrente) API.fine(corrente);
-                corrente = API.inizia(nome || nomeDiRipiego(testo));
+                /* 🐛 IL NOME SI CATTURA ALL'AVVIO E APPARTIENE AL LAVORO (17/8).
+                   Prima ogni chiamata col velo acceso chiudeva il lavoro e ne
+                   apriva uno nuovo, ricalcolando il nome — e senza un nome
+                   esplicito il ripiego legge `rootNodeLabel`, cioè il progetto
+                   APERTO IN QUEL MOMENTO. Una generazione è fatta di decine di
+                   fasi che si annunciano una dopo l'altra (la MindMap
+                   multi-pass ne ha una dozzina, la voce una per blocco): bastava
+                   cliccare un altro progetto in ELABORA e alla fase successiva
+                   l'indicatore si ribattezzava col nome di quello — sembrava che
+                   MappAI stesse generando per tutti i progetti.
+                   Ora una chiamata che non dichiara un nome è una FASE del
+                   lavoro in corso, non un lavoro nuovo: il nome resta quello di
+                   quando è cominciato. Si ribattezza solo se arriva un nome
+                   esplicito DIVERSO — cioè se è davvero un'altra cosa. */
+                if (!corrente) {
+                    nomeCorrente = nome || nomeDiRipiego(testo);
+                    corrente = API.inizia(nomeCorrente);
+                } else if (nome && nome !== nomeCorrente) {
+                    API.fine(corrente);
+                    nomeCorrente = nome;
+                    corrente = API.inizia(nomeCorrente);
+                }
             } else if (corrente) {
-                API.fine(corrente); corrente = null;
+                API.fine(corrente); corrente = null; nomeCorrente = '';
             }
             return orig.apply(this, arguments);
         };

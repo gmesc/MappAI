@@ -584,7 +584,18 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     contenitore di qualcun altro richiede di **aprire prima quel contenitore**, o il
     documento si carica e non si vede.
 
-44. **`list()` che restituisce metadati NON è `get()`.** Verificando un salvataggio ho letto
+44. **Un lavoro lungo possiede la propria identità: non la rilegge dallo schermo.**
+    L'indicatore dei lavori ricavava il nome da `rootNodeLabel` ogni volta che il velo si
+    riaccendeva — e una lavorazione si annuncia decine di volte (una fase per passo, un
+    blocco per chiamata). Bastava cliccare un altro progetto perché lo spinner si
+    ribattezzasse, e sembrasse che l'app stesse generando per tutti. È l'invariante 20
+    rovesciata: là una mappa ereditava l'identità di quella prima, qui il LAVORO eredita
+    quella di ciò che si sta guardando. Il nome si cattura **quando il lavoro comincia** e
+    dura quanto lui; una chiamata successiva senza nome è una *fase*, non un lavoro nuovo.
+    ⚠️ E il ripiego «prendi il contesto attivo» è una cattiva idea in sé: funziona solo
+    finché nessun lavoro sopravvive a un cambio di schermata.
+
+45. **`list()` che restituisce metadati NON è `get()`.** Verificando un salvataggio ho letto
     `d.html` da una voce di `MappAIStudyDocs.list()` e ho concluso che l'archivio fosse
     vuoto: `listDocs` **toglie apposta** i campi pesanti e al loro posto mette `hasHtml`.
     Il salvataggio era integro. Terza volta in una giornata che una misura sbagliata ha
