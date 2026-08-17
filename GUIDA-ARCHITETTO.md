@@ -457,6 +457,41 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     Vale anche per il markup: lo stesso taglio a mano lasciò due `</div>` orfani il 15/8,
     visti contando i tag e non a occhio.
 
+32. **Una condizione morta ha un ramo `else` implicito, e quello NON è morto.** Togliendo
+    il pathfinder, `applyVisualFilters` conteneva
+    `.classed("dimmed", d => pathfinderActive && …)`. Sembrava residuo suo, e in parte lo
+    era — ma l'espressione cominciava con `pathfinderActive &&`, quindi a pathfinder spento
+    (cioè **sempre**, tranne nei due clic di quella modalità) valeva `false` e **spegneva**
+    lo sbiadimento. Era da lì che l'evidenziazione da clic su un nodo si azzerava muovendo
+    lo slider dei livelli. Cancellarla avrebbe cambiato in silenzio un comportamento che
+    nessuno aveva chiesto di cambiare.
+    Regola: quando una condizione `X && …` diventa morta perché `X` è sempre falso, il
+    valore che l'espressione produceva **non** era morto. Chiedersi *che cosa scriveva
+    finora*, e riscriverlo a chiare lettere se serve ancora. Una pulizia deve essere
+    dimostrabilmente neutra sul comportamento, o non è una pulizia.
+
+33. **Un modale che «non fa niente» è spesso un modale che si apre DIETRO.** «Crea un
+    documento → Sintesi» sembrava un bottone morto: apriva l'hub dei materiali, dichiarato
+    a `z-index: 9990` quando la sintesi si apriva sopra la mappa nuda. Da quando ELABORA è
+    una console a schermo intero che parte da 12000, quel numero lo mandava sotto — il
+    modale si costruiva davvero, e non lo vedeva nessuno. Il sintomo è indistinguibile da
+    «il gestore non è agganciato», e si fa perdere un giro a cercarlo nel posto sbagliato.
+    Diagnosi in una riga: `document.elementFromPoint(innerWidth/2, innerHeight/2)` dice chi
+    sta davvero in cima. Cura: il piano si **chiede** (`MappAIModal.alza` / `prossimoZ`),
+    e si chiede **dove il modale nasce**, non nel chiamante — se l'apertura è asincrona
+    (una generazione), chi preme il bottone non sa quando comparirà la finestra e non
+    potrebbe alzarla.
+
+34. **Un elenco di priorità va riletto quando gli si aggiunge un ingresso nuovo.**
+    `_voceNaturale()` cercava l'audio in quattro posti, in ordine; «registrato in questa
+    sessione» era il **terzo**, dopo l'audio incorporato nel file e dopo l'MP3 della
+    cartella. Finché nessuno scriveva quel campo l'ordine non si notava (era codice morto).
+    Appena è nato il bottone «Voce», l'ordine è diventato il difetto: su una sintesi che
+    una voce ce l'ha già, la registrazione appena fatta **perdeva** contro quella vecchia,
+    e l'HTML usciva col testo nuovo e la voce di prima. Quando si dà vita a un ramo che
+    prima non veniva mai percorso, rileggere la catena in cui vive: la sua posizione è
+    stata scelta quando quel ramo non contava.
+
 ---
 
 ## 9. Protocollo per un braindump

@@ -172,11 +172,28 @@
             apri: function () { DEd().openCausal(); }
         },
         {
+            /* 🐛 17/8: cliccare «Sintesi» non generava niente. La voce portava
+               all'hub «Materiali di studio» (`_vaiAlGeneratore`), che si disegna
+               a `z-index: 9990` mentre questa console parte da 12000: l'hub si
+               apriva DAVVERO, ma dietro alla console — invisibile. Due difetti
+               in uno, e tutti e due corretti:
+                 · il piano, che ora i modali della sintesi chiedono al motore;
+                 · il PONTE, che qui non serviva. Il generatore della sintesi è
+                   `openBranchSynthesisModal`: mandare l'utente in un hub di
+                   dodici card perché ne scelga una che si chiama ancora
+                   «Sintesi» non è un percorso, è un passaggio in più. Non è un
+                   secondo ingresso alla generazione (invariante 21): il motore
+                   resta uno solo, si chiama direttamente. */
             id: 'synthesis', da: 'ai', icona: 'file-text',
             et: function () { return t('de_synth', 'Sintesi'); },
-            desc: function () { return t('ec_syn_d', 'Il testo disteso di un ramo o dell\'intera mappa. La genera l\'AI da «Materiali di studio»; qui poi si rivede.'); },
-            puo: function () { return true; },
-            apri: function () { _vaiAlGeneratore(); }
+            desc: function () { return t('ec_syn_d2', 'Il testo disteso di un ramo o dell\'intera mappa, scritto dall\'AI con le citazioni alle fonti. Poi si rivede qui.'); },
+            puo: function () { return _nodi() > 0 && !!window.openBranchSynthesisModal; },
+            perche: function () {
+                return _nodi() > 0
+                    ? t('ec_syn_no_mod', 'Il generatore delle sintesi non è caricato.')
+                    : t('ec_syn_no', 'La mappa non ha nodi da sintetizzare.');
+            },
+            apri: function () { window.openBranchSynthesisModal(); }
         },
         {
             /* 13/8: non è più un ponte verso l'hub dei materiali. Il percorso
@@ -190,14 +207,12 @@
             apri: function () { window.MappAICreaQuiz.apri(); }
         }
     ];
-    /* I documenti che nascono dall'AI non si creano da qui: il loro motore vive
-       nel hub «Materiali di studio». Portare l'utente lì è onesto — riscrivere
-       un secondo ingresso alla generazione significherebbe due strade da tenere
-       allineate. */
-    function _vaiAlGeneratore() {
-        if (window.openStudyMaterialsModal) { window.openStudyMaterialsModal(); return; }
-        toast(t('ec_gen_ko', 'Il generatore dei materiali non è disponibile qui.'), 'warning');
-    }
+    /* `_vaiAlGeneratore` (il ponte verso l'hub «Materiali di studio») è stato
+       tolto il 17/8 con l'ultimo che lo chiamava, la voce «Sintesi». La regola
+       che l'aveva motivato resta vera — non si scrive un secondo ingresso alla
+       generazione — ma qui non c'era nessun secondo ingresso da evitare: il
+       motore della sintesi è una funzione sola, e la si chiama. L'hub resta
+       raggiungibile da dove è sempre stato, la barra della mappa. */
 
     /* ══ I DOCUMENTI CHE STANNO SUL DISCO (9/8) ═══════════════════════════════
        🐛 Il difetto, dai dati di Giacomo: il vault di «I Cromosomi» contiene sette
@@ -2431,9 +2446,43 @@
             if (!_aperta) return;
             if (_doc && _doc.editing) return;
             var d = (ev && ev.detail) || {};
-            if (!d.docId && !d.setId && !d.dallaMappa) return;
+            /* ⚠️ Questa era una lista CHIUSA di tre forme (`docId`/`setId`/
+               `dallaMappa`): una sintesi non è nessuna delle tre e usciva di
+               qui subito, quindi l'host non veniva montato e il documento
+               restava invisibile (17/8). La sintesi entra come quarta forma. */
+            if (!d.docId && !d.setId && !d.dallaMappa && d.kind !== 'synthesis') return;
             if (d.docId) _doc = { id: 'oq:' + d.docId, natura: 'crea', editing: true, docId: d.docId };
             else if (d.setId) _doc = { id: 'set:' + d.setId, natura: 'crea', editing: true, setId: d.setId };
+            else if (d.kind === 'synthesis') {
+                /* Gli id sono QUELLI DELLA COLONNA (`syn:` per l'archivio o la
+                   sintesi di sessione, `synfile:` per un file del vault), non
+                   una terza convenzione: è così che la riga giusta si accende e
+                   che `_etichettaVoce` sa come si chiama il documento.
+                   `_doc = null` perché una sintesi non ha una sorgente
+                   d'archivio da riaprire: la disegna il ramo finale di
+                   `_dipingi`, che monta l'host e lascia fare all'editor. */
+                var idSyn = d.dalVault ? ('synfile:' + d.dalVault) : ('syn:' + (d.synId || 'current'));
+                /* Apertura partita DALLA console: la voce è già quella, e
+                   ridisegnare due volte lo stesso stato è lavoro sprecato. */
+                if (_voce === idSyn) return;
+                /* ⚠️ `_doc` NON può restare `null`: è lui a far emettere la tela
+                   (`if (_doc) s.tela = …` in `_schemaV2`), e senza tela
+                   `_montaHost` non trova dove appendere `#elab-doc-host` — cioè
+                   di nuovo un documento caricato e invisibile, il difetto che
+                   questo ramo esiste per chiudere.
+                   `natura:'syn'` senza `docId` né `dallaMappa` di proposito:
+                   così `_dipingi` scarta i rami dell'anteprima e cade su quello
+                   finale, che monta l'host e lascia disegnare l'editor — che per
+                   una sintesi è l'unica resa, non c'è nessuna anteprima da
+                   ricostruire. `editing:true` è ciò che fa ignorare l'eco delle
+                   aperture successive. */
+                _doc = { id: idSyn, natura: 'syn', editing: true };
+                _voce = idSyn;
+                _disco = null;
+                rifai();
+                _caricaDisco();
+                return;
+            }
             else _doc = { id: (d.dallaMappa === 'nodesheet' ? 'ns:' : 'cc:') + encodeURIComponent(d.clone || ''),
                           natura: 'crea', editing: true, dallaMappa: d.dallaMappa, clone: d.clone || '' };
             _voce = _doc.id;

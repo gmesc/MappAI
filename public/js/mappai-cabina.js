@@ -153,26 +153,15 @@
     /* I modali NON ancora migrati stanno sotto il motore (config AI a 9999, il
        cruscotto dei consumi a 1200, gli account classi a 9992) mentre la console
        parte da 12000: aperti DA QUI finirebbero dietro alla finestra che li ha
-       chiamati — cioè invisibili. Finché non sono migrati si alzano sopra la
-       pila. Ritenta per un attimo perché qualcuno di loro si costruisce dopo
-       una lettura da disco. */
+       chiamati — cioè invisibili. Finché non sono migrati si alzano sopra la pila.
+       ⚠️ Dal 17/8 la logica NON vive più qui: è `MappAIModal.alza`, perché il
+       problema non era della Cabina — ELABORA ci è inciampata allo stesso modo
+       («Crea un documento → Sintesi» apriva l'hub a 9990 dietro la console) e
+       una seconda copia sarebbe tornata a indovinare il numero. Il motore tiene
+       la pila, quindi il motore sa a che piano mettere chi ci sale sopra. */
     function _alza(sel) {
-        var n = 0;
-        var passo = function () {
-            var el = document.querySelector(sel);
-            if (el) {
-                var MM2 = window.MappAIModal;
-                /* ⚠️ Il piano si CHIEDE, non si calcola. Con una formula
-                   (`12000 + aperti*100 + 20`) questo numero poteva risultare più
-                   basso di quello che la console aveva già preso, e la finestra
-                   appena aperta finiva sotto quella che l'aveva chiamata — è
-                   quello che succedeva alla scheda di creazione. */
-                if (MM2 && MM2.prossimoZ) el.style.zIndex = String(MM2.prossimoZ());
-                return;
-            }
-            if (++n < 12) setTimeout(passo, 80);
-        };
-        passo();
+        var MM2 = window.MappAIModal;
+        if (MM2 && MM2.alza) MM2.alza(sel);
     }
 
     /* Quale finestra storica è aperta SOPRA la console, e come si chiude. Il

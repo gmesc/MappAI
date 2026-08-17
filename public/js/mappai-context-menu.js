@@ -298,7 +298,6 @@ window.ctxAction = function (action) {
         linkingState = { active: true, sourceNode: data };
         const hint = document.getElementById('mode-hint');
         hint.innerText = "MODALITÀ COLLEGAMENTO: Clicca sul nodo di destinazione"; hint.classList.remove('hidden');
-        pathfinderActive = false;
     }
     else if (action === 'generate_flashcard') {
         window.openStudyConfigModal('flashcard', data, 'node');

@@ -1363,12 +1363,6 @@ body:not(.font-dyslexic) #ai-modal-body {
     stroke-opacity: 0.35;
 }
 
-.link.pathfinder-active {
-    stroke: #eab308 !important;
-    stroke-width: 3px !important;
-    stroke-opacity: 1 !important;
-}
-
 .link-label {
     font-size: 8px;
     fill: #64748b;
@@ -1391,11 +1385,6 @@ body:not(.font-dyslexic) #ai-modal-body {
 .node-group.hidden,
 .link-group.hidden {
     display: none !important;
-}
-
-.pathfinder-active {
-    stroke: #f59e0b !important;
-    stroke-width: 3 !important;
 }
 
 /* AI-suggested links (dashed) */

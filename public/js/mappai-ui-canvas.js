@@ -318,17 +318,6 @@ window.handleNodeClick = function (event, d, preventZoom = false, preventModal =
             return;
         }
 
-        if (pathfinderActive) {
-            const hint = document.getElementById('mode-hint');
-            if (!pathfinderState.source) {
-                pathfinderState.source = d; hint.innerText = `PATHFINDER: Da "${cleanLabel(d.label)}" a...? Clicca Destinazione`;
-            } else {
-                pathfinderState.target = d; hint.innerText = `Percorso: ${cleanLabel(pathfinderState.source.label)} ➔ ${cleanLabel(d.label)}`;
-            }
-            window.applyVisualFilters();
-            return;
-        }
-
         // ── Multi-selezione: SHIFT = aggiungi/toggle, CTRL/CMD = rimuovi ──
         if (event && d && window.MappAIMultiSelect &&
             (event.shiftKey || event.ctrlKey || event.metaKey)) {

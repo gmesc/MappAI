@@ -300,6 +300,15 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        /* 🐛 17/8: le DUE aperture della sintesi erano le sole a non annunciarsi.
+           L'annuncio era stato messo il 13/8 su quiz, domande aperte, foglio dei
+           nodi e catena, e il commento sopra dichiara «ogni ingresso, anche
+           quelli di domani»: queste due erano rimaste indietro. Conseguenza —
+           una sintesi aperta da fuori dalla console (dal percorso «Crea un
+           documento», o dopo averla appena generata) caricava tutto in memoria e
+           non disegnava NIENTE, perché `#elab-doc-host` non esiste finché la
+           console non è in modalità documento. Lo stesso sintomo dei quiz. */
+        _annunciaAperto({ kind: 'synthesis', synId: id });
     }
 
     /* Sintesi aperta dal FILE che sta nel vault — non dalla memoria di sessione.
@@ -373,6 +382,9 @@
         _mapKey = _currentMapKey();
         _view = 'doc';
         render();
+        /* Come `openSynthesis`: senza annuncio, una sintesi aperta dal vault da
+           fuori dalla console non trova `#elab-doc-host` e non si vede. */
+        _annunciaAperto({ kind: 'synthesis', dalVault: relPath });
         return true;
     }
 
@@ -1928,6 +1940,25 @@
         const va = _syn && _syn.vaultAudio;
         const fv = _origine();
         const api = window.electronAPI;
+        /* 0. REGISTRATA ADESSO, in questa sessione, per questo documento: vince
+              su tutto. Stava al posto 3, DOPO l'audio del file aperto e dopo
+              l'MP3 che gli sta accanto nella cartella — e quei due, su una
+              sintesi che una voce ce l'ha già, arrivavano sempre primi. Il
+              risultato era il guasto peggiore possibile qui: si premeva «Voce»,
+              si aspettava la registrazione, e l'HTML usciva con la voce
+              VECCHIA, muta sulle frasi appena corrette. Misurato il 17/8 su
+              «Il Clima», che ha `Sintesi-audio-Il Clima -VERDE.mp3` nel vault:
+              l'export riceveva 59 cue del file vecchio invece di quelli nuovi.
+              Un blob in memoria non può che essere il più recente: è nato dal
+              testo di adesso, e `voceNaturale()` riallinea `_syn.base` con lui. */
+        if (_syn && _syn.data && _syn.data._audioBlob) {
+            const uriNuovo = await _blobToDataUri(_syn.data._audioBlob);
+            if (uriNuovo) return {
+                audioDataUri: uriNuovo,
+                audioMime: _syn.data._audioBlob.type || 'audio/wav',
+                cues: _syn.data._cues || null
+            };
+        }
         // 1. Audio già INCORPORATO nel file che si è aperto: è già tutto qui.
         if (va && /^data:/i.test(String(va.audioDataUri || ''))) return va;
         /* 2. Il file del vault non incorpora l'audio: lo RICHIAMA per nome,
@@ -1943,11 +1974,8 @@
             const daFile = await _audioDalVault(fv.vaultPath, nome, va.cues);
             if (daFile) return daFile;
         }
-        // 3. Generato in questa sessione (sintesi «in memoria»): sta come blob.
-        if (_syn && _syn.data && _syn.data._audioBlob) {
-            const uri = await _blobToDataUri(_syn.data._audioBlob);
-            if (uri) return { audioDataUri: uri, audioMime: _syn.data._audioBlob.type || 'audio/wav', cues: _syn.data._cues || null };
-        }
+        /* (Il vecchio passo 3 — «generato in questa sessione» — è salito in
+           testa come passo 0: vedi lì il perché.) */
         // 4. Il documento non dichiara nessun audio: si cerca l'MP3 fratello.
         if (!fv || !api || !api.readVaultFile) return null;
         const files = await _materialiEsistenti(fv.vaultPath);
@@ -1975,6 +2003,46 @@
         // già per gli audio più vecchi, e una sincronia approssimata è meglio
         // del silenzio.
         return _audioDalVault(fv.vaultPath, nome, null);
+    }
+
+    /* ── VOCE NATURALE su una sintesi GIÀ ESISTENTE (17/8) ───────────────────
+       Il difetto segnalato da Giacomo: la voce si poteva registrare solo nel
+       modale che compare SUBITO DOPO la generazione. Riaperta domani
+       dall'archivio o dal vault — cioè nel caso normale, perché una sintesi si
+       rivede prima di consegnarla — quella strada non c'era più, e con essa
+       spariva l'unico modo di dare l'audio a un allievo dislessico.
+       Il motore non si riscrive: è `window.generateSynthesisAudio(data)`, lo
+       stesso del modale di risultato. Qui si porta solo il documento aperto.
+       ⚠️ Il bottone si mostra SEMPRE su una sintesi, e non è un comando inerte
+       (invariante 21): quando non può registrare, il motore dice il perché —
+       serve la chiave Google, serve l'app desktop, ci sono modifiche da
+       salvare. Nasconderlo lascerebbe il docente a chiedersi dove sia finito.
+       ⚠️ Registrare NON è salvare: il blob resta nel documento aperto e viaggia
+       con HTML / Stampa / Crea PDF, che sono i tre modi in cui esce di qui. */
+    async function voceNaturale() {
+        if (_kind !== 'synthesis' || !_syn) return;
+        if (!window.generateSynthesisAudio) {
+            toast(t('de_voce_ko', 'Il generatore della voce naturale non è caricato.'), 'warning');
+            return;
+        }
+        /* Il testo di ADESSO, blocchi rivisti compresi: si registra quello che
+           si vede, non la versione con cui la sintesi era nata. */
+        const data = Object.assign({}, _syn.data, {
+            editedBlocks: JSON.parse(JSON.stringify(_syn.blocks))
+        });
+        const res = await window.generateSynthesisAudio(data);
+        /* Niente `res` = il motore ha già spiegato perché con un toast suo
+           (dirty, chiave mancante, fuori dall'app desktop): un secondo avviso
+           qui direbbe la stessa cosa con parole diverse. */
+        if (!res || !res.blob) return;
+        _syn.data._audioBlob = res.blob;
+        _syn.data._cues = res.cues || null;
+        /* La firma di partenza si RIALLINEA al testo appena registrato: senza,
+           `audioStale(_syn.base, _syn.blocks)` continuerebbe a confrontare la
+           voce nuova con i blocchi di quando il documento è stato aperto, e su
+           una sintesi corretta prima di registrare l'audio verrebbe scartato
+           subito come «già superato». */
+        _syn.base = JSON.parse(JSON.stringify(_syn.blocks));
     }
 
     // Sintesi: export .html (conserva il lettore TTS e la voce naturale).
@@ -2271,6 +2339,15 @@
             '<div class="de-spacer"></div>' +
             _zoomBar() +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
+            /* «Voce» = registra la voce naturale (Google) su QUESTA sintesi,
+               anche se è stata generata giorni fa. Prima si poteva solo nel
+               modale che compariva subito dopo la generazione: riaperta
+               dall'archivio, la sintesi non aveva più modo di avere l'audio. */
+            (isSyn
+                ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.voceNaturale()" title="' +
+                  esc(t('de_voce_tip', 'Registra la lettura ad alta voce con la voce naturale di Google: resta dentro l\'HTML e nel PDF. Utile agli allievi dislessici.')) +
+                  '"><i data-lucide="headphones" class="w-4 h-4"></i> ' + esc(t('de_voce', 'Voce')) + '</button>'
+                : '') +
             ((isSyn || isCc)
                 ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.exportHtml()" title="' +
                   esc(isCc ? t('de_cc_html_tip', 'Scarica la pagina HTML: dentro c\'è anche la modalità esercizio')
@@ -3574,6 +3651,7 @@ ${_deCornice()}
         zoomStep: zoomStep, zoomReset: zoomReset,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
+        voceNaturale: voceNaturale,
         salvaConNome: salvaConNome,
         openAnswersModal: openAnswersModal, openFlashModal: openFlashModal
     };

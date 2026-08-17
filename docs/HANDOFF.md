@@ -4,9 +4,10 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **15 agosto 2026, sera** (Cabina › Sviluppo · registro locale degli
-> errori · Gestione cartelle · l'identità della mappa aperta · `vista.json` nel vault ·
-> salvataggi d'uscita · potatura del cassetto · `Mappe/Generico/` · NFC negli elenchi).
+> Ultimo allineamento: **17 agosto 2026** (pathfinder pensionato · «Crea un documento →
+> Sintesi» apre il generatore invece di un hub finito dietro la console · `MappAIModal.alza`
+> nel motore · bottone **Voce** sulle sintesi già esistenti, con la registrazione fresca che
+> vince sull'audio vecchio).
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
@@ -240,8 +241,44 @@ Misurato in Electron: sidebar aperta → tutti 800/gradino 1/titolo 20; chiusa �
 tutti 1040/gradino 1.3/titolo 26, flash 1160 a 2 colonne. Lo zoom utente (−/+)
 MOLTIPLICA la scala come prima.
 L'editor **annuncia ogni apertura** (`mappai-doc-aperto`: set, aperte, catena,
-foglio nodi) e la console lo accoglie nella tela anche per i generi
-«dalla mappa» — il primo `openCausal` da fuori console restava invisibile.
+foglio nodi, **e dal 17/8 anche le due della sintesi**) e la console lo accoglie nella
+tela anche per i generi «dalla mappa» — il primo `openCausal` da fuori console restava
+invisibile.
+⚠️ Le due sintesi (`openSynthesis`, `openSynthesisFromVault`) erano rimaste **fuori
+dall'annuncio** malgrado il commento dichiarasse «ogni ingresso, anche quelli di domani»:
+aperte da fuori dalla console caricavano tutto in memoria e non disegnavano niente,
+perché `#elab-doc-host` non esiste finché la console non è in modalità documento.
+E l'ascoltatore `_suDocAperto` era una **lista chiusa di tre forme**
+(`docId`/`setId`/`dallaMappa`): la sintesi non era nessuna delle tre e usciva subito.
+Ora è la quarta forma, con gli id **della colonna** (`syn:` · `synfile:`) e non una terza
+convenzione. ⚠️ `_doc` non può restare `null`: è lui a far emettere la `tela`
+(`if (_doc) s.tela = …` in `_schemaV2`), e senza tela non c'è dove appendere l'host.
+
+### LA VOCE NATURALE su una sintesi già esistente (17/8)
+Bottone **«Voce»** nella barra dell'editor, solo sulle sintesi. Prima la registrazione si
+poteva chiedere **solo** nel modale che compare subito dopo la generazione: riaperta il
+giorno dopo dall'archivio o dal vault — cioè nel caso normale, perché una sintesi si
+rivede prima di consegnarla — quella strada non c'era più, e con essa spariva l'unico
+modo di dare l'audio a un allievo dislessico. Il motore è lo stesso
+(`window.generateSynthesisAudio`), qui si porta solo il documento aperto.
+Sotto c'erano **due difetti veri**, tutti e due trovati misurando:
+- **`_audioBlob` non lo scriveva NESSUNO.** Censito nel repo: tre occorrenze, tutte che lo
+  azzerano. Il passo «generata in questa sessione» di `_voceNaturale()` era **codice
+  morto**, quindi la voce appena registrata non arrivava mai a HTML / Stampa / Crea PDF.
+  Ora il deposito lo fa `generateSynthesisAudio`, dove il blob nasce e dove si conosce il
+  `data` a cui appartiene.
+- **La voce fresca perdeva contro quella vecchia.** Quel passo stava al **terzo** posto,
+  dopo l'audio incorporato nel file e dopo l'MP3 che gli sta accanto nella cartella: su
+  una sintesi che una voce ce l'ha già, quei due arrivavano sempre primi. Misurato su
+  «Il Clima» (che ha `Sintesi-audio-Il Clima -VERDE.mp3`): dopo aver registrato, l'export
+  riceveva i **59 cue del file vecchio** invece dei nuovi. Ora è il **passo 0** — un blob
+  in memoria è nato dal testo di adesso, non può che essere il più recente.
+📌 Il bottone si mostra sempre e **non è inerte**: quando non può registrare, il motore
+dice il perché (serve la chiave Google, serve l'app desktop, ci sono modifiche da
+salvare). Provato: con modifiche pendenti → toast e **zero chiamate AI**.
+⚠️ `_audioMatchesText` confrontava con `_lastSynthesis` invece che col `data` passato: con
+l'editor aperto su una sintesi del VAULT quello è un altro documento, e la guardia
+avvisava «il testo è cambiato» su una voce appena registrata.
 
 ### ELABORA — console
 Sidebar dei progetti → tabelle dei documenti → il documento entra nella **tela**.
@@ -520,6 +557,23 @@ apposta, quindi la colonna parte sempre senza filtro.)
 `ELABORA › Crea un documento` → quattro card: Foglio dei nodi · Catena dei perché ·
 Sintesi · **Quiz, Domande aperte e Flashcard**. La quarta apre il percorso di
 `mappai-crea-quiz.js`: tipo → a mano o con l'AI → parametri.
+
+**La card «Sintesi» apre il generatore, non un hub** (17/8). Fino a ieri cliccarla non
+produceva niente di visibile: portava all'hub «Materiali di studio», che si disegna a
+`z-index: 9990` mentre questa console parte da 12000 — l'hub si apriva **davvero**, ma
+dietro alla console. Due correzioni, e la seconda vale per tutti:
+- i **tre modali della sintesi** (configurazione · risultato · scelta dell'audio)
+  **chiedono il piano al motore** (`_zSopra` in `mappai-branch-synthesis.js`) invece di
+  dichiararne uno scritto a mano. Si chiede dove il modale NASCE, non nel chiamante: la
+  generazione è asincrona, quindi chi preme il bottone non sa quando comparirà il modale
+  di risultato e non potrebbe alzarlo;
+- il **ponte è sparito**: si chiama `openBranchSynthesisModal` direttamente. Non è un
+  secondo ingresso alla generazione (invariante 21) — il motore resta uno, e mandare
+  l'utente in un hub di dodici card perché ne scelga una che si chiama ancora «Sintesi»
+  era un passaggio in più. Con l'ultimo chiamante se n'è andata `_vaiAlGeneratore`.
+📌 `MappAIModal.alza(sel)` è ora nel **motore**, non in Cabina: alza una finestra non
+migrata sopra la pila chiedendo `prossimoZ()`. Cabina delega. Una seconda copia scritta
+altrove sarebbe tornata a indovinare il numero.
 
 **Il modale dei parametri ha quattro gruppi** — «Che cosa chiedono», «Angolazioni»,
 «Quante e come graduate», «Come si chiama il file» — invece di un elenco unico di cinque
@@ -821,15 +875,26 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    trappole pagate in
    **[`HANDOFF-maniglia-layout.md`](HANDOFF-maniglia-layout.md)**; la regola è la
    trappola §8.19 della guida.
-3-bis. 🆕 **Codice rimasto senza ingresso il 16/8, e va deciso se tenerlo.**
-   Togliendo i bottoni dalla barra sono rimaste nel codice funzioni che non chiama più
-   nessuno: `riordinaMappa` (ui-canvas), `changeDistance`, `changeFontScale`,
-   `togglePathfinder` e con lui tutta la macchina del pathfinder (`pathfinderState`,
-   `calculatePath`, lo sbiadimento in `applyVisualFilters`) in d3-render.
-   ⚠️ Non le ho tolte perché la richiesta era «elimina dalla navbar», mentre per FISSA era
-   «elimina tutte le funzioni»: il contrasto è parso deliberato. `changeFontScale` è
-   l'unica che resta utile — è l'involucro che muove insieme le due scale del testo.
-   La pulizia del pathfinder è la più grossa: ha ramificazioni nel renderer.
+3-bis. 🟡 **Codice rimasto senza ingresso il 16/8 — il PATHFINDER è stato tolto (17/8),
+   il resto è ancora da decidere.**
+   ✅ **Pathfinder pensionato per intero** su decisione di Giacomo: via `pathfinderActive`,
+   `pathfinderState`, `window.togglePathfinder`, `calculatePath` (una BFS fra due nodi), il
+   ramo di `handleBackgroundClick` che gli riservava il clic sullo sfondo, quello di
+   `handleNodeClick` in `mappai-ui-canvas.js` che raccoglieva i due estremi, la riga di
+   `mappai-context-menu.js` che lo spegneva entrando in «Collega» e le due regole
+   `.pathfinder-active` in `style.css`. Verificato nell'app viva: `togglePathfinder` e
+   `calculatePath` non esistono più, zero regole CSS residue.
+   ⚠️ **Una trappola pagata, e vale in generale**: lo `.classed("dimmed", …)` dentro
+   `applyVisualFilters` SEMBRAVA un residuo del pathfinder, ma l'espressione cominciava con
+   `pathfinderActive &&` — quindi a pathfinder spento, cioè sempre, valeva `false` e
+   **spegneva** lo sbiadimento. Era da lì che l'evidenziazione da clic su un nodo si
+   azzerava muovendo lo slider dei livelli. Cancellandola avrei cambiato in silenzio un
+   comportamento che nessuno aveva chiesto di cambiare: il reset è stato riscritto a chiare
+   lettere. *Prima di togliere una condizione morta, guardare che cosa faceva il suo ramo
+   `else` implicito.*
+   🟡 **Restano senza ingresso** (richiesta era «elimina dalla navbar», non le funzioni):
+   `riordinaMappa` (ui-canvas), `changeDistance`. `changeFontScale` è **tenuta apposta** —
+   è l'involucro che muove insieme le due scale del testo.
    📌 `markMmCrossLinks` non ha più chiamanti (§3, «La barra della mappa»), e questo è
    voluto: era la sua chiamata a riscrivere gli `isCross` e a persisterli.
 

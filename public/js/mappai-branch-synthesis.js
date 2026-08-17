@@ -240,6 +240,26 @@
         setTimeout(() => el.classList.remove('bg-indigo-50'), 1200);
     };
 
+    /* I TRE modali della sintesi (configurazione, risultato, scelta dell'audio)
+       dichiaravano un piano scritto a mano — `z-[3000]`, `z-[3200]` — deciso
+       quando la sintesi si apriva sopra la mappa nuda e non c'era altro sopra.
+       Da quando ELABORA è una console a schermo intero che parte da 12000, quei
+       numeri li mandavano DIETRO: il modale si costruiva davvero, ma non lo
+       vedeva nessuno — ed è il difetto per cui «Crea un documento → Sintesi»
+       sembrava un bottone morto (Giacomo, 17/8).
+       Il piano si CHIEDE al motore, che è l'unico a sapere quanto è alta la
+       pila in questo momento. Si chiede QUI, dove il modale nasce, e non nei
+       chiamanti: la generazione è asincrona, quindi chi preme il bottone non sa
+       quando comparirà il modale di risultato e non potrebbe alzarlo.
+       Fuori dal motore (banchi, pagine di prova) non si tocca niente: resta il
+       piano dichiarato nelle classi. */
+    function _zSopra(modal) {
+        try {
+            var MM = window.MappAIModal;
+            if (MM && MM.prossimoZ) modal.style.zIndex = String(MM.prossimoZ());
+        } catch (e) { /* senza motore vale la classe */ }
+    }
+
     // ── Modale di configurazione ──────────────────────────────────────────
     window.openBranchSynthesisModal = function (nodeId) {
         if (window.mappaiOccupato && window.mappaiOccupato()) return;
@@ -337,6 +357,7 @@
             '</div>';
 
         document.body.appendChild(modal);
+        _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
 
         const escHandler = function (e) {
@@ -616,6 +637,7 @@
             '</div>';
 
         document.body.appendChild(modal);
+        _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
 
         const escHandler = function (e) {
@@ -1514,10 +1536,17 @@ ${_bsPie(data.mapName)}
         return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, sig: blocks.join('') };
     }
 
-    /** Il testo di adesso è ancora quello registrato? (altrimenti i cue slittano) */
+    /** Il testo di adesso è ancora quello registrato? (altrimenti i cue slittano)
+        ⚠️ Si confronta col `data` PASSATO, non con `_lastSynthesis` (17/8). Il
+        `data` è quello per cui la registrazione è stata fatta: arriva da
+        `generateSynthesisAudio(data)` e non può essere un altro. `_lastSynthesis`
+        invece è «l'ultima sintesi generata in questa sessione», che con l'editor
+        aperto su una sintesi letta dal VAULT è un documento diverso — il
+        confronto cadeva sul testo sbagliato, e la guardia avvisava «il testo è
+        cambiato» su una voce appena registrata. Resta come ripiego. */
     function _audioMatchesText(res, data) {
         try {
-            const now = _blocksForAudio(_lastSynthesis || data).join('');
+            const now = _blocksForAudio(data || _lastSynthesis).join('');
             return !res || !res.sig || res.sig === now;
         } catch (e) { return true; }   // nel dubbio non blocchiamo il docente
     }
@@ -1545,6 +1574,7 @@ ${_bsPie(data.mapName)}
                 '</div>' +
             '</div>';
         document.body.appendChild(modal);
+        _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
         // Guardia: fra la registrazione e la consegna il testo può essere stato
         // modificato (l'editor documenti è aperto lì accanto). In quel caso
@@ -1578,7 +1608,23 @@ ${_bsPie(data.mapName)}
         try {
             const res = await _generateSynthesisAudioWithCues(data);
             window.showLoadingOverlay && window.showLoadingOverlay(false);
+            /* 🐛 17/8: la voce appena registrata non tornava MAI a chi possiede
+               il documento. `_voceNaturale()` dell'editor ha un passo 3 —
+               «generata in questa sessione, sta come blob» — che leggeva
+               `data._audioBlob`: un campo che, censito nel repo, **nessuno
+               scriveva** (le sole tre occorrenze lo azzeravano). Era codice
+               morto, e la conseguenza si vedeva: si generava la voce, e poi
+               HTML, Stampa e Crea PDF uscivano muti, perché quel blob non
+               esisteva da nessuna parte fuori da questa funzione.
+               Il deposito va fatto QUI perché è qui che il blob nasce e qui che
+               si conosce il `data` a cui appartiene. `sig` viaggia con lui: è la
+               firma del parlato, e serve a `audioStale` per non consegnare mai
+               un testo nuovo con una voce vecchia. */
+            data._audioBlob = res.blob;
+            data._cues = res.cues || null;
+            data._audioSig = res.sig || '';
             _audioReadyChooser(res, data);
+            return res;
         } catch (err) {
             window.showLoadingOverlay && window.showLoadingOverlay(false);
             console.error('[BranchSynthesis] audio TTS fallito:', err);

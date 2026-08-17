@@ -2,7 +2,7 @@
 // D3 RENDER — estratto da app.js
 // ==========================================
 // Rendering D3: initD3Visualization, renderGraph, tick, drag, layout forces,
-// lenti, filtri, pathfinder + stato condiviso (let simulation/svg/g/link/node/zoom,
+// lenti, filtri + stato condiviso (let simulation/svg/g/link/node/zoom,
 // colorScale, linkingState, ...) letto a runtime da UI, moduli e contextual-ai.
 // Il monkey-patch di renderGraph (updateStudyStats + StorageManager.saveCurrentProject)
 // DEVE stare qui in coda: al load-time legge il binding renderGraph appena definito.
@@ -66,9 +66,7 @@ try {
     const _m = localStorage.getItem('mappai_map_rel_labels');
     if (_m === 'off' || _m === 'short' || _m === 'full') relLabelMode = _m;
 } catch (e) { /* default: intere */ }
-let pathfinderActive = false;
 let linkingState = { active: false, sourceNode: null };
-let pathfinderState = { active: false, source: null, target: null };
 
 function initD3Visualization() {
     // Normalizza le label dei nodi in-place: rimuove decorazioni markdown
@@ -1754,30 +1752,21 @@ window.applyVisualFilters = function () {
     const levelSlider = document.getElementById('level-slider');
     const maxLvl = (levelSlider && !levelSlider.closest('.hidden')) ? parseInt(levelSlider.value) : 5;
 
-    let pathSet = new Set(), linkPathSet = new Set();
-
-    if (pathfinderActive && pathfinderState.source && pathfinderState.target) {
-        const path = calculatePath(pathfinderState.source, pathfinderState.target);
-        if (path) {
-            path.forEach(id => pathSet.add(id));
-            for (let i = 0; i < path.length - 1; i++) {
-                let a = path[i], b = path[i + 1];
-                appState.db.links.forEach(l => {
-                    let s = typeof l.source === 'object' ? l.source.id : l.source;
-                    let t = typeof l.target === 'object' ? l.target.id : l.target;
-                    if ((s === a && t === b) || (s === b && t === a)) linkPathSet.add(l);
-                });
-            }
-        }
-    }
-
+    /* ⚠️ Lo `.classed("dimmed", …)` di queste due catene NON è un residuo del
+       pathfinder da cancellare con lui (16/8): l'espressione cominciava con
+       `pathfinderActive &&`, quindi a pathfinder spento — cioè sempre, tranne
+       nei due clic di quella modalità — valeva `false` e SPEGNEVA lo
+       sbiadimento. È da lì che l'evidenziazione da clic su un nodo (ui-canvas)
+       e quella dell'albero (ui-modals) si azzeravano muovendo lo slider dei
+       livelli. Tolta l'espressione, il reset resta scritto a chiare lettere:
+       togliere il pathfinder non deve cambiare che cosa fanno i filtri. */
     g.selectAll(".node-group")
         .classed("hidden", d => {
             if (d.level > maxLvl) return true;
-            if (d.degree < minDegree && !pathSet.has(d.id)) return true;
+            if (d.degree < minDegree) return true;
             return false;
         })
-        .classed("dimmed", d => pathfinderActive && pathfinderState.target && !pathSet.has(d.id));
+        .classed("dimmed", false);
 
     g.selectAll(".link-group")
         .classed("hidden", d => {
@@ -1789,13 +1778,11 @@ window.applyVisualFilters = function () {
 
             let sDeg = s.degree || 0;
             let tDeg = t.degree || 0;
-            if ((sDeg < minDegree || tDeg < minDegree) && !linkPathSet.has(d)) return true;
+            if (sDeg < minDegree || tDeg < minDegree) return true;
 
             return false;
         })
-        .classed("dimmed", d => pathfinderActive && pathfinderState.target && !linkPathSet.has(d));
-
-    g.selectAll(".link").classed("pathfinder-active", d => linkPathSet.has(d));
+        .classed("dimmed", false);
 }
 
 /* La scritta a destra dello slider dei livelli. «tutti» quando la manopola è
@@ -1843,56 +1830,19 @@ const LINK_VIS_STATES = {
 };
 const LINK_VIS_CYCLE = ['all', 'hierarchy', 'cross'];
 
-window.togglePathfinder = function () {
-    pathfinderActive = !pathfinderActive;
-    const btn = document.getElementById('card-btn-pathfinder');
-    const hint = document.getElementById('mode-hint');
-    pathfinderState = { active: pathfinderActive, source: null, target: null };
-
-    if (pathfinderActive) {
-        btn.classList.replace('bg-slate-100', 'bg-amber-50'); btn.classList.replace('text-slate-600', 'text-amber-600');
-        hint.innerText = "PATHFINDER: Clicca sul Nodo di Partenza"; hint.classList.remove('hidden');
-        linkingState.active = false;
-    } else {
-        btn.classList.replace('bg-amber-50', 'bg-slate-100'); btn.classList.replace('text-amber-600', 'text-slate-600');
-        hint.classList.add('hidden');
-    }
-    window.applyVisualFilters();
-}
-
-function calculatePath(start, end) {
-    let adj = {};
-    appState.db.nodes.forEach(n => adj[n.id] = []);
-    appState.db.links.forEach(l => {
-        let s = typeof l.source === 'object' ? l.source.id : l.source;
-        let t = typeof l.target === 'object' ? l.target.id : l.target;
-        if (adj[s] && adj[t]) {
-            adj[s].push(t); adj[t].push(s);
-        }
-    });
-    let q = [[start.id]], visited = new Set([start.id]);
-    while (q.length > 0) {
-        let path = q.shift(), curr = path[path.length - 1];
-        if (curr === end.id) return path;
-        for (let neighbor of adj[curr] || []) {
-            if (!visited.has(neighbor)) { visited.add(neighbor); q.push([...path, neighbor]); }
-        }
-    }
-    return null;
-}
+/* Il PATHFINDER è stato pensionato il 17/8, dopo che il 16/8 il bottone PATH era
+   uscito dalla barra della mappa. Con lui se ne vanno `pathfinderActive`,
+   `pathfinderState`, `calculatePath` (una BFS fra due nodi), il ramo di
+   `handleBackgroundClick` che gli riservava il clic sullo sfondo, il ramo di
+   `handleNodeClick` in `mappai-ui-canvas.js` che raccoglieva i due estremi e le
+   due regole `.pathfinder-active` in `style.css`. Restava codice raggiungibile
+   solo dalla console: un secondo modo di selezionare nodi che nessuna superficie
+   sapeva più accendere. La storia sta in git. */
 
 function handleBackgroundClick() {
     if (window.mergeState && window.mergeState.active) window.cancelMergeMode();
     if (window.relinkState && window.relinkState.active) window.cancelRelinkMode();
     if (linkingState.active) { linkingState.active = false; document.getElementById('mode-hint').classList.add('hidden'); }
-
-    // PATHFINDER: il click sullo sfondo NON resetta più la selezione (era troppo
-    // distruttivo quando l'utente sbaglia di pochi pixel). Per uscire, ri-cliccare il
-    // bottone PATH oppure selezionare un altro nodo come sorgente.
-    if (pathfinderActive) {
-        hideContextMenu();
-        return; // niente reset selezione, niente clear node-details
-    }
 
     currentNode = null;
     g.selectAll(".node-group, .link-group").classed("dimmed", false).classed("highlighted", false);

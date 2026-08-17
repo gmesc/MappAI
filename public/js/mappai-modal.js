@@ -45,6 +45,31 @@
     var Z_TOP = Z_BASE;
     function prossimoZ() { Z_TOP += 100; return Z_TOP; }
 
+    /* «Alza questa finestra sopra la mia pila» (17/8). I modali non ancora
+       migrati dichiarano un piano SUO, scritto quando il motore non esisteva:
+       config AI 9999, account classi 9992, il cruscotto dei consumi 1200, il
+       modale della sintesi 3000, l'hub dei materiali 9990. Tutti sotto i 12000
+       da cui parte il motore: aperti DA una console finiscono DIETRO alla
+       finestra che li ha chiamati, cioè invisibili — e chi clicca conclude che
+       il bottone è morto (è successo con «Crea un documento → Sintesi»).
+       Sta QUI e non in ogni chiamante perché è il motore a tenere la pila: un
+       secondo `_alza` scritto altrove ricomincerebbe a indovinare il numero.
+       ⚠️ Il piano si CHIEDE (`prossimoZ`), non si calcola: una formula del tipo
+       `12000 + aperti*100` poteva dare un numero più BASSO di quello che la
+       console aveva già preso.
+       Ritenta per un attimo: qualcuna di queste finestre si costruisce dopo una
+       lettura da disco e al primo giro non è ancora nel DOM. */
+    function alza(sel) {
+        var n = 0;
+        var passo = function () {
+            var el = null;
+            try { el = document.querySelector(sel); } catch (e) { return; }
+            if (el) { el.style.zIndex = String(prossimoZ()); return; }
+            if (++n < 12) setTimeout(passo, 80);
+        };
+        passo();
+    }
+
     /* Le parole del motore sono parole dell'app: «Annulla», «Chiudi», «Esci»
        arrivano a tutti i modali, quindi devono seguire la lingua come tutto il
        resto. Il testo italiano resta qui come ripiego (regola 13 del progetto:
@@ -1073,8 +1098,10 @@
         chiediSalvataggio: chiediSalvataggio,
         chipContesto: chipContesto,
         /* Per le finestre non ancora migrate che devono comparire sopra: chiedono
-           il prossimo piano invece di inventarsi un numero. */
+           il prossimo piano invece di inventarsi un numero. `alza` è la forma
+           pronta all'uso (selettore + ritenta finché la finestra non c'è). */
         prossimoZ: prossimoZ,
+        alza: alza,
         stile: STILE,
         get aperti() { return pila.length; },
         Core: Core
