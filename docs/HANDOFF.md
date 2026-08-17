@@ -4,16 +4,17 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **17 agosto 2026** (pathfinder pensionato · «Crea un documento →
-> Sintesi» apre il generatore invece di un hub finito dietro la console · `MappAIModal.alza`
-> nel motore · bottone **Voce** sulle sintesi già esistenti, con la registrazione fresca che
-> vince sull'audio vecchio).
+> Ultimo allineamento: **17 agosto 2026, sera**. La giornata in una riga: **la VOCE della
+> sintesi diventa usabile** (si registra anche dopo, scrive la copia parlante, si può
+> annullare, dice quanto costa prima e riprende il giorno dopo dai blocchi mancanti), i
+> **file del vault prendono nomi che dicono a chi appartengono** (set, materiali, mappa
+> esportata) e il **pathfinder è stato pensionato**. Dodici commit, tutti su `main`.
 >
 > Progetto: Giacomo Meschini — giacomo@insegnai.ch
 
 ---
 
-## 0. Le prime sei cose da sapere
+## 0. Le prime otto cose da sapere
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -47,8 +48,27 @@
    dimensione dei testi, scelta della vista, ripristino del layout fissato) sta nel tab
    **Vista studio**, che ora è sempre visibile e ha **due forme** — piena dentro una vista
    di studio, ridotta sulla mappa libera. Aprire una mappa dà **Albero + Indice**, e da lì
-   il ciclo del bottone è `Mappa → Albero → Fasci → DAG`. FISSA, LINK, RIORDINA, PATH e i
-   due `+/−` non ci sono più. Dettagli in §3.
+   il ciclo del bottone è `Mappa → Albero → Fasci → DAG`. FISSA, LINK, RIORDINA e i due
+   `+/−` non ci sono più; **il PATHFINDER è stato pensionato per intero il 17/8**, funzioni
+   comprese. Dettagli in §3.
+
+7. **Dal 17/8 un FILE DEL VAULT dice a chi appartiene.** Tre nomi che non lo dicevano sono
+   stati corretti, e sono tre modi diversi di sbagliare: il **set** prendeva il nome dal
+   TITOLO (rinominare il progetto lasciava doppioni con lo stesso `id`) → ora viene
+   dall'`id` e il file porta il marchio `_mappa`; il **foglio dei nodi** non passava la
+   mappa a `buildFileName` (`Foglio-nodi-card -VERDE.pdf`); la **mappa esportata** usciva
+   `MappAI_Mappa_<timestamp>.pdf` → ora `MM-<Mappa>-NN` o `KG-<Mappa>-NN`.
+   📌 Il perché conta più del come: sono i nomi muti che, finiti nella cartella sbagliata,
+   ci restano per settimane senza che nessuno se ne accorga — nel vault di «Project E» ce
+   n'erano di un'altra mappa dal 30 luglio. Dettagli in §3.
+
+8. **Dal 17/8 la VOCE della sintesi è usabile davvero.** Prima si poteva registrare solo
+   nel modale che compare subito dopo la generazione, il file non veniva scritto da nessuna
+   parte, un titolo di una parola uccideva l'intera registrazione, non si poteva annullare
+   e il lavoro pagato moriva chiudendo l'app. Ora: bottone **Voce** nell'editor, la **copia
+   parlante** finisce in «Materiale Studio», i blocchi rifiutati si saltano, si **annulla**
+   dal velo, si sa **prima** quanto costa, e i clip stanno su disco — quindi domani si
+   riprende dai blocchi mancanti. Dettagli in §3.
 
 ---
 
@@ -56,14 +76,19 @@
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # 16/8 o più recente in testa
+git log --oneline -5                              # 17/8 o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
-node --test tests/                                # atteso: 0 fail (1122 pass al 16/8)
+node --test tests/                                # atteso: 0 fail (1162 pass al 17/8)
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
 node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
 node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
+node tools/diagnosi/vault-estranei.js             # sui vault VERI: dice, non tocca
 ```
+`tools/diagnosi/vault-estranei.js` (17/8) è l'unico che guarda il DISCO dell'utente, in sola
+lettura: set di un'altra mappa · set duplicati · vault annidati · materiali di un'altra
+mappa · nomi muti. Si lancia quando qualcosa non torna in una cartella, invece di rifare
+l'indagine a mano — che la prima volta è costata tre passate.
 ⚠️ `tools/smoke/censimento-maniglia-cdp.js` NON sta in questa lista: vuole l'app VERA
 aperta con `npx electron . --remote-debugging-port=9222` e la pilota via CDP. Si lancia
 dopo ogni intervento sulla maniglia o sulla colonna delle console — dice se qualcosa è
@@ -1224,12 +1249,29 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-8. **Il bottone «HTML» dell'editor è a quattro passi** (sintesi con voce naturale).
-9. **Codice morto della sintesi**: `_voceNaturale()` (mappai-doc-editor.js) cerca ancora
-   l'**MP3 fratello** al passo 4, `buildPrintHtml` accetta ancora `opts.audioSrc`
-   (mappai-branch-synthesis.js), e due commenti dicono il contrario di ciò che il codice
-   fa. Sono i resti del modello a un file solo, superato dai due file
-   (`Sintesi-<Mappa>.html` editabile · `Sintesi-voce-<Mappa>.html` da consegnare).
+7-bis. 🆕 **Il PDF VETTORIALE della mappa è rotto, e il ripiego scatta SEMPRE** (trovato
+   il 17/8 misurando, non segnalato). Ogni export della mappa perde i vettori e il testo
+   selezionabile, e consegna una cattura schermo. La causa sta nel messaggio del fallback:
+   `Failed to execute 'insertRule': Failed to parse the rule 'html.manifesto #mn…'` — il
+   clone SVG (`_svgCloneWithStyles`) ricopia le regole CSS una per una, e **una regola
+   della veste manifesto non si lascia reinserire**. È il debito con la conseguenza più
+   visibile per il docente: i PDF delle mappe sono più pesanti e sgranati di quanto
+   dovrebbero, e nessuno lo dice.
+7-ter. 🆕 **La guardia alla scrittura dei MATERIALI** (progetto deciso il 17/8, non
+   spedito). Un materiale dovrebbe poter essere scritto **solo nel vault della mappa
+   APERTA**, e chi ci prova andrebbe fermato: è il pezzo che *previene* invece di
+   diagnosticare. Tocca **17 punti di scrittura in 5 file** e va provato con Electron
+   libero. ⚠️ Conviene che nasca come **avviso** con kill-switch prima di diventare un
+   rifiuto: il guasto a monte è chiuso, quindi non dovrebbe scattare mai — e se scatta,
+   si impara dove.
+8. **Il bottone «HTML» dell'editor è a cinque passi** (sintesi con voce naturale): dal 17/8
+   il primo è «registrata adesso», che vince su tutti.
+9. **Resti del modello a un file solo**: `_voceNaturale()` cerca ancora l'**MP3 fratello**
+   all'ultimo passo e `buildPrintHtml` accetta ancora `opts.audioSrc`
+   (mappai-branch-synthesis.js). ⚠️ Riga corretta il 17/8: **non è più tutto codice morto**
+   — il passo del blob ora è vivo, è il primo, e ci arriva la registrazione fatta
+   dall'editor. Restano superati dai due file (`Sintesi-<Mappa>.html` editabile ·
+   `Sintesi-voce-<Mappa>.html` da consegnare).
 10. **I quattro cloni della barra dei documenti** (`branch-synthesis`, `causal-chains`,
    `timeline`, `glossary`, `live-reports`) → `mappai-doc-bar.js`. In
    `mappai-branch-synthesis.js` c'è ancora un `🖶` in un bottone, contro la regola «solo
@@ -1246,6 +1288,14 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    il pezzo che uscirebbe per primo — come hanno fatto la cornice e il clone.
 14. **Guardia mancante in `filesOrganized()`** (main.js): controlla che `filesRoot` sia una
     stringa, mai che la cartella esista → un percorso morto svuota l'app **senza dire nulla**.
+15-bis. 🆕 **Sui DATI di Giacomo, non sul codice** (17/8, dalla ricognizione dei 31 vault):
+    restano **cinque materiali di un'altra mappa** da decidere a mano — quattro
+    `Caratteri ereditari-ALBERO-td-*.pdf` in «Riproduzione Sessuata», che **non hanno
+    gemello** e quindi non si cestinano (vanno spostati o rigenerati), e un
+    `Focus-Geografia Fisica-parentela.pdf` in «4-6 Geografie» — e **166 file col vecchio
+    `-VERDE`** negli altri vault. In «Project E» ed «Elettricità - MM» i nomi sono già
+    stati allineati (11 rinomine). Non è un difetto del codice: è la convenzione vecchia,
+    e `tools/diagnosi/vault-estranei.js` la rimisura quando serve.
 15. **Testo definitivo di «Termini & Condizioni» e «Privacy»**: quello che c'è dice il vero
     ed è verificato sul codice, ma è una sintesi informativa, non un documento legale.
 
@@ -1257,7 +1307,9 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ## 5. Provato in Electron — che cosa è acquisito
 
-> **Aggiornato il 16 agosto 2026, sera.** La coda «da provare» aperta il 15/8 è chiusa:
+> **Aggiornato il 17 agosto 2026, sera.** Tutto il lavoro del 17/8 è stato provato
+> nell'app vera via CDP mentre lo si scriveva — il registro di quel giorno è in coda a
+> questa sezione. La coda «da provare» aperta il 15/8 è chiusa:
 > Giacomo l'ha percorsa tutta e funziona. Quello che segue è il registro di ciò che è
 > stato visto girare — serve a non riprovarlo, e a sapere che cosa dare per acquisito
 > quando qualcosa si romperà più avanti.
@@ -1337,6 +1389,38 @@ scheda nuova invece di adottare quella del vault; il secondo è `mappai_saved_do
 mappa?»: questa installazione non ha schede allievo, quindi non è una prova rimandata —
 è codice che aspetta il primo dato vero (§4 punto 4a).
 
+**Provato il 17/8 (via CDP, sui vault veri, mentre si scriveva)** — sono le prove che
+rendono acquisito il lavoro della giornata:
+- **il pathfinder non esiste più** nel runtime (`togglePathfinder`, `calculatePath`
+  assenti; zero regole `.pathfinder-active`), e `changeFontScale` è rimasta;
+- **«Crea un documento → Sintesi»** apre il generatore **sopra** la console (12300 contro
+  12100, ed è l'elemento in cima), con i sei rami nella tendina;
+- **il bottone «Voce»** compare sulla sintesi aperta dal vault; la guardia delle modifiche
+  pendenti ferma tutto con **zero chiamate AI**; l'export HTML incorpora la voce **appena
+  registrata** e non quella vecchia del file;
+- **la copia parlante viene scritta** in «Materiale Studio» (`Sintesi-voce-…html`);
+- **il preavviso** dice i numeri veri («78 blocchi · circa 79 chiamate · circa 12 minuti»)
+  e rifiutando non parte nessuna chiamata; **l'annullamento** ferma la registrazione con un
+  toast *info*; il conteggio dei blocchi **resta a schermo** (7 letture in 14s, zero
+  messaggi generici);
+- **la quota GIORNALIERA è stata vista dal vivo**: sulla chiave esaurita il toast dice il
+  motivo invece di far contare mille secondi;
+- **la ripresa attraverso un riavvio dell'app**: seminati 20 clip, chiusa e riaperta
+  MappAI, la registrazione riparte da **21/78** senza una chiamata;
+- **ESC su una sintesi** esce in un colpo dai due percorsi (dal vault: domanda di
+  salvataggio → anteprima; senza anteprima: elenco), senza il passaggio grigio;
+- **«Project E»** apriva 9 set, ora ne apre **3**, e il salvataggio riscrive col nome
+  dall'`id` e col marchio;
+- **gli export della mappa**: `MM-Il Clima-00.pdf`, `MM-Il Clima-00.svg`,
+  `KG-Project E-00.svg`, col file che esce davvero in Download.
+
+⚠️ Due cose che le prove hanno mostrato e che restano APERTE: il **PDF vettoriale** cade
+sempre sul ripiego raster (§4, 7-bis) e il ramo **ALLIEVO** resta senza dati.
+📌 Nota di metodo pagata tre volte in un giorno: **una misura sbagliata accusa il codice**.
+`window.electronAPI` è congelato e non si può spiare; `MappAIStudyDocs.list()` toglie
+apposta i campi pesanti; l'accento esiste in due forme e un confronto ingenuo dà falsi.
+Prima di dichiarare un difetto, leggere che cosa la funzione di lettura *promette*.
+
 ---
 
 ## 6. Le trappole
@@ -1384,6 +1468,7 @@ cambia la misura, non è la cascata — è la misura.**
 | il diario del filone **manifesto** (3-6 agosto) | [`HANDOFF-manifesto.md`](HANDOFF-manifesto.md) |
 | il diario del filone **console e motore dei modali** (fino al 3 agosto) | [`HANDOFF-console.md`](HANDOFF-console.md) |
 | il **vocabolario** dell'interfaccia e il cantiere | `public/dev/atlante-ui.html` |
+| la **ricognizione dei vault** sul disco vero (sola lettura) | `tools/diagnosi/vault-estranei.js` |
 | l'app **misuratore**, che è un altro REPO (sorella) | `~/Claude/MappAI - misuratore/HANDOFF.md` |
 
 ⚠️ I tre diari sono in ordine cronologico **inverso** e contengono sezioni che dicono

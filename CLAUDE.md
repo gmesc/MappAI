@@ -1,12 +1,15 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **16 agosto 2026, sera** — la mappa si guarda dalla SIDEBAR (barra a
-> quattro comandi, tab «Vista studio» sempre visibile con due forme, mappa nuova in Albero con
-> l'Indice; fuori FISSA, LINK, RIORDINA, PATH e i due `+/−`); le **angolazioni delle domande
-> aperte sono una scelta multipla** e generano un foglio per angolo in un colpo. Corretto un
-> difetto che riguardava OGNI MindMap: gli archi ROOT→L1 erano marcati come cross-link.
-> Le due voci del giorno sono in §11, in cima al diario.
+> Ultimo aggiornamento: **17 agosto 2026, sera** — la **VOCE della sintesi diventa usabile**
+> (si registra anche dopo, scrive la copia parlante, si può annullare, dice quanto costa
+> prima e riprende il giorno dopo dai blocchi mancanti) e i **file del vault dicono a chi
+> appartengono** (set col nome dall'`id` e il marchio della mappa, materiali, export
+> `MM-`/`KG-`). Il **pathfinder è pensionato**. La voce del giorno è in §11, in cima al
+> diario; il filo conduttore è uno solo — *qualcosa ereditava l'identità di ciò che gli
+> stava intorno invece di dichiarare la propria*.
+> (Prima: 16 agosto — la mappa si guarda dalla SIDEBAR, e le angolazioni delle domande
+> aperte sono una scelta multipla.)
 > (Prima: 5-6 agosto — stile «MANIFESTO», il **bento** delle opzioni al posto del modale
 > «Genera materiali», composto trascinando nell'**Officina §7**; dal 5/8 anche le CONSOLE
 > hanno il loro bento e la loro officina, `public/dev/officina-console.html`.)
@@ -626,6 +629,86 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (17/8/26): la VOCE diventa usabile, e i file del vault dicono a chi appartengono
+Giornata interamente guidata dai rilievi di Giacomo dal vivo, uno dopo l'altro. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punti 7-8, §3, §4**; qui il perché e le cose
+trovate misurando. Dodici commit, suite **1162/0**, quattro banchi smoke OK.
+
+**Il filo conduttore.** Quasi ogni difetto della giornata è la stessa forma: **qualcosa
+eredita l'identità di ciò che gli sta intorno invece di dichiarare la propria.** Il lavoro
+in corso prendeva il nome del progetto aperto; il set prendeva il nome dal titolo del
+momento; il materiale finiva nella cartella di turno; il modale si apriva al piano di
+default e spariva dietro la console. È l'invariante 20 (una mappa dichiara la sua identità)
+applicata a cose che non sono mappe.
+
+**1. Il pathfinder è stato pensionato** (era uscito dalla barra il 16/8). ⚠️ La trappola:
+lo `.classed("dimmed", …)` di `applyVisualFilters` SEMBRAVA suo, ma l'espressione cominciava
+con `pathfinderActive &&` — quindi a pathfinder spento valeva `false` e **spegneva** lo
+sbiadimento. Era da lì che l'evidenziazione da clic si azzerava muovendo lo slider.
+*Una condizione morta ha un ramo `else` implicito, e quello non è morto* (guida, trappola 32).
+
+**2. «Crea un documento → Sintesi» non generava niente**, e non era il gestore: portava
+all'hub «Materiali di studio», che sta a `z-index: 9990` mentre la console parte da 12000.
+L'hub si apriva **davvero**, dietro. Ora i tre modali della sintesi **chiedono il piano al
+motore** — dove il modale nasce, non nel chiamante, perché la generazione è asincrona — e
+`MappAIModal.alza` sale nel motore, che è l'unico a sapere quanto è alta la pila.
+
+**3. La voce della sintesi, in cinque riprese.** Ogni rilievo ne scopriva uno sotto:
+- registrare si poteva **solo** nel modale subito dopo la generazione → bottone **Voce**
+  nell'editor;
+- il blob non arrivava a HTML/stampa/PDF: **`_audioBlob` non lo scriveva nessuno** (tre
+  occorrenze nel repo, tutte che lo azzerano). Codice morto, e il passo stava per giunta
+  **terzo** — quindi su una sintesi che una voce ce l'ha già, la registrazione nuova
+  *perdeva* contro quella vecchia (misurato: 59 cue del file di prima);
+- **il file non appariva**: a scriverlo era solo la pipeline. ⚠️ E non è un MP3 — è la
+  decisione del 10/8: l'audio va dentro un secondo HTML, perché un file che PUNTA all'MP3
+  fratello perde la voce **in silenzio** via QR, per email e nell'anteprima;
+- **un titolo di UNA PAROLA uccideva l'intera registrazione.** Misurato sulla chiave vera:
+  `Panoramica`, `Introduzione`, `Sintesi` → 200 OK, `finishReason "OTHER"`, nessun
+  contenuto; `La citta` (8 caratteri, DUE parole) → audio. Non è la lunghezza, è il numero
+  di parole — e sono esattamente i titoli di sezione. Il blocco 1 di 78 era «Panoramica»:
+  tutto moriva in 1,6 secondi. Ora si salta, si ritenta col modello di ripiego, e si dice
+  quanti sono stati saltati;
+- **la corsa di venti minuti**: nessuno diceva prima quanto costava, non si poteva
+  annullare, e il 429 della quota GIORNALIERA veniva obbedito come fosse un limite al
+  minuto (un conto alla rovescia di mille secondi su una quota che si libera domani). Ora:
+  preavviso coi numeri, «Annulla» nel velo, e la quota giornaliera riconosciuta e detta.
+  ⚠️ E il velo **cancellava il conteggio**: i messaggi che ruotano ogni 4 secondi
+  sovrascrivevano «Genero audio 23/78», l'unica informazione che distingue «avanza» da
+  «è appeso». Ora chi passa un testo comanda.
+- infine i clip vanno **su disco** (`<userData>/tts-cache/`, scelta di Giacomo: è lavoro in
+  corso, non un materiale): la quota giornaliera aveva fatto perdere 23 blocchi già pagati.
+  Ripresa **per blocco**, provata chiudendo e riaprendo l'app → riparte da 21/78.
+  ⚠️ La frequenza sta nel NOME del file: il PCM grezzo non se la porta dentro.
+
+**4. I file del vault dicono a chi appartengono.** In «Project E» c'erano NOVE set invece
+di tre — tre di un'altra mappa e tre in doppia copia. Due cause diverse: gli estranei sono
+la coda dell'invariante 20 (chiusa il 15/8, ma i file già scritti venivano riletti e
+riscritti: **un cricchetto**), i doppioni nascevano dalla **rinomina** (il nome veniva dal
+titolo). Ora: nome dall'`id`, marchio `_mappa`, dedup, e la cartella si allinea.
+⚠️ **La potatura NON si estende ai materiali**: PDF e HTML si accumulano apposta e non
+esiste una lista di ciò che «dovrebbe» esserci. Per loro si RICONOSCE e si dice —
+`tools/diagnosi/vault-estranei.js`, sola lettura, che ha trovato quattro file che la
+ricognizione a mano aveva mancato.
+
+**5. Nomi**: lo spinner diceva il progetto aperto invece del lavoro; il foglio dei nodi non
+nominava la mappa; l'export usciva `MappAI_Mappa_<timestamp>.pdf` → ora `MM-`/`KG-`.
+
+**Le quattro cose che restano, in ordine di quanto mordono**: il **PDF vettoriale è rotto**
+(il ripiego raster scatta sempre — una regola della veste manifesto non si lascia
+reinserire nel clone SVG); la **guardia alla scrittura** dei materiali (17 punti, da fare
+con Electron libero); cinque materiali estranei nei dati di Giacomo; 166 file col vecchio
+`-VERDE`.
+
+⚠️ **Nota di metodo, pagata tre volte in un giorno**: una misura sbagliata accusa il
+codice. `window.electronAPI` è **congelato** (spiarlo fallisce in silenzio e gira la
+funzione vera); `MappAIStudyDocs.list()` toglie **apposta** i campi pesanti; l'accento
+esiste in due forme e un confronto ingenuo dà falsi positivi. E una volta ho fatto un danno
+vero: `saveMapVault()` chiamata senza argomenti ha scritto un vault annidato dentro
+«Materiale Studio» — rimosso, ma **non si invocano API di scrittura senza sapere che cosa
+fanno con gli argomenti vuoti**.
+
 
 ### ✅ FATTO (15/8/26): Cabina › SVILUPPO — insegnai.ch, segnalazioni, registro degli errori
 Stato completo in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §2-§3-§5**; qui il diario del perché.

@@ -170,6 +170,21 @@ I piani li citano per numero («viola l'invariante 6»). Ognuno è stato pagato.
     peggio del guasto curato); e ciò che vive solo in memoria viaggia col vault (`vista.json`),
     perché il disco è la casa (invariante 7) e localStorage è un indice che si può potare.
 
+20-bis. **Il corollario generale dell'invariante 20: NIENTE eredita l'identità di ciò che
+    gli sta intorno.** Il 17/8 lo stesso guasto si è presentato in quattro forme diverse in
+    una giornata sola, e nessuna riguardava una mappa:
+    · l'**indicatore dei lavori** prendeva il nome dal progetto aperto in quel momento,
+      quindi una generazione si ribattezzava se cambiavi progetto a metà;
+    · il **file di un set** prendeva il nome dal TITOLO del momento, quindi rinominare il
+      progetto lasciava doppioni con lo stesso `id`;
+    · un **materiale** finiva nella cartella attiva alla FINE di una lavorazione lunga,
+      non in quella da cui era partita;
+    · un **modale** si apriva al piano di default e spariva dietro la console.
+    La regola: ciò che dura più di un istante — un lavoro, un file, un documento — dichiara
+    a che cosa appartiene **quando comincia**, e se lo porta dietro. Leggere il contesto a
+    ogni passo funziona solo finché niente sopravvive a un cambio di schermata, e in
+    un'app dove le lavorazioni durano minuti quella premessa è falsa.
+
 21. **Un comando sta dove agisce, e ne esiste UNO per cosa.** Se la stessa domanda ha due
     controlli (lo slider dei livelli nella barra e quello del pannello, il chip in due
     posti, le linking words come spunta di qua e gruppo a tre di là), i due divergono al
@@ -199,7 +214,10 @@ public/
   js/mappai-*-core.js       LOGICA PURA, UMD, testata in Node (invariante 4)
                             (fra gli ultimi: vista-core = che cosa viaggia col vault;
                              errori.js = il registro locale, con la sua guardia di
-                             idempotenza — due caricamenti = due ascolti)
+                             idempotenza — due caricamenti = due ascolti;
+                             files-core = i NOMI dei file del vault: `nomeFileSet`,
+                             `setsDelVault`, `materialeEstraneo`, `nomeDiceLaMappa`;
+                             usage-core = quote e limiti: `limiteGiornaliero`, `stimaTts`)
   js/mappai-*.js            moduli UI, script globali, caricati dopo app.js
   js/riuso/ (nel misuratore) copie dichiarate, mai import a runtime fra le due app
   js/vendor/                librerie vendorizzate: si lavora OFFLINE, niente CDN a runtime
@@ -210,6 +228,7 @@ public/
 tests/                      node --test; solo logica pura, zero DOM
 tools/
   smoke/                    banchi Node sui moduli veri (LEGGIMI.md dice cosa NON provano)
+  diagnosi/                 ricognizioni sul DISCO vero, in sola lettura (vault-estranei.js)
   atlante-ui/ officina/     generatori delle pagine di public/dev/
 docs/                       HANDOFF.md (stato) + diari + guide tecniche
 specs/                      spec-kit delle feature grandi (spec → plan → tasks)
@@ -248,6 +267,8 @@ node --test tests/                             # suite pura
 node tools/smoke/cornice-documenti.js          # i banchi: moduli VERI, stub minimi
 node tools/smoke/elenchi-elabora-insegna.js
 node tools/smoke/studio-sidebar.js
+node tools/smoke/pipeline-lucchetto.js
+node tools/diagnosi/vault-estranei.js          # i VAULT VERI sul disco: dice, non tocca
 npm start                                      # l'app vera (solo Giacomo o CDP)
 npx electron . --remote-debugging-port=9222    # debug remoto: misurare NELL'app vera
 ```
@@ -259,7 +280,14 @@ Condizioni al contorno che falsano le misure:
 - il pannello browser mente in modi catalogati (trappole 1-4 in §8): cache, viewport a zero,
   transizioni congelate, rAF sospeso. Per le misure vere: CDP sull'app, o banchi Node;
 - ogni banco dichiara in `tools/smoke/LEGGIMI.md` che cosa NON può provare — leggerlo prima di
-  fidarsi di un «ok».
+  fidarsi di un «ok»;
+- ⚠️ **una misura sbagliata accusa il codice**, ed è il modo più caro di perdere tempo. Tre
+  casi pagati in un solo giorno (17/8): `window.electronAPI` è **congelato** da
+  `contextBridge`, quindi sostituirne un metodo per spiarlo fallisce in silenzio e gira la
+  funzione vera; `MappAIStudyDocs.list()` toglie **apposta** i campi pesanti e mette
+  `hasHtml` al loro posto; l'accento esiste in **due forme** e un confronto ingenuo dà falsi.
+  Prima di dichiarare un difetto: leggere che cosa la funzione di lettura *promette* di
+  restituire, e sospettare la sonda quando il risultato è assurdo.
 
 La filosofia di verifica: **eseguire, non parsare; misurare, non guardare**. Un modulo si prova
 facendolo girare; un contrasto si calcola; un PDF si ispeziona con `pdftotext`/`pdftoppm`, non
@@ -584,16 +612,14 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     contenitore di qualcun altro richiede di **aprire prima quel contenitore**, o il
     documento si carica e non si vede.
 
-44. **Un lavoro lungo possiede la propria identità: non la rilegge dallo schermo.**
-    L'indicatore dei lavori ricavava il nome da `rootNodeLabel` ogni volta che il velo si
-    riaccendeva — e una lavorazione si annuncia decine di volte (una fase per passo, un
-    blocco per chiamata). Bastava cliccare un altro progetto perché lo spinner si
-    ribattezzasse, e sembrasse che l'app stesse generando per tutti. È l'invariante 20
-    rovesciata: là una mappa ereditava l'identità di quella prima, qui il LAVORO eredita
-    quella di ciò che si sta guardando. Il nome si cattura **quando il lavoro comincia** e
-    dura quanto lui; una chiamata successiva senza nome è una *fase*, non un lavoro nuovo.
-    ⚠️ E il ripiego «prendi il contesto attivo» è una cattiva idea in sé: funziona solo
-    finché nessun lavoro sopravvive a un cambio di schermata.
+44. **Il sintomo con cui l'invariante 20-bis si presenta: «sembra che lo faccia per tutti».**
+    Lo spinner dei lavori si ribattezzava col nome del progetto che si cliccava, e Giacomo
+    l'ha letto — ragionevolmente — come «MappAI sta generando per tutti i progetti». La
+    regola sta nell'invariante 20-bis; qui basta il riconoscimento: quando un indicatore
+    *cambia* mentre il lavoro sotto non cambia, il nome lo sta rileggendo da fuori. Il
+    dettaglio che lo rende invisibile in prova è che una lavorazione si annuncia **decine
+    di volte** (una fase per passo, un blocco per chiamata): con un solo annuncio il
+    difetto non si vedrebbe mai.
 
 45. **`list()` che restituisce metadati NON è `get()`.** Verificando un salvataggio ho letto
     `d.html` da una voce di `MappAIStudyDocs.list()` e ho concluso che l'archivio fosse
@@ -644,6 +670,7 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
 | `docs/HANDOFF-console-bento.md` · `-manifesto.md` · `-console.md` | i diari dei tre filoni | il perché delle decisioni; le loro sezioni «UNCOMMITTED» e «da fare» sono fotografie datate |
 | `public/dev/atlante-ui.html` | il vocabolario della UI e il cantiere delle migrazioni | si rigenera con `node tools/atlante-ui/build.js`, mai a mano |
 | `tools/smoke/LEGGIMI.md` | che cosa i banchi possono e NON possono provare | leggere prima di fidarsi di un banco |
+| `tools/diagnosi/vault-estranei.js` | la ricognizione dei vault sul DISCO vero: set/materiali di un'altra mappa, doppioni, nomi muti | sola lettura; usa le funzioni del core, non una copia delle regole |
 | `~/Claude/MappAI - misuratore/HANDOFF.md` | lo stato dell'app misuratore | REPO separato (sorella): non mescolare i piani |
 | memoria agente (`~/.claude/projects/...-MappAI-re/memory/`) | lezioni trasversali alle sessioni | può citare file rinominati: verificare prima di agire |
 
