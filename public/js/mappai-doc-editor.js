@@ -2043,6 +2043,66 @@
            una sintesi corretta prima di registrare l'audio verrebbe scartato
            subito come «già superato». */
         _syn.base = JSON.parse(JSON.stringify(_syn.blocks));
+        await _scriviCopiaParlante(res);
+    }
+
+    /* ── LA COPIA PARLANTE, nella cartella della mappa ───────────────────────
+       🐛 Segnalato da Giacomo (17/8): «la generazione della voce inizia ma il
+       file non appare in Materiale Studio». Vero: registrare depositava il blob
+       in memoria e si fermava lì — a scrivere il file era solo la pipeline. Chi
+       registrava dall'editor otteneva una voce che moriva alla chiusura.
+       ⚠️ NON si scrive un MP3 accanto al documento: è la decisione del 10/8, e
+       la ragione è che un HTML che PUNTA all'MP3 fratello funziona solo finché i
+       due file restano nella stessa cartella — via QR, per email o
+       nell'anteprima `srcdoc` il riferimento non risolve e il documento ripiega
+       in silenzio sulla voce di sistema. L'audio va DENTRO il documento, in un
+       SECONDO file (`Sintesi-voce-<Mappa>.html`): l'editabile resta leggero per
+       chi corregge, la copia parlante basta a sé stessa per chi la consegna.
+       Il nome lo compone `buildFileName('synthesis_voice', …)`, la stessa
+       funzione della pipeline: una seconda convenzione qui spegnerebbe il
+       riconoscimento per prefisso su cui si reggono gli elenchi per genere.
+       ⚠️ `_syn.vaultAudio` NON si tocca: dichiara l'audio del file APERTO, e
+       valorizzarlo farebbe incorporare l'audio anche nell'EDITABILE al
+       salvataggio successivo — cioè 8 MB da riaprire a ogni ritocco, che è
+       esattamente ciò che i due file separati evitano.
+       📌 Ri-registrare SOVRASCRIVE, e va bene così: è la voce dello stesso
+       documento, rifatta. Passare da `nomeLibero` produrrebbe un
+       «Sintesi-voce-… · 02.html» a ogni ripensamento, cioè una cartella piena di
+       versioni fra cui il docente dovrebbe indovinare l'ultima. */
+    async function _scriviCopiaParlante(res) {
+        const BS = window.MappAIBranchSynthesis;
+        const s = _appState();
+        const vaultPath = (_origine() && _origine().vaultPath) || (s && s.activeVaultPath);
+        if (!BS || !PC() || !window.electronAPI || !window.electronAPI.saveVaultFile || !vaultPath) {
+            /* Registrata comunque: vive nel documento aperto e finisce in HTML e
+               nella stampa. Manca solo il file, e si dice quale manca. */
+            toast(t('de_voce_no_vault', 'Voce registrata, ma non ho una cartella dove scrivere la copia parlante: resta nel documento aperto.'), 'warning');
+            return;
+        }
+        try {
+            const uri = await _blobToDataUri(res.blob);
+            if (!uri) throw new Error('data-URI vuoto');
+            const data = Object.assign({}, _syn.data, {
+                editedBlocks: JSON.parse(JSON.stringify(_syn.blocks))
+            });
+            const html = BS.buildPrintHtml(data, {
+                audioDataUri: uri, audioMime: res.mime || 'audio/mpeg', cues: res.cues || null
+            });
+            const nome = PC().buildFileName('synthesis_voice', null, _tarato(), { mappa: _mapName() });
+            const rel = 'Materiale Studio/' + nome;
+            const out = await window.electronAPI.saveVaultFile({ vaultPath: vaultPath, relPath: rel, text: html });
+            if (!out || !out.ok) throw new Error((out && out.error) || '?');
+            /* Chi scrive su disco lo DICE, o gli elenchi già aperti non se ne
+               accorgono (stessa regola di `_saveSynthesisFile`). */
+            try {
+                if (window.MappAIVaults) window.MappAIVaults.segnala('doc-salvato', { vaultPath: vaultPath, relPath: rel });
+            } catch (e) { /* canale assente: il file è comunque scritto */ }
+            toast(t('de_voce_ok', '✓ Voce registrata — copia parlante scritta: ') + nome, 'success');
+        } catch (e) {
+            /* Degradabile come nella pipeline: la voce c'è comunque nel documento
+               aperto, si perde solo la copia su disco — e si dice il perché. */
+            toast(t('de_voce_file_ko', 'Voce registrata, ma la copia parlante non è stata scritta: ') + (e.message || e), 'warning');
+        }
     }
 
     // Sintesi: export .html (conserva il lettore TTS e la voce naturale).

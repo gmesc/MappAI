@@ -273,9 +273,28 @@ Sotto c'erano **due difetti veri**, tutti e due trovati misurando:
   «Il Clima» (che ha `Sintesi-audio-Il Clima -VERDE.mp3`): dopo aver registrato, l'export
   riceveva i **59 cue del file vecchio** invece dei nuovi. Ora è il **passo 0** — un blob
   in memoria è nato dal testo di adesso, non può che essere il più recente.
+**E registrare SCRIVE il file** (`_scriviCopiaParlante`). Era il rilievo di Giacomo: «la
+generazione inizia ma il file non appare in Materiale Studio». Vero — il blob restava in
+memoria e moriva alla chiusura; a scrivere era solo la pipeline.
+⚠️ **Non si scrive un MP3 accanto al documento**: è la decisione del 10/8. Un HTML che
+PUNTA all'MP3 fratello funziona solo finché i due file restano nella stessa cartella —
+via QR, per email o nell'anteprima `srcdoc` il riferimento non risolve e il documento
+ripiega **in silenzio** sulla voce di sistema. L'audio va DENTRO un secondo file,
+`Sintesi-voce-<Mappa>.html`: l'editabile resta leggero per chi corregge, la copia parlante
+basta a sé stessa per chi la consegna. Il nome lo compone `buildFileName('synthesis_voice')`,
+**la stessa funzione della pipeline**.
+📌 Ri-registrare **sovrascrive**, ed è voluto: è la voce dello stesso documento, rifatta.
+Con `nomeLibero` nascerebbe un «… · 02.html» a ogni ripensamento.
+📌 `_syn.vaultAudio` non si tocca: dichiara l'audio del file APERTO, e valorizzarlo
+incorporerebbe l'audio anche nell'EDITABILE al salvataggio dopo — 8 MB da riaprire a ogni
+ritocco, cioè proprio ciò che i due file separati evitano.
 📌 Il bottone si mostra sempre e **non è inerte**: quando non può registrare, il motore
 dice il perché (serve la chiave Google, serve l'app desktop, ci sono modifiche da
 salvare). Provato: con modifiche pendenti → toast e **zero chiamate AI**.
+⚠️ **Trappola di misura pagata due volte**: `window.electronAPI` è un oggetto **congelato**
+da `contextBridge` — sostituirne un metodo per spiarlo **fallisce in silenzio** e gira la
+funzione vera. La prima prova diceva «nessuna scrittura» mentre il file era già sul disco.
+Per sapere se una scrittura è avvenuta, guardare il DISCO, non una spia sull'API.
 ⚠️ `_audioMatchesText` confrontava con `_lastSynthesis` invece che col `data` passato: con
 l'editor aperto su una sintesi del VAULT quello è un altro documento, e la guardia
 avvisava «il testo è cambiato» su una voce appena registrata.

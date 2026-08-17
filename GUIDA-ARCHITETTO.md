@@ -492,6 +492,16 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     prima non veniva mai percorso, rileggere la catena in cui vive: la sua posizione è
     stata scelta quando quel ramo non contava.
 
+35. **`window.electronAPI` è CONGELATO: non lo si può spiare.** È esposto da
+    `contextBridge`, quindi assegnare a un suo metodo (`window.electronAPI.saveVaultFile =
+    spia`) **fallisce in silenzio** in sloppy mode e continua a girare la funzione vera.
+    Costo pagato il 17/8: la sonda diceva «nessuna scrittura» mentre il file era già sul
+    disco, e per un minuto è sembrato un difetto del codice. Per sapere se una scrittura è
+    avvenuta si guarda il **disco** (`ls`, o `vaultMaterialsList`), mai una spia sull'API.
+    ⚠️ E se una prova scrive nel vault VERO di Giacomo, quel file va tolto: un materiale
+    con audio finto comparirebbe in INSEGNA come qualcosa da consegnare. Nel Cestino, non
+    cancellato — è la stessa regola di `delete-vault-file`.
+
 ---
 
 ## 9. Protocollo per un braindump
