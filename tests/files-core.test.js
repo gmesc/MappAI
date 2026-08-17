@@ -292,3 +292,91 @@ test('«Allievi» è una sottocartella di MappAI - file, ma non una da migrare',
     assert.strictEqual(FC.SUB.students, 'Allievi');
     assert.ok(!FC.LEGACY.some(l => l.sub === 'students'), 'nasce ora: non c’è nulla da spostarci dentro');
 });
+
+/* ══ I FILE DEI SET DI STUDIO ════════════════════════════════════════════════
+   Nati dai NOVE file trovati in «Project E» il 17/8: tre di un'altra mappa
+   («Elettricità», id identici a quelli del suo vault) e tre in doppia copia,
+   lasciati indietro dalla rinomina del progetto. I dati qui sotto sono quelli
+   veri, id compresi.                                                          */
+
+test('nomeFileSet: il nome viene dall\'ID, non dal titolo che la rinomina cambia', () => {
+    const prima = { id: 'set_1785417432805_ljgwl', title: '2.1 Project E — Flashcard' };
+    const dopo  = { id: 'set_1785417432805_ljgwl', title: 'Project E — Flashcard' };
+    assert.strictEqual(FC.nomeFileSet(prima), FC.nomeFileSet(dopo),
+        'rinominare il progetto non deve produrre un secondo file per lo stesso set');
+    assert.strictEqual(FC.nomeFileSet(dopo), 'set-set_1785417432805_ljgwl.json');
+});
+
+test('nomeFileSet: un id sporco non evade dalla cartella', () => {
+    // punti e barre spariscono: nessun modo di scrivere fuori dalla cartella
+    assert.strictEqual(FC.nomeFileSet({ id: '../../fuori' }), 'set-fuori.json');
+    assert.strictEqual(FC.nomeFileSet({}), 'set-senza-id.json');
+});
+
+test('setsDelVault: scarta i set marcati per un\'ALTRA mappa', () => {
+    const sets = [
+        { id: 'a', title: 'Project E — Flashcard', _mappa: 'Project E' },
+        { id: 'b', title: 'Elettricità — Flashcard', _mappa: 'Elettricità' }
+    ];
+    const out = FC.setsDelVault(sets, 'Project E');
+    assert.deepStrictEqual(out.map(s => s.id), ['a']);
+});
+
+test('setsDelVault: un set SENZA marchio si accetta (i file vecchi non ce l\'hanno)', () => {
+    const sets = [{ id: 'a', title: 'Project E — Flashcard' }];
+    assert.strictEqual(FC.setsDelVault(sets, 'Project E').length, 1);
+});
+
+test('setsDelVault: deduplica per id, e vince il primo letto', () => {
+    const sets = [
+        { id: 'x', title: 'Project E — Flashcard' },          // project_e___…
+        { id: 'x', title: '2.1 Project E — Flashcard' }       // 2_1_project_e___…
+    ];
+    const out = FC.setsDelVault(sets, 'Project E');
+    assert.strictEqual(out.length, 1);
+    assert.strictEqual(out[0].title, 'Project E — Flashcard');
+});
+
+test('setsDelVault: il caso VERO di Project E — da 9 set a 3', () => {
+    const disco = [
+        { id: 'set_1785417432805_ljgwl', title: 'Project E — Flashcard' },
+        { id: 'set_1785417343004_0cp8w', title: 'Project E — Scelta Multipla' },
+        { id: 'set_1785417395741_kpmgp', title: 'Project E — Vero o Falso' },
+        { id: 'set_1785407316896_0p2lu', title: 'Elettricità — Flashcard', _mappa: 'Elettricità' },
+        { id: 'set_1785407229397_25xmi', title: 'Elettricità — Scelta Multipla', _mappa: 'Elettricità' },
+        { id: 'set_1785407278165_k32el', title: 'Elettricità — Vero o Falso', _mappa: 'Elettricità' },
+        { id: 'set_1785417432805_ljgwl', title: '2.1 Project E — Flashcard' },
+        { id: 'set_1785417343004_0cp8w', title: '2.1 Project E — Scelta Multipla' },
+        { id: 'set_1785417395741_kpmgp', title: '2.1 Project E — Vero o Falso' }
+    ];
+    assert.strictEqual(FC.setsDelVault(disco, 'Project E').length, 3);
+});
+
+test('setsDelVault: il confronto fra nomi di mappa regge accenti e maiuscole', () => {
+    const nfd = 'Elettricità';   // accento scomposto, come lo scrive macOS
+    const nfc = 'Elettricità';
+    const sets = [{ id: 'a', title: 'x', _mappa: nfd }];
+    assert.strictEqual(FC.setsDelVault(sets, nfc).length, 1,
+        'stessa mappa scritta nelle due forme: non va scartata');
+});
+
+test('setFileDaPotare: il file col nome vecchio dello stesso set se ne va', () => {
+    const sets = [{ id: 'x', title: 'Project E — Flashcard' }];
+    const suDisco = [
+        { nome: 'set-x.json', id: 'x' },
+        { nome: '2_1_project_e___flashcard_x.json', id: 'x' }
+    ];
+    assert.deepStrictEqual(FC.setFileDaPotare(suDisco, sets), ['2_1_project_e___flashcard_x.json']);
+});
+
+test('setFileDaPotare: se ne va anche il set che non è più fra i nostri', () => {
+    const sets = [{ id: 'x' }];
+    const suDisco = [{ nome: 'set-x.json', id: 'x' }, { nome: 'elettricit____flashcard_y.json', id: 'y' }];
+    assert.deepStrictEqual(FC.setFileDaPotare(suDisco, sets), ['elettricit____flashcard_y.json']);
+});
+
+test('setFileDaPotare: con ZERO set non si pota niente', () => {
+    // Un salvataggio che arriva senza set non deve svuotare la cartella.
+    const suDisco = [{ nome: 'set-x.json', id: 'x' }, { nome: 'set-y.json', id: 'y' }];
+    assert.deepStrictEqual(FC.setFileDaPotare(suDisco, []), []);
+});

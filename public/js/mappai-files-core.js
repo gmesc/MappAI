@@ -357,6 +357,76 @@
     };
   }
 
+  /* ══ I FILE DEI SET DI STUDIO in «Materiale Studio/» ══════════════════════
+     🐛 Il guasto, trovato nel vault di «Project E» il 17/8: nella sua cartella
+     c'erano NOVE file di set invece di tre — tre di un'altra mappa
+     («Elettricità», id identici a quelli del suo vault) e tre in doppia copia.
+     Due cause diverse, e vanno separate:
+      · gli estranei sono la coda dell'invariante 20 (aprire un vault non
+        dichiarava la propria identità, e il salvataggio finiva nella cartella
+        della mappa precedente). Il difetto è chiuso dal 15/8, ma i file già
+        scritti vengono riletti a ogni apertura e riscritti a ogni salvataggio:
+        un cricchetto che si autoalimenta;
+      · i doppioni nascono dalla RINOMINA. Il nome del file veniva dal TITOLO
+        del set («2.1 Project E — Flashcard» → `2_1_project_e___flashcard…`):
+        rinominato il progetto, i set prendono un nome nuovo e i vecchi restano
+        lì, con lo stesso `id`.                                                */
+
+  function _s(x) { return String(x == null ? '' : x); }
+  /* Confronto fra NOMI di mappa: NFC (le due forme dell'accento convivono sul
+     disco — invariante nota) e senza differenze di maiuscole o spazi ai bordi. */
+  function _norm(x) {
+    var s = _s(x).trim();
+    try { s = s.normalize('NFC'); } catch (e) { /* runtime senza normalize */ }
+    return s.toLowerCase();
+  }
+
+  /* Il nome sta sull'`id`, che non cambia mai — non sul titolo, che cambia con
+     la rinomina del progetto e lascia orfani. */
+  function nomeFileSet(set) {
+    var id = _s(set && set.id).replace(/[^A-Za-z0-9_-]/g, '');
+    return 'set-' + (id || 'senza-id') + '.json';
+  }
+
+  /* I set che appartengono DAVVERO a questo vault, in ordine di lettura.
+     · scarta quelli marcati per un'altra mappa (`_mappa`, scritto dal
+       salvataggio): un file estraneo non torna più in memoria, quindi non
+       viene nemmeno riscritto — il cricchetto si spezza da sé;
+     · deduplica per `id`: due file con lo stesso id SONO lo stesso set, e
+       vince il primo letto. È la rete per i doppioni già sul disco.
+     ⚠️ Un set SENZA `_mappa` si accetta: i file scritti prima non ce l'hanno,
+     e scartarli farebbe sparire il lavoro di chi aggiorna. */
+  function setsDelVault(sets, mappa) {
+    var m = _norm(mappa), visti = {}, out = [];
+    (sets || []).forEach(function (s) {
+      if (!s) return;
+      var suo = _s(s._mappa);
+      if (suo && m && _norm(suo) !== m) return;
+      var id = _s(s.id);
+      if (id) { if (visti[id]) return; visti[id] = true; }
+      out.push(s);
+    });
+    return out;
+  }
+
+  /* Quali file di set togliere dalla cartella dopo un salvataggio: quelli il
+     cui `id` non è più fra i set salvati (cancellati o estranei) e quelli che
+     portano lo STESSO id con un nome vecchio (i doppioni della rinomina).
+     `esistenti` = [{nome, id}] letti dal disco.
+     ⚠️ Con `sets` VUOTO non si pota niente: un salvataggio che per qualunque
+     ragione arriva senza set non deve svuotare la cartella. */
+  function setFileDaPotare(esistenti, sets) {
+    var lista = sets || [];
+    if (!lista.length) return [];
+    var buoni = {};
+    lista.forEach(function (s) { if (s && s.id) buoni[_s(s.id)] = nomeFileSet(s); });
+    return (esistenti || []).filter(function (f) {
+      var atteso = buoni[_s(f && f.id)];
+      if (!atteso) return true;                 /* set non più fra i nostri */
+      return _s(f.nome) !== atteso;             /* stesso set, nome superato */
+    }).map(function (f) { return f.nome; });
+  }
+
   var CORE = {
     ROOT_FOLDER: ROOT_FOLDER,
     SUB: SUB,
@@ -367,6 +437,9 @@
     classFolder: classFolder,
     mapClassFolder: mapClassFolder,
     vaultFolderName: vaultFolderName,
+    nomeFileSet: nomeFileSet,
+    setsDelVault: setsDelVault,
+    setFileDaPotare: setFileDaPotare,
     titoloProgetto: titoloProgetto,
     titoloDaFile: titoloDaFile,
     disciplineFolder: disciplineFolder,

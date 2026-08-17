@@ -1562,15 +1562,41 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             fs.writeFileSync(path.join(studioDir, 'mastery.json'), JSON.stringify(mapData.masteryStore, null, 2), 'utf-8');
         }
 
-        // 7. Save Study Sets (Quiz e Flashcard)
+        /* 7. I SET DI STUDIO (quiz e flashcard) — vedi `mappai-files-core.js`,
+              blocco «I FILE DEI SET». Tre cose, tutte nate dai nove file trovati
+              in «Project E» il 17/8:
+               · il nome viene dall'`id` e non dal TITOLO, che cambia con la
+                 rinomina del progetto e lasciava orfani con lo stesso id;
+               · ogni file dichiara la MAPPA a cui appartiene (`_mappa`), così un
+                 file finito nella cartella sbagliata non torna più in memoria al
+                 caricamento — e quindi non viene nemmeno riscritto;
+               · dopo la scrittura la cartella si ALLINEA: i file di set che non
+                 corrispondono più a nessun set salvato vanno nel Cestino (non
+                 cancellati: sono nella cartella dell'utente). */
         const studyDir = path.join(folderPath, 'Materiale Studio');
-        if (mapData.studySets && mapData.studySets.length > 0) {
+        const setsDaScrivere = FilesCore.setsDelVault(mapData.studySets || [], mapData.rootNodeLabel);
+        if (setsDaScrivere.length > 0) {
             if (!fs.existsSync(studyDir)) fs.mkdirSync(studyDir, { recursive: true });
-            mapData.studySets.forEach(set => {
-                const safeTitle = set.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const fileName = `${safeTitle}_${set.id}.json`;
-                fs.writeFileSync(path.join(studyDir, fileName), JSON.stringify(set, null, 2), 'utf-8');
+            setsDaScrivere.forEach(set => {
+                const daScrivere = Object.assign({}, set, { _mappa: mapData.rootNodeLabel || '' });
+                fs.writeFileSync(path.join(studyDir, FilesCore.nomeFileSet(set)),
+                    JSON.stringify(daScrivere, null, 2), 'utf-8');
             });
+            /* La potatura legge gli id dai file: un `.json` che non è un set
+               (nessun `id`) non entra nell'elenco e non si tocca. */
+            try {
+                const esistenti = fs.readdirSync(studyDir)
+                    .filter(f => f.endsWith('.json'))
+                    .map(f => {
+                        try { return { nome: f, id: (JSON.parse(fs.readFileSync(path.join(studyDir, f), 'utf-8')) || {}).id }; }
+                        catch (e) { return null; }
+                    })
+                    .filter(x => x && x.id);
+                FilesCore.setFileDaPotare(esistenti, setsDaScrivere).forEach(nome => {
+                    const p = path.join(studyDir, nome);
+                    shell.trashItem(p).catch(() => { try { fs.unlinkSync(p); } catch (e) { } });
+                });
+            } catch (e) { /* la potatura è igiene: se fallisce, i set sono comunque scritti */ }
         }
 
         // 8. Return upgrades for image paths (Base64 -> Local File)
@@ -1784,6 +1810,11 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                     mapData.studySets.push(set);
                 } catch(e) {}
             });
+            /* Scarta i set marcati per un'ALTRA mappa e deduplica per `id`:
+               due file con lo stesso id sono lo stesso set (i doppioni che la
+               rinomina lasciava indietro). Senza questo, «Project E» apriva
+               NOVE set invece di tre. */
+            mapData.studySets = FilesCore.setsDelVault(mapData.studySets, mapData.rootNodeLabel);
         }
 
         // vista.json (15/8): Vista studio · focus · timeline · foglio nodi.

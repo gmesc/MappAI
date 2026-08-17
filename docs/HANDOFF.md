@@ -275,6 +275,37 @@ Provato in Electron sui due percorsi: dal vault (riga → anteprima → Modifica
 domanda «Salvi le modifiche?» → **anteprima**, secondo ESC → elenco) e senza anteprima
 (editor → **un ESC** → elenco). In nessuno dei due l'area resta vuota.
 
+### I FILE DEI SET DI STUDIO: uno per set, e di questa mappa (17/8)
+🐛 Nel vault di «Project E» c'erano **nove** file di set invece di tre: tre di un'altra
+mappa («Elettricità», id identici a quelli del suo vault) e tre in doppia copia. Aprendo il
+progetto si caricavano nove set. Due cause diverse, e vanno tenute separate:
+- **gli estranei** sono la coda dell'invariante 20 (i PDF di Elettricità lì dentro sono del
+  30 luglio, prima della correzione del 15/8). Il difetto è chiuso — provato: caricando
+  Elettricità e poi un'altra mappa i set non sopravvivono — ma i file già scritti venivano
+  **riletti a ogni apertura e riscritti a ogni salvataggio**: un cricchetto che si
+  autoalimenta;
+- **i doppioni** nascevano dalla RINOMINA: il nome del file veniva dal TITOLO del set
+  («2.1 Project E — Flashcard» → `2_1_project_e___flashcard…`), quindi rinominato il
+  progetto i set prendevano un nome nuovo e i vecchi restavano, **con lo stesso `id`**.
+
+Tre correzioni, logica pura in `mappai-files-core.js` (+11 test, coi dati veri):
+1. **Il nome del file viene dall'`id`** (`set-<id>.json`), che non cambia mai. La rinomina
+   non orfanizza più.
+2. **Ogni file dichiara la sua mappa** (`_mappa`, scritto al salvataggio) e al caricamento
+   `setsDelVault` scarta quelli di un'altra: un file finito nella cartella sbagliata non
+   torna in memoria, quindi non viene nemmeno riscritto — il cricchetto si spezza da sé.
+   ⚠️ Un file **senza** marchio si accetta: quelli scritti prima non ce l'hanno.
+3. **Dedup per `id` al caricamento** — due file con lo stesso id sono lo stesso set. È la
+   rete per i doppioni già sul disco.
+Dopo la scrittura la cartella si **allinea**: i file di set che non corrispondono più a
+nessun set vanno nel **Cestino** (non cancellati). ⚠️ Con zero set non si pota niente: un
+salvataggio che arriva senza set non deve svuotare la cartella.
+Provato in Electron: «Project E» apriva 9 set, ora ne apre **3**; il salvataggio riscrive i
+file col nome dall'id, col marchio, e porta via i vecchi.
+📌 I sei file estranei di Giacomo sono stati spostati nel Cestino a mano, dopo aver
+verificato che ognuno avesse un gemello identico (i tre di Elettricità) o un successore con
+lo stesso id (i tre `2_1_project_e`).
+
 ### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
 🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
 lanciando una lavorazione in ELABORA e cliccando un altro progetto, **lo spinner in barra si
