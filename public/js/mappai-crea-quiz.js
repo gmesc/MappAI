@@ -173,6 +173,11 @@
                     {
                         id: 'ang', titolo: t('cq_g_ang', 'Angolazioni'),
                         testo: t('cq_ang_d2', 'Che cosa devono chiedere le domande. Ogni angolazione spuntata produce un FOGLIO SUO sullo stesso materiale: è il modo di preparare due versioni della stessa verifica. «Automatico» distribuisce i tipi di ragionamento dentro un foglio solo.'),
+                        /* Otto spunte in colonna sono una lista che fa scorrere;
+                           su due colonne si abbracciano con un colpo d'occhio,
+                           e in un modale da 600px l'etichetta più lunga
+                           («Applicazione / inferenza») ci sta. */
+                        colonne: 2,
                         campi: ANG.map(function (a) {
                             return { id: 'ang_' + a.key, tipo: 'spunta', etichetta: etAng(a.key),
                                 valore: v ? !!v['ang_' + a.key] : (a.key === 'auto') };
@@ -276,13 +281,19 @@
        il quinto che non è andato sarebbe il guasto peggiore qui dentro. */
     function _generaVarianti(tp, opts, angoli) {
         if (!P() || !P().generaSet) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
-        var piu = angoli.length > 1;
+        var piu = angoli.length > 1;          // cambia solo il MESSAGGIO finale
         var fatti = [], falliti = [];
 
         function passo(i) {
             if (i >= angoli.length) return _fineVarianti(fatti, falliti, piu);
             var k = angoli[i];
-            var nome = piu ? ((opts.nome ? opts.nome + ' · ' : '') + _etAng(k)) : opts.nome;
+            /* Senza un nome scritto dal docente, la variante SI CHIAMA come il
+               suo angolo. Con un nome, l'angolo lo qualifica: «verifica di
+               ottobre - causa». Con un angolo solo il nome resta quello che il
+               docente ha scritto — o, se non ne ha scritto nessuno, di nuovo
+               l'angolo: due varianti generate in due momenti diversi devono
+               poter convivere nella stessa cartella. */
+            var nome = (opts.nome ? opts.nome + ' - ' : '') + _nomeAng(k);
             return P().generaSet({
                 tipo: tp.id, nome: nome, quantita: opts.quantita,
                 area: opts.area, angolo: k, base: opts.base
@@ -298,6 +309,15 @@
         passo(0);
     }
     function _etAng(k) { return window.quizAngleLabel ? window.quizAngleLabel(k) : k; }
+    /* Il nome che finisce nel FILE e nel titolo: la parola dell'angolo, breve e
+       minuscola — `Domande aperte - causa`, `- conseguenza`, `- definizione`.
+       ⚠️ Non l'etichetta a schermo: quella dice «Automatico (misto)» e
+       «Esempio concreto», e in un nome di file diventerebbe
+       `Domande-aperte-Il Clima-Automatico (misto).pdf`. La chiave di
+       `QUIZ_ANGLES` è già la parola giusta; l'unica deroga è `auto`, che nel
+       nome si legge «misto» — ed è la convenzione che Giacomo usava già a mano
+       (i file `Domande-aperte-Il Clima-misto.pdf` nel vault lo dimostrano). */
+    function _nomeAng(k) { return k === 'auto' ? 'misto' : k; }
 
     /* Che cosa è successo, detto per intero. Con un foglio solo il messaggio
        resta quello di sempre (dove si corregge, dove si stampa); con più fogli

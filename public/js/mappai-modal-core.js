@@ -143,6 +143,13 @@
                 ? { src: String(s.figura.src), alt: String(s.figura.alt || ''), tonda: !!s.figura.tonda }
                 : null,
             dati: normalizzaDati(s.dati),
+            /* COLONNE dei campi (16/8): 2 o 3, altrimenti nessuna (una lista).
+               Nato dalle otto angolazioni delle domande aperte — in colonna
+               fanno scorrere, affiancate si abbracciano con un colpo d'occhio.
+               Vale sui CAMPI, non su tutta la sezione: il testo di spiegazione
+               e la riga di esito restano a tutta larghezza, o si leggerebbero
+               in due strisce strette. */
+            colonne: (s.colonne === 2 || s.colonne === 3) ? s.colonne : 0,
             /* riga di ESITO sotto le azioni: dice com'è andata o che cosa è
                stato scelto (il file caricato, l'ultimo salvataggio, quanti
                elementi). Sta sotto perché è la conseguenza del bottone, non

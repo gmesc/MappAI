@@ -539,6 +539,34 @@
     max-width: calc(50% - 5px);
 }
 
+/* ── Campi su più colonne (16/8) ──────────────────────────────────────────
+   `sezione.colonne: 2|3`. Serve alle liste di spunte lunghe (le otto
+   angolazioni delle domande aperte): in colonna fanno scorrere il modale,
+   affiancate si leggono in un colpo d'occhio.
+   ⚠️ Sotto i 520px torna a una colonna: due colonne di spunte in un modale
+   stretto tagliano le etichette, e un'etichetta tagliata su una spunta è
+   peggio di una lista lunga. */
+.mm-campi {
+    display: grid;
+    gap: 0 14px;
+}
+
+.mm-campi--2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.mm-campi--3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 520px) {
+
+    .mm-campi--2,
+    .mm-campi--3 {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── Il NOME del campo, quando il segnaposto non può dirlo (16/8) ──────────
    Vedi `campoHtml`: select, campi già pieni e campi colore non mostrano mai
    il segnaposto. Corpo e colore sono quelli del titolo di sezione — è la

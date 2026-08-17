@@ -207,7 +207,12 @@
         }
         if (s.testo) dentro += '<p class="mm-testo">' + esc(s.testo) + '</p>';
         dentro += datiHtml(s.dati);
-        dentro += s.campi.map(campoHtml).join('');
+        /* I campi in colonne, se la sezione le dichiara. Il contenitore avvolge
+           SOLO i campi: `testo` e `sotto` restano a tutta larghezza. */
+        var campiHtml = s.campi.map(campoHtml).join('');
+        dentro += s.colonne
+            ? '<div class="mm-campi mm-campi--' + s.colonne + '">' + campiHtml + '</div>'
+            : campiHtml;
         dentro += vociHtml(s.voci);
         if (s.azioni.length) {
             dentro += '<div class="mm-sez__azioni">' + s.azioni.map(bottoneHtml).join('') + '</div>';

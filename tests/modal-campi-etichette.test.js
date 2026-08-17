@@ -85,3 +85,43 @@ test('metà larghezza SENZA spiegazione: resta affiancabile', () => {
     assert.strictEqual(h.indexOf('mm-campo-riga--spiegato'), -1,
         'le coppie di campi affiancati non devono cambiare');
 });
+
+/* ── campi su più colonne (16/8) ───────────────────────────────────────────
+   Nato dalle otto angolazioni delle domande aperte: in colonna fanno scorrere
+   il modale. Il contenitore avvolge SOLO i campi — testo e riga di esito
+   restano a tutta larghezza, o si leggerebbero in due strisce strette. */
+function sezione(s) {
+    return M.render({ titolo: 'Prova', sezioni: [s] }).innerHTML;
+}
+
+test('colonne: 2 avvolge i campi in un contenitore a griglia', () => {
+    const h = sezione({ titolo: 'Angolazioni', colonne: 2, campi: [
+        { id: 'a', tipo: 'spunta', etichetta: 'Causa' },
+        { id: 'b', tipo: 'spunta', etichetta: 'Conseguenza' }
+    ] });
+    assert.match(h, /<div class="mm-campi mm-campi--2">/);
+    assert.match(h, /mm-campi--2">\s*<label class="mm-opz"/, 'e i campi ci stanno dentro');
+});
+
+test('colonne: il testo e la riga di esito NON entrano nella griglia', () => {
+    const h = sezione({ titolo: 'A', colonne: 2, testo: 'Una spiegazione.', sotto: 'Un foglio.',
+        campi: [{ id: 'a', tipo: 'spunta', etichetta: 'Causa' }] });
+    const iTesto = h.indexOf('Una spiegazione.');
+    const iGriglia = h.indexOf('mm-campi--2');
+    const iSotto = h.indexOf('Un foglio.');
+    assert.ok(iTesto < iGriglia, 'la spiegazione sta PRIMA della griglia');
+    assert.ok(iSotto > iGriglia, 'e l\'esito DOPO');
+});
+
+test('senza `colonne` il markup non cambia (nessun contenitore in più)', () => {
+    const h = sezione({ titolo: 'A', campi: [{ id: 'a', tipo: 'spunta', etichetta: 'Causa' }] });
+    assert.strictEqual(h.indexOf('mm-campi'), -1,
+        'le sezioni che non le chiedono non devono guadagnare un div');
+});
+
+test('colonne: un valore non previsto viene ignorato, non emesso', () => {
+    [1, 4, 'due', null].forEach(v => {
+        const h = sezione({ titolo: 'A', colonne: v, campi: [{ id: 'a', tipo: 'spunta', etichetta: 'X' }] });
+        assert.strictEqual(h.indexOf('mm-campi'), -1, 'colonne=' + JSON.stringify(v) + ' non produce griglia');
+    });
+});
