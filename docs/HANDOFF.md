@@ -104,6 +104,8 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
+| `mappai_tts_model` | assente = `gemini-2.5-flash-preview-tts` | il modello della voce naturale |
+| `mappai_tts_model_alt` | assente = `gemini-3.1-flash-tts-preview` | il modello di **ripiego** per i blocchi che il primo rifiuta (i titoli di una parola sola). `''` spegne il ripiego: quei blocchi restano muti |
 | `mappai_errori_recenti` | scritto dall'uso | la copia in `localStorage` degli ultimi 50 errori: serve dove non c'è il disco (browser) e a mostrarli subito. La fonte resta il file |
 
 ---
@@ -295,6 +297,34 @@ salvare). Provato: con modifiche pendenti → toast e **zero chiamate AI**.
 da `contextBridge` — sostituirne un metodo per spiarlo **fallisce in silenzio** e gira la
 funzione vera. La prima prova diceva «nessuna scrittura» mentre il file era già sul disco.
 Per sapere se una scrittura è avvenuta, guardare il DISCO, non una spia sull'API.
+
+🐛 **UN BLOCCO DI UNA PAROLA SOLA UCCIDEVA L'INTERA REGISTRAZIONE** (17/8, dal secondo
+rilievo di Giacomo: «lo spinner ha girato per un attimo»). Misurato sulla sua chiave con
+`gemini-2.5-flash-preview-tts`, che è il default:
+
+| testo | parole | esito |
+|---|---|---|
+| `Panoramica` · `Introduzione` · `Sintesi` · `Panoramica.` | 1 | **200 OK, `finishReason:"OTHER"`, nessun contenuto** |
+| `La citta` (8 caratteri!) · `Le funzioni` · `Panoramica, in breve.` | 2+ | audio ✓ |
+
+**Non è la lunghezza: è il numero di parole** — e i blocchi di una parola sola sono
+esattamente i TITOLI DI SEZIONE. Su «Funzioni Urbane» il blocco 1 di 78 era «Panoramica»,
+il codice faceva `throw`, e tutto moriva dopo **1,6 secondi**.
+Due rimedi, e il primo vale a prescindere dal modello:
+- **un blocco rifiutato non ferma gli altri**: si salta, si scrive comunque il suo cue
+  (durata zero, altrimenti il karaoke slitterebbe di un blocco da lì in poi) e alla fine si
+  DICE quanti ne sono stati saltati. Perdere 77 frasi già pagate per un titolo è il guasto
+  peggiore possibile lì dentro — è la stessa regola delle varianti del 16/8;
+- **si ritenta col modello di ripiego** (`mappai_tts_model_alt`, default
+  `gemini-3.1-flash-tts-preview`): gli altri due modelli TTS della stessa chiave le parole
+  singole le leggono, provato, e tornano PCM 16 bit a 24 kHz come il primo — quindi i clip
+  si concatenano senza conversioni. `''` spegne il ripiego.
+Se TUTTI i blocchi vengono saltati si lancia invece di consegnare un file muto.
+📌 **La registrazione è lunga, e va saputo**: una chiamata per blocco contro un tetto di
+**10 al minuto** (piano gratuito) → 78 blocchi ≈ **8 minuti** di spinner. L'overlay conta
+(`Genero audio 5/78…`), ma chi guarda solo la barra in alto crede che sia appeso.
+📌 Chi mette `mappai_tts_model = 'gemini-3.1-flash-tts-preview'` evita la chiamata doppia
+sui titoli (una rifiutata + una buona).
 ⚠️ `_audioMatchesText` confrontava con `_lastSynthesis` invece che col `data` passato: con
 l'editor aperto su una sintesi del VAULT quello è un altro documento, e la guardia
 avvisava «il testo è cambiato» su una voce appena registrata.

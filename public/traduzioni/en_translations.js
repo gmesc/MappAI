@@ -1218,6 +1218,7 @@ const en_translations = {
     bs_audio_rate: "The provider keeps refusing the requests: try again in a few minutes.",
     bs_audio_prog: "Generating audio",
     bs_audio_noaudio: "Response has no audio (TTS model unavailable with this key?)",
+    bs_audio_saltati: "Voice recorded, but {n} blocks were not read (usually one-word headings): ",
     bs_audio_done: "✓ Audio downloaded",
     bs_audio_fail: "Audio not generated",
     bs_audio_ready: "Natural voice ready",

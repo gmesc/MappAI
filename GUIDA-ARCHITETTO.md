@@ -502,6 +502,29 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     con audio finto comparirebbe in INSEGNA come qualcosa da consegnare. Nel Cestino, non
     cancellato — è la stessa regola di `delete-vault-file`.
 
+36. **In un ciclo di N chiamate a un provider, il fallimento di UNA non può ucciderle
+    tutte.** Il TTS della sintesi faceva una chiamata per blocco e `throw` alla prima che
+    non tornava audio. Su «Funzioni Urbane» il blocco 1 di 78 era il titolo «Panoramica»,
+    che `gemini-2.5-flash-preview-tts` rifiuta: tutto moriva in 1,6 secondi, comprese le
+    chiamate già pagate. La forma giusta è quella già scelta per le varianti dei quiz
+    (16/8): si salta l'elemento, si continua, e **alla fine si dice** che cosa è saltato.
+    ⚠️ Se gli elementi sono INDICIZZATI da qualcos'altro (qui i `cues` del karaoke, uno per
+    blocco), saltarne uno non deve accorciare l'indice: si scrive comunque la sua voce, a
+    durata zero. Un `continue` che salta anche l'indice sfasa tutto ciò che viene dopo.
+    ⚠️ E se salta TUTTO, si lancia: consegnare un file muto sposta la scoperta del guasto
+    a chi lo ascolta.
+
+37. **«Non funziona» su un provider va misurato sul PROVIDER, non dedotto.** Il sintomo era
+    «il file non appare»; la causa era una risposta `200 OK` con `finishReason:"OTHER"` e
+    nessun contenuto. Tre misure in fila hanno chiuso la questione, e nessuna era
+    indovinabile: (a) i modelli davvero disponibili per QUELLA chiave — l'endpoint `models`
+    ne elencava uno più recente; (b) lo stesso payload su tre modelli — il default
+    funzionava, quindi il modello non era il colpevole; (c) sette testi di lunghezza
+    diversa sullo stesso modello — ed è qui che è saltato fuori il vero discriminante, il
+    **numero di parole**: `La citta` (8 caratteri, 2 parole) viene letto, `Introduzione`
+    (12 caratteri, 1 parola) no. Chi si fosse fermato a «i modelli preview scadono» avrebbe
+    cambiato modello e il difetto sarebbe rimasto.
+
 ---
 
 ## 9. Protocollo per un braindump

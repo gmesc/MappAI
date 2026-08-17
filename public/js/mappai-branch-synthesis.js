@@ -1477,6 +1477,43 @@ ${_bsPie(data.mapName)}
         throw new Error(window.t('bs_audio_rate', 'Il provider continua a rifiutare le richieste: riprova fra qualche minuto.'));
     }
 
+    /** L'audio dentro una risposta Gemini, o `null` se non c'è. */
+    function _inlineAudio(resp) {
+        const p = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content
+            && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
+        const inl = p && p.inlineData;
+        return (inl && inl.data) ? inl : null;
+    }
+
+    /* Il modello a cui chiedere quando il primo non produce audio. Deve tornare
+       PCM 16 bit a 24 kHz come gli altri, o i clip non si concatenerebbero.
+       Configurabile: il modello giusto cambia col piano di chi usa l'app, e i
+       modelli TTS di Google sono tutti in «preview» — cioè destinati a essere
+       sostituiti. `''` spegne il ripiego. */
+    function _ttsRipiego(usato) {
+        let alt = 'gemini-3.1-flash-tts-preview';
+        try {
+            const v = localStorage.getItem('mappai_tts_model_alt');
+            if (v !== null) alt = v;
+        } catch (e) { /* default */ }
+        return (alt && alt !== usato) ? alt : '';
+    }
+
+    /** Una chiamata TTS + la sua riga nel registro consumi (che qui non passa
+        da `fetchModelAPI`, quindi va scritta a mano). */
+    async function _ttsChiamataConto(payload, key, model, i, n) {
+        const resp = await _ttsChiamata(payload, key, model, i, n);
+        try {
+            const um = resp && resp.usageMetadata;
+            if (um && window.MappAIUsage) window.MappAIUsage.record({
+                provider: 'google', model: model,
+                inTok: um.promptTokenCount || 0, outTok: um.candidatesTokenCount || 0,
+                ctx: { cat: 'materials', sub: 'tts' }
+            });
+        } catch (uerr) { /* non bloccante */ }
+        return resp;
+    }
+
     // Genera l'audio (voce naturale Gemini) UN CLIP PER BLOCCO → { blob WAV, cues }.
     // cues[i] = tempo REALE di inizio del blocco i (dalla lunghezza PCM del clip) →
     // karaoke sincronizzato con la voce, non stimato.
@@ -1489,6 +1526,7 @@ ${_bsPie(data.mapName)}
         const model = (function () { try { return localStorage.getItem('mappai_tts_model') || 'gemini-2.5-flash-preview-tts'; } catch (e) { return 'gemini-2.5-flash-preview-tts'; } })();
         const voice = (function () { try { return localStorage.getItem('mappai_tts_voice') || 'Kore'; } catch (e) { return 'Kore'; } })();
         const pcmParts = []; let rate = 24000; const cues = []; let cum = 0;
+        const saltati = [];   /* blocchi che nessun modello ha voluto leggere */
         for (let i = 0; i < blocks.length; i++) {
             const payload = {
                 contents: [{ parts: [{ text: blocks[i] }] }],
@@ -1509,15 +1547,38 @@ ${_bsPie(data.mapName)}
                 rate = _ttsCache[chiave].rate || rate;
                 if (window.showLoadingOverlay) window.showLoadingOverlay(true, window.t('bs_audio_prog', 'Genero audio') + ' ' + (i + 1) + '/' + blocks.length + '…');
             } else {
-                const resp = await _ttsChiamata(payload, key, model, i + 1, blocks.length);
-                // Registro consumi: il TTS bypassa fetchModelAPI → record manuale
-                try {
-                    const um = resp && resp.usageMetadata;
-                    if (um && window.MappAIUsage) window.MappAIUsage.record({ provider: 'google', model: model, inTok: um.promptTokenCount || 0, outTok: um.candidatesTokenCount || 0, ctx: { cat: 'materials', sub: 'tts' } });
-                } catch (uerr) { /* non bloccante */ }
-                const part = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts && resp.candidates[0].content.parts[0];
-                const inline = part && part.inlineData;
-                if (!inline || !inline.data) throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
+                let inline = _inlineAudio(await _ttsChiamataConto(payload, key, model, i + 1, blocks.length));
+                /* ⚠️ UN BLOCCO DI UNA PAROLA SOLA IL MODELLO NON LO LEGGE (17/8).
+                   Misurato sulla chiave di Giacomo, con `gemini-2.5-flash-preview-tts`:
+                   «Panoramica», «Introduzione», «Sintesi» tornano 200 OK con
+                   `finishReason:"OTHER"` e NESSUN contenuto, mentre «La citta» —
+                   otto caratteri, ma DUE parole — viene letto. Non è la
+                   lunghezza: è il numero di parole, e i blocchi di una parola
+                   sola sono esattamente i TITOLI DI SEZIONE.
+                   Prima questo caso faceva `throw`, e siccome «Panoramica» era il
+                   blocco 1 di 78 l'intera registrazione moriva dopo un secondo e
+                   mezzo — è il difetto che Giacomo ha visto come «lo spinner ha
+                   girato per un attimo».
+                   Gli altri due modelli TTS della stessa chiave le parole singole
+                   le leggono (provato): si ritenta con quello di ripiego, che
+                   torna PCM 16 bit a 24 kHz come il primo, quindi i clip si
+                   concatenano senza conversioni. */
+                if (!inline) {
+                    const alt = _ttsRipiego(model);
+                    if (alt) inline = _inlineAudio(await _ttsChiamataConto(payload, key, alt, i + 1, blocks.length));
+                }
+                if (!inline) {
+                    /* Nemmeno il ripiego: si SALTA il blocco e si va avanti. Un
+                       titolo non letto è una perdita piccola; perdere le altre 77
+                       frasi — e le chiamate già pagate — è il guasto peggiore che
+                       possa capitare qui. Il cue si scrive lo stesso, altrimenti
+                       il karaoke slitterebbe di un blocco da qui in poi: il
+                       blocco saltato dura zero e comincia dove comincia il
+                       successivo. Quanti ne sono stati saltati si dice alla fine. */
+                    saltati.push(blocks[i]);
+                    cues.push(Math.round(cum * 1000) / 1000);
+                    continue;
+                }
                 const mr = /rate=(\d+)/.exec(inline.mimeType || ''); if (mr) rate = parseInt(mr[1], 10);
                 bytes = _b64ToBytes(inline.data);
                 _ttsCache[chiave] = { bytes: bytes, rate: rate };
@@ -1526,6 +1587,11 @@ ${_bsPie(data.mapName)}
             cues.push(Math.round(cum * 1000) / 1000);
             cum += (bytes.length / 2) / rate; // durata reale del clip (PCM 16-bit mono)
         }
+        /* Tutti i blocchi saltati = non c'è audio da consegnare. Meglio dirlo
+           che restituire un file muto, che si scopre solo riascoltandolo. */
+        if (!pcmParts.length) {
+            throw new Error(window.t('bs_audio_noaudio', 'Risposta senza audio (modello TTS non disponibile con questa chiave?)'));
+        }
         const totalLen = pcmParts.reduce((a, b) => a + b.length, 0);
         const all = new Uint8Array(totalLen); let off = 0;
         pcmParts.forEach(p => { all.set(p, off); off += p.length; });
@@ -1533,7 +1599,7 @@ ${_bsPie(data.mapName)}
         const enc = _encodeAudio(all, rate); // MP3 se possibile
         // Firma del parlato al momento della registrazione: serve a non
         // consegnare mai un documento con testo nuovo e voce vecchia.
-        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, sig: blocks.join('') };
+        return { blob: enc.blob, cues: cues, mime: enc.mime, ext: enc.ext, saltati: saltati, sig: blocks.join('') };
     }
 
     /** Il testo di adesso è ancora quello registrato? (altrimenti i cue slittano)
@@ -1623,6 +1689,15 @@ ${_bsPie(data.mapName)}
             data._audioBlob = res.blob;
             data._cues = res.cues || null;
             data._audioSig = res.sig || '';
+            /* Un blocco non letto NON è un dettaglio interno: chi consegna
+               l'audio deve sapere che in quel punto la voce tace, o lo scopre
+               un allievo, da solo, a casa. */
+            if (res.saltati && res.saltati.length) {
+                window.showToast && window.showToast(
+                    window.t('bs_audio_saltati', 'Voce registrata, ma {n} blocchi non sono stati letti (di solito titoli di una parola sola): ')
+                        .replace('{n}', res.saltati.length) + res.saltati.slice(0, 3).join(' · '),
+                    'warning');
+            }
             _audioReadyChooser(res, data);
             return res;
         } catch (err) {
