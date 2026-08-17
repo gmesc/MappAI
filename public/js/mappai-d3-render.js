@@ -1153,7 +1153,7 @@ window.exportSnapshot = async function () {
         if (isCapacitor) {
             const res = await fetch(dataUrl);
             const blob = await res.blob();
-            const file = new File([blob], `MappAI_Snapshot_${new Date().getTime()}.png`, { type: 'image/png' });
+            const file = new File([blob], _studyMapPdfName().name + '.png', { type: 'image/png' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -1166,7 +1166,7 @@ window.exportSnapshot = async function () {
             }
         } else {
             const a = document.createElement("a");
-            a.download = `MappAI_Snapshot_${new Date().getTime()}.png`;
+            a.download = _studyMapPdfName().name + '.png';
             a.href = dataUrl;
             a.click();
             window.showToast(window.t('tst_png_done', "Snapshot PNG (Clean) creato con successo!"), "success");
@@ -1240,13 +1240,23 @@ async function _ensureSpaceMonoInPdf(pdf) {
 //  - grade = grado del progetto corrente (tutor_ai_projects) o classe attiva
 //  - NN = numerazione progressiva (quante mappe già archiviate per il progetto)
 // Ritorna { name, proj } (proj serve come mapName nell'archivio documenti).
+/* Il nome della mappa esportata. Vale per TUTTI e quattro i formati (PDF
+   vettoriale, PDF raster di ripiego, SVG, PNG): fino al 17/8 lo usava solo il
+   vettoriale, e gli altri tre scrivevano `MappAI_Mappa_<timestamp>` — un
+   marchio, una parola generica e un numero, cioè un nome che non dice né quale
+   mappa né di che genere. Giacomo se n'è accorto proprio perché il vettoriale
+   era caduto sul ripiego, e il file uscito aveva l'altro nome. */
 function _studyMapPdfName() {
     const st = appState;
-    const kind = (st && st.extractionMode === 'kg') ? 'KG' : 'MM';
     const proj = (st && st.db && st.db.rootNodeLabel) || (st && st.rootNodeLabel) || 'Mappa';
     let grade = '';
     try {
-        const pid = window.StorageManager && window.StorageManager.currentProjectId;
+        /* ⚠️ `window.StorageManager` è la CLASSE DOM nativa — una funzione,
+           sempre truthy — e `currentProjectId` lì sopra non esiste: il grado
+           non arrivava mai da questa strada (invariante 3). Il nome lessicale
+           nudo, con la guardia `typeof`, è l'unico modo di leggere il nostro. */
+        const SM = (typeof StorageManager !== 'undefined') ? StorageManager : null;
+        const pid = SM && SM.currentProjectId;
         if (pid) {
             const arr = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]');
             const p = arr.find(x => x.id === pid);
@@ -1265,7 +1275,21 @@ function _studyMapPdfName() {
     } catch (e) { /* archivio opzionale */ }
     const slug = s => String(s || '').trim().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40);
     const nn = String(n).padStart(2, '0');
-    return { name: [kind, slug(proj), slug(grade), nn].filter(Boolean).join('-'), proj: proj };
+    /* Il prefisso (MM/KG) e il nome della mappa li compone la CONVENZIONE, in
+       `mappai-pipeline-core.js`, come per ogni altro materiale: qui si aggiunge
+       solo ciò che è di questo export — il grado e il progressivo. Comporlo a
+       mano anche qui vorrebbe dire due compositori dello stesso nome, che è
+       esattamente come l'11/8 il PDF di una copia finì sopra l'originale
+       (invariante 6). */
+    const PC = window.MappAIPipelineCore;
+    let base;
+    if (PC && PC.buildMapExportName) {
+        base = PC.buildMapExportName(st && st.extractionMode, proj, '')
+            .replace(/\.[A-Za-z0-9]+$/, '');
+    } else {
+        base = [((st && st.extractionMode === 'kg') ? 'KG' : 'MM'), slug(proj)].join('-');
+    }
+    return { name: [base, slug(grade), nn].filter(Boolean).join('-'), proj: proj };
 }
 
 // Archivia il PDF della mappa nei "Documenti di studio" (data-URI, riapribile
@@ -1426,7 +1450,7 @@ async function _exportPDFRaster() {
         if (isCapacitor) {
             // Su iPadOS (Capacitor), esportiamo come Blob e usiamo navigator.share per il foglio di condivisione nativo
             const blob = pdf.output('blob');
-            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+            const file = new File([blob], _studyMapPdfName().name + '.pdf', { type: 'application/pdf' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -1439,7 +1463,7 @@ async function _exportPDFRaster() {
             }
         } else {
             // Su Desktop (Electron/Browser), salva direttamente sul filesystem
-            pdf.save(`MappAI_Mappa_${new Date().getTime()}.pdf`);
+            pdf.save(_studyMapPdfName().name + '.pdf');
             window.showToast(window.t('tst_pdf_done', "Esportazione PDF completata!"), "success");
         }
     } catch (err) {
@@ -1464,7 +1488,7 @@ window.exportSVG = async function () {
         const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
         if (isCapacitor) {
             // Su iPadOS, usa navigator.share per condividere o salvare nei File
-            const file = new File([blob], `MappAI_Mappa_${new Date().getTime()}.svg`, { type: 'image/svg+xml' });
+            const file = new File([blob], _studyMapPdfName().name + '.svg', { type: 'image/svg+xml' });
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -1478,7 +1502,7 @@ window.exportSVG = async function () {
         } else {
             // Su Desktop/Browser scarica il file
             const a = document.createElement("a");
-            a.download = `MappAI_Mappa_${new Date().getTime()}.svg`;
+            a.download = _studyMapPdfName().name + '.svg';
             a.href = URL.createObjectURL(blob);
             a.click();
             window.showToast(window.t('tst_svg_done', "Esportazione SVG completata con successo!"), "success");

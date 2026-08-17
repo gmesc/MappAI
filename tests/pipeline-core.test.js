@@ -587,3 +587,38 @@ test('ordinaGraduazione: senza `l1` il gruppo lo dà la prima area', () => {
     ];
     assert.deepStrictEqual(PC.ordinaGraduazione(items).map(x => x.question), ['q', 'p']);
 });
+
+/* ══ IL NOME DELLA MAPPA ESPORTATA (17/8) ════════════════════════════════════
+   Era l'unico materiale fuori dalla convenzione: usciva
+   `MappAI_Mappa_1787004725715.pdf` — un marchio, una parola generica e un
+   timestamp, cioè un nome che non dice né quale mappa né di che genere.      */
+
+test('buildMapExportName: MM per una MindMap, KG per tutto il resto', () => {
+    assert.strictEqual(PC.buildMapExportName('mindmap', 'Il Clima', '.pdf'), 'MM-Il Clima.pdf');
+    assert.strictEqual(PC.buildMapExportName('kg', 'Project E', '.pdf'), 'KG-Project E.pdf');
+});
+
+test('buildMapExportName: una modalità sconosciuta cade su KG, non su un nome muto', () => {
+    assert.strictEqual(PC.buildMapExportName('', 'Il Clima', '.pdf'), 'KG-Il Clima.pdf');
+    assert.strictEqual(PC.buildMapExportName(undefined, 'Il Clima', '.pdf'), 'KG-Il Clima.pdf');
+});
+
+test('buildMapExportName: lo stesso disegno in tre formati, un nome solo', () => {
+    // PDF vettoriale, SVG e PNG sono la stessa cosa in tre vesti: il genere non
+    // cambia, cambia l'estensione — per questo `est` è un parametro.
+    const b = m => PC.buildMapExportName('mindmap', 'Elettricità', m);
+    assert.strictEqual(b('.pdf'), 'MM-Elettricità.pdf');
+    assert.strictEqual(b('.svg'), 'MM-Elettricità.svg');
+    assert.strictEqual(b('png'), 'MM-Elettricità.png', 'il punto lo mette lui se manca');
+});
+
+test('buildMapExportName: senza estensione resta quella del genere', () => {
+    assert.strictEqual(PC.buildMapExportName('mindmap', 'Il Clima', ''), 'MM-Il Clima.pdf');
+});
+
+test('buildMapExportName: il prefisso sta in TESTA, come Quiz-MC e Sintesi-voce', () => {
+    // Il genere di un file si deduce dall'inizio del nome: una regola che
+    // dovesse scavalcare un nome di mappa di lunghezza ignota sarebbe fragile.
+    assert.ok(PC.buildMapExportName('mindmap', 'Una Mappa Dal Nome Molto Lungo', '.pdf').startsWith('MM-'));
+    assert.ok(PC.buildMapExportName('kg', 'Una Mappa Dal Nome Molto Lungo', '.pdf').startsWith('KG-'));
+});

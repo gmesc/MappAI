@@ -357,7 +357,18 @@
        MM», che non nomina né la mappa né il documento. `dettaglio` perché un
        dossier può essere di un NODO o di un RAMO: «Dossier-<Mappa>-<Nodo>». */
     dossier: { pre: 'Dossier', est: '.pdf', dettaglio: true },
-    tts: { pre: 'Sintesi-audio', est: '.mp3' }
+    tts: { pre: 'Sintesi-audio', est: '.mp3' },
+    /* LA MAPPA ESPORTATA (17/8, rilievo di Giacomo). Era l'unico materiale
+       fuori dalla convenzione: usciva `MappAI_Mappa_1787004725715.pdf` — un
+       marchio, una parola generica e un timestamp, cioè un nome che non dice né
+       QUALE mappa né di che genere, e che in una cartella di download si
+       riconosce solo aprendolo.
+       ⚠️ Due prefissi e non uno con un suffisso, per la stessa ragione di
+       `Quiz-MC`/`Quiz-VF` e di `Sintesi-voce`: il genere si deduce dall'INIZIO
+       del nome, e una regola che dovesse scavalcare un nome di mappa di
+       lunghezza ignota sarebbe fragile. */
+    map_mm: { pre: 'MM', est: '.pdf' },
+    map_kg: { pre: 'KG', est: '.pdf' }
   };
 
   /* opts = { mappa, dettaglio, nome }
@@ -400,6 +411,23 @@
        rompe niente ma rende il nome ambiguo a rileggerlo: si accetta, perché
        ripulirlo cambierebbe i titoli scelti dal docente senza dirglielo. */
     return pezzi.join('-') + green + g.est;
+  }
+
+  /* Il nome della MAPPA esportata: `MM-<Mappa>.pdf` o `KG-<Mappa>.svg`.
+     L'estensione è un parametro e non una proprietà del genere, perché lo
+     stesso disegno esce in tre formati (PDF vettoriale, SVG, PNG) e sono la
+     stessa cosa in tre vesti — tre generi per tre estensioni vorrebbe dire sei
+     voci in `GENERI` per due modalità.
+     `mode` è `appState.extractionMode`: tutto ciò che non è `mindmap` è un KG,
+     che è la stessa regola già usata altrove (una modalità nuova erediterebbe
+     KG, e allora si aggiungerà un prefisso suo). */
+  function buildMapExportName(mode, mappa, est, opts) {
+    var kind = (String(mode || '') === 'mindmap') ? 'map_mm' : 'map_kg';
+    var nome = buildFileName(kind, null, false, opts || { mappa: mappa });
+    var e = String(est || '');
+    if (!e) return nome;
+    if (e.charAt(0) !== '.') e = '.' + e;
+    return nome.replace(/\.[A-Za-z0-9]+$/, '') + e;
   }
 
   /* ══ COLLISIONI — `Materiale Studio/` non ne aveva nessuna protezione ══════
@@ -510,6 +538,7 @@
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
     buildFileName: buildFileName,
+    buildMapExportName: buildMapExportName,
     nomeLibero: nomeLibero,
     GENERI: GENERI,
     SUFFISSO_TARATO: SUFFISSO_TARATO,

@@ -341,6 +341,34 @@ essere scritto solo nel vault della mappa APERTA, e chi ci prova dovrebbe essere
 non è verificabile senza provare l'app: va fatto con Electron libero, e conviene che nasca
 come **avviso** (con kill-switch) prima di diventare un rifiuto.
 
+### LA MAPPA ESPORTATA ENTRA NELLA CONVENZIONE (17/8)
+🐛 Il PDF della mappa usciva `MappAI_Mappa_1787004725715.pdf` — un marchio, una parola
+generica e un timestamp: non dice né QUALE mappa né di che genere, e in una cartella di
+download si riconosce solo aprendolo.
+La convenzione **esisteva già** (`_studyMapPdfName` in `mappai-d3-render.js`, che compone
+`MM-<Mappa>-<grado>-NN`), ma **la usava solo il percorso vettoriale**: il ripiego raster,
+l'SVG e l'istantanea PNG scrivevano il nome col timestamp. Giacomo ha visto proprio quello
+perché il vettoriale era caduto sul ripiego.
+- `map_mm` / `map_kg` entrano in **`GENERI`** (`mappai-pipeline-core.js`) e il prefisso lo
+  compone `buildMapExportName(mode, mappa, est)`, la stessa convenzione degli altri
+  materiali — non un secondo compositore (invariante 6). `est` è un parametro perché lo
+  stesso disegno esce in tre formati: tre generi per tre estensioni sarebbero sei voci.
+- ⚠️ Due prefissi (MM/KG) e non uno con un suffisso, come `Quiz-MC`/`Quiz-VF` e
+  `Sintesi-voce`: il genere si deduce dall'INIZIO del nome.
+- 🐛 **Il grado non arrivava mai nel nome**: `_studyMapPdfName` leggeva
+  `window.StorageManager.currentProjectId`, e `window.StorageManager` è la **classe DOM
+  nativa** — sempre truthy, senza quella proprietà (invariante 3). Corretto col nome
+  lessicale nudo.
+Provato in Electron sui due generi: `MM-Il Clima-00.pdf` · `MM-Il Clima-00.svg` ·
+`KG-Project E-00.svg`, e il file esce davvero in Download.
+
+⚠️ **APERTO, e non è di questa richiesta: il PDF VETTORIALE della mappa è rotto.** Il
+ripiego raster scatta sempre, quindi ogni export perde i vettori e il testo selezionabile.
+La causa è nel messaggio del fallback:
+`Failed to execute 'insertRule': Failed to parse the rule 'html.manifesto #mn…'` — il clone
+SVG copia le regole CSS una per una e **una regola della veste manifesto non si lascia
+reinserire**. Da guardare a sé.
+
 ### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
 🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
 lanciando una lavorazione in ELABORA e cliccando un altro progetto, **lo spinner in barra si
