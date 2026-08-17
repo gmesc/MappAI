@@ -447,6 +447,16 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     sul disco è `Elettricità - MM`, `La Politica Svizzera` è `La Svizzera Politica`.
     Riportare il primo numero avrebbe fatto credere a una perdita che non c'era.
 
+31. **Sostituire un blocco di codice può portarsi via una funzione che stava lì dentro,
+    e il file resta sintatticamente valido.** Riscrivendo il passo dei parametri in
+    `mappai-crea-quiz.js` sono spariti con lui `_genera` (voluto) ed `_esempioNome` (no):
+    `node --check` passava, e il sintomo era il modale che non si apriva più con una sola
+    `ReferenceError` in console. Dopo ogni sostituzione di un blocco, confrontare l'elenco
+    delle funzioni prima e dopo:
+    `git show HEAD:file | grep -oE "function _[a-zA-Z]+" | sort -u` contro il file nuovo.
+    Vale anche per il markup: lo stesso taglio a mano lasciò due `</div>` orfani il 15/8,
+    visti contando i tag e non a occhio.
+
 ---
 
 ## 9. Protocollo per un braindump

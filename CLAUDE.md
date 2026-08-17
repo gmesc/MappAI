@@ -1,11 +1,12 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **16 agosto 2026** — l'area di lavoro della mappa si guarda dalla
-> SIDEBAR: la barra resta a quattro comandi, il tab «Vista studio» è sempre visibile e ha due
-> forme, una mappa nuova si apre in Albero con l'Indice. Fuori FISSA, LINK, RIORDINA, PATH e i
-> due `+/−`. Corretto un difetto che riguardava OGNI MindMap: gli archi ROOT→L1 erano marcati
-> come cross-link. La voce del giorno è in §11, in cima al diario.
+> Ultimo aggiornamento: **16 agosto 2026, sera** — la mappa si guarda dalla SIDEBAR (barra a
+> quattro comandi, tab «Vista studio» sempre visibile con due forme, mappa nuova in Albero con
+> l'Indice; fuori FISSA, LINK, RIORDINA, PATH e i due `+/−`); le **angolazioni delle domande
+> aperte sono una scelta multipla** e generano un foglio per angolo in un colpo. Corretto un
+> difetto che riguardava OGNI MindMap: gli archi ROOT→L1 erano marcati come cross-link.
+> Le due voci del giorno sono in §11, in cima al diario.
 > (Prima: 5-6 agosto — stile «MANIFESTO», il **bento** delle opzioni al posto del modale
 > «Genera materiali», composto trascinando nell'**Officina §7**; dal 5/8 anche le CONSOLE
 > hanno il loro bento e la loro officina, `public/dev/officina-console.html`.)
@@ -662,6 +663,41 @@ Suite **0 fail**, validatore 0 errori/0 avvisi su tutte e undici le viste della 
      lo spostamento dei file il riquadro dichiarava ancora il percorso vecchio.
 - **Bugia corretta**: l'email diceva `Dispositivo: iOS / iPadOS (Capacitor)` **scritto a
   mano** — falso su Mac. Ora `navigator.platform`.
+
+### ✅ FATTO (16/8/26 sera): le VARIANTI — un foglio per angolazione, in un colpo
+Coda della giornata, dai due rilievi finali di Giacomo. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §3** («Crea un documento»); qui il perché.
+Suite **1126/0**, provato in Electron con l'AI vera.
+- **L'angolazione era una tendina**: un angolo per volta, e per avere due versioni della
+  stessa verifica bisognava rifare tutto il giro. Ora sono **otto spunte su due colonne**,
+  e ogni angolazione scelta produce un **foglio suo** sullo stesso materiale — che è come
+  un docente prepara le varianti (la riga A chiede le cause, la riga B le conseguenze).
+- **La stima sta nel modale** e segue le scelte («3 fogli · circa 15 chiamate all'AI»):
+  un foglio per angolo, e ogni foglio una chiamata per ramo. Si decide vedendo quanto
+  costa — è la stessa ragione per cui il bento è stato portato in pagina il 3/8.
+- **I due vincoli che hanno deciso la forma**, letti nel codice prima di scrivere:
+  `generaSet` mette il lucchetto (→ chiamate in **sequenza**) e rifiuta un nome già preso
+  (→ ogni variante ha il **suo** nome). Non erano preferenze: erano il codice che c'era.
+- **Il nome viene dalla CHIAVE dell'angolo**, e la scoperta utile è che la convenzione
+  esisteva già: nel vault di Giacomo i file si chiamavano `Domande-aperte-Il Clima-causa`,
+  `-conseguenza`, `-definizione`, `-misto`. La stava applicando a mano. Nel nome va la
+  chiave e non l'etichetta a schermo, o si otterrebbe
+  `Domande-aperte-Il Clima-Automatico (misto).pdf`.
+- **Un foglio che fallisce non ferma gli altri**: perdere quattro fogli riusciti per il
+  quinto sarebbe il guasto peggiore lì dentro. Si apre il PRIMO, non l'ultimo.
+- **Le due colonne sono un pezzo del motore** (`sezione.colonne: 2|3`), non una pezza su
+  quel modale: avvolgono SOLO i campi, così testo e riga di esito restano a tutta
+  larghezza. Sotto i 520px si torna a una colonna.
+- ⚠️ **Un mio errore, e come si è visto**: riscrivendo il passo 3 ho cancellato
+  `_esempioNome`, che stava nel blocco sostituito. Il modale non si apriva più e l'unica
+  traccia era una `ReferenceError` in console — l'ho vista solo perché la sonda CDP legge
+  anche la console. Da lì la regola: **dopo aver sostituito un blocco, verificare che
+  nessuna funzione del file sia sparita con lui** (`git show HEAD:file | grep -o "function
+  _[a-z]*"` contro il file nuovo).
+- ⚠️ **E un difetto del motore, trovato da un rilievo sullo stile**: la decisione 4 («solo
+  segnaposto») regge per un campo VUOTO e non dove il segnaposto non compare mai — un
+  select, un campo con un valore di partenza. Si leggevano un «5» e un «40» senza sapere
+  che cosa fossero. Ora l'etichetta si emette per forza in quei casi, per TUTTI i modali.
 
 ### ✅ FATTO (16/8/26): la mappa si guarda dalla SIDEBAR, e la barra si asciuga
 Giornata lunga di rifinitura sull'area di lavoro della mappa, tutta guidata da rilievi di

@@ -134,7 +134,13 @@ senza sapere che cosa fossero. Ora in quei casi `campoHtml` emette **per forza**
 ='sopra'` sarebbe uscita senza stile). Aggiunta.
 ⚠️ Una riga `larghezza:'meta'` **con** un aiuto non stringe più l'aiuto: si restringe il
 controllo, non la riga (`--spiegato`). Le coppie di campi affiancati senza aiuto non
-cambiano. Otto test in `tests/modal-campi-etichette.test.js`.
+cambiano.
+
+**`sezione.colonne: 2|3`** (16/8) avvolge **solo i campi** in una griglia — `testo` e
+`sotto` restano a tutta larghezza, o si leggerebbero in due strisce strette. Sotto i 520px
+torna a una colonna: un'etichetta tagliata su una spunta è peggio di una lista lunga. Un
+valore non previsto viene ignorato e non emette niente (le sezioni che non le chiedono non
+guadagnano un `<div>`). Dodici test in `tests/modal-campi-etichette.test.js`.
 
 **Pezzi aggiunti il 15/8** (piccoli, e ognuno nato da un bisogno preciso):
 - `voce.sotto` **si disegna anche nella navigazione** — era normalizzato dal core e
@@ -509,6 +515,37 @@ apposta, quindi la colonna parte sempre senza filtro.)
 - Nel menu «Cosa» **l'unica icona è il LUCCHETTO** sulle voci spente (Lucide, non emoji):
   dice una cosa che il testo non dice. Le icone accanto a Crea/Elabora/Insegna sono state
   tolte — un glifo messo per bellezza è un secondo alfabeto da imparare (invariante 15).
+
+### CREA UN DOCUMENTO — il percorso, e le VARIANTI (16/8)
+`ELABORA › Crea un documento` → quattro card: Foglio dei nodi · Catena dei perché ·
+Sintesi · **Quiz, Domande aperte e Flashcard**. La quarta apre il percorso di
+`mappai-crea-quiz.js`: tipo → a mano o con l'AI → parametri.
+
+**Il modale dei parametri ha quattro gruppi** — «Che cosa chiedono», «Angolazioni»,
+«Quante e come graduate», «Come si chiama il file» — invece di un elenco unico di cinque
+campi. La spiegazione del nome sta **sul campo**: è l'aiuto di quella riga, non il tema
+del modale.
+
+**LE ANGOLAZIONI SONO UNA SCELTA MULTIPLA** (otto spunte su due colonne). Ogni angolazione
+scelta produce un **foglio suo** sullo stesso materiale: è il modo in cui si preparano le
+varianti di una verifica. Nel modale c'è la **stima** («3 fogli · circa 15 chiamate
+all'AI»), che si aggiorna mentre si sceglie via `__campo`.
+
+⚠️ **Due vincoli decidono la forma di `_generaVarianti`**, e nessuno è negoziabile:
+- `Pipeline.generaSet` mette il **lucchetto** e lo rilascia nel `finally` → le chiamate
+  vanno in **sequenza**, o la seconda torna «occupata»;
+- `generaSet` **rifiuta un nome già preso** (`_nomeGiaPreso`) → ogni variante deve avere un
+  nome diverso.
+
+**Il nome della variante è la CHIAVE dell'angolo**, non l'etichetta a schermo:
+`Domande-aperte-<Mappa>-causa.pdf`, `-conseguenza`, `-definizione`, e `auto` → **`misto`**.
+📌 Non è una convenzione inventata: è quella che Giacomo applicava **a mano** — i file
+`Domande-aperte-Il Clima-misto.pdf` nel vault lo dimostrano. Con un nome scritto dal
+docente l'angolo lo qualifica («verifica di ottobre - causa»).
+
+Un foglio che fallisce **non ferma gli altri**: si raccoglie l'esito e si dice alla fine
+quanti ne sono usciti. Si apre il **primo**, non l'ultimo. Senza nessuna spunta non si
+genera: si dice e si riapre il modale com'era.
 
 ### LA BARRA DELLA MAPPA — asciugata il 16/8
 `CENTRA · LAYOUT · PIN¹ · TESTO · «mostra fino al livello»` — dove **PIN¹** e ATTR sono
@@ -902,10 +939,16 @@ che accorcia (17 → 14 caratteri) · le due scale del testo indipendenti · lo 
 livelli che governa tutte e tre le viste nei due versi · mappa nuova → Albero + Indice,
 e un `initD3Visualization()` a mano che non tocca niente · i tre gruppi del modale delle
 domande aperte coi nomi dei campi a schermo.
+**E la prova con l'AI VERA** (16/8, due chiamate): due varianti delle domande aperte su una
+macro-area, in 20s, **due nomi distinti e due PDF** — poi rimossi dal vault insieme alle
+loro voci d'archivio, erano prove. È la prova che il lucchetto regge in sequenza e che
+`_nomeGiaPreso` non rifiuta la seconda variante.
+
 ⚠️ **Che cosa quella verifica NON copre**: il CDP legge il DOM, non i pixel. Restano da
 guardare a occhio l'**aspetto** della barra ridotta (quattro comandi e uno slider più
-largo: l'equilibrio dei pesi), il pannello della vista Mappa con le sue sei leve, e i tre
-gruppi del modale nuovo. Se qualcosa stona è lì che si vede.
+largo: l'equilibrio dei pesi), il pannello della vista Mappa con le sue sei leve, e il
+modale «Genera con l'AI» — i quattro gruppi e le otto angolazioni su due colonne. Se
+qualcosa stona è lì che si vede.
 
 **Provato prima, e già acquisito:**
 - **la generazione vera dall'inizio alla fine** (14/8 sera, «La Svizzera Politica»):
