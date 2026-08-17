@@ -1186,14 +1186,45 @@ function _svgCloneWithStyles() {
     const clonedSvg = svgElement.cloneNode(true);
     clonedSvg.removeAttribute("class");
     let cssStyles = "";
+    /* ⚠️ Fino al 18/8 qui finiva OGNI regola il cui `cssText` contenesse la
+       parola «text» o «svg» — cioè mezza app, `text-align` compreso. Due danni:
+       un <style> enorme, e soprattutto il PDF vettoriale che moriva SEMPRE.
+       svg2pdf ricostruisce il foglio con `insertRule`, e per farlo spezza i
+       selettori alle virgole con uno splitter che NON conta le parentesi: una
+       regola della veste manifesto come `:is(div, p, ul)` si spezzava in
+       `:is(div` + `p` + `ul)` → SyntaxError → ripiego raster (lo «screenshot»).
+       Ora si tiene solo ciò che la mappa usa DAVVERO: regole di stile il cui
+       selettore combacia con un elemento del clone. Le regole con una virgola
+       dentro le parentesi si saltano comunque: sono la mina dello splitter. */
+    const _matchesClone = (sel) => {
+        const pulito = sel.replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, '').trim();
+        if (!pulito) return false;
+        try {
+            return clonedSvg.matches(pulito) || !!clonedSvg.querySelector(pulito);
+        } catch (e) { return false; }
+    };
+    const _spezzaFuoriParentesi = (sel) => {
+        const out = []; let liv = 0, buf = '';
+        for (const ch of sel) {
+            if (ch === '(') liv++;
+            else if (ch === ')') liv--;
+            if (ch === ',' && liv === 0) { out.push(buf); buf = ''; }
+            else buf += ch;
+        }
+        out.push(buf);
+        return out.map(s => s.trim()).filter(Boolean);
+    };
     try {
         for (const sheet of document.styleSheets) {
             try {
                 const rules = sheet.cssRules || sheet.rules;
                 for (const rule of rules) {
-                    if (rule.cssText && (rule.cssText.includes(".node") || rule.cssText.includes(".link") || rule.cssText.includes("svg") || rule.cssText.includes("text"))) {
-                        cssStyles += rule.cssText + "\n";
-                    }
+                    if (!(rule instanceof CSSStyleRule) || !rule.selectorText) continue;
+                    if (/\([^)]*,[^)]*\)/.test(rule.selectorText)) continue; // mina dello splitter di svg2pdf
+                    const parti = _spezzaFuoriParentesi(rule.selectorText).filter(_matchesClone);
+                    if (!parti.length) continue;
+                    const corpo = rule.cssText.substring(rule.selectorText.length).trim();
+                    cssStyles += parti.join(', ') + ' ' + corpo + "\n";
                 }
             } catch (e) {
                 // Ignora errori di fogli di stile cross-origin (es. Google Fonts)

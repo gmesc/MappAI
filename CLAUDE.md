@@ -1,13 +1,16 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **17 agosto 2026, sera** — la **VOCE della sintesi diventa usabile**
+> Ultimo aggiornamento: **18 agosto 2026** — il **PDF della mappa torna VETTORIALE**: il
+> ripiego raster (la «cattura schermo») non scatta più. La giornata è in §11, in cima al
+> diario.
+> (Prima: **17 agosto 2026, sera** — la **VOCE della sintesi diventa usabile**
 > (si registra anche dopo, scrive la copia parlante, si può annullare, dice quanto costa
 > prima e riprende il giorno dopo dai blocchi mancanti) e i **file del vault dicono a chi
 > appartengono** (set col nome dall'`id` e il marchio della mappa, materiali, export
 > `MM-`/`KG-`). Il **pathfinder è pensionato**. La voce del giorno è in §11, in cima al
 > diario; il filo conduttore è uno solo — *qualcosa ereditava l'identità di ciò che gli
-> stava intorno invece di dichiarare la propria*.
+> stava intorno invece di dichiarare la propria*.)
 > (Prima: 16 agosto — la mappa si guarda dalla SIDEBAR, e le angolazioni delle domande
 > aperte sono una scelta multipla.)
 > (Prima: 5-6 agosto — stile «MANIFESTO», il **bento** delle opzioni al posto del modale
@@ -629,6 +632,33 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (18/8/26): il PDF della mappa torna VETTORIALE
+Rilievo di Giacomo: «Esporta PDF» dal tab **Vista studio** con la vista su **Mappa** produceva
+PDF «che sembrano screenshot». Erano screenshot. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §3 e §4 (debito 7-bis, chiuso)**; qui il perché.
+- **Il ripiego scattava SEMPRE**, quindi non era un ripiego: era il percorso principale.
+  `window.exportPDF` (svg2pdf su jsPDF) falliva a ogni export e cadeva su `_exportPDFRaster`
+  (cattura della finestra). Il fallimento è silenzioso per costruzione — un `console.warn` e
+  un toast giallo — perciò per un mese nessuno l'ha letto: si vede solo guardando il PRODOTTO.
+- **La causa, in due pezzi.** (a) `_svgCloneWithStyles` raccoglieva ogni regola il cui
+  `cssText` contenesse «text» o «svg»: `text-align` basta → **362 regole, 72 KB** invece
+  delle dieci della mappa. (b) svg2pdf ricostruisce quel foglio con `insertRule` e spezza i
+  selettori alle virgole con uno splitter **che conta le virgolette ma non le parentesi**:
+  `button:is(.bg-white, .active)` diventa `button:is(.bg-white` → `SyntaxError` → export morto.
+  Colpevole esatto catturato in pagina: `html.manifesto … .mn-spostato button:is(.bg-white`.
+- **Il criterio giusto non è quanto CSS si porta, è QUALE**: si tengono solo le regole di
+  stile il cui **selettore combacia con un elemento del clone** (split paren-aware, pseudo
+  ignorate nel confronto), e si saltano quelle con una virgola dentro le parentesi.
+  **11 regole, 2 KB**: `.node-circle`, `.node-text`, `.link`, `.link-label` e poco altro.
+- ✅ **Provato in Electron via CDP** su «Il Clima» (1A › Geografia, 50 nodi) leggendo i byte
+  del PDF: **0 immagini**, `/BaseFont /Space#20Mono` con `/FontFile2` ×2, 40 KB — contro il
+  file di prima, 178 KB con 1 immagine e solo Helvetica. Riprodotta anche la causa
+  (`insertRule` che rifiuta il selettore spezzato) per non fidarsi della coincidenza.
+- ⚠️ Vale anche per l'**export SVG**, che passa dallo stesso clone.
+- 📌 Trappola generale in `GUIDA-ARCHITETTO.md` §8 n. 46: prima di dare CSS in pasto a una
+  libreria, chiedersi che cosa ne fa — la sintassi moderna (`:is()`, `:where()`, `:not(a,b)`)
+  è una mina per chi riparsa i selettori a mano.
 
 ### ✅ FATTO (17/8/26): la VOCE diventa usabile, e i file del vault dicono a chi appartengono
 Giornata interamente guidata dai rilievi di Giacomo dal vivo, uno dopo l'altro. Stato in

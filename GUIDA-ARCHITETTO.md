@@ -629,6 +629,23 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     livelli): prima di dichiarare un difetto, leggere che cosa la funzione di lettura
     **promette** di restituire.
 
+46. **Raccogliere CSS «per sottostringa» raccoglie mezza app.** Il clone SVG dell'export
+    (`_svgCloneWithStyles`) teneva ogni regola il cui `cssText` contenesse «text» o «svg»:
+    `text-align` basta, quindi entravano **362 regole (72 KB)** invece delle dieci della
+    mappa. Il criterio giusto è **il selettore che combacia** con un elemento del clone
+    (11 regole, 2 KB). Il costo non era la dimensione: bastava UNA di quelle regole
+    estranee a far morire l'export.
+    ⚠️ E il pezzo che la faceva morire è una trappola a sé, valida per chiunque dia CSS in
+    pasto a una libreria: **svg2pdf ricostruisce il foglio con `insertRule` e spezza i
+    selettori alle virgole con uno splitter che conta le virgolette ma NON le parentesi.**
+    `button:is(.bg-white, .active)` diventa `button:is(.bg-white` → `SyntaxError` → l'intero
+    export cade sul ripiego. Prima di passare CSS a una libreria, chiedersi che cosa ne fa:
+    qui la sintassi moderna (`:is()`, `:where()`, `:not(a,b)`) è una mina.
+    📌 Riconoscimento: un ripiego che scatta **sempre** non è un ripiego, è il percorso
+    principale. Se un fallback è silenzioso (qui: un `console.warn` e un toast giallo),
+    nessuno se ne accorge finché non guarda il PRODOTTO — Giacomo l'ha visto perché il PDF
+    «sembrava uno screenshot», ed era letteralmente uno screenshot.
+
 ---
 
 ## 9. Protocollo per un braindump

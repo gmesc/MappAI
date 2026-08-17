@@ -4,7 +4,9 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **17 agosto 2026, sera**. La giornata in una riga: **la VOCE della
+> Ultimo allineamento: **18 agosto 2026**. La giornata in una riga: **il PDF della mappa
+> torna VETTORIALE** — il ripiego raster non scatta più (debito §4 7-bis, chiuso).
+> Prima: **17 agosto 2026, sera**. La giornata in una riga: **la VOCE della
 > sintesi diventa usabile** (si registra anche dopo, scrive la copia parlante, si può
 > annullare, dice quanto costa prima e riprende il giorno dopo dai blocchi mancanti), i
 > **file del vault prendono nomi che dicono a chi appartengono** (set, materiali, mappa
@@ -387,12 +389,35 @@ perché il vettoriale era caduto sul ripiego.
 Provato in Electron sui due generi: `MM-Il Clima-00.pdf` · `MM-Il Clima-00.svg` ·
 `KG-Project E-00.svg`, e il file esce davvero in Download.
 
-⚠️ **APERTO, e non è di questa richiesta: il PDF VETTORIALE della mappa è rotto.** Il
-ripiego raster scatta sempre, quindi ogni export perde i vettori e il testo selezionabile.
-La causa è nel messaggio del fallback:
-`Failed to execute 'insertRule': Failed to parse the rule 'html.manifesto #mn…'` — il clone
-SVG copia le regole CSS una per una e **una regola della veste manifesto non si lascia
-reinserire**. Da guardare a sé.
+✅ **CHIUSO il 18/8: il PDF vettoriale della mappa funziona** (era il ripiego raster a
+scattare sempre — vedi «Il PDF della mappa torna vettoriale» qui sotto).
+
+### IL PDF DELLA MAPPA TORNA VETTORIALE (18/8)
+🐛 Segnalato da Giacomo: «Esporta PDF» dal tab **Vista studio** con la vista su **Mappa**
+produceva PDF che «sembrano screenshot». Erano screenshot: il percorso vettoriale
+(`window.exportPDF`, svg2pdf su jsPDF) **falliva a ogni export** e scattava sempre il
+ripiego raster (`_exportPDFRaster`, cattura della finestra via `capturePage`).
+La catena, misurata sull'app viva via CDP:
+- `_svgCloneWithStyles` raccoglieva ogni regola CSS il cui **`cssText`** contenesse «text»
+  o «svg» — `text-align` compreso, cioè mezza app: **362 regole, 72 KB**;
+- svg2pdf ricostruisce quel foglio con `insertRule` e per farlo spezza i selettori alle
+  virgole con uno splitter **che non conta le parentesi**. Colpevole esatto, catturato in
+  pagina: `html.manifesto … .mn-spostato button:is(.bg-white` → `SyntaxError: Failed to
+  parse the rule` → l'intero export moriva e cadeva sul ripiego.
+**Fix**: si tiene solo ciò che la mappa usa DAVVERO — regole di stile il cui **selettore
+combacia con un elemento del clone** (split delle virgole *paren-aware*, pseudo-classi
+ignorate nel confronto), e si saltano le regole con una virgola dentro le parentesi, che
+sono la mina dello splitter. Da **362 regole/72 KB a 11/2 KB**: restano `.node-circle`,
+`.node-text`, `.link`, `.link-label` e poco altro.
+✅ **Provato in Electron** su «Il Clima» (1A › Geografia, 50 nodi), leggendo il PDF
+prodotto: **0 immagini**, `/BaseFont /Space#20Mono` con `/FontFile2` ×2, 40 KB. Il file di
+prima, per confronto: 1 immagine, solo Helvetica, 178 KB.
+⚠️ Vale anche per l'**export SVG**, che passa dallo stesso clone. Non è una regressione del
+17/8: la convenzione dei nomi (`MM-<Mappa>-NN`) era già stata estesa a tutti e quattro i
+formati, ed è proprio per questo che Giacomo aveva visto il nome giusto su un file raster.
+📌 Trappola generale in [`GUIDA-ARCHITETTO.md`](../GUIDA-ARCHITETTO.md) §8 n. 46: *un
+ripiego che scatta sempre non è un ripiego, è il percorso principale* — e nessuno se ne
+accorge finché non guarda il prodotto.
 
 ### IL NOME DEL LAVORO SI CATTURA ALL'AVVIO (17/8)
 🐛 Segnalato due volte da Giacomo, prima sulla voce e poi sulla generazione della sintesi:
@@ -1249,14 +1274,11 @@ Verificati sul codice il 13/8: ognuno esiste ancora.
    assegnate — hub Materiali, Studio attivo, dossier, configurazione di studio, gestore
    dei layout… — hanno perso la meta e nel cantiere dicono «—». Sono **decisioni che
    mancano**, non lavoro in coda.
-7-bis. 🆕 **Il PDF VETTORIALE della mappa è rotto, e il ripiego scatta SEMPRE** (trovato
-   il 17/8 misurando, non segnalato). Ogni export della mappa perde i vettori e il testo
-   selezionabile, e consegna una cattura schermo. La causa sta nel messaggio del fallback:
-   `Failed to execute 'insertRule': Failed to parse the rule 'html.manifesto #mn…'` — il
-   clone SVG (`_svgCloneWithStyles`) ricopia le regole CSS una per una, e **una regola
-   della veste manifesto non si lascia reinserire**. È il debito con la conseguenza più
-   visibile per il docente: i PDF delle mappe sono più pesanti e sgranati di quanto
-   dovrebbero, e nessuno lo dice.
+7-bis. ✅ **RISOLTO (18/8): il PDF VETTORIALE della mappa** — il ripiego raster non scatta
+   più. Il clone SVG raccoglieva le regole CSS per SOTTOSTRINGA del `cssText` (362 regole,
+   72 KB) e una regola `:is(a, b)` della veste manifesto uccideva `insertRule` dentro
+   svg2pdf. Ora si tengono solo le regole il cui selettore combacia col clone (11 regole).
+   Provato in Electron: PDF con 0 immagini e Space Mono incorporato. Dettagli in §3.
 7-ter. 🆕 **La guardia alla scrittura dei MATERIALI** (progetto deciso il 17/8, non
    spedito). Un materiale dovrebbe poter essere scritto **solo nel vault della mappa
    APERTA**, e chi ci prova andrebbe fermato: è il pezzo che *previene* invece di
@@ -1414,8 +1436,14 @@ rendono acquisito il lavoro della giornata:
 - **gli export della mappa**: `MM-Il Clima-00.pdf`, `MM-Il Clima-00.svg`,
   `KG-Project E-00.svg`, col file che esce davvero in Download.
 
-⚠️ Due cose che le prove hanno mostrato e che restano APERTE: il **PDF vettoriale** cade
-sempre sul ripiego raster (§4, 7-bis) e il ramo **ALLIEVO** resta senza dati.
+⚠️ Una cosa che le prove hanno mostrato e che resta APERTA: il ramo **ALLIEVO** senza dati.
+(Il **PDF vettoriale**, l'altra, è stato corretto il 18/8 — §4, 7-bis.)
+
+**18/8 — il PDF della mappa è vettoriale davvero.** Provato via CDP su «Il Clima» (1A ›
+Geografia, 50 nodi): export dal tab Vista studio → PDF **40 KB, 0 immagini,
+`/BaseFont /Space#20Mono` + `/FontFile2` ×2**; riprodotta anche la CAUSA in pagina
+(`insertRule` che rifiuta `…button:is(.bg-white`). Il file raster di prima: 178 KB, 1
+immagine, solo Helvetica.
 📌 Nota di metodo pagata tre volte in un giorno: **una misura sbagliata accusa il codice**.
 `window.electronAPI` è congelato e non si può spiare; `MappAIStudyDocs.list()` toglie
 apposta i campi pesanti; l'accento esiste in due forme e un confronto ingenuo dà falsi.
