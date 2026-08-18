@@ -741,13 +741,33 @@
         // riappendono in coda (vivono fuori dal corpo); in quella di TUTTA LA MAPPA
         // stanno già dentro il corpo, sezione per sezione (blocchi `raw`) → non si
         // duplicano, e data.sourcesArr lì non esiste nemmeno.
+        /* ── LE DUE SEZIONI CHE SI POSSONO SPEGNERE (18/8/26) ───────────────
+           «La catena dei perché» e le «Note» (le citazioni numerate) sono
+           generate, non editabili, e vivono in coda al corpo. Il docente le
+           accende e le spegne dall'editor, e la scelta vale per HTML, PDF e
+           stampa insieme — escono tutti da qui.
+           Default ACCESE: una sintesi già fatta non deve cambiare aspetto
+           perché è comparso un comando.
+           ⚠️ Spegnendo le Note vanno tolti anche i RICHIAMI dal testo, o
+           restano i numerini puntati a niente. Dalla resa, mai dalla sorgente:
+           riaccendendole devono tornare. */
+        const mostraCausale = data.mostraCausale !== false;
+        const mostraNote = data.mostraNote !== false;
+        const _senzaRichiami = function (corpo) {
+            if (mostraNote || !window.MappAIDocEdit) return corpo;
+            return window.MappAIDocEdit.togliRichiamiCitazione(corpo);
+        };
+        const _coda = function () {
+            return (mostraCausale ? _causalBoxHtml(data.causalTriples) : '') +
+                (mostraNote ? _buildCitationsHtml(data.sourcesArr || [], 'print') : '');
+        };
         const contentHtml = editedHtml != null
             ? (data.whole
                 ? editedHtml
-                : editedHtml + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr || [], 'print'))
+                : _senzaRichiami(editedHtml) + _coda())
             : (data.whole
                 ? _wholeBodyHtml(data, 'print')
-                : _mdToHtml(data.rawText, 'print') + _causalBoxHtml(data.causalTriples) + _buildCitationsHtml(data.sourcesArr, 'print'));
+                : _senzaRichiami(_mdToHtml(data.rawText, 'print')) + _coda());
         const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';

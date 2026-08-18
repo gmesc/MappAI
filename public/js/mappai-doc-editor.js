@@ -111,6 +111,19 @@
         _doc.font = val; return true;
     }
 
+    /** Accende o spegne una sezione generata della sintesi (catena · Note).
+     *  È una modifica del DOCUMENTO — si segna «da salvare» e finisce nella
+     *  sorgente — non un'opzione di stampa che vale per una volta sola. */
+    function mostraSezione(campo, on) {
+        if (_kind !== 'synthesis' || !_syn || !_syn.data) return;
+        if (campo !== 'mostraCausale' && campo !== 'mostraNote') return;
+        const val = !!on;
+        if ((_syn.data[campo] !== false) === val) return;
+        _syn.data[campo] = val;
+        _dirty = true;
+        render();
+    }
+
     function setFont(id) {
         const C = window.MappAIFontCore;
         const val = (C && C.valido(id)) ? id : '';
@@ -2454,6 +2467,7 @@
             '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>' +
             (isSyn ? _styleBar() : '') +
             '<div class="de-spacer"></div>' +
+            _sezioniBar() +
             _fontBar() +
             _zoomBar() +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
@@ -2527,6 +2541,61 @@
         return '<select class="de-ns-sel de-font" onchange="MappAIDocEditor.setFont(this.value)" title="' +
             esc(t('de_font_tip', 'Il carattere di QUESTO documento. A differenza della dimensione dell’anteprima, finisce anche nel foglio stampato e nel PDF.')) +
             '" aria-label="' + esc(t('de_font_lbl', 'Carattere del documento')) + '">' + o + '</select>';
+    }
+
+    /* LE DUE SEZIONI DELLA SINTESI (18/8/26).
+       «La catena dei perché» e le «Note» sono generate, non editabili, e nel
+       foglio stanno in coda al testo. Da qui si accendono e si spengono, e la
+       scelta vale per HTML, PDF e stampa insieme — escono tutti dallo stesso
+       costruttore.
+
+       ⚠️ Compaiono solo se quel documento quelle sezioni CE LE HA: una spunta
+       per una sezione che non esiste è un comando inerte, e non si accorgerebbe
+       nessuno che non fa niente perché il risultato è identico in entrambe le
+       posizioni.
+
+       ⚠️ E solo sulla sintesi di RAMO: in quella di tutta la mappa le citazioni
+       stanno DENTRO il corpo, sezione per sezione, come blocchi già visibili e
+       cancellabili a mano — un interruttore lì governerebbe un'altra cosa.
+
+       Il fumetto dice che cosa aggiungono o tolgono: nell'editor quei due pezzi
+       non si vedono, e senza spiegazione la spunta sarebbe cieca. */
+    function _sezioniBar() {
+        if (_kind !== 'synthesis' || !_syn || !_syn.data || _syn.data.whole) return '';
+        const d = _syn.data;
+        const haCausale = !!(d.causalTriples && d.causalTriples.length);
+        const haNote = !!(d.sourcesArr && d.sourcesArr.length);
+        if (!haCausale && !haNote) return '';
+        function spunta(campo, etichetta, aiuto) {
+            const on = d[campo] !== false;
+            return '<label class="de-ns-check" data-tip="' + esc(aiuto) + '">' +
+                '<input type="checkbox"' + (on ? ' checked' : '') +
+                ' onchange="MappAIDocEditor.mostraSezione(\'' + campo + '\', this.checked)"> ' +
+                esc(etichetta) + '</label>';
+        }
+        const dentro =
+            (haCausale ? spunta('mostraCausale', t('de_sez_causale', 'Catena dei perché'),
+                t('de_sez_causale_tip', 'Il riquadro con i nessi causa-effetto del ramo, in coda al foglio. Spento, non compare né nell’HTML né nel PDF.')) : '') +
+            (haNote ? spunta('mostraNote', t('de_sez_note', 'Note'),
+                t('de_sez_note_tip', 'Le fonti citate, in coda al foglio. Spente, spariscono anche i richiami [1] [2] dal testo — altrimenti resterebbero puntati a niente.')) : '');
+
+        /* ⚠️ Le due spunte NON stanno nella barra a chiare lettere, e non è una
+           preferenza: misurato a 1440px, la barra ha 113px liberi e le due
+           etichette ne vogliono 166 — mandavano tutto a capo su due righe
+           (51px → 89px). Ci stanno dentro un comando compatto, che ne chiede 85.
+           `<details>` e non un menu costruito a mano: è nativo, quindi tastiera,
+           `aria-expanded` e chiusura li fa il browser, e non serve una riga di
+           JS per posizionarlo.
+           Il conteggio nell'etichetta («2 di 2») è quello che salva la spunta
+           dall'essere cieca: quei due pezzi nell'editor non si vedono, e senza
+           un numero non ci sarebbe modo di sapere da fuori che una è spenta. */
+        const tot = (haCausale ? 1 : 0) + (haNote ? 1 : 0);
+        const on = (haCausale && d.mostraCausale !== false ? 1 : 0) +
+                   (haNote && d.mostraNote !== false ? 1 : 0);
+        return '<details class="de-sez"' + (on < tot ? ' data-spente="1"' : '') + '>' +
+            '<summary title="' + esc(t('de_sez_tip', 'Che cosa entra nel foglio oltre al testo: la catena dei perché e le note delle fonti.')) + '">' +
+            esc(t('de_sez', 'Sezioni')) + ' <b>' + on + '/' + tot + '</b></summary>' +
+            '<div class="de-sez-p">' + dentro + '</div></details>';
     }
 
     function _zoomBar() {
@@ -3184,7 +3253,12 @@
             (stale ? '<div class="de-warn">' + esc(t('de_audio_stale', 'Il testo è cambiato: la lettura qui sopra segue sempre le tue parole, ma la VOCE NATURALE (se l\'avevi generata) è una registrazione del testo vecchio — va rifatta a modifiche finite.')) + '</div>' : '') +
             '<div class="de-blocks" id="de-blocks">' + blocks + '</div>' +
             '<button type="button" class="de-add" onclick="MappAIDocEditor.addBlock(' + (_syn.blocks.length - 1) + ',\'p\')"><i data-lucide="plus" class="w-4 h-4"></i> ' + esc(t('de_add_block', 'Aggiungi un paragrafo')) + '</button>' +
-            '<div class="de-note">' + esc(t('de_synth_note', 'Citazioni numerate e fonti restano quelle generate: non si modificano da qui.')) + '</div>' +
+            /* ⚠️ Questa riga diceva solo «non si modificano da qui», ed era vera
+               finché non si poteva farci NIENTE. Da quando esiste «Sezioni» si
+               possono spegnere, e lasciarla com'era voleva dire che il foglio
+               contraddiceva un comando che ha due dita più in alto. */
+            '<div class="de-note">' + esc(t('de_synth_note',
+                'Le fonti citate e la catena dei perché sono generate: qui non si modificano, ma da «Sezioni» si può scegliere se farle comparire nel foglio. I richiami [1] [2] restano nel testo e seguono le Note.')) + '</div>' +
             '</div>';
     }
 
@@ -3692,6 +3766,20 @@ ${_deCornice()}
 .de-ns-fmt.active { border-color:#f97316; background:#fff7ed; color:#c2410c; }
 .de-ns-fmt.active small { color:#ea580c; }
 .de-ns-sel { border:1px solid #e2e8f0; border-radius:8px; padding:5px 8px; font:700 11px 'Space Mono',monospace; color:#475569; background:#fff; cursor:pointer; }
+/* Il comando compatto delle sezioni della sintesi: le due spunte nella barra
+   la mandavano a capo (misurato: 113px liberi contro 166 richiesti). */
+.de-sez { position:relative; flex:0 0 auto; }
+.de-sez > summary { list-style:none; cursor:pointer; border:1px solid #e2e8f0; background:#f8fafc;
+                    color:#475569; border-radius:9px; padding:6px 11px; font:700 11px var(--app-font, monospace);
+                    white-space:nowrap; user-select:none; }
+.de-sez > summary::-webkit-details-marker { display:none; }
+.de-sez > summary:hover { background:#eef2ff; color:#4338ca; }
+.de-sez[data-spente] > summary { border-color:#fbbf24; background:#fffbeb; color:#92400e; }
+.de-sez[open] > summary { background:#eef2ff; color:#4338ca; }
+.de-sez-p { position:absolute; top:calc(100% + 6px); right:0; z-index:40; display:flex;
+            flex-direction:column; gap:8px; min-width:210px; padding:10px 12px; background:#fff;
+            border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); }
+.de-sez-p .de-ns-check { white-space:nowrap; }
 .de-ns-check { display:inline-flex; align-items:center; gap:6px; font:700 11px 'Space Mono',monospace; color:#475569; cursor:pointer; }
 .de-ns-all { border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:5px 10px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
 .de-ns-all:hover:not(:disabled) { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
@@ -3801,7 +3889,7 @@ ${_deCornice()}
         addOption: addOption, delOption: delOption, setCorrect: setCorrect,
         addBlock: addBlock, delBlock: delBlock, moveBlock: moveBlock,
         blockMenu: blockMenu, blockAddMenu: blockAddMenu, setBlockTag: setBlockTag,
-        zoomStep: zoomStep, zoomReset: zoomReset, setFont: setFont,
+        zoomStep: zoomStep, zoomReset: zoomReset, setFont: setFont, mostraSezione: mostraSezione,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
         voceNaturale: voceNaturale,

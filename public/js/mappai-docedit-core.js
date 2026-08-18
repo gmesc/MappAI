@@ -174,6 +174,23 @@
         return out;
     }
 
+    /**
+     * Toglie i richiami di citazione — `<sup>[1]</sup>` — dal corpo di una
+     * sintesi. Serve quando il docente spegne il blocco delle Note: senza,
+     * resterebbero nel testo i numerini puntati a niente, ed è il difetto che
+     * quella spunta introdurrebbe se nessuno lo guardasse.
+     *
+     * ⚠️ Si applica alla RESA, mai alla sorgente: riaccendendo le Note i
+     * richiami devono tornare esattamente dov'erano.
+     *
+     * ⚠️ Il modello chiede le PARENTESI QUADRE apposta: un `<sup>` senza è
+     * un'altra cosa — un esponente (m<sup>2</sup>, x<sup>3</sup>), che in una
+     * sintesi di scienze c'è eccome e non va toccato.
+     */
+    function togliRichiamiCitazione(html) {
+        return _s(html).replace(/<sup[^>]*>\s*\[\d+\]\s*<\/sup>/gi, '');
+    }
+
     // ── 2. operazioni di lista (immutabili) ─────────────────────────────────
     function blankItem(kind, nOptions) {
         if (kind === 'flashcards') return { question: '', options: [], correctIndex: -1, answer: '', explanation: '' };
@@ -713,7 +730,7 @@
         blankItem: blankItem, blankItemFor: blankItemFor, insertAt: insertAt, removeAt: removeAt,
         moveItem: moveItem, setField: setField, addOption: addOption, removeOption: removeOption,
         // inline / blocchi
-        sanitizeInline: sanitizeInline, plainText: plainText, normColor: normColor, escHtml: escHtml,
+        sanitizeInline: sanitizeInline, plainText: plainText, togliRichiamiCitazione: togliRichiamiCitazione, normColor: normColor, escHtml: escHtml,
         blocksFromHtml: blocksFromHtml, blocksToHtml: blocksToHtml, moveBlock: moveBlock,
         removeBlock: removeBlock, insertBlock: insertBlock, setBlockTag: setBlockTag, audioStale: audioStale,
         isReadableBlock: isReadableBlock, readableBlocks: readableBlocks,

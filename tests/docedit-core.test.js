@@ -542,3 +542,24 @@ test('normOpenItem: il livello sopravvive al giro archivio → editor → archiv
   assert.strictEqual(b[0].livello, 'base', 'idempotente');
   assert.strictEqual(D.normOpenItems([{ domanda: 'q' }])[0].livello, 'ponte', 'assente = ponte');
 });
+
+// ── i richiami seguono il blocco delle Note (18/8/26) ───────────────────────
+const DEC = require('../public/js/mappai-docedit-core.js');
+
+test('togliRichiamiCitazione: via i [n], non gli esponenti', () => {
+    // Spegnendo le Note i richiami restano puntati a niente: vanno tolti.
+    assert.strictEqual(
+        DEC.togliRichiamiCitazione('Il moto <sup>[1]</sup> di cariche <sup>[12]</sup>.'),
+        'Il moto  di cariche .');
+    // ⚠️ Un <sup> senza parentesi è un ESPONENTE, e in una sintesi di scienze
+    // c'è eccome: non si tocca.
+    const esp = 'L\'area è 5 m<sup>2</sup> e il volume x<sup>3</sup>.';
+    assert.strictEqual(DEC.togliRichiamiCitazione(esp), esp);
+});
+
+test('togliRichiamiCitazione: regge attributi, spazi e testo senza richiami', () => {
+    assert.strictEqual(DEC.togliRichiamiCitazione('a <sup class="x"> [3] </sup>b'), 'a b');
+    assert.strictEqual(DEC.togliRichiamiCitazione('nessun richiamo'), 'nessun richiamo');
+    assert.strictEqual(DEC.togliRichiamiCitazione(''), '');
+    assert.strictEqual(DEC.togliRichiamiCitazione(null), '');
+});
