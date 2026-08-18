@@ -44,7 +44,7 @@
     var CHIAVE = 'mappai_font_app';        // la scelta del docente
     var KILL = 'mappai_font_selettore';    // l'interruttore della feature
     var ID_STILE = 'mappai-font-facce';
-    var VER_FONT = 'f1';   // ← si bumpa rigenerando i file dei caratteri
+    var VER_FONT = 'f2';   // ← si bumpa rigenerando i file dei caratteri
 
     /*
      * Dove stanno i file dei caratteri, visto da CHI CI STA GUARDANDO.

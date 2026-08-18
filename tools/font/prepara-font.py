@@ -105,6 +105,17 @@ def otf2ttf(src, dst):
         setattr(mx, k, v)
     f['maxp'] = mx
     if 'CFF ' in f: del f['CFF ']
+    # ⚠️ L'INTESTAZIONE DEVE DIRE CHE ORA È UN TRUETYPE.
+    # Un .otf si annuncia come 'OTTO', cioè «le curve sono in CFF». Tolta la
+    # tabella CFF e costruita glyf, il font è a tutti gli effetti un TrueType —
+    # ma senza questa riga continua a DICHIARARSI OTTO, e chi legge crede alla
+    # dichiarazione, non ai fatti.
+    # Costo pagato il 18/8: l'export dei grafi usciva col carattere di ripiego e
+    # i lettori PDF dicevano «Embedded font file may be invalid». Il motivo è
+    # che un /FontFile2 È un TrueType per definizione, quindi un font che al suo
+    # interno dice OTTO viene rifiutato. Chromium lo tollerava (i quiz uscivano
+    # bene), jsPDF no — ed è per questo che il difetto si vedeva solo sui grafi.
+    f.sfntVersion = '\x00\x01\x00\x00'
     f['head'].indexToLocFormat = 0
     f['post'].formatType = 2.0
     f['post'].extraNames = []; f['post'].mapping = {}; f['post'].glyphOrder = ordine

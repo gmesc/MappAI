@@ -254,3 +254,25 @@ test('buildFileName: le etichette del catalogo passano indenni dal safeName', ()
     }
     P.setFontEtichetta('');
 });
+
+// ── i file dei caratteri devono DICHIARARSI per quello che sono ─────────────
+test('i font vendorizzati sono TrueType anche nell intestazione sfnt', () => {
+    // ⚠️ Il difetto del 18/8, e si vedeva solo aprendo un PDF dei grafi.
+    // Un .otf si annuncia 'OTTO' (= curve in CFF). La conversione toglie CFF e
+    // costruisce glyf, ma se l'intestazione continua a dire OTTO chi legge crede
+    // alla DICHIARAZIONE, non ai fatti: un /FontFile2 è un TrueType per
+    // definizione, quindi il font veniva rifiutato («Embedded font file may be
+    // invalid») e l'export usciva col ripiego. Chromium lo tollerava — per
+    // questo i quiz uscivano bene e i grafi no.
+    const fs = require('fs'), path = require('path');
+    for (const f of F.elenco()) {
+        for (const file of Object.values(f.file)) {
+            const p = path.join(__dirname, '..', 'public', 'fonts', file);
+            if (!fs.existsSync(p)) continue;
+            const testa = fs.readFileSync(p).subarray(0, 4);
+            assert.deepStrictEqual([...testa], [0x00, 0x01, 0x00, 0x00],
+                file + ': l\'intestazione dice ' + testa.toString('latin1') +
+                ' invece di TrueType — rigenera con tools/font/prepara-font.py');
+        }
+    }
+});
