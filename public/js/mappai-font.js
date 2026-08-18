@@ -44,6 +44,7 @@
     var CHIAVE = 'mappai_font_app';        // la scelta del docente
     var KILL = 'mappai_font_selettore';    // l'interruttore della feature
     var ID_STILE = 'mappai-font-facce';
+    var VER_FONT = 'f1';   // ← si bumpa rigenerando i file dei caratteri
 
     /*
      * Dove stanno i file dei caratteri, visto da CHI CI STA GUARDANDO.
@@ -109,6 +110,7 @@
         try { localStorage.setItem(CHIAVE, id); } catch (e) { /* quota: si applica comunque */ }
         applica(id);
         annunciaMetriche(id);
+        precaricaIncorporabile(id);
         // Chi disegna testo per conto suo (il canvas D3, la vista studio) non si
         // accorge di una variabile CSS: glielo si dice. Trappola 15 della guida.
         try {
@@ -151,9 +153,65 @@
         return {
             id: id,
             stack: C ? C.stackDi(id) : "'Space Mono', monospace",
-            facce: C ? C.facce(id, BASE_FONT) : '',
+            facce: _facceDocumento(id),
+            /* `false` = il documento NON si porta dentro il carattere e lo
+               chiede a un percorso: fuori di qui non ce l'avrà. Chi lo scrive
+               deve poterlo sapere, invece di scoprirlo dal prodotto. */
+            incorporato: !!_bytesDi(id),
             metriche: metriche(id)
         };
+    }
+
+    /*
+     * I byte del carattere, se sono già in memoria. Il modulo si precarica —
+     * vedi `precaricaIncorporabile` — perché i costruttori dei documenti sono
+     * SINCRONI: chiamano `styleDocumento` dentro un template literal, e renderla
+     * asincrona vorrebbe dire riscrivere i dieci punti che la usano.
+     */
+    function _bytesDi(id) {
+        var C = _core();
+        if (!C) return null;
+        var f = C.font(id);
+        return (f.incorporaGlobale && window[f.incorporaGlobale]) || null;
+    }
+
+    /*
+     * Le @font-face di un DOCUMENTO. Coi byte dentro se ci sono, altrimenti col
+     * percorso — che è un ripiego, non la strada normale.
+     *
+     * ⚠️ PERCHÉ I BYTE E NON UN PERCORSO. Misurato il 18/8 su un PDF vero: la
+     * finestra che stampa carica l'HTML come `data:text/html` (main.js), cioè
+     * un'ORIGINE OPACA, e da lì un caricamento `file://` è BLOCCATO. Il
+     * carattere non arrivava mai e il PDF usciva col ripiego, mentre l'app lo
+     * mostrava giusto — perché nell'app il documento sta sull'origine `file://`
+     * dell'app, stessa origine, e passa. Il sintomo era «l'editor sì, il PDF no».
+     * Lo stesso percorso è per giunta legato a QUESTA cartella: nell'app
+     * pacchettizzata non esiste, e sul telefono di un allievo nemmeno.
+     * I byte sono un sottoinsieme dei glifi compresso in WOFF: 76-101 KB, non i
+     * 433 KB del .ttf intero (tools/font/prepara-font.py).
+     */
+    function _facceDocumento(id) {
+        var C = _core();
+        if (!C) return '';
+        var inc = _bytesDi(id);
+        if (inc) return inc.facce(C.font(id).famiglia);
+        return C.facce(id, BASE_FONT);
+    }
+
+    /**
+     * Porta in memoria i byte di un carattere, così i documenti costruiti dopo
+     * se lo portano dentro. Si chiama al boot per il carattere dell'app e
+     * quando un documento ne dichiara uno suo.
+     */
+    function precaricaIncorporabile(id) {
+        var C = _core();
+        if (!C) return Promise.resolve(false);
+        var f = C.font(id || attivo());
+        if (!f.incorpora) return Promise.resolve(false);
+        if (window[f.incorporaGlobale]) return Promise.resolve(true);
+        return _caricaScript(f.incorpora).then(function () {
+            return !!window[f.incorporaGlobale];
+        }).catch(function () { return false; });
     }
 
     /**
@@ -179,8 +237,12 @@
         if (_inCorso[src]) return _inCorso[src];
         _inCorso[src] = new Promise(function (ok, ko) {
             var s = document.createElement('script');
-            // stesso motivo di BASE_FONT: da public/js/ il vendor è qui accanto
-            s.src = (_mio ? _mio.replace(/[^/]*$/, '') : 'js/') + src;
+            /* stesso motivo di BASE_FONT: da public/js/ il vendor è qui accanto.
+               Il marcatore c'è perché questi file li RIGENERA uno strumento
+               (tools/font/prepara-font.py): stesso nome, contenuto diverso —
+               cioè il caso in cui la cache serve il vecchio senza dirlo
+               (invariante 5). Si bumpa quando si rigenerano i caratteri. */
+            s.src = (_mio ? _mio.replace(/[^/]*$/, '') : 'js/') + src + '?v=' + VER_FONT;
             s.onload = function () { ok(true); };
             s.onerror = function () { ko(new Error('font non caricato: ' + src)); };
             (document.head || document.documentElement).appendChild(s);
@@ -249,6 +311,9 @@
         iniettaFacce();
         applica();
         annunciaMetriche();
+        /* I byte del carattere in vigore, subito: il primo documento costruito
+           dopo il boot deve poterseli portare dentro. Uno solo, non quattro. */
+        precaricaIncorporabile();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
@@ -257,7 +322,7 @@
         CHIAVE: CHIAVE, KILL: KILL,
         accesa: accesa, attivo: attivo, imposta: imposta, applica: applica,
         stack: stack, metriche: metriche, cssDocumento: cssDocumento, styleDocumento: styleDocumento,
-        annunciaMetriche: annunciaMetriche,
+        annunciaMetriche: annunciaMetriche, precaricaIncorporabile: precaricaIncorporabile,
         perPdf: perPdf, registraIn: registraIn,
         elenco: function () { var C = _core(); return C ? C.elenco() : []; }
     };

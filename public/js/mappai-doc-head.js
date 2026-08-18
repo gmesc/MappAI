@@ -198,8 +198,15 @@
         var marchio = o.brand || _t('dh_brand', 'MappAI · insegnai.ch');
         if (o.mappa) marchio += ' · ' + o.mappa;
         sx.push('"' + escCss(marchio) + '"');
+        /* ⚠️ Il piè segue il carattere del DOCUMENTO, non uno scritto qui.
+           Fino al 18/8 queste due righe dicevano 'Space Mono' a chiare lettere,
+           ed erano le ultime rimaste: si vedevano solo misurando il PDF prodotto
+           (pdffonts diceva SpaceMono-Regular su un documento chiesto in TestMe).
+           Il motivo per cui non saltavano all'occhio è che sul Mac di Giacomo
+           Space Mono È installato: quelle due si risolvevano davvero. Su un
+           computer senza, sarebbero uscite in Helvetica. */
         righe.push('  @bottom-left { content: ' + sx.join(' ') + ';');
-        righe.push('     font-family:\'Space Mono\', monospace; font-size:' + M.pie + 'pt; color:' + COL.piePagina + '; }');
+        righe.push('     font-family:var(--doc-font, \'Space Mono\', monospace); font-size:' + M.pie + 'pt; color:' + COL.piePagina + '; }');
 
         if (o.numeriPagina !== false) {
             /* «pagina 2 di 7». Il totale conta: senza, chi tiene in mano il
@@ -209,7 +216,7 @@
             var pre = _t('dh_pagina', 'pagina');
             var di = _t('dh_di', 'di');
             righe.push('  @bottom-right { content: "' + escCss(pre) + ' " counter(page) " ' + escCss(di) + ' " counter(pages);');
-            righe.push('     font-family:\'Space Mono\', monospace; font-size:' + M.pie + 'pt; color:' + COL.piePagina + '; }');
+            righe.push('     font-family:var(--doc-font, \'Space Mono\', monospace); font-size:' + M.pie + 'pt; color:' + COL.piePagina + '; }');
         }
         return righe.join('\n');
     }

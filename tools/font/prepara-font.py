@@ -40,6 +40,7 @@ try:
     from fontTools.ttLib import TTFont, newTable
     from fontTools.pens.ttGlyphPen import TTGlyphPen
     from fontTools.pens.cu2quPen import Cu2QuPen
+    from fontTools import subset
 except ImportError:
     sys.exit('manca fontTools:  pip3 install fonttools')
 
@@ -181,6 +182,92 @@ def tara(adv, campioni, spaziatura=0.0):
         peggiore = max(peggiore, ok)
     return peggiore
 
+# I glifi che un documento scolastico europeo puo contenere. Generoso apposta:
+# un glifo mancante in un foglio STAMPATO non si recupera, e il risparmio non
+# vale il rischio. Copre latino esteso, diacritici, greco (le lettere della
+# fisica), punteggiatura, valute, frazioni, frecce, matematica di base e le
+# forme geometriche dei diagrammi.
+SOTTOINSIEME = ("U+0000-00FF,U+0100-017F,U+0180-024F,U+02B0-02FF,U+0300-036F,"
+                "U+0370-03FF,U+2000-206F,U+20A0-20BF,U+2100-214F,U+2150-218F,"
+                "U+2190-21FF,U+2200-22FF,U+2500-257F,U+25A0-25FF,U+2600-26FF")
+
+
+def _preparaIncorporabili():
+    """I caratteri che finiscono DENTRO i documenti, in base64.
+
+    ── PERCHE SERVE ─────────────────────────────────────────────────────────
+    Un documento che chiede i byte del carattere a un percorso non li ottiene
+    quasi mai, ed e stato misurato: la finestra che produce il PDF carica
+    l HTML come `data:` (origine opaca), e da li un caricamento `file://` e
+    BLOCCATO. Risultato: il PDF usciva col carattere di ripiego mentre l app
+    lo mostrava giusto. Lo stesso percorso e legato a QUESTA macchina e a
+    QUESTA cartella: nell app pacchettizzata, o sul telefono di un allievo che
+    apre il foglio via QR, non esiste. Un documento si porta dentro il suo
+    carattere, o non ce l ha.
+
+    ── PERCHE SOTTOINSIEME + WOFF, E NON IL TTF INTERO ──────────────────────
+    Il .ttf intero costa 433 KB di base64 a documento (TestMe): troppo, per
+    una cosa che si ripete in ogni foglio del vault. Il sottoinsieme toglie i
+    glifi che una scheda non usera mai, e WOFF li comprime con zlib — che
+    Python ha gia. (WOFF2 comprime meglio ma vuole `brotli`, una dipendenza in
+    piu per una trentina di KB.) Misurato: 433 KB → 76-101 KB.
+    """
+    misure = []
+    for fam, files in list(CATALOGO.items()) + [('space-mono', {
+            'SpaceMono-Regular.ttf': (None, False), 'SpaceMono-Bold.ttf': (None, False)})]:
+        pezzi = {}
+        for dest in files:
+            if not (dest.endswith('-Regular.ttf') or dest.endswith('-Bold.ttf')):
+                continue                      # nei documenti servono i due tagli di testo
+            src = os.path.join(FONTS, dest)
+            opt = subset.Options()
+            opt.layout_features = ['*']; opt.name_IDs = ['*']; opt.notdef_outline = True
+            f = subset.load_font(src, opt)
+            s = subset.Subsetter(options=opt)
+            s.populate(unicodes=subset.parse_unicodes(SOTTOINSIEME))
+            s.subset(f)
+            tmp = os.path.join(SORG, '_sub_' + dest)
+            os.makedirs(SORG, exist_ok=True)
+            subset.save_font(f, tmp, opt)
+            tf = TTFont(tmp); tf.flavor = 'woff'
+            woff = tmp.replace('.ttf', '.woff'); tf.save(woff)
+            chiave = 'grassetto' if dest.endswith('-Bold.ttf') else 'normale'
+            pezzi[chiave] = base64.b64encode(open(woff, 'rb').read()).decode()
+        if not pezzi:
+            continue
+        dst = os.path.join(VENDOR, fam + '-incorpora.js')
+        with open(dst, 'w', encoding='utf-8') as fh:
+            fh.write(
+'/*\n'
+' * ' + fam + '-incorpora.js — i byte del carattere da mettere DENTRO un documento.\n'
+' * GENERATO da tools/font/prepara-font.py — non modificare a mano.\n'
+' *\n'
+' * Sottoinsieme dei glifi (latino esteso, greco, punteggiatura, matematica,\n'
+' * frecce, forme) compresso in WOFF. Serve perche un documento che chiede il\n'
+' * carattere a un percorso non lo ottiene: la finestra che stampa il PDF carica\n'
+' * da `data:`, origine opaca, dove un `file://` e bloccato — misurato il 18/8,\n'
+' * ed era il motivo per cui il PDF usciva nel carattere sbagliato.\n'
+' *\n'
+' * window.MappAIInc_' + fam.replace('-', '_') + '.facce(famiglia) → le @font-face con i byte incorporati.\n'
+' */\n'
+'(function () {\n'
+'  "use strict";\n'
+'  var N = "' + pezzi.get('normale', '') + '";\n'
+'  var G = "' + pezzi.get('grassetto', '') + '";\n'
+'  function faccia(fam, b64, peso) {\n'
+'    if (!b64) return "";\n'
+'    return "@font-face{font-family:\'" + fam + "\';src:url(data:font/woff;base64," + b64 +\n'
+'      ") format(\'woff\');font-weight:" + peso + ";font-style:normal;font-display:swap;}";\n'
+'  }\n'
+'  window.MappAIInc_' + fam.replace('-', '_') + ' = {\n'
+'    facce: function (fam) { return faccia(fam, N, 400) + "\\n" + faccia(fam, G, 700); }\n'
+'  };\n'
+'})();\n')
+        misure.append((fam, os.path.getsize(dst)))
+        print('   %-26s %5d KB' % (fam + '-incorpora.js', os.path.getsize(dst) / 1024))
+    print('\n   (e quanto pesa un documento in piu: circa quel numero)')
+
+
 def main():
     os.makedirs(FONTS, exist_ok=True)
     print('── 1. i font\n')
@@ -252,6 +339,10 @@ def main():
 '  window.MappAIFont_' + fam.replace('-', '_') + ' = { fontName: NOME, registerInto: registerInto };\n'
 '})();\n')
         print(f'   {fam + "-font.js":26s} {os.path.getsize(dst) // 1024} KB')
+
+    # ── 2-bis. i WOFF da INCORPORARE nei documenti ──────────────────────────
+    print('\n── 2-bis. i caratteri da incorporare nei documenti (sottoinsieme + WOFF)\n')
+    _preparaIncorporabili()
 
     # ── 3. le costanti di impaginazione, misurate ────────────────────────────
     print('\n── 3. le costanti per mappai-font-core.js\n')

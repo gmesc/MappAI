@@ -84,6 +84,9 @@
             ripiego: 'monospace',
             modulo: 'vendor/spacemono-font.js',
             globale: 'MappAISpaceMono',
+            /* i byte da mettere DENTRO un documento (sottoinsieme + WOFF) */
+            incorpora: 'vendor/space-mono-incorpora.js',
+            incorporaGlobale: 'MappAIInc_space_mono',
             // Storici: il foglio è tarato su questi da sempre e le carte già
             // stampate ci corrispondono. Misurando oggi verrebbe 0,605/0,645 —
             // cioè margine, non errore. Non si toccano: cambiarli ricomporrebbe
@@ -101,6 +104,9 @@
             ripiego: 'sans-serif',
             modulo: 'vendor/testme-sans-font.js',
             globale: 'MappAIFont_testme_sans',
+            /* i byte da mettere DENTRO un documento (sottoinsieme + WOFF) */
+            incorpora: 'vendor/testme-sans-incorpora.js',
+            incorporaGlobale: 'MappAIInc_testme_sans',
             advance: 0.500,
             headAdvance: 0.710,
             corsivo: false
@@ -114,6 +120,9 @@
             ripiego: 'sans-serif',
             modulo: 'vendor/testme-alt-font.js',
             globale: 'MappAIFont_testme_alt',
+            /* i byte da mettere DENTRO un documento (sottoinsieme + WOFF) */
+            incorpora: 'vendor/testme-alt-incorpora.js',
+            incorporaGlobale: 'MappAIInc_testme_alt',
             advance: 0.500,
             headAdvance: 0.710,
             corsivo: false
@@ -130,6 +139,9 @@
             ripiego: 'sans-serif',
             modulo: 'vendor/atkinson-font.js',
             globale: 'MappAIFont_atkinson',
+            /* i byte da mettere DENTRO un documento (sottoinsieme + WOFF) */
+            incorpora: 'vendor/atkinson-incorpora.js',
+            incorporaGlobale: 'MappAIInc_atkinson',
             advance: 0.485,
             headAdvance: 0.710,
             corsivo: true

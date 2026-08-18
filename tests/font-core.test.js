@@ -185,3 +185,28 @@ test('docedit: la normalizzazione del documento regge il doppio giro', () => {
     const due = D.applyToSet(uno, D.docFromSet(uno));
     assert.strictEqual(due.font, 'atkinson');
 });
+
+// ── i byte che un documento si porta dentro ─────────────────────────────────
+test('catalogo: ogni carattere dichiara i byte da incorporare', () => {
+    // Senza, il documento chiede il carattere a un percorso — e nella finestra
+    // che produce il PDF (origine `data:`) quel caricamento è BLOCCATO: il PDF
+    // esce col ripiego mentre l'app lo mostra giusto. Misurato il 18/8.
+    for (const f of F.elenco()) {
+        assert.ok(f.incorpora, f.id + ' senza modulo dei byte');
+        assert.match(f.incorpora, /^vendor\/.*-incorpora\.js$/, f.id);
+        assert.ok(f.incorporaGlobale, f.id + ' senza nome globale');
+    }
+});
+
+test('catalogo: i moduli dei byte esistono davvero su disco', () => {
+    // Un percorso che punta a un file che non c'è degrada in silenzio nel
+    // ripiego, cioè nel difetto che questi byte servono a chiudere.
+    const fs = require('fs'), path = require('path');
+    for (const f of F.elenco()) {
+        const p = path.join(__dirname, '..', 'public', 'js', f.incorpora);
+        assert.ok(fs.existsSync(p), 'manca ' + f.incorpora + ' — rigenera con tools/font/prepara-font.py');
+        const src = fs.readFileSync(p, 'utf8');
+        assert.ok(src.includes(f.incorporaGlobale), f.incorpora + ' non espone ' + f.incorporaGlobale);
+        assert.ok(src.includes('data:font/woff;base64,'), f.incorpora + ': i byte non ci sono');
+    }
+});
