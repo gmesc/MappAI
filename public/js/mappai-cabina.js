@@ -40,6 +40,7 @@
         { id: 'allievi', chiave: 'cb_v_allievi', testo: 'Allievi', icona: 'user-round' },
         { id: 'classi', chiave: 'cb_v_classi_solo', testo: 'Classi', icona: 'graduation-cap' },
         { gruppo: 'cb_g_app', gruppoTesto: 'L’app' },
+        { id: 'aspetto', chiave: 'cb_v_aspetto', testo: 'Aspetto e leggibilità', icona: 'type' },
         { id: 'ai', chiave: 'cb_v_ai', testo: 'Impostazioni AI', icona: 'bot' },
         { id: 'consumi', chiave: 'cb_v_consumi', testo: 'Consumi AI', icona: 'coins' },
         { gruppo: 'cb_g_studio', gruppoTesto: 'Imparare' },
@@ -959,6 +960,7 @@
         }
         if (_st.voce === 'classi') return _vistaClassi(s);
         if (_st.voce === 'allievi') return _vistaAllievi(s);
+        if (_st.voce === 'aspetto') return _vistaAspetto(s);
         if (_st.voce === 'consumi') return _vistaConsumi(s);
         if (_st.voce === 'consigli') return _vistaConsigli(s);
         if (_st.voce === 'tutorial') return _vistaTutorial(s);
@@ -968,6 +970,64 @@
         if (_st.voce === 'feedback') return _vistaFeedback(s);
 
         return _vistaAi(s);
+    }
+
+    /* ══ ASPETTO E LEGGIBILITÀ — il carattere dell'app (18/8) ═════════════
+       Il carattere scelto qui vale per TUTTA l'app e per tutto ciò che l'app
+       genera: le mappe, i quiz, le flashcard, le sintesi, i fogli stampabili.
+       In ELABORA un singolo documento può avere il suo, che vince solo lì.
+
+       ⚠️ Non c'è un riquadro di anteprima, ed è una scelta: la console È
+       l'anteprima. Scegliendo un carattere cambia tutto quello che si sta
+       guardando — la navigazione, i titoli, questa nota — cioè esattamente
+       quello che cambierà lavorando. Un campione «Il pane della zia…» dentro un
+       riquadro direbbe meno, e sarebbe una seconda superficie da tenere
+       allineata al catalogo. */
+    function _vistaAspetto(s) {
+        var F = window.MappAIFont, C = window.MappAIFontCore;
+        if (!F || !C) {
+            s.sezioni.push({
+                id: 'fn-no', nuda: true,
+                testo: t('cb_fn_no', 'Il modulo dei caratteri non è caricato.')
+            });
+            return s;
+        }
+        var attivo = F.attivo();
+        s.sezioni.push({
+            id: 'fn-elenco',
+            titolo: t('cb_fn_t', 'Carattere dell’app'),
+            testo: t('cb_fn_d', 'Vale per l’interfaccia e per tutto quello che MappAI produce: mappe, quiz, flashcard, sintesi e fogli da stampare.'),
+            largo: true,
+            voci: C.elenco().map(function (f) {
+                var note = [];
+                if (!f.corsivo) note.push(t('cb_fn_no_corsivo', 'senza corsivo'));
+                return {
+                    id: 'fn:' + f.id,
+                    etichetta: f.etichetta,
+                    sotto: f.descrizione,
+                    icona: f.id === attivo ? 'check' : 'type',
+                    attiva: f.id === attivo,
+                    badge: f.id === attivo ? t('cb_fn_in_uso', 'in uso')
+                        : (note.length ? note.join(' · ') : ''),
+                    /* `chiude:false`: scegliere un carattere non è uscire dalla
+                       Cabina — si prova, si guarda, si cambia idea. Ed è anche
+                       il modo in cui la console diventa l'anteprima. */
+                    chiude: false
+                };
+            })
+        });
+        /* Il corsivo NON è un dettaglio tipografico: nei fogli dei quiz la
+           spiegazione della risposta è in corsivo. Dove il carattere non ce
+           l'ha, il browser inclina il tondo — si può fare, ma va detto invece
+           che promesso. */
+        if (!C.haCorsivo(attivo)) {
+            s.sezioni.push({
+                id: 'fn-corsivo', nuda: true, largo: true,
+                testo: t('cb_fn_corsivo_avviso', 'Questo carattere non ha un corsivo suo: dove serve (la spiegazione di una risposta nei quiz) il testo viene inclinato dal computer.')
+            });
+        }
+        s.nota = t('cb_fn_nota', 'I caratteri sono installati dentro MappAI: funzionano anche senza collegamento a internet. In ELABORA puoi dare a un singolo documento un carattere diverso da questo.');
+        return s;
     }
 
     /* ══ IMPOSTAZIONI AI — l'ultimo ponte, chiuso (13/8) ═══════════════════
@@ -1141,6 +1201,14 @@
             if (_st.voce === 'profilo' && window.MappAITeacherProfile &&
                 (id.indexOf('__piu-') === 0 || id.indexOf('__via-') === 0)) {
                 return window.MappAITeacherProfile.comandoElenco(_st.profilo, id, function () { _ridisegna(); });
+            }
+            /* Il carattere dell'app. `imposta` scrive, applica e annuncia;
+               qui basta ridisegnare, così la spunta si sposta e la console si
+               ridisegna NEL carattere nuovo — che è l'anteprima. */
+            if (id.indexOf('fn:') === 0) {
+                if (window.MappAIFont) window.MappAIFont.imposta(id.slice(3));
+                _ridisegna();
+                return;
             }
             if (id === 'salva-prof') {
                 window.MappAITeacherProfile.salva(_st.profilo);

@@ -1037,17 +1037,19 @@
 
             // A4 orizzontale con margini, disegno scalato per starci
             const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-            // Space Mono è vendorizzato (public/js/vendor/spacemono-font.js) e va
-            // registrato NELL'ISTANZA: senza, svg2pdf ripiega su un font standard
-            // e con le metriche sbagliate le etichette escono scentrate.
-            // La chiave del font-family deve essere ESATTA ("Space Mono" nudo,
-            // niente apici, niente fallback) o svg2pdf non la trova.
+            // Il carattere dell'app, vendorizzato, va registrato NELL'ISTANZA:
+            // senza, svg2pdf ripiega su un font standard e con le metriche
+            // sbagliate le etichette escono scentrate. La chiave del
+            // font-family deve essere ESATTA (il nome nudo, niente apici,
+            // niente ripieghi accanto) o svg2pdf non la trova.
             let fontName = 'Helvetica';
             try {
-                if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
+                if (window.MappAIFont && window.MappAIFont.registraIn) {
+                    fontName = (await window.MappAIFont.registraIn(doc)) || fontName;
+                } else if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
                     fontName = window.MappAISpaceMono.fontName;
                 }
-            } catch (e) { console.warn('[StudioView] Space Mono non registrato:', e); }
+            } catch (e) { console.warn('[StudioView] carattere non registrato:', e); }
 
             // svg2pdf non onora `paint-order: stroke fill`: l'alone bianco delle
             // linking words finirebbe SOPRA il testo. Come nell'export della

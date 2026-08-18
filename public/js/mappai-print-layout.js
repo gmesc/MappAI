@@ -222,6 +222,7 @@
         var tk = tokens || get();
         var F = tk.flash;
         var key = (F.formats && F.formats[fmtKey]) ? fmtKey : FLASH_DEFAULT_FMT;
+        // il carattere in vigore comanda; senza annuncio vale il modello
         var f = F.formats[key] || F.formats[FLASH_DEFAULT_FMT];
         var pageW = f.landscape ? tk.page.w : tk.page.h;
         var pageH = f.landscape ? tk.page.h : tk.page.w;
@@ -246,8 +247,8 @@
             explRatio: F.type.explRatio, lineH: F.type.lineH,
             headLineH: F.type.headLineH, step: F.type.step,
             // parametri dell'impaginazione deterministica (vedi fitFlash)
-            floor: F.type.floor, advance: F.type.advance,
-            headAdvance: r2(F.type.advance + (F.type.headLetterSpacing || 0)),
+            floor: F.type.floor, advance: _adv(F),
+            headAdvance: _advHead(F),
             answerRatio: aRatio,
             splitMode: F.type.split, splitMin: F.type.splitMin, splitMax: F.type.splitMax,
             card: clone(F.card), cut: clone(F.cut), fold: clone(F.fold),
@@ -257,6 +258,26 @@
             headLetterSpacing: F.type.headLetterSpacing || 0
         };
     }
+
+    /* ══ LE METRICHE DEL CARATTERE IN VIGORE ═══════════════════════════════
+       Questo modulo impagina CONTANDO i caratteri (charsPerLine): è la
+       proprietà per cui una carta esce giusta anche senza JavaScript, in
+       printToPDF e in un PDF fatto con jsPDF. Il conto però dipende da QUALE
+       carattere si sta usando, e dal 18/8 non è più solo Space Mono.
+
+       Le metriche arrivano da fuori invece che essere lette da `window`: questo
+       modulo gira anche in Node, nei test. Chi conosce il carattere
+       (mappai-font.js) le annuncia una volta, e i chiamanti di flashGeom non
+       cambiano di una riga.
+
+       ⚠️ `headAdvance` si DICHIARA, non si somma: le testate sono maiuscole e
+       spaziate, e sui caratteri proporzionali `advance + letterSpacing` sta
+       sotto del 27% a quello che serve davvero. Se chi annuncia non lo dichiara
+       si ricade sulla somma, che è il comportamento storico di Space Mono. */
+    function setFontMetrics(m) {
+        _fm = (m && m.advance > 0) ? { advance: m.advance, headAdvance: m.headAdvance || 0 } : null;
+    }
+    function fontMetrics() { return _fm ? { advance: _fm.advance, headAdvance: _fm.headAdvance } : null; }
 
     function formats() { return Object.keys(get().flash.formats); }
 
@@ -335,6 +356,15 @@
     }
 
     var PT2MM = 0.352778;
+
+    /* Le metriche del CARATTERE in vigore (vedi setFontMetrics più sotto).
+       null = nessun annuncio → valgono quelle del modello, cioè Space Mono. */
+    var _fm = null;
+    function _adv(F) { return (_fm && _fm.advance) || F.type.advance; }
+    function _advHead(F) {
+        if (_fm && _fm.headAdvance) return _fm.headAdvance;
+        return r2(_adv(F) + (F.type.headLetterSpacing || 0));
+    }
 
     // Altezza in mm di un testo mandato a capo su `width` mm.
     // measure(text, pt) → larghezza in mm (la fornisce il motore).
@@ -773,7 +803,7 @@
         importModel: importModel,
         validate: validate,
         merge: merge,
-        flashGeom: geom,
+        flashGeom: geom, setFontMetrics: setFontMetrics, fontMetrics: fontMetrics,
         flashFormats: formats,
         cardBoxes: cardBoxes,
         cutLines: cutLines,

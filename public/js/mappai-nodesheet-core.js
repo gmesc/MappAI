@@ -38,8 +38,17 @@
     function _clone(o) { return JSON.parse(JSON.stringify(o)); }
 
     var PT2MM = 0.352778;
-    // Space Mono è monospazio: larghezza di un carattere in em (misurata).
-    var ADVANCE = 0.612;
+    /* Larghezza di un carattere in em. Space Mono è monospazio (0,612 misurato)
+       ed è il default; dal 18/8 il carattere si può cambiare, e chi lo conosce
+       (mappai-font.js) annuncia la misura con `setFontMetrics`. Le soglie di
+       questo foglio — quanti caratteri entrano nel titolo di una card, quante
+       parole chiave ci stanno sotto — dipendono da qui: senza l'annuncio, con
+       un carattere più stretto il badge ambra direbbe «non entra» a un testo
+       che entra benissimo. */
+    var ADVANCE_BASE = 0.612;
+    var _adv = ADVANCE_BASE;
+    function setFontMetrics(m) { _adv = (m && m.advance > 0) ? m.advance : ADVANCE_BASE; }
+    function fontMetrics() { return { advance: _adv }; }
 
     // ── 1. GEOMETRIA ────────────────────────────────────────────────────────
     // A4 ORIZZONTALE con margini 10/15 mm: sono le misure storiche del foglio
@@ -84,7 +93,7 @@
             padX: PAD.x,
             titlePt: f.titlePt, kwPt: f.kwPt, descPt: f.descPt, cardTitlePt: f.cardTitlePt,
             titleOnly: !!f.titleOnly,
-            PT2MM: PT2MM, advance: ADVANCE
+            PT2MM: PT2MM, advance: _adv
         };
     }
 
@@ -95,7 +104,7 @@
     }
 
     function charsPerLine(widthMm, pt) {
-        return Math.max(1, Math.floor(widthMm / (ADVANCE * pt * PT2MM)));
+        return Math.max(1, Math.floor(widthMm / (_adv * pt * PT2MM)));
     }
     /** Righe occupate da un testo con a-capo sulle parole (parole lunghe spezzate). */
     function lineCount(text, cpl) {
@@ -461,7 +470,7 @@
 
     return {
         // geometria e soglie
-        PT2MM: PT2MM, ADVANCE: ADVANCE, PAGE: PAGE, PAD: PAD, FMT: FMT, LINE: LINE,
+        PT2MM: PT2MM, ADVANCE: ADVANCE_BASE, setFontMetrics: setFontMetrics, fontMetrics: fontMetrics, PAGE: PAGE, PAD: PAD, FMT: FMT, LINE: LINE,
         LAYOUTS: LAYOUTS, MAX_KEYWORDS: MAX_KEYWORDS, MAX_TITLE_LINES: MAX_TITLE_LINES,
         fmtOf: fmtOf, layoutOf: layoutOf, allowsContent: allowsContent, geom: geom, pages: pages,
         charsPerLine: charsPerLine, lineCount: lineCount, charLimits: charLimits,

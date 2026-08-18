@@ -4,6 +4,19 @@
  * Dipende da: app.js (appState, getNodeColor, showToast)
  */
 
+/* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+   che la regola del `body` legge. Un documento in finestra propria non carica
+   style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+   Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+   il carattere dell'app (18/8/26). */
+function _fontDoc(id) {
+    try {
+        return (typeof window !== 'undefined' && window.MappAIFont)
+            ? window.MappAIFont.styleDocumento(id) : '';
+    } catch (e) { return ''; }
+}
+
+
 // ── GLOSSARY VIEW ─────────────────────────────────────────────────────────────
 // ── La CORNICE condivisa (mappai-doc-head.js, 11/8/26) ───────────────────────
 function _glDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
@@ -135,7 +148,7 @@ window.openGlossaryView = function () {
     // 5. CSS
     const glStyles = [
         '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }',
-        'body { font-family: "Space Mono", monospace; font-size: 11px; color: #1e293b; margin: 0 auto; padding: 24px 32px; max-width: 800px; }',
+        'body { font-family: var(--doc-font, "Space Mono", monospace); font-size: 11px; color: #1e293b; margin: 0 auto; padding: 24px 32px; max-width: 800px; }',
         // Testata e piè: cornice condivisa (mappai-doc-head.js). Erano quattro
         // regole copiate dal foglio quiz — e senza fondo bianco, unica delle
         // nove testate a non averlo: una divergenza che nessuno aveva deciso.
@@ -165,8 +178,7 @@ window.openGlossaryView = function () {
 
     // 7. Documento finale
     const fullHtml = '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Glossario \u2014 ' + escHtml(mapName) + '</title>' +
-        '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">' +
-        '<style>' + glStyles + '</style></head><body>' +
+        '<style>' + _fontDoc() + glStyles + '</style></head><body>' +
         printBarHtml +
         _glTestata(mapName, now, sortedTerms.length) +
         '<div class="gl-index">' + letterIndex + '</div>' +

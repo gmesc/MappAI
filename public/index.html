@@ -6,11 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title data-i18n="app_title">MappAI — Generatore AI di mappe e grafici di conoscenza</title>
 
-    <!-- Google Fonts: Space Mono -->
+    <!-- I CARATTERI SONO LOCALI (18/8/26). Space Mono arrivava da
+         fonts.googleapis.com: l'app si apre su file://, quindi in aula senza
+         rete cadeva sul monospace di sistema senza dire niente. Ora i file
+         stanno in public/fonts/ e le @font-face le inietta mappai-font.js dal
+         catalogo (mappai-font-core.js), insieme a TestMe e Atkinson.
+         Noto Color Emoji resta dalla CDN: è l'unica via per le emoji a colori
+         su desktop, e senza rete il sistema ha comunque le sue. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-        rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
     <style>:root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }</style>
 
@@ -3239,6 +3243,11 @@
     <script src="js/mappai-generazione.js"></script>
 
     <script src="js/app.js?v=dh28"></script>
+    <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
+         di tutto il resto perché scrive --app-font e inietta le @font-face:
+         ogni modulo che disegna testo trova già il carattere in vigore. -->
+    <script src="js/mappai-font-core.js?v=font1"></script>
+    <script src="js/mappai-font.js?v=font1"></script>
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
@@ -3255,25 +3264,25 @@
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
     <script src="js/mappai-storage-lang.js?v=dh24"></script>
-    <script src="js/mappai-d3-render.js?v=dh34"></script>
-    <script src="js/mappai-ui-canvas.js?v=dh32"></script>
+    <script src="js/mappai-d3-render.js?v=font1"></script>
+    <script src="js/mappai-ui-canvas.js?v=font1"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
     <script src="js/mappai-lenses.js"></script>
     <script src="js/mappai-disciplines.js"></script>
     <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
     <script src="js/mappai-timeline-core.js"></script>
-    <script src="js/mappai-timeline.js?v=dh15"></script>
-    <script src="js/mappai-glossary.js?v=dh10"></script>
+    <script src="js/mappai-timeline.js?v=font1"></script>
+    <script src="js/mappai-glossary.js?v=font1"></script>
     <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
-    <script src="js/mappai-docedit-core.js?v=cm6"></script>
+    <script src="js/mappai-docedit-core.js?v=font1"></script>
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
          (mappai-quiz-print.js) sia i fogli PDF (mappai-print-dossier.js). -->
-    <script src="js/mappai-print-layout.js"></script>
+    <script src="js/mappai-print-layout.js?v=font1"></script>
     <!-- La barra dei documenti stampabili: UNA sola, coi token --mm-doc-* (2/8).
          Era copiata in sei file con tre glifi stampante diversi e le emoji nei
          bottoni. La usano i fogli in finestra e la console dei materiali. -->
-    <script src="js/mappai-doc-bar.js?v=dh10"></script>
+    <script src="js/mappai-doc-bar.js?v=font1"></script>
     <!-- La CORNICE dei documenti stampabili: testata (titolo · classe · materia)
          e piè coi numeri di pagina, in un posto solo (11/8). Era scritta nove
          volte con nove misure diverse. Va PRIMA di tutti i builder che la usano
@@ -3287,8 +3296,8 @@
     <script src="js/mappai-clona-core.js?v=dh10"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
-    <script src="js/mappai-nodesheet-core.js"></script>
-    <script src="js/mappai-quiz-print.js?v=cm4"></script>
+    <script src="js/mappai-nodesheet-core.js?v=font1"></script>
+    <script src="js/mappai-quiz-print.js?v=font1"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
@@ -3297,17 +3306,17 @@
     <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
     <script src="js/mappai-study-export-core.js?v=cm1"></script>
     <!-- Costruttore documento di studio adattato (shell condiviso #3/#4/#5 export HTML→PDF) -->
-    <script src="js/mappai-study-doc.js"></script>
+    <script src="js/mappai-study-doc.js?v=font1"></script>
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
-    <script src="js/mappai-causal-chains.js?v=dh10"></script>
-    <script src="js/mappai-branch-synthesis.js?v=dh21"></script>
+    <script src="js/mappai-causal-chains.js?v=font1"></script>
+    <script src="js/mappai-branch-synthesis.js?v=font1"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
     <script src="js/mappai-studio-layouts.js?v=dh24"></script>
     <script src="js/mappai-studio-draw.js?v=dh30"></script>
-    <script src="js/mappai-studio-view.js?v=dh6"></script>
+    <script src="js/mappai-studio-view.js?v=font1"></script>
     <script src="js/mappai-jigsaw.js"></script>
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>
@@ -3338,7 +3347,7 @@
     <script src="js/mappai-collab-teacher.js"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
     <script src="js/mappai-live-core.js"></script>
-    <script src="js/mappai-live-reports.js"></script>
+    <script src="js/mappai-live-reports.js?v=font1"></script>
     <script src="js/mappai-live-classes.js"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
@@ -3348,7 +3357,7 @@
     <script src="js/mappai-timeline-teacher.js"></script>
     <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
     <script src="js/mappai-tutor-core.js"></script>
-    <script src="js/mappai-tutor-reports.js"></script>
+    <script src="js/mappai-tutor-reports.js?v=font1"></script>
     <script src="js/mappai-tutor-teacher.js"></script>
     <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
     <script src="js/mappai-teach-core.js?v=dh21"></script>
@@ -3377,7 +3386,7 @@
          accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
     <script src="js/mappai-elabora.js?v=man2"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
-    <script src="js/mappai-doc-editor.js?v=cm16"></script>
+    <script src="js/mappai-doc-editor.js?v=font1"></script>
     <!-- ELABORA come CONSOLE (colonna dei documenti + area full-bleed con
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
@@ -3392,7 +3401,7 @@
     <script src="js/mappai-costruisci-manifesto.js?v=oq10"></script>
     <script src="js/mappai-usage-core.js?v=dh12"></script>
     <script src="js/mappai-usage-tracker.js"></script>
-    <script src="js/mappai-usage-dashboard.js?v=man2"></script>
+    <script src="js/mappai-usage-dashboard.js?v=font1"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
     <script src="js/mappai-mastery-view.js"></script>
@@ -3415,7 +3424,7 @@
     <script src="js/mappai-errori.js?v=dh23"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=dh24"></script>
+    <script src="js/mappai-cabina.js?v=font1"></script>
     <script src="js/mappai-search-finder.js"></script>
     <script src="js/mappai-vault-manager.js?v=dh18"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>
@@ -3424,7 +3433,7 @@
     <script src="js/mappai-mm-extraction.js"></script>
     <script src="js/mappai-vault-io.js?v=dh20"></script>
     <script src="js/mappai-merge-validate.js?v=dh15"></script>
-    <script src="js/mappai-print-dossier.js?v=dh12"></script>
+    <script src="js/mappai-print-dossier.js?v=font1"></script>
     <script src="js/mappai-context-menu.js?v=dh26"></script>
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=dh15"></script>
@@ -3477,7 +3486,11 @@
         <i data-lucide="eye"></i>
     </button>
 
-    <!-- A11y Panel per OpenDyslexic (Global) -->
+    <!-- Strumenti compensativi. ⚠️ Il bottone «Font OpenDyslexic» è uscito il
+         18/8: il carattere dell'app si sceglie in Cabina › Aspetto e leggibilità,
+         dove ce ne sono quattro invece di due, e valgono anche per i materiali
+         generati. Due comandi per la stessa domanda divergono al primo uso
+         (invariante 21). -->
     <div id="a11y-panel" class="a11y-panel hidden-panel">
         <button onclick="document.documentElement.classList.toggle('a11y-invert'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
@@ -3491,8 +3504,6 @@
             class="btn_a11y_tool"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
         <button id="btn-line-height" onclick="window.cycleLineHeight()" class="btn_a11y_tool"><i
                 data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
-        <button onclick="window.toggleDyslexicFont(); this.classList.toggle('active')" class="btn_a11y_tool"><i
-                data-lucide="type" class="w-4 h-4"></i> Font OpenDyslexic</button>
         <button
             onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
             class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>

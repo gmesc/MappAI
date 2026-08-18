@@ -2,30 +2,11 @@
        MappAI – Design System: Luminous & Clean
        ========================================== */
 
-/* OpenDyslexic Font */
-@font-face {
-    font-family: 'OpenDyslexic';
-    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'OpenDyslexic';
-    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'OpenDyslexic';
-    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Italic.woff') format('woff');
-    font-weight: 400;
-    font-style: italic;
-    font-display: swap;
-}
+/* I caratteri NON stanno più qui: il catalogo è in mappai-font-core.js e le
+   @font-face le inietta mappai-font.js al boot, coi file locali di public/fonts/.
+   (18/8/26 — OpenDyslexic è in pensione: arrivava da una CDN, quindi in aula
+   senza rete non c'era, e il suo bottone era un secondo comando per la stessa
+   domanda a cui risponde ora la Cabina. Al suo posto TestMe e Atkinson.) */
 
 /* ==========================================
            0. FONT GLOBALE + TOGGLE
@@ -42,17 +23,19 @@ html {
 }
 
 * {
-    /* Space Mono per il testo; le emoji cadono su Noto Color Emoji (Android)
-       PRIMA di monospace/sistema — regola globale emoji Android di MappAI. */
-    font-family: 'Space Mono', var(--emoji-font), monospace !important;
+    /* IL carattere dell'app, in un posto solo. --app-font la scrive
+       mappai-font.js dalla scelta in Cabina; il valore qui sotto è il default
+       (Space Mono) e vale anche prima che il JS giri, così la pagina non
+       lampeggia in un carattere di sistema.
+       Le emoji stanno DENTRO lo stack, non solo dichiarate in una variabile:
+       prendono il glifo dal PRIMO carattere che ce l'ha, e senza Noto qui
+       macOS serve le sue (bug già pagato in MappAI). */
+    font-family: var(--app-font, 'Space Mono', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', monospace) !important;
 }
 
-body.font-dyslexic *:not(button):not(button *):not(.source-type-btn):not(.source-type-btn *):not(.mode-btn):not(.mode-btn *):not(.generate-btn):not(.generate-btn *):not(#projects-bar):not(#projects-bar *):not(#insegnai-drawer):not(#insegnai-drawer *) {
-    font-family: 'OpenDyslexic', var(--emoji-font), sans-serif !important;
-    line-height: 1.65 !important;
-}
-
-html.font-dyslexic {}
+/* (la regola body.font-dyslexic è uscita col carattere che applicava: il
+   carattere dell'app si cambia dalla Cabina e vale per tutto, senza eccezioni
+   scritte a mano su bottoni e cassetti) */
 
 .tts-button {
     display: flex;
@@ -484,7 +467,7 @@ body.a11y-zoom-x2 {
     gap: 8px !important;
     font-size: 18px !important;
     font-weight: 500 !important;
-    font-family: 'Space Mono', system-ui, -apple-system;
+    font-family: var(--app-font, 'Space Mono', monospace);
     background-color: #eeeeee !important;
     color: #334155 !important;
     cursor: pointer !important;
@@ -1021,17 +1004,19 @@ html.a11y-grayscale {
     white-space: normal !important;
 }
 
-.font-dyslexic #source-modal-content-box {
-    max-width: 75vw !important;
-    max-height: 95vh !important;
-}
-
-/* Hyphenation for Modals in SpaceMono mode */
-body:not(.font-dyslexic) .modal-scroll,
-body:not(.font-dyslexic) .ai-result-content,
-body:not(.font-dyslexic) .rich-desc,
-body:not(.font-dyslexic) #source-modal-body,
-body:not(.font-dyslexic) #ai-modal-body {
+/* La sillabazione automatica vale SOLO col carattere monospazio.
+   ⚠️ Questa regola c'era già, scritta come `body:not(.font-dyslexic)`, e non
+   era un residuo: era una decisione: un carattere scelto per leggere meglio
+   non deve spezzare le parole, perché chi ha una difficoltà di lettura
+   riconosce la FORMA della parola intera. Sparita la classe, il selettore
+   sarebbe stato sempre vero e la sillabazione sarebbe tornata anche su TestMe
+   e Atkinson, in silenzio. Ora la condizione la porta il carattere in vigore
+   (`data-font`, scritto da mappai-font.js). */
+html[data-font="space-mono"] .modal-scroll,
+html[data-font="space-mono"] .ai-result-content,
+html[data-font="space-mono"] .rich-desc,
+html[data-font="space-mono"] #source-modal-body,
+html[data-font="space-mono"] #ai-modal-body {
     -webkit-hyphens: auto !important;
     -ms-hyphens: auto !important;
     hyphens: auto !important;

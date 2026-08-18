@@ -13,6 +13,19 @@
 (function () {
   'use strict';
 
+    /* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+       che la regola del `body` legge. Un documento in finestra propria non carica
+       style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+       Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+       il carattere dell'app (18/8/26). */
+    function _fontDoc(id) {
+        try {
+            return (typeof window !== 'undefined' && window.MappAIFont)
+                ? window.MappAIFont.styleDocumento(id) : '';
+        } catch (e) { return ''; }
+    }
+
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -20,7 +33,7 @@
 
   var BASE_STYLES = [
     "*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;box-sizing:border-box}",
-    "body{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:#0f172a;margin:0 auto;padding:24px 28px;max-width:900px;background:#f8fafc}",
+    "body{font-family:var(--doc-font, 'Space Mono', ui-monospace, monospace);font-size:12px;color:#0f172a;margin:0 auto;padding:24px 28px;max-width:900px;background:#f8fafc}",
     ".tr-header{text-align:center;padding:24px 16px 18px;background:#fff;border-radius:16px;margin-bottom:22px;border-bottom:3px solid #4f46e5;page-break-after:avoid}",
     ".tr-title{font-size:20px;font-weight:900;color:#0f172a}",
     ".tr-sub{font-size:11px;color:#64748b;margin-top:6px;line-height:1.6}",
@@ -82,7 +95,7 @@
     return '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>Chatta e Scrivi — ' + esc(s.name || '') + '</title>' +
-      '<style>' + BASE_STYLES + '</style></head><body>' +
+      '<style>' + _fontDoc() + BASE_STYLES + '</style></head><body>' +
       '<div class="tr-noprint"><button onclick="window.print()">Stampa / Salva PDF</button></div>' +
       '<div class="tr-header"><div class="tr-title">Chatta e Scrivi — ' + esc(s.name || '') + '</div>' +
       '<div class="tr-sub">' + esc(s.writingBrief || '') + '</div>' +

@@ -87,6 +87,21 @@
     }
     function zoomReset() { _saveZoom(1); _paintZoom(); }
 
+    /** Il carattere di QUESTO documento. '' = torna a quello della Cabina.
+     *  ⚠️ A differenza dello zoom, questo È una modifica del documento: si
+     *  segna «da salvare» e finisce nella sorgente, perché è ciò che uscirà
+     *  dalla stampante anche fra un mese. */
+    function setFont(id) {
+        if (!_doc) return;
+        const C = window.MappAIFontCore;
+        const val = (C && C.valido(id)) ? id : '';
+        if ((_doc.font || '') === val) return;
+        _doc.font = val;
+        _dirty = true;
+        render();
+    }
+
+
     /** Applica la dimensione senza ridisegnare (un re-render sposterebbe il cursore). */
     function _paintZoom() {
         const host = _host(); if (!host) return;
@@ -557,7 +572,7 @@
     }
 
     function _ccChains() { return CC().chainsFromDoc(_cc); }
-    function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName()); }
+    function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName(), (_doc && _doc.font) || ''); }
 
     async function _saveCausal() {
         const s = _appState();
@@ -777,7 +792,8 @@
             fmt: _sheet.fmt,
             bg: _sheet.bg,
             causal: false,
-            tuned: false
+            tuned: false,
+            font: (_doc && _doc.font) || ''
         }, extra || {});
     }
     async function _printNodeSheet(nome) {
@@ -1104,7 +1120,8 @@
         const s = _appState();
         return window.buildOpenQuestionsHtml(
             { id: _doc.id, title: _doc.title, type: 'Domande aperte', items: _doc.items },
-            { mapName: (s && s.rootNodeLabel) || '', includeBar: false, includeAnswers: includeAnswers !== false });
+            { mapName: (s && s.rootNodeLabel) || '', includeBar: false, includeAnswers: includeAnswers !== false,
+              font: (_doc && _doc.font) || '' });
     }
 
     /* ⚠️ In ELECTRON `confirm()` è un dialog NATIVO del main process e BLOCCA
@@ -1279,7 +1296,8 @@
         const audio = (!stale && _syn.vaultAudio) ? _syn.vaultAudio : null;
         return {
             data: data,
-            text: BS.buildPrintHtml(data, audio || {}),
+            /* il carattere del documento viaggia con la resa (18/8) */
+            text: BS.buildPrintHtml(data, Object.assign({ font: (_doc && _doc.font) || '' }, audio || {})),
             audioPerso: !!(_syn.vaultAudio && !audio)
         };
     }
@@ -1742,7 +1760,10 @@
     // (la barra è no-print a schermo, ma nel PDF via printToPDF resterebbe).
     function _quizHtml(includeAnswers, includeBar) {
         const set = DE().applyToSet(_srcSet || { id: _doc.id, title: _doc.title }, _doc);
-        const opts = { includeAnswers: includeAnswers !== false, includeBar: includeBar !== false };
+        /* `font` viaggia col documento fino alla RESA: il foglio stampato e il
+           PDF escono nel carattere scelto qui, non in quello dell'app. */
+        const opts = { includeAnswers: includeAnswers !== false, includeBar: includeBar !== false,
+                       font: (_doc && _doc.font) || '' };
         return (_kind === 'flashcards')
             ? window.buildFlashcardSetHtml(set, opts)
             : window.buildQuizSetHtml(set, opts);
@@ -2371,7 +2392,14 @@
             : (_kind === 'nodesheet') ? _nodeSheet()
             : (_kind === 'causal') ? _causalSheet()
             : (_kind === 'openq') ? _openqSheet() : _quizSheet();
-        return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap">' + sheet + '</div></div>';
+        /* L'anteprima mostra il carattere del documento, non quello dell'app:
+           si sceglie guardando il foglio che uscirà, non un campione. La
+           variabile la legge la regola di .de-sheet; senza scelta resta vuota e
+           il foglio segue la Cabina come tutto il resto. */
+        const fdoc = (_doc && _doc.font && window.MappAIFontCore)
+            ? ' de-fontdoc" style="--doc-font:' + window.MappAIFontCore.stackDi(_doc.font) + '"'
+            : '"';
+        return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap' + fdoc + '>' + sheet + '</div></div>';
     }
 
     /* Chi ospita l'editor in questo momento: la console di ELABORA o il
@@ -2406,6 +2434,7 @@
             '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>' +
             (isSyn ? _styleBar() : '') +
             '<div class="de-spacer"></div>' +
+            _fontBar() +
             _zoomBar() +
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
             /* «Voce» = registra la voce naturale (Google) su QUESTA sintesi,
@@ -2455,6 +2484,31 @@
      * e riporta a 100. Il titolo dice a chiare lettere che la stampa non cambia:
      * senza, ingrandire sembra «ci sta più testo nella card».
      */
+    /* IL CARATTERE DI QUESTO DOCUMENTO (18/8/26).
+       Sta accanto alla dimensione dell'anteprima perché risponde alla stessa
+       domanda — «come si legge questo foglio» — ma con una differenza che va
+       detta: lo zoom è solo a schermo, il carattere finisce nella STAMPA e nel
+       PDF. È scritto nel titolo del comando.
+
+       La prima voce è «Come l'app»: non è un carattere, è la rinuncia a
+       sceglierne uno. Senza, per tornare alla Cabina bisognerebbe indovinare
+       quale delle quattro voci sia quella attiva là. */
+    function _fontBar() {
+        const C = window.MappAIFontCore;
+        if (!C || !window.MappAIFont || !window.MappAIFont.accesa()) return '';
+        const scelto = (_doc && _doc.font) || '';
+        const dellApp = C.font(window.MappAIFont.attivo()).etichetta;
+        let o = '<option value=""' + (scelto ? '' : ' selected') + '>' +
+            esc(t('de_font_app', 'Come l’app')) + ' · ' + esc(dellApp) + '</option>';
+        C.elenco().forEach(function (f) {
+            o += '<option value="' + esc(f.id) + '"' + (scelto === f.id ? ' selected' : '') + '>' +
+                esc(f.etichetta) + '</option>';
+        });
+        return '<select class="de-ns-sel de-font" onchange="MappAIDocEditor.setFont(this.value)" title="' +
+            esc(t('de_font_tip', 'Il carattere di QUESTO documento. A differenza della dimensione dell’anteprima, finisce anche nel foglio stampato e nel PDF.')) +
+            '" aria-label="' + esc(t('de_font_lbl', 'Carattere del documento')) + '">' + o + '</select>';
+    }
+
     function _zoomBar() {
         const z = _zoom();
         const tip = esc(t('de_zoom_tip', 'Quanto è grande il foglio a schermo. Non cambia nulla di quello che esce dalla stampante.'));
@@ -3326,7 +3380,17 @@ ${_deCornice()}
 .de-sheet { --de-max:800px; --de-zoom:1; --de-user:1;
             zoom:calc(var(--de-zoom) * var(--de-user));
             width:100%; max-width:min(var(--de-max), 100%); margin:0 auto;
-            font-family:'Space Mono',var(--emoji-font),monospace; color:#1e293b; }
+            font-family:var(--doc-font, var(--app-font, 'Space Mono', var(--emoji-font), monospace)); color:#1e293b; }
+/* ⚠️ Il carattere del DOCUMENTO nell'anteprima ha bisogno di !important e di
+   specificità: style.css porta una regola sull'universale con font-family
+   var(--app-font) !important, che batte qualunque regola di modulo non-important
+   — compresa quella qui sopra (misurato: il foglio restava in Space Mono con
+   Atkinson già scelto). Una classe in più basta a superarla, e la regola vale
+   solo quando una scelta c'è davvero: senza .de-fontdoc il foglio segue la
+   Cabina come tutto il resto.
+   (E niente apici inversi in questo commento: siamo dentro un template literal,
+   dove chiuderebbero la stringa — trappola nota, ottava volta.) */
+.de-fontdoc .de-sheet, .de-fontdoc .de-sheet * { font-family:var(--doc-font) !important; }
 /* Stesse misure della cornice condivisa (mappai-doc-head.js): l'anteprima
    non può essere impaginata diversamente dal foglio che descrive. */
 .de-sheet-head { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid #4f46e5; }
@@ -3717,7 +3781,7 @@ ${_deCornice()}
         addOption: addOption, delOption: delOption, setCorrect: setCorrect,
         addBlock: addBlock, delBlock: delBlock, moveBlock: moveBlock,
         blockMenu: blockMenu, blockAddMenu: blockAddMenu, setBlockTag: setBlockTag,
-        zoomStep: zoomStep, zoomReset: zoomReset,
+        zoomStep: zoomStep, zoomReset: zoomReset, setFont: setFont,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
         voceNaturale: voceNaturale,

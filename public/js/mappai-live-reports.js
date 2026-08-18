@@ -103,7 +103,7 @@
     return '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<title>' + esc(title) + '</title>' +
-      '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">' +
       '<style>' + BASE_STYLES + '</style></head><body>' +
       (perPdf ? '' : printBar(label)) + bodyHtml +
       '<div class="lr-footer">MappAI Live · generato il ' + esc(nowStr()) + '</div>' +

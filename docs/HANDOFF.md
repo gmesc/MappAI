@@ -4,8 +4,13 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **18 agosto 2026**. La giornata in una riga: **il PDF della mappa
-> torna VETTORIALE** — il ripiego raster non scatta più (debito §4 7-bis, chiuso).
+> Ultimo allineamento: **18 agosto 2026, sera**. La giornata in una riga: **il CARATTERE
+> si sceglie** — quattro caratteri (Space Mono · TestMe Sans · TestMe Alt · Atkinson
+> Hyperlegible), uno per l'app dalla Cabina e uno per il singolo documento in ELABORA; e
+> **tutti i caratteri sono locali**, mentre fino a stamattina perfino Space Mono arrivava
+> da una CDN in nove documenti stampabili. OpenDyslexic in pensione.
+> Prima, in giornata: **il PDF della mappa torna VETTORIALE** — il ripiego raster non
+> scatta più (debito §4 7-bis, chiuso).
 > Prima: **17 agosto 2026, sera**. La giornata in una riga: **la VOCE della
 > sintesi diventa usabile** (si registra anche dopo, scrive la copia parlante, si può
 > annullare, dice quanto costa prima e riprende il giorno dopo dai blocchi mancanti), i
@@ -132,12 +137,70 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
 | `mappai_tts_model` | assente = `gemini-2.5-flash-preview-tts` | il modello della voce naturale |
+| `mappai_font_selettore` | acceso | il **carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte: esattamente com'era prima della feature |
+| `mappai_font_app` | assente = Space Mono | il carattere dell'app, scritto da Cabina › Aspetto e leggibilità. Vale per l'interfaccia, le mappe e tutto ciò che l'app genera |
 | `mappai_tts_model_alt` | assente = `gemini-3.1-flash-tts-preview` | il modello di **ripiego** per i blocchi che il primo rifiuta (i titoli di una parola sola). `''` spegne il ripiego: quei blocchi restano muti |
 | `mappai_errori_recenti` | scritto dall'uso | la copia in `localStorage` degli ultimi 50 errori: serve dove non c'è il disco (browser) e a mostrarli subito. La fonte resta il file |
 
 ---
 
 ## 3. Le superfici, oggi
+
+### Il carattere — Cabina › Aspetto e leggibilità (18/8)
+Quattro caratteri, tutti **dentro l'app** (`public/fonts/`, licenza OFL):
+**Space Mono** (default, monospazio) · **TestMe Sans** e **TestMe Alt** (Perondi/Romei,
+la seconda con le lettere-specchio disegnate diverse) · **Atkinson Hyperlegible**
+(Braille Institute, l'unico dei nuovi con un corsivo vero).
+
+**Due scelte, una regola.** La Cabina decide il carattere dell'**app** e di tutto ciò che
+l'app **genera** — interfaccia, mappe sul canvas, quiz, flashcard, sintesi, fogli
+stampabili, PDF. In ELABORA il selettore accanto alla dimensione dell'anteprima decide il
+carattere di **quel documento**, che vince solo lì e viaggia con la sua **sorgente**
+(campo `font`, invariante 18): riaprendolo lo ritrovi, e finisce nel foglio stampato e nel
+PDF. La prima voce del selettore è «Come l'app», che non è un carattere: è la rinuncia a
+sceglierne uno.
+
+- **Catalogo**: `mappai-font-core.js` (puro, testato) — un carattere nuovo è una riga lì.
+  `mappai-font.js` applica: scrive `--app-font`, inietta le `@font-face`, annuncia le
+  metriche a chi impagina, registra il font in jsPDF **a richiesta** (i moduli base64
+  pesano ~200 KB l'uno e servono solo a chi esporta).
+- **Una leva sola per l'interfaccia**: la regola `*` di `style.css` legge `--app-font`.
+  ⚠️ E porta `!important`, quindi **vince già** su classi, shorthand `font:`, stile inline
+  e attributi SVG — misurato. Le ~50 conversioni che sembravano necessarie non lo erano;
+  scappano al token solo le regole con un `!important` proprio e i documenti in finestra
+  propria (che usano `MappAIFont.styleDocumento`, cioè `--doc-font` + le facce dentro).
+- **Le metriche del foglio arrivano da fuori** (`PL.setFontMetrics` / `NS.setFontMetrics`):
+  quei moduli sono puri e girano in Node, non possono leggere `window`. Senza l'annuncio
+  non si romperebbe niente di visibile — i caratteri nuovi sono più STRETTI di Space Mono —
+  ma il foglio riserverebbe il 38% di spazio in più del necessario e il motore
+  rimpicciolirebbe il corpo per farcelo stare: su un carattere scelto per leggere meglio,
+  il risultato rovesciato (misurato sul foglio dei nodi: 30 caratteri per riga contro 38).
+- ⚠️ **`headAdvance` si DICHIARA, non si somma.** Il foglio faceva
+  `headAdvance = advance + headLetterSpacing`: con Space Mono regge perché è monospazio,
+  sui proporzionali la somma dà 0,56 dove ne servono 0,71 — le testate (maiuscole *e*
+  spaziate) sborderebbero del 27%. C'è il test.
+- ⚠️ **TestMe è OTF (curve `CFF `), jsPDF legge solo `glyf`.**
+  `tools/font/prepara-font.py` converte con cu2qu e **verifica che nessun advance cambi**
+  (se cambiassero, l'impaginazione calcolata non varrebbe più). Ripartire dagli `.otf`
+  originali farebbe ricadere l'export in Helvetica **in silenzio**.
+- **OpenDyslexic è in pensione**: arrivava da una CDN (quindi in aula senza rete non
+  c'era) e il suo bottone nella barra a11y era un secondo comando per la stessa domanda
+  (invariante 21). Via la funzione, il bottone, le `@font-face` e la classe.
+  Le due cose che quella classe governava **non** sono morte con lei e sono state
+  riscritte a chiare lettere (trappola 32): la **sillabazione** resta spenta fuori dal
+  monospazio (`html[data-font="space-mono"]`), e gli **strumenti di lettura nella scheda**
+  compaiono quando il carattere dell'app non è quello di default.
+- **Prova**: `public/dev/banco-font.html` (servendo `public/`) dice `arrivato: sì/NO` per
+  ciascuno misurando la larghezza del testo reso — un file che non arriva non dà errore,
+  il browser ripiega in silenzio.
+
+📌 **Difetto vecchio chiuso strada facendo**: **nove** costruttori di documenti prendevano
+Space Mono da `fonts.googleapis.com` (quiz ×3, sintesi, catena, documento di studio,
+glossario, dossier, timeline), e `index.html` faceva lo stesso per l'intera app. Un foglio
+stampato in aula senza collegamento perdeva la sua veste, senza dirlo. Ora nessun
+carattere di testo passa dalla rete; resta la sola CDN di Noto Color Emoji, che su desktop
+non ha alternativa.
+
 
 ### Il motore dei modali — in produzione
 `MappAIModal.open(schema)` → Promise · `render(schema)` → nodo · `conferma/avviso/chiedi` ·
@@ -1078,6 +1141,16 @@ e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa s
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
+0-ter. ⏳ **I caratteri non viaggiano fuori da questo computer (18/8).** Le `@font-face`
+   di un documento puntano ai file in `public/fonts/` con un URL locale: perfetto per la
+   stampa e per il PDF (dove il carattere finisce incorporato), inutile per un documento
+   **condiviso via QR** e aperto dal telefono di un allievo, che cadrà sul carattere di
+   sistema. La cura è incorporare il carattere in base64 dentro quell'HTML
+   (`MappAIFont.perPdf` ha già i byte): +150-200 KB a documento, che su LAN non sono
+   niente. Non fatto perché è una decisione di prodotto — vale la pena su TUTTI i
+   documenti condivisi, o solo su quelli con un carattere scelto apposta?
+   ⚠️ E il carattere è proprio la cosa che a un allievo dislessico serviva di più.
+
 0-bis. ✅ **RISOLTO (15/8 sera): aprire una mappa dal disco ADOTTA la sua identità.**
    `directLoadVault`/`loadMapVault` non toccavano mai `currentProjectId`: il salvataggio
    scriveva la mappa nuova nella scheda della PRECEDENTE (trovata una voce «2.1 PROJECT E»
@@ -1328,6 +1401,34 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 ---
 
 ## 5. Provato in Electron — che cosa è acquisito
+
+### ⏳ DA PROVARE IN ELECTRON — il carattere (18/8 sera)
+Tutto quello che segue è stato misurato nel **pannello browser** (server statico,
+licensing tolto lato-DOM) e nei test puri, mai nell'app vera. Le prime tre righe sono
+quelle che possono nascondere una sorpresa: là fuori il protocollo è `file://`, non
+`http://`.
+
+1. **I caratteri arrivano su `file://`.** È il punto: le `@font-face` puntano ai file con
+   un URL ricavato da dove sta `mappai-font.js`. Se qualcosa non torna, il sintomo NON è
+   un errore — è l'app che si apre in un monospace di sistema. Prova rapida: Cabina ›
+   Aspetto e leggibilità, scegliere Atkinson, e vedere se la Cabina stessa cambia.
+2. **Senza rete.** Staccare il Wi-Fi e riaprire l'app: il carattere deve esserci lo
+   stesso (prima di oggi non era vero nemmeno per Space Mono).
+3. **Il PDF della mappa.** Esportare con un carattere diverso da Space Mono e controllare
+   con `pdffonts` che il font incorporato sia quello scelto e non Helvetica — il ripiego
+   qui è silenzioso ed è già costato un mese una volta.
+4. **Un foglio di quiz e un foglio dei nodi stampati davvero**, nei quattro caratteri:
+   guardare se il testo esce dalle carte. È la parte tarata sulle metriche misurate, e la
+   carta è l'unico giudice.
+5. **In ELABORA**: aprire un documento, scegliergli un carattere, salvare, chiudere e
+   riaprire — deve ritrovarlo; «Crea PDF» e «Stampa» devono uscire in quel carattere
+   mentre il resto dell'app resta nel suo.
+6. **Un documento condiviso via QR aperto dal telefono**: lì i caratteri NON viaggiano
+   (le facce puntano a file di questo computer). Da decidere se incorporarli — vedi il
+   debito in §4.
+7. **Lo switch EN** sulla vista nuova della Cabina, e il kill-switch
+   `mappai_font_selettore='0'` → tutto come prima.
+
 
 > **Aggiornato il 17 agosto 2026, sera.** Tutto il lavoro del 17/8 è stato provato
 > nell'app vera via CDP mentre lo si scriveva — il registro di quel giorno è in coda a

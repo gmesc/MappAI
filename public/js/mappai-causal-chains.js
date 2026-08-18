@@ -1,4 +1,17 @@
 'use strict';
+
+    /* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+       che la regola del `body` legge. Un documento in finestra propria non carica
+       style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+       Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+       il carattere dell'app (18/8/26). */
+    function _fontDoc(id) {
+        try {
+            return (typeof window !== 'undefined' && window.MappAIFont)
+                ? window.MappAIFont.styleDocumento(id) : '';
+        } catch (e) { return ''; }
+    }
+
 /*
  * mappai-causal-chains.js — «Catena dei perché»: superfici UI sopra mappai-causal-core.js.
  *
@@ -138,7 +151,7 @@
             '<span class="cc-side">' + _esc(b) + '</span></div>' + badge + '</div>';
     }
 
-    function _docHtml(chains, mapName) {
+    function _docHtml(chains, mapName, fontId) {
         const fams = ['trasformazione', 'dipendenza', 'sequenza', 'opposizione'];
         const legend = fams.map(f => {
             const fm = _famMeta(f);
@@ -169,10 +182,9 @@
         const now = _ccDH() ? _ccDH().data(new Date()) : new Date().toLocaleDateString('it-IT');
         return '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">' +
             '<title>' + _esc(t('cc_doc_title', 'Catena dei perché')) + ' — ' + _esc(mapName) + '</title>' +
-            '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">' +
-            '<style>' +
+            '<style>' + _fontDoc(fontId) +
             '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
-            "body{font-family:'Space Mono',monospace;font-size:12px;color:#1e293b;margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
+            "body{font-family:var(--doc-font, 'Space Mono', monospace);font-size:12px;color:#1e293b;margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
             /* Testata e piè: cornice condivisa (mappai-doc-head.js). Erano due
                regole copiate dal foglio quiz, con misure loro. */
             _ccCornice(mapName) +

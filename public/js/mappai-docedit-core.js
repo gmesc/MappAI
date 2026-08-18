@@ -129,6 +129,10 @@
             // Forma di storage da rispettare al ritorno: i quiz per nodo/ramo usano
             // a1/a2/a3 + correct numerico e il player in-app legge QUELLI.
             shape: shapeOfItems(set.items),
+            /* Il CARATTERE di questo documento (18/8/26). Sta nella SORGENTE,
+               non nella resa: si sceglie una volta e lo ritrovi riaprendo, e
+               finisce nel foglio stampato e nel PDF. '' = comanda la Cabina. */
+            font: _s(set.font || ''),
             items: items,
             rev: 0
         };
@@ -162,6 +166,10 @@
         var shape = (doc && doc.shape) || shapeOfItems(out.items);
         out.items = ((doc && doc.items) || []).map(function (it) { return denormItem(it, kind, shape); });
         if (doc && doc.title) out.title = doc.title;
+        /* Anche quando è '': se il docente TOGLIE il carattere del documento
+           per tornare a quello dell'app, la scelta va scritta — altrimenti
+           resterebbe quella di prima e sembrerebbe che il comando non funzioni. */
+        if (doc && 'font' in doc) out.font = _s(doc.font);
         out.editedAt = (doc && doc.editedAt) || null;
         return out;
     }

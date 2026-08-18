@@ -9,6 +9,21 @@
  * quiz edita gli item, mai questo HTML.
  */
 
+/* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+   che la regola del `body` legge. Un documento in finestra propria non carica
+   style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+   Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+   il carattere dell'app (18/8/26).
+   ⚠️ Sostituisce il <link> a fonts.googleapis.com che stava qui: un foglio
+   stampato in aula senza rete perdeva il suo carattere, in silenzio. */
+function _fontDoc(id) {
+    try {
+        return (typeof window !== 'undefined' && window.MappAIFont)
+            ? window.MappAIFont.styleDocumento(id) : '';
+    } catch (e) { return ''; }
+}
+
+
 function escHtmlQP(s) {
     return String(s || '')
         .replace(/&/g, '&amp;')
@@ -37,7 +52,7 @@ const QP_PAGE_STYLES = `
 * { -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important; }
 body {
-    font-family: 'Space Mono', monospace;
+    font-family: var(--doc-font, 'Space Mono', monospace);
     font-size: 11px;
     color: #1e293b;
     margin: 0 auto;
@@ -320,9 +335,8 @@ window.buildQuizSetHtml = function (set, opts) {
 <head>
     <meta charset="UTF-8">
     <title>Quiz — ${escHtmlQP(set.title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
-          rel="stylesheet">
     <style>
+        ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
         body { font-size: 13px; }
@@ -482,9 +496,8 @@ window.buildOpenQuestionsHtml = function (set, opts) {
 <head>
     <meta charset="UTF-8">
     <title>Domande aperte — ${escHtmlQP(set.title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
-          rel="stylesheet">
     <style>
+        ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
         body { font-size: 13px; }
@@ -648,9 +661,8 @@ window.buildFlashcardSetHtml = function (set, opts) {
 <head>
     <meta charset="UTF-8">
     <title>Flashcard — ${escHtmlQP(set.title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
-          rel="stylesheet">
     <style>
+        ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         /* ── CHROME DI SCHERMO DEL FOGLIO FLASHCARD (scorporato l'11/8/26) ──
            Testata, badge e piè di questo foglio vivono SOLO a schermo (stanno

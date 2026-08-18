@@ -357,8 +357,12 @@ window.printAllNodeLabels = async function (opts) {
 
     let fontName = "courier";
     try {
-        // Font VENDORIZZATO (public/js/vendor/spacemono-font.js) → offline, zero fetch.
-        if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
+        // Il carattere dell'app, vendorizzato → offline, zero fetch.
+        const _fn = (window.MappAIFont && window.MappAIFont.registraIn)
+            ? await window.MappAIFont.registraIn(doc) : null;
+        if (_fn) {
+            fontName = _fn;
+        } else if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
             fontName = "Space Mono";
         } else {
             // Fallback storico: scarica da GitHub se il modulo non è caricato.
@@ -638,6 +642,21 @@ window.printAllNodeLabels = async function (opts) {
            La forma è quella della PIPELINE (`{mappa, dettaglio}`), non una
            seconda: due compositori dello stesso nome divergono al primo ritocco
            (invariante 6) — ed è già successo con le copie, il 11/8. */
+
+/* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+   che la regola del `body` legge. Un documento in finestra propria non carica
+   style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+   Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+   il carattere dell'app (18/8/26).
+   ⚠️ Sostituisce il <link> a fonts.googleapis.com che stava qui: un foglio
+   stampato in aula senza rete perdeva il suo carattere, in silenzio. */
+function _fontDoc(id) {
+    try {
+        return (typeof window !== 'undefined' && window.MappAIFont)
+            ? window.MappAIFont.styleDocumento(id) : '';
+    } catch (e) { return ''; }
+}
+
         var pipeName = (window.MappAIPipelineCore && window.MappAIPipelineCore.buildFileName)
             ? window.MappAIPipelineCore.buildFileName('nodesheet', null, tuned,
                 { mappa: projectTitle, dettaglio: layoutName })
@@ -745,10 +764,20 @@ window.printFlashcardSheet = async function (opts) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: G.landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
 
+    /* Il CARATTERE DELL'APP (o quello del documento, se ne ha uno suo).
+       ⚠️ Il ripiego resta `courier` ed è una scelta: è monospazio come Space
+       Mono, quindi se la registrazione fallisce l'impaginazione già calcolata
+       continua a valere. Con un carattere proporzionale scelto in Cabina,
+       invece, le misure vengono dal catalogo — e se il file non si registra il
+       testo esce più stretto del previsto, non più largo: verso sicuro. */
     let fontName = 'courier';
     try {
-        if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) fontName = 'Space Mono';
-    } catch (e) { /* fallback courier: anche lui monospazio, quindi il calcolo tiene */ }
+        if (window.MappAIFont && window.MappAIFont.registraIn) {
+            fontName = (await window.MappAIFont.registraIn(doc, opts.font)) || fontName;
+        } else if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) {
+            fontName = 'Space Mono';
+        }
+    } catch (e) { /* ripiego monospazio: il calcolo tiene */ }
 
     // ── utilità di disegno ───────────────────────────────────────────────────
     function rgb(hex) {
@@ -2002,8 +2031,8 @@ window.generateDossierPDFFromOptions = async function () {
         <html>
         <head>
             <title>${_dsNomeFile(projectTitle, dossierSubtitle, isMM)}</title>
-            <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
             <style>
+                ${_fontDoc()}
                 ${_dsCornice()}
                 :root {
                     /* --- MODIFICHE GLOBALI DI LAYOUT (Variabili CSS) --- */
@@ -2011,7 +2040,10 @@ window.generateDossierPDFFromOptions = async function () {
 
                     /* TIPOGRAFIA — fattore scala ${fontScale} applicato in automatico */
                     --pdf-scale: ${fontScale};
-                    --pdf-font-family: 'Space Mono', monospace; /* Cambia qui il font del dossier */
+                    /* Il carattere lo decide la Cabina (o il documento): --doc-font
+                       arriva da _fontDoc() qui sopra. Il ripiego serve solo a un
+                       file HTML riaperto dove quel blocco non c'è. */
+                    --pdf-font-family: var(--doc-font, 'Space Mono', monospace);
                     --pdf-base-font-size: calc(13px * ${fontScale}); /* Dimensione testo normale */
                     --pdf-title-font-size: calc(17px * ${fontScale}); /* Dimensione titolo principale */
                     --pdf-section-title-size: calc(9.5px * ${fontScale}); /* Dimensione titoli sezioni */
@@ -2082,7 +2114,7 @@ ${_dsPie(rootMapName, mappaiIconPie)}
                 }
 
                 * {
-                    font-family: 'Space Mono', monospace !important;
+                    font-family: var(--doc-font, 'Space Mono', monospace) !important;
                     box-sizing: border-box;
                 }
 
@@ -2376,7 +2408,7 @@ ${_dsPie(rootMapName, mappaiIconPie)}
                 }
 
                 .ascii-tree {
-                    font-family: 'Space Mono', monospace !important;
+                    font-family: var(--doc-font, 'Space Mono', monospace) !important;
                     font-size: calc(11px * var(--pdf-scale));
                     background: #f8fafc;
                     padding: 16px;
@@ -2486,7 +2518,7 @@ ${_dsPie(rootMapName, mappaiIconPie)}
                     font-size: 13px;
                     color: #334155;
                     margin-bottom: 4px;
-                    font-family: 'Space Mono', monospace !important;
+                    font-family: var(--doc-font, 'Space Mono', monospace) !important;
                 }
 
                 .rel-arrow {

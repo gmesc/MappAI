@@ -72,7 +72,11 @@
             '.mm-doc-bar{position:fixed;top:0;left:0;right:0;height:var(--mm-doc-h);' +
             'display:flex;align-items:center;justify-content:space-between;gap:14px;' +
             'padding:0 20px;background:var(--mm-doc-fondo);border-bottom:1px solid var(--mm-doc-bordo);' +
-            'z-index:100;font-family:\'Space Mono\',monospace;font-size:var(--mm-doc-fs)}\n' +
+            'z-index:100;font-family:inherit;font-size:var(--mm-doc-fs)}\n' +
+            /* `inherit` e non un carattere scritto qui (18/8): la barra vive
+               DENTRO un documento, e quel documento può avere un carattere suo
+               scelto in ELABORA. Con un nome fisso, la barra sarebbe l'unico
+               pezzo della finestra in un altro carattere. */
             '.mm-doc-bar__t{display:flex;align-items:center;gap:8px;min-width:0;' +
             'font-weight:700;color:var(--mm-doc-testo)}\n' +
             '.mm-doc-bar__t b{color:var(--mm-doc-accento)}\n' +

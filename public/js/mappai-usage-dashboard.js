@@ -1,4 +1,17 @@
 'use strict';
+
+    /* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+       che la regola del `body` legge. Un documento in finestra propria non carica
+       style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+       Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+       il carattere dell'app (18/8/26). */
+    function _fontDoc(id) {
+        try {
+            return (typeof window !== 'undefined' && window.MappAIFont)
+                ? window.MappAIFont.styleDocumento(id) : '';
+        } catch (e) { return ''; }
+    }
+
 /*
  * mappai-usage-dashboard.js — dashboard "Consumi AI" (vista in-app + stampa).
  * Apertura: window.MappAIUsageDash.open() dal bottone in fondo alla landing.
@@ -259,12 +272,13 @@
         }).join('');
         const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Consumi AI — ${_esc(docLabel)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 <style>
- body{font-family:'Space Mono',monospace;color:#0f172a;margin:0;background:#fff}
+${_fontDoc()}
+ body{font-family:var(--doc-font, 'Space Mono', monospace);color:#0f172a;margin:0;background:#fff}
  .topbar{position:sticky;top:0;background:#eef2ff;border-bottom:2px solid #6366f1;padding:10px 24px;display:flex;align-items:center;gap:12px}
  .topbar h1{font-size:15px;margin:0;flex:1}
- .topbar button{font-family:'Space Mono',monospace;font-weight:700;font-size:12px;padding:6px 14px;border:2px solid #6366f1;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer}
+ .topbar button{font-family:var(--doc-font, 'Space Mono', monospace);font-weight:700;font-size:12px;padding:6px 14px;border:2px solid #6366f1;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer}
  main{max-width:820px;margin:0 auto;padding:24px}
  .meta{font-size:11px;color:#64748b;margin-bottom:16px}
  table{border-collapse:collapse;width:100%;font-size:11px;margin:8px 0 20px}

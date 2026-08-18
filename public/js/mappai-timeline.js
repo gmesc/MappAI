@@ -9,6 +9,19 @@
  * v3 — Aggiunto sistema modale + generazione AI con fetchModelAPI.
  */
 
+/* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+   che la regola del `body` legge. Un documento in finestra propria non carica
+   style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+   Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+   il carattere dell'app (18/8/26). */
+function _fontDoc(id) {
+    try {
+        return (typeof window !== 'undefined' && window.MappAIFont)
+            ? window.MappAIFont.styleDocumento(id) : '';
+    } catch (e) { return ''; }
+}
+
+
 // ── HELPER: nome del progetto (letto dinamicamente da appState) ──────────────
 // Priorità: appState.rootNodeLabel (impostato dall'utente sia per MindMap sia
 // per KG) → nodo con level === 0 (MindMap) → fallback 'MappAI'. Sui KG il
@@ -972,7 +985,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         // Cornice ALLINEATA agli altri fogli stampabili (quiz, flashcard, sintesi):
         // stessa header card, stesso badge pillola, stesso piè di pagina. Cambia
         // solo il corpo, che è proprio di ogni tipo di documento.
-        'body { font-family: "Space Mono", monospace; font-size: 11pt; color: var(--pdf-text-primary); margin: 0; padding: 24px 32px; background: #f8fafc; }',
+        'body { font-family: var(--doc-font, "Space Mono", monospace); font-size: 11pt; color: var(--pdf-text-primary); margin: 0; padding: 24px 32px; background: #f8fafc; }',
         // Testata e piè: cornice condivisa (mappai-doc-head.js). Erano quattro
         // regole copiate dal foglio quiz, con i corpi in pt invece che in px.
         _tlCornice(mapName),
@@ -1087,8 +1100,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
     var fullHtml = '<!DOCTYPE html><html lang="it"><head>' +
         '<meta charset="UTF-8">' +
         '<title>Timeline \u2014 ' + esc(mapName) + '</title>' +
-        '<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">' +
-        '<style>' + tlStyles + '</style>' +
+        '<style>' + _fontDoc() + tlStyles + '</style>' +
         '</head><body>' +
         printBar +
         _tlTestata(mapName, now, eventCount) +

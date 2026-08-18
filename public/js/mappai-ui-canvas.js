@@ -691,13 +691,20 @@ window.openSourceModal = function (nodeId) {
         sourceModalBody.innerHTML = html;
         window.safeCreateIcons();
 
+        /* Gli strumenti di lettura nella scheda compaiono quando il carattere
+           dell'app NON è quello di default: chi ne ha scelto uno ad alta
+           leggibilità sta dicendo che leggere gli costa, e sono le altre leve
+           (riga di lettura, zoom, voce) che gli servono a portata di mano.
+           ⚠️ Era `body.font-dyslexic`, cioè la stessa intenzione scritta col
+           carattere che oggi non c'è più. Cancellando la condizione, il ramo
+           `else` sarebbe rimasto l'unico e la barra non sarebbe più comparsa a
+           nessuno — una pulizia che cambia il comportamento in silenzio
+           (trappola 32). */
         const a11yToolbar = document.getElementById('modal-a11y-toolbar');
         if (a11yToolbar) {
-            if (document.body.classList.contains('font-dyslexic')) {
-                a11yToolbar.classList.remove('hidden');
-            } else {
-                a11yToolbar.classList.add('hidden');
-            }
+            const fontSpeciale = !!(window.MappAIFont && window.MappAIFontCore &&
+                window.MappAIFont.attivo() !== window.MappAIFontCore.DEFAULT);
+            a11yToolbar.classList.toggle('hidden', !fontSpeciale);
         }
 
         setTimeout(() => {
@@ -859,37 +866,13 @@ window.setMode = function (mode) {
 
 
 
-window.toggleDyslexicFont = function () {
-    let isDyslexicFont = document.body.classList.contains('font-dyslexic');
-    const a11yButtons = document.querySelectorAll('#modal-a11y-toolbar button');
-
-    if (!isDyslexicFont) {
-        document.body.classList.add('font-dyslexic');
-        document.documentElement.classList.add('font-dyslexic');
-        window.applyDirectZoom(1.5);
-
-        // Hide non-essential buttons in Dyslexic mode
-        a11yButtons.forEach(btn => {
-            if (btn.id !== 'btn-modal-ruler' && btn.getAttribute('title') !== 'Leggi ad alta voce') {
-                btn.style.display = 'none';
-            }
-        });
-        const separator = document.querySelector('#modal-a11y-toolbar .w-px');
-        if (separator) separator.style.display = 'none';
-
-    } else {
-        document.body.classList.remove('font-dyslexic');
-        document.documentElement.classList.remove('font-dyslexic');
-        window.applyDirectZoom(1.0);
-
-        // Show all buttons back
-        a11yButtons.forEach(btn => {
-            btn.style.display = '';
-        });
-        const separator = document.querySelector('#modal-a11y-toolbar .w-px');
-        if (separator) separator.style.display = '';
-    }
-}
+/* `toggleDyslexicFont` è in PENSIONE (18/8/26).
+   Faceva due cose in un gesto: cambiava il carattere E portava lo zoom del
+   testo a 1,5 — due decisioni prese a nome di chi premeva. Il carattere ora si
+   sceglie in Cabina › Aspetto e leggibilità (quattro caratteri, tutti locali,
+   validi anche per i materiali generati); lo zoom del testo resta il suo
+   comando, che c'era già qui accanto. Un solo comando per cosa (invariante 21).
+   Nessun chiamante rimasto: il bottone della barra a11y è uscito con lei. */
 
 // Helper per applicare lo zoom programmaticamente senza ciclarlo
 window.applyDirectZoom = function (z) {

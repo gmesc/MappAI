@@ -21,6 +21,19 @@
 (function () {
     'use strict';
 
+    /* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+       che la regola del `body` legge. Un documento in finestra propria non carica
+       style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+       Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+       il carattere dell'app (18/8/26). */
+    function _fontDoc(id) {
+        try {
+            return (typeof window !== 'undefined' && window.MappAIFont)
+                ? window.MappAIFont.styleDocumento(id) : '';
+        } catch (e) { return ''; }
+    }
+
+
     let _lastSynthesis = null; // { branchLabel, mapName, rawText, sourcesArr }
 
     // Modalità silenziosa (pipeline 011): niente overlay né modale risultato.
@@ -784,8 +797,8 @@
          grande. Con essa la pagina si REIMPAGINA sulla larghezza vera. -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sintesi — ${_escBS(data.branchLabel)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
     <style>
+    ${_fontDoc(opts && opts.font)}
         /* Le due leve della taglia del testo. Sono FATTORI e non valori finiti,
            così ogni regola qui sotto continua a dichiarare la sua misura di
            partenza — calc(11px * var(--ap-txt-k)) dice «gli 11 di sempre,
@@ -803,7 +816,7 @@
            passata da 111 a 70 caratteri per caso, non per scelta.
            ⚠️ "ch" si risolve nel font dell'elemento che lo SCRIVE: qui il body,
            che è Space Mono — la stessa unità sui comandi misurerebbe altro. */
-        body { font-family:'Space Mono', monospace; font-size:calc(11px * var(--ap-txt-k)); color:#1e293b; margin:0 auto; padding:24px 32px; max-width:72ch; background:#f8fafc; }
+        body { font-family:var(--doc-font, 'Space Mono', monospace); font-size:calc(11px * var(--ap-txt-k)); color:#1e293b; margin:0 auto; padding:24px 32px; max-width:72ch; background:#f8fafc; }
         /* Su un telefono i 32px di fianco valgono il 16% della larghezza: si
            restringono, o la colonna scende sotto i 35 caratteri per riga. */
         @media (max-width: 640px) { body { padding:16px 14px; } }
@@ -835,17 +848,17 @@
            cioè un chip che trabocca. */
         #ap-bar { display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0; margin:0 16px; }
         .ap-chip { display:inline-flex; height:calc(34px * var(--ap-ui-k)); border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
-        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:calc(40px * var(--ap-ui-k)); padding:0 calc(11px * var(--ap-ui-k)); border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 calc(12px * var(--ap-ui-k))/1 'Space Mono',monospace; border-left:1px solid #eef2ff; }
+        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:calc(40px * var(--ap-ui-k)); padding:0 calc(11px * var(--ap-ui-k)); border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 calc(12px * var(--ap-ui-k))/1 var(--doc-font, 'Space Mono', monospace); border-left:1px solid #eef2ff; }
         .ap-seg:first-child { border-left:0; }
         .ap-seg:hover { background:#eef2ff; }
         .ap-play.on { background:${accentColor}; color:#fff; }
         .ap-prog { position:relative; flex:1 1 120px; min-width:70px; height:calc(7px * var(--ap-ui-k)); border-radius:9999px; background:#e2e8f0; cursor:pointer; touch-action:none; }
         .ap-fill { position:absolute; left:0; top:0; height:100%; width:0; border-radius:9999px; background:${accentColor}; pointer-events:none; }
         .ap-thumb { position:absolute; top:50%; left:0; width:calc(13px * var(--ap-ui-k)); height:calc(13px * var(--ap-ui-k)); border-radius:50%; background:${accentColor}; transform:translate(-50%,-50%); box-shadow:0 1px 3px rgba(15,23,42,.35); pointer-events:none; }
-        .ap-time { font:700 calc(11px * var(--ap-ui-k))/1 'Space Mono',monospace; color:#64748b; min-width:calc(32px * var(--ap-ui-k)); text-align:right; }
+        .ap-time { font:700 calc(11px * var(--ap-ui-k))/1 var(--doc-font, 'Space Mono', monospace); color:#64748b; min-width:calc(32px * var(--ap-ui-k)); text-align:right; }
         /* Il ▶ «ascolta da qui» vive DENTRO il testo, non nella testata: segue la
            taglia del corpo, o resterebbe un bottone piccolo in mezzo a righe grandi. */
-        .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:calc(20px * var(--ap-txt-k)); height:calc(20px * var(--ap-txt-k)); margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 calc(11px * var(--ap-txt-k))/1 'Space Mono',monospace; }
+        .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:calc(20px * var(--ap-txt-k)); height:calc(20px * var(--ap-txt-k)); margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 calc(11px * var(--ap-txt-k))/1 var(--doc-font, 'Space Mono', monospace); }
         .bs-body-block { background:rgba(253,230,138,.35); border-radius:5px; box-shadow:0 0 0 3px rgba(253,230,138,.35); }
         ::highlight(ap-read) { background-color:#fde68a; color:#0f172a; }
         /* Modalità dislessia (attivabile nel documento). Il comando Aa è un ciclo
@@ -916,7 +929,7 @@
            bottoni nel font di sistema, e le sole pillole del lettore in Space
            Mono, che è l'unica che se lo dichiarava. Una riga sola, su tutto ciò
            che la testata contiene. */
-        #ap-topbar, #ap-topbar button, #ap-topbar input, #ap-topbar select { font-family:'Space Mono', monospace; }
+        #ap-topbar, #ap-topbar button, #ap-topbar input, #ap-topbar select { font-family:var(--doc-font, 'Space Mono', monospace); }
         /* La testata è fissata in cima e non occupa spazio nel flusso: sotto le
            serve un distanziatore, o il primo riquadro le finisce dietro. La sua
            altezza NON è un numero scritto a mano (cambiava con la taglia del

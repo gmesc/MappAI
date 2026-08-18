@@ -16,6 +16,19 @@
 (function () {
     'use strict';
 
+    /* Il CARATTERE di questo documento: le @font-face + la variabile --doc-font
+       che la regola del `body` legge. Un documento in finestra propria non carica
+       style.css, quindi `--app-font` lì non esiste: il blocco va scritto dentro.
+       Argomento = la scelta fatta in ELABORA per QUESTO documento; senza, comanda
+       il carattere dell'app (18/8/26). */
+    function _fontDoc(id) {
+        try {
+            return (typeof window !== 'undefined' && window.MappAIFont)
+                ? window.MappAIFont.styleDocumento(id) : '';
+        } catch (e) { return ''; }
+    }
+
+
     function _t(k, f) { return window.t ? window.t(k, f) : f; }
     function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
@@ -87,12 +100,12 @@
 <head>
 <meta charset="UTF-8">
 <title>${title}</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
 <style>
+${_fontDoc(o.font)}
 @font-face { font-family:'OpenDyslexic'; font-weight:400; font-display:swap; src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff'); }
 @font-face { font-family:'OpenDyslexic'; font-weight:700; font-display:swap; src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff'); }
 * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-body { font-family:'Space Mono',monospace; font-size:12px; color:#1e293b; margin:0 auto; padding:24px 32px; max-width:900px; background:#f8fafc; --sd-ls:0em; --sd-ws:0em; }
+body { font-family:var(--doc-font, 'Space Mono', monospace); font-size:12px; color:#1e293b; margin:0 auto; padding:24px 32px; max-width:900px; background:#f8fafc; --sd-ls:0em; --sd-ws:0em; }
 .sd-header { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid ${accent}; }
 .sd-title { font-size:22px; font-weight:900; color:#1e293b; }
 .sd-sub { font-size:10px; color:#64748b; margin-top:5px; }
@@ -114,7 +127,7 @@ body.sd-odys .sd-body p, body.sd-odys .sd-item { font-family:'OpenDyslexic',Verd
 body.sd-odys .sd-sec-h { font-family:'OpenDyslexic',Verdana,sans-serif; }
 .sd-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:12px; }
 .sd-brand { font-weight:bold; color:${accent}; white-space:nowrap; }
-.sd-btn { border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font:bold 11px 'Space Mono',monospace; }
+.sd-btn { border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font:bold 11px var(--doc-font, 'Space Mono', monospace); }
 .sd-btn-primary { background:${accent}; color:#fff; }
 .sd-btn-ghost { background:#fff; color:${accent}; border:1px solid #e2e8f0; }
 .sd-btn-ghost.on { background:#eef2ff; }
