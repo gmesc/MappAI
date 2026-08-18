@@ -363,6 +363,14 @@
         if (window.MappAINodeSheet && window.MappAINodeSheet.setFontMetrics) {
             window.MappAINodeSheet.setFontMetrics(m);
         }
+        /* E il NOME: ogni materiale generato finisce con « - <Carattere>».
+           Stesso schema delle metriche — il core dei nomi è puro e gira in
+           Node, quindi il carattere glielo si annuncia invece di fargli
+           leggere `window`. */
+        var C = _core();
+        if (C && window.MappAIPipelineCore && window.MappAIPipelineCore.setFontEtichetta) {
+            window.MappAIPipelineCore.setFontEtichetta(C.font(id || attivo()).etichetta);
+        }
         return m;
     }
 

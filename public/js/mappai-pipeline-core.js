@@ -317,6 +317,26 @@
 
   var SUFFISSO_TARATO = ' -VERDE';
 
+  /* ══ IL CARATTERE NEL NOME DEL FILE (18/8/26) ══════════════════════════════
+     Ogni materiale generato finisce con « - <Carattere>»: `Quiz-MC-Il Clima -
+     TestMe Sans.pdf`. Chiesto da Giacomo, e la ragione si vede aprendo una
+     cartella di classe: da fuori un PDF non dice con che carattere è stato
+     scritto, e da quando il carattere si sceglie quella è una proprietà del
+     materiale — la stessa verifica che si fa aprendo il file, scritta nel nome.
+
+     ⚠️ CONSEGUENZA DA CONOSCERE: due generazioni della stessa cosa in caratteri
+     diversi non si sovrascrivono più, restano affiancate. È voluto (sono due
+     materiali diversi: uno lo si consegna a chi legge bene, l'altro no), ma
+     vuol dire che cambiando carattere la cartella cresce invece di aggiornarsi.
+
+     Il carattere arriva da FUORI, come le metriche del foglio: questo modulo è
+     puro e gira in Node, non può leggere `window`. Chi lo conosce
+     (mappai-font.js) lo annuncia una volta; chi costruisce un nome per un
+     DOCUMENTO con un carattere suo lo passa in `opts.font` e vince su quello. */
+  var _fontEtichetta = '';
+  function setFontEtichetta(nome) { _fontEtichetta = String(nome == null ? '' : nome).trim(); }
+  function fontEtichetta() { return _fontEtichetta; }
+
   /* prefisso · estensione · se il tipo accetta un dettaglio dal motore */
   var GENERI = {
     quiz_mc: { pre: 'Quiz-MC', est: '.pdf' },
@@ -407,10 +427,15 @@
     if (dettaglio && g.dettaglio) pezzi.push(dettaglio);
     var nome = _safeName(opts.nome, '');
     if (nome) pezzi.push(nome);
+    /* Il carattere in coda, separato da uno spazio-trattino-spazio: si legge
+       come un'etichetta e non come un altro pezzo del nome (che sono uniti dal
+       solo trattino). `opts.font` batte l'annuncio: un documento con un
+       carattere suo porta il SUO nel nome, non quello dell'app. */
+    var fnt = _safeName(opts.font != null ? opts.font : _fontEtichetta, '');
     /* ⚠️ Il trattino separa i pezzi, quindi un pezzo che ne contiene uno non
        rompe niente ma rende il nome ambiguo a rileggerlo: si accetta, perché
        ripulirlo cambierebbe i titoli scelti dal docente senza dirglielo. */
-    return pezzi.join('-') + green + g.est;
+    return pezzi.join('-') + (fnt ? ' - ' + fnt : '') + green + g.est;
   }
 
   /* Il nome della MAPPA esportata: `MM-<Mappa>.pdf` o `KG-<Mappa>.svg`.
@@ -537,7 +562,7 @@
     contaGraduazione: contaGraduazione,
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
-    buildFileName: buildFileName,
+    buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,
     buildMapExportName: buildMapExportName,
     nomeLibero: nomeLibero,
     GENERI: GENERI,

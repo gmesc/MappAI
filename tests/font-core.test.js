@@ -223,3 +223,34 @@ test('il marcatore distingue «l ho scelto io» da «seguivo l app»', () => {
     assert.strictEqual(F.valido(undefined), false);
     assert.strictEqual(F.valido('mai-esistito'), false, 'un id sporco non è una scelta');
 });
+
+// ── il carattere nel nome del file ──────────────────────────────────────────
+test('buildFileName: il carattere in coda, e opts.font vince sull annuncio', () => {
+    const P = require('../public/js/mappai-pipeline-core.js');
+    P.setFontEtichetta('');
+    assert.strictEqual(P.buildFileName('quiz_mc', null, false, { mappa: 'Il Clima', nome: 'causa' }),
+        'Quiz-MC-Il Clima-causa.pdf', 'senza annuncio il nome resta quello storico');
+
+    P.setFontEtichetta('TestMe Sans');
+    assert.strictEqual(P.buildFileName('quiz_mc', null, false, { mappa: 'Il Clima', nome: 'causa' }),
+        'Quiz-MC-Il Clima-causa - TestMe Sans.pdf');
+    // un DOCUMENTO con un carattere suo porta il SUO, non quello dell'app
+    assert.strictEqual(P.buildFileName('synthesis', null, false, { mappa: 'Il Clima', font: 'Atkinson Hyperlegible' }),
+        'Sintesi-Il Clima - Atkinson Hyperlegible.html');
+    // anche la mappa esportata, e l'estensione resta l'ultima cosa
+    assert.strictEqual(P.buildMapExportName('mindmap', 'Il Clima', '.svg'),
+        'MM-Il Clima - TestMe Sans.svg');
+    P.setFontEtichetta('');
+});
+
+test('buildFileName: le etichette del catalogo passano indenni dal safeName', () => {
+    // Un carattere il cui nome venisse storpiato produrrebbe file che nessun
+    // elenco riconosce più: si prova su tutti e quattro, non su uno.
+    const P = require('../public/js/mappai-pipeline-core.js');
+    for (const f of F.elenco()) {
+        P.setFontEtichetta(f.etichetta);
+        const n = P.buildFileName('quiz_mc', null, false, { mappa: 'X' });
+        assert.ok(n.endsWith(' - ' + f.etichetta + '.pdf'), f.id + ' → ' + n);
+    }
+    P.setFontEtichetta('');
+});
