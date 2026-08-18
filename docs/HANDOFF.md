@@ -4,7 +4,7 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **18 agosto 2026, sera**. La giornata in una riga: **il CARATTERE
+> Ultimo allineamento: **18 agosto 2026, notte**. La giornata in una riga: **il CARATTERE
 > si sceglie** — quattro caratteri (Space Mono · TestMe Sans · TestMe Alt · Atkinson
 > Hyperlegible), uno per l'app dalla Cabina e uno per il singolo documento in ELABORA; e
 > **tutti i caratteri sono locali**, mentre fino a stamattina perfino Space Mono arrivava
@@ -146,6 +146,24 @@ sezione. Il cablaggio bento non è più opzionale.
 
 ## 3. Le superfici, oggi
 
+### La sintesi: «Sezioni» (18/8 notte)
+Nell'editor della sintesi di **ramo**, un comando compatto **«Sezioni 2/2»** accende e
+spegne i due pezzi generati che stanno in coda al foglio: **La catena dei perché** e le
+**Note** (le fonti citate). Un flag solo governa HTML, PDF e stampa — escono tutti dallo
+stesso costruttore. La scelta sta nella **sorgente**, non nelle opzioni di stampa: si
+ritrova riaprendo. Default accesi.
+- ⚠️ **Spegnendo le Note spariscono anche i richiami `[1] [2]`** dal testo, o resterebbero
+  puntati a niente. Dalla **resa**, mai dalla sorgente: riaccendendo tornano dov'erano
+  (`MappAIDocEdit.togliRichiamiCitazione`). Chiede le parentesi quadre apposta — un `<sup>`
+  senza è un **esponente** (m², x³), che in scienze c'è eccome.
+- ⚠️ **Non due spunte nella barra, e lo ha deciso la misura**: la barra ha **113px liberi**
+  a 1440 e le due etichette ne volevano **166** — mandavano tutto a capo (51→89px). Il
+  comando compatto ne chiede 82. `<details>`, così tastiera e chiusura le fa il browser.
+- Il **conteggio** nell'etichetta è ciò che salva la spunta dall'essere cieca: quei due
+  pezzi nell'editor non si vedono. Ambra quando una è spenta.
+- Compare solo se il documento quelle sezioni **ce le ha**, e solo sulla sintesi di ramo
+  (in quella di tutta la mappa le citazioni stanno dentro il corpo).
+
 ### Il carattere — Cabina › Aspetto e leggibilità (18/8)
 Quattro caratteri, tutti **dentro l'app** (`public/fonts/`, licenza OFL):
 **Space Mono** (default, monospazio) · **TestMe Sans** e **TestMe Alt** (Perondi/Romei,
@@ -193,6 +211,36 @@ sceglierne uno.
 - **Prova**: `public/dev/banco-font.html` (servendo `public/`) dice `arrivato: sì/NO` per
   ciascuno misurando la larghezza del testo reso — un file che non arriva non dà errore,
   il browser ripiega in silenzio.
+
+**Il documento si porta DENTRO il suo carattere** (18/8 notte, dal difetto trovato da
+Giacomo). Le `@font-face` non puntano a un percorso: portano i byte
+(`src: url(data:font/woff;base64,…)`). ⚠️ Non è una comodità, è la condizione perché il
+PDF esca giusto: la finestra che stampa carica l'HTML come `data:text/html`, cioè
+un'**origine opaca**, e da lì un caricamento `file://` è **bloccato** — il carattere non
+arrivava mai e il PDF usciva col ripiego mentre l'app lo mostrava giusto («l'editor sì, il
+PDF no»). Chiude anche il percorso legato a questa cartella (app pacchettizzata) e il
+documento condiviso via QR. Peso: sottoinsieme dei glifi + WOFF = **76-101 KB** a
+documento, contro i 433 KB del `.ttf` intero. WOFF2 comprimerebbe meglio ma vuole `brotli`.
+
+**L'anteprima segue la Cabina, il salvataggio allinea il file** (scelta di Giacomo). La
+tela apre un FILE, che si porta il carattere di quando è stato scritto: ora lo riallinea
+nell'iframe, accanto a dove già riallinea la taglia del testo. ⚠️ **Ma non su tutti**: un
+documento che il carattere se l'è SCELTO non si tocca — lo dice il marcatore
+`--doc-font-scelto`, che la resa emette solo in quel caso. I documenti scritti prima del
+18/8 non ce l'hanno, quindi si riallineano: che è quello che serve, visto che sono tutti
+quelli che Giacomo ha in mano. Finché non si salva, il file su disco resta indietro: la
+barra lo dice con una riga, o si vedrebbe una cosa e se ne consegnerebbe un'altra.
+
+**Il carattere per documento vale per tutti e cinque i generi.** ⚠️ Ogni genere tiene il
+suo stato in una variabile diversa (`_doc` · `_syn` · `_sheet` · `_cc`): la prima stesura
+leggeva solo `_doc`, e sulla **sintesi** — cioè dove Giacomo lo usa — il selettore si
+disegnava e non faceva niente.
+
+⚠️ **Quello che i caratteri nuovi NON hanno**: la freccia `→`, il triangolo `▶` e la
+spunta `✓`. Space Mono ha la freccia, gli altri tre no; `▶` non ce l'ha nessuno (e cade
+su Apple Color Emoji da sempre, anche prima di oggi). Conseguenza visibile: nel PDF con
+«La catena dei perché» accesa la freccia esce in un carattere di sistema. Cosmetico, e
+non si cura cambiando font — o si sostituisce il glifo nel box causale, o si accetta.
 
 📌 **Difetto vecchio chiuso strada facendo**: **nove** costruttori di documenti prendevano
 Space Mono da `fonts.googleapis.com` (quiz ×3, sintesi, catena, documento di studio,
@@ -1141,7 +1189,15 @@ e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa s
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
-0-ter. ⏳ **I caratteri non viaggiano fuori da questo computer (18/8).** Le `@font-face`
+0-ter. ✅ **RISOLTO in giornata — e l'avevo classificato male.** Era scritto qui come
+   «da decidere se conviene incorporare i caratteri per il QR». Non era una comodità: era
+   la condizione perché il **PDF** uscisse giusto, perché la finestra che stampa carica da
+   `data:` e lì un `file://` è bloccato. Chiuso incorporando i byte (sottoinsieme + WOFF,
+   76-101 KB). Lezione: un debito che si può descrivere come «sarebbe comodo» va provato
+   sul prodotto prima di classificarlo — questo era un difetto, e si vedeva solo aprendo
+   il PDF. Testo originale sotto, per memoria.
+
+0-quater. ~~⏳ **I caratteri non viaggiano fuori da questo computer (18/8).**~~ Le `@font-face`
    di un documento puntano ai file in `public/fonts/` con un URL locale: perfetto per la
    stampa e per il PDF (dove il carattere finisce incorporato), inutile per un documento
    **condiviso via QR** e aperto dal telefono di un allievo, che cadrà sul carattere di
@@ -1423,11 +1479,15 @@ quelle che possono nascondere una sorpresa: là fuori il protocollo è `file://`
 5. **In ELABORA**: aprire un documento, scegliergli un carattere, salvare, chiudere e
    riaprire — deve ritrovarlo; «Crea PDF» e «Stampa» devono uscire in quel carattere
    mentre il resto dell'app resta nel suo.
-6. **Un documento condiviso via QR aperto dal telefono**: lì i caratteri NON viaggiano
-   (le facce puntano a file di questo computer). Da decidere se incorporarli — vedi il
-   debito in §4.
+6. **Un documento condiviso via QR aperto dal telefono**: ora il carattere viaggia col
+   documento, quindi deve arrivare anche là.
 7. **Lo switch EN** sulla vista nuova della Cabina, e il kill-switch
    `mappai_font_selettore='0'` → tutto come prima.
+8. **L'anteprima nella tela**: aprire una sintesi vecchia dopo aver cambiato carattere —
+   deve mostrarlo, con la riga «mostrato in …» accanto al nome. Poi Modifica → Salva, e la
+   riga deve sparire (il file si è allineato).
+9. **«Sezioni»** su una sintesi vera: spegnere le Note, Crea PDF, e controllare che nel
+   foglio non restino i richiami. Riaccendere: devono tornare.
 
 
 > **Aggiornato il 17 agosto 2026, sera.** Tutto il lavoro del 17/8 è stato provato
