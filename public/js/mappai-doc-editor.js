@@ -91,12 +91,31 @@
      *  ⚠️ A differenza dello zoom, questo È una modifica del documento: si
      *  segna «da salvare» e finisce nella sorgente, perché è ciò che uscirà
      *  dalla stampante anche fra un mese. */
+    /* Il carattere del documento APERTO, qualunque sia il suo genere.
+       ⚠️ Ogni genere tiene il suo stato in una variabile diversa (`_doc` per
+       quiz e domande aperte, `_syn` per la sintesi, `_sheet` per il foglio dei
+       nodi, `_cc` per la catena): leggendo solo `_doc` — come faceva la prima
+       stesura — il selettore si disegnava anche sulla SINTESI e non faceva
+       niente. Un comando inerte è peggio di un comando assente. */
+    function _fontCorrente() {
+        if (_kind === 'synthesis') return (_syn && _syn.data && _syn.data.font) || '';
+        if (_kind === 'nodesheet') return (_sheet && _sheet.font) || '';
+        if (_kind === 'causal') return (_cc && _cc.font) || '';
+        return (_doc && _doc.font) || '';
+    }
+    function _scriviFontCorrente(val) {
+        if (_kind === 'synthesis') { if (!_syn || !_syn.data) return false; _syn.data.font = val; return true; }
+        if (_kind === 'nodesheet') { if (!_sheet) return false; _sheet.font = val; return true; }
+        if (_kind === 'causal') { if (!_cc) return false; _cc.font = val; return true; }
+        if (!_doc) return false;
+        _doc.font = val; return true;
+    }
+
     function setFont(id) {
-        if (!_doc) return;
         const C = window.MappAIFontCore;
         const val = (C && C.valido(id)) ? id : '';
-        if ((_doc.font || '') === val) return;
-        _doc.font = val;
+        if (_fontCorrente() === val) return;
+        if (!_scriviFontCorrente(val)) return;
         _dirty = true;
         render();
     }
@@ -572,7 +591,7 @@
     }
 
     function _ccChains() { return CC().chainsFromDoc(_cc); }
-    function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName(), (_doc && _doc.font) || ''); }
+    function _ccHtml() { return CCU().buildDocHtml(_ccChains(), CCU().mapName(), _fontCorrente()); }
 
     async function _saveCausal() {
         const s = _appState();
@@ -793,7 +812,7 @@
             bg: _sheet.bg,
             causal: false,
             tuned: false,
-            font: (_doc && _doc.font) || ''
+            font: _fontCorrente()
         }, extra || {});
     }
     async function _printNodeSheet(nome) {
@@ -1121,7 +1140,7 @@
         return window.buildOpenQuestionsHtml(
             { id: _doc.id, title: _doc.title, type: 'Domande aperte', items: _doc.items },
             { mapName: (s && s.rootNodeLabel) || '', includeBar: false, includeAnswers: includeAnswers !== false,
-              font: (_doc && _doc.font) || '' });
+              font: _fontCorrente() });
     }
 
     /* ⚠️ In ELECTRON `confirm()` è un dialog NATIVO del main process e BLOCCA
@@ -1297,7 +1316,7 @@
         return {
             data: data,
             /* il carattere del documento viaggia con la resa (18/8) */
-            text: BS.buildPrintHtml(data, Object.assign({ font: (_doc && _doc.font) || '' }, audio || {})),
+            text: BS.buildPrintHtml(data, Object.assign({ font: _fontCorrente() }, audio || {})),
             audioPerso: !!(_syn.vaultAudio && !audio)
         };
     }
@@ -1763,7 +1782,7 @@
         /* `font` viaggia col documento fino alla RESA: il foglio stampato e il
            PDF escono nel carattere scelto qui, non in quello dell'app. */
         const opts = { includeAnswers: includeAnswers !== false, includeBar: includeBar !== false,
-                       font: (_doc && _doc.font) || '' };
+                       font: _fontCorrente() };
         return (_kind === 'flashcards')
             ? window.buildFlashcardSetHtml(set, opts)
             : window.buildQuizSetHtml(set, opts);
@@ -2396,8 +2415,9 @@
            si sceglie guardando il foglio che uscirà, non un campione. La
            variabile la legge la regola di .de-sheet; senza scelta resta vuota e
            il foglio segue la Cabina come tutto il resto. */
-        const fdoc = (_doc && _doc.font && window.MappAIFontCore)
-            ? ' de-fontdoc" style="--doc-font:' + window.MappAIFontCore.stackDi(_doc.font) + '"'
+        const _fc = _fontCorrente();
+        const fdoc = (_fc && window.MappAIFontCore)
+            ? ' de-fontdoc" style="--doc-font:' + window.MappAIFontCore.stackDi(_fc) + '"'
             : '"';
         return '<div class="de-doc">' + _docBar() + '<div class="de-sheet-wrap' + fdoc + '>' + sheet + '</div></div>';
     }
@@ -2496,7 +2516,7 @@
     function _fontBar() {
         const C = window.MappAIFontCore;
         if (!C || !window.MappAIFont || !window.MappAIFont.accesa()) return '';
-        const scelto = (_doc && _doc.font) || '';
+        const scelto = _fontCorrente();
         const dellApp = C.font(window.MappAIFont.attivo()).etichetta;
         let o = '<option value=""' + (scelto ? '' : ' selected') + '>' +
             esc(t('de_font_app', 'Come l’app')) + ' · ' + esc(dellApp) + '</option>';

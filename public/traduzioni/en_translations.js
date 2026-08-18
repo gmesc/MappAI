@@ -2527,6 +2527,8 @@ const en_translations = {
     stu_edit_title: "Student profile",
     cls_new_title: "New class profile",
     cls_edit_title: "Class profile",
+    ec_fn_nota: "shown in",
+    ec_fn_tip: "The file still carries the typeface it was written with: here you see it with the one chosen in the Cabin. Saving it from the editor brings the file in line.",
     de_font_app: "Same as the app",
     de_font_lbl: "Document typeface",
     de_font_tip: "The typeface of THIS document. Unlike the preview size, it also ends up in the printed sheet and in the PDF.",

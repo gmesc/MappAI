@@ -1563,6 +1563,21 @@
                    esce di qui senza passare dal resto, e resterebbe l'unico a
                    leggersi piccolo. Non fa nulla sui documenti già nuovi. */
                 if (window.MappAIDocBar && window.MappAIDocBar.scalaTesto) window.MappAIDocBar.scalaTesto(fr);
+                /* Il CARATTERE, subito dopo la taglia e per lo stesso motivo:
+                   questo è un FILE, e si porta dentro quello di quando è stato
+                   scritto. Senza, cambiando carattere in Cabina l'anteprima
+                   restava indietro mentre l'editor mostrava il nuovo — due
+                   schermate della stessa cosa che dicevano cose diverse.
+                   Non tocca i documenti che un carattere se lo sono scelto.
+                   Il file su disco resta com'è finché non lo si salva: quando
+                   l'anteprima ha davvero cambiato qualcosa lo dice, o si
+                   vedrebbe una cosa e se ne consegnerebbe un'altra. */
+                if (window.MappAIFont && window.MappAIFont.applicaInIframe) {
+                    var _fnAllineato = window.MappAIFont.applicaInIframe(fr);
+                    if (_fnAllineato && window.MappAIFontCore) {
+                        _diciCarattere(barra, window.MappAIFontCore.font(_fnAllineato).etichetta);
+                    }
+                }
                 /* ⚠️ ECCEZIONE, e vale SOLO per l'audio INCORPORATO: un
                    documento condiviso può portarsi dentro la voce naturale in
                    base64, e quella il chip dell'app non sa suonarla — legge il
@@ -1595,6 +1610,25 @@
         }).catch(function () {
             host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('ec_file_ko', 'Non riesco ad aprire questo file') + '</p>';
         });
+    }
+
+    /* Lo dice, invece di lasciarlo scoprire dal prodotto: l'anteprima mostra il
+       carattere di adesso, ma il FILE ha ancora quello di quando è stato scritto.
+       Chi lo apre dal Finder o lo manda via QR vedrebbe l'altro, finché non lo si
+       salva. Una riga discreta accanto al nome, non un avviso: non è un guasto,
+       è una cosa da sapere. */
+    function _diciCarattere(barra, etichetta) {
+        if (!barra || barra.querySelector('.ec-fn-nota')) return;
+        var n = document.createElement('span');
+        n.className = 'ec-fn-nota';
+        n.style.cssText = 'font-size:11px;color:#94a3b8;margin-left:10px;white-space:nowrap;' +
+            'overflow:hidden;text-overflow:ellipsis;max-width:38ch';
+        n.textContent = t('ec_fn_nota', 'mostrato in') + ' ' + etichetta;
+        n.title = t('ec_fn_tip',
+            'Il file ha ancora il carattere di quando è stato scritto: qui lo vedi con quello scelto in Cabina. Si allinea salvandolo dall’editor.');
+        var tit = barra.querySelector('.de-bar-t');
+        if (tit && tit.parentNode) tit.parentNode.insertBefore(n, tit.nextSibling);
+        else barra.appendChild(n);
     }
 
     /* ══ F3 — L'ANTEPRIMA DI UN SET D'ARCHIVIO (v2, D3) ═══════════════════════

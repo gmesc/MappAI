@@ -226,8 +226,68 @@
      * di cadere sul serif di sistema.
      */
     function styleDocumento(idDocumento) {
+        var C = _core();
         var F = cssDocumento(idDocumento);
-        return F.facce + '\n:root{--doc-font:' + F.stack + ';}\n';
+        /* ⚠️ IL MARCATORE, e serve più di quanto sembri.
+           Un documento può avere il carattere per due motivi diversi: perché
+           SE L'È SCELTO in ELABORA, o perché al momento in cui è stato scritto
+           seguiva quello dell'app. Da fuori i due casi si assomigliano — è lo
+           stesso `--doc-font` — ma vanno trattati all'opposto: il primo non si
+           tocca mai (è una scelta di chi l'ha fatto), il secondo va riallineato
+           quando il carattere dell'app cambia. Senza questa riga, l'anteprima
+           dovrebbe indovinare, e indovinerebbe male su uno dei due. */
+        var scelto = (C && C.valido(idDocumento)) ? '--doc-font-scelto:1;' : '';
+        return F.facce + '\n:root{--doc-font:' + F.stack + ';' + scelto + '}\n';
+    }
+
+    /**
+     * Riallinea al carattere dell'app un documento GIÀ SCRITTO, mostrato in un
+     * iframe (la tela di ELABORA).
+     *
+     * Perché serve: la tela non disegna un documento, apre un FILE — e quel file
+     * si porta dentro il carattere di quando è stato scritto. Cambiando carattere
+     * in Cabina, l'anteprima restava indietro mentre l'editor mostrava il nuovo:
+     * due schermate della stessa cosa che dicevano cose diverse.
+     *
+     * ⚠️ Non tocca i documenti che un carattere se lo sono SCELTO
+     * (`--doc-font-scelto`): sovrascrivere una scelta esplicita con una
+     * preferenza globale sarebbe il difetto peggiore dei due.
+     *
+     * ⚠️ E non basta riscrivere la variabile: i documenti scritti prima del
+     * 18/8 — cioè tutti quelli che Giacomo ha in mano — non ce l'hanno, dicono
+     * `font-family:'Space Mono'` a chiare lettere. Per loro serve una regola che
+     * vinca, con i byte del carattere dentro (nell'iframe valgono le stesse
+     * regole di origine della finestra di stampa).
+     *
+     * → l'id applicato, oppure null se non ha toccato niente.
+     */
+    function applicaInIframe(iframe) {
+        var C = _core();
+        if (!C || !iframe) return null;
+        var d = null;
+        try { d = iframe.contentDocument; } catch (e) { d = null; }
+        if (!d || !d.documentElement) return null;
+        if (d.getElementById('mm-doc-font')) return null;          // già fatto
+        var suo = '';
+        try {
+            suo = String(getComputedStyle(d.documentElement)
+                .getPropertyValue('--doc-font-scelto') || '').trim();
+        } catch (e) { suo = ''; }
+        if (suo === '1') return null;                              // se l'è scelto: giù le mani
+
+        var id = attivo();
+        var fam = C.font(id).famiglia;
+        var st = d.createElement('style');
+        st.id = 'mm-doc-font';
+        st.textContent = _facceDocumento(id) +
+            '\n:root{--doc-font:' + C.stackDi(id) + ';}' +
+            /* I documenti vecchi non leggono la variabile: hanno il nome
+               scritto dentro. Una regola sull'universale è l'unica che li
+               raggiunge — ed è sicura perché questi HTML hanno un carattere
+               solo (la geometria a conteggio di caratteri vive nei PDF, non qui). */
+            '\n*, body { font-family:' + C.stackDi(id) + ' !important; }';
+        (d.head || d.documentElement).appendChild(st);
+        return id;
     }
 
     // ── jsPDF: i moduli base64, caricati a richiesta ─────────────────────────
@@ -322,6 +382,7 @@
         CHIAVE: CHIAVE, KILL: KILL,
         accesa: accesa, attivo: attivo, imposta: imposta, applica: applica,
         stack: stack, metriche: metriche, cssDocumento: cssDocumento, styleDocumento: styleDocumento,
+        applicaInIframe: applicaInIframe,
         annunciaMetriche: annunciaMetriche, precaricaIncorporabile: precaricaIncorporabile,
         perPdf: perPdf, registraIn: registraIn,
         elenco: function () { var C = _core(); return C ? C.elenco() : []; }

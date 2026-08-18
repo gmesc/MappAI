@@ -210,3 +210,16 @@ test('catalogo: i moduli dei byte esistono davvero su disco', () => {
         assert.ok(src.includes('data:font/woff;base64,'), f.incorpora + ': i byte non ci sono');
     }
 });
+
+// ── chi ha scelto, e chi seguiva l'app ──────────────────────────────────────
+test('il marcatore distingue «l ho scelto io» da «seguivo l app»', () => {
+    // Da fuori i due casi si assomigliano — è lo stesso --doc-font — ma vanno
+    // trattati all'opposto: una scelta non si tocca mai, un documento che
+    // seguiva l'app si riallinea quando il carattere dell'app cambia.
+    // (Il marcatore lo emette MappAIFont.styleDocumento, che vive nel browser;
+    //  qui si prova la regola su cui si basa.)
+    assert.strictEqual(F.valido('atkinson'), true, 'scelta esplicita → marcatore');
+    assert.strictEqual(F.valido(''), false, 'nessuna scelta → niente marcatore');
+    assert.strictEqual(F.valido(undefined), false);
+    assert.strictEqual(F.valido('mai-esistito'), false, 'un id sporco non è una scelta');
+});
