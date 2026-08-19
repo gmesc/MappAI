@@ -390,6 +390,26 @@
     }
 
     /** Applica lo stesso tipo di contenuto a TUTTE le card (comodo per ripartire). */
+    /* ── QUALI CARD TOCCA L'AI DELLE PAROLE CHIAVE ───────────────────────────
+       `vuote` = card «parole chiave» senza nemmeno una parola scritta: sono i
+       buchi, e riempirle non toglie niente a nessuno. `conKw` = tutte quelle
+       con quel contenuto, che è ciò che si riscrive quando di buchi non ce ne
+       sono — ed è il caso NORMALE, perché dare quel contenuto a una card la
+       riempie subito col ripiego deterministico.
+       ⚠️ È la regola che il bottone «Parole chiave con AI» sbagliava fino al
+       19/8: guardava solo `vuote`, che è quasi sempre lista vuota (trappola 27,
+       una condizione falsa per costruzione), e rispondeva «niente da fare». */
+    function keywordTargets(cards) {
+        var arr = (cards || []).map(normCard);
+        var conKw = [], vuote = [];
+        arr.forEach(function (c, i) {
+            if (c.layout !== 'keywords') return;
+            conKw.push(i);
+            if (!filledKeywords(c.keywords).length) vuote.push(i);
+        });
+        return { conKw: conKw, vuote: vuote };
+    }
+
     function setAllLayouts(cards, layout, prefill) {
         var arr = (cards || []).map(normCard);
         for (var i = 0; i < arr.length; i++) {
@@ -480,7 +500,7 @@
         // operazioni
         insertAt: insertAt, removeAt: removeAt, moveCard: moveCard, setLayout: setLayout,
         setField: setField, addKeyword: addKeyword, setKeyword: setKeyword, removeKeyword: removeKeyword,
-        setFmt: setFmt, setAllLayouts: setAllLayouts,
+        setFmt: setFmt, setAllLayouts: setAllLayouts, keywordTargets: keywordTargets,
         // controlli
         overFields: overFields, overCards: overCards, validateDoc: validateDoc,
         toPrintCards: toPrintCards, countsByLayout: countsByLayout

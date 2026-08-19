@@ -243,6 +243,27 @@ const insStorico = righeDi(sb.MappAITeach.tabelleMateriali(listaIns, false, 'ins
 ok(insStorico.indexOf('m:arc:d1') >= 0, 'kill-switch mappai_archivio_insegna=1 → le voci tornano (strada storica)');
 sb.localStorage.getItem = getV;
 
+/* ── UN VAULT NUOVO NON HA PIÙ QUIZ V/F (19/8) ───────────────────────────────
+   La pipeline non li genera più. La prova che serve è che la loro assenza non
+   lasci un elenco vuoto in giro: i generi si dichiarano in `GRUPPI_MAT`, e un
+   gruppo senza righe non si disegna — ma è una proprietà da tenere ferma, non
+   una coincidenza. Vale per ELABORA e per INSEGNA, che usano la stessa
+   funzione. */
+console.log('— un vault senza V/F');
+const senzaVF = M.filter(m => m.tipo !== 'Quiz V/F');
+[['elabora', 'ELABORA'], ['insegna', 'INSEGNA']].forEach(function (dove) {
+    const tt = sb.MappAITeach.tabelleMateriali(senzaVF, false, dove[0]);
+    const titoli = tt.map(x => x.titolo);
+    console.log('    ' + dove[1] + ': ' + titoli.join(' · '));
+    ok(!titoli.some(x => /v\/f|vero/i.test(x)), dove[1] + ': nessun elenco dedicato ai quiz V/F');
+    ok(tt.every(x => x.righe.length), dove[1] + ': nessun elenco VUOTO');
+});
+/* …e con un V/F sul disco (un vault vecchio) la sua riga si vede ancora: non
+   generarli più non vuol dire smettere di riconoscerli (inv. 7). */
+const conVF = sb.MappAITeach.tabelleMateriali(M, false, 'insegna');
+ok(conVF.some(x => x.righe.some(r => /vero/i.test(JSON.stringify(r.celle)))),
+    'un vault VECCHIO mostra ancora il suo V/F: i file già scritti restano leggibili');
+
 console.log(ko ? '\nFALLITI: ' + ko : '\nTUTTO OK');
 process.exit(ko ? 1 : 0);
 

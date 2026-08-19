@@ -761,16 +761,41 @@
     }
 
     /**
-     * Parole chiave con l'AI per le card che le hanno vuote. Stesso motore del
-     * foglio automatico (_generateNodeKeywords in mappai-print-dossier.js): qui
-     * riempie solo i buchi, senza toccare quello che il docente ha scritto.
+     * Parole chiave con l'AI. Stesso motore del foglio automatico
+     * (`_generateNodeKeywords` in mappai-print-dossier.js).
+     *
+     * 🐛 Fino al 19/8 questo bottone non faceva NIENTE, e la ragione è la
+     * trappola 27: la sua condizione era falsa per costruzione. Cercava le card
+     * «parole chiave» ancora VUOTE — ma dare quel contenuto a una card la
+     * riempie subito col ripiego deterministico (`_fallbackKeywords`: le label
+     * dei figli, o le parole salienti della desc), sia dal menu «+» sia da «a
+     * tutte le card». Quindi una card con quel contenuto e senza parole non
+     * esisteva quasi mai, e il bottone rispondeva «Nessuna card da riempire»:
+     * il docente leggeva «non funziona», e aveva ragione.
+     * Ora fa le due cose che ha senso fare: riempie i buchi se ce ne sono,
+     * altrimenti CHIEDE se riscrivere con l'AI quelle che il ripiego ha già
+     * messo — perché è lì che l'AI serve davvero (il ripiego dà parole grezze,
+     * l'AI dei concetti). La domanda è esplicita perché fra quelle parole
+     * possono esserci quelle scritte a mano, e non si distinguono: `_nsSnapshot`
+     * mette comunque l'annulla prima di toccare qualsiasi cosa.
      */
     async function nsKeywordsAI() {
-        const todo = _sheet.cards
-            .map((c, i) => ({ c: c, i: i }))
-            .filter(x => x.c.layout === 'keywords' && !x.c.keywords.length)
-            .map(x => x.i);
-        if (!todo.length) { toast(t('de_ns_kw_none', 'Nessuna card «parole chiave» da riempire: prima dai quel contenuto a una card con «+».'), 'info'); return; }
+        /* la regola sta nel core, dove si può provare senza un editor aperto */
+        const bersagli = NS().keywordTargets(_sheet.cards);
+        const conKw = bersagli.conKw;
+        if (!conKw.length) { toast(t('de_ns_kw_none', 'Nessuna card «parole chiave»: dai prima quel contenuto a una card con «+», o con «a tutte le card».'), 'info'); return; }
+        let todo = bersagli.vuote;
+        if (!todo.length) {
+            const MM = window.MappAIModal;
+            const testo = t('de_ns_kw_gia',
+                'Le {n} card «parole chiave» le hanno già: le ha messe la mappa (le parole dei nodi figli). L\'AI le riscrive con i concetti della descrizione — anche quelle che hai corretto a mano. Puoi annullare subito dopo.')
+                .replace('{n}', conKw.length);
+            const ok = MM && MM.conferma
+                ? await MM.conferma({ titolo: t('de_ns_kw_gia_t', 'Riscrivere le parole chiave con l\'AI?'), icona: 'sparkles', testo: testo, conferma: t('de_ns_kw_gia_ok', 'Riscrivi') })
+                : window.confirm(testo);
+            if (!ok) return;
+            todo = conKw;
+        }
         const apiKey = window.getSystemKey ? window.getSystemKey() : '';
         if (!apiKey) { toast(t('de_ns_kw_nokey', 'Serve la chiave AI: le parole chiave si possono comunque scrivere a mano.'), 'warning'); return; }
         if (typeof window._generateNodeKeywords !== 'function') { toast(t('de_ns_kw_noengine', 'Motore parole chiave non disponibile.'), 'error'); return; }
@@ -792,6 +817,8 @@
                     _sheet.cards[i].keywords = NS().normKeywords(kw);
                     filled++;
                 }
+                /* se né AI né ripiego danno niente, la card resta com'era:
+                   svuotarla sarebbe una perdita in cambio di niente */
             });
             _dirty = true; render();
             toast(t('de_ns_kw_done', 'Parole chiave riempite su {n} card — controllale prima di stampare.').replace('{n}', filled), filled ? 'success' : 'warning');
@@ -2971,7 +2998,7 @@
             allBtn('card', t('de_ns_l_card', 'Titolo + descrizione')) +
             '<span class="de-spacer"></span>' +
             '<button type="button" class="de-ns-ai" onclick="MappAIDocEditor.nsKeywordsAI()" title="' +
-            esc(t('de_ns_ai_tip', 'Riempie con l\'AI solo le card «parole chiave» ancora vuote: quello che hai scritto tu non si tocca.')) + '">' +
+            esc(t('de_ns_ai_tip', 'Riempie le card «parole chiave» ancora vuote. Se le hanno già — le mette la mappa da sé — chiede se riscriverle con l\'AI, che ne ricava i concetti dalla descrizione.')) + '">' +
             '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + esc(t('de_ns_ai', 'Parole chiave con AI')) + '</button>' +
             '</div>' +
             '</div>';

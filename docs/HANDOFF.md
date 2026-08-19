@@ -180,6 +180,22 @@ box sopra. Una spunta in mezzo alle altre non lo direbbe.
   suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
   sempre (inv. 1).
 
+### «PAROLE CHIAVE CON AI» — il bottone che non faceva niente (19/8)
+Nell'editor del **foglio dei nodi**, riga «a tutte le card». Non era rotto: la sua
+condizione era **falsa per costruzione** (trappola 27). Cercava le card «parole
+chiave» ancora **vuote** — ma dare quel contenuto a una card la riempie subito col
+ripiego deterministico (`_fallbackKeywords`: le parole dei nodi figli, o quelle
+salienti della desc), sia dal menu «+» sia da «a tutte le card». Quindi quella lista
+era quasi sempre vuota e il bottone rispondeva «Nessuna card da riempire»: il docente
+leggeva «non funziona», e aveva ragione.
+Ora fa le due cose che ha senso fare: **riempie i buchi** se ce ne sono, altrimenti
+**chiede** se riscrivere con l'AI quelle che il ripiego ha già messo — ed è lì che
+l'AI serve davvero (il ripiego dà parole grezze, l'AI dei concetti). La domanda è
+esplicita perché fra quelle parole possono esserci quelle corrette a mano, e non si
+distinguono; `_nsSnapshot` mette comunque l'annulla prima di toccare qualcosa.
+📌 La regola sta in `MappAINodeSheet.keywordTargets` (core puro, +4 test): dentro la
+funzione dell'editor non si poteva provare senza un editor aperto.
+
 **Il VERO/FALSO esce dalla pipeline** (19/8 sera): «Genera materiali» produce
 scelta multipla · flashcard · domande aperte, e basta. La casella è uscita dal bento
 E dal modale storico, e `tf` non è più un tipo valido nei preset — uno salvato prima
@@ -188,6 +204,12 @@ lo perde al caricamento (se restasse senza niente, ripiega su «scelta multipla�
 `generaSet`, cioè il gesto singolo di ELABORA «Crea un documento → Vero o Falso», che
 resta l'unico modo di ottenerne uno — e il **prefisso** `Quiz-VF` in `GENERI`, perché
 i fogli già sul disco vanno ancora riconosciuti, elencati e riaperti.
+✅ **E gli elenchi non mostrano tabelle V/F vuote**: i generi si dichiarano in
+`GRUPPI_MAT` (i quiz stanno in un elenco solo dall'11/8) e un gruppo senza righe non
+si disegna. Misurato in `tools/smoke/elenchi-elabora-insegna.js`, che ora lo tiene
+fermo: su un vault senza V/F, ELABORA dà `Sintesi · Fogli dei nodi · Catena dei perché
+· Quiz` e INSEGNA `Fogli dei nodi · Catena dei perché · Quiz`, zero elenchi vuoti — e
+su un vault VECCHIO la riga del suo V/F si vede ancora.
 
 **I default della generazione, e la memoria dei box** (19/8 sera, scelte di Giacomo):
 domande aperte **accese** · **5** domande per ramo · voce

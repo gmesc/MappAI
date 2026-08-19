@@ -257,3 +257,39 @@ test('normDoc: documento salvato malandato → forma valida senza eccezioni', ()
     assert.deepStrictEqual(NS.normDoc(null).cards, []);
 });
 
+
+/* ══ IL BOTTONE «PAROLE CHIAVE CON AI» (19/8) ════════════════════════════════
+   Non faceva niente, e la ragione è la trappola 27: cercava le card «parole
+   chiave» ancora VUOTE, ma dare quel contenuto a una card la riempie subito col
+   ripiego deterministico — quindi quella lista era quasi sempre vuota e il
+   bottone rispondeva «niente da fare». */
+
+test('keywordTargets: i buchi e tutte le card «parole chiave»', () => {
+    const cards = [
+        { id: 'a', label: 'A', layout: 'title' },
+        { id: 'b', label: 'B', layout: 'keywords', keywords: ['fusto', 'radici'] },
+        { id: 'c', label: 'C', layout: 'keywords', keywords: [] },
+        { id: 'd', label: 'D', layout: 'card', desc: 'testo' }
+    ];
+    const r = NS.keywordTargets(cards);
+    assert.deepStrictEqual(r.conKw, [1, 2], 'tutte quelle col contenuto «parole chiave»');
+    assert.deepStrictEqual(r.vuote, [2], 'solo il buco vero');
+});
+
+test('keywordTargets: il caso NORMALE è «piene» — è quello che rendeva morto il bottone', () => {
+    const piene = [{ id: 'b', label: 'B', layout: 'keywords', keywords: ['x'] }];
+    const r = NS.keywordTargets(piene);
+    assert.deepStrictEqual(r.vuote, [], 'nessun buco: guardando solo qui il bottone non aveva mai niente da fare');
+    assert.deepStrictEqual(r.conKw, [0], '…e invece c\'è una card su cui l\'AI ha senso');
+});
+
+test('keywordTargets: parole vuote in mezzo contano come buco', () => {
+    // `addKeyword` aggiunge una riga VUOTA da compilare: una card così è un buco
+    const r = NS.keywordTargets([{ id: 'b', label: 'B', layout: 'keywords', keywords: ['', '  '] }]);
+    assert.deepStrictEqual(r.vuote, [0]);
+});
+
+test('keywordTargets: senza card «parole chiave» non c\'è niente da fare', () => {
+    const r = NS.keywordTargets([{ id: 'a', label: 'A', layout: 'title' }]);
+    assert.deepStrictEqual(r, { conKw: [], vuote: [] });
+});
