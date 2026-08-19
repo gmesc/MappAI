@@ -2,11 +2,14 @@
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
 > Ultimo aggiornamento: **19 agosto 2026** — il **CARATTERE si sceglie** (Cabina per
-> l'app, ELABORA per il singolo documento; quattro caratteri, tutti locali), e dietro
-> quel lavoro è emerso il capitolo aperto dei **SIMBOLI MANCANTI**: nessuno dei quattro
-> ha `✓`, e su un foglio prodotto da jsPDF un glifo che manca **sparisce** invece di
-> ripiegare. La giornata è in §11, in cima al diario; il punto di ripresa è
-> **[`docs/HANDOFF.md`](docs/HANDOFF.md) §4 debito 0**.
+> l'app, ELABORA per il singolo documento; quattro caratteri, tutti locali), e i **SIMBOLI
+> SCIENTIFICI sono cuciti dentro** ognuno di essi: nessuno dei quattro aveva `✓`, l'`Ω` ce
+> l'aveva solo Atkinson, e su un foglio prodotto da jsPDF un glifo che manca **sparisce**
+> invece di ripiegare. Ora greco, matematica, frecce, filetti, forme e spunte ci sono in
+> tutti e quattro (donatore DejaVu Sans, cucitura in `tools/font/prepara-font.py`).
+> ⚠️ TestMe, diventata una versione modificata, si chiama **«TM Sans» / «TM Alt»** — la sua
+> OFL ha un nome riservato; gli `id` salvati non cambiano. La giornata è in §11, in cima al
+> diario; lo stato è in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §4 debito 0**.
 > (Prima: **18 agosto** — il PDF della mappa torna VETTORIALE: il ripiego raster non
 > scatta più.)
 > (Prima: **17 agosto 2026, sera** — la **VOCE della sintesi diventa usabile**
@@ -681,13 +684,20 @@ silenzio. Ora nessun carattere di testo passa dalla rete.
    scritto** invece del font di partenza. E il controllo che divideva il campo in due — far
    passare Atkinson, che non ho convertito io — andava fatto per PRIMO (guida, trappola 47).
 
-**⚠️ IL CAPITOLO APERTO: i simboli.** Da un ohm in un quiz di elettricità è emerso un
-difetto largo e **vecchio**: nessuno dei quattro caratteri ha `✓` né i filetti del dossier, e
-**anche Space Mono** manca di quindici simboli che l'app usa. E i due percorsi di export
-falliscono in modo diverso — **Chromium ripiega** (il simbolo si vede in un'altra veste),
-**jsPDF lo fa sparire**, e con Space Mono la riga si **tronca**. Su un foglio jsPDF un
-simbolo mancante si porta via del testo, in silenzio. Due strumenti lo rimisurano in un
-secondo (`copertura-glifi.py`, `prova-glifi.js`); il piano è in `HANDOFF.md` §4 debito 0.
+**✅ I SIMBOLI, CHIUSO IN GIORNATA (19/8).** Da un ohm in un quiz di elettricità è emerso un
+difetto largo e **vecchio**: nessuno dei quattro caratteri aveva `✓` né i filetti del dossier,
+e **anche Space Mono** mancava di quindici simboli che l'app usa. I due percorsi di export
+fallivano in modo diverso — **Chromium ripiega** (il simbolo si vede in un'altra veste),
+**jsPDF lo fa sparire** senza dirlo, uguale per tutti e quattro i caratteri (il troncamento
+che avevo scritto qui NON c'è: rimisurato sui PDF veri). Ora i glifi si **cuciono dentro** i
+caratteri in fase di build (`prepara-font.py`, donatore DejaVu Sans): +1065-1155 glifi per
+famiglia, **0 advance esistenti cambiati** — quindi nessun foglio già stampato si ricompone.
+⚠️ Tre cose imparate: jsPDF **non sa ripiegare** a cascata come il browser (un font solo per
+`setFont`), quindi la difesa non può che stare nel font · su un monospazio i **filetti vanno
+tirati** fino al passo e non centrati, o l'albero del dossier esce tratteggiato (10 unità di
+buco fra `├` e `─`) · cucire rende il font una **versione modificata**, e la OFL di TestMe ha
+un nome riservato: si chiama **«TM Sans» / «TM Alt»** (gli `id` non cambiano). Misure e
+verifiche in `HANDOFF.md` §4 debito 0.
 
 **Altre due cose della giornata**: l'**anteprima** nella tela di ELABORA segue ora il
 carattere della Cabina (e non tocca i documenti che un carattere se lo sono scelto — lo dice

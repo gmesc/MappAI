@@ -97,9 +97,16 @@
         },
         {
             id: 'testme-sans',
-            famiglia: 'TestMe Sans',
-            etichetta: 'TestMe Sans',
-            descrizione: 'Carattere ad alta leggibilità (Perondi/Romei, derivato da Titillium). Senza corsivo.',
+            // ⚠️ «TM Sans» e non «TestMe Sans»: il carattere che l'app spedisce
+            // ha i glifi scientifici cuciti dentro (tools/font/prepara-font.py),
+            // ed è quindi una versione MODIFICATA — la OFL di TestMe dichiara
+            // «Reserved Font Name TestMe» e vieta a una versione modificata di
+            // portare quel nome. La paternità resta nella descrizione, che è
+            // dove la licenza vuole che stia. L'`id` non cambia: è un dato
+            // salvato nei documenti e nelle impostazioni.
+            famiglia: 'TM Sans',
+            etichetta: 'TM Sans',
+            descrizione: 'Carattere ad alta leggibilità derivato da TestMe (Perondi/Romei, a sua volta da Titillium). Senza corsivo.',
             file: { normale: 'TestMeSans-Regular.ttf', grassetto: 'TestMeSans-Bold.ttf' },
             ripiego: 'sans-serif',
             modulo: 'vendor/testme-sans-font.js',
@@ -113,9 +120,10 @@
         },
         {
             id: 'testme-alt',
-            famiglia: 'TestMe Alt',
-            etichetta: 'TestMe Alt',
-            descrizione: 'La variante di TestMe con le lettere che si scambiano più spesso (b d p q) disegnate diverse. Senza corsivo.',
+            // vedi la nota su 'testme-sans': stesso motivo, stesso nome nuovo
+            famiglia: 'TM Alt',
+            etichetta: 'TM Alt',
+            descrizione: 'La variante di TestMe (Perondi/Romei) con le lettere che si scambiano più spesso (b d p q) disegnate diverse. Senza corsivo.',
             file: { normale: 'TestMeAlt-Regular.ttf', grassetto: 'TestMeAlt-Bold.ttf' },
             ripiego: 'sans-serif',
             modulo: 'vendor/testme-alt-font.js',

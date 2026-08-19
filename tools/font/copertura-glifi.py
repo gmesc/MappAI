@@ -23,8 +23,11 @@ dedotto (`tools/font/prova-glifi.js` riproduce la misura):
     Fastidioso, non grave.
 
   · jsPDF (grafi, vista studio, dossier, foglio dei nodi)
-    il glifo SPARISCE. E con Space Mono va peggio: la riga si TRONCA al primo
-    glifo mancante — «ohm 12 Ω · spunta ✓» diventa «ohm 12».
+    il glifo SPARISCE, e non lo dice nessuno: «ohm 12 Ω · spunta ✓ · freccia →»
+    esce «ohm 12 · spunta · freccia →». Vale per tutti e quattro i caratteri allo
+    stesso modo — il filtro sta in jsPDF (`postProcessText`), non nel font.
+    ⚠️ Un carattere che avesse un buco SOTTO U+0100 andrebbe peggio: quelli
+    jsPDF li lascia passare e `pdfEscape16` TRONCA la riga al primo mancante.
 
 Quindi un simbolo che manca non è un dettaglio tipografico: su un foglio prodotto
 da jsPDF può portarsi via del testo, in silenzio.
@@ -128,7 +131,7 @@ def main():
                                            ' '.join(sorted(v['dove']))[:44]))
 
     print('\n⚠️  DOVE FA DANNO — un simbolo che manca su un foglio prodotto da jsPDF')
-    print('    sparisce (con Space Mono la riga si TRONCA), invece di ripiegare.\n')
+    print('    sparisce senza dirlo, invece di ripiegare come fa Chromium.\n')
     if not guai:
         print('    nessuno: tutti i simboli dei fogli jsPDF hanno il loro glifo.')
     for c, o, manca_a, dove in guai:

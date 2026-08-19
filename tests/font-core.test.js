@@ -37,7 +37,7 @@ test('risolvi: il documento vince sull app, l app vince sul default', () => {
 // ── lo stack ────────────────────────────────────────────────────────────────
 test('stackDi: le emoji stanno DENTRO lo stack, prima del ripiego generico', () => {
     const s = F.stackDi('testme-sans');
-    assert.match(s, /^'TestMe Sans',/);
+    assert.match(s, /^'TM Sans',/);
     const iEmoji = s.indexOf('Noto Color Emoji');
     const iRipiego = s.indexOf('sans-serif');
     assert.ok(iEmoji > 0, 'Noto Color Emoji manca dallo stack: ' + s);
@@ -231,15 +231,15 @@ test('buildFileName: il carattere in coda, e opts.font vince sull annuncio', () 
     assert.strictEqual(P.buildFileName('quiz_mc', null, false, { mappa: 'Il Clima', nome: 'causa' }),
         'Quiz-MC-Il Clima-causa.pdf', 'senza annuncio il nome resta quello storico');
 
-    P.setFontEtichetta('TestMe Sans');
+    P.setFontEtichetta('TM Sans');
     assert.strictEqual(P.buildFileName('quiz_mc', null, false, { mappa: 'Il Clima', nome: 'causa' }),
-        'Quiz-MC-Il Clima-causa - TestMe Sans.pdf');
+        'Quiz-MC-Il Clima-causa - TM Sans.pdf');
     // un DOCUMENTO con un carattere suo porta il SUO, non quello dell'app
     assert.strictEqual(P.buildFileName('synthesis', null, false, { mappa: 'Il Clima', font: 'Atkinson Hyperlegible' }),
         'Sintesi-Il Clima - Atkinson Hyperlegible.html');
     // anche la mappa esportata, e l'estensione resta l'ultima cosa
     assert.strictEqual(P.buildMapExportName('mindmap', 'Il Clima', '.svg'),
-        'MM-Il Clima - TestMe Sans.svg');
+        'MM-Il Clima - TM Sans.svg');
     P.setFontEtichetta('');
 });
 

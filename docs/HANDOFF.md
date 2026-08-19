@@ -236,12 +236,16 @@ suo stato in una variabile diversa (`_doc` · `_syn` · `_sheet` · `_cc`): la p
 leggeva solo `_doc`, e sulla **sintesi** — cioè dove Giacomo lo usa — il selettore si
 disegnava e non faceva niente.
 
-⚠️ **I SIMBOLI MANCANTI sono un capitolo a sé, ed è il punto di ripresa**: nessuno dei
-quattro ha `✓` né i filetti del dossier, e **anche Space Mono** manca di quindici simboli
-che l'app usa. Non è un difetto dei caratteri nuovi — è un difetto che i caratteri nuovi
-hanno reso visibile. Su un foglio prodotto da **jsPDF** un glifo mancante **sparisce** (e
-con Space Mono la riga si **tronca**), mentre su un foglio prodotto da **Chromium**
-ripiega e si vede. Tutto misurato, con gli strumenti per rifarlo: **§4 debito 0**.
+✅ **I SIMBOLI SCIENTIFICI ORA CI SONO IN TUTTI E QUATTRO (19/8).** Nessuno dei quattro
+aveva `✓` né i filetti del dossier, e **anche Space Mono** — il carattere con cui è stato
+prodotto tutto finora — mancava di quindici simboli che l'app usa: non era un difetto dei
+caratteri nuovi, era un difetto che i caratteri nuovi hanno reso visibile. Su un foglio
+prodotto da **jsPDF** un glifo mancante **spariva senza dirlo** (jsPDF non sa ripiegare a
+cascata come il browser). Ora i glifi si **cuciono dentro** ogni carattere in fase di
+build, presi da DejaVu Sans: greco, matematica, frecce, filetti, forme, spunte, apici e
+pedici. ⚠️ Con la cucitura TestMe è diventata una versione modificata, e la sua OFL ha un
+nome riservato: si chiama **«TM Sans» / «TM Alt»** (l'`id` non cambia). Il perché, le
+regole e le misure: **§4 debito 0**.
 
 ⚠️ **Il PDF dei grafi era rotto, ed è stato corretto il 19/8**: i `.ttf` di TestMe li
 produce `prepara-font.py` convertendo gli `.otf` (jsPDF legge solo `glyf`), e la
@@ -1198,47 +1202,90 @@ e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa s
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
-0. ⏳ **I SIMBOLI MANCANTI — il punto di ripresa (19/8).** È il debito da cui
-   riprendere: è stato *scoperto* dai caratteri nuovi ma **non è colpa loro**, e va
-   capito prima di toccarlo.
+0. ✅ **I SIMBOLI SONO CUCITI DENTRO I CARATTERI (19/8).** Chiuso: i glifi
+   scientifici ora ci sono in tutti e quattro, e nessun foglio li perde più.
 
-   **Il fatto.** Un quiz di elettricità è uscito con l'ohm in un carattere diverso
-   dal resto. Misurando, il problema è largo e vecchio: **anche Space Mono** — con
-   cui è stato prodotto tutto finora — non ha `✓ ✗ → ─ │ ├ └ ▲ ▼ ▶ Ω Δ α β`.
-   Nessuno dei quattro ha `✓` e i filetti del dossier.
+   **Il fatto da cui è partito.** Un quiz di elettricità è uscito con l'ohm in un
+   carattere diverso dal resto. Misurando, il problema era largo e vecchio: **anche
+   Space Mono** — con cui è stato prodotto tutto finora — non aveva `✓ ✗ ─ │ ├ └ ▲ ▼
+   Ω Δ α β`. E i due percorsi di esportazione fallivano in modo diverso:
 
-   **⚠️ E i due percorsi di esportazione falliscono in modo DIVERSO** — misurato,
-   non dedotto (`node tools/font/prova-glifi.js` lo riproduce):
-
-   | percorso | chi ci passa | che cosa succede a un glifo mancante |
+   | percorso | chi ci passa | che cosa succedeva a un glifo mancante |
    |---|---|---|
    | **Chromium** (HTML → printToPDF) | quiz, domande aperte, sintesi, report | **ripiega** su un carattere di sistema: il simbolo si vede, in un'altra veste |
-   | **jsPDF** | grafi, vista studio, dossier, foglio dei nodi | il glifo **sparisce**. E con Space Mono la riga si **TRONCA** al primo mancante: «ohm 12 Ω · spunta ✓» diventa «ohm 12» |
+   | **jsPDF** | grafi, vista studio, dossier, foglio dei nodi | il glifo **spariva**, e non lo diceva nessuno: «ohm 12 Ω · spunta ✓» usciva «ohm 12 · spunta» |
 
-   Quindi su un foglio prodotto da jsPDF un simbolo che manca **si porta via del
-   testo, in silenzio**. È la parte grave, ed è quella che c'era già prima.
+   ⚠️ **La riga NON si tronca — quello che era scritto qui era sbagliato.**
+   Rimisurato sui PDF veri (`pdftotext` su `/tmp/g-jspdf-*.pdf`) e riprodotto fuori
+   dall'app su jsPDF in Node: il comportamento è **uno solo per tutti e quattro**, il
+   carattere senza glifo viene scartato e il resto della riga si stampa. Il meccanismo
+   sta in due pezzi diversi di `jspdf.umd.min.js`, e il secondo è una mina che dorme:
+   · `postProcessText` tiene un carattere solo se il font ha il glifo **oppure se il
+     suo codice è < 256**; il resto lo butta — `Ω` (U+03A9) e `✓` (U+2713) di lì.
+   · `pdfEscape16` fa `if ("0" == gid) return`: **quello sì tronca** la riga al primo
+     glifo mancante, ma ci arrivano solo i caratteri sotto 256 non mappati. Nei
+     quattro caratteri sono i soli codici di controllo, quindi non si vede. Un
+     carattere futuro con un buco in Latin-1 lo farebbe vedere eccome.
 
-   **Due canali, e uno non si può governare.** I simboli arrivano dal CODICE (le
-   frecce e le spunte che i costruttori scrivono: misurabili, e si può decidere di
-   non usarli) e dal CONTENUTO (il testo dell'AI: lì può comparire qualunque cosa —
-   `Ω` è arrivato da lì). Per il secondo l'unica difesa è che il carattere abbia il
-   glifo, e **Atkinson è il più coperto** dei quattro (ha Ω e Δ): per Scienze e
-   Fisica è la scelta prudente.
+   **La cura: i glifi si CUCIONO dentro il font**, in `tools/font/prepara-font.py`
+   (`cuci()`), donatore **DejaVu Sans** (Bitstream Vera License, un donatore solo per
+   greco · matematica · frecce · filetti · forme · spunte · apici e pedici). Perché
+   così e non altrimenti: jsPDF incorpora **un** font per `setFont` e non sa ripiegare
+   a cascata come il browser; e i simboli arrivano anche dal testo dell'AI, dove non
+   si può decidere in anticipo che cosa comparirà — l'unica difesa è che il carattere
+   il glifo ce l'abbia. La cucitura è **una tantum, in fase di build**: a runtime non
+   cambia una riga di codice, quindi non può rompere l'impaginazione.
 
-   **Da dove ripartire, senza rimisurare niente:**
-   - `python3 tools/font/copertura-glifi.py` → la tabella, generata leggendo i
-     costruttori e i file dei caratteri. Dice anche **dove fa danno** (i sei
-     simboli su fogli jsPDF che non ha nessun carattere).
-   - `npx electron tools/font/prova-glifi.js` → riproduce il confronto fra i due
-     percorsi su un testo con `Ω ✓ →`.
-   - Le tre strade sono elencate in testa a `copertura-glifi.py`: non usare quei
-     simboli dove passa jsPDF (il ✓ e la freccia si possono disegnare come
-     geometria — nella vista studio le punte lo sono GIÀ, per lo stesso motivo) ·
-     sostituirli con caratteri che tutti hanno · cucire i glifi mancanti dentro i
-     font con fontTools.
-   - ⚠️ Da capire per prima cosa: **perché con Space Mono la riga si tronca** e con
-     gli altri no. Lo stesso jsPDF, due comportamenti: la differenza sta nel
-     modulo `spacemono-font.js` (vecchio) contro i moduli generati oggi.
+   **Le due regole che tengono in piedi la cucitura** (le verifica lo script, e si
+   ferma se saltano):
+   - **i glifi che c'erano non si toccano mai.** Le costanti `advance`/`headAdvance`
+     di `mappai-font-core.js` sono misurate su di loro: cambiarne uno ricomporrebbe
+     fogli che oggi escono giusti. Verificato: **0 advance cambiati** su tutti e otto
+     i file.
+   - **su un monospazio il passo è sacro.** Space Mono ha un solo advance (612): il
+     glifo donato si rimpicciolisce fino al passo e ci si centra dentro, così il conto
+     dei caratteri per riga di `print-layout` resta valido. ⚠️ **Eccezione misurata**:
+     filetti e barre (`U+2500-259F`) si tirano in larghezza fino al passo invece di
+     centrarsi — centrati lasciavano 10 unità di buco fra un `├` e il `─` che segue, e
+     l'albero del dossier usciva **tratteggiato**. L'1,7% di distorsione non si vede,
+     il buco sì.
+
+   **Che cosa è cambiato nei file** (`python3 tools/font/prepara-font.py`):
+   - `public/fonts/*.ttf` — **+1065** glifi in Space Mono, **+1152** in TM Sans e TM Alt,
+     **+1191** in Atkinson (anche i corsivi, col taglio giusto del donatore: un Ω chiaro
+     dentro un grassetto si legge come un errore di stampa). La rigenerazione è
+     **identica byte per byte** (`recalcTimestamp = False`, o ogni build sporcherebbe
+     il repo con otto file «modificati» senza che sia cambiato niente);
+   - `public/js/vendor/*-font.js` — i moduli per jsPDF, ora **tutti generati**, Space
+     Mono compreso (prima era scritto a mano e lo script ne *decodificava* i byte:
+     un modulo non rigenerato vorrebbe dire schermo con l'Ω e PDF senza). 461-733 KB
+     l'uno, e si caricano a richiesta;
+   - `public/js/vendor/*-incorpora.js` — i byte dentro i documenti: **da 76-101 KB a
+     ~230 KB** a documento. È il prezzo dichiarato: un documento in più pesa quanto
+     un'immagine, e in cambio una formula stampata non perde pezzi.
+
+   ⚠️ **TestMe si chiama «TM Sans» e «TM Alt»**, e non è un capriccio: la sua OFL
+   dichiara «Reserved Font Name TestMe» e il §3 vieta a una **versione modificata** di
+   portare quel nome — cucirci dentro dei glifi la rende modificata. Space Mono e
+   Atkinson non dichiarano nomi riservati e tengono il loro. La paternità
+   (Perondi/Romei, da Titillium) resta nella descrizione del selettore e nel copyright
+   dentro il font, che è dove la licenza vuole che stia. Gli `id` (`testme-sans`,
+   `testme-alt`) **non cambiano**: sono un dato salvato nei documenti e nelle
+   impostazioni. Cambia invece il nome nei file dei materiali NUOVI
+   (`… - TM Sans.pdf`); quelli già su disco restano come sono.
+   📌 Se un giorno si vuole indietro il nome, la strada è chiedere il permesso scritto
+   ai due autori — la licenza lo prevede.
+
+   **Com'è verificato, e come si rifà in un minuto:**
+   - `python3 tools/font/copertura-glifi.py` → «nessuno: tutti i simboli dei fogli
+     jsPDF hanno il loro glifo». Restano `NO` solo 💡 e 🎓, che sono **emoji a colori**
+     su percorso HTML: le disegna Noto Color Emoji, non un carattere di testo.
+   - `npx electron tools/font/prova-glifi.js` → tutti e sei i PDF (tre caratteri × due
+     percorsi) leggono «ohm 12 Ω · spunta ✓ · freccia → · fine», e `pdffonts` dice che
+     il font è **incorporato** (`/BaseFont /TM#20Sans`, `/Space#20Mono`).
+   - una pagina di prova con fisica, chimica, matematica, segni e filetti nei quattro
+     caratteri: 112 caratteri, **112 glifi scritti, 0 persi** in tutti e quattro.
+   - suite **1188/0**.
 
 0-ter. ✅ **RISOLTO in giornata — e l'avevo classificato male.** Era scritto qui come
    «da decidere se conviene incorporare i caratteri per il QR». Non era una comodità: era
@@ -1541,8 +1588,11 @@ quelle che possono nascondere una sorpresa: là fuori il protocollo è `file://`
    foglio non restino i richiami. Riaccendere: devono tornare.
 10. **L'export dei grafi** (Esporta PDF dalla mappa e dalla Vista studio) nei quattro
    caratteri: `pdffonts` non deve più dire «Embedded font file may be invalid», e il
-   testo deve leggersi. ⚠️ Sul dossier e sul foglio dei nodi guardare se **manca del
-   testo**: è il difetto dei simboli (§4 debito 0), non l'export.
+   testo deve leggersi.
+11. **I simboli, sui fogli veri** (§4 debito 0 li ha cuciti, ma provati solo su una pagina
+   di prova): un **dossier** con l'albero — i filetti `├ ─ └` devono toccarsi, non
+   tratteggiare — e un quiz o un foglio dei nodi con dentro `Ω`, `H₂O`, `✓`, in tutti e
+   quattro i caratteri. E il selettore della Cabina, che ora dice «TM Sans» e «TM Alt».
 
 
 > **Aggiornato il 17 agosto 2026, sera.** Tutto il lavoro del 17/8 è stato provato
