@@ -1,7 +1,18 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **19 agosto 2026** — il **CARATTERE si sceglie** (Cabina per
+> Ultimo aggiornamento: **19 agosto 2026, sera** — nascono le **attività «a scelta»**: lo
+> studente riceve tutte le domande che la mappa ha prodotto, con l'**angolo nascosto**, e
+> sceglie a quali rispondere. Tre fasi su sei spedite (il box **«Più set per angolo»** nel
+> bento, il **core**, la **superficie a tre passi**); si riprende dalla **fase D** —
+> [`docs/PIANO-domande-a-scelta.md`](docs/PIANO-domande-a-scelta.md) e
+> [`docs/PIANO-scelta-a-tre-passi.md`](docs/PIANO-scelta-a-tre-passi.md). ⚠️ L'idea che
+> regge tutto: **non è «rispondi a delle domande», è leggere dei RICHIAMI e riconoscere
+> quali riaccendono le tue conoscenze** — da lì il campionamento (una domanda per area ×
+> angolo, non trentacinque), i chip che dicono attivazione e non preferenza, e il fatto
+> che il giudizio si dia anche a una domanda che non si prende. Il VERO/FALSO esce dalla
+> pipeline. Lo stato è in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0**.
+> (Prima: **19 agosto** — il **CARATTERE si sceglie** (Cabina per
 > l'app, ELABORA per il singolo documento; quattro caratteri, tutti locali), e i **SIMBOLI
 > SCIENTIFICI sono cuciti dentro** ognuno di essi: nessuno dei quattro aveva `✓`, l'`Ω` ce
 > l'aveva solo Atkinson, e su un foglio prodotto da jsPDF un glifo che manca **sparisce**
@@ -518,8 +529,12 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ### `/graphify` — knowledge graph da qualsiasi input
 - File: `~/.claude/skills/graphify/SKILL.md`
 - Usato dalla skill analyze-mm per ottenere il "ground truth" semantico dei vault
-- **Il repo ha il suo grafo** (1/8/26): `graphify-out/graph.json` — 5385 nodi, 8835 archi,
-  252 comunità etichettate (corpus CURATO: public/js senza vendored/minificati, main.js,
+- **Il repo ha il suo grafo** (agg. **19/8/26**): `graphify-out/graph.json` — **7835 nodi,
+  13255 archi, 359 comunità**; le etichette delle comunità sono quelle del 18/8 (l'ultimo
+  aggiornamento è stato **strutturale**: AST sui 93 file di codice cambiati, zero chiamate
+  AI). ⚠️ `--update` da solo scansiona TUTTO il repo (1271 file, 2,2 M parole, video
+  compresi) e rifarebbe l'estrazione semantica su piani vecchi e asset: il grafo invece
+  vive sul corpus CURATO (corpus CURATO: public/js senza vendored/minificati, main.js,
   server LAN, tools/banco-layout, tests, traduzioni + CLAUDE.md e README del banco come
   semantica). Le domande sul codice passano da `graphify query "..."` (fast path, zero
   re-estrazione). Dopo modifiche grosse: `/graphify . --update`. `graph.html` = vista

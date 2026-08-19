@@ -21,7 +21,23 @@
 
 ---
 
-## 0. Le prime otto cose da sapere
+## 0. Le prime cose da sapere
+
+0. **⟵ DA QUI SI RIPRENDE (19/8 sera): la FASE D delle attività «a scelta».**
+   Tre fasi su sei sono spedite. In `main`: il box **«Più set per angolo»** nel bento
+   (un materiale per ogni angolo), il **core** e la **superficie a tre passi** delle
+   attività «a scelta». Nessuna delle due ha ancora un ingresso nell'app: si provano
+   dal banco `public/dev/scelta-harness.html`.
+   **Che cosa fare, in ordine**: leggere [`PIANO-scelta-a-tre-passi.md`](PIANO-scelta-a-tre-passi.md)
+   (il PERCHÉ della forma) e poi la **fase D** in
+   [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md), che è scritta coi punti di
+   attacco misurati (file e righe). Restano D (Live: server, pagina studente, report,
+   docente), E (lo Studio attivo rifatto sui materiali del vault) ed F (la pensione di
+   cinque modalità storiche + Cloze).
+   ⚠️ La cosa da non dimenticare: l'attività **non è «rispondi a delle domande»** — è
+   leggere dei RICHIAMI e riconoscere quali riaccendono le proprie conoscenze. Da lì il
+   campionamento, i chip di attivazione e i due registri dello stato (§3).
+
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -92,6 +108,12 @@ node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
 node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
 node tools/diagnosi/vault-estranei.js             # sui vault VERI: dice, non tocca
 ```
+I due banchi di `public/dev/` si aprono in un server statico (`python3 -m http.server 8145
+--directory public`) e si leggono dal riquadro nero in cima:
+`/dev/scelta-harness.html` (le attività «a scelta»: i tre passi, il campionamento, i
+contrasti, i bersagli) · `/dev/costruisci-harness.html` (il bento di CREA).
+⚠️ Vanno guardati a **390px**, cioè a larghezza di telefono: è dove vive la pagina dello
+studente, ed è la larghezza a cui sono stati misurati.
 `tools/diagnosi/vault-estranei.js` (17/8) è l'unico che guarda il DISCO dell'utente, in sola
 lettura: set di un'altra mappa · set duplicati · vault annidati · materiali di un'altra
 mappa · nomi muti. Si lancia quando qualcosa non torna in una cartella, invece di rifare
@@ -1717,6 +1739,24 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 ---
 
 ## 5. Provato in Electron — che cosa è acquisito
+
+### ⏳ DA PROVARE IN ELECTRON — le attività «a scelta» (19/8 sera)
+Tutto misurato nel banco e nei test puri, **niente nell'app vera** — e per buona parte non
+si può ancora: la superficie non ha un ingresso finché non arrivano le fasi D ed E.
+Quello che si può provare **subito**, ed è della fase A:
+1. **Una generazione VERA con «Più set per angolo» acceso**: nel vault devono comparire
+   `Domande-aperte-<Mappa>-definizione.pdf` … `-applicazione.pdf` (sette) e, se spuntata la
+   seconda voce, sette set MC col loro angolo nel titolo.
+2. **I default nuovi al primo avvio** (aperte on · 5 per ramo · V/F off · voce off · allega
+   PDF on · tutte le caselle del box on), che devono vincere UNA volta anche sul «Default»
+   già presente dal 11/8.
+3. **La memoria dei box nascosti**: togliere due angoli, chiudere l'app, riaprirla → quei
+   due sono ancora spenti.
+4. **«Parole chiave con AI»** su un foglio dei nodi con le card già riempite dal ripiego: la
+   conferma, poi le parole nuove.
+Quello che arriva con la fase D: la pagina dal telefono, il rientro a metà percorso, il
+report col calore delle aree.
+
 
 ### ⏳ DA PROVARE IN ELECTRON — «Più set per angolo» (19/8)
 Misurato nell'harness (`public/dev/costruisci-harness.html`, moduli veri + `_readConfig`

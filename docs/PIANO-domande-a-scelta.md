@@ -1,8 +1,12 @@
 # Piano — «Domande a scelta» (Live + Studio attivo), il box «Più set per angolo» nel bento, e lo Studio attivo rifatto sui materiali del vault
 
 > Piano da `/architetto` (19/8/26, seconda stesura).
-> **Stato: fase A e fase B spedite** (commit `256648f`, `9b0ff4f`, `416a003` per A; il core per
-> B). Da qui si riprende dalla **fase C**. Guida letta per intera; stato da `docs/HANDOFF.md` §0-§4; codice dell'area letto
+> **Stato al 19/8/26 sera: fasi A · B · C SPEDITE.** Commit: `256648f` `9b0ff4f` `416a003`
+> (A, il bento e la generazione per angolo) · `5f09145` (B, il core) · `9707bd0` + `322d65f`
+> (C, la superficie, poi rifatta a **tre passi**). **Si riprende dalla FASE D**, riscritta
+> qui sotto con quello che le fasi B/C hanno cambiato sotto di lei.
+> ⚠️ Leggere prima [`PIANO-scelta-a-tre-passi.md`](PIANO-scelta-a-tre-passi.md): la forma
+> dell'attività non è più quella descritta nel §2 di questo documento. Guida letta per intera; stato da `docs/HANDOFF.md` §0-§4; codice dell'area letto
 > (`mappai-active-study.js`, `mappai-live-*.js`, `live-server.js`, `public/live/student.html`,
 > `mappai-quiz-print.js`, `mappai-material-pipeline.js`, `mappai-pipeline-core.js`,
 > `mappai-bento-composizione.js`, `mappai-crea-quiz.js`, `mappai-cloze.js`).
@@ -144,34 +148,63 @@
    con `{avoided:{idx, why}}`; secondo giro → `/api/answer` (azzera `finishedAt`, già così) +
    `/api/finish`. NUOVO harness `public/dev/scelta-harness.html` (pool finto, trasporto stub).
 
-**Fase D — Live: server, core Live, report, docente**
-9. `public/js/mappai-live-core.js`: `cleanAnswer` per `open` tiene anche `chip` (∈ CHIP), `nota`
-   (≤300), `auto` (1-3), opzionali: le sessioni quiz storiche non cambiano. Test estesi
-   (`publicQuestions` non porta `angle`/`ramo` oltre a `topic`).
-10. `live-server.js`: `mode:'scelta'` accanto a `quiz|build`; `cfg.scelta` in `session.json`;
-    le domande portano `angle`/`ramo` lato server e `l1Label = ramo` (così `topic` raggruppa);
-    `/api/finish` in `scelta` calcola `profilo` + `evitata` e li ritorna **solo con
-    `cfg.reveal`** (l'angolo non viaggia prima della consegna, come le soluzioni); accetta
-    `notes`/`avoided` e li persiste su `students/<id>.json` **prima** di rispondere (inv. 18);
-    `/api/close` scrive il report. Test estesi in `tests/live-server.test.js` (answer con chip ·
-    finish con/senza reveal · avoided · secondo giro riapre · `/api/session` senza angoli).
-11. `public/js/mappai-live-reports.js`: `buildSceltaReportHtml(results)` — per allievo risposte
-    col loro angolo e chip, Osservazioni, «perché no?», autovalutazione; per la classe il calore
-    degli angoli evitati. Stili dei report esistenti. Report = resa; sorgente = `students/*.json`.
-12. `main.js:2338`: pass-through di `scelta` (una riga, inv. 19).
-13. NUOVO `public/js/mappai-scelta.js` (`window.MappAIScelta`) — **un file solo** per il docente
-    e per l'in-app: condividono la lettura dei materiali, e separarli vorrebbe dire esportare una
-    funzione solo per farsi leggere dal gemello. `leggiFogli(mappa)` raccoglie i fogli «Domande
-    aperte» da **disco** (`vaultMaterialsList` + `readVaultFile` su `Domande-aperte-*.html`) e
-    archivio (`MappAIStudyDocs.get`), dedup per titolo, e dice quanti da dove (inv. 7,
-    trappola 17). `MappAIScelta.apriLive()` (pattern `mappai-timeline-teacher.js`): modale «N domande da K fogli · angoli: …», le 4 spunte
-    docente (perché no · autovalutazione · secondo giro · osservazioni) + minimo, classe dal
-    contesto attivo; `MappAILive.launchExternal(cls, 'Domande a scelta', questions, 0,
-    {mode:'scelta', scelta: cfg, logActivity:'scelta'})`; QR con URL esplicito a `scelta.html`.
-    Card nel hub Live (`mappai-live-teacher.js:79`) + avvio in INSEGNA › Attività LIVE
-    (`mappai-landing-teach.js` `_vistaLive`). Senza fogli → avviso con la strada (CREA col box
-    «Più set per angolo», oppure ELABORA › Crea un documento › Domande aperte per angolazione).
+**Fase D — Live: server, pagina studente, report, docente** ⟵ **SI RIPARTE DA QUI**
 
+> Che cosa è cambiato sotto, rispetto a come questa fase era stata scritta il 19/8 mattina:
+> il pool si **campiona** (`unaPerAngolo`), lo stato ha **tre campi nuovi** (`aree`, `fase`,
+> `letture`) e i chip sono un **giudizio di richiamo** che si dà anche a una domanda non
+> presa. Il server deve quindi persistere più di «risposte».
+
+9. **`public/js/mappai-live-core.js`** — `cleanAnswer` (riga ~414) per `kind:'open'` tiene
+   anche `chip` (∈ `MappAIScelta.CHIP`), `nota` (≤ 300), `auto` (1-3). Campi **opzionali**:
+   una sessione quiz storica non cambia. ⚠️ `publicQuestions` (riga ~310) resta la whitelist
+   che è: non deve mai lasciar passare `angle`. Test estesi in `tests/live-core.test.js`.
+10. **`live-server.js`** — il grosso della fase.
+    - `mode: 'scelta'` accanto a `quiz|build` (riga ~122) + `cfg.scelta` (la config
+      normalizzata da `MappAIScelta.normalizzaCfg`) in `session.json`.
+    - **Il campionamento è del SERVER, e per studente**: al `join` (riga ~347) si calcola
+      `unaPerAngolo(pool, <chiave identità>)` e si serve `pubblico(...)` di quello. Servire
+      175 domande per mostrarne 14 vorrebbe dire mandare al telefono proprio ciò che
+      l'attività ha deciso di non fare — e l'angolo uscirebbe di casa.
+      ⚠️ La scelta va **persistita** (`students/<id>.json`): al rientro deve ritrovare le
+      SUE domande, e il seme da solo non basta se il pool cambia (un foglio in più nel
+      vault sposterebbe tutto).
+    - `/api/answer` (riga ~436) accetta anche `letture` e `aree`, oppure — più semplice —
+      un `/api/stato` che salva `{aree, fase, letture}`: **decidere e dichiararlo**. La
+      regola è che ciò che dura più di un istante si persiste (inv. 20-bis), e qui durano
+      la fase e le aree.
+    - `/api/finish` (riga ~458) calcola `profilo` + `evitata` sul pool campionato di
+      QUELLO studente e li ritorna **solo se `cfg.reveal`** — l'angolo non viaggia prima
+      della consegna, come le soluzioni.
+    - `/api/close` (riga ~495) scrive il report.
+    - `STATIC_ALLOW` (riga 41) deve includere `mappai-scelta-core.js` e
+      `mappai-scelta-view.js` (oggi passa solo `mappai-live-core.js`).
+    - Test in `tests/live-server.test.js` col server VERO (pattern esistente): join →
+      pool campionato e senza angoli → salvataggio di aree/fase/letture → finish con e
+      senza reveal → close → report.
+11. **`public/live/scelta.html`** — self-contained, sul modello di `public/live/timeline-build.html`:
+    login emoji+numero (lo stesso markup e la stessa `/api/join` di `student.html`),
+    poi `MappAISceltaView.monta` con `onCambia`/`onConsegna` che parlano al server, e
+    `mostraEsito` sulla risposta di `/api/finish`. Carica `mappai-live-core.js` +
+    i due moduli nuovi. Il redirect `/` del server va a `student.html`: la pagina giusta
+    sta nell'**URL del QR** (`buildStudentUrl` in `mappai-timeline-teacher.js` è il modello).
+12. **`public/js/mappai-live-reports.js`** — `buildSceltaReportHtml(results)`:
+    per allievo le risposte col loro **angolo** e il **chip di richiamo**, le **aree
+    dichiarate**, le Osservazioni; per la classe il **calore degli angoli** (`calorClasse`)
+    e quello delle **aree** (`calorAree`) — «nessuno si sente sicuro sugli Oceani» è una
+    domanda per il docente, non un voto agli allievi. Stili dei report esistenti.
+13. **`main.js`** (riga ~2338) — pass-through di `scelta` accanto a `build`: una riga, l'IPC
+    resta sottile (inv. 19).
+14. **`public/js/mappai-scelta.js`** (NUOVO, docente + in-app in un file solo):
+    `leggiFogli(mappa)` raccoglie i fogli «Domande aperte» e i set MC dal **disco**
+    (`vaultMaterialsList` + `readVaultFile` su `Domande-aperte-*.html`; `setsDelVault` per i
+    `set-*.json`) e dall'archivio (`MappAIStudyDocs`), dedup per titolo, e dice quanti da
+    dove (inv. 7, trappola 17). `apriLive()`: modale con «N domande da K fogli», le quattro
+    spunte del docente + `minimo`/`minimoAree`, classe dal contesto attivo, poi
+    `MappAILive.launchExternal(cls, 'Domande a scelta', questions, 0, {mode:'scelta',
+    scelta: cfg, logActivity:'scelta'})` (`mappai-live-teacher.js` riga ~536) e QR alla
+    pagina nuova. Card nel hub Live (riga ~79) + avvio in INSEGNA › Attività LIVE.
+    Senza fogli → avviso con la strada (CREA col box «Più set per angolo»).
 **Fase E — lo Studio attivo rifatto: tre attività sui materiali del vault**
 14. `public/js/mappai-scelta.js` (lo stesso file della Fase D) — `apriInApp(tipo)`, il **guscio
     in-app** condiviso dalle attività nuove: `MappAIModal.open` taglia XL con `tela` dove si monta `MappAISceltaView`

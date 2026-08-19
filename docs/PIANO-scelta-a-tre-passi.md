@@ -1,5 +1,10 @@
 # Piano — «Domande a scelta» in TRE PASSI: aree → scelta → risposte
 
+> ✅ **SPEDITO** il 19/8/26 (commit `322d65f`): core, view a tre passi e banco. Quello che
+> resta di questo documento è il PERCHÉ delle scelte — la forma dell'attività, il
+> campionamento, i due registri dello stato. Lo stato di fatto è in
+> [`HANDOFF.md`](HANDOFF.md) §3.
+>
 > Da `/architetto` (19/8/26). Rivede la superficie appena spedita con la **fase C**
 > (`mappai-scelta-view.js`, commit `9707bd0`) e si innesta nel piano grande
 > ([`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md)) **prima** della fase D.
