@@ -539,6 +539,10 @@ window.buildOpenQuestionsHtml = function (set, opts) {
 
     ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify({
         id: set.id || '', title: set.title || '', type: set.type || 'Domande aperte', mode: 'open',
+        /* L'ANGOLO viaggia con la sorgente, non solo nel nome del file: chi
+           riapre il foglio (l'editor, le attività di studio) deve sapere con
+           che taglio è stato generato, e un nome di file si può rinominare. */
+        angle: set.angle || '',
         items: items
     }).replace(/<\//g, '<\\/')}<\/script>` : ''}
 

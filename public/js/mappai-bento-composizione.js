@@ -125,7 +125,17 @@
            quiz. */
         { id: 'mp-qt-open', aiuto: 'Domande a cui si risponde scrivendo: il foglio porta le righe per la risposta e, in coda, le tracce di correzione per te.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun foglio di domande aperte' },
         { id: 'mp-perbranch', aiuto: 'Quante domande generare per ogni ramo della mappa. Più domande = più chiamate AI.', et: 'Per ramo', tipo: 'numero', chiave: 'quiz.perBranch', figlioDi: 'mp-quiz-on', seFuori: 'restano 3 domande per ramo (default)' },
-        { id: 'mp-angle', aiuto: 'Il taglio delle domande: definizioni, cause ed effetti, confronti… «Automatico» lo sceglie l\u0027AI dal contenuto.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'angolo «auto» (default)' },
+        { id: 'mp-angle', aiuto: 'Il taglio delle domande: definizioni, cause ed effetti, confronti… «Automatico» lo sceglie l\u0027AI dal contenuto. Con «Più set per angolo» acceso questa scelta non conta: si generano tutti gli angoli.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'angolo «auto» (default)' },
+
+        /* ⚠️ NON è `figlioDi: 'mp-quiz-on'` e non è `derivato`: è una scelta a
+           sé, e costosa — sette generazioni invece di una. Un campo che
+           moltiplica per sette il costo non si accende da solo. */
+        { id: 'mp-multi-on', aiuto: 'Invece di un foglio solo, ne genera uno per ogni angolo (definizione, causa, conseguenza, esempio, confronto, eccezione, applicazione): sette versioni dello stesso materiale, fra cui lo studente sceglie. \u26a0\ufe0f Costa sette volte le chiamate AI \u2014 guarda la stima.', et: 'Più set per angolo', tipo: 'spunta', chiave: 'quiz.multi', master: true,
+          seFuori: 'si genera un foglio solo, con l\u0027angolo scelto nella tendina «Angolo»' },
+        { id: 'mp-multi-open', aiuto: 'Applica la generazione per angolo alle domande aperte: sette fogli, uno per taglio.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.multi', figlioDi: 'mp-multi-on',
+          seFuori: 'le domande aperte restano un foglio solo' },
+        { id: 'mp-multi-mc', aiuto: 'Applica la generazione per angolo ai quiz a scelta multipla: sette set, uno per taglio.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.multi', figlioDi: 'mp-multi-on',
+          seFuori: 'il quiz a scelta multipla resta un set solo' },
 
         /* ⚠️ `mp-ns-causal` NON è fra i derivanti: spuntare la catena non deve
            accendere i fogli nodi, o si otterrebbe un PDF di fogli che nessuno ha
@@ -530,6 +540,12 @@
         { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
           voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-syn-on', et: 'Sintesi mappa' },
               { id: 'mp-syn-audio', et: 'Voce naturale' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
+        /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
+           sta nel box «Quiz» sopra, quindi le sta sotto e non dentro — dentro
+           sarebbe una spunta come le altre, e non lo è (sette generazioni). */
+        { id: 'multi', titolo: 'Più set per angolo', icona: 'layers', span: 4, altezza: 130,
+          layout: { colonneVoci: 3 },
+          voci: ['mp-multi-on', 'mp-multi-open', 'mp-multi-mc'] },
         { id: 'modalita', titolo: 'Modalità', icona: 'book-open', span: 1, altezza: 260,
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           layout: { colonneVoci: 'colonna' },

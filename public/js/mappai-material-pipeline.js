@@ -472,85 +472,103 @@
       const types = (config.quiz.types || []).filter(t => _QT[t]);
       const perBranch = Math.max(1, config.quiz.perBranch || 3);
       const angle = config.quiz.angle || 'auto';
+      /* «Più set per angolo»: i generi elencati qui si generano una volta per
+         ognuno dei sette angoli invece che una sola. Il filtro contro i tipi
+         spuntati lo fa il core. */
+      const multi = PC().multiTypes(config.quiz);
+      const saltati = [];
       for (let ti = 0; ti < types.length; ti++) {
         const t = types[ti];
         const spec = _QT[t];
         _setContext(spec.sub);
-        _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel + ')');
-        const raw = [];
-        for (let bi = 0; bi < branches.length; bi++) {
-          const b = branches[bi];
-          const material = _branchMaterial(b);
-          if (!material.trim()) continue;
-          counter.calls++;
-          if (t === 'open') {
-            /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
-               domande che collegano due macro-aree (Giacomo, 11/8) */
-            const comp = _ramoCompagno(b, branches);
-            const materialeB = comp ? _branchMaterial(comp) : '';
-            const insieme = materialeB
-              ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
-              : material;
-            /* l'angolo e la quota d'avvio valgono anche qui: la pipeline usa
-               `config.quiz.angle` (già scelto nel bento) e la quota di
-               default — è la stessa generazione, e due tarature diverse fra
-               «Genera materiali» e il gesto singolo si noterebbero subito */
-            const items = await _genOpenQuestions(insieme, _clean(b.label), perBranch, apiKey,
-              { areaB: comp ? _clean(comp.label) : '', angolo: angle,
-                base: PC().quotaBase(perBranch, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
-            /* le AREE le porta già l'item (filtrate contro i nomi veri in
-               `_genOpenQuestions`): qui si tiene `l1` come area principale, che
-               è quella per cui stiamo generando */
-            items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label) }, it)));
-          } else if (t === 'flashcards') {
-            const items = await _genFlashcards(material, _clean(b.label), perBranch, apiKey);
-            items.forEach(it => raw.push(it));
-          } else {
-            const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: perBranch, angle, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
-            (items || []).forEach(it => raw.push(it));
-          }
-        }
-        if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
-        const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        const setTitle = mapName + ' — ' + spec.typeLabel;
-
-        /* ── I materiali-DOCUMENTO escono qui: PDF e basta ────────────────────
-           Le domande aperte non sono un set giocabile (vedi `_QT.open`), quindi
-           saltano `studySets` e tutto ciò che ne dipende — il player, l'editor,
-           il ri-salvataggio del vault. Producono il foglio, lo archiviano per
-           INSEGNA e passano al tipo successivo. */
-        if (spec.documento) {
-          const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: setTitle, type: spec.typeLabel, items: raw },
-            { mapName, includeBar: false });
-          const pdfOq = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
-          if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
-          const vOq = PC().validatePdfB64(pdfOq.base64);
-          if (!vOq.ok) throw new Error(spec.typeLabel + ': ' + vOq.error);
-          const nomeOq = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName });
-          const relOq = 'Materiale Studio/' + nomeOq;
-          const wOq = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relOq, base64: pdfOq.base64 });
-          if (!wOq || !wOq.ok) throw new Error('Scrittura domande aperte fallita: ' + ((wOq && wOq.error) || '?'));
-          manifest = _recordFile(manifest, 'B', relOq);
-          await _writeManifest(vaultPath, manifest);
-          /* In ARCHIVIO va l'HTML, non il PDF: da lì INSEGNA sa ristampare la
-             versione SENZA tracce di correzione (il foglio porta la sua
-             sorgente incorporata) — da un PDF non si ricava più niente.
-             ⚠️ `kind: 'quizpaper'` è ciò che lo fa comparire in «Quiz
-             cartacei»: un genere nuovo lì dentro non sarebbe elencato da
-             nessuna delle viste esistenti. */
+        const angoli = (multi.indexOf(t) >= 0) ? PC().angoliMulti() : [angle];
+        for (let ai = 0; ai < angoli.length; ai++) {
+          const ang = angoli[ai];
+          /* Il nome della variante è la CHIAVE dell'angolo, non l'etichetta a
+             schermo: `Domande-aperte-<Mappa>-causa`. È la convenzione del gesto
+             singolo (`_generaVarianti`) e quella che Giacomo usava a mano. */
+          const nomeVar = (angoli.length > 1) ? PC().nomeAngolo(ang) : '';
           try {
-            if (window.MappAIStudyDocs) {
-              window.MappAIStudyDocs.save({
-                kind: 'quizpaper', title: setTitle, html: htmlOq,
-                mapName: mapName, cls: config.className || '', disc: config.disc || ''
-              });
+          _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel +
+            (nomeVar ? ' · ' + nomeVar + ' ' + (ai + 1) + '/' + angoli.length : '') + ')');
+          const raw = [];
+          for (let bi = 0; bi < branches.length; bi++) {
+            const b = branches[bi];
+            const material = _branchMaterial(b);
+            if (!material.trim()) continue;
+            counter.calls++;
+            if (t === 'open') {
+              /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
+                 domande che collegano due macro-aree (Giacomo, 11/8) */
+              const comp = _ramoCompagno(b, branches);
+              const materialeB = comp ? _branchMaterial(comp) : '';
+              const insieme = materialeB
+                ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
+                : material;
+              /* l'angolo e la quota d'avvio valgono anche qui: la pipeline usa
+                 `config.quiz.angle` (già scelto nel bento) e la quota di
+                 default — è la stessa generazione, e due tarature diverse fra
+                 «Genera materiali» e il gesto singolo si noterebbero subito */
+              const items = await _genOpenQuestions(insieme, _clean(b.label), perBranch, apiKey,
+                { areaB: comp ? _clean(comp.label) : '', angolo: ang,
+                  base: PC().quotaBase(perBranch, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
+              /* le AREE le porta già l'item (filtrate contro i nomi veri in
+                 `_genOpenQuestions`): qui si tiene `l1` come area principale, che
+                 è quella per cui stiamo generando */
+              /* `ramo` è la macro-area DA CUI viene la domanda, dichiarata qui —
+                 dove si sa — e non ricavata dopo: chi legge il foglio (le
+                 attività di studio) raggruppa per ramo, e in coda al ciclo
+                 l'informazione non c'è più. */
+              items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
+            } else if (t === 'flashcards') {
+              const items = await _genFlashcards(material, _clean(b.label), perBranch, apiKey);
+              items.forEach(it => raw.push(it));
+            } else {
+              const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: perBranch, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
+              (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             }
+          }
+          if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
+          const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+          const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
+
+          /* ── I materiali-DOCUMENTO escono qui: PDF e basta ────────────────────
+             Le domande aperte non sono un set giocabile (vedi `_QT.open`), quindi
+             saltano `studySets` e tutto ciò che ne dipende — il player, l'editor,
+             il ri-salvataggio del vault. Producono il foglio, lo archiviano per
+             INSEGNA e passano al tipo successivo. */
+          if (spec.documento) {
+            const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: setTitle, type: spec.typeLabel, items: raw, angle: ang },
+              { mapName, includeBar: false });
+            const pdfOq = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
+            if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
+            const vOq = PC().validatePdfB64(pdfOq.base64);
+            if (!vOq.ok) throw new Error(spec.typeLabel + ': ' + vOq.error);
+            const nomeOq = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: nomeVar });
+            const relOq = 'Materiale Studio/' + nomeOq;
+            const wOq = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relOq, base64: pdfOq.base64 });
+            if (!wOq || !wOq.ok) throw new Error('Scrittura domande aperte fallita: ' + ((wOq && wOq.error) || '?'));
+            manifest = _recordFile(manifest, 'B', relOq);
+            await _writeManifest(vaultPath, manifest);
+            /* In ARCHIVIO va l'HTML, non il PDF: da lì INSEGNA sa ristampare la
+               versione SENZA tracce di correzione (il foglio porta la sua
+               sorgente incorporata) — da un PDF non si ricava più niente.
+               ⚠️ `kind: 'quizpaper'` è ciò che lo fa comparire in «Quiz
+               cartacei»: un genere nuovo lì dentro non sarebbe elencato da
+               nessuna delle viste esistenti. */
+            try {
+              if (window.MappAIStudyDocs) {
+                window.MappAIStudyDocs.save({
+                  kind: 'quizpaper', title: setTitle, html: htmlOq,
+                  mapName: mapName, cls: config.className || '', disc: config.disc || ''
+                });
+              }
           } catch (e) { /* l'archivio è un di più: il file nel vault c'è già */ }
           continue;
         }
 
         // Set in-app (forma q/correct o front/back) + persistenza vault
-        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle, quantity: perBranch, date: _now(), _pipeline: true };
+        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: perBranch, date: _now(), _pipeline: true };
         _state().db.studySets = _state().db.studySets || [];
         _state().db.studySets.push(set);
         // PDF (forma stampabile)
@@ -601,12 +619,26 @@
            Forma esplicita `opts.mappa` invece del vecchio `label`: qui il
            risultato è identico, ma i cinque nomi della pipeline si leggono ora
            tutti allo stesso modo. */
-        const fileName = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName });
+        const fileName = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: nomeVar });
         const rel = 'Materiale Studio/' + fileName;
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
         if (!w || !w.ok) throw new Error('Scrittura quiz fallita: ' + ((w && w.error) || '?'));
         manifest = _recordFile(manifest, 'B', rel);
         await _writeManifest(vaultPath, manifest);
+          } catch (e) {
+            /* Un angolo che fallisce NON porta via gli altri sei: si segna e si
+               continua (è la stessa forma delle varianti del gesto singolo).
+               Con un angolo solo non c'è niente da salvare: l'errore risale e
+               fa fallire lo step, come prima. */
+            if (angoli.length === 1) throw e;
+            saltati.push(spec.typeLabel + ' · ' + nomeVar + ': ' + (e && e.message ? e.message : String(e)));
+          }
+        }
+      }
+      if (saltati.length) {
+        console.warn('[Pipeline] varianti non riuscite:\n' + saltati.join('\n'));
+        _toast(_t('mp_multi_saltati', '{n} varianti non generate: le altre ci sono')
+          .replace('{n}', saltati.length), 'warning');
       }
       // Ri-salva il vault: i set persistono nel mapData.studySets
       try { await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { /* best-effort */ }
@@ -1110,7 +1142,9 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
     const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
-    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle); }
+    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
+      const mul = o.quiz.multi || [];
+      set('mp-multi-on', mul.length > 0); set('mp-multi-open', mul.indexOf('open') >= 0); set('mp-multi-mc', mul.indexOf('mc') >= 0); }
     set('mp-ns-on', !!o.nodesheet);
     if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); }
     /* la catena è fuori da `nodesheet` dal 5/8; `presetNormalize` la legge anche
@@ -1316,7 +1350,21 @@
       if (on('mp-qt-tf')) types.push('tf');
       if (on('mp-qt-fc')) types.push('flashcards');
       if (on('mp-qt-open')) types.push('open');
-      if (types.length) cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 3)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
+      if (types.length) {
+        cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 3)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
+        /* «Più set per angolo»: un materiale per ognuno dei sette angoli invece
+           che uno solo. I campi vivono nel BENTO (vista estesa) e nel modale
+           storico non esistono: senza di loro `on()` è falso e la generazione
+           resta quella di sempre — la strada vecchia non cambia (inv. 1).
+           Il filtro contro `types` lo fa il core: chiedere più set per un genere
+           non spuntato sarebbe una generazione che non avviene. */
+        const multi = [];
+        if (on('mp-multi-on')) {
+          if (on('mp-multi-open')) multi.push('open');
+          if (on('mp-multi-mc')) multi.push('mc');
+        }
+        cfg.quiz.multi = PC().multiTypes({ multi, types });
+      }
     }
     if (on('mp-ns-on')) {
       const modes = [];
@@ -1669,7 +1717,7 @@
              potrebbe metterle tutte d'avvio in un'area e nessuna in un'altra. */
           const items = await _genOpenQuestions(insieme, _clean(b.label), quantita, apiKey,
             { areaB: comp ? _clean(comp.label) : '', angolo: angle, base: baseRamo });
-          items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label) }, it)));
+          items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
         } else if (opts.tipo === 'flashcards') {
           const items = await _genFlashcards(material, _clean(b.label), quantita, apiKey);
           items.forEach(it => raw.push(it));
@@ -1678,7 +1726,7 @@
             nodeLabel: _clean(b.label), material, quizType: spec.quizType,
             quantity: quantita, angle, apiKey, usageCat: 'pipeline', usageSub: spec.sub
           });
-          (items || []).forEach(it => raw.push(it));
+          (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
         }
       }
       if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
@@ -1709,7 +1757,7 @@
            (la dedup dell'archivio è per kind|title|mapName) invece di
            affiancarne una seconda. */
         const titoloDoc = _titoloDoc(spec, nome, mapName);
-        const html = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw },
+        const html = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: angle },
           { mapName, includeBar: false });
         /* La SORGENTE si salva PRIMA della RESA. L'archivio porta l'HTML con
            dentro le domande — è ciò che si riapre e si corregge in ELABORA;

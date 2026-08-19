@@ -263,6 +263,36 @@
     return { ok: true };
   }
 
+  /* ══ PIÙ SET PER ANGOLO ════════════════════════════════════════════════════
+     Gli angoli sono quelli del motore dei quiz (`QUIZ_ANGLES` in
+     mappai-study-session.js): qui stanno le sole CHIAVI, e si leggono da lì
+     quando la finestra c'è — un secondo elenco divergerebbe al primo angolo
+     aggiunto. `auto` resta fuori di proposito: un foglio «misto» in mezzo ai
+     sette angolati confonde il profilo di chi poi sceglie fra le versioni. */
+  var _ANGOLI_FALLBACK = ['definizione', 'causa', 'conseguenza', 'esempio', 'confronto', 'eccezione', 'applicazione'];
+  function angoliMulti() {
+    var src = (typeof window !== 'undefined' && window.QUIZ_ANGLES) || null;
+    if (!src || !src.length) return _ANGOLI_FALLBACK.slice();
+    return src.map(function (a) { return a && a.key; })
+      .filter(function (k) { return k && k !== 'auto'; });
+  }
+  /* Il nome dell'angolo nel FILE e nel titolo: la CHIAVE, breve e minuscola —
+     `Domande-aperte-<Mappa>-causa`. Non l'etichetta a schermo, che direbbe
+     «Esempio concreto» e produrrebbe `…-Automatico (misto).pdf`. `auto` si
+     legge «misto», ed è la convenzione che Giacomo usava già a mano. */
+  function nomeAngolo(k) { return String(k || '') === 'auto' ? 'misto' : String(k || ''); }
+
+  /* Su quali generi si applica: solo dove un angolo cambia davvero la domanda.
+     Flashcard e vero/falso restano a una generazione sola. */
+  var _VALID_MULTI = ['open', 'mc'];
+  function multiTypes(quiz) {
+    var m = (quiz && Array.isArray(quiz.multi)) ? quiz.multi : [];
+    var types = (quiz && quiz.types) || [];
+    return m.filter(function (t, i) {
+      return _VALID_MULTI.indexOf(t) >= 0 && m.indexOf(t) === i && types.indexOf(t) >= 0;
+    });
+  }
+
   // ── Stima chiamate AI ───────────────────────────────────────────────────
   // mapStats = { branches, nodes, willGenerateMap?, keywordBatch?, audioBlocks? }
   function estimateCalls(config, mapStats) {
@@ -272,8 +302,15 @@
     var A = 0, B = 0, C = 0, D = 0, E = 0;   /* E resta 0: la catena è deterministica */
     // A: informativa (multi-pass ~ rami + 2); non vincolante.
     if (mapStats.willGenerateMap !== false) A = branches ? (branches + 2) : 3;
-    // B: rami × tipi quiz selezionati.
-    if (config.quiz) B = branches * ((config.quiz.types || []).length);
+    /* B: rami × tipi quiz selezionati — e un tipo generato per angolo conta
+       una volta per angolo (è la ragione per cui la stima è nel modale: sette
+       fogli costano sette volte). */
+    if (config.quiz) {
+      var multi = multiTypes(config.quiz);
+      var nAng = angoliMulti().length;
+      var singoli = (config.quiz.types || []).filter(function (t) { return multi.indexOf(t) < 0; }).length;
+      B = branches * (singoli + multi.length * nAng);
+    }
     // C: keyword AI = ceil(nodi/batch) SOLO se un modo le richiede.
     if (config.nodesheet) {
       var modes = config.nodesheet.modes || [];
@@ -487,7 +524,7 @@
   function presetFromConfig(config) {
     config = config || {};
     var o = {};
-    if (config.quiz) o.quiz = { types: (config.quiz.types || []).slice(), perBranch: config.quiz.perBranch || 3, angle: config.quiz.angle || 'auto' };
+    if (config.quiz) o.quiz = { types: (config.quiz.types || []).slice(), perBranch: config.quiz.perBranch || 3, angle: config.quiz.angle || 'auto', multi: multiTypes(config.quiz) };
     if (config.nodesheet) o.nodesheet = { maxLevel: config.nodesheet.maxLevel || 'all', fmt: config.nodesheet.fmt || '2x2', modes: (config.nodesheet.modes || []).slice(), causal: !!config.nodesheet.causal };
     if (config.synthesis) o.synthesis = { audio: !!config.synthesis.audio };
     o.causal = !!config.causal;
@@ -505,9 +542,13 @@
       opt.quiz = {
         types: (Array.isArray(o.quiz.types) ? o.quiz.types : []).filter(function (t) { return _VALID_TYPES.indexOf(t) >= 0; }),
         perBranch: Math.max(1, Math.min(10, parseInt(o.quiz.perBranch, 10) || 3)),
-        angle: o.quiz.angle || 'auto'
+        angle: o.quiz.angle || 'auto',
+        multi: []
       };
       if (!opt.quiz.types.length) opt.quiz.types = ['mc'];
+      /* `multi` si filtra DOPO i tipi: un preset che chiede più set per un
+         genere non spuntato chiede una generazione che non avverrà. */
+      opt.quiz.multi = multiTypes({ multi: o.quiz.multi, types: opt.quiz.types });
     }
     if (o.nodesheet) {
       opt.nodesheet = {
@@ -562,6 +603,7 @@
     contaGraduazione: contaGraduazione,
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
+    angoliMulti: angoliMulti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,
     buildMapExportName: buildMapExportName,
     nomeLibero: nomeLibero,

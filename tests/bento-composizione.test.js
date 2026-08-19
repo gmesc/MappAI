@@ -383,7 +383,7 @@ test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', (
     assert.deepStrictEqual(stabili,
         ['upload', 'elenco', 'genere', 'genere-opz', 'ctx', 'azioni']);
     assert.deepStrictEqual(extra,
-        ['preset', 'quiz', 'ns', 'src', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
+        ['preset', 'quiz', 'ns', 'src', 'multi', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
 });
 
 test('i box extra stanno DOPO il mega-bento, e quello che cresce è l\'ultimo', () => {
@@ -689,4 +689,33 @@ test('una voce in forma di oggetto conta come il suo id', () => {
         B.firma([{ id: 'a', voci: [{ id: 'mp-angle', et: 'Altro nome', w: 200 }] }]),
         'riscrivere un\'etichetta non è un cambio di struttura'
     );
+});
+
+
+/* ══ IL BOX «PIÙ SET PER ANGOLO» (19/8) ═══════════════════════════════════════
+   Sta nella vista estesa e a tutta riga, SOTTO i quattro box delle opzioni:
+   moltiplica per sette il costo di ciò che sta nel box «Quiz», quindi gli sta
+   sotto e non dentro. */
+
+test('«Più set per angolo» è un box suo, a tutta riga, nella vista estesa', () => {
+    const m = B.MODULI.find(x => x.id === 'multi');
+    assert.ok(m, 'il box esiste nella composizione');
+    assert.strictEqual(m.span, 4, 'a tutta riga: chiude la griglia da solo');
+    assert.strictEqual(B.nascondibile(m), true, 'è un\'impostazione: vive nella vista estesa');
+    const righe = B.valida(B.MODULI).righe.map(r => r.map(x => x.id).join('+'));
+    assert.ok(righe.indexOf('multi') >= 0, 'una riga tutta sua');
+    assert.ok(righe.indexOf('multi') > righe.indexOf('preset+quiz+ns+src'),
+        'sta SOTTO i quattro box delle opzioni: moltiplica il loro costo');
+});
+
+test('le tre voci del box portano gli id che la pipeline legge', () => {
+    const ids = B.vociDi(B.MODULI.find(x => x.id === 'multi')).map(v => v.id);
+    assert.deepStrictEqual(ids, ['mp-multi-on', 'mp-multi-open', 'mp-multi-mc']);
+    const madre = B.voce('mp-multi-on');
+    assert.strictEqual(madre.master, true);
+    assert.ok(!madre.derivato, 'NON si accende da sé: sette generazioni non si scelgono per errore');
+    assert.ok(!madre.figlioDi, 'non è figlia del box Quiz: è una scelta a sé, e costosa');
+    ['mp-multi-open', 'mp-multi-mc'].forEach(id => {
+        assert.strictEqual(B.voce(id).figlioDi, 'mp-multi-on');
+    });
 });

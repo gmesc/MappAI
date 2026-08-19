@@ -146,6 +146,50 @@ sezione. Il cablaggio bento non è più opzionale.
 
 ## 3. Le superfici, oggi
 
+### PIÙ SET PER ANGOLO — il box nel bento di CREA (19/8)
+Vista estesa (combo SHIFT+CTRL+L,K,J,H), riga sua a tutta larghezza sotto `Preset ·
+Quiz · Fogli nodi · Fonte & Sintesi`: **«Più set per angolo»** con la spunta madre e
+due figlie — **Domande aperte** e **Scelta multipla**. Accesa, «Genera materiali»
+produce **un materiale per ognuno dei sette angoli** (definizione · causa ·
+conseguenza · esempio · confronto · eccezione · applicazione) invece di uno solo con
+l'angolo della tendina.
+
+**Perché sta lì e non dentro il box «Quiz»**: moltiplica per sette il costo di ciò
+che sta nel box sopra. Una spunta in mezzo alle altre non lo direbbe.
+- **Costa, e lo dice prima**: la stima segue le scelte — su 4 rami con MC e aperte si
+  passa da `B 8` a `B 56` (misurato attraverso il `_readConfig` VERO nell'harness).
+- **La madre nasce SPENTA, i due figli accesi.** Sette generazioni non si scelgono per
+  errore; e una madre accesa con entrambi i figli spenti sarebbe una spunta che non fa
+  niente.
+- **Comandi inerti spenti** (inv. 21): col master acceso la tendina «Angolo» non decide
+  più niente → si disabilita, e il suo pop-up lo dice; i due figli sono disabilitati
+  finché la madre è spenta.
+- **Il nome della variante è la CHIAVE dell'angolo** — `Domande-aperte-<Mappa>-causa`,
+  `Quiz-MC-<Mappa>-conseguenza` — cioè la convenzione del gesto singolo di ELABORA
+  (`_generaVarianti`) e quella che Giacomo applicava a mano. La funzione che la scrive
+  è ora una sola: `PipelineCore.nomeAngolo` (`auto` → `misto`).
+- **Un angolo che fallisce non porta via gli altri sei**: si segna, si continua, e alla
+  fine si dice quante varianti sono saltate (trappola 36). Con un angolo solo l'errore
+  risale come prima.
+- **`auto` resta fuori dai sette**: un foglio «misto» in mezzo agli angolati confonde
+  il profilo di chi poi sceglie fra le versioni.
+- **Il modale storico** («Genera materiali», veste manifesto spenta) NON ha il box: i
+  suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
+  sempre (inv. 1).
+
+**Due cose che i materiali ora si portano dietro**, e servono al passo successivo (le
+attività «a scelta»):
+- ogni domanda porta il suo **`ramo`**, dichiarato dove si sa — nel ciclo per macro-area
+  — invece di essere ricavato dopo, quando l'informazione non c'è più (inv. 20-bis);
+- il foglio delle domande aperte porta l'**angolo dentro la sorgente** (`qp-set`), non
+  solo nel nome del file: un nome si rinomina, e chi riapre il foglio deve sapere con
+  che taglio è stato generato.
+
+📌 Il resto del disegno — le attività «Domande a scelta» e «Quiz a scelta», lo Studio
+attivo rifatto — è in [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md), fasi
+B→F. Questa è la fase A, spedita.
+
+
 ### La sintesi: «Sezioni» (18/8 notte)
 Nell'editor della sintesi di **ramo**, un comando compatto **«Sezioni 2/2»** accende e
 spegne i due pezzi generati che stanno in coda al foglio: **La catena dei perché** e le
@@ -1555,6 +1599,23 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 ---
 
 ## 5. Provato in Electron — che cosa è acquisito
+
+### ⏳ DA PROVARE IN ELECTRON — «Più set per angolo» (19/8)
+Misurato nell'harness (`public/dev/costruisci-harness.html`, moduli veri + `_readConfig`
+vero) e nei test puri; mai in una generazione reale.
+1. **Vista estesa**: il box compare sotto i quattro delle opzioni, largo quanto il bento
+   (misurato 1240px), e NON compare nella vista compatta.
+2. **La stima**: accendendo la madre il numero di chiamate sale di sette volte per ogni
+   genere spuntato — è il dato su cui si decide se vale la spesa.
+3. **Una generazione VERA con l'AI**: nel vault devono comparire
+   `Domande-aperte-<Mappa>-definizione.pdf` … `-applicazione.pdf` (sette) e, se spuntata
+   la seconda voce, sette set MC nella sidebar col loro angolo nel titolo.
+4. **Un angolo che fallisce** (si può provocare staccando la rete a metà): gli altri
+   arrivano lo stesso e alla fine compare l'avviso con quante varianti sono saltate.
+5. **Preset**: salvato con la madre accesa e riapplicato, rimette le tre spunte.
+6. **La strada vecchia**: con `mappai_stile_manifesto='0'` il modale «Genera materiali»
+   non ha il box e genera un foglio solo, come prima.
+
 
 ### ⏳ DA PROVARE IN ELECTRON — il carattere (18/8 sera)
 Tutto quello che segue è stato misurato nel **pannello browser** (server statico,

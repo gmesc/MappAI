@@ -539,6 +539,11 @@
                controlli per lo stesso stato (la lezione di `#mn-genere-dx`). */
             case 'mp-src-pdf': return spunta('mp-src-pdf', v.et, pdfDefault());
             case 'mp-qt-mc': return spunta('mp-qt-mc', v.et, true);
+            /* i due figli nascono ACCESI e il master no: acceso, «Più set per
+               angolo» deve fare qualcosa: con entrambi i figli spenti sarebbe
+               una spunta che non produce niente. */
+            case 'mp-multi-open': return spunta('mp-multi-open', v.et, true);
+            case 'mp-multi-mc': return spunta('mp-multi-mc', v.et, true);
             case 'mp-ns-title': return spunta('mp-ns-title', v.et, true);
             default:
                 if (v.base && v.base.tipo === 'azione') {
@@ -1155,8 +1160,26 @@
         mostra('mp-ns-body', 'mp-ns-on');
         mostra('mp-syn-body', 'mp-syn-on');
         mostra('mp-adapt-body', 'mp-adapt-on');
+        sincronizzaMulti();
         aggiornaGate();
         ristima();
+    }
+
+    /* «Più set per angolo»: i due figli valgono solo col master acceso, e col
+       master acceso la tendina «Angolo» non decide più niente (si generano
+       tutti e sette gli angoli). Comandi inerti sono peggio che assenti
+       (inv. 21) → si spengono, e i loro pop-up dicono perché. */
+    function sincronizzaMulti() {
+        var m = document.getElementById('mp-multi-on');
+        var acceso = !!(m && m.checked);
+        ['mp-multi-open', 'mp-multi-mc'].forEach(function (id) {
+            var e = document.getElementById(id);
+            if (e) e.disabled = !acceso;
+        });
+        var ang = document.getElementById('mp-angle');
+        if (!ang) return;
+        var uno = document.getElementById('mp-multi-open'), due = document.getElementById('mp-multi-mc');
+        ang.disabled = acceso && !!((uno && uno.checked) || (due && due.checked));
     }
 
     function ristima() {

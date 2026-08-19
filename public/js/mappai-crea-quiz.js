@@ -317,7 +317,10 @@
        `QUIZ_ANGLES` è già la parola giusta; l'unica deroga è `auto`, che nel
        nome si legge «misto» — ed è la convenzione che Giacomo usava già a mano
        (i file `Domande-aperte-Il Clima-misto.pdf` nel vault lo dimostrano). */
-    function _nomeAng(k) { return k === 'auto' ? 'misto' : k; }
+    function _nomeAng(k) {
+        var PC = window.MappAIPipelineCore;
+        return (PC && PC.nomeAngolo) ? PC.nomeAngolo(k) : (k === 'auto' ? 'misto' : k);
+    }
 
     /* Che cosa è successo, detto per intero. Con un foglio solo il messaggio
        resta quello di sempre (dove si corregge, dove si stampa); con più fogli

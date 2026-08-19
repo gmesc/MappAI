@@ -622,3 +622,47 @@ test('buildMapExportName: il prefisso sta in TESTA, come Quiz-MC e Sintesi-voce'
     assert.ok(PC.buildMapExportName('mindmap', 'Una Mappa Dal Nome Molto Lungo', '.pdf').startsWith('MM-'));
     assert.ok(PC.buildMapExportName('kg', 'Una Mappa Dal Nome Molto Lungo', '.pdf').startsWith('KG-'));
 });
+
+/* ══ PIÙ SET PER ANGOLO (19/8) ═══════════════════════════════════════════════
+   Un genere marcato «multi» si genera una volta per ogni angolo: la stima deve
+   dirlo PRIMA, perché è la leva con cui si decide se vale la spesa. */
+
+test('angoliMulti: sette angoli, senza «auto»', () => {
+    const a = PC.angoliMulti();
+    assert.strictEqual(a.length, 7);
+    assert.ok(a.indexOf('auto') < 0, '«misto» in mezzo agli angolati confonde il profilo di chi sceglie');
+    assert.ok(a.indexOf('causa') >= 0 && a.indexOf('eccezione') >= 0);
+});
+
+test('nomeAngolo: la CHIAVE nel nome del file, e auto si legge «misto»', () => {
+    assert.strictEqual(PC.nomeAngolo('causa'), 'causa');
+    assert.strictEqual(PC.nomeAngolo('auto'), 'misto');
+});
+
+test('multiTypes: solo generi validi, spuntati, senza doppioni', () => {
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open', 'mc', 'tf'] }), ['open', 'mc']);
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'open'], types: ['open'] }), ['open'], 'niente doppioni');
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open'] }), ['open'],
+        'un genere non spuntato non si genera: chiederne sette copie sarebbe una generazione che non avviene');
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['tf', 'flashcards'], types: ['tf', 'flashcards'] }), [],
+        'vero/falso e flashcard restano a una generazione: lì un angolo non cambia la domanda');
+    assert.deepStrictEqual(PC.multiTypes({ types: ['open'] }), [], 'senza `multi` la strada è quella di sempre');
+});
+
+test('estimateCalls: un genere multi costa SETTE volte, gli altri no', () => {
+    const stats = { branches: 5, willGenerateMap: false };
+    const solo = PC.estimateCalls({ quiz: { types: ['open', 'mc'] } }, stats);
+    assert.strictEqual(solo.perStep.B, 10, '5 rami × 2 generi');
+    const multi = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open'] } }, stats);
+    assert.strictEqual(multi.perStep.B, 5 * (1 + 7), 'mc singolo + open per sette angoli');
+    const due = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open', 'mc'] } }, stats);
+    assert.strictEqual(due.perStep.B, 5 * 14);
+});
+
+test('preset: `multi` sopravvive al round-trip, filtrato contro i tipi', () => {
+    const o = PC.presetFromConfig({ quiz: { types: ['open', 'mc'], perBranch: 3, angle: 'auto', multi: ['open'] } });
+    assert.deepStrictEqual(o.quiz.multi, ['open']);
+    const n = PC.presetNormalize({ name: 'X', options: { quiz: { types: ['open'], multi: ['open', 'mc', 'bogus'] } } });
+    assert.deepStrictEqual(n.options.quiz.multi, ['open'],
+        'un preset che chiede più set per un genere non spuntato chiede una generazione che non avverrà');
+});
