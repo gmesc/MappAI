@@ -282,12 +282,25 @@
      legge «misto», ed è la convenzione che Giacomo usava già a mano. */
   function nomeAngolo(k) { return String(k || '') === 'auto' ? 'misto' : String(k || ''); }
 
+  /* QUALI angoli: le spunte del box. Non c'è più un interruttore generale —
+     spegnere tutte le caselle È lo spegnimento, e una casella per angolo dice
+     anche QUALI, cosa che un interruttore solo non poteva dire. */
+  function angoliScelti(quiz) {
+    var disp = angoliMulti();
+    var a = (quiz && Array.isArray(quiz.angoli)) ? quiz.angoli : null;
+    if (!a) return [];                       /* niente scelte = nessuna variante */
+    return disp.filter(function (k) { return a.indexOf(k) >= 0; });   /* ordine dichiarato */
+  }
+
   /* Su quali generi si applica: solo dove un angolo cambia davvero la domanda.
      Flashcard e vero/falso restano a una generazione sola. */
   var _VALID_MULTI = ['open', 'mc'];
   function multiTypes(quiz) {
     var m = (quiz && Array.isArray(quiz.multi)) ? quiz.multi : [];
     var types = (quiz && quiz.types) || [];
+    /* senza nemmeno un angolo spuntato non c'è niente da moltiplicare: il
+       genere torna a una generazione sola (e la stima lo dice) */
+    if (!angoliScelti(quiz).length) return [];
     return m.filter(function (t, i) {
       return _VALID_MULTI.indexOf(t) >= 0 && m.indexOf(t) === i && types.indexOf(t) >= 0;
     });
@@ -307,7 +320,7 @@
        fogli costano sette volte). */
     if (config.quiz) {
       var multi = multiTypes(config.quiz);
-      var nAng = angoliMulti().length;
+      var nAng = angoliScelti(config.quiz).length;
       var singoli = (config.quiz.types || []).filter(function (t) { return multi.indexOf(t) < 0; }).length;
       B = branches * (singoli + multi.length * nAng);
     }
@@ -524,7 +537,7 @@
   function presetFromConfig(config) {
     config = config || {};
     var o = {};
-    if (config.quiz) o.quiz = { types: (config.quiz.types || []).slice(), perBranch: config.quiz.perBranch || 3, angle: config.quiz.angle || 'auto', multi: multiTypes(config.quiz) };
+    if (config.quiz) o.quiz = { types: (config.quiz.types || []).slice(), perBranch: config.quiz.perBranch || 3, angle: config.quiz.angle || 'auto', multi: multiTypes(config.quiz), angoli: angoliScelti(config.quiz) };
     if (config.nodesheet) o.nodesheet = { maxLevel: config.nodesheet.maxLevel || 'all', fmt: config.nodesheet.fmt || '2x2', modes: (config.nodesheet.modes || []).slice(), causal: !!config.nodesheet.causal };
     if (config.synthesis) o.synthesis = { audio: !!config.synthesis.audio };
     o.causal = !!config.causal;
@@ -543,12 +556,12 @@
         types: (Array.isArray(o.quiz.types) ? o.quiz.types : []).filter(function (t) { return _VALID_TYPES.indexOf(t) >= 0; }),
         perBranch: Math.max(1, Math.min(10, parseInt(o.quiz.perBranch, 10) || 3)),
         angle: o.quiz.angle || 'auto',
-        multi: []
+        multi: [], angoli: angoliScelti(o.quiz)
       };
       if (!opt.quiz.types.length) opt.quiz.types = ['mc'];
       /* `multi` si filtra DOPO i tipi: un preset che chiede più set per un
          genere non spuntato chiede una generazione che non avverrà. */
-      opt.quiz.multi = multiTypes({ multi: o.quiz.multi, types: opt.quiz.types });
+      opt.quiz.multi = multiTypes({ multi: o.quiz.multi, types: opt.quiz.types, angoli: opt.quiz.angoli });
     }
     if (o.nodesheet) {
       opt.nodesheet = {
@@ -603,7 +616,7 @@
     contaGraduazione: contaGraduazione,
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
-    angoliMulti: angoliMulti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
+    angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,
     buildMapExportName: buildMapExportName,
     nomeLibero: nomeLibero,

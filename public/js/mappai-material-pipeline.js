@@ -473,15 +473,17 @@
       const perBranch = Math.max(1, config.quiz.perBranch || 3);
       const angle = config.quiz.angle || 'auto';
       /* «Più set per angolo»: i generi elencati qui si generano una volta per
-         ognuno dei sette angoli invece che una sola. Il filtro contro i tipi
-         spuntati lo fa il core. */
+         ogni angolo SPUNTATO nel box, invece che una sola. Il filtro contro i
+         tipi spuntati e la regola «senza angoli non si moltiplica» stanno nel
+         core, che è anche ciò che legge la stima: una seconda regola scritta
+         qui direbbe un giorno un numero diverso da quello mostrato. */
       const multi = PC().multiTypes(config.quiz);
       const saltati = [];
       for (let ti = 0; ti < types.length; ti++) {
         const t = types[ti];
         const spec = _QT[t];
         _setContext(spec.sub);
-        const angoli = (multi.indexOf(t) >= 0) ? PC().angoliMulti() : [angle];
+        const angoli = (multi.indexOf(t) >= 0) ? PC().angoliScelti(config.quiz) : [angle];
         for (let ai = 0; ai < angoli.length; ai++) {
           const ang = angoli[ai];
           /* Il nome della variante è la CHIAVE dell'angolo, non l'etichetta a
@@ -1061,11 +1063,19 @@
   /* marcatore della sola MIGRAZIONE di un «Default» preesistente (domande aperte
      + voce naturale): separato dal precedente, che dice «l'ho già applicato» */
   var CHIAVE_PRESET_OQ = 'mappai_preset_default_oq_v1';
+  /* marcatore dei default del 19/8 (aperte · 5 per ramo · niente V/F · voce
+     spenta · tutti gli angoli): anche questo si applica UNA volta sola */
+  var CHIAVE_PRESET_V2 = 'mappai_preset_default_v2';
   function _opzioniDefault() {
     return {
-      quiz: { types: ['mc', 'open'], perBranch: 3, angle: 'auto' },
+      /* 19/8, scelte di Giacomo: domande aperte accese, cinque per ramo, niente
+         vero/falso, voce naturale SPENTA (costa e si aggiunge dopo, dall'editor),
+         e il box «Più set per angolo» tutto acceso — è la configurazione che
+         serve alle attività «a scelta», dove lo studente sceglie fra le versioni. */
+      quiz: { types: ['mc', 'open'], perBranch: 5, angle: 'auto',
+              multi: ['open', 'mc'], angoli: PC().angoliMulti() },
       nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
-      synthesis: { audio: true },      /* la voce naturale, chiesta da Giacomo */
+      synthesis: { audio: false },
       causal: true,                    /* deterministica: non costa una chiamata */
       tuned: true, levelTuned: true
     };
@@ -1091,6 +1101,37 @@
          naturale — e una volta sola, con un marcatore suo. Senza il marcatore,
          chi togliesse di proposito le domande aperte se le ritroverebbe al
          riavvio successivo: sarebbe una preferenza che non si può esprimere. */
+      /* ══ I DEFAULT DEL 19/8 VINCONO UNA VOLTA (inv. 17) ═══════════════════
+         Un «Default» già sul computer del docente porta le scelte di prima
+         (vero/falso acceso, 3 domande per ramo, voce naturale accesa): senza
+         questo passaggio i default nuovi li vedrebbero solo le installazioni
+         fresche, e chi ha usato l'app fin qui non li vedrebbe mai. Una volta
+         sola, col suo marcatore: dopo comanda di nuovo la scelta dell'utente. */
+      let v2 = false;
+      try { v2 = localStorage.getItem(CHIAVE_PRESET_V2) != null; } catch (e) { }
+      if (!v2) {
+        const o2 = p.options || {};
+        const q2 = o2.quiz || {};
+        const tipi2 = (Array.isArray(q2.types) ? q2.types : []).filter(t => t !== 'tf');
+        if (tipi2.indexOf('open') < 0) tipi2.push('open');
+        if (!tipi2.length) tipi2.push('mc');
+        const nuove = Object.assign({}, o2, {
+          quiz: Object.assign({}, q2, {
+            types: tipi2, perBranch: 5,
+            multi: ['open', 'mc'], angoli: PC().angoliMulti()
+          }),
+          synthesis: Object.assign({}, o2.synthesis || {}, { audio: false })
+        });
+        list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: nuove }) : x);
+        _savePresets(list);
+        p = _loadPresets().filter(suo)[0];
+        /* ⚠️ e la MEMORIA dei box va svuotata: se restasse, il ripristino
+           rimetterebbe le scelte di ieri sopra i default nuovi e la migrazione
+           non si vedrebbe (è lo stesso guasto che il marcatore evita, un piano
+           più sotto). */
+        try { localStorage.removeItem('mappai_bento_scelte'); } catch (e) { }
+        try { localStorage.setItem(CHIAVE_PRESET_V2, '1'); } catch (e) { }
+      }
       let migrato = false;
       try { migrato = localStorage.getItem(CHIAVE_PRESET_OQ) != null; } catch (e) { }
       if (!migrato) {
@@ -1144,7 +1185,9 @@
     set('mp-quiz-on', !!o.quiz);
     if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
       const mul = o.quiz.multi || [];
-      set('mp-multi-on', mul.length > 0); set('mp-multi-open', mul.indexOf('open') >= 0); set('mp-multi-mc', mul.indexOf('mc') >= 0); }
+      set('mp-multi-open', mul.indexOf('open') >= 0); set('mp-multi-mc', mul.indexOf('mc') >= 0);
+      const ang = o.quiz.angoli || [];
+      PC().angoliMulti().forEach(k => set('mp-ang-' + k, ang.indexOf(k) >= 0)); }
     set('mp-ns-on', !!o.nodesheet);
     if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); }
     /* la catena è fuori da `nodesheet` dal 5/8; `presetNormalize` la legge anche
@@ -1161,6 +1204,10 @@
     const r = document.querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
     if (r) r.checked = true;
     _syncSections(); Pipeline._reestimate();
+    /* ⚠️ `.checked = x` da JS non scatena `change` (trappola 10): senza questa
+       riga il preset appena applicato non finirebbe nella memoria dei box
+       nascosti, e al riavvio tornerebbe quello di prima. */
+    try { if (window.MappAICostruisci && window.MappAICostruisci.memorizza) window.MappAICostruisci.memorizza(); } catch (e) { }
     /* Applicato al BOOT (il preset «Default») non si annuncia: un toast a ogni
        avvio per una cosa che l'utente non ha chiesto è rumore. Applicato col
        bottone sì: lì è la risposta al suo gesto. */
@@ -1359,11 +1406,13 @@
            Il filtro contro `types` lo fa il core: chiedere più set per un genere
            non spuntato sarebbe una generazione che non avviene. */
         const multi = [];
-        if (on('mp-multi-on')) {
-          if (on('mp-multi-open')) multi.push('open');
-          if (on('mp-multi-mc')) multi.push('mc');
-        }
-        cfg.quiz.multi = PC().multiTypes({ multi, types });
+        if (on('mp-multi-open')) multi.push('open');
+        if (on('mp-multi-mc')) multi.push('mc');
+        /* gli angoli si leggono dalle caselle, non da un elenco scritto qui:
+           l'elenco vero è `QUIZ_ANGLES`, e una copia divergerebbe (inv. 6) */
+        const angoli = PC().angoliMulti().filter(k => on('mp-ang-' + k));
+        cfg.quiz.angoli = angoli;
+        cfg.quiz.multi = PC().multiTypes({ multi, types, angoli });
       }
     }
     if (on('mp-ns-on')) {

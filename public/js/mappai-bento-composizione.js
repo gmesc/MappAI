@@ -125,17 +125,32 @@
            quiz. */
         { id: 'mp-qt-open', aiuto: 'Domande a cui si risponde scrivendo: il foglio porta le righe per la risposta e, in coda, le tracce di correzione per te.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun foglio di domande aperte' },
         { id: 'mp-perbranch', aiuto: 'Quante domande generare per ogni ramo della mappa. Più domande = più chiamate AI.', et: 'Per ramo', tipo: 'numero', chiave: 'quiz.perBranch', figlioDi: 'mp-quiz-on', seFuori: 'restano 3 domande per ramo (default)' },
-        { id: 'mp-angle', aiuto: 'Il taglio delle domande: definizioni, cause ed effetti, confronti… «Automatico» lo sceglie l\u0027AI dal contenuto. Con «Più set per angolo» acceso questa scelta non conta: si generano tutti gli angoli.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'angolo «auto» (default)' },
+        { id: 'mp-angle', aiuto: 'Il taglio delle domande, quando se ne genera UNO solo. Dal 19/8 gli angoli si spuntano nel box «Più set per angolo»: questa tendina è fuori dalla composizione.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'l\u0027angolo lo dicono le spunte del box «Più set per angolo»; un genere senza angoli spuntati esce ad angolo misto' },
 
-        /* ⚠️ NON è `figlioDi: 'mp-quiz-on'` e non è `derivato`: è una scelta a
-           sé, e costosa — sette generazioni invece di una. Un campo che
-           moltiplica per sette il costo non si accende da solo. */
-        { id: 'mp-multi-on', aiuto: 'Invece di un foglio solo, ne genera uno per ogni angolo (definizione, causa, conseguenza, esempio, confronto, eccezione, applicazione): sette versioni dello stesso materiale, fra cui lo studente sceglie. \u26a0\ufe0f Costa sette volte le chiamate AI \u2014 guarda la stima.', et: 'Più set per angolo', tipo: 'spunta', chiave: 'quiz.multi', master: true,
-          seFuori: 'si genera un foglio solo, con l\u0027angolo scelto nella tendina «Angolo»' },
-        { id: 'mp-multi-open', aiuto: 'Applica la generazione per angolo alle domande aperte: sette fogli, uno per taglio.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.multi', figlioDi: 'mp-multi-on',
-          seFuori: 'le domande aperte restano un foglio solo' },
-        { id: 'mp-multi-mc', aiuto: 'Applica la generazione per angolo ai quiz a scelta multipla: sette set, uno per taglio.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.multi', figlioDi: 'mp-multi-on',
-          seFuori: 'il quiz a scelta multipla resta un set solo' },
+        /* ⚠️ Una casella PER ANGOLO, e nessun interruttore generale: spegnerle
+           tutte È lo spegnimento, e così si dice anche QUALI angoli servono —
+           cosa che un interruttore solo non poteva dire. Con esse la tendina
+           «Angolo» del box Quiz è uscita dalla composizione: erano due comandi
+           per la stessa domanda (inv. 21).
+           I due generi dicono A CHE COSA si applica; gli angoli QUANTE volte. */
+        { id: 'mp-multi-open', aiuto: 'Applica la generazione per angolo alle domande aperte: un foglio per ogni angolo spuntato qui sotto.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.multi',
+          seFuori: 'le domande aperte restano un foglio solo, ad angolo misto' },
+        { id: 'mp-multi-mc', aiuto: 'Applica la generazione per angolo ai quiz a scelta multipla: un set per ogni angolo spuntato qui sotto.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.multi',
+          seFuori: 'il quiz a scelta multipla resta un set solo, ad angolo misto' },
+        { id: 'mp-ang-definizione', aiuto: 'Genera un materiale con questo taglio: che cos\u0027è: il concetto spiegato. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Definizione', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Definizione» non viene generato' },
+        { id: 'mp-ang-causa', aiuto: 'Genera un materiale con questo taglio: perché avviene, che cosa lo provoca. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Causa', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Causa» non viene generato' },
+        { id: 'mp-ang-conseguenza', aiuto: 'Genera un materiale con questo taglio: che cosa comporta, che cosa ne deriva. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Conseguenza', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Conseguenza» non viene generato' },
+        { id: 'mp-ang-esempio', aiuto: 'Genera un materiale con questo taglio: il concetto applicato a un caso della fonte. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Esempio concreto', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Esempio concreto» non viene generato' },
+        { id: 'mp-ang-confronto', aiuto: 'Genera un materiale con questo taglio: differenze e somiglianze fra due elementi. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Confronto', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Confronto» non viene generato' },
+        { id: 'mp-ang-eccezione', aiuto: 'Genera un materiale con questo taglio: quando NON vale, i casi particolari. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Eccezione / limite', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Eccezione / limite» non viene generato' },
+        { id: 'mp-ang-applicazione', aiuto: 'Genera un materiale con questo taglio: usare il concetto per dedurre o risolvere. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Applicazione / inferenza', tipo: 'spunta', chiave: 'quiz.angoli',
+          seFuori: 'l\u0027angolo «Applicazione / inferenza» non viene generato' },
 
         /* ⚠️ `mp-ns-causal` NON è fra i derivanti: spuntare la catena non deve
            accendere i fogli nodi, o si otterrebbe un PDF di fogli che nessuno ha
@@ -533,7 +548,7 @@
           voci: [{ id: 'mp-preset', w: 190 }] },
         { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
           voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-tf', 'mp-qt-open',
-              { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-angle', w: 130 }] },
+              { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
         { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
           voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
               { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
@@ -545,7 +560,9 @@
            sarebbe una spunta come le altre, e non lo è (sette generazioni). */
         { id: 'multi', titolo: 'Più set per angolo', icona: 'layers', span: 4, altezza: 130,
           layout: { colonneVoci: 3 },
-          voci: ['mp-multi-on', 'mp-multi-open', 'mp-multi-mc'] },
+          voci: ['mp-multi-open', 'mp-multi-mc',
+              'mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
+              'mp-ang-confronto', 'mp-ang-eccezione', 'mp-ang-applicazione'] },
         { id: 'modalita', titolo: 'Modalità', icona: 'book-open', span: 1, altezza: 260,
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           layout: { colonneVoci: 'colonna' },

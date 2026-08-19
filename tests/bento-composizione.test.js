@@ -25,7 +25,7 @@ test('le voci fuori dalla composizione sono quelle DECISE, non altre', () => {
     const strumenti = new Set(B.VOCI.filter(x => x.tipo === 'strumento').map(x => x.id));
     const fuoriPipeline = v.fuori.filter(id => !strumenti.has(id)).sort();
     assert.deepStrictEqual(fuoriPipeline,
-        ['mn-solo-mappa', 'mp-adapt-on', 'mp-adapt-scope', 'mp-class', 'mp-estimate', 'mp-ns-title'].sort());
+        ['mn-solo-mappa', 'mp-adapt-on', 'mp-adapt-scope', 'mp-angle', 'mp-class', 'mp-estimate', 'mp-ns-title'].sort());
 });
 
 /* ═══ GLI STRUMENTI: le funzioni che la vista compatta nasconde ═══════════════
@@ -708,14 +708,17 @@ test('«Più set per angolo» è un box suo, a tutta riga, nella vista estesa', 
         'sta SOTTO i quattro box delle opzioni: moltiplica il loro costo');
 });
 
-test('le tre voci del box portano gli id che la pipeline legge', () => {
+test('il box porta i due generi e UNA casella per angolo', () => {
     const ids = B.vociDi(B.MODULI.find(x => x.id === 'multi')).map(v => v.id);
-    assert.deepStrictEqual(ids, ['mp-multi-on', 'mp-multi-open', 'mp-multi-mc']);
-    const madre = B.voce('mp-multi-on');
-    assert.strictEqual(madre.master, true);
-    assert.ok(!madre.derivato, 'NON si accende da sé: sette generazioni non si scelgono per errore');
-    assert.ok(!madre.figlioDi, 'non è figlia del box Quiz: è una scelta a sé, e costosa');
-    ['mp-multi-open', 'mp-multi-mc'].forEach(id => {
-        assert.strictEqual(B.voce(id).figlioDi, 'mp-multi-on');
-    });
+    assert.deepStrictEqual(ids.slice(0, 2), ['mp-multi-open', 'mp-multi-mc'], 'a che cosa si applica');
+    const angoli = ids.slice(2);
+    assert.strictEqual(angoli.length, 7, 'una casella per angolo (senza «misto»)');
+    angoli.forEach(id => assert.ok(id.indexOf('mp-ang-') === 0, id + ' non è una casella-angolo'));
+    assert.ok(!B.voce('mp-multi-on'), 'l\'interruttore generale non c\'è più: spegnere le caselle È lo spegnimento');
+});
+
+test('la tendina «Angolo» è uscita dal box Quiz: due comandi per la stessa domanda', () => {
+    const quiz = B.MODULI.find(x => x.id === 'quiz');
+    assert.ok(B.vociDi(quiz).every(v => v.id !== 'mp-angle'));
+    assert.ok(B.voce('mp-angle'), 'resta nell\'inventario, con il suo `seFuori` che spiega dove si scelgono gli angoli');
 });

@@ -148,22 +148,25 @@ sezione. Il cablaggio bento non è più opzionale.
 
 ### PIÙ SET PER ANGOLO — il box nel bento di CREA (19/8)
 Vista estesa (combo SHIFT+CTRL+L,K,J,H), riga sua a tutta larghezza sotto `Preset ·
-Quiz · Fogli nodi · Fonte & Sintesi`: **«Più set per angolo»** con la spunta madre e
-due figlie — **Domande aperte** e **Scelta multipla**. Accesa, «Genera materiali»
-produce **un materiale per ognuno dei sette angoli** (definizione · causa ·
-conseguenza · esempio · confronto · eccezione · applicazione) invece di uno solo con
-l'angolo della tendina.
+Quiz · Fogli nodi · Fonte & Sintesi`: **«Più set per angolo»** con **nove caselle** —
+due che dicono A CHE COSA (Domande aperte · Scelta multipla) e **una per angolo**
+(definizione · causa · conseguenza · esempio · confronto · eccezione · applicazione)
+che dicono QUANTE versioni. **Tutte accese di default.** «Genera materiali» produce
+allora un materiale per ogni angolo spuntato, invece di uno solo.
 
-**Perché sta lì e non dentro il box «Quiz»**: moltiplica per sette il costo di ciò
-che sta nel box sopra. Una spunta in mezzo alle altre non lo direbbe.
-- **Costa, e lo dice prima**: la stima segue le scelte — su 4 rami con MC e aperte si
-  passa da `B 8` a `B 56` (misurato attraverso il `_readConfig` VERO nell'harness).
-- **La madre nasce SPENTA, i due figli accesi.** Sette generazioni non si scelgono per
-  errore; e una madre accesa con entrambi i figli spenti sarebbe una spunta che non fa
-  niente.
-- **Comandi inerti spenti** (inv. 21): col master acceso la tendina «Angolo» non decide
-  più niente → si disabilita, e il suo pop-up lo dice; i due figli sono disabilitati
-  finché la madre è spenta.
+**Perché sta lì e non dentro il box «Quiz»**: moltiplica il costo di ciò che sta nel
+box sopra. Una spunta in mezzo alle altre non lo direbbe.
+- **Niente interruttore generale**: spegnere tutte le caselle **è** lo spegnimento, e
+  una casella per angolo dice anche *quali* — cosa che un interruttore solo non poteva
+  dire. (La spunta madre c'era il 19/8 mattina: tolta la sera, con gli angoli.)
+- **Costa, e lo dice prima**: la stima segue le caselle — su 4 rami con MC e aperte:
+  `B 8` senza angoli · `B 40` con cinque · `B 56` con tutti e sette (misurato
+  attraverso il `_readConfig` VERO nell'harness).
+- **La tendina «Angolo» è uscita dal box Quiz**: con le caselle erano due comandi per
+  la stessa domanda (inv. 21). Resta nell'inventario dell'officina col suo `seFuori`.
+  Un genere senza angoli spuntati esce ad angolo **misto**, come prima.
+- **Comandi inerti spenti** (inv. 21): senza nessuno dei due generi le sette caselle
+  non governano niente → si disabilitano.
 - **Il nome della variante è la CHIAVE dell'angolo** — `Domande-aperte-<Mappa>-causa`,
   `Quiz-MC-<Mappa>-conseguenza` — cioè la convenzione del gesto singolo di ELABORA
   (`_generaVarianti`) e quella che Giacomo applicava a mano. La funzione che la scrive
@@ -176,6 +179,22 @@ che sta nel box sopra. Una spunta in mezzo alle altre non lo direbbe.
 - **Il modale storico** («Genera materiali», veste manifesto spenta) NON ha il box: i
   suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
   sempre (inv. 1).
+
+**I default della generazione, e la memoria dei box** (19/8 sera, scelte di Giacomo):
+domande aperte **accese** · **5** domande per ramo · vero/falso **spento** · voce
+naturale **spenta** · «Allega PDF» **acceso** · box «Più set per angolo» **tutto
+acceso**. Vivono nel preset «Default», che il bento applica al montaggio.
+⚠️ E adesso **quello che si lascia nei box nascosti resta**: `mappai_bento_scelte`
+tiene lo stato dei campi e vince sul preset applicato al boot; `_applyPreset` lo
+riscrive, così premere «Applica» resta l'ultima parola. Prima no, ed era dichiarato:
+le spunte sono campi del DOM, ricostruiti dal markup a ogni avvio — funzionava per il
+DEFAULT e non per le SCELTE, quindi chi toglieva una spunta se la ritrovava al riavvio.
+Il contesto (chi · cosa) NON entra in quella memoria: vive già come contesto attivo
+dell'app, e una seconda copia divergerebbe (inv. 6).
+⚠️ I default nuovi vincono **una volta** anche su un «Default» già scritto
+(`mappai_preset_default_v2`), e quella migrazione **svuota la memoria dei box**: se
+restasse, il ripristino rimetterebbe le scelte di ieri sopra i default nuovi e la
+migrazione non si vedrebbe (inv. 17).
 
 **Due cose che i materiali ora si portano dietro**, e servono al passo successivo (le
 attività «a scelta»):
@@ -1605,8 +1624,14 @@ Misurato nell'harness (`public/dev/costruisci-harness.html`, moduli veri + `_rea
 vero) e nei test puri; mai in una generazione reale.
 1. **Vista estesa**: il box compare sotto i quattro delle opzioni, largo quanto il bento
    (misurato 1240px), e NON compare nella vista compatta.
-2. **La stima**: accendendo la madre il numero di chiamate sale di sette volte per ogni
-   genere spuntato — è il dato su cui si decide se vale la spesa.
+2. **La stima**: con tutte le caselle accese il numero di chiamate sale di sette volte
+   per ogni genere spuntato — è il dato su cui si decide se vale la spesa. ⚠️ È il
+   DEFAULT: chi non apre la vista estesa genera 14 materiali invece di 2.
+2-bis. **I default nuovi arrivano davvero** sul computer di Giacomo, dove un preset
+   «Default» esiste già dall'11/8: al primo avvio devono comparire domande aperte
+   accese, 5 per ramo, vero/falso spento, voce spenta, allega PDF acceso.
+2-ter. **La memoria**: togliere due angoli, chiudere l'app, riaprirla → quei due sono
+   ancora spenti.
 3. **Una generazione VERA con l'AI**: nel vault devono comparire
    `Domande-aperte-<Mappa>-definizione.pdf` … `-applicazione.pdf` (sette) e, se spuntata
    la seconda voce, sette set MC nella sidebar col loro angolo nel titolo.

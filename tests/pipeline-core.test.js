@@ -639,30 +639,45 @@ test('nomeAngolo: la CHIAVE nel nome del file, e auto si legge «misto»', () =>
     assert.strictEqual(PC.nomeAngolo('auto'), 'misto');
 });
 
-test('multiTypes: solo generi validi, spuntati, senza doppioni', () => {
-    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open', 'mc', 'tf'] }), ['open', 'mc']);
-    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'open'], types: ['open'] }), ['open'], 'niente doppioni');
-    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open'] }), ['open'],
-        'un genere non spuntato non si genera: chiederne sette copie sarebbe una generazione che non avviene');
-    assert.deepStrictEqual(PC.multiTypes({ multi: ['tf', 'flashcards'], types: ['tf', 'flashcards'] }), [],
-        'vero/falso e flashcard restano a una generazione: lì un angolo non cambia la domanda');
-    assert.deepStrictEqual(PC.multiTypes({ types: ['open'] }), [], 'senza `multi` la strada è quella di sempre');
+const TUTTI = PC.angoliMulti();
+
+test('angoliScelti: le caselle spuntate, nell\'ordine dichiarato', () => {
+    assert.deepStrictEqual(PC.angoliScelti({ angoli: ['esempio', 'causa'] }), ['causa', 'esempio'],
+        'l\'ordine è quello di QUIZ_ANGLES, non quello in cui si spunta');
+    assert.deepStrictEqual(PC.angoliScelti({ angoli: ['bogus'] }), [], 'un angolo che non esiste non si genera');
+    assert.deepStrictEqual(PC.angoliScelti({}), [], 'senza caselle non c\'è niente da moltiplicare');
 });
 
-test('estimateCalls: un genere multi costa SETTE volte, gli altri no', () => {
+test('multiTypes: solo generi validi, spuntati, senza doppioni, e con almeno un angolo', () => {
+    const A = { angoli: TUTTI };
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open', 'mc', 'tf'], ...A }), ['open', 'mc']);
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'open'], types: ['open'], ...A }), ['open'], 'niente doppioni');
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open'], ...A }), ['open'],
+        'un genere non spuntato non si genera: chiederne sette copie sarebbe una generazione che non avviene');
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['tf', 'flashcards'], types: ['tf', 'flashcards'], ...A }), [],
+        'vero/falso e flashcard restano a una generazione: lì un angolo non cambia la domanda');
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['open'], types: ['open'], angoli: [] }), [],
+        'spegnere tutte le caselle È lo spegnimento: non c\'è più un interruttore generale');
+});
+
+test('estimateCalls: ogni angolo spuntato è una generazione in più', () => {
     const stats = { branches: 5, willGenerateMap: false };
     const solo = PC.estimateCalls({ quiz: { types: ['open', 'mc'] } }, stats);
-    assert.strictEqual(solo.perStep.B, 10, '5 rami × 2 generi');
-    const multi = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open'] } }, stats);
-    assert.strictEqual(multi.perStep.B, 5 * (1 + 7), 'mc singolo + open per sette angoli');
-    const due = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open', 'mc'] } }, stats);
-    assert.strictEqual(due.perStep.B, 5 * 14);
+    assert.strictEqual(solo.perStep.B, 10, '5 rami × 2 generi, nessun angolo spuntato');
+    const sette = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open'], angoli: TUTTI } }, stats);
+    assert.strictEqual(sette.perStep.B, 5 * (1 + 7), 'mc singolo + open per sette angoli');
+    const due = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open', 'mc'], angoli: ['causa', 'esempio'] } }, stats);
+    assert.strictEqual(due.perStep.B, 5 * 4, 'due angoli su due generi');
+    const tutto = PC.estimateCalls({ quiz: { types: ['open', 'mc'], multi: ['open', 'mc'], angoli: TUTTI } }, stats);
+    assert.strictEqual(tutto.perStep.B, 5 * 14, 'il default: due generi per sette angoli');
 });
 
-test('preset: `multi` sopravvive al round-trip, filtrato contro i tipi', () => {
-    const o = PC.presetFromConfig({ quiz: { types: ['open', 'mc'], perBranch: 3, angle: 'auto', multi: ['open'] } });
+test('preset: generi e angoli sopravvivono al round-trip, filtrati', () => {
+    const o = PC.presetFromConfig({ quiz: { types: ['open', 'mc'], perBranch: 5, angle: 'auto', multi: ['open'], angoli: ['causa'] } });
     assert.deepStrictEqual(o.quiz.multi, ['open']);
-    const n = PC.presetNormalize({ name: 'X', options: { quiz: { types: ['open'], multi: ['open', 'mc', 'bogus'] } } });
+    assert.deepStrictEqual(o.quiz.angoli, ['causa']);
+    const n = PC.presetNormalize({ name: 'X', options: { quiz: { types: ['open'], multi: ['open', 'mc', 'bogus'], angoli: ['causa', 'bogus'] } } });
     assert.deepStrictEqual(n.options.quiz.multi, ['open'],
         'un preset che chiede più set per un genere non spuntato chiede una generazione che non avverrà');
+    assert.deepStrictEqual(n.options.quiz.angoli, ['causa']);
 });
