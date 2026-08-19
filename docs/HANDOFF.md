@@ -180,6 +180,34 @@ box sopra. Una spunta in mezzo alle altre non lo direbbe.
   suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
   sempre (inv. 1).
 
+### «DOMANDE A SCELTA» — il core e la superficie (19/8, fasi B e C)
+Il pezzo su cui si regge il rifacimento dello Studio attivo: lo studente riceve TUTTE
+le domande che una mappa ha prodotto — i fogli «Domande aperte» generati uno per
+angolo, o i set a scelta multipla — con l'**angolo nascosto**, e sceglie a quali
+rispondere. Piano completo in [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md).
+- **`mappai-scelta-core.js`** (puro, 15 test): `poolDaFogli` col dedup fra fogli ·
+  `pubblico` (il pacchetto che va al telefono: niente angolo, niente soluzioni — una
+  funzione sola, come `publicQuestions` in Live) · `mescola` col seme dello studente ·
+  `perRamo` · `validaConsegna` · `profilo` · `evitata` · `calorClasse` · `CFG_DEFAULT`.
+- **`mappai-scelta-view.js`**: la superficie, **una sola** per il telefono, per l'app e
+  per il banco. Il trasporto si inietta (`onCambia`, `onConsegna`), il CSS se lo porta
+  dietro (la pagina dello studente non carica `style.css`). Fra domande aperte e scelta
+  multipla cambia **solo il campo della risposta**: elenco, chip, contatore, consegna e
+  esito sono gli stessi — ed è la ragione per cui la view è una.
+- **Banco**: `public/dev/scelta-harness.html`, i due moduli veri a larghezza di telefono
+  (390px). Misura ciò che conta: **nessuna chiave d'angolo a schermo**, 0 sbordi,
+  bersagli ≥ 44px, contrasti 4,6-17,8:1, «scelta ≠ scritta», lasciare una domanda non
+  butta la risposta, la consegna sotto il minimo **chiede** invece di vietare.
+- Due difetti trovati misurando, e sono la parte utile: la view **dichiara il suo
+  `box-sizing`** (la pagina che la ospita può non avere regole globali: un campo
+  `width:100%` sbordava di 14px su un telefono); e l'invito delle Osservazioni sta
+  nell'**etichetta**, non nel segnaposto — con `field-sizing: content` è il contenuto a
+  dare l'altezza, e un segnaposto di due righe faceva nascere il campo a 94px, un terzo
+  di schermo occupato da un invito mentre si sta ancora scegliendo (94 → 49).
+- ⚠️ **La pagina `live/scelta.html` non c'è ancora**: arriva con la fase D, dove il
+  server sa il `mode` e la si può provare contro il server VERO. Scriverla ora avrebbe
+  voluto dire codice che nessuno può eseguire.
+
 ### «PAROLE CHIAVE CON AI» — il bottone che non faceva niente (19/8)
 Nell'editor del **foglio dei nodi**, riga «a tutte le card». Non era rotto: la sua
 condizione era **falsa per costruzione** (trappola 27). Cercava le card «parole
