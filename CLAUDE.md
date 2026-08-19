@@ -1,9 +1,14 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **18 agosto 2026** — il **PDF della mappa torna VETTORIALE**: il
-> ripiego raster (la «cattura schermo») non scatta più. La giornata è in §11, in cima al
-> diario.
+> Ultimo aggiornamento: **19 agosto 2026** — il **CARATTERE si sceglie** (Cabina per
+> l'app, ELABORA per il singolo documento; quattro caratteri, tutti locali), e dietro
+> quel lavoro è emerso il capitolo aperto dei **SIMBOLI MANCANTI**: nessuno dei quattro
+> ha `✓`, e su un foglio prodotto da jsPDF un glifo che manca **sparisce** invece di
+> ripiegare. La giornata è in §11, in cima al diario; il punto di ripresa è
+> **[`docs/HANDOFF.md`](docs/HANDOFF.md) §4 debito 0**.
+> (Prima: **18 agosto** — il PDF della mappa torna VETTORIALE: il ripiego raster non
+> scatta più.)
 > (Prima: **17 agosto 2026, sera** — la **VOCE della sintesi diventa usabile**
 > (si registra anche dopo, scrive la copia parlante, si può annullare, dice quanto costa
 > prima e riprende il giorno dopo dai blocchi mancanti) e i **file del vault dicono a chi
@@ -632,6 +637,72 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (18-19/8/26): il CARATTERE si sceglie — e i SIMBOLI restano aperti
+Quattro caratteri invece di uno: **Space Mono** (default, monospazio), **TestMe Sans** e
+**TestMe Alt** (Perondi/Romei — la seconda con le lettere-specchio disegnate diverse) e
+**Atkinson Hyperlegible** (Braille Institute). Tutti OFL, tutti **dentro l'app**. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §3 e §4**; qui il perché e le cose trovate misurando.
+Cinque commit, suite **1189/0**, quattro banchi verdi.
+
+**Due scelte, una regola.** La Cabina decide il carattere dell'app e di tutto ciò che l'app
+GENERA; in ELABORA il selettore accanto allo zoom decide quello di QUEL documento, che vince
+solo lì e viaggia con la sua sorgente (inv. 18).
+
+**Il difetto vecchio chiuso strada facendo è più grosso della feature**: NOVE costruttori di
+documenti prendevano Space Mono da `fonts.googleapis.com`, e `index.html` faceva lo stesso
+per l'app intera. Un foglio stampato in aula senza collegamento perdeva la sua veste, in
+silenzio. Ora nessun carattere di testo passa dalla rete.
+
+**Le cose imparate misurando, che valgono più del codice.**
+1. **La regola `*` di `style.css` porta `!important`**, quindi VINCE già su classi,
+   shorthand `font:`, stile inline e attributi SVG — conservando corpo e peso. Le ~50
+   conversioni che il piano prevedeva erano **inutili**: l'ho misurato prima di farle.
+2. **`headAdvance` si dichiara, non si somma.** Il foglio faceva `advance +
+   headLetterSpacing`: con Space Mono regge perché è monospazio, sui proporzionali la somma
+   dà 0,56 dove ne servono 0,71 — le testate (maiuscole *e* spaziate) sborderebbero del 27%.
+3. **I caratteri nuovi sono più STRETTI** di Space Mono sul testo italiano vero (0,44 em
+   contro 0,61, misurato su 891 nodi): la geometria reggeva anche senza toccarla, ma
+   riservava il 38% di spazio in più e il motore rimpiccioliva il corpo per farcelo stare —
+   su un carattere scelto per leggere meglio, il risultato rovesciato. 38 caratteri per riga
+   invece di 30.
+4. **Il documento si porta DENTRO il suo carattere.** Un `@font-face` che punta a un
+   percorso non serve a niente dove serve di più: la finestra che stampa carica l'HTML come
+   `data:` (origine opaca) e da lì un `file://` è **bloccato**. Il PDF usciva col ripiego
+   mentre l'app mostrava il carattere giusto — «l'editor sì, il PDF no». Peso tenuto basso
+   misurando: `.ttf` intero 433 KB per documento, sottoinsieme + WOFF **76-101 KB**.
+   ⚠️ L'avevo scritto in HANDOFF come **debito** («sarebbe comodo per il QR»): era un
+   difetto, e si vedeva solo aprendo il prodotto.
+5. **Un file convertito deve dichiararsi per quello che è.** I `.ttf` di TestMe nascono da
+   `.otf`; la conversione toglieva `CFF ` e costruiva `glyf` ma lasciava l'intestazione a
+   `OTTO`. Un `/FontFile2` **è** un TrueType per definizione → i lettori rifiutavano il font
+   e l'export dei **grafi** usciva rotto. Le prime quattro ipotesi (maxp, `loca`, `cmap`,
+   GPOS/GSUB) erano tutte sbagliate: la svolta è stata guardare **quello che jsPDF aveva
+   scritto** invece del font di partenza. E il controllo che divideva il campo in due — far
+   passare Atkinson, che non ho convertito io — andava fatto per PRIMO (guida, trappola 47).
+
+**⚠️ IL CAPITOLO APERTO: i simboli.** Da un ohm in un quiz di elettricità è emerso un
+difetto largo e **vecchio**: nessuno dei quattro caratteri ha `✓` né i filetti del dossier, e
+**anche Space Mono** manca di quindici simboli che l'app usa. E i due percorsi di export
+falliscono in modo diverso — **Chromium ripiega** (il simbolo si vede in un'altra veste),
+**jsPDF lo fa sparire**, e con Space Mono la riga si **tronca**. Su un foglio jsPDF un
+simbolo mancante si porta via del testo, in silenzio. Due strumenti lo rimisurano in un
+secondo (`copertura-glifi.py`, `prova-glifi.js`); il piano è in `HANDOFF.md` §4 debito 0.
+
+**Altre due cose della giornata**: l'**anteprima** nella tela di ELABORA segue ora il
+carattere della Cabina (e non tocca i documenti che un carattere se lo sono scelto — lo dice
+il marcatore `--doc-font-scelto`); e la sintesi ha **«Sezioni»**, due interruttori per far
+comparire o sparire «La catena dei perché» e le «Note» — spegnendo le Note spariscono anche
+i richiami `[1] [2]` dal testo, dalla resa e mai dalla sorgente.
+⚠️ Non due spunte nella barra, e **lo ha deciso la misura**: 113px liberi contro 166
+richiesti, la barra andava a capo. Il comando compatto ne chiede 82.
+
+**Un danno che ho fatto e riparato**, perché la forma vale più dell'episodio: lo strumento
+che rifà i materiali partiva dai `set-*.json`, e in «Project E» un set di luglio il cui PDF
+era già stato cancellato si è preso il nome di un materiale di agosto. Partendo dalle
+SORGENTI si rigenera anche ciò che il docente aveva tolto, e due sorgenti che calcolano lo
+stesso nome si contendono lo stesso file. La regola è rovesciata: **si parte dai file che
+esistono** e si risale alla loro sorgente dalla data (combaciano al secondo).
 
 ### ✅ FATTO (18/8/26): il PDF della mappa torna VETTORIALE
 Rilievo di Giacomo: «Esporta PDF» dal tab **Vista studio** con la vista su **Mappa** produceva
@@ -4719,6 +4790,8 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_deepen_residue` | Deepening in **modalità residuo+verdetto (P1+P2)**: materiale dalla fonte + scarto delle parafrasi. `'false'` = comportamento legacy (materiale = desc del padre, nessun verdetto anti-parafrasi) | ON |
 | `mappai_doc_zoom_<kind>` | **Dimensione dell'anteprima** nell'editor documenti, per tipo (`quiz`/`flashcards`/`synthesis`/`nodesheet`). Gradini 0.85·1·1.15·1.3·1.5; moltiplica lo zoom automatico, non tocca la stampa | 1 |
 | `mappai_active_discipline` | **Disciplina attiva** (contesto di generazione, 29/7). Scritta dal modale classe+disciplina; vale solo se coerente con la classe attiva (`effectiveDiscipline`). Governa la cartella `Mappe/<classe>/<disciplina>/` | vuoto |
+| `mappai_font_selettore` | **il carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte | ON |
+| `mappai_font_app` | il carattere dell'app, scritto da Cabina › Aspetto e leggibilità | assente = Space Mono |
 | `mappai_a11y_everywhere` | `'1'` = **strumenti compensativi ovunque** (comportamento storico). Di default il bottone a11y vive solo nel contesto di lettura — mappa, schede dei nodi, sidebar/Raccoglitore — e fuori di lì gli effetti si sospendono e si ripristinano al rientro | OFF |
 
 **Comandi console:**

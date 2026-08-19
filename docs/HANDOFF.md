@@ -4,7 +4,7 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **18 agosto 2026, notte**. La giornata in una riga: **il CARATTERE
+> Ultimo allineamento: **19 agosto 2026**. La giornata in una riga: **il CARATTERE
 > si sceglie** — quattro caratteri (Space Mono · TestMe Sans · TestMe Alt · Atkinson
 > Hyperlegible), uno per l'app dalla Cabina e uno per il singolo documento in ELABORA; e
 > **tutti i caratteri sono locali**, mentre fino a stamattina perfino Space Mono arrivava
@@ -236,11 +236,20 @@ suo stato in una variabile diversa (`_doc` · `_syn` · `_sheet` · `_cc`): la p
 leggeva solo `_doc`, e sulla **sintesi** — cioè dove Giacomo lo usa — il selettore si
 disegnava e non faceva niente.
 
-⚠️ **Quello che i caratteri nuovi NON hanno**: la freccia `→`, il triangolo `▶` e la
-spunta `✓`. Space Mono ha la freccia, gli altri tre no; `▶` non ce l'ha nessuno (e cade
-su Apple Color Emoji da sempre, anche prima di oggi). Conseguenza visibile: nel PDF con
-«La catena dei perché» accesa la freccia esce in un carattere di sistema. Cosmetico, e
-non si cura cambiando font — o si sostituisce il glifo nel box causale, o si accetta.
+⚠️ **I SIMBOLI MANCANTI sono un capitolo a sé, ed è il punto di ripresa**: nessuno dei
+quattro ha `✓` né i filetti del dossier, e **anche Space Mono** manca di quindici simboli
+che l'app usa. Non è un difetto dei caratteri nuovi — è un difetto che i caratteri nuovi
+hanno reso visibile. Su un foglio prodotto da **jsPDF** un glifo mancante **sparisce** (e
+con Space Mono la riga si **tronca**), mentre su un foglio prodotto da **Chromium**
+ripiega e si vede. Tutto misurato, con gli strumenti per rifarlo: **§4 debito 0**.
+
+⚠️ **Il PDF dei grafi era rotto, ed è stato corretto il 19/8**: i `.ttf` di TestMe li
+produce `prepara-font.py` convertendo gli `.otf` (jsPDF legge solo `glyf`), e la
+conversione non toccava l'intestazione sfnt — il font continuava a dichiararsi `OTTO`,
+cioè «curve in CFF». Un `/FontFile2` **è** un TrueType per definizione, quindi i lettori
+lo rifiutavano («Embedded font file may be invalid») e l'export usciva col ripiego. Si
+vedeva solo sui grafi perché i quiz passano da Chromium, che il font se lo incorpora per
+conto suo ed è tollerante. C'è il test, e guarda i **byte** dei file.
 
 📌 **Difetto vecchio chiuso strada facendo**: **nove** costruttori di documenti prendevano
 Space Mono da `fonts.googleapis.com` (quiz ×3, sintesi, catena, documento di studio,
@@ -1189,6 +1198,48 @@ e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa s
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
 
+0. ⏳ **I SIMBOLI MANCANTI — il punto di ripresa (19/8).** È il debito da cui
+   riprendere: è stato *scoperto* dai caratteri nuovi ma **non è colpa loro**, e va
+   capito prima di toccarlo.
+
+   **Il fatto.** Un quiz di elettricità è uscito con l'ohm in un carattere diverso
+   dal resto. Misurando, il problema è largo e vecchio: **anche Space Mono** — con
+   cui è stato prodotto tutto finora — non ha `✓ ✗ → ─ │ ├ └ ▲ ▼ ▶ Ω Δ α β`.
+   Nessuno dei quattro ha `✓` e i filetti del dossier.
+
+   **⚠️ E i due percorsi di esportazione falliscono in modo DIVERSO** — misurato,
+   non dedotto (`node tools/font/prova-glifi.js` lo riproduce):
+
+   | percorso | chi ci passa | che cosa succede a un glifo mancante |
+   |---|---|---|
+   | **Chromium** (HTML → printToPDF) | quiz, domande aperte, sintesi, report | **ripiega** su un carattere di sistema: il simbolo si vede, in un'altra veste |
+   | **jsPDF** | grafi, vista studio, dossier, foglio dei nodi | il glifo **sparisce**. E con Space Mono la riga si **TRONCA** al primo mancante: «ohm 12 Ω · spunta ✓» diventa «ohm 12» |
+
+   Quindi su un foglio prodotto da jsPDF un simbolo che manca **si porta via del
+   testo, in silenzio**. È la parte grave, ed è quella che c'era già prima.
+
+   **Due canali, e uno non si può governare.** I simboli arrivano dal CODICE (le
+   frecce e le spunte che i costruttori scrivono: misurabili, e si può decidere di
+   non usarli) e dal CONTENUTO (il testo dell'AI: lì può comparire qualunque cosa —
+   `Ω` è arrivato da lì). Per il secondo l'unica difesa è che il carattere abbia il
+   glifo, e **Atkinson è il più coperto** dei quattro (ha Ω e Δ): per Scienze e
+   Fisica è la scelta prudente.
+
+   **Da dove ripartire, senza rimisurare niente:**
+   - `python3 tools/font/copertura-glifi.py` → la tabella, generata leggendo i
+     costruttori e i file dei caratteri. Dice anche **dove fa danno** (i sei
+     simboli su fogli jsPDF che non ha nessun carattere).
+   - `npx electron tools/font/prova-glifi.js` → riproduce il confronto fra i due
+     percorsi su un testo con `Ω ✓ →`.
+   - Le tre strade sono elencate in testa a `copertura-glifi.py`: non usare quei
+     simboli dove passa jsPDF (il ✓ e la freccia si possono disegnare come
+     geometria — nella vista studio le punte lo sono GIÀ, per lo stesso motivo) ·
+     sostituirli con caratteri che tutti hanno · cucire i glifi mancanti dentro i
+     font con fontTools.
+   - ⚠️ Da capire per prima cosa: **perché con Space Mono la riga si tronca** e con
+     gli altri no. Lo stesso jsPDF, due comportamenti: la differenza sta nel
+     modulo `spacemono-font.js` (vecchio) contro i moduli generati oggi.
+
 0-ter. ✅ **RISOLTO in giornata — e l'avevo classificato male.** Era scritto qui come
    «da decidere se conviene incorporare i caratteri per il QR». Non era una comodità: era
    la condizione perché il **PDF** uscisse giusto, perché la finestra che stampa carica da
@@ -1488,6 +1539,10 @@ quelle che possono nascondere una sorpresa: là fuori il protocollo è `file://`
    riga deve sparire (il file si è allineato).
 9. **«Sezioni»** su una sintesi vera: spegnere le Note, Crea PDF, e controllare che nel
    foglio non restino i richiami. Riaccendere: devono tornare.
+10. **L'export dei grafi** (Esporta PDF dalla mappa e dalla Vista studio) nei quattro
+   caratteri: `pdffonts` non deve più dire «Embedded font file may be invalid», e il
+   testo deve leggersi. ⚠️ Sul dossier e sul foglio dei nodi guardare se **manca del
+   testo**: è il difetto dei simboli (§4 debito 0), non l'export.
 
 
 > **Aggiornato il 17 agosto 2026, sera.** Tutto il lavoro del 17/8 è stato provato

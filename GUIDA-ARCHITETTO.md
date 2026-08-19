@@ -646,6 +646,36 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     nessuno se ne accorge finché non guarda il PRODOTTO — Giacomo l'ha visto perché il PDF
     «sembrava uno screenshot», ed era letteralmente uno screenshot.
 
+47. **Un file convertito deve DICHIARARSI per quello che è diventato.** I `.ttf` di
+    TestMe nascono da `.otf`: la conversione toglie la tabella `CFF ` e costruisce
+    `glyf`, ma l'intestazione sfnt continuava a dire `OTTO` — cioè «le mie curve
+    sono in CFF». Chi legge crede alla **dichiarazione**, non ai fatti: un
+    `/FontFile2` in un PDF *è* un TrueType per definizione, quindi il font veniva
+    rifiutato e l'export dei grafi usciva col ripiego.
+    ⚠️ E il modo in cui l'ho trovato è la parte riusabile: le prime quattro
+    ipotesi (maxp, formato di `loca`, sottotabella `cmap`, GPOS/GSUB) erano tutte
+    sbagliate, e le ho scartate una per una guardando il file di PARTENZA. La
+    svolta è stata guardare **quello che il consumatore aveva SCRITTO**: estratto
+    lo stream del font dal PDF prodotto, i primi quattro byte dicevano `OTTO` dove
+    un font sano dice `\x00\x01\x00\x00`.
+    Regola: quando un consumatore rifiuta un dato che *sembra* valido, ispezionare
+    ciò che ha prodotto, non solo ciò che gli si è dato. E il controllo che divide
+    il campo in due — far passare un esemplare che NON si è toccato (qui Atkinson,
+    scaricato già in TTF) — va fatto **per primo**, non per ultimo.
+
+48. **Due percorsi che producono «la stessa cosa» falliscono in modi diversi, e
+    quello silenzioso è il pericoloso.** MappAI produce PDF in due modi: Chromium
+    (`printToPDF` su un HTML) e jsPDF (disegno a coordinate). Su un glifo che il
+    carattere non ha, **Chromium ripiega** su un font di sistema — il simbolo si
+    vede, in un'altra veste — mentre **jsPDF lo fa sparire**, e con Space Mono
+    tronca il resto della riga. Lo stesso identico contenuto, due esiti, e uno dei
+    due si porta via del testo senza dirlo.
+    Conseguenze pratiche: una feature che tocca la resa va provata su **entrambi**
+    i percorsi, e mai su uno solo (il difetto dei caratteri del 18/8 sembrava
+    risolto perché quiz e sintesi uscivano bene: erano tutti e due Chromium); e un
+    simbolo scelto per un foglio va verificato contro il carattere, non dato per
+    scontato — `tools/font/copertura-glifi.py` risponde in un secondo.
+
 ---
 
 ## 9. Protocollo per un braindump
