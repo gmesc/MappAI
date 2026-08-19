@@ -1,7 +1,8 @@
 # Piano — «Domande a scelta» (Live + Studio attivo), il box «Più set per angolo» nel bento, e lo Studio attivo rifatto sui materiali del vault
 
-> Piano da `/architetto` (19/8/26, seconda stesura). Non implementato: aspetta l'approvazione di
-> Giacomo. Guida letta per intera; stato da `docs/HANDOFF.md` §0-§4; codice dell'area letto
+> Piano da `/architetto` (19/8/26, seconda stesura).
+> **Stato: fase A e fase B spedite** (commit `256648f`, `9b0ff4f`, `416a003` per A; il core per
+> B). Da qui si riprende dalla **fase C**. Guida letta per intera; stato da `docs/HANDOFF.md` §0-§4; codice dell'area letto
 > (`mappai-active-study.js`, `mappai-live-*.js`, `live-server.js`, `public/live/student.html`,
 > `mappai-quiz-print.js`, `mappai-material-pipeline.js`, `mappai-pipeline-core.js`,
 > `mappai-bento-composizione.js`, `mappai-crea-quiz.js`, `mappai-cloze.js`).
