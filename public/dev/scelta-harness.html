@@ -6,10 +6,13 @@
 <title>Harness — «Domande a scelta»</title>
 <!--
   Banco della SOLA superficie (`mappai-scelta-view.js` sul core puro): niente
-  server, niente app. Serve a misurare quello che il pannello può misurare —
-  che l'ANGOLO non compaia mai a schermo, che i bersagli siano da 44px, che il
-  contatore dica il vero, che la consegna sotto il minimo chieda invece di
-  vietare — e a guardare la pagina a larghezza di telefono.
+  server, niente app. Misura quello che il pannello può misurare — che l'ANGOLO
+  non compaia mai a schermo, i bersagli da 44px, il contatore, il percorso a tre
+  passi — e mostra la pagina a larghezza di telefono.
+
+  ⚠️ I dati finti hanno la FORMA VERA di un vault generato con «Più set per
+  angolo»: 7 angoli × 3 rami × 2 varianti = 42 domande grezze. Con cinque
+  domande inventate il campionamento non sarebbe esercitato affatto.
 
   Aprire in un server statico:  /dev/scelta-harness.html
   ⚠️ I due file si caricano con un marcatore che cambia a ogni apertura: un
@@ -27,13 +30,14 @@
 <body>
 <div id="esito">in corso…</div>
 <div class="riga">
-  <div class="col"><h3>Domande aperte (telefono)</h3><div class="telefono" id="host-open"></div></div>
-  <div class="col"><h3>Scelta multipla (telefono)</h3><div class="telefono" id="host-mc"></div></div>
-  <div class="col"><h3>Esito dopo la consegna</h3><div class="telefono" id="host-esito"></div></div>
+  <div class="col"><h3>① aree</h3><div class="telefono" id="host-aree"></div></div>
+  <div class="col"><h3>② leggi e scegli</h3><div class="telefono" id="host-scegli"></div></div>
+  <div class="col"><h3>③ rispondi (aperte)</h3><div class="telefono" id="host-rispondi"></div></div>
+  <div class="col"><h3>③ rispondi (scelta multipla)</h3><div class="telefono" id="host-mc"></div></div>
+  <div class="col"><h3>esito</h3><div class="telefono" id="host-esito"></div></div>
 </div>
 
 <script>
-  /* i due moduli VERI, senza cache */
   var v = '?v=' + Date.now();
   document.write('<script src="../js/mappai-scelta-core.js' + v + '"><\/script>');
   document.write('<script src="../js/mappai-scelta-view.js' + v + '"><\/script>');
@@ -46,134 +50,222 @@ var log = [], ko = 0;
 function ok(c, m) { log.push((c ? '  ok  ' : '  KO  ') + m); if (!c) ko++; }
 var S = window.MappAIScelta, V = window.MappAISceltaView;
 
-/* I fogli: quelli che la pipeline scrive dal 19/8 — uno per angolo, con il ramo
-   dichiarato sull'item — più uno vecchio, che il ramo non ce l'ha. */
-var FOGLI = [
-  { titolo: 'Domande-aperte-Il Clima-causa', angle: 'causa', tipo: 'open', items: [
-    { question: 'Perché l\'aria si muove dalle alte alle basse pressioni?', ramo: 'Atmosfera', livello: 'base' },
-    { question: 'Che cosa provoca le correnti oceaniche?', ramo: 'Oceani', livello: 'ponte', guide: 'Collega vento e temperatura.' }
-  ] },
-  { titolo: 'Domande-aperte-Il Clima-definizione', angle: 'definizione', tipo: 'open', items: [
-    { question: 'Che cos\'è il clima?', ramo: 'Basi', livello: 'base' },
-    { question: 'Definisci la corrente del Golfo', ramo: 'Oceani' },
-    /* la STESSA domanda del foglio «causa», scritta senza apostrofo: due angoli
-       sullo stesso ramo la ripetono, ed è il caso che la dedup deve prendere */
-    { question: 'Perché l aria si muove dalle alte alle basse pressioni?', ramo: 'Atmosfera' }
-  ] },
-  { titolo: 'Domande-aperte-Il Clima-eccezione', tipo: 'open', items: [
-    { question: 'Quando la regola dei venti costanti non vale?' }
-  ] }
-];
-var FOGLI_MC = [
-  { titolo: 'Quiz-MC-Il Clima-conseguenza', angle: 'conseguenza', tipo: 'mc', items: [
-    { q: 'Che cosa comporta lo scioglimento dei ghiacci?', options: ['Il livello del mare sale', 'Il vento cambia verso', 'Le nuvole spariscono'], correctIndex: 0, ramo: 'Oceani' },
-    { q: 'Che effetto ha la corrente del Golfo sull\'Europa?', options: ['La raffredda', 'La riscalda', 'Non la tocca'], correctIndex: 1, ramo: 'Oceani' }
-  ] }
-];
+/* ── i dati, nella forma che la pipeline produce ─────────────────────────── */
+var ANG = S.ANGOLI();                       /* i sette tagli */
+var RAMI = ['Atmosfera', 'Oceani', 'Basi'];
+var TESTI = {
+  Atmosfera: ['il movimento dell\'aria fra alte e basse pressioni', 'la formazione delle nuvole'],
+  Oceani: ['la corrente del Golfo', 'lo scioglimento dei ghiacci'],
+  Basi: ['la differenza fra tempo e clima', 'le fasce climatiche']
+};
+/* ⚠️ I testi NON contengono la parola dell'angolo — sono scritti come li
+   scriverebbe l'AI, cioè col taglio dentro la domanda e non nel nome. La prima
+   stesura del banco li componeva come «Domanda sul causa — …» e la prova
+   «nessuna chiave d'angolo a schermo» falliva per colpa dei DATI, non della
+   view (trappola 5: un test può fallire per il motivo sbagliato). */
+var FORME = {
+  definizione: function (x) { return 'Che cos\'è ' + x + '?'; },
+  causa: function (x) { return 'Perché avviene ' + x + '?'; },
+  conseguenza: function (x) { return 'Che cosa comporta ' + x + '?'; },
+  esempio: function (x) { return 'Racconta un caso concreto di ' + x; },
+  confronto: function (x) { return 'Che differenza c\'è fra ' + x + ' e il resto del capitolo?'; },
+  eccezione: function (x) { return 'Quando ' + x + ' non vale?'; },
+  applicazione: function (x) { return 'Come useresti ' + x + ' per spiegare un fatto nuovo?'; }
+};
+function fogli(tipo) {
+  return ANG.map(function (a) {
+    return { titolo: (tipo === 'mc' ? 'Quiz-MC' : 'Domande-aperte') + '-Il Clima-' + a, angle: a, tipo: tipo,
+      items: [].concat.apply([], RAMI.map(function (r) {
+        return [0, 1].map(function (k) {
+          var forma = FORME[a] || function (x) { return 'Domanda su ' + x; };
+          var it = { question: forma(TESTI[r][k]) + (k ? ' (seconda versione)' : ''),
+                     ramo: r, livello: k ? 'ponte' : 'base' };
+          if (tipo === 'mc') { it.options = ['Prima opzione', 'Seconda opzione', 'Terza opzione']; it.correctIndex = k; }
+          return it;
+        });
+      })) };
+  });
+}
+var GREZZO = S.poolDaFogli(fogli('open'));
+var POOL = S.pubblico(S.unaPerAngolo(GREZZO, 'volpe-03'));
+var POOL_MC = S.pubblico(S.unaPerAngolo(S.poolDaFogli(fogli('mc')), 'volpe-03'));
+/* il pool PICCOLO: un ramo solo — il percorso non deve partire */
+var POOL_MINI = S.pubblico(S.poolDaFogli([{ titolo: 'Verifica di ottobre', tipo: 'open',
+  items: [{ question: 'Una domanda' }, { question: 'Un\'altra domanda' }] }]));
 
-var pool = S.pubblico(S.mescola(S.poolDaFogli(FOGLI), 'volpe-03'));
-var poolMc = S.pubblico(S.poolDaFogli(FOGLI_MC));
+log.push('— la scala, e il taglio che la rende leggibile');
+ok(GREZZO.length === 42, '42 domande grezze (7 angoli × 3 rami × 2 varianti) → ' + GREZZO.length);
+ok(POOL.length === 21, 'campionate a 21: una per (area × angolo) → ' + POOL.length);
+ok(POOL.every(function (x) { return !('angle' in x); }), 'e al telefono l\'angolo non arriva');
+
+/* ── ① le aree ───────────────────────────────────────────────────────────── */
 var salvate = [], consegne = 0;
-
-var API = V.monta(document.getElementById('host-open'), {
-  pool: pool, cfg: { minimo: 3 }, stato: {},
-  onCambia: function (id, r) { salvate.push({ id: id, r: r }); },
+var statoA = {};
+var api = V.monta(document.getElementById('host-aree'), {
+  pool: POOL, cfg: { minimo: 3, minimoAree: 2 }, stato: statoA,
+  onCambia: function (id, r, st) { salvate.push(id); },
   onConsegna: function () { consegne++; },
   chiedi: function () { return Promise.resolve(true); }
 });
-V.monta(document.getElementById('host-mc'), { pool: poolMc, cfg: { minimo: 1, autovalutazione: true }, stato: {} });
+var hA = document.getElementById('host-aree');
+log.push('— ① si comincia dalle aree');
+ok(statoA.fase === 'aree', 'la fase di partenza è «aree» → ' + statoA.fase);
+var carteA = hA.querySelectorAll('.sc-q');
+ok(carteA.length === 3, 'una card per macro-area → ' + carteA.length);
+ok(/7 domande/.test(hA.textContent), 'ognuna dice quante domande porta (7, non 35)');
+ok(!ANG.some(function (a) { return new RegExp('\\b' + a + '\\b', 'i').test(hA.textContent); }),
+   'nessuna chiave d\'angolo a schermo');
+carteA[1].querySelector('.sc-take').click();
+ok(/1 argomenti/.test(hA.querySelector('.sc-cnt').textContent) && /7 domande da leggere/.test(hA.querySelector('.sc-cnt').textContent),
+   'il contatore dice quante domande comporta la scelta → ' + hA.querySelector('.sc-cnt').textContent.replace(/\s+/g, ' '));
+hA.querySelector('.sc-go').click();     /* sotto il minimo: chiede, e la risposta finta è «sì» */
 
-/* ── che cosa si misura ─────────────────────────────────────────────────── */
-var host = document.getElementById('host-open');
-var testo = host.textContent;
-
-log.push('— l\'angolo non si vede, ed è il punto dell\'attività');
-var ANG = S.ANGOLI().concat(['misto']);
-var trapelati = ANG.filter(function (a) { return new RegExp('\\b' + a + '\\b', 'i').test(testo); });
-ok(!trapelati.length, 'nessuna chiave d\'angolo a schermo' + (trapelati.length ? ' → ' + trapelati : ''));
-ok(!/qp-set|foglio|Domande-aperte/i.test(testo), 'nessun nome di file a schermo');
-ok(pool.every(function (v) { return !('angle' in v); }), 'e il pool servito non ce l\'ha nemmeno');
-
-log.push('— l\'elenco');
-var carte = host.querySelectorAll('.sc-q');
-ok(carte.length === 5, '5 domande: sei meno il doppione fra i due fogli → ' + carte.length);
-var rami = [].map.call(host.querySelectorAll('.sc-ramo'), function (x) { return x.textContent; });
-ok(rami[rami.length - 1] === 'Altre domande', 'il gruppo senza ramo sta in CODA → ' + JSON.stringify(rami));
-ok([].every.call(host.querySelectorAll('.sc-body'), function (b) { return b.hidden; }),
-   'le risposte sono chiuse: l\'elenco resta leggibile anche con quaranta domande');
-
-log.push('— prendere una domanda');
-var prima = carte[0];
-prima.querySelector('.sc-take').click();
-ok(!prima.querySelector('.sc-body').hidden, 'un tocco apre il campo della risposta');
-ok(prima.querySelector('.sc-take').getAttribute('aria-pressed') === 'true', 'e lo dice anche a chi non vede il colore (aria-pressed)');
-ok(!!prima.querySelector('.sc-ta'), 'domanda aperta → casella di scrittura');
-ok(prima.querySelectorAll('.sc-chip').length === 4, 'quattro chip «perché questa?»');
-ok(salvate.length === 1, 'la scelta si salva subito (non si aspetta la pausa)');
-
-log.push('— scelta ≠ scritta');
-var c1 = document.getElementById('host-open').querySelector('.sc-cnt').textContent;
-ok(/Scelte: 1/.test(c1) && /scritte: 0/.test(c1), 'presa ma non scritta → ' + c1.replace(/\s+/g, ' '));
-var ta = prima.querySelector('.sc-ta');
-ta.value = 'Perché la differenza di pressione la spinge'; ta.dispatchEvent(new Event('input'));
-ok(/scritte: 1/.test(document.getElementById('host-open').querySelector('.sc-cnt').textContent), '…e ora conta come scritta');
-
-log.push('— lasciare una domanda non butta quello che ho scritto');
-prima.querySelector('.sc-take').click();
-ok(prima.querySelector('.sc-body').hidden, 'il secondo tocco la lascia');
-ok(/Scelte: 0/.test(document.getElementById('host-open').querySelector('.sc-cnt').textContent), 'e non conta più');
-prima.querySelector('.sc-take').click();
-ok(prima.querySelector('.sc-ta').value.indexOf('pressione') > 0, 'riprendendola, la risposta è dov\'era');
-
-log.push('— la consegna sotto il minimo CHIEDE, non vieta');
-document.querySelector('#host-open .sc-go').click();
 setTimeout(function () {
-  ok(consegne === 1, 'con la conferma, consegna comunque → ' + consegne);
+  ok(statoA.fase === 'scegli', 'sotto il minimo CHIEDE e lascia passare → ' + statoA.fase);
 
-  log.push('— i bersagli si toccano col pollice (44px)');
-  var piccoli = [].filter.call(host.querySelectorAll('button'), function (b) {
-    var r = b.getBoundingClientRect();
-    return r.height && r.height < 44;
-  }).map(function (b) { return b.className + ' ' + Math.round(b.getBoundingClientRect().height); });
-  ok(!piccoli.length, 'nessun bottone sotto i 44px' + (piccoli.length ? ' → ' + piccoli.slice(0, 4) : ''));
-
-  log.push('— scelta multipla: cambia SOLO il campo della risposta');
-  var hm = document.getElementById('host-mc');
-  hm.querySelector('.sc-take').click();
-  var q1 = hm.querySelector('.sc-q');
-  ok(!q1.querySelector('.sc-ta'), 'niente casella di scrittura');
-  ok(q1.querySelectorAll('.sc-opt').length === 3, 'tre opzioni da toccare');
-  ok(q1.querySelectorAll('.sc-chip').length >= 4 + 3, 'i chip ci sono lo stesso, più i tre dell\'autovalutazione');
-  q1.querySelectorAll('.sc-opt')[1].click();
-  ok(q1.querySelectorAll('.sc-opt')[1].getAttribute('aria-checked') === 'true', 'l\'opzione scelta si dichiara');
-  ok(/scritte: 1/.test(hm.querySelector('.sc-cnt').textContent), 'una scelta È una risposta');
-  /* ⚠️ La prima stesura cercava «✓» nel testo: ma quello è il segno della card
-     PRESA, non una soluzione — il banco falliva per il motivo sbagliato
-     (trappola 5). La domanda giusta è se la soluzione sia ARRIVATA: nel pool
-     pubblico non c'è, e a schermo nessuna opzione è marcata prima del tocco. */
-  ok(poolMc.every(function (v) { return !('giusta' in v); }), 'la soluzione non arriva nemmeno al telefono');
-  var q2 = hm.querySelectorAll('.sc-q')[1];
-  q2.querySelector('.sc-take').click();
-  ok([].every.call(q2.querySelectorAll('.sc-opt'), function (b) { return b.getAttribute('aria-checked') === 'false'; }),
-     'aprendo una domanda nuova nessuna opzione è già segnata');
-
-  log.push('— l\'esito');
-  var st = { risposte: {} };
-  var vero = S.mescola(S.poolDaFogli(FOGLI), 'volpe-03');
-  st.risposte[vero[0].id] = { testo: 'x', chip: 'so' };
-  st.risposte[vero[1].id] = { testo: 'y', chip: 'so' };
-  V.mostraEsito(document.getElementById('host-esito'), {
-    profilo: S.profilo(vero, st), evitata: S.evitata(vero, st, 'volpe-03'),
-    cfg: { reveal: true, perche_no: true, secondo_giro: true },
-    onPercheNo: function () { }, onSecondoGiro: function () { }
+  /* ── ② leggi e scegli ─────────────────────────────────────────────────── */
+  /* ⚠️ `aree` da solo non basta: a decidere la schermata è `fase`, non la
+     presenza delle aree — è la stessa cosa che fa ritrovare il proprio posto a
+     chi rientra. Senza, il banco ripartiva dal passo ①. */
+  var statoB = { aree: ['Oceani', 'Basi'], fase: 'scegli' };
+  V.monta(document.getElementById('host-scegli'), {
+    pool: POOL, cfg: { minimo: 3, minimoAree: 2 }, stato: statoB,
+    onCambia: function (id) { salvate.push(id); }, chiedi: function () { return Promise.resolve(true); }
   });
-  var he = document.getElementById('host-esito').textContent;
-  ok(/Consegnato/.test(he), 'dice che è consegnato');
-  ok(/Causa|Definizione|Eccezione/i.test(he), 'QUI l\'angolo si vede: è il senso del reveal');
-  ok(/Non hai preso nessuna domanda/.test(he), 'e dice quale taglio non ha voluto');
-  ok(/Prova a rispondere anche a questa/.test(he), 'il secondo giro riapre UNA domanda');
+  var hB = document.getElementById('host-scegli');
+  log.push('— ② si legge solo quello che si è scelto');
+  ok(statoB.fase === 'scegli', 'entra nel passo ②');
+  var carteB = hB.querySelectorAll('.sc-q');
+  ok(carteB.length === 14, 'due aree = 14 domande (non 70) → ' + carteB.length);
+  ok([].every.call(hB.querySelectorAll('.sc-body'), function (b) { return b.hidden; }),
+     'le domande sono chiuse: si apre quella che si sta considerando');
+  ok(!hB.querySelector('.sc-ta'), 'nessuna casella di scrittura: qui non si risponde');
+  ok(/Cambia argomenti/.test(hB.textContent), 'e si può tornare alle aree');
 
-  document.getElementById('esito').innerHTML = log.join('\n') + (ko ? '\n\n<b>FALLITI: ' + ko + '</b>' : '\n\nTUTTO OK');
+  log.push('— il giudizio di RICHIAMO, anche su una domanda che non prendo');
+  var uno = carteB[0], due = carteB[1];
+  uno.querySelector('.sc-take').click();
+  ok(!uno.querySelector('.sc-body').hidden, 'il tocco APRE (non prende)');
+  ok(uno.querySelectorAll('.sc-chip').length === 4, 'quattro chip di attivazione');
+  ok(/non mi accende niente/.test(uno.textContent), 'fra cui «non mi accende niente»');
+  ok(!!uno.querySelector('.sc-prendi'), 'e un bottone a parte per prenderla');
+  uno.querySelectorAll('.sc-chip')[3].click();          /* niente */
+  ok(/Lette: 1/.test(hB.querySelector('.sc-cnt').textContent), 'una letta, e non l\'ho presa → ' +
+     hB.querySelector('.sc-cnt').textContent.replace(/\s+/g, ' '));
+  ok(/scelte: 0/.test(hB.querySelector('.sc-cnt').textContent), 'giudicare non è prendere');
+  ok(uno.classList.contains('letta'), 'la card dice che è stata letta');
+  due.querySelector('.sc-take').click();
+  due.querySelectorAll('.sc-chip')[0].click();          /* subito */
+  due.querySelector('.sc-prendi').click();
+  ok(/Lette: 2/.test(hB.querySelector('.sc-cnt').textContent) && /scelte: 1/.test(hB.querySelector('.sc-cnt').textContent),
+     'due lette, una presa → ' + hB.querySelector('.sc-cnt').textContent.replace(/\s+/g, ' '));
+  ok(Object.keys(statoB.letture).length === 2 && Object.keys(statoB.risposte).length === 1,
+     'e i due registri restano separati: letture 2, risposte 1');
+
+  /* prendo altre due, poi vado a rispondere */
+  carteB[2].querySelector('.sc-take').click(); carteB[2].querySelector('.sc-prendi').click();
+  carteB[3].querySelector('.sc-take').click(); carteB[3].querySelector('.sc-prendi').click();
+  hB.querySelector('.sc-go').click();
+
+  setTimeout(function () {
+    /* ── ③ rispondi ────────────────────────────────────────────────────── */
+    log.push('— ③ una domanda alla volta');
+    ok(statoB.fase === 'rispondi', 'entra nel passo ③ → ' + statoB.fase);
+    var statoC = JSON.parse(JSON.stringify(statoB));
+    V.monta(document.getElementById('host-rispondi'), {
+      pool: POOL, cfg: { minimo: 3, minimoAree: 2, autovalutazione: true }, stato: statoC,
+      onCambia: function () { }, onConsegna: function () { consegne++; },
+      chiedi: function () { return Promise.resolve(true); }
+    });
+    var hC = document.getElementById('host-rispondi');
+    ok(hC.querySelectorAll('.sc-dom').length === 1, 'una domanda a schermo, non sei');
+    ok(/1 \/ 3/.test(hC.querySelector('.sc-nav__n').textContent), 'il contatore dice quanto manca → ' + hC.querySelector('.sc-nav__n').textContent);
+    ok(!!hC.querySelector('.sc-ta'), 'e QUI c\'è la casella di scrittura');
+    ok(/Leggendola avevi detto/.test(hC.textContent), 'il giudizio dato leggendo si mostra, non si richiede');
+    ok(!!hC.querySelector('.sc-go'), 'la consegna è raggiungibile dalla PRIMA domanda, non solo dall\'ultima');
+    var nav = hC.querySelectorAll('.sc-nav__b');
+    ok(nav[0].disabled && !nav[1].disabled, 'sulla prima, «indietro» è spento');
+    var ta = hC.querySelector('.sc-ta');
+    ta.value = 'La corrente del Golfo porta acqua calda verso l\'Europa'; ta.dispatchEvent(new Event('input'));
+    nav[1].click();
+    ok(/2 \/ 3/.test(hC.querySelector('.sc-nav__n').textContent), 'avanti va alla seconda');
+    hC.querySelectorAll('.sc-nav__b')[0].click();
+    ok(hC.querySelector('.sc-ta').value.indexOf('Golfo') > 0, 'tornando indietro la risposta è dov\'era');
+
+    log.push('— scelta multipla: cambia SOLO il campo della risposta');
+    var statoM = { aree: ['Oceani'], fase: 'rispondi', risposte: {}, letture: {} };
+    statoM.risposte[POOL_MC.filter(function (x) { return x.ramo === 'Oceani'; })[0].id] = {};
+    V.monta(document.getElementById('host-mc'), { pool: POOL_MC, cfg: { minimo: 1, minimoAree: 1 }, stato: statoM });
+    var hM = document.getElementById('host-mc');
+    ok(!hM.querySelector('.sc-ta'), 'niente casella di scrittura');
+    ok(hM.querySelectorAll('.sc-opt').length === 3, 'tre opzioni da toccare');
+    ok(POOL_MC.every(function (x) { return !('giusta' in x); }), 'la soluzione non arriva al telefono');
+    hM.querySelectorAll('.sc-opt')[1].click();
+    ok(hM.querySelectorAll('.sc-opt')[1].getAttribute('aria-checked') === 'true', 'l\'opzione scelta si dichiara');
+
+    log.push('— su una mappa piccola il percorso NON parte');
+    var statoMini = {};
+    V.monta(document.createElement('div'), { pool: POOL_MINI, cfg: {}, stato: statoMini });
+    ok(statoMini.fase === 'scegli', 'un ramo solo: si atterra sull\'elenco → ' + statoMini.fase);
+
+    log.push('— le misure che devono restare vere');
+    var tutti = [hA, hB, hC, hM];
+    var trapelati = [];
+    tutti.forEach(function (h) {
+      ANG.forEach(function (a) { if (new RegExp('\\b' + a + '\\b', 'i').test(h.textContent) && trapelati.indexOf(a) < 0) trapelati.push(a); });
+    });
+    ok(!trapelati.length, 'nessuna chiave d\'angolo in nessuno dei passi' + (trapelati.length ? ' → ' + trapelati : ''));
+    var piccoli = [];
+    tutti.forEach(function (h) {
+      [].forEach.call(h.querySelectorAll('button'), function (b) {
+        var r = b.getBoundingClientRect();
+        if (r.height && r.height < 44) piccoli.push(b.className + ' ' + Math.round(r.height));
+      });
+    });
+    ok(!piccoli.length, 'nessun bottone sotto i 44px' + (piccoli.length ? ' → ' + piccoli.slice(0, 4) : ''));
+    var sbordi = 0;
+    tutti.forEach(function (h) {
+      var d = h.getBoundingClientRect();
+      [].forEach.call(h.querySelectorAll('*'), function (e) {
+        var r = e.getBoundingClientRect();
+        if (r.width && (r.right > d.right + 0.5 || r.left < d.left - 0.5)) sbordi++;
+      });
+    });
+    ok(!sbordi, 'nessuno sbordo orizzontale a 390px → ' + sbordi);
+
+    log.push('— l\'esito');
+    var vero = S.unaPerAngolo(GREZZO, 'volpe-03');
+    var st = { aree: ['Oceani', 'Basi'], risposte: {}, letture: {} };
+    var oce = S.filtraPerAree(vero, ['Oceani']);
+    st.risposte[oce[0].id] = { testo: 'x' }; st.letture[oce[0].id] = { chip: 'subito' };
+    st.letture[oce[1].id] = { chip: 'niente' };
+    V.mostraEsito(document.getElementById('host-esito'), {
+      profilo: S.profilo(S.filtraPerAree(vero, st.aree), st),
+      evitata: S.evitata(S.filtraPerAree(vero, st.aree), st, 'volpe-03'),
+      cfg: { reveal: true, perche_no: true, secondo_giro: true },
+      onPercheNo: function () { }, onSecondoGiro: function () { }
+    });
+    var he = document.getElementById('host-esito').textContent;
+    ok(/Consegnato/.test(he), 'dice che è consegnato');
+    ok(ANG.some(function (a) { return new RegExp(a, 'i').test(he); }), 'QUI l\'angolo si vede: è il senso del reveal');
+    ok(/Prova a rispondere anche a questa/.test(he), 'il secondo giro riapre UNA domanda');
+
+    /* ⚠️ Il banco ha portato hB fino al passo ③ premendo «Comincia a
+       rispondere»: a schermo la colonna ② mostrerebbe la ③. Si rimonta in fase
+       «scegli», così le cinque colonne fanno vedere davvero i cinque momenti —
+       è uno strumento per guardare, non solo per contare. */
+    V.monta(document.getElementById('host-scegli'), {
+      pool: POOL, cfg: { minimo: 3, minimoAree: 2 },
+      stato: JSON.parse(JSON.stringify(Object.assign({}, statoB, { fase: 'scegli' })))
+    });
+    /* idem la colonna ①, che il banco ha portato al passo ② premendo «Vai alle
+       domande» per provare che sotto il minimo chiede */
+    V.monta(document.getElementById('host-aree'), {
+      pool: POOL, cfg: { minimo: 3, minimoAree: 2 },
+      stato: { fase: 'aree', aree: ['Oceani'] }
+    });
+    document.getElementById('esito').innerHTML = log.join('\n') + (ko ? '\n\n<b>FALLITI: ' + ko + '</b>' : '\n\nTUTTO OK');
+  }, 30);
 }, 30);
 }());
 </script>

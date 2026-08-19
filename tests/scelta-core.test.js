@@ -103,10 +103,11 @@ const STATO = {
 test('conteggio e consegna: scelte ≠ scritte, e il minimo si dice invece di vietare', () => {
     const pool = S.poolDaFogli(FOGLI);
     const st = { risposte: {} };
-    st.risposte[pool[0].id] = { testo: 'Perché l\'aria va dove la pressione è minore', chip: 'so' };
-    st.risposte[pool[1].id] = { testo: '', chip: 'curioso' };      /* presa e lasciata */
+    st.risposte[pool[0].id] = { testo: 'Perché l\'aria va dove la pressione è minore' };
+    st.risposte[pool[1].id] = { testo: '' };      /* presa e lasciata */
     const n = S.conteggio(pool, st);
-    assert.deepStrictEqual(n, { scelte: 2, scritte: 1, totale: 4 });
+    assert.deepStrictEqual(n, { scelte: 2, scritte: 1, totale: 4, lette: 0, spente: 0 },
+        'nessun giudizio di richiamo dato: le due colonne nuove restano a zero');
 
     const v = S.validaConsegna(pool, st, { minimo: 3 });
     assert.strictEqual(v.ok, false);
@@ -114,7 +115,7 @@ test('conteggio e consegna: scelte ≠ scritte, e il minimo si dice invece di vi
     assert.strictEqual(v.motivi[0].quante, 2, 'ne mancano due, e lo dice in numeri');
 
     st.risposte[pool[1].id].testo = 'Il tempo che fa di solito';
-    st.risposte[pool[2].id] = { testo: 'Un vento che cambia con le stagioni', chip: 'chiara' };
+    st.risposte[pool[2].id] = { testo: 'Un vento che cambia con le stagioni' };
     assert.strictEqual(S.validaConsegna(pool, st, { minimo: 3 }).ok, true);
 });
 
@@ -130,17 +131,20 @@ test('validaConsegna: una risposta a scelta multipla conta come scritta', () => 
 
 test('profilo: che cosa ho scelto senza saperlo — per angolo, coi chip', () => {
     const pool = S.poolDaFogli(FOGLI);
-    const st = { risposte: {} };
-    st.risposte[pool[0].id] = { testo: 'x', chip: 'so' };          /* causa */
-    st.risposte[pool[1].id] = { testo: 'y', chip: 'so' };          /* causa */
-    st.risposte[pool[2].id] = { testo: '', chip: 'curioso' };      /* definizione, non scritta */
+    const st = { risposte: {}, letture: {} };
+    st.risposte[pool[0].id] = { testo: 'x' };                      /* causa */
+    st.letture[pool[0].id] = { chip: 'subito' };
+    st.risposte[pool[1].id] = { testo: 'y' };                      /* causa */
+    st.letture[pool[1].id] = { chip: 'subito' };
+    st.risposte[pool[2].id] = { testo: '' };                       /* definizione, non scritta */
+    st.letture[pool[2].id] = { chip: 'partenza' };
     const p = S.profilo(pool, st);
 
     const causa = p.righe.filter(r => r.angle === 'causa')[0];
     assert.deepStrictEqual(
         { totale: causa.totale, scelte: causa.scelte, scritte: causa.scritte, evitate: causa.evitate },
         { totale: 2, scelte: 2, scritte: 2, evitate: 0 });
-    assert.strictEqual(causa.chip.so, 2, 'i chip si contano per angolo');
+    assert.strictEqual(causa.chip.subito, 2, 'i chip si contano per angolo');
     assert.strictEqual(p.preferito, 'causa');
     assert.deepStrictEqual(p.maiPresi, ['eccezione'], 'l\'angolo che non ha voluto: è la frase che si dice');
     const def = p.righe.filter(r => r.angle === 'definizione')[0];
@@ -197,8 +201,129 @@ test('normalizzaCfg: i default sono quelli, e i valori sporchi non passano', () 
 test('il pool vuoto non fa esplodere niente', () => {
     assert.deepStrictEqual(S.poolDaFogli(), []);
     assert.deepStrictEqual(S.perRamo([]), []);
-    assert.deepStrictEqual(S.conteggio([], {}), { scelte: 0, scritte: 0, totale: 0 });
+    assert.deepStrictEqual(S.conteggio([], {}), { scelte: 0, scritte: 0, totale: 0, lette: 0, spente: 0 });
     assert.strictEqual(S.evitata([], {}, 's'), null);
     assert.deepStrictEqual(S.calorClasse([], []), []);
+    assert.deepStrictEqual(S.calorAree([], []), []);
+    assert.deepStrictEqual(S.aree([]), []);
+    assert.strictEqual(S.passiUtili([]), false);
+    assert.deepStrictEqual(S.unaPerAngolo([], 's'), []);
     assert.strictEqual(S.profilo([], {}).preferito, '');
+});
+
+
+/* ══ IL PERCORSO A TRE PASSI (19/8 sera) ═════════════════════════════════════
+   L'attività non è «rispondi»: è leggere dei RICHIAMI e riconoscere quali
+   riaccendono qualcosa. Da lì il campionamento (sette tagli, non trentacinque
+   riscritture), le aree, e il giudizio che si dà anche a una domanda scartata. */
+
+/* La forma VERA di un vault generato con «Più set per angolo»: sette angoli,
+   tre rami, due varianti per coppia. */
+const ANG = S.ANGOLI();
+const RAMI = ['Atmosfera', 'Oceani', 'Basi'];
+const GROSSO = S.poolDaFogli(ANG.map(a => ({
+    titolo: 'Domande-aperte-Clima-' + a, angle: a, tipo: 'open',
+    items: [].concat(...RAMI.map(r => [0, 1].map(k => ({
+        question: '[' + a + '/' + r + '/' + k + '] domanda ' + k + ' su ' + r,
+        ramo: r, livello: k ? 'ponte' : 'base'
+    }))))
+})));
+
+test('la scala vera: sette angoli × tre rami × due varianti = 42 domande', () => {
+    assert.strictEqual(GROSSO.length, 42, 'è la taglia che rende impossibile leggere tutto');
+});
+
+test('unaPerAngolo: una per (area × angolo) — 42 → 21', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    assert.strictEqual(c.length, RAMI.length * ANG.length, '3 rami × 7 angoli');
+    const coppie = new Set(c.map(v => v.ramo + '|' + v.angle));
+    assert.strictEqual(coppie.size, c.length, 'nessuna coppia ripetuta: i sette TAGLI, non le riscritture');
+    assert.deepStrictEqual(c.map(v => v.id), GROSSO.filter(v => c.indexOf(v) >= 0).map(v => v.id),
+        'e resta l\'ordine del pool: i rami nell\'ordine della mappa');
+});
+
+test('unaPerAngolo: stesso studente = stesse domande, studenti diversi = varianti diverse', () => {
+    const a = S.unaPerAngolo(GROSSO, 'volpe-03').map(v => v.id);
+    const b = S.unaPerAngolo(GROSSO, 'volpe-03').map(v => v.id);
+    const c = S.unaPerAngolo(GROSSO, 'riccio-07').map(v => v.id);
+    assert.deepStrictEqual(a, b, 'al rientro ritrova le sue');
+    assert.notDeepStrictEqual(a, c, 'due studenti leggono varianti diverse: la classe copre tutto');
+});
+
+test('aree: quante domande porta ognuna — si sceglie vedendo quanto costa', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    const a = S.aree(c);
+    assert.deepStrictEqual(a.map(x => x.ramo), RAMI);
+    assert.ok(a.every(x => x.quante === ANG.length), 'sette per area, non trentacinque');
+    assert.strictEqual(a[0].base + a[0].ponte, a[0].quante);
+});
+
+test('aree: il gruppo senza nome resta in coda e non è un\'area', () => {
+    const conVecchi = S.poolDaFogli([
+        { titolo: 'Domande-aperte-X-causa', angle: 'causa', tipo: 'open', items: [{ question: 'A', ramo: 'Uno' }] },
+        { titolo: 'Verifica di ottobre', tipo: 'open', items: [{ question: 'B' }] }
+    ]);
+    const a = S.aree(conVecchi);
+    assert.deepStrictEqual(a.map(x => x.ramo), ['Uno', '']);
+    assert.strictEqual(S.calorAree(conVecchi, [{ aree: ['Uno'] }]).length, 1,
+        'il gruppo senza nome non finisce fra le aree del report');
+});
+
+test('filtraPerAree: due aree = quattordici domande; nessuna area = tutto', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    assert.strictEqual(S.filtraPerAree(c, ['Oceani', 'Basi']).length, 14);
+    assert.strictEqual(S.filtraPerAree(c, []).length, c.length,
+        'un filtro che non filtra è più prudente di un elenco vuoto');
+});
+
+test('passiUtili: il percorso serve solo dove ci sono aree da scegliere', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    assert.strictEqual(S.passiUtili(c), true);
+    assert.strictEqual(S.passiUtili(S.filtraPerAree(c, ['Oceani'])), false, 'un ramo solo: niente da chiedere');
+    const vecchi = S.poolDaFogli([{ titolo: 'Verifica', tipo: 'open', items: [{ question: 'A' }, { question: 'B' }] }]);
+    assert.strictEqual(S.passiUtili(vecchi), false, 'i fogli vecchi non portano il ramo: le aree non esistono');
+});
+
+test('validaAree: sotto il minimo si DICE, non si vieta', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    const v = S.validaAree(c, { aree: ['Oceani'] }, {});
+    assert.strictEqual(v.ok, false);
+    assert.strictEqual(v.motivi[0].id, 'sotto_minimo_aree');
+    assert.strictEqual(v.motivi[0].quante, 1, 'ne manca una, e lo dice in numeri');
+    assert.strictEqual(S.validaAree(c, { aree: ['Oceani', 'Basi'] }, {}).ok, true);
+    assert.strictEqual(S.validaAree(c, { aree: ['Sparita'] }, { minimoAree: 1 }).motivi[0].id, 'nessuna_domanda',
+        'un\'area rimasta in uno stato vecchio, che il vault non ha più');
+});
+
+test('il giudizio di RICHIAMO si dà anche a una domanda NON scelta', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    const oceani = S.filtraPerAree(c, ['Oceani']);
+    const st = { risposte: {}, letture: {} };
+    st.letture[oceani[0].id] = { chip: 'subito' };
+    st.risposte[oceani[0].id] = { testo: 'la so' };
+    st.letture[oceani[1].id] = { chip: 'niente' };      /* letta, giudicata, NON presa */
+    const n = S.conteggio(oceani, st);
+    assert.strictEqual(n.scelte, 1, 'una sola presa');
+    assert.strictEqual(n.lette, 2, 'ma due giudicate: leggere è già esercizio');
+    assert.strictEqual(n.spente, 1, 'e una non ha acceso niente — è il dato che prima si perdeva');
+    const p = S.profilo(oceani, st);
+    const spento = p.righe.filter(r => r.angle === oceani[1].angle)[0];
+    assert.strictEqual(spento.spenti, 1);
+    assert.ok(p.spenti.indexOf(oceani[1].angle) >= 0, 'il taglio che non lo accende finisce nel profilo');
+});
+
+test('profilo: porta anche le aree dichiarate al primo passo', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    const p = S.profilo(c, { aree: ['Oceani', 'Basi'], risposte: {}, letture: {} });
+    assert.deepStrictEqual(p.aree, ['Oceani', 'Basi'],
+        '«mi sento sicuro su Oceani e Basi» è una risposta, e va nel report');
+});
+
+test('calorAree: su quali rami la classe non si sente', () => {
+    const c = S.unaPerAngolo(GROSSO, 'volpe-03');
+    const cal = S.calorAree(c, [{ aree: ['Oceani', 'Basi'] }, { aree: ['Oceani'] }, { aree: ['Oceani', 'Basi'] }]);
+    const per = {}; cal.forEach(r => { per[r.ramo] = r; });
+    assert.strictEqual(per['Atmosfera'].evitataDa, 3, 'nessuno si sente sicuro sull\'Atmosfera');
+    assert.strictEqual(per['Oceani'].sceltaDa, 3);
+    assert.strictEqual(cal[0].ramo, 'Atmosfera', 'in cima quella evitata da più allievi');
 });

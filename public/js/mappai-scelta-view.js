@@ -81,7 +81,28 @@
         '.sc-barra i{display:block;height:100%;background:#4f46e5}',
         '.sc-riga .v{font-size:13px;font-weight:700;color:#4f46e5;flex:0 0 34px;text-align:right}',
         '.sc-riga.zero .v{color:#b45309}',
-        '.sc-vuoto{color:#64748b;font-size:15px;text-align:center;padding:40px 10px;line-height:1.6}'
+        '.sc-vuoto{color:#64748b;font-size:15px;text-align:center;padding:40px 10px;line-height:1.6}',
+        /* ── i pezzi del percorso a tre passi ──────────────────────────────── */
+        /* la seconda riga di una card-area: «7 domande», il numero che rende la
+           scelta informata invece che a occhio */
+        '.sc-sub{display:block;font-size:12px;font-weight:700;color:#64748b;margin-top:4px}',
+        /* una domanda già GIUDICATA ma non presa: il pallino dice «l'ho letta»,
+           che è metà dell'esercizio e non deve sembrare uguale a «non l'ho
+           nemmeno aperta» */
+        '.sc-q.letta{border-color:#c7d2fe}',
+        '.sc-q.letta .sc-mark{border-color:#4f46e5;color:#4f46e5;background:#eef2ff}',
+        '.sc-cmd{min-height:44px;padding:0 10px;border-radius:10px;background:none;border:0;font-size:13px;font-weight:700;color:#4f46e5}',
+        '.sc-cmd:focus-visible{outline:3px solid #6366f1;outline-offset:-3px}',
+        '.sc-prendi{width:100%;min-height:48px;margin-top:14px;border-radius:12px;border:2px solid #4f46e5;background:#fff;color:#4f46e5;font-size:15px;font-weight:700}',
+        '.sc-prendi.on{background:#4f46e5;color:#fff}',
+        /* passo ③: la domanda in grande, come nel player Live */
+        '.sc-dom{font-size:21px;font-weight:700;line-height:1.45;margin-bottom:18px}',
+        '.sc-eco{margin-top:14px;font-size:13px;color:#475569}',
+        '.sc-nav{display:flex;align-items:center;gap:12px}',
+        '.sc-nav__b{flex:0 0 auto;width:64px;min-height:48px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;font-size:22px;font-weight:700;color:#4f46e5}',
+        '.sc-nav__b[disabled]{opacity:.4;color:#94a3b8}',
+        '.sc-nav__n{flex:1;text-align:center;font-size:14px;font-weight:700;color:#334155}',
+        '.sc-go--quieto{background:#fff;color:#4f46e5;border:2px solid #e2e8f0}'
     ].join('\n');
 
     function css() {
@@ -94,12 +115,15 @@
     /* Le etichette dei chip e degli angoli. Stanno qui e non nel core perché il
        core non parla all'utente; passano da `t()` con l'italiano come ripiego
        inline (inv. 14). */
+    /* ⚠️ Le etichette dicono ATTIVAZIONE, non preferenza: l'esercizio è
+       riconoscere quali richiami riaccendono qualcosa, non quali domande
+       piacciono di più. Le chiavi vivono in `MappAIScelta.CHIP`. */
     function etChip(t, k) {
         return {
-            so: _t(t, 'sc_chip_so', 'la so'),
-            curioso: _t(t, 'sc_chip_curioso', 'mi incuriosisce'),
-            chiara: _t(t, 'sc_chip_chiara', 'è più chiara'),
-            altre_oscure: _t(t, 'sc_chip_altre', 'le altre non le capisco')
+            subito: _t(t, 'sc_chip_subito', 'mi viene in mente subito'),
+            partenza: _t(t, 'sc_chip_partenza', 'so da dove partire'),
+            vago: _t(t, 'sc_chip_vago', 'mi dice qualcosa, ma vago'),
+            niente: _t(t, 'sc_chip_niente', 'non mi accende niente')
         }[k] || k;
     }
     function etAngolo(t, k) {
@@ -109,15 +133,25 @@
         return k;
     }
 
-    /* ══ MONTAGGIO ══════════════════════════════════════════════════════════ */
+    /* ══ MONTAGGIO — TRE PASSI ══════════════════════════════════════════════
+       ① AREE     dichiara dove ti senti sicuro (e riduci il campo)
+       ② LEGGI    leggi i richiami, di' che cosa ti accendono, prendi le tue
+       ③ RISPONDI una alla volta, poi consegna
+       I tre passi non sono tre funzioni: è questa che sceglie il corpo, così il
+       contatore, il piè e la veste restano una scrittura sola (inv. 6). */
     function monta(host, o) {
         css();
         o = o || {};
         var t = o.t;
         var cfg = S().normalizzaCfg(o.cfg);
+        /* ⚠️ Il pool arriva GIÀ CAMPIONATO (`unaPerAngolo`): a farlo è chi
+           trasporta, perché in Live il pool campionato è anche quello che si
+           serve al telefono. Qui non si tocca. */
         var pool = (o.pool || []).slice();
         var stato = o.stato || {};
         stato.risposte = stato.risposte || {};
+        stato.letture = stato.letture || {};     /* che cosa mi ha acceso, anche se non la prendo */
+        stato.aree = stato.aree || [];
         /* le domande LASCIATE: la risposta non si butta, esce dal conteggio.
            Riprendendo la domanda torna dov'era — buttarla sarebbe l'unico gesto
            di questa schermata che distrugge del lavoro. */
@@ -126,23 +160,15 @@
         var onConsegna = o.onConsegna || function () { };
         var chiedi = o.chiedi || function (testo) { return Promise.resolve(window.confirm(testo)); };
 
-        host.innerHTML = '';
-        var wrap = document.createElement('div'); wrap.className = 'sc-wrap';
-        var top = document.createElement('div'); top.className = 'sc-top';
-        var cnt = document.createElement('div'); cnt.className = 'sc-cnt';
-        var hint = document.createElement('div'); hint.className = 'sc-hint';
-        hint.textContent = _t(t, 'sc_hint', 'Leggi tutte le domande e scegli quelle a cui vuoi rispondere.');
-        top.appendChild(cnt); top.appendChild(hint);
-        var list = document.createElement('div'); list.className = 'sc-list';
-        var foot = document.createElement('div'); foot.className = 'sc-foot';
-        wrap.appendChild(top); wrap.appendChild(list); wrap.appendChild(foot);
-        host.appendChild(wrap);
+        /* Il percorso serve? Lo dice il core guardando le aree, non un flag. */
+        var conPassi = S().passiUtili(pool, cfg);
+        if (!stato.fase) stato.fase = conPassi ? 'aree' : 'scegli';
+        /* uno stato vecchio può dire «aree» su un vault che aree non ne ha:
+           lasciarlo lì vorrebbe dire una schermata vuota senza uscita */
+        if (!conPassi && stato.fase === 'aree') stato.fase = 'scegli';
 
-        if (!pool.length) {
-            list.innerHTML = '<div class="sc-vuoto">' +
-                esc(_t(t, 'sc_pool_vuoto', 'Non ci sono ancora domande per questa mappa. Generale con «Genera materiali», poi torna qui.')) + '</div>';
-            return { aggiorna: function () { } };
-        }
+        var wrap, top, cnt, hint, list, foot;
+        var iRisposta = 0;                      /* la domanda corrente nel passo ③ */
 
         /* ── il salvataggio: si accumula e si manda dopo una pausa ────────────
            Un colpo di rete per tasto premuto è quello che rende una pagina
@@ -156,205 +182,355 @@
             attese[id] = setTimeout(manda, 600);
         }
 
-        function conta() {
-            var n = S().conteggio(pool, stato);
-            var sotto = n.scritte < cfg.minimo;
-            cnt.className = 'sc-cnt' + (sotto ? ' ko' : '');
-            cnt.innerHTML = esc(_t(t, 'sc_scelte', 'Scelte')) + ': <b>' + n.scelte + '</b> · ' +
-                esc(_t(t, 'sc_scritte', 'scritte')) + ': <b>' + n.scritte + '</b>' +
-                (cfg.minimo ? ' · ' + esc(_t(t, 'sc_minimo', 'minimo')) + ' ' + cfg.minimo : '');
-            return n;
+        function attivo() { return conPassi ? S().filtraPerAree(pool, stato.aree) : pool; }
+        function prese() { return attivo().filter(function (v) { return !!stato.risposte[v.id]; }); }
+        function vaiA(fase) { stato.fase = fase; salva('__fase', true); disegna(); }
+
+        /* ── i pezzi comuni ─────────────────────────────────────────────────── */
+        function scheletro() {
+            host.innerHTML = '';
+            wrap = document.createElement('div'); wrap.className = 'sc-wrap';
+            top = document.createElement('div'); top.className = 'sc-top';
+            cnt = document.createElement('div'); cnt.className = 'sc-cnt';
+            hint = document.createElement('div'); hint.className = 'sc-hint';
+            top.appendChild(cnt); top.appendChild(hint);
+            list = document.createElement('div'); list.className = 'sc-list';
+            foot = document.createElement('div'); foot.className = 'sc-foot';
+            wrap.appendChild(top); wrap.appendChild(list); wrap.appendChild(foot);
+            host.appendChild(wrap);
+        }
+        function bottone(testo, fn, cls) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = cls || 'sc-go'; b.textContent = testo;
+            b.onclick = fn; return b;
+        }
+        function comando(testo, fn) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'sc-cmd'; b.textContent = testo;
+            b.onclick = fn; return b;
+        }
+        function vuoto(testo) {
+            list.innerHTML = '<div class="sc-vuoto">' + esc(testo) + '</div>';
         }
 
-        /* ── una domanda ─────────────────────────────────────────────────────
-           La card è chiusa finché non la si prende: l'elenco resta leggibile
-           anche con quaranta domande, ed è quello che si scorre per scegliere. */
-        function card(v) {
-            var art = document.createElement('article');
-            art.className = 'sc-q'; art.setAttribute('data-id', v.id);
-            var take = document.createElement('button');
-            take.type = 'button'; take.className = 'sc-take';
-            take.setAttribute('aria-pressed', 'false');
-            take.innerHTML = '<span class="sc-mark" aria-hidden="true"></span><span class="sc-txt">' + esc(v.testo) + '</span>';
-            var body = document.createElement('div'); body.className = 'sc-body'; body.hidden = true;
-            art.appendChild(take); art.appendChild(body);
+        /* ══ ① LE AREE ═══════════════════════════════════════════════════════
+           Non è «riduci il carico»: è dichiarare dove ci si sente sicuri, che è
+           già una risposta — e nel report vale quanto le altre. */
+        function passoAree() {
+            hint.textContent = _t(t, 'sc_hint_aree', 'Scegli gli argomenti su cui ti senti più sicuro: leggerai solo le domande di quelli.');
+            var elenco = S().aree(pool).filter(function (a) { return a.ramo; });
+            function conta() {
+                var q = S().filtraPerAree(pool, stato.aree).length;
+                var sotto = stato.aree.length < cfg.minimoAree;
+                cnt.className = 'sc-cnt' + (sotto ? ' ko' : '');
+                cnt.innerHTML = '<b>' + stato.aree.length + '</b> ' +
+                    esc(_t(t, 'sc_aree_scelte', 'argomenti')) +
+                    (cfg.minimoAree ? ' ' + esc(_t(t, 'sc_su_minimo', 'su')) + ' ' + cfg.minimoAree : '') +
+                    ' · <b>' + q + '</b> ' + esc(_t(t, 'sc_da_leggere', 'domande da leggere'));
+            }
+            elenco.forEach(function (a) {
+                var art = document.createElement('article'); art.className = 'sc-q';
+                var b = document.createElement('button');
+                b.type = 'button'; b.className = 'sc-take';
+                b.innerHTML = '<span class="sc-mark" aria-hidden="true"></span>' +
+                    '<span class="sc-txt">' + esc(a.ramo) +
+                    '<span class="sc-sub">' + a.quante + ' ' + esc(_t(t, 'sc_domande', 'domande')) + '</span></span>';
+                function dipingi() {
+                    var on = stato.aree.indexOf(a.ramo) >= 0;
+                    art.classList.toggle('on', on);
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    b.querySelector('.sc-mark').textContent = on ? '✓' : '';
+                }
+                b.onclick = function () {
+                    var k = stato.aree.indexOf(a.ramo);
+                    if (k >= 0) stato.aree.splice(k, 1); else stato.aree.push(a.ramo);
+                    dipingi(); conta(); salva('__aree', true);
+                };
+                dipingi();
+                art.appendChild(b); list.appendChild(art);
+            });
+            if (!elenco.length) vuoto(_t(t, 'sc_no_aree', 'Questa mappa non dichiara i suoi argomenti: si passa direttamente alle domande.'));
+            conta();
+            foot.appendChild(bottone(_t(t, 'sc_vai_domande', 'Vai alle domande'), function () {
+                var v = S().validaAree(pool, stato, cfg);
+                if (v.ok) return vaiA('scegli');
+                /* come la consegna: si dice che cosa manca e si lascia decidere.
+                   Il minimo qui è un consiglio di metodo, non un requisito. */
+                var m = v.motivi[0];
+                var testo = (m.id === 'sotto_minimo_aree')
+                    ? _t(t, 'sc_ko_aree', 'Hai scelto {n} argomenti su {m} consigliati.').replace('{n}', m.scelte).replace('{m}', m.minimo)
+                    : _t(t, 'sc_ko_aree_vuote', 'Gli argomenti scelti non hanno domande.');
+                Promise.resolve(chiedi(testo + '\n\n' + _t(t, 'sc_ko_aree_ok', 'Vai avanti lo stesso?')))
+                    .then(function (si) { if (si) vaiA('scegli'); });
+            }));
+        }
 
-            function presa() { return !!stato.risposte[v.id]; }
-            function dipingi() {
-                var on = presa();
-                art.classList.toggle('on', on);
-                take.setAttribute('aria-pressed', on ? 'true' : 'false');
-                take.querySelector('.sc-mark').textContent = on ? '✓' : '';
-                body.hidden = !on;
+        /* ══ ② LEGGI E SCEGLI ════════════════════════════════════════════════
+           Il cuore: ogni domanda è un RICHIAMO, e leggerla è già esercizio. Si
+           apre per considerarla, si dice che cosa ha acceso, e si prende — o no.
+           Le due cose sono indipendenti: «non mi accende niente» è un giudizio
+           che vale su una domanda che non si prende. */
+        function passoScegli() {
+            hint.textContent = _t(t, 'sc_hint_leggi', 'Leggi ogni domanda e dì che cosa ti fa venire in mente. Poi prendi quelle a cui vuoi rispondere.');
+            var vive = attivo();
+            function conta() {
+                var n = S().conteggio(vive, stato);
+                cnt.className = 'sc-cnt' + (n.scelte < cfg.minimo ? ' ko' : '');
+                cnt.innerHTML = esc(_t(t, 'sc_lette', 'Lette')) + ': <b>' + n.lette + '</b>/' + n.totale +
+                    ' · ' + esc(_t(t, 'sc_scelte', 'scelte')) + ': <b>' + n.scelte + '</b>' +
+                    (cfg.minimo ? ' ' + esc(_t(t, 'sc_su_minimo', 'su')) + ' ' + cfg.minimo : '');
+                return n;
+            }
+            if (conPassi) top.appendChild(comando('‹ ' + _t(t, 'sc_cambia_aree', 'Cambia argomenti'), function () { vaiA('aree'); }));
+
+            function card(v) {
+                var art = document.createElement('article');
+                art.className = 'sc-q'; art.setAttribute('data-id', v.id);
+                var take = document.createElement('button');
+                take.type = 'button'; take.className = 'sc-take';
+                take.setAttribute('aria-expanded', 'false');
+                take.innerHTML = '<span class="sc-mark" aria-hidden="true"></span><span class="sc-txt">' + esc(v.testo) + '</span>';
+                var body = document.createElement('div'); body.className = 'sc-body'; body.hidden = true;
+                art.appendChild(take); art.appendChild(body);
+
+                function dipingi() {
+                    var presa = !!stato.risposte[v.id];
+                    var l = stato.letture[v.id];
+                    art.classList.toggle('on', presa);
+                    art.classList.toggle('letta', !!(l && l.chip));
+                    take.querySelector('.sc-mark').textContent = presa ? '✓' : (l && l.chip ? '·' : '');
+                }
+                /* il tocco APRE, non prende: aprire è considerarla, ed è il
+                   gesto che questa attività vuole far fare con calma */
+                take.onclick = function () {
+                    var chiuso = body.hidden;
+                    if (chiuso && !body.childNodes.length) corpo();
+                    body.hidden = !chiuso;
+                    take.setAttribute('aria-expanded', chiuso ? 'true' : 'false');
+                };
+
+                function corpo() {
+                    var l = stato.letture[v.id] || {};
+                    var lc = document.createElement('div'); lc.className = 'sc-lbl';
+                    lc.textContent = _t(t, 'sc_richiamo', 'Che cosa ti fa venire in mente?');
+                    body.appendChild(lc);
+                    var chips = document.createElement('div'); chips.className = 'sc-chips';
+                    S().CHIP.forEach(function (k) {
+                        var c = document.createElement('button');
+                        c.type = 'button'; c.className = 'sc-chip';
+                        c.setAttribute('aria-pressed', String(l.chip === k));
+                        c.textContent = etChip(t, k);
+                        c.onclick = function () {
+                            var ll = stato.letture[v.id] || (stato.letture[v.id] = {});
+                            ll.chip = (ll.chip === k) ? '' : k;      /* secondo tocco = tolgo */
+                            chips.querySelectorAll('.sc-chip').forEach(function (x, xi) {
+                                x.setAttribute('aria-pressed', String(S().CHIP[xi] === ll.chip));
+                            });
+                            dipingi(); conta(); salva(v.id, true);
+                        };
+                        chips.appendChild(c);
+                    });
+                    body.appendChild(chips);
+
+                    var nota = document.createElement('input');
+                    nota.className = 'sc-nota'; nota.type = 'text'; nota.value = l.nota || '';
+                    nota.placeholder = _t(t, 'sc_nota_ph', '…oppure scrivilo con parole tue (facoltativo)');
+                    nota.setAttribute('aria-label', _t(t, 'sc_richiamo', 'Che cosa ti fa venire in mente?'));
+                    nota.style.marginTop = '8px';
+                    nota.oninput = function () {
+                        var ll = stato.letture[v.id] || (stato.letture[v.id] = {});
+                        ll.nota = nota.value; salva(v.id);
+                    };
+                    body.appendChild(nota);
+
+                    var pre = bottone('', function () {
+                        if (stato.risposte[v.id]) {
+                            stato.bozze[v.id] = stato.risposte[v.id];
+                            delete stato.risposte[v.id];
+                        } else {
+                            stato.risposte[v.id] = stato.bozze[v.id] || {};
+                            delete stato.bozze[v.id];
+                        }
+                        etichettaPresa(); dipingi(); conta(); salva(v.id, true);
+                    }, 'sc-prendi');
+                    function etichettaPresa() {
+                        var presa = !!stato.risposte[v.id];
+                        pre.textContent = presa
+                            ? '✓ ' + _t(t, 'sc_presa', 'La rispondo — tocca per lasciarla')
+                            : _t(t, 'sc_prendi', 'Rispondo a questa');
+                        pre.classList.toggle('on', presa);
+                        pre.setAttribute('aria-pressed', presa ? 'true' : 'false');
+                    }
+                    etichettaPresa();
+                    body.appendChild(pre);
+                }
+
+                dipingi();
+                return art;
             }
 
-            take.onclick = function () {
-                if (presa()) {
-                    stato.bozze[v.id] = stato.risposte[v.id];
-                    delete stato.risposte[v.id];
-                } else {
-                    stato.risposte[v.id] = stato.bozze[v.id] || {};
-                    delete stato.bozze[v.id];
-                    if (!body.childNodes.length) corpo();
-                }
-                dipingi(); conta(); salva(v.id, true);
-            };
+            if (!vive.length) {
+                vuoto(_t(t, 'sc_no_domande', 'Gli argomenti scelti non hanno domande: torna indietro e scegline altri.'));
+            } else if (cfg.perRamo) {
+                S().perRamo(vive).forEach(function (g) {
+                    var h = document.createElement('div'); h.className = 'sc-ramo';
+                    h.textContent = g.ramo || _t(t, 'sc_senza_ramo', 'Altre domande');
+                    list.appendChild(h);
+                    g.domande.forEach(function (v) { list.appendChild(card(v)); });
+                });
+            } else {
+                vive.forEach(function (v) { list.appendChild(card(v)); });
+            }
+            conta();
+            foot.appendChild(bottone(_t(t, 'sc_comincia', 'Comincia a rispondere'), function () {
+                var n = S().conteggio(vive, stato);
+                if (n.scelte) { iRisposta = 0; return vaiA('rispondi'); }
+                Promise.resolve(chiedi(_t(t, 'sc_nessuna_presa', 'Non hai preso nessuna domanda: non ci sarà niente a cui rispondere.') +
+                    '\n\n' + _t(t, 'sc_ko_aree_ok', 'Vai avanti lo stesso?')))
+                    .then(function (si) { if (si) vaiA('rispondi'); });
+            }));
+        }
 
-            function corpo() {
-                var r = stato.risposte[v.id] || {};
-                /* IL CAMPO DELLA RISPOSTA è l'unica cosa che cambia fra i due
-                   generi: una casella dove scrivere, o le opzioni da toccare.
-                   Tutto il resto — scelta, chip, contatore — è identico, ed è
-                   la ragione per cui questa view è una sola. */
-                if (v.tipo === 'mc') {
-                    var lab = document.createElement('div'); lab.className = 'sc-lbl';
-                    lab.textContent = _t(t, 'sc_scegli_opzione', 'La tua risposta');
-                    body.appendChild(lab);
-                    (v.opzioni || []).forEach(function (testo, oi) {
-                        var b = document.createElement('button');
-                        b.type = 'button'; b.className = 'sc-opt'; b.setAttribute('role', 'radio');
-                        b.setAttribute('aria-checked', String(r.scelta === oi));
-                        b.textContent = testo;
-                        b.onclick = function () {
-                            var rr = stato.risposte[v.id]; if (!rr) return;
-                            rr.scelta = oi;
-                            body.querySelectorAll('.sc-opt').forEach(function (x, xi) { x.setAttribute('aria-checked', String(xi === oi)); });
-                            conta(); salva(v.id, true);
-                        };
-                        body.appendChild(b);
-                    });
-                } else {
-                    if (v.traccia) {
-                        var tr = document.createElement('div'); tr.className = 'sc-lbl';
-                        tr.textContent = v.traccia; body.appendChild(tr);
-                    }
-                    var ta = document.createElement('textarea');
-                    ta.className = 'sc-ta'; ta.value = r.testo || '';
-                    ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
-                    ta.oninput = function () {
-                        var rr = stato.risposte[v.id]; if (!rr) return;
-                        rr.testo = ta.value; conta(); salva(v.id);
-                    };
-                    body.appendChild(ta);
-                }
+        /* ══ ③ RISPONDI ══════════════════════════════════════════════════════
+           Una alla volta (scelta di Giacomo): su un telefono una risposta lunga
+           in mezzo a una colonna di sei diventa un rotolo, e il «3 di 6» dice
+           quanto manca — che è ciò che tiene su chi scrive. La consegna però non
+           aspetta l'ultima: chi ha finito deve poter chiudere da dove si trova. */
+        function passoRispondi() {
+            var mie = prese();
+            if (!mie.length) {
+                hint.textContent = '';
+                vuoto(_t(t, 'sc_nessuna_presa2', 'Non hai preso nessuna domanda. Torna indietro e scegline qualcuna.'));
+                foot.appendChild(bottone('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }, 'sc-go sc-go--quieto'));
+                return;
+            }
+            if (iRisposta >= mie.length) iRisposta = mie.length - 1;
+            if (iRisposta < 0) iRisposta = 0;
+            var v = mie[iRisposta];
+            var r = stato.risposte[v.id] || (stato.risposte[v.id] = {});
 
-                /* «perché questa?»: quattro chip, perché sul telefono una
-                   riflessione per domanda si scrive solo se costa un tocco. */
-                var lc = document.createElement('div'); lc.className = 'sc-lbl';
-                lc.textContent = _t(t, 'sc_perche', 'Perché hai scelto questa?');
-                body.appendChild(lc);
-                var chips = document.createElement('div'); chips.className = 'sc-chips';
-                S().CHIP.forEach(function (k) {
-                    var c = document.createElement('button');
-                    c.type = 'button'; c.className = 'sc-chip';
-                    c.setAttribute('aria-pressed', String(r.chip === k));
-                    c.textContent = etChip(t, k);
-                    c.onclick = function () {
-                        var rr = stato.risposte[v.id]; if (!rr) return;
-                        rr.chip = (rr.chip === k) ? '' : k;      /* secondo tocco = tolgo */
-                        chips.querySelectorAll('.sc-chip').forEach(function (x, xi) {
-                            x.setAttribute('aria-pressed', String(S().CHIP[xi] === rr.chip));
-                        });
+            hint.textContent = '';
+            cnt.innerHTML = esc(_t(t, 'sc_di', 'Domanda')) + ' <b>' + (iRisposta + 1) + '</b> ' +
+                esc(_t(t, 'sc_su', 'di')) + ' ' + mie.length;
+            top.appendChild(comando('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }));
+
+            var q = document.createElement('div'); q.className = 'sc-dom';
+            q.textContent = v.testo;
+            list.appendChild(q);
+            if (v.traccia) {
+                var tr = document.createElement('div'); tr.className = 'sc-lbl';
+                tr.textContent = v.traccia; list.appendChild(tr);
+            }
+
+            /* IL CAMPO DELLA RISPOSTA è l'unica cosa che cambia fra i due
+               generi: una casella dove scrivere, o le opzioni da toccare. */
+            if (v.tipo === 'mc') {
+                (v.opzioni || []).forEach(function (testo, oi) {
+                    var b = document.createElement('button');
+                    b.type = 'button'; b.className = 'sc-opt'; b.setAttribute('role', 'radio');
+                    b.setAttribute('aria-checked', String(r.scelta === oi));
+                    b.textContent = testo;
+                    b.onclick = function () {
+                        r.scelta = oi;
+                        list.querySelectorAll('.sc-opt').forEach(function (x, xi) { x.setAttribute('aria-checked', String(xi === oi)); });
                         salva(v.id, true);
                     };
-                    chips.appendChild(c);
+                    list.appendChild(b);
                 });
-                body.appendChild(chips);
-
-                var nota = document.createElement('input');
-                nota.className = 'sc-nota'; nota.type = 'text'; nota.value = r.nota || '';
-                nota.placeholder = _t(t, 'sc_nota_ph', '…oppure scrivilo con parole tue (facoltativo)');
-                nota.setAttribute('aria-label', _t(t, 'sc_perche', 'Perché hai scelto questa?'));
-                nota.style.marginTop = '8px';
-                nota.oninput = function () {
-                    var rr = stato.risposte[v.id]; if (!rr) return;
-                    rr.nota = nota.value; salva(v.id);
-                };
-                body.appendChild(nota);
-
-                if (cfg.autovalutazione) {
-                    var la = document.createElement('div'); la.className = 'sc-lbl';
-                    la.textContent = _t(t, 'sc_auto', 'Quanto ti senti sicuro di questa risposta?');
-                    body.appendChild(la);
-                    var box = document.createElement('div'); box.className = 'sc-chips';
-                    [[3, _t(t, 'sc_auto_3', 'sicuro')], [2, _t(t, 'sc_auto_2', 'così così')], [1, _t(t, 'sc_auto_1', 'ho tirato a indovinare')]]
-                        .forEach(function (p) {
-                            var b = document.createElement('button');
-                            b.type = 'button'; b.className = 'sc-chip';
-                            b.setAttribute('aria-pressed', String(r.auto === p[0]));
-                            b.textContent = p[1];
-                            b.onclick = function () {
-                                var rr = stato.risposte[v.id]; if (!rr) return;
-                                rr.auto = p[0];
-                                box.querySelectorAll('.sc-chip').forEach(function (x, xi) {
-                                    x.setAttribute('aria-pressed', String([3, 2, 1][xi] === rr.auto));
-                                });
-                                salva(v.id, true);
-                            };
-                            box.appendChild(b);
-                        });
-                    body.appendChild(box);
-                }
+            } else {
+                var ta = document.createElement('textarea');
+                ta.className = 'sc-ta'; ta.value = r.testo || '';
+                ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
+                ta.oninput = function () { r.testo = ta.value; salva(v.id); };
+                list.appendChild(ta);
             }
 
-            if (presa()) { corpo(); }
-            dipingi();
-            return art;
+            if (cfg.autovalutazione) {
+                var la = document.createElement('div'); la.className = 'sc-lbl';
+                la.textContent = _t(t, 'sc_auto', 'Quanto ti senti sicuro di questa risposta?');
+                list.appendChild(la);
+                var box = document.createElement('div'); box.className = 'sc-chips';
+                [[3, _t(t, 'sc_auto_3', 'sicuro')], [2, _t(t, 'sc_auto_2', 'così così')], [1, _t(t, 'sc_auto_1', 'ho tirato a indovinare')]]
+                    .forEach(function (p) {
+                        var b = document.createElement('button');
+                        b.type = 'button'; b.className = 'sc-chip';
+                        b.setAttribute('aria-pressed', String(r.auto === p[0]));
+                        b.textContent = p[1];
+                        b.onclick = function () {
+                            r.auto = p[0];
+                            box.querySelectorAll('.sc-chip').forEach(function (x, xi) {
+                                x.setAttribute('aria-pressed', String([3, 2, 1][xi] === r.auto));
+                            });
+                            salva(v.id, true);
+                        };
+                        box.appendChild(b);
+                    });
+                list.appendChild(box);
+            }
+
+            /* il giudizio dato leggendo si MOSTRA e basta: si è già espresso,
+               richiederlo qui sarebbe chiederlo a memoria */
+            var l = stato.letture[v.id];
+            if (l && l.chip) {
+                var eco = document.createElement('div'); eco.className = 'sc-eco';
+                eco.textContent = _t(t, 'sc_eco', 'Leggendola avevi detto:') + ' ' + etChip(t, l.chip);
+                list.appendChild(eco);
+            }
+
+            /* la navigazione, e la consegna che non aspetta l'ultima domanda */
+            var nav = document.createElement('div'); nav.className = 'sc-nav';
+            var pre = bottone('‹', function () { iRisposta--; disegna(); }, 'sc-nav__b');
+            pre.setAttribute('aria-label', _t(t, 'sc_prec', 'Domanda precedente'));
+            pre.disabled = iRisposta === 0;
+            var suc = bottone('›', function () { iRisposta++; disegna(); }, 'sc-nav__b');
+            suc.setAttribute('aria-label', _t(t, 'sc_succ', 'Domanda successiva'));
+            suc.disabled = iRisposta >= mie.length - 1;
+            var qui = document.createElement('span'); qui.className = 'sc-nav__n';
+            qui.textContent = (iRisposta + 1) + ' / ' + mie.length;
+            nav.appendChild(pre); nav.appendChild(qui); nav.appendChild(suc);
+            foot.appendChild(nav);
+
+            if (cfg.osservazioni) {
+                var lo = document.createElement('div'); lo.className = 'sc-lbl'; lo.style.margin = '0';
+                /* ⚠️ L'invito sta nell'ETICHETTA, non nel segnaposto: con
+                   `field-sizing: content` è il contenuto a dare l'altezza, e un
+                   segnaposto di due righe fa nascere il campo alto 94px. */
+                lo.textContent = _t(t, 'sc_oss', 'Osservazioni — perché proprio queste? (facoltativo)');
+                var oss = document.createElement('textarea');
+                oss.className = 'sc-oss'; oss.value = stato.note || ''; oss.rows = 1;
+                oss.setAttribute('aria-label', _t(t, 'sc_oss', 'Osservazioni — perché proprio queste? (facoltativo)'));
+                oss.oninput = function () { stato.note = oss.value; salva('__note'); };
+                foot.appendChild(lo); foot.appendChild(oss);
+            }
+            foot.appendChild(bottone(_t(t, 'sc_consegna', 'Consegna'), function () {
+                var v2 = S().validaConsegna(attivo(), stato, cfg);
+                if (v2.ok) return onConsegna(stato);
+                var righe = v2.motivi.map(function (m) {
+                    if (m.id === 'sotto_minimo') return _t(t, 'sc_ko_min', 'Hai scritto {n} risposte su {m} chieste.').replace('{n}', m.scritte).replace('{m}', m.minimo);
+                    return _t(t, 'sc_ko_vuote', 'Hai preso {n} domande senza rispondere.').replace('{n}', m.quante);
+                });
+                Promise.resolve(chiedi(righe.join('\n') + '\n\n' + _t(t, 'sc_ko_ok', 'Consegni lo stesso?')))
+                    .then(function (si) { if (si) onConsegna(stato); });
+            }));
         }
 
-        /* L'elenco: per macro-area se il docente l'ha chiesto — che è il modo in
-           cui la mappa è fatta — altrimenti di fila. */
-        if (cfg.perRamo) {
-            S().perRamo(pool).forEach(function (g) {
-                var h = document.createElement('div'); h.className = 'sc-ramo';
-                h.textContent = g.ramo || _t(t, 'sc_senza_ramo', 'Altre domande');
-                list.appendChild(h);
-                g.domande.forEach(function (v) { list.appendChild(card(v)); });
-            });
-        } else {
-            pool.forEach(function (v) { list.appendChild(card(v)); });
+        function disegna() {
+            scheletro();
+            if (!pool.length) {
+                vuoto(_t(t, 'sc_pool_vuoto', 'Non ci sono ancora domande per questa mappa. Generale con «Genera materiali», poi torna qui.'));
+                return;
+            }
+            if (stato.fase === 'aree') return passoAree();
+            if (stato.fase === 'rispondi') return passoRispondi();
+            return passoScegli();
         }
 
-        /* ── il piè: le osservazioni e la consegna ────────────────────────── */
-        if (cfg.osservazioni) {
-            var lo = document.createElement('div'); lo.className = 'sc-lbl';
-            lo.style.margin = '0';
-            /* ⚠️ L'invito sta nell'ETICHETTA, non nel segnaposto: con
-               `field-sizing: content` è il contenuto a dare l'altezza, e un
-               segnaposto di due righe faceva nascere il campo alto 94px —
-               un terzo di telefono occupato da un invito, mentre si sta ancora
-               scegliendo. Misurato: 94 → 44. */
-            lo.textContent = _t(t, 'sc_oss', 'Osservazioni — perché proprio queste? (facoltativo)');
-            var oss = document.createElement('textarea');
-            oss.className = 'sc-oss'; oss.value = stato.note || '';
-            oss.rows = 1;
-            oss.setAttribute('aria-label', _t(t, 'sc_oss', 'Osservazioni — perché proprio queste? (facoltativo)'));
-            oss.oninput = function () { stato.note = oss.value; salva('__note'); };
-            foot.appendChild(lo); foot.appendChild(oss);
-        }
-        var go = document.createElement('button');
-        go.type = 'button'; go.className = 'sc-go';
-        go.textContent = _t(t, 'sc_consegna', 'Consegna');
-        go.onclick = function () {
-            var v = S().validaConsegna(pool, stato, cfg);
-            if (v.ok) return onConsegna(stato);
-            /* Non è un divieto: si dice che cosa manca e si lascia decidere.
-               Bloccare la consegna vorrebbe dire tenere in ostaggio un lavoro
-               che è comunque suo. */
-            var righe = v.motivi.map(function (m) {
-                if (m.id === 'sotto_minimo') return _t(t, 'sc_ko_min', 'Hai scritto {n} risposte su {m} chieste.').replace('{n}', m.scritte).replace('{m}', m.minimo);
-                return _t(t, 'sc_ko_vuote', 'Hai preso {n} domande senza rispondere.').replace('{n}', m.quante);
-            });
-            Promise.resolve(chiedi(righe.join('\n') + '\n\n' + _t(t, 'sc_ko_ok', 'Consegni lo stesso?')))
-                .then(function (si) { if (si) onConsegna(stato); });
-        };
-        foot.appendChild(go);
-
-        conta();
+        disegna();
         return {
-            /* il chiamante può forzare il ridisegno del contatore quando le
-               risposte cambiano da fuori (il rientro, il secondo giro) */
-            aggiorna: conta,
+            /* il chiamante può forzare il ridisegno quando lo stato cambia da
+               fuori (il rientro, il secondo giro) */
+            aggiorna: disegna,
+            vaiA: vaiA,
             stato: stato
         };
     }

@@ -180,12 +180,42 @@ box sopra. Una spunta in mezzo alle altre non lo direbbe.
   suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
   sempre (inv. 1).
 
-### «DOMANDE A SCELTA» — il core e la superficie (19/8, fasi B e C)
-Il pezzo su cui si regge il rifacimento dello Studio attivo: lo studente riceve TUTTE
-le domande che una mappa ha prodotto — i fogli «Domande aperte» generati uno per
-angolo, o i set a scelta multipla — con l'**angolo nascosto**, e sceglie a quali
-rispondere. Piano completo in [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md).
-- **`mappai-scelta-core.js`** (puro, 15 test): `poolDaFogli` col dedup fra fogli ·
+### «DOMANDE A SCELTA» — il core e la superficie a TRE PASSI (19/8, fasi B e C)
+Il pezzo su cui si regge il rifacimento dello Studio attivo. **L'attività non è
+«rispondi a delle domande»**: è leggere dei **richiami** e riconoscere quali riaccendono
+le proprie conoscenze (Giacomo, 19/8). Da lì la forma:
+**① aree** — dichiari su quali macro-aree ti senti sicuro (già una risposta
+metacognitiva, e riduce il campo) · **② leggi e scegli** — leggi i richiami, dici che
+cosa ti accendono, prendi quelli a cui vuoi rispondere, **senza ancora scrivere** ·
+**③ rispondi** — una domanda alla volta, poi consegni. L'angolo resta nascosto per tutto
+il percorso e si rivela alla fine: il profilo non dice «che cosa sai», dice **quali tipi
+di richiamo funzionano per te**.
+
+⚠️ **Il campionamento è la condizione perché tutto questo sia possibile.** La scala vera:
+5 domande per ramo × 7 angoli = **35 per ramo**, ~175 su una mappa da cinque macro-aree.
+Su 175 nessuno legge — si cerca la prima che si sa, il contrario dell'esercizio. Dove
+tagliare lo dice la struttura: i sette angoli sono **sette tipi di richiamo diversi**, le
+cinque varianti dello stesso angolo sono **lo stesso richiamo riscritto** (l'angolo è
+assoluto nel prompt). Quelle cinque servono al DOCENTE, che ne fa le righe A e B di una
+verifica. Quindi `unaPerAngolo(pool, seed)`: **una per (area × angolo)** — 175 → 35, e
+con due aree scelte **14 domande da leggere**. Le altre varianti restano nei fogli del
+vault, e due studenti con semi diversi leggono varianti diverse: **la classe copre tutto
+il materiale** senza che nessuno legga tutto.
+
+⚠️ **I chip dicono ATTIVAZIONE, non preferenza** — «mi viene in mente subito · so da dove
+partire · mi dice qualcosa, ma vago · **non mi accende niente**» — e si danno **anche a
+una domanda che non si prende**: un richiamo che non accende nulla è il dato più
+interessante per il docente. Per questo lo stato si sdoppia: `letture` (che cosa mi ha
+acceso leggendola, per qualunque domanda) e `risposte` (che cosa ho risposto, solo per le
+prese). Prima stavano insieme, ed era come chiedere «che cosa ti aveva acceso?» a chi ha
+già finito di scrivere.
+
+Piano completo in [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md), il percorso a
+tre passi in [`PIANO-scelta-a-tre-passi.md`](PIANO-scelta-a-tre-passi.md).
+- **`mappai-scelta-core.js`** (puro, 26 test): `unaPerAngolo` · `aree` (coi conteggi: si
+  sceglie vedendo quanto costa) · `filtraPerAree` · `passiUtili` (il percorso si accende da
+  sé: sotto le due aree CON UN NOME non ha niente da chiedere — i fogli vecchi non portano
+  il ramo) · `validaAree` · `calorAree` · `poolDaFogli` col dedup fra fogli ·
   `pubblico` (il pacchetto che va al telefono: niente angolo, niente soluzioni — una
   funzione sola, come `publicQuestions` in Live) · `mescola` col seme dello studente ·
   `perRamo` · `validaConsegna` · `profilo` · `evitata` · `calorClasse` · `CFG_DEFAULT`.
@@ -195,15 +225,25 @@ rispondere. Piano completo in [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scel
   multipla cambia **solo il campo della risposta**: elenco, chip, contatore, consegna e
   esito sono gli stessi — ed è la ragione per cui la view è una.
 - **Banco**: `public/dev/scelta-harness.html`, i due moduli veri a larghezza di telefono
-  (390px). Misura ciò che conta: **nessuna chiave d'angolo a schermo**, 0 sbordi,
-  bersagli ≥ 44px, contrasti 4,6-17,8:1, «scelta ≠ scritta», lasciare una domanda non
-  butta la risposta, la consegna sotto il minimo **chiede** invece di vietare.
+  (390px), **cinque colonne** — i tre passi, la scelta multipla, l'esito. I dati finti
+  hanno la **forma vera** di un vault generato con «Più set per angolo» (7 angoli × 3 rami
+  × 2 varianti = 42 grezze → 21 campionate): con cinque domande inventate il
+  campionamento non sarebbe esercitato affatto. Misura: nessuna chiave d'angolo a schermo
+  in nessuno dei passi · 0 sbordi · bersagli ≥ 44px · contrasti 4,76-17,85:1 · «lette ≠
+  scelte» · il giudizio su una domanda NON presa · una domanda alla volta con la consegna
+  raggiungibile dalla prima · su un pool piccolo il percorso non parte.
 - Due difetti trovati misurando, e sono la parte utile: la view **dichiara il suo
   `box-sizing`** (la pagina che la ospita può non avere regole globali: un campo
   `width:100%` sbordava di 14px su un telefono); e l'invito delle Osservazioni sta
   nell'**etichetta**, non nel segnaposto — con `field-sizing: content` è il contenuto a
   dare l'altezza, e un segnaposto di due righe faceva nascere il campo a 94px, un terzo
   di schermo occupato da un invito mentre si sta ancora scegliendo (94 → 49).
+- ⚠️ **Due prove del banco fallivano per il motivo sbagliato** (trappola 5), e vale la
+  pena saperlo: i testi finti contenevano la parola dell'angolo («Domanda sul causa…»),
+  quindi «nessuna chiave d'angolo a schermo» accusava la view per colpa dei DATI; e uno
+  stato con le `aree` ma senza `fase` ripartiva dal passo ① — che è il comportamento
+  giusto (a decidere la schermata è `fase`, ed è ciò che fa ritrovare il posto a chi
+  rientra), ma non quello che il banco voleva misurare.
 - ⚠️ **La pagina `live/scelta.html` non c'è ancora**: arriva con la fase D, dove il
   server sa il `mode` e la si può provare contro il server VERO. Scriverla ora avrebbe
   voluto dire codice che nessuno può eseguire.

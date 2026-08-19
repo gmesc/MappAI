@@ -40,11 +40,24 @@
         return _ANGOLI_FALLBACK.slice();
     }
 
-    /* Le quattro risposte a «perché questa?». Sono CHIP e non un campo libero
-       perché sul telefono una riflessione per domanda si scrive solo se costa un
-       tocco — e perché quattro valori si contano, mentre venti frasi no. Il
-       campo libero resta accanto, per chi ha qualcosa da aggiungere. */
-    var CHIP = ['so', 'curioso', 'chiara', 'altre_oscure'];
+    /* ── IL GIUDIZIO DI RICHIAMO ─────────────────────────────────────────────
+       Ogni domanda è una TRACCIA DI RECUPERO, e l'esercizio è riconoscere quali
+       riaccendono le proprie conoscenze. I quattro chip dicono quello — non una
+       preferenza («mi piace», «è chiara») ma quanto la domanda ha acceso:
+         subito    → mi viene in mente subito
+         partenza  → so da dove partire
+         vago      → mi dice qualcosa, ma vago
+         niente    → non mi accende niente
+       ⚠️ `niente` si dà anche a una domanda che NON si prende, ed è il dato più
+       interessante per il docente: un richiamo che non funziona. Per questo il
+       giudizio vive in `stato.letture` e non dentro la risposta.
+       Sono chip e non un campo libero perché sul telefono una riflessione per
+       domanda si scrive solo se costa un tocco, e perché quattro valori si
+       contano mentre venti frasi no; il campo libero resta accanto. */
+    var CHIP = ['subito', 'partenza', 'vago', 'niente'];
+    /* i chip che dichiarano un'attivazione (tutti tranne `niente`): serve al
+       profilo, e scritto una volta sola non si può sbagliare a elencarlo */
+    function accende(chip) { return CHIP.indexOf(_s(chip)) >= 0 && _s(chip) !== 'niente'; }
 
     /* La configurazione dell'attività. `minimo` è l'unica leva numerica; le
        altre sono interruttori del docente (in-app: dello studente stesso).
@@ -52,6 +65,8 @@
        e chi li accende deve saperlo. */
     var CFG_DEFAULT = {
         minimo: 3,
+        minimoAree: 2,           /* quante macro-aree almeno: una sola è la mappa da uno spiraglio */
+        sogliaAree: 2,           /* sotto due aree CON UN NOME il passo delle aree non ha che chiedere */
         osservazioni: true,      /* il campo libero in fondo */
         reveal: true,            /* dopo la consegna: il profilo per angolo */
         perRamo: true,           /* le domande raggruppate per macro-area */
@@ -63,7 +78,7 @@
         cfg = cfg || {};
         var out = {};
         Object.keys(CFG_DEFAULT).forEach(function (k) {
-            out[k] = (k === 'minimo')
+            out[k] = (typeof CFG_DEFAULT[k] === 'number')
                 ? Math.max(0, Math.min(50, parseInt(cfg[k], 10) || CFG_DEFAULT[k]))
                 : (cfg[k] == null ? CFG_DEFAULT[k] : !!cfg[k]);
         });
@@ -222,25 +237,118 @@
         return ordine.map(function (r) { return { ramo: r, domande: per[r] }; });
     }
 
+    /* ── LE MACRO-AREE ───────────────────────────────────────────────────────
+       Il primo passo dell'attività: dichiarare dove ci si sente sicuri. Ogni
+       area dice QUANTE domande porta, perché una scelta si fa vedendo quanto
+       costa — la stessa ragione per cui il bento mostra la stima delle chiamate.
+       ⚠️ Il conteggio va fatto sul pool CAMPIONATO, o si prometterebbero 35
+       domande dove se ne leggeranno 7. */
+    function aree(pool) {
+        return perRamo(pool).map(function (g) {
+            var base = 0;
+            g.domande.forEach(function (v) { if (v.livello === 'base') base++; });
+            return { ramo: g.ramo, quante: g.domande.length, base: base, ponte: g.domande.length - base };
+        });
+    }
+
+    /* Il pool ridotto alle aree scelte. ⚠️ Nessuna area scelta = TUTTO: un
+       filtro che non filtra è più prudente di un elenco vuoto, e copre i vault
+       vecchi dove il ramo non c'è (là le aree non si possono nemmeno scegliere). */
+    function filtraPerAree(pool, scelte) {
+        var a = (scelte || []).slice();
+        if (!a.length) return (pool || []).slice();
+        return (pool || []).filter(function (v) { return a.indexOf(v.ramo || '') >= 0; });
+    }
+
+    /* ── IL CAMPIONAMENTO: una domanda per (area × angolo) ───────────────────
+       La generazione produce 5 domande per ramo PER ANGOLO: sette angoli fanno
+       35 domande per ramo, ~175 su una mappa da cinque macro-aree. Su 175
+       nessuno legge — si cerca la prima che si sa, che è il contrario
+       dell'esercizio.
+       Dove tagliare lo dice la struttura, non il caso: i sette ANGOLI sono sette
+       TIPI DI RICHIAMO diversi sullo stesso contenuto, le cinque varianti dello
+       stesso angolo sono lo stesso richiamo riscritto (l'angolo è assoluto nel
+       prompt). Le cinque servono al docente, che ne fa le righe A e B di una
+       verifica; a chi deve riconoscere quale taglio lo accende servono i sette
+       tagli. Quindi: una per coppia (ramo, angolo), scelta col SEME dello
+       studente — deterministica al rientro, diversa fra due studenti, così la
+       classe copre tutto il materiale senza che nessuno legga tutto.
+       ⚠️ Le altre varianti non si perdono: restano nei fogli del vault. */
+    function unaPerAngolo(pool, seed) {
+        var per = {}, ordine = [];
+        (pool || []).forEach(function (v) {
+            var k = (v.ramo || '') + '|' + (v.angle || '');
+            if (!per[k]) { per[k] = []; ordine.push(k); }
+            per[k].push(v);
+        });
+        var out = [];
+        ordine.forEach(function (k) {
+            /* il seme entra con la CHIAVE: due gruppi non devono pescare tutti
+               lo stesso indice, o uno studente avrebbe sempre la prima domanda
+               di ogni angolo e un altro sempre l'ultima */
+            out.push(mescola(per[k], _s(seed) + '|' + k)[0]);
+        });
+        /* si rimette l'ordine del pool di partenza: `perRamo` e la lettura
+           contano su quello (i rami nell'ordine della mappa) */
+        var tenuti = {};
+        out.forEach(function (v) { tenuti[v.id] = 1; });
+        return (pool || []).filter(function (v) { return tenuti[v.id]; });
+    }
+
+    /* Il percorso a tre passi serve? No quando il primo passo non ha niente da
+       chiedere: meno di due aree CON UN NOME (i fogli vecchi non portano il
+       ramo, e su quel vault le aree non esistono). ⚠️ Non è una soglia sul
+       NUMERO di domande: dopo il campionamento sono poche per costruzione, e una
+       soglia sul totale sarebbe vera sempre — cioè un passo che c'è e non serve
+       (trappola 27, al contrario). */
+    function passiUtili(pool, cfg) {
+        var c = normalizzaCfg(cfg);
+        var conNome = aree(pool).filter(function (a) { return a.ramo; });
+        return conNome.length >= c.sogliaAree;
+    }
+
+    /* Si può passare alle domande? Come la consegna: dice che cosa manca, non
+       vieta. `nessuna_domanda` non nasce dall'elenco (un'area vuota non si
+       mostra) ma da uno stato vecchio, dove l'area c'era e il vault è cambiato. */
+    function validaAree(pool, stato, cfg) {
+        var c = normalizzaCfg(cfg);
+        var scelte = (stato && stato.aree) || [];
+        var motivi = [];
+        if (scelte.length < c.minimoAree) motivi.push({ id: 'sotto_minimo_aree', quante: c.minimoAree - scelte.length, minimo: c.minimoAree, scelte: scelte.length });
+        else if (!filtraPerAree(pool, scelte).length) motivi.push({ id: 'nessuna_domanda' });
+        return { ok: !motivi.length, motivi: motivi };
+    }
+
     /* ── LO STATO DELLO STUDENTE ─────────────────────────────────────────────
-       { risposte: { <id>: {testo|scelta, chip, nota, auto} }, note, evitata }
+       { aree: [...], fase, letture: { <id>: {chip, nota} },
+         risposte: { <id>: {testo|scelta, auto} }, note, evitata }
+
+       DUE registri, e la separazione è di sostanza:
+       · `letture` = che cosa mi ha ACCESO leggendo la domanda. Si dà a qualunque
+         domanda, anche a una che non si prende — «non mi accende niente» è il
+         dato più interessante per il docente, e dentro la risposta non ci
+         sarebbe mai stato posto.
+       · `risposte` = che cosa ho RISPOSTO. Solo per le domande prese.
        Una domanda è SCELTA se ha una voce in `risposte`; è SCRITTA se quella
        voce porta una risposta vera. Sono due cose diverse: si può prendere una
        domanda e lasciarla a metà, e il contatore lo dice. */
     function _risposte(stato) { return (stato && stato.risposte) || {}; }
+    function _letture(stato) { return (stato && stato.letture) || {}; }
     function scritta(r) {
         if (!r) return false;
         if (r.scelta != null && r.scelta !== '') return true;
         return !!_trim(r.testo);
     }
     function conteggio(pool, stato) {
-        var R = _risposte(stato), scelte = 0, fatte = 0;
+        var R = _risposte(stato), L = _letture(stato), scelte = 0, fatte = 0, lette = 0, spente = 0;
         (pool || []).forEach(function (v) {
+            var l = L[v.id];
+            if (l && CHIP.indexOf(_s(l.chip)) >= 0) { lette++; if (!accende(l.chip)) spente++; }
             if (!(v.id in R)) return;
             scelte++;
             if (scritta(R[v.id])) fatte++;
         });
-        return { scelte: scelte, scritte: fatte, totale: (pool || []).length };
+        return { scelte: scelte, scritte: fatte, totale: (pool || []).length, lette: lette, spente: spente };
     }
 
     /* Si può consegnare? Non è un divieto: chi vuole consegnare comunque lo fa
@@ -268,21 +376,28 @@
         var per = {}, ordine = [];
         function riga(a) {
             if (!per[a]) {
-                per[a] = { angle: a, totale: 0, scelte: 0, scritte: 0, evitate: 0, chip: {}, base: 0, ponte: 0 };
+                per[a] = { angle: a, totale: 0, scelte: 0, scritte: 0, evitate: 0, chip: {}, base: 0, ponte: 0, letti: 0, spenti: 0 };
                 ordine.push(a);
             }
             return per[a];
         }
+        var L = _letture(stato);
         (pool || []).forEach(function (v) {
             var r = riga(v.angle || '');
             r.totale++;
+            /* il giudizio di richiamo si conta SEMPRE, anche su una domanda non
+               presa: è lì che sta «questo taglio non mi dice niente» */
+            var l = L[v.id];
+            if (l && CHIP.indexOf(_s(l.chip)) >= 0) {
+                r.chip[l.chip] = (r.chip[l.chip] || 0) + 1;
+                r.letti++;
+                if (!accende(l.chip)) r.spenti++;
+            }
             var a = R[v.id];
             if (a) {
                 r.scelte++;
                 if (scritta(a)) r.scritte++;
                 if (v.livello === 'base') r.base++; else r.ponte++;
-                var ch = _s(a.chip);
-                if (CHIP.indexOf(ch) >= 0) r.chip[ch] = (r.chip[ch] || 0) + 1;
             } else r.evitate++;
         });
         var righe = ordine.map(function (a) { return per[a]; })
@@ -294,7 +409,14 @@
             /* l'angolo più scelto e quello mai preso: sono le due frasi che si
                possono dire allo studente senza fargli leggere una tabella */
             preferito: (righe[0] && righe[0].scelte) ? righe[0].angle : '',
-            maiPresi: righe.filter(function (r) { return r.totale && !r.scelte; }).map(function (r) { return r.angle; })
+            maiPresi: righe.filter(function (r) { return r.totale && !r.scelte; }).map(function (r) { return r.angle; }),
+            /* le aree dichiarate al primo passo: «mi sento sicuro su Oceani e
+               Atmosfera» è una risposta metacognitiva, e nel report vale quanto
+               le risposte scritte */
+            aree: ((stato && stato.aree) || []).slice(),
+            /* i tagli che non hanno acceso NIENTE dove sono stati letti: è la
+               riga che dice quale tipo di richiamo non funziona per lui */
+            spenti: righe.filter(function (r) { return r.letti && r.spenti === r.letti; }).map(function (r) { return r.angle; })
         };
     }
 
@@ -337,13 +459,37 @@
             .sort(function (x, y) { return (y.evitatoDa - x.evitatoDa) || (x.angle < y.angle ? -1 : 1); });
     }
 
+    /* La gemella per le AREE: quante volte una macro-area è stata scelta al
+       primo passo, e da quanti allievi è stata lasciata fuori. «Nessuno si sente
+       sicuro sugli Oceani» è una domanda per il docente, non un voto agli
+       allievi. */
+    function calorAree(pool, stati) {
+        var per = {}, ordine = [];
+        aree(pool).forEach(function (a) {
+            if (!a.ramo) return;                 /* il gruppo senza nome non è un'area */
+            per[a.ramo] = { ramo: a.ramo, quante: a.quante, sceltaDa: 0, evitataDa: 0 };
+            ordine.push(a.ramo);
+        });
+        (stati || []).forEach(function (st) {
+            var scelte = (st && st.aree) || [];
+            ordine.forEach(function (r) {
+                if (scelte.indexOf(r) >= 0) per[r].sceltaDa++; else per[r].evitataDa++;
+            });
+        });
+        return ordine.map(function (r) { return per[r]; })
+            .sort(function (x, y) { return (y.evitataDa - x.evitataDa) || (x.ramo < y.ramo ? -1 : 1); });
+    }
+
     var CORE = {
-        ANGOLI: angoli, CHIP: CHIP, CFG_DEFAULT: CFG_DEFAULT, normalizzaCfg: normalizzaCfg,
+        ANGOLI: angoli, CHIP: CHIP, accende: accende,
+        CFG_DEFAULT: CFG_DEFAULT, normalizzaCfg: normalizzaCfg,
+        aree: aree, filtraPerAree: filtraPerAree, unaPerAngolo: unaPerAngolo,
+        passiUtili: passiUtili, validaAree: validaAree,
         angoloDalTitolo: angoloDalTitolo,
         poolDaFogli: poolDaFogli, pubblico: pubblico,
         mescola: mescola, perRamo: perRamo,
         scritta: scritta, conteggio: conteggio, validaConsegna: validaConsegna,
-        profilo: profilo, evitata: evitata, calorClasse: calorClasse
+        profilo: profilo, evitata: evitata, calorClasse: calorClasse, calorAree: calorAree
     };
 
     if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
