@@ -529,7 +529,12 @@
   /* ⚠️ `open` (domande aperte) è dei tipi VALIDI dall'11/8: questa lista filtra
      i preset, e un tipo che non c'è viene scartato IN SILENZIO — il preset si
      salverebbe con la spunta accesa e si riaprirebbe senza. */
-  var _VALID_TYPES = ['mc', 'tf', 'flashcards', 'open'];
+  /* ⚠️ `tf` non c'è più (19/8, Giacomo): la pipeline non genera quiz Vero/Falso.
+     Un preset salvato prima che lo chieda lo perde qui, in silenzio e per
+     disegno — se restasse, «Genera materiali» produrrebbe un materiale che
+     nessuna casella può più chiedere. Il PREFISSO `Quiz-VF` resta in `GENERI`:
+     i fogli già sul disco vanno ancora riconosciuti e riaperti. */
+  var _VALID_TYPES = ['mc', 'flashcards', 'open'];
   var _VALID_FMT = ['3x4', '2x2', '2x1'];
   var _VALID_MODES = ['title', 'keywords', 'summary', 'card'];
 

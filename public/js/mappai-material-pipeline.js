@@ -452,6 +452,10 @@
 
   const _QT = {
     mc: { quizType: 'Scelta multipla con 3 opzioni brevi e plausibili, una sola corretta', kind: 'quiz_mc', sub: 'quiz_mc', mode: 'quiz', typeLabel: 'Scelta Multipla' },
+    /* ⚠️ `tf` NON è più fra i tipi che «Genera materiali» produce (19/8): la sua
+       casella è uscita dal bento e dal modale. La spec resta perché `generaSet`
+       la usa ancora — il gesto singolo di ELABORA «Crea un documento → Vero o
+       Falso» continua a funzionare, ed è l'unico modo di ottenerne uno. */
     tf: { quizType: 'Vero o Falso — ogni domanda è un\'AFFERMAZIONE da valutare; il campo "correct" vale "Vero" oppure "Falso"', kind: 'quiz_tf', sub: 'quiz_tf', mode: 'quiz', typeLabel: 'Vero o Falso' },
     flashcards: { kind: 'flashcards', sub: 'flashcards', mode: 'flashcard', typeLabel: 'Flashcard' },
     /* `documento: true` = NON è un set giocabile, è un foglio e basta. Il player
@@ -1183,7 +1187,7 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
     const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
-    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-tf', o.quiz.types.indexOf('tf') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
+    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
       const mul = o.quiz.multi || [];
       set('mp-multi-open', mul.indexOf('open') >= 0); set('mp-multi-mc', mul.indexOf('mc') >= 0);
       const ang = o.quiz.angoli || [];
@@ -1294,7 +1298,7 @@
           // Quiz
           '<div class="' + SECT + '">' + secHeader('mp-quiz-on', _t('mp_quiz', 'Quiz e flashcard')) +
             '<div id="mp-quiz-body" class="mt-3 space-y-3">' +
-              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-tf', _t('mp_qt_tf', 'Vero/Falso'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + chk('mp-qt-open', _t('mp_qt_open', 'Domande aperte'), false) + '</div>' +
+              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + chk('mp-qt-open', _t('mp_qt_open', 'Domande aperte'), false) + '</div>' +
               '<div class="flex gap-5 items-center flex-wrap">' +
                 fld(_t('mp_perbranch', 'Per ramo'), '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="w-[56px] ' + SEL + '">') +
                 fld(_t('mp_angle', 'Angolo'), '<select id="mp-angle" class="' + SEL + '">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>') +
@@ -1394,7 +1398,6 @@
     if (on('mp-quiz-on')) {
       const types = [];
       if (on('mp-qt-mc')) types.push('mc');
-      if (on('mp-qt-tf')) types.push('tf');
       if (on('mp-qt-fc')) types.push('flashcards');
       if (on('mp-qt-open')) types.push('open');
       if (types.length) {

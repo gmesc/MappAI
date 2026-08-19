@@ -180,8 +180,17 @@ box sopra. Una spunta in mezzo alle altre non lo direbbe.
   suoi campi non esistono, `_readConfig` legge falso e la generazione resta quella di
   sempre (inv. 1).
 
+**Il VERO/FALSO esce dalla pipeline** (19/8 sera): «Genera materiali» produce
+scelta multipla · flashcard · domande aperte, e basta. La casella è uscita dal bento
+E dal modale storico, e `tf` non è più un tipo valido nei preset — uno salvato prima
+lo perde al caricamento (se restasse senza niente, ripiega su «scelta multipla»).
+⚠️ Restano vive due cose, e non sono una svista: la **spec** `_QT.tf` — la usa
+`generaSet`, cioè il gesto singolo di ELABORA «Crea un documento → Vero o Falso», che
+resta l'unico modo di ottenerne uno — e il **prefisso** `Quiz-VF` in `GENERI`, perché
+i fogli già sul disco vanno ancora riconosciuti, elencati e riaperti.
+
 **I default della generazione, e la memoria dei box** (19/8 sera, scelte di Giacomo):
-domande aperte **accese** · **5** domande per ramo · vero/falso **spento** · voce
+domande aperte **accese** · **5** domande per ramo · voce
 naturale **spenta** · «Allega PDF» **acceso** · box «Più set per angolo» **tutto
 acceso**. Vivono nel preset «Default», che il bento applica al montaggio.
 ⚠️ E adesso **quello che si lascia nei box nascosti resta**: `mappai_bento_scelte`

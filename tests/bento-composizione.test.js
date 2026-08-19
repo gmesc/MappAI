@@ -178,7 +178,9 @@ test('un master si deriva dai figli montati, e non conta come voce dimenticata',
        docente è la stessa scelta, e quindi deve accendere lo stesso master —
        senza, spuntarla da sola lascerebbe `mp-quiz-on` spento e la pipeline non
        genererebbe niente. */
-    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-open', 'mp-qt-tf']);
+    /* dal 19/8 i generi sono TRE: la pipeline non produce più quiz Vero/Falso
+       (la spec resta viva solo per il gesto singolo di ELABORA). */
+    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-open']);
     const v = B.valida(B.MODULI);
     assert.ok(!v.fuori.includes('mp-quiz-on'), 'un master derivato è montato, nascosto');
     assert.ok(!v.fuori.includes('mp-ns-on'));
@@ -443,7 +445,7 @@ test('la firma cambia se cambia la STRUTTURA', () => {
     assert.notStrictEqual(f, B.firma([{ id: 'a', span: 3, altezza: 130, voci: ['mp-qt-mc'] }]), 'span');
     assert.notStrictEqual(f, B.firma([{ id: 'a', span: 2, altezza: 200, voci: ['mp-qt-mc'] }]), 'altezza');
     assert.notStrictEqual(f, B.firma([{ id: 'b', span: 2, altezza: 130, voci: ['mp-qt-mc'] }]), 'id');
-    assert.notStrictEqual(f, B.firma([{ id: 'a', span: 2, altezza: 130, voci: ['mp-qt-tf'] }]), 'voci');
+    assert.notStrictEqual(f, B.firma([{ id: 'a', span: 2, altezza: 130, voci: ['mp-qt-fc'] }]), 'voci');
     assert.notStrictEqual(f, B.firma(base.concat([{ id: 'z', span: 2, voci: [] }])), 'un modulo in più');
 });
 
@@ -721,4 +723,12 @@ test('la tendina «Angolo» è uscita dal box Quiz: due comandi per la stessa do
     const quiz = B.MODULI.find(x => x.id === 'quiz');
     assert.ok(B.vociDi(quiz).every(v => v.id !== 'mp-angle'));
     assert.ok(B.voce('mp-angle'), 'resta nell\'inventario, con il suo `seFuori` che spiega dove si scelgono gli angoli');
+});
+
+
+test('la pipeline non genera più quiz Vero/Falso (19/8)', () => {
+    assert.ok(!B.voce('mp-qt-tf'), 'la casella è uscita dall\'inventario, non solo dalla composizione');
+    const quiz = B.MODULI.find(x => x.id === 'quiz');
+    assert.deepStrictEqual(B.vociDi(quiz).map(v => v.id),
+        ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-perbranch']);
 });

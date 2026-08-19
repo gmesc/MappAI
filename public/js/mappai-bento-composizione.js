@@ -113,10 +113,9 @@
            configurazione: derivare qui e non lì significa zero modifiche alla
            pipeline, e il modale storico (veste spenta) continua a funzionare. */
         { id: 'mp-quiz-on', aiuto: 'Genera quiz e flashcard dai rami della mappa. Si accende da sé quando spunti un genere qui sotto.', et: 'Quiz e flashcard', tipo: 'spunta', chiave: 'quiz', master: true,
-          derivato: ['mp-qt-mc', 'mp-qt-tf', 'mp-qt-fc', 'mp-qt-open'],
+          derivato: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open'],
           seFuori: 'nessuna perdita: si accende da sé se almeno un genere di quiz è spuntato' },
         { id: 'mp-qt-mc', aiuto: 'Domande a scelta multipla con distrattori e spiegazione della risposta.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun quiz a scelta multipla' },
-        { id: 'mp-qt-tf', aiuto: 'Affermazioni da giudicare vere o false: veloci da correggere in classe.', et: 'Vero/Falso', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun quiz vero/falso' },
         { id: 'mp-qt-fc', aiuto: 'Carte domanda/risposta da studiare o da stampare e ritagliare.', et: 'Flashcard', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessuna flashcard' },
         /* Le domande aperte NON producono un set giocabile: sono un foglio da
            stampare, con le righe per scrivere e le tracce di correzione in coda
@@ -547,7 +546,7 @@
         { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
           voci: [{ id: 'mp-preset', w: 190 }] },
         { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
-          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-tf', 'mp-qt-open',
+          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
               { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
         { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
           voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
