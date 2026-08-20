@@ -748,7 +748,7 @@ test('output automatici: spostate, non duplicate — e la famiglia resta legata'
     /* il master del quiz resta DERIVATO: spuntare «Flashcard» lo accende da sé */
     const d = B.mastersDerivati(B.MODULI).map(x => x.id).sort();
     assert.deepStrictEqual(d, ['mp-ns-on', 'mp-quiz-on']);
-    /* la voce nuova delle fonti-immagine esiste e sposta il bottone vero */
-    const img = B.voce('mn-src-img');
-    assert.ok(img && img.sposta === '#btn-src-img');
+    /* la fonte-immagine NON ha più una voce sua (20/8 sera): le foto entrano
+       dal bottone «Documenti», autoriconosciute dall'estensione */
+    assert.ok(!B.voce('mn-src-img'));
 });

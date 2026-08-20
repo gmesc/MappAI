@@ -2909,9 +2909,8 @@ const en_translations = {
     vs_e_gen: "Reading the image failed.",
     vs_e_gen_r: "Try again.",
     // la fonte-immagine in CREA
-    src_img: "Images",
-    src_img_titolo: "Visual source",
-    src_img_nota: "The AI analyses it right away: correct the grid, then \u201cGenerate materials\u201d produces the source dossier.",
+    src_docs_nota: "Texts (PDF included) and IMAGES: a photo becomes a source dossier.",
+    vs_mappa_no: "With a visual source the DOSSIER is generated: the map and the topic are not needed \u2014 the title comes from the grid.",
     src_img_leggo: "Analysis in progress\u2026",
     src_img_ok: "grid confirmed: it will make a dossier",
     src_img_no: "grid cancelled: remove the source or load it again",

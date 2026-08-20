@@ -230,6 +230,36 @@
     function schedaCorrente() { return _scheda; }
     function scordaScheda() { _scheda = null; }
 
+    /* ── MM/KG E IL TEMA SI SPENGONO CON UNA FOTO FRA LE FONTI (20/8) ─────────
+       Con una fonte iconografica non c'è una mappa da impostare: il prodotto è
+       il DOSSIER, e il suo titolo viene dalla SCHEDA. Lasciare vivi il
+       selettore del genere e il campo del tema prometterebbe una scelta che la
+       generazione poi ignora — comandi inerti, peggio che assenti (inv. 21).
+       Si ricalcola DAI DATI a ogni chiamata (fonti aggiunte e tolte), come i
+       passi della vista ridotta: niente stato da tenere allineato. */
+    function _fotoPresente() {
+        var s = _st() || {};
+        return ((s.sources) || []).some(function (x) { return x && x._scheda; });
+    }
+    function sincronizzaGenere() {
+        var giu = _fotoPresente();
+        var perche = t('vs_mappa_no', 'Con una fonte iconografica si genera il DOSSIER: la mappa e il tema non servono — il titolo viene dalla scheda.');
+        ['mode-mindmap', 'mode-kg'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.pointerEvents = giu ? 'none' : '';
+            el.style.opacity = giu ? '0.4' : '';
+            el.setAttribute('aria-disabled', giu ? 'true' : 'false');
+            if (giu) el.setAttribute('title', perche); else el.removeAttribute('title');
+        });
+        var root = document.getElementById('root-node-name');
+        if (root) {
+            root.disabled = giu;
+            root.style.opacity = giu ? '0.4' : '';
+            if (giu) root.setAttribute('title', perche); else root.removeAttribute('title');
+        }
+    }
+
     /* L'anteprima dentro il modale: prima della prima sezione, così la foto si
        guarda mentre si correggono i campi che la riguardano. */
     function _mostraFoto(box, scheda) {
@@ -298,6 +328,7 @@
         apriScheda: apriScheda,
         schedaCorrente: schedaCorrente,
         scordaScheda: scordaScheda,
+        sincronizzaGenere: sincronizzaGenere,
         leggi: leggi
     };
     console.log('[MappAI] mappai-visione.js caricato ✓');

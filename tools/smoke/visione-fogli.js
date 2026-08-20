@@ -125,13 +125,18 @@ SCHEDA.identita = Object.assign({}, SCHEDA.identita, { data: '1917' });
     ok(GREZZA.interpretazione.corrente === '', '«Futurismo» senza appiglio è stato SCARTATO dalla normalizzazione');
     ok(GREZZA.interpretazione.finalita.includes('—'), 'la finalità con l\'appiglio è rimasta');
 
-    console.log('\n── IL DOSSIER: scheda → vault → analisi → output ──');
-    await P.run({
-        classId: '', quiz: { types: ['flashcards', 'open'], perBranch: 2, angle: 'auto' },
-        nodesheet: { fmt: '2x2' },            /* spuntato per sbaglio: va forzato spento */
-        causal: true,
-        synthesis: null,
-        dossier: SCHEDA
+    console.log('\n── IL DOSSIER via «Genera materiali»: foto autoriconosciuta ──');
+    /* La foto arriva dal bottone DOCUMENTI (type 'doc', autoriconosciuta): il
+       marcatore del dossier è `_scheda`. E gli output sono FISSI (richiesta di
+       Giacomo): niente da spuntare — qui il bento è VUOTO apposta. */
+    window.appState.sources = [{ id: 's1', type: 'doc', file: { name: 'manifesto.jpg' }, _scheda: SCHEDA }];
+    /* `_readConfig` esige `#mn-bento` nel DOM (è la sua guardia): qui esiste,
+       VUOTO — nessuna spunta, che è proprio il caso da provare */
+    global.document.getElementById = (id) => id === 'mn-bento' ? Object.assign({}, nulla) : null;
+    await new Promise((fine) => {
+        let attesa = setInterval(() => { if (!P._running && vaults.length) { clearInterval(attesa); fine(); } }, 20);
+        P._startFromModal();
+        setTimeout(() => { clearInterval(attesa); fine(); }, 3000);   /* rete: mai appesi */
     });
 
     /* `saveVault` gira due volte (la creazione + il ri-salvataggio dei set a
@@ -159,6 +164,10 @@ SCHEDA.identita = Object.assign({}, SCHEDA.identita, { data: '1917' });
         '⚠️ fogli-nodi e catena FORZATI spenti su un dossier (inv. 21)');
     ok(scritti.some(x => /Flashcard-/.test(x)), 'le flashcard del dossier sono nel vault');
     ok(scritti.some(x => /Domande-aperte-/.test(x)), 'le domande aperte del dossier sono nel vault');
+    /* la sintesi è il terzo output FISSO: qui basta che lo step D sia PARTITO —
+       il suo motore (MappAISynthesis) nel banco non c'è, e il fallimento del
+       passo non deve portare via flashcard e domande già scritte */
+    ok(materiali.length >= 5, 'gli output fissi girano senza spunte (' + materiali.length + ' chiamate AI)');
     /* ogni ramo del dossier è UN blocco: la data sta nel ramo «identità», la
        finalità in quello dell'interpretazione — messaggi diversi */
     ok(materiali.some(m => m.includes('1917')) && materiali.some(m => m.includes('Persuadere')),

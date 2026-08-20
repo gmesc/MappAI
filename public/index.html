@@ -718,16 +718,6 @@
                             </svg>
                             <span class="source_btn_text" data-i18n="src_docs">Documenti</span>
                         </div>
-                        <div id="btn-src-img" class="btn_selezione_input" onclick="window.addSource('img')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="lucide lucide-image">
-                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                                <circle cx="9" cy="9" r="2" />
-                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                            </svg>
-                            <span class="source_btn_text" data-i18n="src_img">Immagini</span>
-                        </div>
                         <div id="btn-src-text" class="btn_selezione_input" onclick="window.addSource('text')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -3252,7 +3242,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=dos1"></script>
+    <script src="js/app.js?v=dos2"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3412,13 +3402,13 @@
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
     <script src="js/mappai-elabora-console.js?v=dos1"></script>
-    <script src="js/mappai-material-pipeline.js?v=dos1"></script>
+    <script src="js/mappai-material-pipeline.js?v=dos2"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
-    <script src="js/mappai-visione.js?v=dos1"></script>
+    <script src="js/mappai-visione.js?v=dos2"></script>
     <script src="js/mappai-crea-quiz.js?v=dos1"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=dos1"></script>
+    <script src="js/mappai-bento-composizione.js?v=dos2"></script>
     <script src="js/mappai-costruisci-manifesto.js?v=ang2"></script>
     <script src="js/mappai-usage-core.js?v=dh12"></script>
     <script src="js/mappai-usage-tracker.js"></script>

@@ -977,19 +977,12 @@ window.addSource = function (type) {
     } else if (type === 'youtube') {
         titleHtml = '<i data-lucide="youtube" class="w-4 h-4 text-red-400"></i> Video YouTube';
         inputHtml = '<input type="url" placeholder="https://youtube.com/watch?v=..." class="landing-input shadow-none mb-1 text-sm" data-source-id="' + id + '" onblur="window.handleUrlBlur(this)"><p class="text-[10px] text-slate-400">MappAI estrarrà i contenuti audio/visivi del video.</p>';
-    } else if (type === 'img') {
-        /* Una fonte-IMMAGINE non produce testo per la mappa: produce un DOSSIER
-           (scheda di analisi + materiali). La legge Gemini al CARICAMENTO — la
-           scheda si apre subito e si corregge lì, così il preventivo del bento
-           è vero e nessun modale nasce in mezzo alla pipeline (trappola 33). */
-        titleHtml = '<i data-lucide="image" class="w-4 h-4 text-violet-400"></i> ' + (window.t ? window.t('src_img_titolo', 'Fonte iconografica') : 'Fonte iconografica');
-        inputHtml = '<input type="file" multiple accept=".jpg,.jpeg,.png,.heic,.heif" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleImageUpload(this)"><p class="text-[10px] text-slate-400">' + (window.t ? window.t('src_img_nota', 'L\'AI la analizza subito: correggi la scheda, poi «Genera materiali» produce il dossier della fonte.') : 'L\'AI la analizza subito: correggi la scheda, poi «Genera materiali» produce il dossier della fonte.') + '</p>';
     } else if (type === 'text') {
         titleHtml = '<i data-lucide="type" class="w-4 h-4 text-amber-400"></i> Testo Libero';
         inputHtml = '<textarea placeholder="Incolla qui i tuoi appunti..." class="landing-input landing-textarea text-sm" data-source-id="' + id + '"></textarea>';
     } else if (type === 'doc') {
         titleHtml = '<i data-lucide="file-spreadsheet" class="w-4 h-4 text-indigo-400"></i> Documenti (.pdf, .txt, .csv, .md)';
-        inputHtml = '<input type="file" multiple accept=".pdf,.txt,.csv,.md,.rtf" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'doc\')"><p class="text-[10px] text-slate-400">Tutti i formati testuali sono supportati (PDF incluso).</p>';
+        inputHtml = '<input type="file" multiple accept=".pdf,.txt,.csv,.md,.rtf,.docx,.jpg,.jpeg,.png,.heic,.heif" class="landing-input shadow-none mb-1 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" data-source-id="' + id + '" onchange="window.handleFileUpload(this, \'doc\')"><p class="text-[10px] text-slate-400">' + (window.t ? window.t('src_docs_nota', 'Testi (PDF incluso) e IMMAGINI: una foto diventa un dossier di fonte.') : 'Testi (PDF incluso) e IMMAGINI: una foto diventa un dossier di fonte.') + '</p>';
     }
 
     const html = '<div id="' + id + '" class="source-entry flex items-start gap-3 relative"><div class="flex-grow"><div class="flex items-center gap-2 mb-2 font-bold text-sm text-white">' + titleHtml + '</div>' + inputHtml + '</div><button type="button" onclick="window.removeSource(\'' + id + '\')" class="text-indigo-400 hover:text-red-400 transition-colors mt-1 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>';
@@ -1028,6 +1021,8 @@ window.handleSourceAutofill = function (name) {
 window.removeSource = function (id) {
     if (appState.sources) appState.sources = appState.sources.filter(s => s.id !== id);
     document.getElementById(id).remove();
+    /* togliendo una fonte-immagine, MM/KG e il tema tornano vivi */
+    if (window.MappAIVisione && window.MappAIVisione.sincronizzaGenere) window.MappAIVisione.sincronizzaGenere();
 }
 
 window.handlePDFUpload = async function (input) {
@@ -1070,6 +1065,15 @@ window.processSourceFile = async function (sourceObj, file, statusEl) {
     statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> Lettura file...';
 
     try {
+        /* ── UN'IMMAGINE SI RICONOSCE DA SÉ (20/8, richiesta di Giacomo) ─────
+           «Documenti» accetta anche le foto: il genere lo dice l'estensione
+           (`MappAIVisioneCore.accetta`), non un bottone a parte. Una foto non
+           produce testo per la mappa: apre la SCHEDA DI ANALISI, e da lì il
+           DOSSIER — quindi il ramo esce qui, prima dell'estrazione testuale. */
+        if (window.MappAIVisioneCore && window.MappAIVisioneCore.accetta && window.MappAIVisioneCore.accetta(fileName)) {
+            await window.leggiImmagineSorgente(sourceObj, file, statusEl);
+            return;
+        }
         let text = "";
         if (fileName.endsWith('.pdf')) {
             text = await window.extractTextFromPDF(file);
@@ -1092,66 +1096,39 @@ window.processSourceFile = async function (sourceObj, file, statusEl) {
 };
 
 /* ── LE IMMAGINI (20/8): dalla foto alla SCHEDA, al caricamento ────────────
-   Un file per volta anche con una selezione multipla: ogni foto apre la SUA
-   scheda da correggere, e due modali insieme sarebbero un pasticcio. La scheda
-   confermata si scrive su `src._scheda` — è da lì che «Genera materiali»
-   (`_schedeImmagini` nella pipeline) sa che cosa trasformare in dossier. */
-window.handleImageUpload = async function (input) {
-    if (!input.files || input.files.length === 0) return;
-    const files = Array.from(input.files);
-    const primoId = input.dataset.sourceId;
-    input.style.display = 'none';
-
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        let src;
-        if (i === 0) {
-            src = appState.sources.find(s => s.id === primoId);
-        } else {
-            window.addSource('img');
-            src = appState.sources[appState.sources.length - 1];
-            const elN = document.getElementById(src.id);
-            const inpN = elN && elN.querySelector('input[type=file]');
-            if (inpN) inpN.style.display = 'none';
-        }
-        if (!src) continue;
-        src.file = file;
-        src.path = (window.electronAPI && window.electronAPI.getPathForFile) ? window.electronAPI.getPathForFile(file) : file.path;
-        src.mimeType = file.type;
-
-        let statusEl = document.getElementById('status-' + src.id);
-        if (!statusEl) {
-            statusEl = document.createElement('p');
+   Chiamata da `processSourceFile` quando «Documenti» riconosce una foto
+   dall'estensione. Apre la scheda di analisi; quella confermata si scrive su
+   `src._scheda` — è da lì che «Genera materiali» (`_schedeImmagini` nella
+   pipeline) sa che cosa trasformare in dossier. Poi MM/KG e il tema si
+   disabilitano: con una fonte iconografica non c'è una mappa da impostare. */
+window.leggiImmagineSorgente = async function (src, file, statusEl) {
+    src.path = (window.electronAPI && window.electronAPI.getPathForFile) ? window.electronAPI.getPathForFile(file) : file.path;
+    src.mimeType = file.type;
+    statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> ' + (window.t ? window.t('src_img_leggo', 'Analisi in corso…') : 'Analisi in corso…');
+    window.safeCreateIcons();
+    try {
+        const scheda = (window.MappAIVisione && window.MappAIVisione.nuovaScheda)
+            ? await window.MappAIVisione.nuovaScheda(file) : null;
+        if (scheda) {
+            src._scheda = scheda;
             statusEl.className = 'text-[10px] text-emerald-400 mt-1 font-bold';
-            statusEl.id = 'status-' + src.id;
-            const el = document.getElementById(src.id);
-            const cont = el && el.querySelector('.flex-grow');
-            if (cont) cont.appendChild(statusEl); else continue;
-        }
-        statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> ' + (window.t ? window.t('src_img_leggo', 'Analisi in corso…') : 'Analisi in corso…');
-        window.safeCreateIcons();
-        try {
-            const scheda = (window.MappAIVisione && window.MappAIVisione.nuovaScheda)
-                ? await window.MappAIVisione.nuovaScheda(file) : null;
-            if (scheda) {
-                src._scheda = scheda;
-                statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> ' + file.name + ' — ' +
-                    (window.t ? window.t('src_img_ok', 'scheda confermata: farà un dossier') : 'scheda confermata: farà un dossier');
-            } else {
-                /* annullata: la fonte resta, ma senza scheda non fa dossier — e
-                   la riga lo DICE, o il docente crederebbe di averla in coda */
-                src._scheda = null;
-                statusEl.className = 'text-[10px] text-amber-500 mt-1 font-bold';
-                statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ' + file.name + ' — ' +
-                    (window.t ? window.t('src_img_no', 'scheda annullata: togli la fonte o ricaricala') : 'scheda annullata: togli la fonte o ricaricala');
-            }
-        } catch (e) {
+            statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> ' + file.name + ' — ' +
+                (window.t ? window.t('src_img_ok', 'scheda confermata: farà un dossier') : 'scheda confermata: farà un dossier');
+        } else {
+            /* annullata: la fonte resta, ma senza scheda non fa dossier — e la
+               riga lo DICE, o il docente crederebbe di averla in coda */
             src._scheda = null;
-            statusEl.className = 'text-[10px] text-red-400 mt-1 font-bold';
-            statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ' + (e.message || 'errore');
+            statusEl.className = 'text-[10px] text-amber-500 mt-1 font-bold';
+            statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ' + file.name + ' — ' +
+                (window.t ? window.t('src_img_no', 'scheda annullata: togli la fonte o ricaricala') : 'scheda annullata: togli la fonte o ricaricala');
         }
-        window.safeCreateIcons();
+    } catch (e) {
+        src._scheda = null;
+        statusEl.className = 'text-[10px] text-red-400 mt-1 font-bold';
+        statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline"></i> ' + (e.message || 'errore');
     }
+    window.safeCreateIcons();
+    if (window.MappAIVisione && window.MappAIVisione.sincronizzaGenere) window.MappAIVisione.sincronizzaGenere();
 };
 
 window.handleFileUpload = async function (input, type) {

@@ -270,8 +270,6 @@
           gruppo: 'Fonti', seFuori: 'in vista compatta non si può partire da una registrazione' },
         { id: 'mn-src-text', aiuto: 'Incolla appunti presi a mano o un testo copiato da altrove.', et: 'Testo libero', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#btn-src-text',
           gruppo: 'Fonti', seFuori: 'in vista compatta non si possono incollare appunti' },
-        { id: 'mn-src-img', aiuto: 'Una fonte iconografica (manifesto, dipinto, fotografia): l\u0027AI la analizza subito, tu correggi la scheda, e \u00abGenera materiali\u00bb produce il DOSSIER della fonte \u2014 scheda di analisi + i materiali spuntati. Niente mappa.', et: 'Immagini (fonte iconografica)', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#btn-src-img',
-          gruppo: 'Fonti', seFuori: 'in vista compatta non si può partire da una fonte iconografica' },
 
         /* — che cosa entra nella mappa — */
         { id: 'mn-l1', aiuto: 'Scrivi tu le macro-aree invece di lasciarle decidere all\u0027AI: diventano i rami di primo livello. Il toggle qui sotto le lascia decidere all\u0027AI.', et: 'Macro-aree a mano', tipo: 'strumento', forma: 'pannello', chiave: '—',
@@ -622,7 +620,7 @@
           stile: { testo: '#ffffff' },
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           voci: [{ id: 'mn-src-url', et: 'URL' }, { id: 'mn-src-youtube', et: 'YouTube' },
-              { id: 'mn-src-audio', et: 'Audio' }, 'mn-src-text', 'mn-src-img'] },
+              { id: 'mn-src-audio', et: 'Audio' }, 'mn-src-text'] },
         /* l'elenco delle fonti non-PDF: righe compatte, la stessa veste dell'elenco
            dei documenti. Una colonna, perché sono righe di un elenco e non voci
            affiancabili. */

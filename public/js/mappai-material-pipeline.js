@@ -1553,7 +1553,10 @@
   Pipeline._startFromModal = function () {
     const cfg = _readConfig();
     if (!cfg) return;
-    if (!_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
+    /* Con una FOTO fra le fonti gli output sono fissi (vedi sotto): la guardia
+       «attiva almeno una sezione» vale solo per la generazione dalla mappa. */
+    const schedeFoto = _schedeImmagini();
+    if (!schedeFoto.length && !_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
     const apiKey = window.getSystemKey ? window.getSystemKey() : '';
     if (!apiKey) { _toast(_t('tst_need_key', "Inserisci un'API Key per continuare"), 'error'); return; }
     // Voce: richiede la chiave Google diretta → altrimenti deseleziona con avviso (FR-006).
@@ -1570,17 +1573,27 @@
        ⚠️ Con immagini presenti NON si genera anche la mappa dalle altre fonti:
        un bottone deve fare una cosa prevedibile, e quale delle due «vince»
        sarebbe un mistero. Se ci sono fonti di testo, lo si dice. */
-    const schede = _schedeImmagini();
+    const schede = schedeFoto;
     if (!schede.length) { Pipeline.run(cfg); return; }
     (async () => {
       if (_haAltreFonti()) {
         _toast(_t('mp_dossier_solo', 'Con delle immagini caricate si generano i DOSSIER delle fonti: le altre fonti non entrano (generale separatamente).'), 'info');
       }
+      /* ── GLI OUTPUT DI UN DOSSIER SONO FISSI (20/8, richiesta di Giacomo):
+         una foto genera automaticamente TUTTI i materiali previsti per le
+         fonti iconografiche — flashcard, domande aperte, sintesi — senza
+         niente da spuntare. Le spunte del box «Output automatici» restano la
+         leva della generazione NORMALE (dalla mappa). La voce naturale segue
+         la spunta: è l'unico output che costa in modo visibile. */
+      const cfgFoto = Object.assign({}, cfg, {
+        quiz: { types: ['flashcards', 'open'], perBranch: (cfg.quiz && cfg.quiz.perBranch) || 3, angle: 'auto' },
+        synthesis: { audio: !!(cfg.synthesis && cfg.synthesis.audio) }
+      });
       /* `run` non rilancia (il suo catch fa il toast): qui si va solo in
          sequenza — un dossier fallito ha già detto la sua, e i successivi
          partono lo stesso (trappola 36). */
       for (const sch of schede) {
-        await Pipeline.run(Object.assign({}, cfg, { dossier: sch }));
+        await Pipeline.run(Object.assign({}, cfgFoto, { dossier: sch }));
       }
       if (schede.length > 1) {
         _toast(_t('mp_dossier_fine', '{n} dossier lavorati — l\'esito di ognuno è nel suo riepilogo')
@@ -1594,14 +1607,16 @@
      non qui. */
   function _schedeImmagini() {
     const s = _state();
+    /* la foto arriva dal bottone «Documenti» (autoriconosciuta): il marcatore
+       è la SCHEDA, non il tipo della fonte */
     return ((s && s.sources) || [])
-      .filter(x => x && x.type === 'img' && x._scheda)
+      .filter(x => x && x._scheda)
       .map(x => x._scheda);
   }
   function _haAltreFonti() {
     const s = _state();
     return ((s && s.sources) || []).some(x => {
-      if (!x || x.type === 'img') return false;
+      if (!x || x._scheda) return false;
       if (x.file) return true;
       const el = document.querySelector('[data-source-id="' + x.id + '"]');
       return !!(el && String(el.value || '').trim());

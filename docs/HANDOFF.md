@@ -25,15 +25,19 @@
 
 0-bis. **⟵ DA QUI SI RIPRENDE (20/8 notte): un'immagine produce un DOSSIER DI FONTE.**
    Richiesta di docenti di **storia di scuola media**, in due giri nella stessa giornata.
-   Il flusso: la foto si carica fra le **fonti di CREA** (bottone «Immagini»; jpg · png ·
-   heic, **niente tiff**) → la analizza **Gemini** via `fetchModelAPI` (la chiave, la
+   Il flusso: la foto si carica dal bottone **«Documenti»** di CREA, che la AUTORICONOSCE
+   dall'estensione (jpg · png · heic, **niente tiff** — nessun bottone a parte) → la analizza **Gemini** via `fetchModelAPI` (la chiave, la
    taratura e i consumi di sempre; ⚠️ il motore locale Ollama della prima stesura è stato
    TOLTO in giornata — restava un programma da installare a mano) → si apre la **SCHEDA DI
    ANALISI a quattro blocchi** — carta d'identità · che cosa si vede · che cosa vuole
    ottenere · **che cosa prova questa fonte** — che il docente CORREGGE → «Genera materiali»
-   produce **un vault DOSSIER** col titolo della fonte: la scheda in PDF + gli output
-   spuntati nel box nuovo **«Output automatici»** (flashcard · domande aperte · sintesi;
-   voce naturale spenta di default, si accende dall'editor di ELABORA).
+   produce **un vault DOSSIER** col titolo della fonte: la scheda in PDF + **TUTTI gli
+   output previsti per le foto** — flashcard · domande aperte · sintesi — senza niente da
+   spuntare (20/8 sera, richiesta di Giacomo: gli output di un dossier sono FISSI; il box
+   «Output automatici» governa la generazione dalla mappa; la voce naturale segue la sua
+   spunta e si accende anche dall'editor di ELABORA). Con una foto fra le fonti **MM/KG e
+   il campo del tema si DISABILITANO** col perché nel tooltip (inv. 21): il titolo viene
+   dalla scheda.
    ⚠️ Le TRE decisioni che reggono tutto:
    · **la separazione osservazione/interpretazione + la REGOLA DELL'APPIGLIO**: un campo
      interpretativo senza « — l'elemento visivo che lo giustifica» viene SCARTATO dalla
@@ -1799,14 +1803,16 @@ Niente di questo è mai girato nell'app vera: è misurato in 22 test puri, nel b
 serve la chiave Google, nessun programma da installare. In ordine di quanto morde:
 1. **Provider Infomaniak attivo** → caricando un'immagine il messaggio dice «scegli il
    provider Google», non un errore generico. Con Google e la chiave: si prosegue.
-2. **Una foto di un manifesto di propaganda** (il caso dei docenti di storia): la scheda
-   arriva coi quattro blocchi. Guardare il blocco «Che cosa vuole ottenere»: **ogni riga ha
+2. **Una foto di un manifesto** caricata dal bottone «DOCUMENTI» (nessun bottone Immagini:
+   l'estensione la riconosce da sé; nel dialogo si vedono anche jpg/png/heic): la scheda
+   arriva coi quattro blocchi. E con la foto fra le fonti **MM/KG e il tema sono spenti**,
+   col perché nel tooltip. Guardare il blocco «Che cosa vuole ottenere»: **ogni riga ha
    il suo appiglio** («— lo dicono lo slogan in maiuscolo…»)? Le righe senza appiglio devono
    essere VUOTE, non piene di ipotesi.
 3. **Correggere due campi** (una data sbagliata è il caso tipico), confermare → «Genera
-   materiali» col box «Output automatici» → **un vault dossier** in
+   materiali» SENZA spuntare niente → **un vault dossier** in
    `Mappe/<classe>/<materia>/<titolo fonte>/` con `Analisi-fonte-….pdf` + flashcard +
-   domande aperte + sintesi secondo le spunte. Aprire il PDF: l'immagine in testa, i campi
+   domande aperte + sintesi (gli output delle foto sono FISSI). Aprire il PDF: l'immagine in testa, i campi
    vuoti NON stampati, la correzione dentro.
 4. **Aprire il dossier da ELABORA**: la console lo apre (è il punto che un vault a zero
    nodi romperebbe — qui i rami sono i blocchi della scheda). La riga «Analisi della
@@ -1814,13 +1820,15 @@ serve la chiave Google, nessun programma da installare. In ordine di quanto mord
    aggiornati.
 5. **Un `.heic` dall'iPhone** (sips converte; Gemini lo leggerebbe anche nativo, ma la
    scheda e il PDF devono MOSTRARLA — Chromium non decodifica l'HEIC).
-6. **Tre foto caricate insieme** → tre schede una dopo l'altra al caricamento, poi tre
-   dossier in sequenza, nessun nome che si sovrascrive. Con anche un PDF di testo caricato:
+6. **Tre foto caricate insieme dal bottone Documenti** → tre schede una dopo l'altra al
+   caricamento, poi tre dossier in sequenza, nessun nome che si sovrascrive. Togliendo
+   l'ultima fonte-foto, MM/KG e il tema si RIACCENDONO. Con anche un PDF di testo caricato:
    il toast dice che le altre fonti non entrano nei dossier.
-7. **Il box «Output automatici»** nella vista estesa (combo): le spunte governano davvero
-   (spegnere la sintesi → non si genera); la **voce naturale resta spenta** e si accende
-   solo dall'editor della sintesi; su un dossier fogli-nodi e catena **non si generano**
-   nemmeno se spuntati.
+7. **Il box «Output automatici»** nella vista estesa (combo) governa la generazione DALLA
+   MAPPA (spegnere la sintesi → non si genera); sui dossier gli output sono fissi e le
+   spunte non servono; la **voce naturale resta spenta** e si accende solo con la sua
+   spunta o dall'editor della sintesi; su un dossier fogli-nodi e catena **non si
+   generano** nemmeno se spuntati.
 8. **Il gesto di ELABORA** («Crea un documento → Domande aperte → Da un'immagine»): un
    foglio per angolo col contesto breve in testa, l'osservazione SOLO sulle tracce.
 9. **Studio attivo sul dossier**: «Domande a scelta» e «Quiz a scelta» leggono i materiali
