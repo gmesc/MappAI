@@ -1,7 +1,18 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **20 agosto 2026, sera** — un'**IMMAGINE** produce le domande aperte
+> Ultimo aggiornamento: **20 agosto 2026, notte** — un'immagine produce un **DOSSIER DI
+> FONTE**. Secondo giro della stessa giornata, su decisione di Giacomo: **via Ollama**
+> (restava un programma da installare a mano), la lettura passa a **GEMINI** via
+> `fetchModelAPI`; **niente tiff**; la scheda diventa una **griglia a quattro blocchi**
+> (identità · osservazione · interpretazione · critica) con la **REGOLA DELL'APPIGLIO** —
+> un campo interpretativo senza «— l'elemento visivo che lo giustifica» viene SCARTATO dal
+> codice, non solo scoraggiato dal prompt; e «Genera materiali» produce un **vault dossier**
+> col titolo della fonte (il grafo È la scheda: root + un ramo per blocco, zero AI) più il
+> box **«Output automatici»** nel bento (flashcard · domande aperte · sintesi — spunte
+> SPOSTATE, non duplicate). In ELABORA «Modifica» sull'analisi riapre la SCHEDA.
+> Suite **1196/0**, sei banchi, ⚠️ mai girato in Electron (HANDOFF §5 in testa).
+> (Prima, in serata: la fase 1 — un'**IMMAGINE** produce le domande aperte
 > per angolo e le flashcard. Nasce da docenti di **storia di scuola media**: da una miniatura,
 > un manifesto, una carta si ricavano un testo di **contesto e descrizione** e i fogli, con
 > **l'immagine in testa**. La legge un modello **in casa** (Ollama + `qwen2.5vl`): la foto non
@@ -693,6 +704,59 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (20/8/26, notte): il DOSSIER DI FONTE — Gemini, la griglia, il box degli output
+Secondo giro della giornata, su tre decisioni di Giacomo: **Gemini al posto di Ollama**
+(«lasciamo stare Qwen-VL»), **niente tiff**, e «la mappa non mi interessa: mi interessa un
+documento di contesto e analisi». Bivio risolto: **vault DOSSIER col nome della fonte**.
+Stato in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0-bis e §5**; piano ed esito in
+[`docs/PIANO-immagini.md`](docs/PIANO-immagini.md). Suite **1196/0**, sei banchi.
+
+**La griglia è QUATTRO blocchi**, e la divisione separa ciò che il modello OSSERVA (dove è
+affidabile) da ciò che INTERPRETA (dove inventa): A carta d'identità (genere · titolo ·
+autore · data · luogo · tecnica) · B che cosa si vede (descrizione, TESTO trascritto alla
+lettera, iconografia, linguaggio visivo, tipografia) · C che cosa vuole ottenere (corrente ·
+committente · destinatario · finalità · strategie persuasive · diffusione) · D **che cosa
+prova questa fonte** (che cosa dimostra — le intenzioni di chi l'ha fatta — e che cosa
+tace). C e D li ha voluti Giacomo per il valore didattico: senza D la scheda descrive
+un'immagine invece di interrogare una fonte.
+
+**La REGOLA DELL'APPIGLIO è codice, non un consiglio al prompt**: ogni campo di C deve
+citare l'elemento visivo che lo giustifica («propagandistico — lo dicono lo slogan in
+maiuscolo e la figura vista dal basso»), e `normalizzaAnalisi` SCARTA un campo
+interpretativo senza « — » (un modello le istruzioni ogni tanto le ignora). Provato nel
+banco: «Futurismo» nudo cade, «Persuadere — il dito puntato» resta. `critica` è esente:
+«che cosa tace» parla per assenza. E il testo nudo cade nell'osservazione, MAI nei blocchi
+interpretativi — il ripiego non può essere il posto da cui entra l'invenzione (trappola 49).
+
+**Il grafo del dossier È la scheda** (root + un ramo per blocco pieno, `desc` = il testo del
+blocco; `nodiDaScheda`, deterministico, zero AI). Perché: un vault senza nodi rompe chi lo
+apre — la console di ELABORA chiede `db.nodes.length`, la pipeline genera PER RAMO. Coi
+blocchi come rami, ELABORA · INSEGNA · Vista studio · Studio attivo e gli step B/D della
+pipeline funzionano SENZA una guardia nuova da nessuna parte. Nel ramo dossier dello step A:
+identità NUOVA esplicita (inv. 20 — la rete di `saveCurrentProject` scatta solo se la scheda
+vecchia dichiara un vault diverso, e una mappa mai salvata non lo dichiara), l'analisi si
+archivia PRIMA del PDF (inv. 18), fogli-nodi e catena FORZATI spenti (inv. 21, versione
+dati: una config arrivata da un'altra strada non deve produrre documenti vuoti).
+
+**Il box «Output automatici»** (span 4, primo dei nascondibili): le spunte flashcard ·
+domande aperte · sintesi · voce **SPOSTATE** da «Quiz» e «Fonte & Sintesi», mai duplicate
+(inv. 6 — gli id restano quelli che `_readConfig()` legge). ⚠️ Il master `mp-quiz-on` NON
+si monta: è un master DERIVATO, e montarlo a vista rompeva il meccanismo (l'ha detto il
+test). ⚠️ E l'ordine dei box l'ha deciso il validatore della composizione: dopo «Preset» la
+riga restava spaiata («la riga 4 lascia 3 colonne»), prima no.
+
+**In ELABORA**: righe «Analisi della fonte» dall'archivio (kind `analisi`), il PDF
+agganciato per nome atteso, e **«Modifica» riapre la SCHEDA** precompilata da
+`schedaFromAnalisiHtml` — non un editor di testo: la sorgente è la griglia, e il modale
+della visione è già il suo editor. Alla conferma: archivio riscritto (la dedup per
+kind|title|mapName sostituisce) e PDF rifatto, rumorosamente se fallisce.
+
+**Da sapere**: `sips` serve ancora anche con Gemini — l'HEIC il modello lo accetta ma
+**Chromium non lo decodifica**, e la foto va mostrata nella scheda e incorporata nei
+documenti · su **Infomaniak** il passo dice «scegli Google», non fallisce (inv. 9,
+dichiarato: la visione sui modelli in listino non è documentata) · i file si chiamano
+`Analisi-fonte-<Fonte>.pdf` (genere `analisi_fonte` in `buildFileName`).
 
 ### ✅ FATTO (20/8/26, sera): dall'IMMAGINE, le domande aperte per angolo e le flashcard
 Richiesta di **docenti di storia di scuola media**. Stato in
@@ -4932,8 +4996,7 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_active_discipline` | **Disciplina attiva** (contesto di generazione, 29/7). Scritta dal modale classe+disciplina; vale solo se coerente con la classe attiva (`effectiveDiscipline`). Governa la cartella `Mappe/<classe>/<disciplina>/` | vuoto |
 | `mappai_font_selettore` | **il carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte | ON |
 | `mappai_font_app` | il carattere dell'app, scritto da Cabina › Aspetto e leggibilità | assente = Space Mono |
-| `mappai_visione` | **leggere le immagini col motore locale** (20/8, Ollama + `qwen2.5vl`). `'0'` → il passo «Da che cosa» sparisce da «Crea un documento» | ON |
-| `mappai_visione_model` · `mappai_visione_host` | il modello VL e l'indirizzo del motore | `qwen2.5vl:7b` · `http://127.0.0.1:11434` |
+| `mappai_visione` | **le fonti iconografiche** (20/8): bottone «Immagini» in CREA, dossier, passo «Da che cosa» in ELABORA. La lettura è di Gemini via `fetchModelAPI` | ON |
 | `mappai_a11y_everywhere` | `'1'` = **strumenti compensativi ovunque** (comportamento storico). Di default il bottone a11y vive solo nel contesto di lettura — mappa, schede dei nodi, sidebar/Raccoglitore — e fuori di lì gli effetti si sospendono e si ripristinano al rientro | OFF |
 
 **Comandi console:**

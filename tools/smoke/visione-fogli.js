@@ -1,24 +1,28 @@
 #!/usr/bin/env node
-/* BANCO — da un'IMMAGINE ai fogli, col motore VERO (20/8).
-   Fa girare `MappAIPipeline.generaSet` con un finto `window`: IPC finti,
-   `fetchModelAPI` finta, e i core veri (visione, clona, pipeline). È il pezzo
-   che nessun test puro esegue — la catena scheda → materiale → foglio per
-   angolo → archivio → nome del file.
+/* BANCO — dalla SCHEDA DI ANALISI al DOSSIER e ai materiali, col motore VERO (20/8).
+   Fa girare `MappAIPipeline` con un finto `window`: IPC finti, `fetchModelAPI`
+   finta, e i core veri (visione, clona, pipeline). È il pezzo che nessun test
+   puro esegue — le due catene:
+     · il DOSSIER: scheda → grafo dei blocchi → vault → documento «Analisi
+       della fonte» → flashcard e domande aperte generate DAI BLOCCHI;
+     · il gesto di ELABORA (fase 1): scheda → sorgente esplicita → un foglio
+       per angolo, con l'immagine incorporata e la sorgente riapribile.
 
-   Prova le cinque cose che possono rompersi in silenzio:
-     1. la scheda CORRETTA a mano è quella che arriva al generatore (non la
-        lettura grezza del modello);
-     2. tre angoli producono TRE fogli con tre nomi distinti (uno solo, e il
-        secondo si rifiuterebbe di nascere per nome già preso);
-     3. l'immagine è INCORPORATA nell'HTML di ognuno — un foglio di domande su
-        una fonte che l'allievo non vede non serve a niente;
-     4. l'intro sta anche nella SORGENTE incorporata, o l'editor la perde al
-        primo salvataggio (invariante 18);
-     5. le FLASHCARD dalla stessa scheda escono dallo stesso interruttore.
+   Le cose che possono rompersi in silenzio, e che qui si provano:
+     1. la scheda CORRETTA a mano è quella che arriva al generatore (non
+        l'ipotesi del modello);
+     2. il dossier ha un'identità SUA (inv. 20) e il suo grafo È la scheda;
+     3. l'analisi si archivia PRIMA del PDF (inv. 18) e si rilegge
+        (`schedaFromAnalisiHtml`);
+     4. su un dossier fogli-nodi e catena sono FORZATI spenti (inv. 21);
+     5. tre angoli → tre fogli con tre nomi; l'immagine è nell'HTML e nella
+        sorgente incorporata; la DESCRIZIONE non finisce sul foglio allievi.
 
-   ⚠️ Che cosa NON prova: Ollama (un banco che dipende da un server esterno
-   fallisce per il motivo sbagliato), `sips`, la superficie dei tre passi, il
-   PDF vero. Quelli stanno nella lista «da provare in Electron».
+   ⚠️ Che cosa NON prova: Gemini (nessuna rete — un banco che dipende da un
+   servizio esterno fallisce per il motivo sbagliato), `sips`, la superficie,
+   il PDF vero. E soprattutto NON prova la cosa che conta di più: se il
+   contesto proposto dal modello sia GIUSTO — quello lo dice solo un docente
+   che guarda la sua fonte, ed è il motivo per cui la scheda si corregge.
    Uso: node tools/smoke/visione-fogli.js                                     */
 'use strict';
 const path = require('path');
@@ -44,13 +48,16 @@ window.MappAIPipelineCore = require(path.join(RADICE, 'public', 'js', 'mappai-pi
 window.MappAIClona = require(path.join(RADICE, 'public', 'js', 'mappai-clona-core.js'));
 window.salvageTruncatedJSON = (s) => { try { return JSON.parse(s); } catch (e) { return null; } };
 
-/* ── la mappa aperta: serve solo come CASA dei materiali ──────────────────── */
+/* ── la mappa aperta (per il gesto di ELABORA) ────────────────────────────── */
 window.appState = {
     rootNodeLabel: 'Il Monachesimo',
     activeVaultPath: '/finto/vault/Il Monachesimo',
     extractionMode: 'mindmap',
     db: { nodes: [{ id: 'n0', level: 0, label: 'Il Monachesimo' }, { id: 'n1', level: 1, label: 'La regola' }], studySets: [] }
 };
+/* `StorageManager` è una const lessicale nell'app (inv. 3): qui un finto
+   globale basta — il banco misura che il dossier NON erediti l'id. */
+global.StorageManager = { currentProjectId: 'proj_vecchio', saveCurrentProject() { } };
 window.getSystemKey = () => 'chiave-finta';
 window.getDescendants = () => [];
 window.cleanLabel = (x) => String(x || '');
@@ -60,14 +67,12 @@ window.showLoadingOverlay = () => { };
 window.safeCreateIcons = () => { };
 window.t = (k, f) => f;
 window.QUIZ_TEMPERATURE = 0.7;
-
-/* i due generatori passano da `fillPromptTemplate`: senza template si usa il
-   ripiego inline, che è esattamente il caso di un `prompts_config.json` vecchio */
 window.fillPromptTemplate = () => '';
 window.openQuestionsAngleBlock = (ang) => 'ANGOLO: ' + ang;
-/* il foglio flashcard vuole le sue misure: si carica il modulo VERO, o
-   `generaSet` si ferma prima di scrivere il PDF (ed è giusto così) */
 window.MappAIPrintLayout = require(path.join(RADICE, 'public', 'js', 'mappai-print-layout.js'));
+/* `_resolveFolderPath` compone il percorso del vault con FilesCore vero */
+window.MappAIFilesCore = require(path.join(RADICE, 'public', 'js', 'mappai-files-core.js'));
+window.buildVaultMapData = () => ({ nodes: window.appState.db.nodes, links: window.appState.db.links || [] });
 
 /* ── che cosa il modello ha DAVVERO ricevuto ──────────────────────────────── */
 const materiali = [];
@@ -76,19 +81,22 @@ window.fetchModelAPI = async function (payload) {
     materiali.push(testo);
     const domande = /DOMANDE APERTE|domande aperte/i.test(testo) || /traccia/i.test(testo);
     const dati = domande
-        ? [{ domanda: 'Che cosa suggerisce la scena?', traccia: 'La gerarchia.', righe: 5, aree: [], livello: 'base' }]
-        : [{ front: 'Chi è raffigurato?', back: 'Un abate' }];
+        ? [{ domanda: 'Che cosa vuole ottenere questa fonte?', traccia: 'La persuasione.', righe: 5, aree: [], livello: 'base' }]
+        : [{ front: 'Che genere di fonte è?', back: 'Un manifesto' }];
     return { candidates: [{ content: { parts: [{ text: JSON.stringify(dati) }] } }] };
 };
 window.injectClassTuning = (p) => p;
 
 /* ── il disco e l'archivio, finti ─────────────────────────────────────────── */
 const scritti = [];
+const vaults = [];
 const archivio = [];
 window.electronAPI = {
     htmlToPdf: async () => ({ ok: true, base64: 'JVBERi0xLjQK' + 'A'.repeat(400) }),
-    saveVaultFile: async ({ relPath }) => { scritti.push(relPath); return { ok: true }; },
-    saveVault: async () => ({ ok: true })
+    saveVaultFile: async ({ vaultPath, relPath }) => { scritti.push(vaultPath + '::' + relPath); return { ok: true }; },
+    saveVault: async ({ folderPath }) => { vaults.push(folderPath); return { success: true }; },
+    getAllVaults: async () => [],
+    filesRootGet: async () => ({ mapsBaseDir: '/finto/Mappe' })
 };
 window.MappAIStudyDocs = {
     save(d) { archivio.push(d); return 'doc' + archivio.length; },
@@ -96,82 +104,102 @@ window.MappAIStudyDocs = {
     list() { return archivio.map((d, i) => ({ id: 'doc' + (i + 1), kind: d.kind, title: d.title, mapName: d.mapName, hasHtml: true })); }
 };
 window.MappAIVaults = { segnala() { } };
-window.buildQuizSetHtml = () => '<html></html>';
-window.buildFlashcardSetHtml = () => '<html></html>';
+window.MappAITune = { congela: () => null, scongela() { } };
 require(path.join(RADICE, 'public', 'js', 'mappai-quiz-print.js'));
 require(path.join(RADICE, 'public', 'js', 'mappai-material-pipeline.js'));
 const P = window.MappAIPipeline;
 
-/* ── LA SCHEDA, corretta dal docente ──────────────────────────────────────── */
-const LETTURA = { descrizione: 'Un uomo in tunica scura consegna un rotolo a due figure inginocchiate davanti a un edificio con archi.', contesto: 'Forse l\'incoronazione di Carlo Magno nell\'anno 800.' };
-const SCHEDA = {
-    titolo: 'Miniatura della regola',
-    /* il docente CANCELLA l'ipotesi del modello e scrive quella vera: è il
-       gesto per cui la scheda esiste */
-    contesto: 'Miniatura del XII secolo: un abate consegna la regola ai monaci.',
-    descrizione: LETTURA.descrizione,
-    fotoB64: 'RkFLRUpQRUc=', mime: 'image/jpeg'
-};
-const MATERIALE = VC.materialeDaScheda(SCHEDA);
+/* ── LA SCHEDA: l'ipotesi del modello, CORRETTA dal docente ───────────────── */
+const GREZZA = VC.normalizzaAnalisi(JSON.stringify({
+    identita: { genere: 'Manifesto', titolo: 'Sottoscrivete!', autore: '', data: '1936', luogo: 'Italia', tecnica: 'Litografia' },
+    osservazione: { descrizione: 'Un soldato indica l\'osservatore su fondo rosso.', testo: 'SOTTOSCRIVETE AL PRESTITO', iconografia: 'Elmetto, tricolore.', linguaggioVisivo: 'Figura vista dal basso, campitura piatta.', tipografia: 'Maiuscolo pieno, corpo enorme.' },
+    interpretazione: { corrente: 'Futurismo', committente: '', destinatario: 'Civili adulti — il soldato guarda dritto chi legge', finalita: 'Persuadere — imperativo nello slogan e dito puntato', strategie: 'Appello al dovere — il gesto e il maiuscolo', diffusione: '' },
+    critica: { prova: 'Lo Stato aveva bisogno di fondi dai civili.', tace: 'Le condizioni reali del fronte.' }
+}), window.salvageTruncatedJSON);
+const SCHEDA = Object.assign({ titolo: 'Sottoscrivete al prestito', fotoB64: 'RkFLRUpQRUc=', mime: 'image/jpeg' }, GREZZA);
+/* il docente CORREGGE: la data del modello era sbagliata */
+SCHEDA.identita = Object.assign({}, SCHEDA.identita, { data: '1917' });
 
 (async function () {
-    console.log('\n── DA UN\'IMMAGINE: le domande aperte, un foglio per angolo ──');
+    console.log('\n── LA REGOLA DELL\'APPIGLIO, sulla risposta grezza ──');
+    ok(GREZZA.interpretazione.corrente === '', '«Futurismo» senza appiglio è stato SCARTATO dalla normalizzazione');
+    ok(GREZZA.interpretazione.finalita.includes('—'), 'la finalità con l\'appiglio è rimasta');
 
-    const angoli = ['causa', 'conseguenza', 'confronto'];
-    for (const a of angoli) {
+    console.log('\n── IL DOSSIER: scheda → vault → analisi → output ──');
+    await P.run({
+        classId: '', quiz: { types: ['flashcards', 'open'], perBranch: 2, angle: 'auto' },
+        nodesheet: { fmt: '2x2' },            /* spuntato per sbaglio: va forzato spento */
+        causal: true,
+        synthesis: null,
+        dossier: SCHEDA
+    });
+
+    /* `saveVault` gira due volte (la creazione + il ri-salvataggio dei set a
+       fine step B): conta il PERCORSO, non il numero di chiamate */
+    ok(vaults.length >= 1 && vaults[0].includes('Sottoscrivete al prestito'),
+        'il vault del dossier porta il TITOLO della fonte: ' + vaults[0]);
+    ok(StorageManager.currentProjectId !== 'proj_vecchio',
+        '⚠️ identità NUOVA (inv. 20): il dossier non si scrive nella scheda della mappa di prima');
+    const st = window.appState;
+    ok(st.rootNodeLabel === 'Sottoscrivete al prestito', 'la mappa a schermo è il dossier');
+    ok(st.db.nodes.length === 5 && st.db.nodes[0].level === 0,
+        'il grafo È la scheda: root + 4 blocchi (' + st.db.nodes.length + ' nodi)');
+    ok(st.db.nodes.some(n => n.desc && n.desc.includes('1917')),
+        '⚠️ la CORREZIONE del docente è nei rami (1917, non 1936)');
+
+    const docAn = archivio.find(d => d.kind === 'analisi');
+    ok(!!docAn, 'l\'analisi è in ARCHIVIO (la sorgente prima della resa, inv. 18)');
+    const rilettura = window.schedaFromAnalisiHtml(docAn ? docAn.html : '');
+    ok(!!(rilettura && rilettura.identita && rilettura.identita.data === '1917'),
+        'la scheda si RILEGGE dal documento: si riapre e si ricorregge');
+    ok(!!(rilettura && rilettura.fotoB64 === 'RkFLRUpQRUc='), 'l\'immagine viaggia nella sorgente');
+    ok(scritti.some(x => /Analisi-fonte-/.test(x)), 'il PDF dell\'analisi è nel vault');
+
+    ok(!scritti.some(x => /Foglio-nodi/.test(x)) && !scritti.some(x => /Catena/.test(x)),
+        '⚠️ fogli-nodi e catena FORZATI spenti su un dossier (inv. 21)');
+    ok(scritti.some(x => /Flashcard-/.test(x)), 'le flashcard del dossier sono nel vault');
+    ok(scritti.some(x => /Domande-aperte-/.test(x)), 'le domande aperte del dossier sono nel vault');
+    /* ogni ramo del dossier è UN blocco: la data sta nel ramo «identità», la
+       finalità in quello dell'interpretazione — messaggi diversi */
+    ok(materiali.some(m => m.includes('1917')) && materiali.some(m => m.includes('Persuadere')),
+        'i generatori hanno ricevuto i BLOCCHI corretti, non l\'ipotesi del modello');
+    ok(!materiali.some(m => m.includes('1936')),
+        '⚠️ la data SBAGLIATA del modello non arriva a nessun generatore');
+
+    console.log('\n── IL GESTO DI ELABORA (fase 1): un foglio per angolo ──');
+    /* si torna alla mappa vera: il gesto singolo lavora nel vault aperto */
+    window.appState.rootNodeLabel = 'Il Monachesimo';
+    window.appState.activeVaultPath = '/finto/vault/Il Monachesimo';
+    window.appState.extractionMode = 'mindmap';
+    window.appState.db = { nodes: [{ id: 'n0', level: 0, label: 'Il Monachesimo' }, { id: 'n1', level: 1, label: 'La regola' }], studySets: [] };
+    const MAT = VC.materialeDaScheda(SCHEDA);
+    const INTRO = {
+        fotoB64: SCHEDA.fotoB64, mime: SCHEDA.mime, titolo: SCHEDA.titolo,
+        contesto: VC.contestoBreve(SCHEDA),
+        descrizione: VC.testoBlocco(SCHEDA, 'osservazione')
+    };
+    const prima = archivio.length;
+    for (const a of ['causa', 'conseguenza', 'confronto']) {
         const r = await P.generaSet({
             tipo: 'open', nome: SCHEDA.titolo + ' - ' + a, quantita: 3, area: 'all', angolo: a,
-            sorgente: { etichetta: SCHEDA.titolo, materiale: MATERIALE },
-            intro: { fotoB64: SCHEDA.fotoB64, mime: SCHEDA.mime, titolo: SCHEDA.titolo, contesto: SCHEDA.contesto, descrizione: SCHEDA.descrizione }
+            sorgente: { etichetta: SCHEDA.titolo, materiale: MAT }, intro: INTRO
         });
         ok(r && r.ok, 'angolo «' + a + '»: foglio generato' + (r && r.errore ? ' — ' + r.errore : ''));
     }
-
-    // 1. la scheda corretta è quella che arriva al modello
-    const primo = materiali[0] || '';
-    ok(primo.includes('Miniatura del XII secolo'), 'il CONTESTO corretto dal docente arriva al generatore');
-    ok(!primo.includes('Forse l\'incoronazione'), '⚠️ l\'ipotesi CANCELLATA dal docente non arriva al generatore');
-    ok(!primo.includes('La regola'), 'il materiale è la FONTE, non le macro-aree della mappa');
-
-    // 2. tre fogli, tre nomi
-    ok(archivio.length === 3, 'tre angoli → tre voci d\'archivio (trovate ' + archivio.length + ')');
-    const titoli = archivio.map(d => d.title);
-    ok(new Set(titoli).size === 3, 'i tre titoli sono distinti: ' + titoli.join(' · '));
-    ok(titoli.every(x => x.includes(SCHEDA.titolo)), 'ogni titolo dice DA QUALE fonte viene');
-    const pdf = scritti.filter(x => /Domande/i.test(x));
-    ok(new Set(pdf).size === 3, 'tre file distinti nel vault (trovati ' + new Set(pdf).size + ')');
-
-    // 3-4. l'immagine sul foglio E nella sorgente
-    const html = archivio[0].html || '';
+    const fogli = archivio.slice(prima).filter(d => d.kind === 'quizpaper');
+    ok(fogli.length === 3 && new Set(fogli.map(d => d.title)).size === 3,
+        'tre angoli → tre fogli con tre titoli distinti');
+    const html = fogli[0].html || '';
     ok(html.includes('data:image/jpeg;base64,' + SCHEDA.fotoB64), 'l\'immagine è INCORPORATA nel foglio');
-    ok(html.includes('Miniatura del XII secolo'), 'il contesto è in testa al foglio');
+    ok(html.includes('1917'), 'il contesto breve (con la data corretta) è in testa');
     const rip = window.MappAIQuizPrint.setFromHtml(html);
     ok(!!(rip && rip.intro && rip.intro.fotoB64 === SCHEDA.fotoB64),
-        '⚠️ l\'intro sta nella SORGENTE: l\'editor non perde l\'immagine al primo salvataggio');
-    ok(!!(rip && rip.intro && rip.intro.descrizione), 'la descrizione viaggia col documento (serve alle tracce)');
-
-    // la descrizione NON sta sul foglio degli allievi: è la risposta a metà delle domande
+        'l\'intro sta nella SORGENTE: l\'editor non perde l\'immagine al salvataggio');
     const senzaSol = window.buildOpenQuestionsHtml(
         { id: 'x', title: 'prova', intro: rip.intro, items: rip.items }, { includeAnswers: false, includeBar: false });
-    ok(!senzaSol.includes(SCHEDA.descrizione),
-        '⚠️ la DESCRIZIONE non compare sulla copia degli allievi');
-    ok(senzaSol.includes('Miniatura del XII secolo'), 'il contesto invece sì: è la cornice della verifica');
+    ok(!senzaSol.includes('SOTTOSCRIVETE AL PRESTITO'),
+        '⚠️ l\'OSSERVAZIONE non compare sulla copia degli allievi (risposta a metà delle domande)');
 
-    // 5. le flashcard dalla STESSA scheda
-    console.log('\n── DALLA STESSA SCHEDA: le flashcard ──');
-    const prima = window.appState.db.studySets.length;
-    const rf = await P.generaSet({
-        tipo: 'flashcards', nome: SCHEDA.titolo, quantita: 4, area: 'all', angolo: 'auto',
-        sorgente: { etichetta: SCHEDA.titolo, materiale: MATERIALE }
-    });
-    ok(rf && rf.ok, 'flashcard generate dalla stessa sorgente' + (rf && rf.errore ? ' — ' + rf.errore : ''));
-    ok(window.appState.db.studySets.length === prima + 1, 'il set è nel vault (è giocabile, non è un foglio)');
-    const ultimo = window.appState.db.studySets[window.appState.db.studySets.length - 1];
-    ok(ultimo.clone === SCHEDA.titolo, 'il set porta il nome della fonte in `clone` (ELABORA lo legge da lì)');
-    ok(materiali[materiali.length - 1].includes('Miniatura del XII secolo'),
-        'anche le flashcard nascono dalla scheda, non da una seconda lettura');
-
-    // il caso che rompe tutto in silenzio: una sorgente vuota deve tornare ai rami
     console.log('\n── LA RETE: una sorgente vuota non fa sparire la mappa ──');
     const r2 = await P.generaSet({ tipo: 'flashcards', nome: 'dalla mappa', quantita: 2, area: 'all', angolo: 'auto', sorgente: { etichetta: '', materiale: '   ' } });
     ok(r2 && r2.ok, 'con una sorgente vuota si generano dai rami come sempre');

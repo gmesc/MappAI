@@ -389,6 +389,9 @@
 
   /* prefisso · estensione · se il tipo accetta un dettaglio dal motore */
   var GENERI = {
+    /* L'ANALISI DELLA FONTE (20/8): la scheda a quattro blocchi di una fonte
+       iconografica — il documento da cui nasce un DOSSIER. */
+    analisi_fonte: { pre: 'Analisi-fonte', est: '.pdf' },
     quiz_mc: { pre: 'Quiz-MC', est: '.pdf' },
     quiz_tf: { pre: 'Quiz-VF', est: '.pdf' },
     flashcards: { pre: 'Flashcard', est: '.pdf' },

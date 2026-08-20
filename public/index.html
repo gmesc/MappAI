@@ -718,6 +718,16 @@
                             </svg>
                             <span class="source_btn_text" data-i18n="src_docs">Documenti</span>
                         </div>
+                        <div id="btn-src-img" class="btn_selezione_input" onclick="window.addSource('img')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="lucide lucide-image">
+                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                                <circle cx="9" cy="9" r="2" />
+                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                            </svg>
+                            <span class="source_btn_text" data-i18n="src_img">Immagini</span>
+                        </div>
                         <div id="btn-src-text" class="btn_selezione_input" onclick="window.addSource('text')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -3242,7 +3252,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=dh28"></script>
+    <script src="js/app.js?v=dos1"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3297,18 +3307,18 @@
     <!-- VISIONE (20/8): leggere una fotografia col motore locale. Il core è puro
          e testato in Node — lo carica anche main.js per gli IPC; il modulo del
          gesto va PRIMA di «Crea un documento», che lo interroga. -->
-    <script src="js/mappai-visione-core.js?v=vis1"></script>
+    <script src="js/mappai-visione-core.js?v=dos1"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js?v=kw1"></script>
-    <script src="js/mappai-quiz-print.js?v=vis1"></script>
+    <script src="js/mappai-quiz-print.js?v=dos1"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-entity-backbone.js"></script>
     <script src="js/mappai-suggestions-panel.js"></script>
     <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
-    <script src="js/mappai-study-export-core.js?v=cm1"></script>
+    <script src="js/mappai-study-export-core.js?v=dos1"></script>
     <!-- Costruttore documento di studio adattato (shell condiviso #3/#4/#5 export HTML→PDF) -->
     <script src="js/mappai-study-doc.js?v=font1"></script>
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
@@ -3379,8 +3389,8 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=ang3"></script>
-    <script src="js/mappai-landing-teach.js?v=sc1"></script>
+    <script src="js/mappai-pipeline-core.js?v=dos1"></script>
+    <script src="js/mappai-landing-teach.js?v=dos1"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -3401,14 +3411,14 @@
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=vis1"></script>
-    <script src="js/mappai-material-pipeline.js?v=vis1"></script>
+    <script src="js/mappai-elabora-console.js?v=dos1"></script>
+    <script src="js/mappai-material-pipeline.js?v=dos1"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
-    <script src="js/mappai-visione.js?v=vis1"></script>
-    <script src="js/mappai-crea-quiz.js?v=vis1"></script>
+    <script src="js/mappai-visione.js?v=dos1"></script>
+    <script src="js/mappai-crea-quiz.js?v=dos1"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=ang3"></script>
+    <script src="js/mappai-bento-composizione.js?v=dos1"></script>
     <script src="js/mappai-costruisci-manifesto.js?v=ang2"></script>
     <script src="js/mappai-usage-core.js?v=dh12"></script>
     <script src="js/mappai-usage-tracker.js"></script>
@@ -3434,7 +3444,7 @@
     <script src="js/mappai-errori.js?v=dh23"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=vis1"></script>
+    <script src="js/mappai-cabina.js?v=dos1"></script>
     <script src="js/mappai-search-finder.js"></script>
     <script src="js/mappai-vault-manager.js?v=sf1"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>

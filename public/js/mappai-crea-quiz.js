@@ -329,9 +329,18 @@
                     etichetta: sch.titolo,
                     materiale: (window.MappAIVisioneCore ? window.MappAIVisioneCore.materialeDaScheda(sch) : '')
                 } : null,
+                /* L'intro del foglio: il CONTESTO è la riga breve (identità +
+                   finalità), mai l'osservazione — sul foglio degli allievi
+                   sarebbe la risposta a metà delle domande. L'osservazione
+                   viaggia in `descrizione`, che il builder mette SOLO sulle
+                   tracce di correzione. */
                 intro: sch ? {
                     fotoB64: sch.fotoB64 || '', mime: sch.mime || 'image/jpeg',
-                    titolo: sch.titolo || '', contesto: sch.contesto || '', descrizione: sch.descrizione || ''
+                    titolo: sch.titolo || '',
+                    contesto: (window.MappAIVisioneCore && window.MappAIVisioneCore.contestoBreve)
+                        ? window.MappAIVisioneCore.contestoBreve(sch) : '',
+                    descrizione: (window.MappAIVisioneCore && window.MappAIVisioneCore.testoBlocco)
+                        ? window.MappAIVisioneCore.testoBlocco(sch, 'osservazione') : ''
                 } : null
             }, angoli);
         });

@@ -603,6 +603,101 @@ window.buildOpenQuestionsHtml = function (set, opts) {
 </html>`;
 };
 
+// ══ ANALISI DELLA FONTE (20/8) ══════════════════════════════════════════════
+// Il documento del DOSSIER: l'immagine in testa, poi i quattro blocchi della
+// griglia (`MappAIVisioneCore.BLOCCHI` — fonte unica: il documento non elenca
+// i campi per conto suo). I campi vuoti NON si stampano.
+// La SORGENTE — la scheda intera — viaggia incorporata in `qp-scheda`
+// (invariante 18): il documento si riapre e si ricorregge; da un PDF non si
+// ricava più niente.
+window.buildAnalisiFonteHtml = function (scheda, opts) {
+    opts = opts || {};
+    scheda = scheda || {};
+    const VC = window.MappAIVisioneCore;
+    const mapName = opts.mapName || scheda.titolo || _qpMapName();
+    const now = opts.now || _qpData();
+    const accentColor = '#7c3aed';   // violet: non è un quiz (indigo) né un foglio aperto (teal)
+    const includeBar = opts.includeBar !== false;
+
+    const foto = scheda.fotoB64
+        ? `<img src="data:${scheda.mime || 'image/jpeg'};base64,${scheda.fotoB64}" alt="${escHtmlQP(scheda.titolo || '')}" style="
+              display:block; max-width:100%; max-height:420px;
+              margin:0 auto 16px; border-radius:8px;">`
+        : '';
+
+    let blocchiHtml = '';
+    ((VC && VC.BLOCCHI) || []).forEach(bl => {
+        const campi = bl.campi.filter(c => String(((scheda[bl.id] || {})[c.id]) || '').trim());
+        if (!campi.length) return;
+        blocchiHtml += `
+        <div style="
+            background:white; border-radius:12px;
+            padding:18px 22px; margin-bottom:16px;
+            border-left:4px solid ${accentColor};
+            page-break-inside:avoid;">
+            <div style="
+                font-size:12px; font-weight:900; text-transform:uppercase;
+                letter-spacing:0.06em; color:${accentColor}; margin-bottom:10px;">
+                ${escHtmlQP(bl.titolo)}${bl.interpretativo ? `<span style="
+                    margin-left:8px; font-size:9px; font-weight:700; letter-spacing:0.06em;
+                    color:#475569; background:#f1f5f9; border-radius:999px; padding:2px 8px;
+                    text-transform:uppercase;">interpretazione</span>` : ''}
+            </div>
+            ${campi.map(c => `
+            <div style="margin-bottom:9px; line-height:1.55; page-break-inside:avoid;">
+                <span style="font-size:11px; font-weight:700; color:#64748b;
+                    text-transform:uppercase; letter-spacing:0.04em;">${escHtmlQP(c.et)}</span>
+                <div style="font-size:13px; color:#1e293b;">${escHtmlQP((scheda[bl.id] || {})[c.id])}</div>
+            </div>`).join('')}
+        </div>`;
+    });
+
+    return `<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Analisi della fonte — ${escHtmlQP(scheda.titolo || mapName)}</title>
+    <style>
+        ${_fontDoc(opts.font)}
+        ${QP_PAGE_STYLES}
+        ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
+        body { font-size: 13px; }
+        .mm-dh__b { background:#ede9fe; color:${accentColor}; }
+    </style>
+</head>
+<body>
+    ${includeBar ? QP_PRINT_BAR(accentColor, 'Analisi della fonte') : ''}
+
+    ${_qpTestata({
+        titolo: scheda.titolo || mapName, tipo: 'Analisi della fonte', mappa: mapName,
+        classe: opts.classe, materia: opts.materia, data: now,
+        badge: 'Fonte iconografica'
+    })}
+
+    ${foto}
+    ${blocchiHtml}
+
+    <script type="application/json" id="qp-scheda">${JSON.stringify({
+        titolo: scheda.titolo || '', mime: scheda.mime || '', fotoB64: scheda.fotoB64 || '',
+        identita: scheda.identita || {}, osservazione: scheda.osservazione || {},
+        interpretazione: scheda.interpretazione || {}, critica: scheda.critica || {}
+    }).replace(/<\//g, '<\\/')}<\/script>
+
+    ${_qpPie({ mappa: mapName, data: now })}
+</body>
+</html>`;
+};
+// La scheda incorporata, riletta: è ciò che permette di riaprire il documento
+// e ricorreggerlo (la strada di ELABORA › Modifica).
+window.schedaFromAnalisiHtml = function (html) {
+    try {
+        const m = /<script type="application\/json" id="qp-scheda">([\s\S]*?)<\/script>/i.exec(String(html || ''));
+        if (!m) return null;
+        const o = JSON.parse(m[1].replace(/<\\\//g, '</'));
+        return (o && typeof o === 'object') ? o : null;
+    } catch (e) { return null; }
+};
+
 // Consumer: risolve il set e apre la finestra di stampa.
 // opts: { includeAnswers? } — la scelta «con/senza soluzioni» arriva da INSEGNA.
 window.printQuizSet = function (setId, opts) {

@@ -3,8 +3,15 @@
 
    Nasce da una richiesta di docenti di STORIA di scuola media: da una fonte
    iconografica — una miniatura, un manifesto, una carta, una pagina di
-   manuale — ricavare (1) un testo di CONTESTO e DESCRIZIONE e (2) le domande
-   aperte con i vari angoli (e le flashcard).
+   manuale — ricavare una SCHEDA DI ANALISI (tecnica, periodo, corrente,
+   finalità, destinatario, diffusione, elementi grafici e tipografici) e da lì
+   i materiali: flashcard, domande aperte, sintesi.
+
+   LA GRIGLIA È QUATTRO BLOCCHI, e la divisione non è redazionale:
+     A · carta d'identità   — genere, titolo, autore, data, luogo, tecnica
+     B · che cosa si vede   — OSSERVAZIONE: il modello è affidabile
+     C · che cosa vuole ottenere — INTERPRETAZIONE: qui inventa
+     D · che cosa prova questa fonte — che cosa dimostra, che cosa tace
 
    ⚠️ LA DECISIONE CHE REGGE TUTTO IL RESTO.
    Un modello di visione DESCRIVE bene e CONTESTUALIZZA male. Su una miniatura
@@ -12,14 +19,19 @@
    poi può INVENTARE «è l'incoronazione di Carlo Magno, anno 800». Costruirci
    sopra sette fogli di domande vuol dire sette verifiche sbagliate, con
    l'errore nascosto nella premessa — dove nessuno lo cerca.
-   Quindi la lettura tiene i due campi SEPARATI:
-     · `descrizione` = che cosa si vede, e basta (qui il modello è affidabile);
-     · `contesto`    = che cosa potrebbe essere, dichiarato come ipotesi.
-   E il contesto lo CORREGGE il docente prima di generare: quello, di una fonte
-   storica, lo sa lui e il modello no.
-   Corollario nel codice: se la risposta non arriva in forma, il testo nudo
-   diventa `descrizione`, MAI `contesto`. Il campo che si può inventare non si
-   riempie per ripiego.
+   Quindi i blocchi che si OSSERVANO stanno separati da quelli che si
+   INTERPRETANO, e il docente corregge i secondi prima di generare: il contesto
+   di una fonte storica lo sa lui e il modello no.
+   Due regole tengono la griglia onesta, ed è codice, non buona volontà:
+     1. OGNI campo di C porta il suo APPIGLIO VISIVO — non «propagandistico»,
+        ma «propagandistico — lo dicono lo slogan in maiuscolo e la figura vista
+        dal basso». Un campo interpretativo SENZA appiglio viene SCARTATO in
+        `normalizzaAnalisi`: il prompt lo chiede, il codice lo impone, perché un
+        modello le istruzioni ogni tanto le ignora. Così l'invenzione si verifica
+        guardando l'immagine, in due secondi.
+     2. Se la risposta non arriva in forma, il testo nudo cade in B, MAI in C o
+        in D. Il campo che si può inventare non si riempie per ripiego —
+        altrimenti il ripiego è il posto da cui entra l'invenzione.
 
    Logica pura: niente DOM, niente `window`, niente rete (invariante 4).
    Chi chiama: `mappai-visione.js` (UI), gli IPC di main.js per i parametri.
@@ -40,18 +52,19 @@
     }
 
     /* ── I FORMATI ────────────────────────────────────────────────────────────
-       Le quattro famiglie chieste. `heif` viaggia con `heic` (è lo stesso
-       contenitore con due estensioni) e `tif` con `tiff`: due nomi per la
-       stessa cosa, e chi arriva dallo scanner ha l'uno o l'altro. */
-    var ESTENSIONI = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.tif', '.tiff'];
+       `heif` viaggia con `heic`: è lo stesso contenitore con due estensioni.
+       ⚠️ Il TIFF è FUORI (20/8, decisione di Giacomo): nessuno dei consumatori
+       lo mostra — non il browser, non i documenti — e teneva in piedi una
+       conversione per un formato che dalle fotocamere non esce. */
+    var ESTENSIONI = ['.jpg', '.jpeg', '.png', '.heic', '.heif'];
     var MIME = {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-        '.heic': 'image/heic', '.heif': 'image/heif',
-        '.tif': 'image/tiff', '.tiff': 'image/tiff'
+        '.heic': 'image/heic', '.heif': 'image/heif'
     };
-    /* Che cosa il MOTORE sa decodificare da sé: llama.cpp legge jpeg e png e
-       nient'altro. Tutto il resto passa da una conversione (`sips`, macOS) —
-       ed è il motivo per cui heic e tiff, fuori da macOS, dicono perché no
+    /* Che cosa si può mostrare e incorporare SENZA conversione. Gemini l'HEIC lo
+       accetta, ma **Chromium non lo decodifica**: la scheda deve far vedere la
+       foto e il documento se la porta dentro, quindi la conversione serve lo
+       stesso — ed è il motivo per cui, fuori da macOS, l'HEIC dice perché no
        invece di fallire con un errore di libreria. */
     var LEGGIBILI = ['.jpg', '.jpeg', '.png'];
 
@@ -83,11 +96,10 @@
        una foto da 60 MP fa fuori la memoria del processo che la converte. */
     var MAX_BYTE_SORGENTE = 40 * 1024 * 1024;
 
-    var MODELLO_DEF = 'qwen2.5vl:7b';
-    var HOST_DEF = 'http://127.0.0.1:11434';
-    /* Una lettura su un Air dura decine di secondi: il tetto sta largo, e a
-       tenere sveglio l'utente ci pensa il velo che dice a che punto è. */
-    var TIMEOUT_DEF = 180000;
+    /* La lettura è una chiamata a Gemini via `fetchModelAPI` (20/8 sera: il
+       motore locale è stato tolto — vedi il commit). L'analisi a quattro
+       blocchi è lunga: il tetto sta sopra i default dei quiz. */
+    var MAX_TOKEN_ANALISI = 4096;
 
     /* ── IL TITOLO DELLA FONTE ────────────────────────────────────────────────
        Dal nome del file, ripulito: è quello che il docente vedrà nella scheda e
@@ -103,27 +115,31 @@
         return n || _tSafe('vs_titolo_def', 'Immagine');
     }
 
-    /* ── IL PROMPT DELLA LETTURA ──────────────────────────────────────────────
-       Due campi, e la regola che li separa scritta dentro il prompt e non solo
-       nella nostra testa: il modello deve sapere che il contesto è il campo in
-       cui gli è permesso NON rispondere. Senza quella licenza esplicita, un
-       modello risponde sempre — ed è esattamente il modo in cui nasce la
-       premessa inventata.
-       La `notaDocente`, se c'è, entra come VINCOLO e non come suggerimento: chi
-       scrive «miniatura del XII secolo, ms. lat. 000» sta correggendo il
-       modello, non chiedendogli un parere. */
-    function promptLettura(opts) {
+    /* ── IL PROMPT DELL'ANALISI ───────────────────────────────────────────────
+       Quattro blocchi, e le due regole scritte DENTRO il prompt, non solo nella
+       nostra testa: il modello deve sapere che i campi interpretativi sono
+       quelli in cui gli è permesso NON rispondere, e che un'interpretazione
+       senza appiglio visivo non vale. Senza quella licenza esplicita un modello
+       risponde sempre — ed è il modo in cui nasce la premessa inventata.
+       La `notaDocente`, se c'è, entra come VINCOLO e non come suggerimento. */
+    function promptAnalisi(opts) {
         opts = opts || {};
         var nome = String(opts.nome || '').trim();
         var nota = String(opts.notaDocente || '').trim();
         var righe = [];
-        righe.push('Guarda questa immagine e rispondi SOLO con un JSON:');
-        righe.push('{"descrizione":"…","contesto":"…"}');
+        righe.push('Sei uno storico che analizza una fonte iconografica per una classe di scuola media. Guarda questa immagine e rispondi SOLO con un JSON:');
+        righe.push('{"identita":{"genere":"…","titolo":"…","autore":"…","data":"…","luogo":"…","tecnica":"…"},');
+        righe.push(' "osservazione":{"descrizione":"…","testo":"…","iconografia":"…","linguaggioVisivo":"…","tipografia":"…"},');
+        righe.push(' "interpretazione":{"corrente":"…","committente":"…","destinatario":"…","finalita":"…","strategie":"…","diffusione":"…"},');
+        righe.push(' "critica":{"prova":"…","tace":"…"}}');
         righe.push('');
-        righe.push('DESCRIZIONE — che cosa si vede, in modo concreto e verificabile: persone, oggetti, gesti, ambienti, colori, disposizione. Se nell\'immagine c\'è del TESTO, trascrivilo per intero e alla lettera dentro la descrizione. Da 60 a 150 parole.');
-        righe.push('CONTESTO — che cosa l\'immagine rappresenta e a che cosa si riferisce (epoca, luogo, avvenimento, genere della fonte).');
-        righe.push('⚠️ Il contesto è l\'unico campo in cui puoi dire di non sapere: se non riconosci con certezza la fonte, lascia "contesto" come stringa VUOTA. Non tirare a indovinare nomi, date o avvenimenti: una data sbagliata qui diventa una verifica sbagliata in classe. Meglio vuoto che inventato.');
-        righe.push('Scrivi in italiano, in prosa continua, senza elenchi e senza markdown.');
+        righe.push('IDENTITA — che genere di fonte è (manifesto, dipinto, fotografia, vignetta, miniatura, carta, pubblicità), titolo o slogan, autore o firma SE VISIBILI, data o periodo, luogo e lingua, tecnica e supporto (litografia, xilografia, olio, fotografia, offset).');
+        righe.push('OSSERVAZIONE — solo ciò che si VEDE, concreto e verificabile: "descrizione" (la scena, denotativa); "testo" (ogni scritta trascritta PER INTERO e alla lettera); "iconografia" (simboli, attributi, allegorie); "linguaggioVisivo" (composizione, punto di vista, luce, colore, gerarchia dimensionale, sguardi e gesti); "tipografia" (caratteri, corpo, gerarchia, rapporto testo-immagine).');
+        righe.push('INTERPRETAZIONE — che cosa la fonte vuole ottenere: corrente grafica o artistica, committente, destinatario, finalità (informare, celebrare, persuadere, vendere, denigrare), strategie persuasive (appello all\'emozione, autorità, urgenza, noi/loro, semplificazione), diffusione (dove circolava, come, per quanto).');
+        righe.push('⚠️ REGOLA DELL\'APPIGLIO: ogni campo di INTERPRETAZIONE deve citare l\'elemento VISIVO che lo giustifica, con un trattino — così: "propagandistica — lo dicono lo slogan in maiuscolo e la figura vista dal basso". Un\'interpretazione che non sai ancorare a qualcosa che si vede NON va scritta: lascia il campo come stringa VUOTA.');
+        righe.push('CRITICA — "prova": che cosa questa fonte DIMOSTRA davvero (le intenzioni di chi l\'ha prodotta, non i fatti che rappresenta); "tace": che cosa NON mostra, chi non è rappresentato, da quale parte sta.');
+        righe.push('⚠️ I blocchi INTERPRETAZIONE e CRITICA sono quelli in cui puoi dire di non sapere: meglio un campo vuoto che un nome, una data o una finalità inventati. Una data sbagliata qui diventa una verifica sbagliata in classe.');
+        righe.push('Scrivi in italiano, prosa continua, senza elenchi e senza markdown dentro i campi.');
         if (nome) righe.push('Il file si chiama «' + nome + '»: può aiutare, ma non è una prova.');
         if (nota) {
             righe.push('');
@@ -132,13 +148,58 @@
         return righe.join('\n');
     }
 
+    /* ── LA GRIGLIA, COME DATO ────────────────────────────────────────────────
+       I quattro blocchi coi loro campi, in UN posto: la leggono la
+       normalizzazione, la scheda del docente, il documento e i nodi del
+       dossier. Un secondo elenco divergerebbe al primo campo aggiunto (inv. 6).
+       `interpretativo`: vale la regola dell'appiglio e la licenza del vuoto. */
+    var BLOCCHI = [
+        { id: 'identita', titolo: 'Carta d\u0027identit\u00e0', interpretativo: false,
+          campi: [
+            { id: 'genere', et: 'Genere della fonte' },
+            { id: 'titolo', et: 'Titolo o slogan' },
+            { id: 'autore', et: 'Autore o firma' },
+            { id: 'data', et: 'Data o periodo' },
+            { id: 'luogo', et: 'Luogo e lingua' },
+            { id: 'tecnica', et: 'Tecnica e supporto' }
+          ] },
+        { id: 'osservazione', titolo: 'Che cosa si vede', interpretativo: false,
+          campi: [
+            { id: 'descrizione', et: 'Descrizione' },
+            { id: 'testo', et: 'Testo trascritto' },
+            { id: 'iconografia', et: 'Elementi iconografici' },
+            { id: 'linguaggioVisivo', et: 'Linguaggio visivo' },
+            { id: 'tipografia', et: 'Tipografia' }
+          ] },
+        { id: 'interpretazione', titolo: 'Che cosa vuole ottenere', interpretativo: true,
+          campi: [
+            { id: 'corrente', et: 'Corrente grafica o artistica' },
+            { id: 'committente', et: 'Committente' },
+            { id: 'destinatario', et: 'Destinatario' },
+            { id: 'finalita', et: 'Finalit\u00e0' },
+            { id: 'strategie', et: 'Strategie persuasive' },
+            { id: 'diffusione', et: 'Diffusione' }
+          ] },
+        { id: 'critica', titolo: 'Che cosa prova questa fonte', interpretativo: true,
+          campi: [
+            { id: 'prova', et: 'Che cosa dimostra' },
+            { id: 'tace', et: 'Che cosa non mostra' }
+          ] }
+    ];
+
     /* ── LA RISPOSTA, NORMALIZZATA ────────────────────────────────────────────
        `salvage` è la funzione di recupero dell'app (`salvageTruncatedJSON`,
        invariante 8): si riceve come parametro invece di cercarla su `window`,
        o questo file non si potrebbe provare in Node.
-       ⚠️ Il ripiego riempie SOLO la descrizione. Vedi la testata: il campo che
-       si può inventare non si riempie mai per ripiego. */
-    function normalizzaLettura(raw, salvage) {
+       Le DUE REGOLE della testata sono codice qui:
+       · il testo nudo cade in `osservazione.descrizione`, MAI nei blocchi
+         interpretativi;
+       · un campo di INTERPRETAZIONE senza appiglio (nessun « — » che ancora
+         l'affermazione a un elemento visivo) viene SCARTATO. Il prompt lo
+         chiede; questo lo impone, perché un modello le istruzioni ogni tanto
+         le ignora. `critica` è esente: «che cosa tace» parla per assenza, e
+         un appiglio all'assenza non esiste. */
+    function normalizzaAnalisi(raw, salvage) {
         var testo = String(raw == null ? '' : raw)
             .split('```json').join('').split('```').join('').trim();
         var o = null;
@@ -146,57 +207,113 @@
             try { o = salvage(testo); } catch (e) { o = null; }
         }
         if (!o || typeof o !== 'object' || Array.isArray(o)) {
-            /* secondo tentativo, senza dipendere da nessuno: il primo oggetto
-               che si trova nel testo (un modello ci mette spesso una frase
-               attorno — è documentato per Qwen in `mappai-json-salvage.js`) */
             var a = testo.indexOf('{'), b = testo.lastIndexOf('}');
             if (a >= 0 && b > a) {
                 try { o = JSON.parse(testo.slice(a, b + 1)); } catch (e) { o = null; }
             }
         }
-        if (o && typeof o === 'object' && !Array.isArray(o)) {
-            return {
-                descrizione: _riga(o.descrizione || o.description || ''),
-                contesto: _riga(o.contesto || o.context || '')
-            };
+        var out = {};
+        BLOCCHI.forEach(function (bl) {
+            out[bl.id] = {};
+            var src = (o && typeof o === 'object' && !Array.isArray(o)) ? (o[bl.id] || {}) : {};
+            bl.campi.forEach(function (c) {
+                var v = _riga(src[c.id]);
+                if (bl.id === 'interpretazione' && v && v.indexOf('—') < 0 && v.indexOf(' - ') < 0) {
+                    v = '';   /* interpretazione senza appiglio: non vale */
+                }
+                out[bl.id][c.id] = v;
+            });
+        });
+        if (!o || typeof o !== 'object' || Array.isArray(o)) {
+            out.osservazione.descrizione = _riga(testo);
         }
-        return { descrizione: _riga(testo), contesto: '' };
+        return out;
     }
     function _riga(x) { return String(x == null ? '' : x).replace(/\s+/g, ' ').trim(); }
 
+    /* ── IL TESTO DI UN BLOCCO, IN PROSA ─────────────────────────────────────
+       «Etichetta: valore» per i soli campi pieni. Lo usano il materiale, la
+       `desc` dei nodi del dossier e — via `BLOCCHI` — il documento: una forma
+       sola, o le tre superfici raccontano la scheda in tre modi. */
+    function testoBlocco(sch, blId) {
+        var bl = null;
+        for (var i = 0; i < BLOCCHI.length; i++) if (BLOCCHI[i].id === blId) bl = BLOCCHI[i];
+        if (!bl) return '';
+        var src = (sch && sch[blId]) || {};
+        var righe = [];
+        bl.campi.forEach(function (c) {
+            var v = _riga(src[c.id]);
+            if (v) righe.push(c.et + ': ' + v);
+        });
+        return righe.join('\n');
+    }
+
     /* ── IL MATERIALE CHE VA AL GENERATORE ────────────────────────────────────
-       L'UNICO compositore (invariante 6): lo usano le domande aperte e le
-       flashcard, e un secondo qui divergerebbe al primo ritocco.
-       L'ordine è quello: prima il contesto — che è ciò che il docente ha
-       verificato e che vale più di tutto il resto — poi la descrizione.
-       Se il contesto è vuoto non si scrive l'intestazione a vuoto: una riga
-       «CONTESTO:» seguita dal nulla insegna al modello che quel campo si può
-       lasciare in bianco anche nelle domande. */
+       L'UNICO compositore (invariante 6): lo usano le domande aperte, le
+       flashcard e la sintesi, e un secondo qui divergerebbe al primo ritocco.
+       L'ordine è quello della griglia: prima ciò che identifica, poi ciò che si
+       vede, poi ciò che si interpreta — che il docente ha verificato — e la
+       critica. I blocchi vuoti NON scrivono l'intestazione a vuoto. */
     function materialeDaScheda(sch) {
         sch = sch || {};
-        var titolo = _riga(sch.titolo);
-        var contesto = _riga(sch.contesto);
-        var descrizione = _riga(sch.descrizione);
-        var out = [];
-        out.push('FONTE ICONOGRAFICA: ' + (titolo || _tSafe('vs_titolo_def', 'Immagine')));
-        if (contesto) out.push('CONTESTO (verificato dal docente): ' + contesto);
-        if (descrizione) out.push('CHE COSA MOSTRA: ' + descrizione);
+        var out = ['FONTE ICONOGRAFICA: ' + (_riga(sch.titolo) || _tSafe('vs_titolo_def', 'Immagine'))];
+        BLOCCHI.forEach(function (bl) {
+            var t = testoBlocco(sch, bl.id);
+            if (t) out.push(bl.titolo.toUpperCase() + '\n' + t);
+        });
         return out.join('\n\n');
     }
-    /* C'è abbastanza per generare? Una descrizione di tre parole produce
-       domande inventate, ed è meglio dirlo prima di spendere le chiamate.
-       ⚠️ La soglia è BASSA di proposito (12 parole sommate fra i due campi): il
-       prompt ne chiede 60-150, quindi qui non si sta giudicando la qualità —
-       si sta fermando il caso degenere («una piazza», una risposta vuota). Una
-       soglia alta boccerebbe un contesto CORTO ma vero scritto a mano dal
-       docente — «Manifesto di propaganda del 1917 per il prestito nazionale di
-       guerra», undici parole — che è esattamente il caso in cui la scheda vale
-       di più. Dieci è il numero che lascia passare quello e ferma il resto. */
+    /* C'è abbastanza per generare? Si somma il testo di TUTTI i blocchi.
+       ⚠️ La soglia è BASSA di proposito (dieci parole): non giudica la qualità,
+       ferma il caso degenere. Una soglia alta boccerebbe una scheda corta ma
+       vera scritta a mano dal docente — il caso in cui vale di più. */
     var MIN_PAROLE = 10;
     function schedaPronta(sch) {
-        sch = sch || {};
-        var n = (_riga(sch.contesto) + ' ' + _riga(sch.descrizione)).split(/\s+/).filter(Boolean).length;
+        var n = 0;
+        BLOCCHI.forEach(function (bl) {
+            n += testoBlocco(sch, bl.id).split(/\s+/).filter(Boolean).length;
+        });
         return n >= MIN_PAROLE;
+    }
+
+    /* ── IL CONTESTO IN UNA RIGA ──────────────────────────────────────────────
+       Per la testata dei fogli di domande: l'identità e la finalità, compresse.
+       La scheda intera non ci sta — e la parte OSSERVATA non deve starci: sul
+       foglio degli allievi sarebbe la risposta a metà delle domande. */
+    function contestoBreve(sch) {
+        sch = sch || {};
+        var idn = sch.identita || {}, itp = sch.interpretazione || {};
+        var pezzi = [idn.genere, idn.data, idn.luogo, idn.tecnica]
+            .map(_riga).filter(Boolean);
+        var testa = pezzi.join(' · ');
+        var fin = _riga(itp.finalita);
+        return [testa, fin].filter(Boolean).join(' — ');
+    }
+
+    /* ── I NODI DEL DOSSIER ───────────────────────────────────────────────────
+       Il dossier è un vault VERO, e il suo grafo È la scheda: root = il titolo
+       della fonte, un L1 per blocco pieno, `desc` = il testo del blocco.
+       Deterministico: zero AI, zero «mappa generata dalla foto».
+       PERCHÉ ESISTE: un vault senza nodi rompe chi lo apre — la console di
+       ELABORA chiede `db.nodes.length`, la pipeline genera PER RAMO. Coi
+       blocchi come rami, tutto il resto dell'app funziona senza una guardia
+       nuova da nessuna parte. */
+    function nodiDaScheda(sch) {
+        sch = sch || {};
+        var titolo = _riga(sch.titolo) || _tSafe('vs_titolo_def', 'Immagine');
+        var nodes = [{ id: 'fonte_0', label: titolo, level: 0, group: 0,
+            desc: _tSafe('vs_root_desc', 'Dossier di una fonte iconografica: la scheda di analisi è nei rami.') }];
+        var links = [];
+        var g = 1;
+        BLOCCHI.forEach(function (bl) {
+            var t = testoBlocco(sch, bl.id);
+            if (!t) return;
+            var id = 'fonte_' + bl.id;
+            nodes.push({ id: id, label: bl.titolo, level: 1, group: g, desc: t });
+            links.push({ source: 'fonte_0', target: id, rel: 'analizza' });
+            g++;
+        });
+        return { nodes: nodes, links: links };
     }
 
     /* ── I GUASTI, COL RIMEDIO ────────────────────────────────────────────────
@@ -218,15 +335,27 @@
             return { codice: 'grande', messaggio: _tSafe('vs_e_big', 'L\'immagine è troppo grande.'),
                 rimedio: _tSafe('vs_e_big_r', 'Riducila (o esportala a qualità più bassa) e riprova.') };
         }
-        if (b.indexOf('econnrefused') >= 0 || b.indexOf('fetch failed') >= 0 ||
-            b.indexOf('connect ') >= 0 || b.indexOf('spento') >= 0 || b.indexOf('enotfound') >= 0) {
-            return { codice: 'spento', messaggio: _tSafe('vs_e_off', 'Il motore locale non risponde.'),
-                rimedio: _tSafe('vs_e_off_r', 'Apri Ollama e lascialo acceso, poi riprova.') };
+        if (b.indexOf('api key') >= 0 || b.indexOf('401') >= 0 || b.indexOf('403') >= 0 ||
+            b.indexOf('permission') >= 0) {
+            return { codice: 'chiave', messaggio: _tSafe('vs_e_key', 'La chiave API non è valida per questo servizio.'),
+                rimedio: _tSafe('vs_e_key_r', 'Controlla la chiave Google nelle Impostazioni AI.') };
         }
-        if (b.indexOf('not found') >= 0 || b.indexOf('404') >= 0 || b.indexOf('no such model') >= 0 ||
-            b.indexOf('try pulling') >= 0) {
-            return { codice: 'modello', messaggio: _tSafe('vs_e_mod', 'Il modello che legge le immagini non è installato.'),
-                rimedio: _tSafe('vs_e_mod_r', 'Nel Terminale: ollama pull ') + MODELLO_DEF };
+        if (b.indexOf('429') >= 0 || b.indexOf('quota') >= 0 || b.indexOf('resource') >= 0) {
+            return { codice: 'quota', messaggio: _tSafe('vs_e_quota', 'Il provider chiede di aspettare (quota).'),
+                rimedio: _tSafe('vs_e_quota_r', 'Riprova fra qualche minuto.') };
+        }
+        if (b.indexOf('econnrefused') >= 0 || b.indexOf('fetch failed') >= 0 ||
+            b.indexOf('network') >= 0 || b.indexOf('enotfound') >= 0) {
+            return { codice: 'rete', messaggio: _tSafe('vs_e_off', 'Il servizio non risponde.'),
+                rimedio: _tSafe('vs_e_off_r', 'Controlla la connessione e riprova.') };
+        }
+        if (b.indexOf('provider') >= 0 && b.indexOf('infomaniak') >= 0) {
+            return { codice: 'provider', messaggio: _tSafe('vs_e_prov', 'La lettura delle immagini passa da Google Gemini.'),
+                rimedio: _tSafe('vs_e_prov_r', 'Scegli il provider Google nelle Impostazioni AI e riprova.') };
+        }
+        if (b.indexOf('vuota') >= 0 || b.indexOf('finishreason') >= 0) {
+            return { codice: 'vuota', messaggio: _tSafe('vs_e_empty', 'Il modello non ha risposto su questa immagine.'),
+                rimedio: _tSafe('vs_e_empty_r', 'Riprova, o prova con una foto più nitida.') };
         }
         if (b.indexOf('timeout') >= 0 || b.indexOf('aborted') >= 0 || b.indexOf('etimedout') >= 0) {
             return { codice: 'lento', messaggio: _tSafe('vs_e_slow', 'La lettura non è finita in tempo.'),
@@ -237,11 +366,12 @@
     }
 
     /* ── IL PREVENTIVO ────────────────────────────────────────────────────────
-       La lettura è locale e non costa chiamate: costano le domande, una per
-       foglio. Dirlo prima è la regola già pagata col preavviso della voce. */
+       La lettura è UNA chiamata a Gemini per immagine, e va detta prima come
+       tutto ciò che spende (trappola 39). Le domande costano una chiamata per
+       foglio. */
     function stimaFogli(angoli) {
         var n = Array.isArray(angoli) ? angoli.filter(Boolean).length : 0;
-        return { fogli: n, chiamate: n, letture: 0 };
+        return { fogli: n, chiamate: n + 1, letture: 1 };
     }
 
     /* Le due misure che l'IPC deve usare, in un posto solo: chi prepara
@@ -260,18 +390,20 @@
         MAX_LATO_FOGLIO: MAX_LATO_FOGLIO,
         MAX_BYTE_SORGENTE: MAX_BYTE_SORGENTE,
         MIN_PAROLE: MIN_PAROLE,
-        MODELLO_DEF: MODELLO_DEF,
-        HOST_DEF: HOST_DEF,
-        TIMEOUT_DEF: TIMEOUT_DEF,
+        MAX_TOKEN_ANALISI: MAX_TOKEN_ANALISI,
+        BLOCCHI: BLOCCHI,
         estensioneDi: estensioneDi,
         accetta: accetta,
         mimeDi: mimeDi,
         serveConversione: serveConversione,
         titoloDaNome: titoloDaNome,
-        promptLettura: promptLettura,
-        normalizzaLettura: normalizzaLettura,
+        promptAnalisi: promptAnalisi,
+        normalizzaAnalisi: normalizzaAnalisi,
+        testoBlocco: testoBlocco,
         materialeDaScheda: materialeDaScheda,
+        contestoBreve: contestoBreve,
         schedaPronta: schedaPronta,
+        nodiDaScheda: nodiDaScheda,
         diagnosi: diagnosi,
         stimaFogli: stimaFogli,
         preparazione: preparazione

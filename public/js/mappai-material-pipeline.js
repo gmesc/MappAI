@@ -922,6 +922,11 @@
     opts = opts || {};
     Pipeline._running = true;
     const counter = { calls: 0 };
+    /* Su un DOSSIER i fogli dei nodi e la catena dei perché non hanno senso
+       (i «nodi» sono i blocchi della scheda): si forzano spenti QUI, non solo
+       nella UI — una config arrivata da un'altra strada non deve produrre
+       documenti vuoti (invariante 21, versione dati). */
+    if (config.dossier) { config.nodesheet = null; config.causal = null; }
     /* ⚠️ Stesso congelamento del gesto singolo, e qui pesa di più: gli step A-D
        durano minuti e fanno decine di chiamate. Il contesto si scatta PRIMA di
        tutto e vale fino alla fine — cambiare classe mentre gira non tara più
@@ -939,7 +944,69 @@
 
       // ── STEP A (salta se si sta riprendendo / riprovando singoli step) ──
       const doA = !opts.only;
-      if (doA) {
+      if (doA && config.dossier) {
+        /* ══ IL DOSSIER DI FONTE (20/8) ═══════════════════════════════════════
+           Con `config.dossier` (la scheda di analisi confermata dal docente) lo
+           step A NON genera una mappa: il grafo del dossier È la scheda —
+           root = il titolo della fonte, un ramo per blocco, `desc` = il testo
+           del blocco. Deterministico, zero AI.
+           PERCHÉ un grafo e non un vault vuoto: un vault senza nodi rompe chi
+           lo apre (la console di ELABORA chiede `db.nodes.length`, la pipeline
+           genera PER RAMO). Coi blocchi come rami, B e D girano come su una
+           mappa qualsiasi e nessuna superficie ha bisogno di una guardia. */
+        _overlay(_t('mp_step_dossier', 'Preparo il dossier della fonte…'));
+        const VC = window.MappAIVisioneCore;
+        if (!VC || !VC.nodiDaScheda) throw new Error('visione-core non caricato');
+        const g = VC.nodiDaScheda(config.dossier);
+        const st = _state();
+        st.rootNodeLabel = config.dossier.titolo || 'Fonte';
+        st.extractionMode = 'mindmap';
+        st.db = { nodes: g.nodes, links: g.links, sourcesDict: {}, studySets: [], customColors: {} };
+        /* Identità NUOVA, esplicita (invariante 20): la rete di
+           `saveCurrentProject` scatta solo se la scheda vecchia dichiara un
+           vault diverso — e una mappa mai salvata su disco non lo dichiara.
+           Un dossier che erediti l'id della mappa aperta prima finirebbe
+           scritto nella SUA scheda. */
+        if (typeof StorageManager !== 'undefined') StorageManager.currentProjectId = null;
+
+        vaultPath = await _resolveFolderPath(cls);
+        const srD = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
+        if (!srD || !srD.success) throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
+        _state().activeVaultPath = vaultPath;
+        manifest = PC().createManifest(config, { now: _now(), vaultPath });
+        manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
+        await _writeManifest(vaultPath, manifest);
+
+        /* IL DOCUMENTO DELL'ANALISI — la sorgente prima della resa (inv. 18):
+           prima la voce d'archivio con la scheda incorporata (riapribile e
+           ricorreggibile), poi il PDF nel vault. Un PDF che non esce non
+           porta via la scheda. */
+        try {
+          const htmlAn = window.buildAnalisiFonteHtml(config.dossier, {
+            mapName: st.rootNodeLabel, includeBar: false,
+            classe: config.className || '', materia: config.disc || ''
+          });
+          if (window.MappAIStudyDocs) {
+            window.MappAIStudyDocs.save({
+              kind: 'analisi', title: 'Analisi della fonte — ' + st.rootNodeLabel,
+              html: htmlAn, mapName: st.rootNodeLabel,
+              cls: config.className || '', disc: config.disc || ''
+            });
+          }
+          const pdfAn = await window.electronAPI.htmlToPdf({ html: htmlAn, options: { landscape: false } });
+          if (pdfAn && pdfAn.ok) {
+            const nomeAn = PC().buildFileName('analisi_fonte', null, config.tuned, { mappa: st.rootNodeLabel });
+            const wAn = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'Materiale Studio/' + nomeAn, base64: pdfAn.base64 });
+            if (wAn && wAn.ok) { manifest = _recordFile(manifest, 'A', 'Materiale Studio/' + nomeAn); }
+          } else {
+            console.warn('[Pipeline] PDF analisi non generato:', pdfAn && pdfAn.error);
+          }
+        } catch (e) { console.warn('[Pipeline] analisi della fonte:', e && e.message); }
+
+        manifest = PC().stepTransition(manifest, 'A', 'done', { now: _now() });
+        await _writeManifest(vaultPath, manifest);
+        try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-creata', { vaultPath: vaultPath }); } catch (e) { }
+      } else if (doA) {
         _overlay(_t('mp_step_a', 'Genero la mappa…'));
         _setContext('map');
         /* ⚠️ Impostare `.checked` da JS NON scatena `onchange`: il toggle si
@@ -1495,8 +1562,51 @@
       if (!gk) { cfg.synthesis.audio = false; _toast(_t('mp_no_google', 'Voce naturale disattivata: serve la chiave Google (Gemini). La sintesi sarà solo testo.'), 'warning'); }
     }
     const modal = document.getElementById('mp-modal'); if (modal) modal.remove();
-    Pipeline.run(cfg);
+    /* ── LE IMMAGINI FANNO DOSSIER (20/8) ────────────────────────────────────
+       Ogni fonte-immagine con la scheda confermata diventa un DOSSIER suo: un
+       vault col titolo della fonte, la scheda come documento, e gli output
+       spuntati generati dai blocchi. In SEQUENZA — `run` ha il lucchetto — e
+       un dossier che fallisce non porta via gli altri (trappola 36).
+       ⚠️ Con immagini presenti NON si genera anche la mappa dalle altre fonti:
+       un bottone deve fare una cosa prevedibile, e quale delle due «vince»
+       sarebbe un mistero. Se ci sono fonti di testo, lo si dice. */
+    const schede = _schedeImmagini();
+    if (!schede.length) { Pipeline.run(cfg); return; }
+    (async () => {
+      if (_haAltreFonti()) {
+        _toast(_t('mp_dossier_solo', 'Con delle immagini caricate si generano i DOSSIER delle fonti: le altre fonti non entrano (generale separatamente).'), 'info');
+      }
+      /* `run` non rilancia (il suo catch fa il toast): qui si va solo in
+         sequenza — un dossier fallito ha già detto la sua, e i successivi
+         partono lo stesso (trappola 36). */
+      for (const sch of schede) {
+        await Pipeline.run(Object.assign({}, cfg, { dossier: sch }));
+      }
+      if (schede.length > 1) {
+        _toast(_t('mp_dossier_fine', '{n} dossier lavorati — l\'esito di ognuno è nel suo riepilogo')
+          .replace('{n}', schede.length), 'info');
+      }
+    })();
   };
+  /* Le schede confermate delle fonti-immagine di CREA. Le scrive
+     `handleImageSource` (app.js) su `src._scheda`; un'immagine caricata ma
+     con la scheda annullata NON fa dossier — e lo si dice al momento giusto,
+     non qui. */
+  function _schedeImmagini() {
+    const s = _state();
+    return ((s && s.sources) || [])
+      .filter(x => x && x.type === 'img' && x._scheda)
+      .map(x => x._scheda);
+  }
+  function _haAltreFonti() {
+    const s = _state();
+    return ((s && s.sources) || []).some(x => {
+      if (!x || x.type === 'img') return false;
+      if (x.file) return true;
+      const el = document.querySelector('[data-source-id="' + x.id + '"]');
+      return !!(el && String(el.value || '').trim());
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // Riepilogo finale + Riprova per step

@@ -95,7 +95,7 @@
     // + 'causal' (Catena dei perché, deterministico — 19/7/26)
     // 'quizpaper' e 'flashsheet' = fogli cartacei generati dall'editor documenti di
     // ELABORA (quiz stampabile, foglio flashcard) → richiamabili da INSEGNA.
-    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map', 'causal', 'quizpaper', 'flashsheet'];
+    const DOC_KINDS = ['synthesis', 'dossier', 'nodesheet', 'timeline', 'map', 'causal', 'quizpaper', 'flashsheet', 'analisi'];
 
     function _docsRead() {
         try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '[]'); }

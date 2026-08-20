@@ -531,6 +531,8 @@
     if (/\.mp3$|\.m4a$|\.wav$/i.test(n)) return { icon: 'volume-2', label: 'Audio' };
     /* MC e V/F PRIMA del ramo generico: sono due fogli diversi, si stampano in
        momenti diversi, e il nome li distingue già (buildFileName) */
+    /* «Analisi-fonte-<Fonte>.pdf» (20/8): la scheda di un DOSSIER iconografico */
+    if (/^Analisi.?fonte/i.test(n)) return { icon: 'image', label: 'Analisi della fonte' };
     if (/^Quiz-MC-/i.test(n)) return { icon: 'list-checks', label: 'Quiz MC' };
     if (/^Quiz-VF-/i.test(n)) return { icon: 'check-check', label: 'Quiz V/F' };
     if (/^Quiz-/i.test(n)) return { icon: 'list-checks', label: 'Quiz' };

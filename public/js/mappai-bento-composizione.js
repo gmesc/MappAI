@@ -270,6 +270,8 @@
           gruppo: 'Fonti', seFuori: 'in vista compatta non si può partire da una registrazione' },
         { id: 'mn-src-text', aiuto: 'Incolla appunti presi a mano o un testo copiato da altrove.', et: 'Testo libero', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#btn-src-text',
           gruppo: 'Fonti', seFuori: 'in vista compatta non si possono incollare appunti' },
+        { id: 'mn-src-img', aiuto: 'Una fonte iconografica (manifesto, dipinto, fotografia): l\u0027AI la analizza subito, tu correggi la scheda, e \u00abGenera materiali\u00bb produce il DOSSIER della fonte \u2014 scheda di analisi + i materiali spuntati. Niente mappa.', et: 'Immagini (fonte iconografica)', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#btn-src-img',
+          gruppo: 'Fonti', seFuori: 'in vista compatta non si può partire da una fonte iconografica' },
 
         /* — che cosa entra nella mappa — */
         { id: 'mn-l1', aiuto: 'Scrivi tu le macro-aree invece di lasciarle decidere all\u0027AI: diventano i rami di primo livello. Il toggle qui sotto le lascia decidere all\u0027AI.', et: 'Macro-aree a mano', tipo: 'strumento', forma: 'pannello', chiave: '—',
@@ -543,17 +545,30 @@
            generazione senza che nessuno apra la vista estesa. Se un giorno li si
            smontasse davvero, la configurazione tornerebbe ai default del markup
            e le domande aperte sparirebbero in silenzio. */
+        { id: 'output', titolo: 'Output automatici', icona: 'package-check', span: 4, altezza: 130,
+          layout: { colonneVoci: 3 },
+          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
+              { id: 'mp-syn-on', et: 'Sintesi' }, { id: 'mp-syn-audio', et: 'Voce naturale' }] },
         { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
           voci: [{ id: 'mp-preset', w: 190 }] },
+        /* ══ OUTPUT AUTOMATICI (20/8, richiesta di Giacomo) ═════════════════════
+           Le spunte di CHE COSA la generazione produce, raccolte in un box a
+           tutta riga: erano sparse fra «Quiz» e «Fonte & Sintesi», e per un
+           DOSSIER da immagine sono l'unica cosa da decidere.
+           ⚠️ SPOSTATE, non duplicate (inv. 6): gli id restano quelli che
+           `_readConfig()` legge. Il master `mp-quiz-on` NON si monta: è un
+           master DERIVATO (spuntare «Flashcard» lo accende da sé, e il
+           renderer lo tiene nascosto nel DOM per `_readConfig`).
+           ⚠️ La voce naturale resta SPENTA di default (`synthesis.audio:
+           false` nella pipeline): l'opzione vive anche nell'editor della
+           sintesi di ELABORA (bottone «Voce», 17/8). */
         { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
-          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
-              { id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
+          voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
         { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
           voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
               { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
         { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
-          voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-syn-on', et: 'Sintesi mappa' },
-              { id: 'mp-syn-audio', et: 'Voce naturale' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
+          voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
         /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
            sta nel box «Quiz» sopra, quindi le sta sotto e non dentro — dentro
            sarebbe una spunta come le altre, e non lo è (sette generazioni). */
@@ -607,7 +622,7 @@
           stile: { testo: '#ffffff' },
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           voci: [{ id: 'mn-src-url', et: 'URL' }, { id: 'mn-src-youtube', et: 'YouTube' },
-              { id: 'mn-src-audio', et: 'Audio' }, 'mn-src-text'] },
+              { id: 'mn-src-audio', et: 'Audio' }, 'mn-src-text', 'mn-src-img'] },
         /* l'elenco delle fonti non-PDF: righe compatte, la stessa veste dell'elenco
            dei documenti. Una colonna, perché sono righe di un elenco e non voci
            affiancabili. */

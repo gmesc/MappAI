@@ -1,29 +1,32 @@
 /* =========================================================================
-   mappai-visione.js — LEGGERE UN'IMMAGINE, il gesto (20/8/26)
+   mappai-visione.js — ANALIZZARE UNA FONTE ICONOGRAFICA, il gesto (20/8/26)
 
-   Sceglie una fotografia, la fa leggere al motore locale (Ollama + un modello
-   VL) e apre la SCHEDA DELLA FONTE: titolo · contesto · descrizione, tutti e
-   tre modificabili. Da lì il materiale va a `Pipeline.generaSet` come sorgente
-   esplicita, e ne escono le domande aperte per angolo o le flashcard.
+   Sceglie una fotografia, la fa analizzare a GEMINI (via `fetchModelAPI`: la
+   stessa chiave, la stessa taratura, gli stessi consumi del resto dell'app) e
+   apre la SCHEDA DI ANALISI a quattro blocchi — carta d'identità · che cosa si
+   vede · che cosa vuole ottenere · che cosa prova — tutta modificabile.
+   Da lì il dossier e i materiali (vedi `mappai-material-pipeline.js`).
+
+   (20/8 sera: il motore locale Ollama della prima stesura è stato TOLTO —
+   restava un programma da installare e accendere a mano, e Gemini è già
+   configurato e legge meglio. Con lui sono usciti i due IPC e la riga della
+   Cabina. Resta `immagine-prepara`: l'HEIC Gemini lo accetta, ma Chromium non
+   lo decodifica, e la foto va mostrata e incorporata.)
 
    ⚠️ LA SCHEDA NON È UN PASSAGGIO BUROCRATICO. Un modello di visione descrive
-   bene e contestualizza male: su una miniatura può inventare una data, e quella
-   data diventa la premessa di sette verifiche. Il campo «contesto» esiste
-   perché il docente di storia lo riscriva — è lui a saperlo. Vedi la testata di
-   `mappai-visione-core.js`.
+   bene e contestualizza male: i blocchi interpretativi sono ipotesi da
+   correggere, e la regola dell'appiglio (core) scarta le affermazioni non
+   ancorate a un elemento visibile. Vedi la testata di `mappai-visione-core.js`.
 
-   ⚠️ UNA LETTURA, PIÙ GENERI. La scheda confermata resta qui finché non si
-   cambia immagine: chi genera prima le domande aperte e poi le flashcard dalla
-   stessa foto non paga due letture né corregge due volte il contesto.
-
-   Le regole (formati, misure, prompt, diagnosi) stanno nel core; l'I/O negli
-   IPC di main.js. Qui c'è il gesto e basta.
+   ⚠️ Invariante 9, dichiarato: la lettura passa SOLO da Google. Su Infomaniak
+   la visione non è documentata per i modelli in listino: il gesto lo dice
+   («scegli il provider Google»), non fallisce a metà.
    ========================================================================= */
 (function () {
     'use strict';
     /* Trappola 22: un modulo caricato due volte tiene due copie del suo stato —
-       qui vorrebbe dire due schede correnti, e la seconda generazione userebbe
-       quella sbagliata. */
+       qui vorrebbe dire due schede correnti, e la generazione userebbe quella
+       sbagliata. */
     if (window.MappAIVisione) return;
 
     var t = function (k, f) { return window.t ? window.t(k, f) : f; };
@@ -31,63 +34,28 @@
     function CORE() { return window.MappAIVisioneCore; }
     function API() { return window.electronAPI; }
     function toast(m, tipo) { if (window.showToast) window.showToast(m, tipo || 'info'); }
+    function _st() {
+        try { return (typeof appState !== 'undefined') ? appState : window.appState; }
+        catch (e) { return window.appState; }
+    }
 
-    var LS_MODELLO = 'mappai_visione_model';
-    var LS_HOST = 'mappai_visione_host';
     var LS_ON = 'mappai_visione';
-
     function attivo() {
         try { return localStorage.getItem(LS_ON) !== '0'; } catch (e) { return true; }
     }
-    function modello() {
-        try { return localStorage.getItem(LS_MODELLO) || CORE().MODELLO_DEF; }
-        catch (e) { return CORE().MODELLO_DEF; }
-    }
-    function host() {
-        try { return localStorage.getItem(LS_HOST) || CORE().HOST_DEF; }
-        catch (e) { return CORE().HOST_DEF; }
-    }
-
-    /* ── IL MOTORE RISPONDE? ──────────────────────────────────────────────────
-       La risposta si tiene per mezzo minuto: serve a DECIDERE che cosa mostrare
-       (un passo, un avviso), e chiederlo a ogni ridisegno farebbe pagare a ogni
-       apertura di modale un giro di rete. */
-    var _stato = null, _statoQuando = 0;
-    var VITA_STATO = 30000;
-    function disponibile(forza) {
-        var ora = Date.now();
-        if (!forza && _stato && (ora - _statoQuando) < VITA_STATO) return Promise.resolve(_stato);
-        var api = API();
-        if (!api || !api.visioneLocaleStato) {
-            _stato = { acceso: false, modelli: [], senzaIpc: true }; _statoQuando = ora;
-            return Promise.resolve(_stato);
-        }
-        return api.visioneLocaleStato({ host: host() }).then(function (r) {
-            _stato = { acceso: !!(r && r.acceso), modelli: (r && r.modelli) || [], senzaIpc: false };
-            _statoQuando = Date.now();
-            return _stato;
-        }, function () {
-            _stato = { acceso: false, modelli: [], senzaIpc: false }; _statoQuando = Date.now();
-            return _stato;
-        });
-    }
-    /* Il modello scelto è fra quelli installati? La domanda si fa PRIMA di
-       spendere una lettura: `ollama` risponde 404 dopo aver caricato l'immagine,
-       e quel giro è tempo buttato. Il confronto ignora il `:latest` che Ollama
-       aggiunge da sé ai nomi senza tag. */
-    function modelloPresente(st) {
-        var m = String(modello() || '').toLowerCase();
-        var base = m.split(':')[0];
-        return ((st && st.modelli) || []).some(function (x) {
-            var n = String(x || '').toLowerCase();
-            return n === m || n.split(':')[0] === base;
-        });
+    /* Solo Google: la visione su Infomaniak non è documentata, e promettere una
+       strada non misurata è il modo di scoprirla rotta in classe. */
+    function provaProvider() {
+        var s = _st() || {};
+        if ((s.aiProvider || 'google') !== 'google') return 'provider infomaniak non supportato';
+        if (window.getSystemKey && !window.getSystemKey()) return 'api key mancante';
+        return '';
     }
 
     /* ── LA SCELTA DEL FILE ───────────────────────────────────────────────────
-       Un input nascosto, creato al volo e buttato via: non c'è una superficie
-       dove tenerlo, e uno riusato conserva il file di prima (scegliere due volte
-       la stessa foto non scatenerebbe `change`). */
+       Un input nascosto, creato al volo e buttato via: uno riusato conserva il
+       file di prima, e scegliere due volte la stessa foto non scatenerebbe
+       `change`. */
     function scegli() {
         return new Promise(function (risolvi) {
             var C = CORE();
@@ -104,8 +72,7 @@
             }
             inp.addEventListener('change', function () { fine(inp.files && inp.files[0]); });
             /* Se l'utente annulla il dialogo nativo, `change` non scatta mai:
-               senza questa rete la Promise resterebbe appesa per sempre e il
-               gesto successivo non partirebbe più. */
+               senza questa rete la Promise resterebbe appesa per sempre. */
             window.addEventListener('focus', function riprendi() {
                 window.removeEventListener('focus', riprendi);
                 setTimeout(function () { if (!inp.files || !inp.files.length) fine(null); }, 700);
@@ -114,113 +81,157 @@
         });
     }
 
-    /* ── LA LETTURA ───────────────────────────────────────────────────────────
-       Due preparazioni della stessa foto, e non è uno spreco: quella per il
-       MODELLO è grande e in PNG, quella per il FOGLIO è piccola e in JPEG —
-       perché sette angoli portano sette copie della stessa immagine dentro
-       l'archivio, che è `localStorage`. Le misure le dice il core. */
+    /* ── LA PREPARAZIONE ──────────────────────────────────────────────────────
+       Due copie della stessa foto, e non è uno spreco: quella per il MODELLO è
+       grande e in PNG, quella per i DOCUMENTI è piccola e in JPEG — perché il
+       documento incorporato vive anche in `localStorage`, che ha una quota.
+       Le misure le dice il core. Senza Electron (`immagine-prepara` assente)
+       jpg e png si leggono dal File stesso; l'HEIC dice perché no. */
+    function _prepara(file, percorso, quale) {
+        var C = CORE(), api = API();
+        if (api && api.immaginePrepara && percorso) {
+            return api.immaginePrepara({ path: percorso, quale: quale }).then(function (p) {
+                if (!p || !p.ok) throw new Error((p && p.motivo) || 'preparazione-fallita');
+                return { base64: p.base64, mime: p.mime };
+            });
+        }
+        if (C.serveConversione(file.name)) return Promise.reject(new Error('conversione-non-disponibile'));
+        return file.arrayBuffer().then(function (buf) {
+            var bytes = new Uint8Array(buf), bin = '';
+            for (var i = 0; i < bytes.length; i += 0x8000) {
+                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+            }
+            return { base64: btoa(bin), mime: C.mimeDi(file.name) };
+        });
+    }
+
+    /* ── LA LETTURA: una chiamata a Gemini ────────────────────────────────────
+       `inlineData` accanto al prompt è la forma nativa che `fetchModelAPI` già
+       manda. Passare dal choke point dà gratis tre cose: i consumi nel
+       registro, la taratura della classe, il backoff del provider.
+       ⚠️ NIENTE responseSchema: la griglia è annidata e i guasti degli schema
+       sui modelli sono già costati (risposta vuota su Kimi, §CLAUDE.md). La
+       forma la impone `normalizzaAnalisi`, che sa anche perdonare. */
     function leggi(file, opts) {
         opts = opts || {};
-        var C = CORE(), api = API();
+        var C = CORE();
         if (!C) return Promise.reject(new Error('core-mancante'));
-        if (!api || !api.immaginePrepara || !api.visioneLocale) return Promise.reject(new Error('conversione-non-disponibile'));
+        var male = provaProvider();
+        if (male) return Promise.reject(new Error(male));
+        if (!window.fetchModelAPI || !window.getSystemKey) return Promise.reject(new Error('rete'));
 
-        var percorso = (api.getPathForFile ? api.getPathForFile(file) : file.path) || '';
-        if (!percorso) return Promise.reject(new Error('percorso-mancante'));
+        var api = API();
+        var percorso = (api && api.getPathForFile ? api.getPathForFile(file) : file.path) || '';
+        var scheda = { titolo: C.titoloDaNome(file.name), nomeFile: file.name, fotoB64: '', mime: 'image/jpeg' };
 
-        var titolo = C.titoloDaNome(file.name);
-        var scheda = { titolo: titolo, contesto: '', descrizione: '', fotoB64: '', mime: 'image/jpeg', nomeFile: file.name };
-
-        return api.immaginePrepara({ path: percorso, quale: 'lettura' })
+        if (window.MappAIUsage && window.MappAIUsage.setContext) {
+            window.MappAIUsage.setContext('pipeline', 'visione');
+        }
+        return _prepara(file, percorso, 'lettura')
             .then(function (p) {
-                if (!p || !p.ok) throw new Error((p && p.motivo) || 'preparazione-fallita');
-                return api.visioneLocale({
-                    base64: p.base64, prompt: C.promptLettura({ nome: file.name, notaDocente: opts.nota || '' }),
-                    model: modello(), host: host(), timeoutMs: C.TIMEOUT_DEF
+                var payload = {
+                    contents: [{ parts: [
+                        { inlineData: { mimeType: p.mime, data: p.base64 } },
+                        { text: C.promptAnalisi({ nome: file.name, notaDocente: opts.nota || '' }) }
+                    ] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: C.MAX_TOKEN_ANALISI }
+                };
+                if (window.injectClassTuning) payload = window.injectClassTuning(payload);
+                return window.fetchModelAPI(payload, window.getSystemKey());
+            })
+            .then(function (resp) {
+                var raw = resp && resp.candidates && resp.candidates[0] &&
+                    resp.candidates[0].content && resp.candidates[0].content.parts &&
+                    resp.candidates[0].content.parts[0] && resp.candidates[0].content.parts[0].text || '';
+                if (!raw.trim()) throw new Error('risposta vuota, finishReason ' +
+                    ((resp && resp.candidates && resp.candidates[0] && resp.candidates[0].finishReason) || '?'));
+                var a = C.normalizzaAnalisi(raw, window.salvageTruncatedJSON);
+                C.BLOCCHI.forEach(function (bl) { scheda[bl.id] = a[bl.id]; });
+                /* La copia per i documenti si prepara ORA, non al momento di
+                   generare: lì saremmo dentro il lucchetto della pipeline. */
+                return _prepara(file, percorso, 'foglio').then(function (f) {
+                    scheda.fotoB64 = f.base64; scheda.mime = f.mime;
+                    return scheda;
+                }, function () {
+                    /* una foto che non si riduce non fa fallire l'analisi:
+                       resta una scheda senza immagine, meno buona ma non niente */
+                    return scheda;
                 });
-            })
-            .then(function (r) {
-                if (!r || !r.ok) throw new Error((r && r.motivo) || 'lettura-fallita');
-                var n = C.normalizzaLettura(r.testo, window.salvageTruncatedJSON);
-                scheda.descrizione = n.descrizione;
-                scheda.contesto = n.contesto;
-                /* La copia per il foglio si prepara ORA, non al momento di
-                   generare: lì saremmo dentro il lucchetto della pipeline, e un
-                   secondo giro di conversione allungherebbe un'attesa che il
-                   docente sta già guardando. */
-                return api.immaginePrepara({ path: percorso, quale: 'foglio' });
-            })
-            .then(function (f) {
-                if (f && f.ok) { scheda.fotoB64 = f.base64; scheda.mime = f.mime; }
-                /* ⚠️ Una foto che non si lascia ridurre NON fa fallire la
-                   lettura: resta un foglio col contesto e senza immagine, che è
-                   meno buono ma non è niente. */
-                return scheda;
             });
     }
 
     /* ── LA SCHEDA, DA CORREGGERE ─────────────────────────────────────────────
-       Tre campi e un'immagine. L'anteprima si inietta in `suApertura` perché il
-       motore ESCAPA il testo delle sezioni (trappola 23): un `<img>` scritto in
-       `testo` si leggerebbe come tag a schermo. */
+       Quattro sezioni, una per blocco, coi campi della GRIGLIA (fonte unica:
+       `BLOCCHI` del core). L'anteprima si inietta in `suApertura` perché il
+       motore ESCAPA il testo delle sezioni (trappola 23). */
     function apriScheda(scheda) {
         var C = CORE(), M = MM();
         if (!M) { toast(t('cq_no_motore', 'Il motore dei modali non è caricato.'), 'warning'); return Promise.resolve(null); }
-        var incerto = !String(scheda.contesto || '').trim();
 
-        function schema(v) {
-            return {
-                titolo: t('vs_scheda_t', 'La fonte, prima di generare'), icona: 'image', taglia: 'l', invio: false,
-                sezioni: [
-                    {
-                        id: 'chi', titolo: t('vs_g_chi', 'Che fonte è'),
-                        testo: incerto
-                            ? t('vs_nota_vuoto', 'Il modello non ha riconosciuto la fonte e ha lasciato il contesto in bianco: scrivilo tu. È quello che le domande daranno per vero.')
-                            : t('vs_nota_ipotesi', 'Il contesto qui sotto è un\'IPOTESI del modello, non un fatto: correggilo. È quello che le domande daranno per vero.'),
-                        campi: [
-                            { id: 'titolo', etichetta: t('vs_titolo', 'Titolo della fonte'),
-                              valore: (v && v.titolo != null) ? v.titolo : scheda.titolo },
-                            { id: 'contesto', tipo: 'area', etichetta: t('vs_contesto', 'Contesto — epoca, luogo, avvenimento, genere della fonte'),
-                              valore: (v && v.contesto != null) ? v.contesto : scheda.contesto }
-                        ]
-                    },
-                    {
-                        id: 'cosa', titolo: t('vs_g_cosa', 'Che cosa mostra'),
-                        testo: t('vs_nota_desc', 'Quello che si vede nell\'immagine. Sul foglio degli allievi non compare — sarebbe la risposta a metà delle domande — ma finisce fra le tue tracce di correzione.'),
-                        campi: [
-                            { id: 'descrizione', tipo: 'area', etichetta: t('vs_desc', 'Descrizione'),
-                              valore: (v && v.descrizione != null) ? v.descrizione : scheda.descrizione }
-                        ]
-                    }
-                ],
-                suApertura: function (box) { _mostraFoto(box, scheda); },
-                azioni: [
-                    { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
-                    { id: 'ok', etichetta: t('vs_usa', 'Usa questa fonte'), icona: 'check', ruolo: 'primario' }
-                ]
-            };
+        var NOTE = {
+            identita: t('vs_b_id_d', 'Che cos\'è, materialmente. Correggi quello che il modello ha sbagliato o non ha visto.'),
+            osservazione: t('vs_b_oss_d', 'Solo ciò che si VEDE. Sui fogli degli allievi non compare: sarebbe la risposta a metà delle domande — va nelle tue tracce.'),
+            interpretazione: t('vs_b_int_d', 'IPOTESI del modello, non fatti: ogni riga deve citare l\'elemento visivo che la giustifica («— lo dice…»). Le righe senza appiglio sono state scartate. Correggi: è quello che le domande daranno per vero.'),
+            critica: t('vs_b_cri_d', 'Che cosa questa fonte DIMOSTRA (le intenzioni di chi l\'ha fatta) e che cosa tace. È la parte che trasforma un\'immagine in una fonte.')
+        };
+
+        function sezioni(v) {
+            return C.BLOCCHI.map(function (bl) {
+                return {
+                    id: bl.id, titolo: bl.titolo, testo: NOTE[bl.id] || '',
+                    collassabile: true, chiusa: bl.id === 'osservazione',
+                    campi: bl.campi.map(function (c) {
+                        var chiave = bl.id + '.' + c.id;
+                        var val = (v && v[chiave] != null) ? v[chiave]
+                            : ((scheda[bl.id] || {})[c.id] || '');
+                        /* i campi lunghi respirano in un'area; i corti restano campi */
+                        var lungo = ['descrizione', 'testo', 'iconografia', 'linguaggioVisivo',
+                            'strategie', 'prova', 'tace', 'linguaggio'].indexOf(c.id) >= 0;
+                        return { id: chiave, tipo: lungo ? 'area' : undefined, etichetta: c.et, valore: val };
+                    })
+                };
+            });
         }
 
-        return M.open(schema(null)).then(function (r) {
+        return M.open({
+            titolo: t('vs_scheda_t', 'La fonte, prima di generare'), icona: 'image', taglia: 'l', invio: false,
+            sezioni: [{
+                id: 'chi', titolo: '', nuda: true,
+                campi: [{ id: 'titolo', etichetta: t('vs_titolo', 'Titolo della fonte'), valore: scheda.titolo || '' }]
+            }].concat(sezioni(null)),
+            suApertura: function (box) { _mostraFoto(box, scheda); },
+            azioni: [
+                { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
+                { id: 'ok', etichetta: t('vs_usa', 'Usa questa fonte'), icona: 'check', ruolo: 'primario' }
+            ]
+        }).then(function (r) {
             if (!r || r.azione !== 'ok') return null;
             var v = r.valori || {};
-            var fatta = {
-                titolo: String(v.titolo || scheda.titolo || '').trim(),
-                contesto: String(v.contesto || '').trim(),
-                descrizione: String(v.descrizione || '').trim(),
-                fotoB64: scheda.fotoB64, mime: scheda.mime, nomeFile: scheda.nomeFile
-            };
+            var fatta = { titolo: String(v.titolo || scheda.titolo || '').trim(),
+                nomeFile: scheda.nomeFile, fotoB64: scheda.fotoB64, mime: scheda.mime };
+            C.BLOCCHI.forEach(function (bl) {
+                fatta[bl.id] = {};
+                bl.campi.forEach(function (c) {
+                    fatta[bl.id][c.id] = String(v[bl.id + '.' + c.id] || '').trim();
+                });
+            });
             if (!C.schedaPronta(fatta)) {
-                toast(t('vs_troppo_poco', 'Serve almeno una riga di contesto o di descrizione: è il materiale da cui nascono le domande.'), 'warning');
+                toast(t('vs_troppo_poco', 'Serve almeno qualche riga di analisi: è il materiale da cui nascono i documenti.'), 'warning');
                 return apriScheda(fatta);
             }
+            /* La scheda confermata resta in mano al modulo: chi genera prima le
+               domande aperte e poi le flashcard dalla stessa foto non paga due
+               letture né corregge due volte («Dalla stessa immagine»). */
             _scheda = fatta;
             return fatta;
         });
     }
+    var _scheda = null;
+    function schedaCorrente() { return _scheda; }
+    function scordaScheda() { _scheda = null; }
 
-    /* L'anteprima dentro il modale: prima della prima sezione, così si vede la
-       foto mentre si scrive il contesto che la riguarda. */
+    /* L'anteprima dentro il modale: prima della prima sezione, così la foto si
+       guarda mentre si correggono i campi che la riguardano. */
     function _mostraFoto(box, scheda) {
         if (!scheda || !scheda.fotoB64) return;
         try {
@@ -238,70 +249,55 @@
     }
 
     /* ── IL GESTO INTERO ──────────────────────────────────────────────────────
-       Scegli → leggi (col velo) → correggi → torna la scheda. `null` a ogni
-       passo in cui l'utente si tira indietro. */
-    var _scheda = null;
-    function nuovaScheda() {
+       Scegli → analizza (col velo) → correggi → torna la scheda. `null` a ogni
+       passo in cui l'utente si tira indietro. Con un `file` già in mano (le
+       fonti di CREA) il picker si salta. */
+    function nuovaScheda(fileGia) {
         var C = CORE();
         if (!attivo()) return Promise.resolve(null);
         if (!C) { toast(t('vs_no_core', 'Il lettore di immagini non è caricato.'), 'warning'); return Promise.resolve(null); }
-
-        return disponibile().then(function (st) {
-            if (!st.acceso) {
-                var d = C.diagnosi('ECONNREFUSED');
-                toast(d.messaggio + ' ' + d.rimedio, 'warning');
+        var male = provaProvider();
+        if (male) {
+            var d0 = C.diagnosi(male);
+            toast(d0.messaggio + ' ' + d0.rimedio, 'warning');
+            return Promise.resolve(null);
+        }
+        var presa = fileGia ? Promise.resolve(fileGia) : scegli();
+        return presa.then(function (file) {
+            if (!file) return null;
+            if (!C.accetta(file.name)) {
+                toast(t('vs_formato', 'Formato non gestito: servono JPG, PNG o HEIC.'), 'warning');
                 return null;
             }
-            if (st.modelli.length && !modelloPresente(st)) {
-                var dm = C.diagnosi('no such model');
-                toast(dm.messaggio + ' ' + dm.rimedio, 'warning');
-                return null;
+            var abbandonata = false;
+            if (window.showLoadingOverlay) {
+                window.showLoadingOverlay(true,
+                    t('vs_leggo', 'Analizzo la fonte con l\'AI… qualche secondo.'),
+                    'default', '', function () { abbandonata = true; });
             }
-            return scegli().then(function (file) {
-                if (!file) return null;
-                if (!C.accetta(file.name)) {
-                    toast(t('vs_formato', 'Formato non gestito: servono JPG, PNG, HEIC o TIFF.'), 'warning');
-                    return null;
-                }
-                var abbandonata = false;
-                if (window.showLoadingOverlay) {
-                    window.showLoadingOverlay(true,
-                        t('vs_leggo', 'Leggo l\'immagine sul tuo computer… può volerci una ventina di secondi.'),
-                        'default', '', function () { abbandonata = true; });
-                }
-                return leggi(file).then(function (scheda) {
-                    if (window.showLoadingOverlay) window.showLoadingOverlay(false);
-                    /* ⚠️ «Annulla» ABBANDONA L'ATTESA, non ferma il modello: una
-                       richiesta già partita al motore locale non si richiama
-                       indietro. Il risultato arriva e si butta — l'unica cosa
-                       che conta è che il docente non resti bloccato a guardare
-                       un velo. */
-                    if (abbandonata) return null;
-                    return apriScheda(scheda);
-                }, function (err) {
-                    if (window.showLoadingOverlay) window.showLoadingOverlay(false);
-                    if (abbandonata) return null;
-                    var d = C.diagnosi(err);
-                    toast(d.messaggio + ' ' + d.rimedio, 'error');
-                    return null;
-                });
+            return leggi(file).then(function (scheda) {
+                if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+                /* «Annulla» abbandona l'ATTESA: una richiesta già partita non si
+                   richiama indietro — il risultato arriva e si butta. */
+                if (abbandonata) return null;
+                return apriScheda(scheda);
+            }, function (err) {
+                if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+                if (abbandonata) return null;
+                var d = C.diagnosi(err);
+                toast(d.messaggio + ' ' + d.rimedio, 'error');
+                return null;
             });
         });
     }
 
-    function schedaCorrente() { return _scheda; }
-    function scordaScheda() { _scheda = null; }
-
     window.MappAIVisione = {
         attivo: attivo,
-        disponibile: disponibile,
-        modello: modello,
-        host: host,
-        modelloPresente: modelloPresente,
+        provaProvider: provaProvider,
         nuovaScheda: nuovaScheda,
+        apriScheda: apriScheda,
         schedaCorrente: schedaCorrente,
         scordaScheda: scordaScheda,
-        apriScheda: apriScheda,
         leggi: leggi
     };
     console.log('[MappAI] mappai-visione.js caricato ✓');

@@ -211,6 +211,7 @@ const it_translations = {
     src_video: "Video",
     src_docs: "Documenti",
     src_text: "Testo",
+    src_img: "Immagini",
     prompt_title: "Inserisci valore",
     prompt_hint: "Premi Invio per salvare.",
     btn_cancel: "Annulla",

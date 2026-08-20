@@ -243,6 +243,7 @@
         if (/^Flashcard/i.test(lab)) return 'flash';
         if (/^Foglio/i.test(lab)) return 'ns';
         if (/^Sintesi/i.test(lab)) return 'syn';
+        if (/^Analisi/i.test(lab)) return 'analisi';
         return 'altri';
     }
     function _caricaDisco() {
@@ -486,6 +487,22 @@
         if (!CL || !s || !s.db) return [];
         return CL.elencaCloni(s.db, quale === 'nodesheet' ? 'nodeSheet' : 'causalDoc');
     }
+    /* Le voci d'archivio delle ANALISI DELLA FONTE di questa mappa (20/8):
+       la scheda a quattro blocchi di un dossier iconografico. La sorgente è
+       l'HTML con la scheda incorporata (`qp-scheda`) — «Modifica» riapre la
+       scheda, non un editor di testo. */
+    function _archivioAnalisi() {
+        try {
+            var SD = window.MappAIStudyDocs; var st = _appState();
+            var mappa = (st && st.rootNodeLabel) || '';
+            if (!SD || !SD.list || !mappa) return [];
+            return SD.list().filter(function (d) {
+                return d && d.kind === 'analisi' && d.hasHtml !== false &&
+                    (!d.mapName || _nomeMappa(d.mapName) === _nomeMappa(mappa));
+            });
+        } catch (e) { return []; }
+    }
+
     /* Le voci d'archivio delle domande aperte di QUESTA mappa. */
     function _archivioAperte() {
         try {
@@ -654,6 +671,26 @@
            ancora, e la riga non sarebbe comparsa affatto — cioè il clone
            sembrerebbe non essere stato creato. Ora è la sorgente a fare la riga,
            e il file ci si aggancia se c'è: lo stesso schema dei set. */
+        /* ── L'ANALISI DELLA FONTE (20/8): la riga è la SORGENTE d'archivio,
+           il PDF ci si aggancia se c'è — lo stesso schema delle aperte. */
+        _archivioAnalisi().forEach(function (d) {
+            var v3 = {
+                id: 'an:' + d.id, titolo: t('ec_n_analisi', 'Analisi della fonte'), tipo: 'Analisi della fonte',
+                data: Date.parse(d.date) || 0, archivio: true, modificabile: true,
+                docId: d.id, voce: false, cls: '', disc: ''
+            };
+            var attesi3 = _nomiAttesi('analisi_fonte', '');
+            for (var na = 0; na < attesi3.length && !v3.relPath; na++) {
+                for (var nb = 0; nb < dischi.length && !v3.relPath; nb++) {
+                    if (!presi[dischi[nb].relPath] && dischi[nb].name.toLowerCase() === attesi3[na]) {
+                        presi[dischi[nb].relPath] = true;
+                        v3.relPath = dischi[nb].relPath;
+                        v3.data = dischi[nb].mtime || v3.data;
+                    }
+                }
+            }
+            out.push(v3);
+        });
         _archivioAperte().forEach(function (d) {
             var nome = _cloneDalTitolo(d.title, 'Domande aperte');
             var v2 = {
@@ -2116,6 +2153,7 @@
                 dopoModifica: function () { if (_doc) _doc.editing = true; }
             };
             if (_doc && _doc.setId) o.modifica = function () { _apriEditorSet(_doc.setId); };
+            else if (_doc && _doc.analisiId) o.modifica = function () { _modificaAnalisi(_doc.analisiId); };
             else if (_doc && _doc.docId) o.modifica = function () { _apriEditorAperte(_doc.docId); };
             else if (_doc && _doc.dallaMappa) {
                 /* Foglio dei nodi e catena: la sorgente è la MAPPA, quindi
@@ -2265,6 +2303,55 @@
             } catch (e) { }
             rifai();
         }
+        /* ── LA CORREZIONE DELL'ANALISI (20/8) ──────────────────────────────
+           «Modifica» riapre la SCHEDA della visione, precompilata dalla
+           sorgente incorporata. Alla conferma: l'archivio si riscrive (la
+           dedup per kind|title|mapName sostituisce la voce) e il PDF nel
+           vault si rifà — sorgente prima della resa, e una resa che fallisce
+           non tocca la sorgente appena scritta (inv. 18). */
+        function _modificaAnalisi(docId) {
+            var SD = window.MappAIStudyDocs, V = window.MappAIVisione;
+            if (!SD || !SD.get || !V || !V.apriScheda || !window.schedaFromAnalisiHtml) {
+                toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); return;
+            }
+            var d = SD.get(docId);
+            var scheda = d && window.schedaFromAnalisiHtml(d.html);
+            if (!scheda) {
+                toast(t('ec_an_no_src', 'Questo documento non porta con sé la scheda: si può stampare, ma non correggere.'), 'warning');
+                return;
+            }
+            V.apriScheda(scheda).then(function (fatta) {
+                if (!fatta) return;                      /* annullata: nulla cambia */
+                var st = _appState();
+                var mappa = (st && st.rootNodeLabel) || '';
+                var html = window.buildAnalisiFonteHtml(fatta, { mapName: mappa, includeBar: false });
+                var nuovoId = null;
+                try {
+                    nuovoId = SD.save({ kind: 'analisi', title: d.title, html: html, mapName: d.mapName || mappa, cls: d.cls, disc: d.disc });
+                } catch (e) { nuovoId = null; }
+                if (!nuovoId) { toast(t('ec_an_save_ko', 'Salvataggio non riuscito: archivio pieno?'), 'error'); return; }
+                /* la resa: best-effort, rumorosa se fallisce */
+                var vp = (st && st.activeVaultPath) || '';
+                var PC = window.MappAIPipelineCore;
+                if (vp && PC && window.electronAPI && window.electronAPI.htmlToPdf) {
+                    window.electronAPI.htmlToPdf({ html: html, options: { landscape: false } }).then(function (pdf) {
+                        if (!pdf || !pdf.ok) throw new Error((pdf && pdf.error) || 'PDF non generato');
+                        var nomeF = PC.buildFileName('analisi_fonte', null, false, { mappa: mappa });
+                        return window.electronAPI.saveVaultFile({ vaultPath: vp, relPath: 'Materiale Studio/' + nomeF, base64: pdf.base64 });
+                    }).then(function () {
+                        try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
+                        toast(t('ec_an_fatto', 'Scheda corretta: archivio e PDF aggiornati.'), 'success');
+                        rifai();
+                    }).catch(function (e) {
+                        toast(t('ec_an_pdf_ko', 'Scheda salvata, ma il PDF non si è rifatto: ') + (e && e.message || e), 'warning');
+                        rifai();
+                    });
+                } else {
+                    toast(t('ec_an_solo_arch', 'Scheda corretta e salvata in archivio.'), 'success');
+                    rifai();
+                }
+            });
+        }
         /* Domande aperte: l'editor si apre sulla voce d'ARCHIVIO, non sul file.
            Salvando, l'archivio si riscrive; il PDF nella cartella lo rifà
            «Stampa» — e finché non lo si fa, il file sul disco resta quello di
@@ -2364,6 +2451,22 @@
                     var mm = _materiali().filter(function (x) { return x.id === mid; })[0];
                     _doc = { id: mid, natura: 'disk', relPath: mid.slice(5), docId: mm && mm.docId };
                     _voce = mid;
+                } else if (mid.indexOf('an:') === 0) {
+                    /* Analisi della fonte: il PDF si guarda, «Modifica» riapre
+                       la SCHEDA (non un editor di testo — la sorgente è la
+                       griglia, e il modale della visione è già il suo editor). */
+                    var ma = _materiali().filter(function (x) { return x.id === mid; })[0];
+                    if (!ma) return;
+                    if (ma.relPath) {
+                        _doc = { id: mid, natura: 'disk', relPath: ma.relPath, analisiId: ma.docId };
+                        _voce = 'disk:' + ma.relPath;
+                    } else {
+                        _doc = { id: mid, natura: 'crea', analisiId: ma.docId };
+                        _voce = mid;
+                        rifai();
+                        _modificaAnalisi(ma.docId);
+                        return;
+                    }
                 } else if (mid.indexOf('oq:') === 0) {
                     var mo = _materiali().filter(function (x) { return x.id === mid; })[0];
                     if (!mo) return;

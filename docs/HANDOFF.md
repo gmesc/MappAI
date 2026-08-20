@@ -23,23 +23,31 @@
 
 ## 0. Le prime cose da sapere
 
-0-bis. **⟵ DA QUI SI RIPRENDE (20/8 sera): un'IMMAGINE produce le domande aperte e le
-   flashcard.** Nasce da una richiesta di docenti di **storia di scuola media**: da una
-   fonte iconografica — una miniatura, un manifesto, una carta — si ricavano (1) un testo
-   di **contesto e descrizione** e (2) i fogli di **domande aperte, uno per angolo**, con
-   **l'immagine in testa**, o le **flashcard**.
-   La legge un modello **in casa** (Ollama + `qwen2.5vl:7b`): la foto non lascia il
-   computer. ⚠️ `node-llama-cpp`, il motore locale che l'app ha già per gli NPC, **non fa
-   visione** — misurato, zero simboli `mtmd`/`mmproj` nei binari.
-   ⚠️ **La cosa da non dimenticare**: un modello di visione **descrive bene e
-   contestualizza male**. Fra la lettura e la generazione c'è una **scheda che il docente
-   corregge**, e i due campi sono separati apposta — se il contesto fosse un'ipotesi del
-   modello, sette fogli nascerebbero da una premessa inventata, con l'errore nel punto in
-   cui nessuno lo cerca. Il testo nudo, quando la risposta non arriva in forma, diventa
-   **descrizione** e mai contesto.
-   Il taglio nel motore è **tre righe** (`opts.sorgente` in `Pipeline.generaSet`, a monte
-   del ciclo sui rami): angoli, nomi, archivio, PDF e le righe di ELABORA sono quelli di
-   sempre. ⚠️ **Mai girato in Electron**: la lista è in §5, in testa.
+0-bis. **⟵ DA QUI SI RIPRENDE (20/8 notte): un'immagine produce un DOSSIER DI FONTE.**
+   Richiesta di docenti di **storia di scuola media**, in due giri nella stessa giornata.
+   Il flusso: la foto si carica fra le **fonti di CREA** (bottone «Immagini»; jpg · png ·
+   heic, **niente tiff**) → la analizza **Gemini** via `fetchModelAPI` (la chiave, la
+   taratura e i consumi di sempre; ⚠️ il motore locale Ollama della prima stesura è stato
+   TOLTO in giornata — restava un programma da installare a mano) → si apre la **SCHEDA DI
+   ANALISI a quattro blocchi** — carta d'identità · che cosa si vede · che cosa vuole
+   ottenere · **che cosa prova questa fonte** — che il docente CORREGGE → «Genera materiali»
+   produce **un vault DOSSIER** col titolo della fonte: la scheda in PDF + gli output
+   spuntati nel box nuovo **«Output automatici»** (flashcard · domande aperte · sintesi;
+   voce naturale spenta di default, si accende dall'editor di ELABORA).
+   ⚠️ Le TRE decisioni che reggono tutto:
+   · **la separazione osservazione/interpretazione + la REGOLA DELL'APPIGLIO**: un campo
+     interpretativo senza « — l'elemento visivo che lo giustifica» viene SCARTATO dalla
+     normalizzazione (un modello di visione descrive bene e contestualizza male — trappola
+     49 della guida). Il testo nudo cade nell'osservazione, mai nei blocchi interpretativi;
+   · **il grafo del dossier È la scheda** (root + un ramo per blocco, deterministico, zero
+     AI): un vault senza nodi romperebbe ELABORA e la pipeline, coi blocchi come rami tutto
+     funziona senza una guardia nuova;
+   · **le spunte degli output sono SPOSTATE, non duplicate** (gli id restano quelli che
+     `_readConfig()` legge; il master `mp-quiz-on` resta derivato).
+   In ELABORA: riga «Analisi della fonte» → **«Modifica» riapre la SCHEDA** (non un editor
+   di testo), archivio e PDF si riscrivono. I file si chiamano `Analisi-fonte-<Fonte>.pdf`.
+   ⚠️ **Mai girato in Electron**: la lista è in §5, in testa. Su Infomaniak il passo DICE
+   che serve Google, non fallisce.
 
 0. **Le attività «a scelta» sono COMPLETE, sei fasi su sei.**
    In `main`: il box **«Più set per angolo»** nel bento (A), il **core** (B), la **superficie
@@ -186,8 +194,7 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_domande_scelta` | acceso | le attività **«a scelta»**. `'0'` → via la card dal hub Live, la voce da INSEGNA › Attività LIVE e le due card dal launcher di Studio attivo (le sette modalità storiche restano) |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
-| `mappai_visione` | acceso | **leggere le immagini col motore locale** (20/8). `'0'` → il passo «Da che cosa» sparisce da «Crea un documento» e la riga della Cabina non si monta: tutto torna a partire dalla mappa |
-| `mappai_visione_model` · `mappai_visione_host` | scritti dall'uso | il modello VL (default `qwen2.5vl:7b`) e l'indirizzo del motore (default `http://127.0.0.1:11434`) |
+| `mappai_visione` | acceso | **le fonti iconografiche** (20/8): il bottone «Immagini» in CREA, i dossier, il passo «Da che cosa» in ELABORA. `'0'` → tutto torna a partire dalla mappa |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
 | `mappai_tts_model` | assente = `gemini-2.5-flash-preview-tts` | il modello della voce naturale |
 | `mappai_font_selettore` | acceso | il **carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte: esattamente com'era prima della feature |
@@ -1786,37 +1793,40 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ## 5. Provato in Electron — che cosa è acquisito
 
-### ⏳ DA PROVARE IN ELECTRON — le IMMAGINI, lette in casa (20/8 sera)
-Niente di questo è mai girato nell'app vera: è misurato in 21 test puri e in un banco
-(`tools/smoke/visione-fogli.js`). **Il motore è un programma a sé e va acceso**: Ollama è
-già installato sul Mac di Giacomo, ma serve `ollama pull qwen2.5vl:7b` (~6 GB) una volta.
-In ordine di quanto morde:
-1. **Il motore SPENTO deve dire il rimedio.** Con Ollama chiuso: «Crea un documento →
-   Domande aperte → Le genera l'AI → Da un'immagine» deve rispondere «il motore locale non
-   risponde: apri Ollama e lascialo acceso», non un errore generico. Stessa cosa col
-   modello non installato (il rimedio è il comando da incollare).
-2. **Una fotografia vera di una fonte storica** (una miniatura, un manifesto): la
-   **descrizione** deve essere fedele, e il **contesto** è il campo da guardare col
-   sospetto giusto — è lì che un modello di visione inventa date e nomi. Correggerlo, e
-   verificare che il testo corretto sia quello che finisce nelle domande (non l'ipotesi).
-3. **Un `.heic` dall'iPhone e un `.tiff` da scanner**: `sips` converte, la lettura funziona.
-4. **Tre angoli** → tre PDF nel vault e tre righe in ELABORA, ognuna col nome della fonte e
-   l'angolo. Aprire un foglio: **l'immagine è in testa**, il contesto sotto, le domande
-   dopo. Stamparlo, e controllare che la **descrizione compaia solo sul foglio delle
-   tracce** — sulla copia degli allievi sarebbe la risposta a metà delle domande.
-5. **Il giro dell'editor**: aprire quel foglio in ELABORA → «Modifica» → salvare → **la
-   foto deve esserci ancora**. È il punto in cui un'immagine che viaggiasse solo nella resa
-   sparirebbe in silenzio.
-6. **Dalla stessa scheda, le flashcard**: la voce «Dalla stessa immagine» deve comparire, e
-   non deve rileggere la foto né richiedere di correggere di nuovo il contesto.
-7. **Una foto senza testo** (un paesaggio) e una **pagina di manuale**: nel secondo caso la
-   descrizione deve contenere il testo trascritto, non parlare della pagina.
-8. **Il peso dell'archivio** dopo sette fogli con la stessa foto (Cabina › Gestione
-   cartelle): è `localStorage`, e sette copie della stessa immagine ci vivono dentro.
-9. **Cabina › Impostazioni AI**: la riga «Leggere le immagini» dice se il motore risponde,
-   e cambiare il modello nel campo si ricorda.
-10. `mappai_visione='0'` → il passo «Da che cosa» non compare e «Crea un documento» è
-    esattamente quello di prima.
+### ⏳ DA PROVARE IN ELECTRON — il DOSSIER DI FONTE (20/8 notte)
+Niente di questo è mai girato nell'app vera: è misurato in 22 test puri, nel banco
+`tools/smoke/visione-fogli.js` e nella suite (1196/0). La lettura passa da **Gemini**:
+serve la chiave Google, nessun programma da installare. In ordine di quanto morde:
+1. **Provider Infomaniak attivo** → caricando un'immagine il messaggio dice «scegli il
+   provider Google», non un errore generico. Con Google e la chiave: si prosegue.
+2. **Una foto di un manifesto di propaganda** (il caso dei docenti di storia): la scheda
+   arriva coi quattro blocchi. Guardare il blocco «Che cosa vuole ottenere»: **ogni riga ha
+   il suo appiglio** («— lo dicono lo slogan in maiuscolo…»)? Le righe senza appiglio devono
+   essere VUOTE, non piene di ipotesi.
+3. **Correggere due campi** (una data sbagliata è il caso tipico), confermare → «Genera
+   materiali» col box «Output automatici» → **un vault dossier** in
+   `Mappe/<classe>/<materia>/<titolo fonte>/` con `Analisi-fonte-….pdf` + flashcard +
+   domande aperte + sintesi secondo le spunte. Aprire il PDF: l'immagine in testa, i campi
+   vuoti NON stampati, la correzione dentro.
+4. **Aprire il dossier da ELABORA**: la console lo apre (è il punto che un vault a zero
+   nodi romperebbe — qui i rami sono i blocchi della scheda). La riga «Analisi della
+   fonte» → **«Modifica» riapre la SCHEDA** precompilata → correggere → archivio e PDF
+   aggiornati.
+5. **Un `.heic` dall'iPhone** (sips converte; Gemini lo leggerebbe anche nativo, ma la
+   scheda e il PDF devono MOSTRARLA — Chromium non decodifica l'HEIC).
+6. **Tre foto caricate insieme** → tre schede una dopo l'altra al caricamento, poi tre
+   dossier in sequenza, nessun nome che si sovrascrive. Con anche un PDF di testo caricato:
+   il toast dice che le altre fonti non entrano nei dossier.
+7. **Il box «Output automatici»** nella vista estesa (combo): le spunte governano davvero
+   (spegnere la sintesi → non si genera); la **voce naturale resta spenta** e si accende
+   solo dall'editor della sintesi; su un dossier fogli-nodi e catena **non si generano**
+   nemmeno se spuntati.
+8. **Il gesto di ELABORA** («Crea un documento → Domande aperte → Da un'immagine»): un
+   foglio per angolo col contesto breve in testa, l'osservazione SOLO sulle tracce.
+9. **Studio attivo sul dossier**: «Domande a scelta» e «Quiz a scelta» leggono i materiali
+   del dossier come di qualunque mappa.
+10. `mappai_visione='0'` → niente bottone «Immagini», niente passo «Da che cosa»: CREA e
+    ELABORA come prima.
 
 ### ⏳ DA PROVARE IN ELECTRON — la PENSIONE delle sette modalità (20/8, fase F)
 Questa lista viene prima delle altre: qui non si è aggiunto, si è **tolto**, e ciò che si

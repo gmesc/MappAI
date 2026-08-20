@@ -632,17 +632,18 @@ ipcMain.handle('open-external', async (event, url) => {
     }
 });
 
-// ===================== VISIONE: leggere un'immagine in casa (20/8) =========
-// Due handler sottili (invariante 19): convertire un file in qualcosa che il
-// modello sappia leggere, e chiedere al motore locale che cosa ci vede.
-// Le regole — quali formati, quanto grandi, che cosa chiedere, come si chiama
-// un guasto — stanno in `mappai-visione-core.js`, provato in Node.
+// ===================== VISIONE: preparare un'immagine (20/8) ===============
+// UN handler sottile (invariante 19): convertire e ridurre un file in qualcosa
+// che si possa mostrare e mandare al modello. La lettura vera passa da
+// `fetchModelAPI` nel renderer (Gemini): il choke point registra i consumi e
+// applica la taratura da sé, e qui non serve un secondo client HTTP.
+// (20/8 sera: il motore locale Ollama è stato tolto — restava un programma da
+// installare e accendere a mano; Gemini è già configurato e legge meglio.)
+// Le regole — formati, misure, guasti — stanno in `mappai-visione-core.js`.
 //
-// ⚠️ PERCHÉ NON `node-llama-cpp`, che il progetto ha già. Misurato il 20/8:
-// nella 3.19 non c'è visione — zero simboli `mtmd`/`mmproj` nei binari e
-// nessun export per le immagini. Il motore degli NPC non può caricare un
-// modello VL. Quindi si parla con **Ollama**, che è un processo a sé: nessun
-// binario nuovo nel pacchetto, e l'immagine non lascia comunque il computer.
+// `sips` serve ancora anche con Gemini: l'HEIC il modello lo accetta, ma
+// **Chromium non lo decodifica** — e l'immagine va mostrata nella scheda e
+// incorporata nei documenti.
 
 const { execFile } = require('child_process');
 
@@ -694,43 +695,6 @@ ipcMain.handle('immagine-prepara', async (event, { path: filePath, quale }) => {
         return { ok: true, base64: buf.toString('base64'), mime: prep.mime, byte: buf.length, convertita: true };
     } catch (err) {
         return { ok: false, motivo: err.message || String(err) };
-    }
-});
-
-// Il motore risponde? E con quale modello? Timeout corto: questa domanda si fa
-// per DECIDERE che cosa mostrare, non per aspettare.
-ipcMain.handle('visione-locale-stato', async (event, { host } = {}) => {
-    const base = String(host || VisioneCore.HOST_DEF).replace(/\/$/, '');
-    try {
-        const r = await axios.get(base + '/api/tags', { timeout: 1500 });
-        const modelli = ((r.data && r.data.models) || []).map(m => String(m.name || m.model || ''));
-        return { ok: true, acceso: true, modelli };
-    } catch (err) {
-        return { ok: true, acceso: false, modelli: [], motivo: err.message || String(err) };
-    }
-});
-
-// La lettura vera. `stream:false`: una lettura è un risultato, non una
-// conversazione — non c'è niente da mostrare mentre arriva.
-ipcMain.handle('visione-locale', async (event, { base64, prompt, model, host, timeoutMs } = {}) => {
-    try {
-        if (!base64) return { ok: false, motivo: 'immagine-mancante' };
-        const base = String(host || VisioneCore.HOST_DEF).replace(/\/$/, '');
-        const r = await axios.post(base + '/api/generate', {
-            model: String(model || VisioneCore.MODELLO_DEF),
-            prompt: String(prompt || ''),
-            images: [base64],
-            stream: false,
-            options: { temperature: 0.1 }
-        }, { timeout: Number(timeoutMs) > 0 ? Number(timeoutMs) : VisioneCore.TIMEOUT_DEF });
-        return { ok: true, testo: (r.data && r.data.response) || '' };
-    } catch (err) {
-        /* Il motivo va restituito INTERO: è quello che `diagnosi` classifica per
-           dare il rimedio giusto (server spento ≠ modello assente), e sono due
-           cose che arrivano nella stessa forma — un errore di rete. */
-        const d = err && err.response && err.response.data;
-        const testo = (d && (d.error || d.message)) || err.message || String(err);
-        return { ok: false, motivo: testo };
     }
 });
 

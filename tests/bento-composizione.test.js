@@ -384,8 +384,10 @@ test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', (
        Restano MONTATE nel DOM: `_readConfig()` legge i loro campi. */
     assert.deepStrictEqual(stabili,
         ['upload', 'elenco', 'genere', 'genere-opz', 'ctx', 'azioni']);
+    /* «output» (20/8): il box a tutta riga con le spunte di CHE COSA si genera,
+       primo degli extra — è l'unica decisione da prendere per un DOSSIER. */
     assert.deepStrictEqual(extra,
-        ['preset', 'quiz', 'ns', 'src', 'multi', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
+        ['output', 'preset', 'quiz', 'ns', 'src', 'multi', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
 });
 
 test('i box extra stanno DOPO il mega-bento, e quello che cresce è l\'ultimo', () => {
@@ -728,7 +730,25 @@ test('la tendina «Angolo» è uscita dal box Quiz: due comandi per la stessa do
 
 test('la pipeline non genera più quiz Vero/Falso (19/8)', () => {
     assert.ok(!B.voce('mp-qt-tf'), 'la casella è uscita dall\'inventario, non solo dalla composizione');
+    /* Dal 20/8 le spunte dei generi stanno nel box «Output automatici» (a tutta
+       riga, coi due della sintesi); nel box «Quiz» resta il PARAMETRO. */
+    const out = B.MODULI.find(x => x.id === 'output');
+    assert.deepStrictEqual(B.vociDi(out).map(v => v.id),
+        ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-syn-on', 'mp-syn-audio']);
     const quiz = B.MODULI.find(x => x.id === 'quiz');
-    assert.deepStrictEqual(B.vociDi(quiz).map(v => v.id),
-        ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-perbranch']);
+    assert.deepStrictEqual(B.vociDi(quiz).map(v => v.id), ['mp-perbranch']);
+});
+
+/* ═══ IL BOX «OUTPUT AUTOMATICI» (20/8) ═══════════════════════════════════════
+   Le spunte sono SPOSTATE, non duplicate (inv. 6): gli id restano quelli che
+   `_readConfig()` legge, e nessuna voce può stare in due moduli. */
+test('output automatici: spostate, non duplicate — e la famiglia resta legata', () => {
+    const v = B.valida(B.MODULI);
+    assert.strictEqual(v.errori.length, 0, v.errori.join(' | '));
+    /* il master del quiz resta DERIVATO: spuntare «Flashcard» lo accende da sé */
+    const d = B.mastersDerivati(B.MODULI).map(x => x.id).sort();
+    assert.deepStrictEqual(d, ['mp-ns-on', 'mp-quiz-on']);
+    /* la voce nuova delle fonti-immagine esiste e sposta il bottone vero */
+    const img = B.voce('mn-src-img');
+    assert.ok(img && img.sposta === '#btn-src-img');
 });
