@@ -23,7 +23,35 @@
 
 ## 0. Le prime cose da sapere
 
-0-bis. **⟵ DA QUI SI RIPRENDE (20/8 notte): un'immagine produce un DOSSIER DI FONTE.**
+0-ter. **⟵ DA QUI SI RIPRENDE (20/8, terzo giro): la SCHEDA è una SUPERFICIE, e il dossier
+   si PROIETTA.** Quattro pezzi, tutti dietro `mappai_visione`:
+   · la validazione non è più un modale: è una **superficie di CREA** (il form si spegne,
+     lei prende il posto) coi campi che **crescono col testo** (`cresce: true` nel motore,
+     `field-sizing` fra 3 e 18 righe) e i blocchi collassabili. In fondo i **due box delle
+     opzioni** — Domande aperte e Flashcard: quante per categoria · quali categorie (= i
+     blocchi della scheda) · **gli otto angoli a spunte singole** — più la sintesi senza
+     opzioni. Il preventivo si aggiorna a ogni spunta. ESC = **conferma a tre vie**
+     (Riprendi · Salva e chiudi · Scarta); «Non usare questa foto» toglie la fonte.
+   · **l'angolo è diventato VERO per le flashcard**: `flashcardAngleBlock` (stessa tabella
+     `QUIZ_ANGLES`, terza voce della famiglia) scavalca la riga «VARIA il tipo» del
+     template; `flashcards` è entrato in `_VALID_MULTI`. Le scelte viaggiano PER TIPO
+     (`angoliPerTipo` · `quantiPerTipo` · `categoriePerTipo` in pipeline-core).
+   · in **ELABORA** il dossier mostra l'**anteprima della foto cliccabile** nell'area;
+     «Modifica» (o il clic) apre la scheda come **EDITOR nella tela**, col piè degli
+     editor — Salva · Annulla · Crea PDF · Esci — e lo stato che sopravvive ai ridisegni
+     è l'ultimo salvataggio (il pattern del doc-editor).
+   · in **INSEGNA** il dossier ha l'**icona della foto** (`image` — il marcatore `dossier`
+     sta in `index.yaml` e torna da `get-all-vaults`, il percorso di `extractionMode`) e
+     l'azione **«Proietta»**: la fotografia a tutto schermo per la lezione — rotellina =
+     zoom sul puntatore, drag = pan, pannellino − · % · + · Adatta — e la **split**
+     attivabile con la scheda (bottone), un foglio di domande aperte (tendina, SOLO le
+     domande senza righe) o un mazzo di flashcard (tendina; il retro si rivela al clic —
+     prima si chiede, poi si mostra). A− / A+ scala il corpo (18-40px). La geometria è in
+     `mappai-proiezione-core.js`, pura. **La foto PIENA entra in `Allegati/`** del dossier
+     alla generazione; i dossier vecchi ripiegano sul JPEG della scheda.
+   ⚠️ Mai girato in Electron: la lista in §5 in testa. Suite **1202/0**, sei banchi.
+
+0-bis. **Un'immagine produce un DOSSIER DI FONTE (20/8 notte).**
    Richiesta di docenti di **storia di scuola media**, in due giri nella stessa giornata.
    Il flusso: la foto si carica dal bottone **«Documenti»** di CREA, che la AUTORICONOSCE
    dall'estensione (jpg · png · heic, **niente tiff** — nessun bottone a parte) → la analizza **Gemini** via `fetchModelAPI` (la chiave, la
@@ -1833,8 +1861,24 @@ serve la chiave Google, nessun programma da installare. In ordine di quanto mord
    foglio per angolo col contesto breve in testa, l'osservazione SOLO sulle tracce.
 9. **Studio attivo sul dossier**: «Domande a scelta» e «Quiz a scelta» leggono i materiali
    del dossier come di qualunque mappa.
-10. `mappai_visione='0'` → niente bottone «Immagini», niente passo «Da che cosa»: CREA e
+10. `mappai_visione='0'` → niente riconoscimento foto, niente passo «Da che cosa»: CREA e
     ELABORA come prima.
+11. **La SUPERFICIE di validazione** (terzo giro): la foto da «Documenti» apre la scheda AL
+    POSTO del form di CREA (non un modale); i campi crescono col testo e non tagliano più
+    la descrizione a metà frase; i due box in fondo con categorie e angoli per genere; il
+    preventivo che segue le spunte; ESC → conferma a tre vie; «Non usare questa foto»
+    toglie la fonte e il form torna. ⚠️ Cambiare sezione della landing con la superficie
+    aperta: da provare — il form è spento e deve riaccendersi.
+12. **Le opzioni mordono**: 2 categorie + 2 angoli sulle aperte → 4 fogli SOLO da quei
+    blocchi; 1 angolo sulle flashcard → mazzi davvero diversi (era il difetto dei mazzi
+    identici). I nomi dei file portano l'angolo.
+13. **ELABORA sul dossier**: l'anteprima della foto in cima all'area, il clic apre
+    l'EDITOR della scheda nella tela (Salva · Annulla · Crea PDF · Esci); Salva riscrive
+    archivio e PDF; Esci con modifiche chiede.
+14. **INSEGNA → «Proietta»**: icona foto sulla voce; a tutto schermo la rotellina zooma
+    SUL PUNTATORE, il drag naviga, «Adatta» rientra; la split con scheda / domande (senza
+    righe) / flashcard (retro al clic); A+ ingrandisce; su un dossier VECCHIO (senza
+    originale in Allegati) si ripiega sul JPEG e non si rompe.
 
 ### ⏳ DA PROVARE IN ELECTRON — la PENSIONE delle sette modalità (20/8, fase F)
 Questa lista viene prima delle altre: qui non si è aggiunto, si è **tolto**, e ciò che si

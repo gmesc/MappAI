@@ -292,9 +292,31 @@
     return disp.filter(function (k) { return a.indexOf(k) >= 0; });   /* ordine dichiarato */
   }
 
-  /* Su quali generi si applica: solo dove un angolo cambia davvero la domanda.
-     Flashcard e vero/falso restano a una generazione sola. */
-  var _VALID_MULTI = ['open', 'mc'];
+  /* Su quali generi si applica: solo dove un angolo cambia davvero la domanda. */
+  /* `flashcards` è entrato il 20/8 notte (fase 3): l'angolo è diventato VERO
+     anche per le carte (`flashcardAngleBlock`), quindi moltiplicarle non
+     produce più mazzi identici. Il vero/falso resta fuori. */
+  var _VALID_MULTI = ['open', 'mc', 'flashcards'];
+  /* Le scelte PER GENERE del dossier (20/8): quante domande, quali categorie
+     (= blocchi della scheda), quali angoli. Con la forma per-tipo assente si
+     ricade sulle leve globali — è ciò che tiene vivo il percorso della mappa. */
+  function angoliPerTipo(quiz, t) {
+    var per = quiz && quiz.angoliPerTipo && quiz.angoliPerTipo[t];
+    if (Array.isArray(per)) {
+      var disp = angoliMulti();
+      return disp.filter(function (k) { return per.indexOf(k) >= 0; });
+    }
+    return angoliScelti(quiz);
+  }
+  function quantiPerTipo(quiz, t, fallback) {
+    var per = quiz && quiz.perTipo && quiz.perTipo[t];
+    var n = parseInt(per, 10);
+    return (n >= 1 && n <= 30) ? n : fallback;
+  }
+  function categoriePerTipo(quiz, t) {
+    var per = quiz && quiz.catPerTipo && quiz.catPerTipo[t];
+    return Array.isArray(per) ? per.filter(Boolean) : null;   /* null = tutte */
+  }
   function multiTypes(quiz) {
     var m = (quiz && Array.isArray(quiz.multi)) ? quiz.multi : [];
     var types = (quiz && quiz.types) || [];
@@ -625,6 +647,7 @@
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
     angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
+    angoliPerTipo: angoliPerTipo, quantiPerTipo: quantiPerTipo, categoriePerTipo: categoriePerTipo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,
     buildMapExportName: buildMapExportName,
     nomeLibero: nomeLibero,

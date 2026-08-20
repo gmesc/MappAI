@@ -1200,7 +1200,7 @@ ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) 
 });
 
 // vault-materials-list: elenca i materiali su disco (Materiale Studio/) + manifest.
-ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
+ipcMain.handle('vault-materials-list', async (event, { vaultPath, dir: dirName } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         let manifest = null;
@@ -1208,7 +1208,11 @@ ipcMain.handle('vault-materials-list', async (event, { vaultPath } = {}) => {
             const mp = path.join(vaultPath, 'pipeline.json');
             if (fs.existsSync(mp)) manifest = JSON.parse(fs.readFileSync(mp, 'utf-8'));
         } catch (e) { manifest = null; }   // parse tollerante: manifest corrotto ≠ errore
-        const dir = path.join(vaultPath, 'Materiale Studio');
+        /* `dir` (20/8): la proiezione elenca `Allegati/` (la foto piena del
+           dossier). Allowlist, non stringa libera — stessa disciplina di
+           sanitizeVaultRelPath. */
+        const cartella = (dirName === 'Allegati') ? 'Allegati' : 'Materiale Studio';
+        const dir = path.join(vaultPath, cartella);
         const files = [];
         if (fs.existsSync(dir)) {
             fs.readdirSync(dir).forEach(name => {
@@ -1401,6 +1405,9 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const indexData = {
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
+            /* il DOSSIER di fonte si dichiara nel vault: le sidebar leggono da
+               qui l'icona della foto senza aprire niente (20/8) */
+            dossier: !!mapData.dossier,
             /* CLASSE e MATERIA dichiarate DENTRO il vault (9/8): finora vivevano
                solo nei nomi delle cartelle e nel progetto in localStorage, cioè in
                due posti che non viaggiano con la cartella. Un vault passato a un
@@ -3074,6 +3081,7 @@ ipcMain.handle('get-all-vaults', async () => {
                 const parsed = yaml.load(fs.readFileSync(indexPath, 'utf-8')) || {};
                 vaultInfo.extractionMode = parsed.extractionMode || 'mindmap';
                 vaultInfo.rootNodeLabel  = parsed.rootNodeLabel  || folderName;
+                vaultInfo.dossier        = !!parsed.dossier;
                 /* dichiarate dal vault: servono ai vault arrivati da fuori, che
                    non stanno dentro le cartelle classe/materia (9/8) */
                 vaultInfo.classeDichiarata  = parsed.classe  || '';

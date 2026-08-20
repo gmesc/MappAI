@@ -365,6 +365,26 @@
             rimedio: m ? m : _tSafe('vs_e_gen_r', 'Riprova.') };
     }
 
+    /* ── IL PREVENTIVO DEL DOSSIER (fase 3) ───────────────────────────────────
+       Un numero per le scelte della scheda di validazione: per ogni genere
+       acceso, (angoli scelti o 1) × (categorie scelte o blocchi pieni), più la
+       sintesi. La lettura è già stata pagata al caricamento e non si conta.
+       4 categorie × 8 angoli × 2 generi moltiplica in fretta: mostrarlo mentre
+       si spunta è la regola del bento (3/8) e del preavviso della voce. */
+    function stimaDossier(op, nBlocchiPieni) {
+        op = op || {};
+        var blocchi = Math.max(1, nBlocchiPieni || 0);
+        function genere(g) {
+            if (!g || g.on === false) return 0;
+            var ang = Array.isArray(g.angoli) ? g.angoli.filter(Boolean).length : 0;
+            var cat = Array.isArray(g.cat) && g.cat.length ? Math.min(g.cat.length, blocchi) : blocchi;
+            return Math.max(1, ang || 1) * cat;
+        }
+        var oq = genere(op.oq), fc = genere(op.fc);
+        var syn = (op.syn === false) ? 0 : 1;
+        return { chiamate: oq + fc + syn, oq: oq, fc: fc, syn: syn };
+    }
+
     /* ── IL PREVENTIVO ────────────────────────────────────────────────────────
        La lettura è UNA chiamata a Gemini per immagine, e va detta prima come
        tutto ciò che spende (trappola 39). Le domande costano una chiamata per
@@ -402,6 +422,7 @@
         testoBlocco: testoBlocco,
         materialeDaScheda: materialeDaScheda,
         contestoBreve: contestoBreve,
+        stimaDossier: stimaDossier,
         schedaPronta: schedaPronta,
         nodiDaScheda: nodiDaScheda,
         diagnosi: diagnosi,

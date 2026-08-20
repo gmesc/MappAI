@@ -1,7 +1,18 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **20 agosto 2026, notte** — un'immagine produce un **DOSSIER DI
+> Ultimo aggiornamento: **20 agosto 2026, terzo giro** — la SCHEDA diventa una
+> **SUPERFICIE di CREA** (campi che crescono col testo, blocchi collassabili, i **due box**
+> con categorie e **angoli a spunte singole** per Domande aperte e Flashcard, preventivo
+> vivo, ESC a tre vie) · **l'angolo è VERO anche per le flashcard** (`flashcardAngleBlock`,
+> `flashcards` in `_VALID_MULTI`, scelte PER TIPO in pipeline-core) · in **ELABORA**
+> anteprima della foto cliccabile → **editor della scheda nella tela** (Salva · Annulla ·
+> Crea PDF · Esci) · in **INSEGNA** icona foto (marcatore `dossier` in `index.yaml`) e
+> **«Proietta»**: fotografia a tutto schermo con zoom sul puntatore (core puro
+> `mappai-proiezione-core.js`), drag, «Adatta», e la split con scheda / domande senza righe
+> / flashcard col retro al clic — per far rispondere per alzata di mano. La foto PIENA
+> entra in `Allegati/`. Suite **1202/0**, ⚠️ mai girato in Electron (HANDOFF §5, 11-14).
+> (Prima, in notte: un'immagine produce un **DOSSIER DI
 > FONTE**. Secondo giro della stessa giornata, su decisione di Giacomo: **via Ollama**
 > (restava un programma da installare a mano), la lettura passa a **GEMINI** via
 > `fetchModelAPI`; **niente tiff**; la scheda diventa una **griglia a quattro blocchi**
@@ -704,6 +715,56 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (20/8/26, terzo giro): la scheda-SUPERFICIE, gli angoli veri delle flashcard, la PROIEZIONE
+Terzo giro della stessa giornata. Piano ed esito in
+[`docs/PIANO-immagini.md`](docs/PIANO-immagini.md) (fase 3 + 3-bis); stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0-ter e §5 punti 11-14**. Suite **1202/0**.
+
+**La scheda è una superficie, non un modale**: si monta AL POSTO del form di CREA
+(`MappAIModal.render` — lo schema è lo stesso, cambia il posto), i campi lunghi **crescono
+col testo** (`cresce: true` nel motore, `field-sizing` fra 3 e 18 righe: la descrizione non
+si valida più tagliata a metà frase), ESC chiede SEMPRE con tre vie, e «Non usare questa
+foto» è l'uscita dichiarata. In fondo i **due box** — Domande aperte e Flashcard — con
+quante per categoria, le categorie (= i blocchi della griglia) e **gli otto angoli a spunte
+singole**; la sintesi resta senza opzioni. Il preventivo si aggiorna a ogni spunta
+(`stimaDossier`, core).
+
+**L'angolo delle flashcard era finto e ora è vero** — `_genFlashcards` non l'aveva mai
+ricevuto (otto spunte = otto mazzi identici, il difetto scoperto il 20/8 sera). Ora:
+`flashcardAngleBlock` (terza voce sulla STESSA `QUIZ_ANGLES`) che **scavalca** la riga
+«VARIA il tipo» scritta dentro il template — con l'angolo forzato direbbe il contrario —
+e `flashcards` in `_VALID_MULTI`. Le scelte viaggiano **PER TIPO**: `angoliPerTipo` ·
+`quantiPerTipo` · `categoriePerTipo` in pipeline-core, e su un dossier le categorie
+filtrano i rami (`fonte_<blocco>`).
+
+**In ELABORA** il dossier mostra l'**anteprima della foto** in cima all'area (dalla
+sorgente `qp-scheda`, in cache per doc); il clic — o «Modifica» — apre la scheda come
+**EDITOR nella tela**, col piè degli altri editor: Salva · Annulla · Crea PDF · Esci.
+Lo stato che sopravvive ai ridisegni della console è l'ultimo salvataggio (il pattern del
+doc-editor, dichiarato). La superficie è UNA: stessa funzione, due piè (inv. 6).
+
+**In INSEGNA** il dossier ha l'**icona della foto** — il marcatore `dossier` viaggia in
+`index.yaml` e torna da `get-all-vaults`, lo stesso percorso di `extractionMode` (inv. 7:
+le sidebar non aprono i vault per disegnare un elenco) — e l'azione **«Proietta»**: la
+fotografia a tutto schermo, **rotellina = zoom sul puntatore** (il punto sotto il cursore
+resta fermo: è la prova che conta di `tests/proiezione-core.test.js`), **drag = pan** coi
+bordi che non si perdono (48px sempre dentro), «Adatta» nei due assi, e la **split** con la
+scheda (bottone) o un set dalle due tendine — le domande aperte SENZA le righe di risposta,
+le flashcard col FRONTE e il retro che si rivela al clic: prima si chiede all'aula, poi si
+mostra. A− / A+ scala il corpo su 18-40px. **La foto PIENA entra in `Allegati/`** del
+dossier alla generazione (il JPEG della scheda è 900px: proiettato sgrana); i dossier
+vecchi ripiegano e non si rompono.
+
+**Tre deviazioni dichiarate**: i due box sono SEZIONI dello schema (il motore disegna già
+spunte e numeri: i moduli `soloDossier` del piano avrebbero acceso la macchina del bento
+per niente) · niente contatore «Fonte 2 di 3» (le schede sono già sequenziali e il
+sottotitolo porta il nome del file) · `de_save` coniata (la barra dell'editor scriveva
+«Salva» senza chiave).
+
+⚠️ **Un guasto evitato per disciplina**: l'ascolto di ESC della superficie sta sul
+documento — al rimontaggio (ELABORA ridisegna la console) senza pulizia se ne
+accumulerebbero due. `_pulisciSuperficie` è la guardia (trappola 22 in forma di listener).
 
 ### ✅ FATTO (20/8/26, notte): il DOSSIER DI FONTE — Gemini, la griglia, il box degli output
 Secondo giro della giornata, su tre decisioni di Giacomo: **Gemini al posto di Ollama**

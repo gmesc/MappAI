@@ -69,6 +69,10 @@ window.t = (k, f) => f;
 window.QUIZ_TEMPERATURE = 0.7;
 window.fillPromptTemplate = () => '';
 window.openQuestionsAngleBlock = (ang) => 'ANGOLO: ' + ang;
+/* il blocco d'angolo delle flashcard: nel banco si prova il CABLAGGIO (che
+   `_genFlashcards` lo chiami e lo metta in testa); il testo vero vive in
+   mappai-study-session.js, che qui non si carica (vuole il DOM dell'app) */
+window.flashcardAngleBlock = (ang) => ang && ang !== 'auto' ? 'ANGOLO DI QUESTO MAZZO: ' + ang.toUpperCase() : '';
 window.MappAIPrintLayout = require(path.join(RADICE, 'public', 'js', 'mappai-print-layout.js'));
 /* `_resolveFolderPath` compone il percorso del vault con FilesCore vero */
 window.MappAIFilesCore = require(path.join(RADICE, 'public', 'js', 'mappai-files-core.js'));
@@ -174,6 +178,39 @@ SCHEDA.identita = Object.assign({}, SCHEDA.identita, { data: '1917' });
         'i generatori hanno ricevuto i BLOCCHI corretti, non l\'ipotesi del modello');
     ok(!materiali.some(m => m.includes('1936')),
         '⚠️ la data SBAGLIATA del modello non arriva a nessun generatore');
+
+    console.log('\n── LE OPZIONI PER-TIPO (fase 3): categorie e angoli per genere ──');
+    /* seconda foto: 2 categorie e 2 angoli per le aperte, 1 angolo per le
+       flashcard. Le domande devono nascere SOLO dai blocchi scelti, e i mazzi
+       per angolo devono ricevere blocchi d'angolo DIVERSI. */
+    const SCHEDA2 = Object.assign({}, SCHEDA, { titolo: 'Seconda fonte', opzioni: {
+        oq: { on: true, n: 2, cat: ['identita', 'critica'], angoli: ['causa', 'confronto'] },
+        fc: { on: true, n: 2, cat: null, angoli: ['esempio'] },
+        syn: false
+    } });
+    window.appState.sources = [{ id: 's2', type: 'doc', file: { name: 'seconda.jpg' }, _scheda: SCHEDA2 }];
+    const primaMat = materiali.length, primaScritti = scritti.length;
+    vaults.length = 0;
+    await new Promise((fine) => {
+        let attesa = setInterval(() => { if (!P._running && vaults.length) { clearInterval(attesa); fine(); } }, 20);
+        P._startFromModal();
+        setTimeout(() => { clearInterval(attesa); fine(); }, 3000);
+    });
+    const mat2 = materiali.slice(primaMat);
+    const oq2 = mat2.filter(m => /DOMANDE APERTE|traccia/i.test(m));
+    ok(oq2.length === 4, 'aperte: 2 categorie × 2 angoli = 4 chiamate (' + oq2.length + ')');
+    ok(oq2.every(m => /Carta d'identità|Che cosa prova/.test(m)) && !oq2.some(m => /CHE COSA SI VEDE\n/.test(m.split('Materiale:')[1] ? '' : '')),
+        'le aperte nascono SOLO dai blocchi scelti');
+    ok(!oq2.some(m => m.indexOf('Materiale:\nChe cosa si vede') >= 0),
+        'il blocco NON scelto (osservazione) non è il materiale di nessuna chiamata aperta');
+    const fc2 = mat2.filter(m => !/DOMANDE APERTE|traccia/i.test(m));
+    ok(fc2.length === 4 && fc2.every(m => /ANGOLO DI QUESTO MAZZO/.test(m)),
+        'flashcard: 1 angolo × 4 blocchi, OGNI chiamata porta il blocco d\'angolo (' + fc2.length + ')');
+    ok(fc2.every(m => /ESEMPIO/i.test(m)), 'l\'angolo delle flashcard è quello scelto (esempio)');
+    ok(!scritti.slice(primaScritti).some(x => /Sintesi/.test(x)), 'sintesi spenta = niente sintesi');
+    const nomi2 = scritti.slice(primaScritti).filter(x => /Domande-aperte/.test(x));
+    ok(new Set(nomi2).size === 2 && nomi2.some(x => /-causa\.pdf/.test(x)) && nomi2.some(x => /-confronto\.pdf/.test(x)),
+        'due PDF di aperte, uno per angolo, con l\'angolo nel nome');
 
     console.log('\n── IL GESTO DI ELABORA (fase 1): un foglio per angolo ──');
     /* si torna alla mappa vera: il gesto singolo lavora nel vault aperto */

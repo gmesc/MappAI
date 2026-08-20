@@ -654,10 +654,28 @@ test('multiTypes: solo generi validi, spuntati, senza doppioni, e con almeno un 
     assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'open'], types: ['open'], ...A }), ['open'], 'niente doppioni');
     assert.deepStrictEqual(PC.multiTypes({ multi: ['open', 'mc'], types: ['open'], ...A }), ['open'],
         'un genere non spuntato non si genera: chiederne sette copie sarebbe una generazione che non avviene');
-    assert.deepStrictEqual(PC.multiTypes({ multi: ['tf', 'flashcards'], types: ['tf', 'flashcards'], ...A }), [],
-        'vero/falso e flashcard restano a una generazione: lì un angolo non cambia la domanda');
+    /* dal 20/8 notte le FLASHCARD si moltiplicano per angolo (l'angolo è
+       diventato vero: `flashcardAngleBlock`); il vero/falso resta fuori */
+    assert.deepStrictEqual(PC.multiTypes({ multi: ['tf', 'flashcards'], types: ['tf', 'flashcards'], ...A }), ['flashcards'],
+        'le flashcard si moltiplicano; il vero/falso resta a una generazione');
     assert.deepStrictEqual(PC.multiTypes({ multi: ['open'], types: ['open'], angoli: [] }), [],
         'spegnere tutte le caselle È lo spegnimento: non c\'è più un interruttore generale');
+});
+
+test('per-tipo (dossier, 20/8): angoli, quantità e categorie per genere, con ricaduta sulle leve globali', () => {
+    const q = {
+        angoli: ['causa', 'esempio'],
+        angoliPerTipo: { open: ['causa'], flashcards: ['confronto', 'inesistente'] },
+        perTipo: { open: 4, flashcards: 99 },          /* 99 = fuori tetto → ricade */
+        catPerTipo: { open: ['identita', 'critica'] }
+    };
+    assert.deepStrictEqual(PC.angoliPerTipo(q, 'open'), ['causa']);
+    assert.deepStrictEqual(PC.angoliPerTipo(q, 'flashcards'), ['confronto'], 'un angolo inesistente si scarta');
+    assert.deepStrictEqual(PC.angoliPerTipo(q, 'mc'), ['causa', 'esempio'], 'senza per-tipo valgono le globali');
+    assert.strictEqual(PC.quantiPerTipo(q, 'open', 3), 4);
+    assert.strictEqual(PC.quantiPerTipo(q, 'flashcards', 3), 3, 'fuori tetto → il fallback');
+    assert.deepStrictEqual(PC.categoriePerTipo(q, 'open'), ['identita', 'critica']);
+    assert.strictEqual(PC.categoriePerTipo(q, 'flashcards'), null, 'null = tutte');
 });
 
 test('estimateCalls: ogni angolo spuntato è una generazione in più', () => {

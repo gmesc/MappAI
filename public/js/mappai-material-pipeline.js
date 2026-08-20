@@ -265,13 +265,19 @@
   // ══════════════════════════════════════════════════════════════════════
   // STEP B — quiz / flashcard per ramo, un set (e un PDF) per tipo
   // ══════════════════════════════════════════════════════════════════════
-  async function _genFlashcards(material, nodeLabel, quantity, apiKey) {
+  async function _genFlashcards(material, nodeLabel, quantity, apiKey, opts) {
+    opts = opts || {};
     const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
     // Vincolo di stampa nel prompt: genera già corto invece di far accorciare
     // tutto al docente dopo (e vieta URL/formule, che sulla carta non entrano).
     const PLx = window.MappAIPrintLayout;
     const regola = PLx ? PLx.promptRule(PLx.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : 'it') : '';
-    const prompt = window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola;
+    /* L'ANGOLO (20/8): il blocco sta FUORI e PRIMA del template — vale anche
+       per chi ha un prompts_config.json personale — e scavalca la riga
+       «VARIA il tipo» che il template porta dentro (vedi flashcardAngleBlock). */
+    const blocco = (opts.angolo && window.flashcardAngleBlock) ? window.flashcardAngleBlock(opts.angolo) : '';
+    const prompt = (blocco ? blocco + '\n\n' : '') +
+      window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola;
     const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
     let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
@@ -494,7 +500,15 @@
         const t = types[ti];
         const spec = _QT[t];
         _setContext(spec.sub);
-        const angoli = (multi.indexOf(t) >= 0) ? PC().angoliScelti(config.quiz) : [angle];
+        /* PER-TIPO (dossier, 20/8): angoli, quantità e categorie scelti nella
+           scheda di validazione, genere per genere. Con la forma per-tipo
+           assente si ricade sulle leve globali del bento (è il percorso della
+           mappa, invariato). Le CATEGORIE filtrano i rami: su un dossier i
+           rami SONO i blocchi della scheda (id `fonte_<blocco>`). */
+        const angoli = (multi.indexOf(t) >= 0) ? PC().angoliPerTipo(config.quiz, t) : [angle];
+        const quanti = PC().quantiPerTipo ? PC().quantiPerTipo(config.quiz, t, perBranch) : perBranch;
+        const catT = (config.dossier && PC().categoriePerTipo) ? PC().categoriePerTipo(config.quiz, t) : null;
+        const ramiT = catT ? branches.filter(b => catT.indexOf(String(b.id).replace(/^fonte_/, '')) >= 0) : branches;
         for (let ai = 0; ai < angoli.length; ai++) {
           const ang = angoli[ai];
           /* Il nome della variante è la CHIAVE dell'angolo, non l'etichetta a
@@ -505,15 +519,15 @@
           _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel +
             (nomeVar ? ' · ' + nomeVar + ' ' + (ai + 1) + '/' + angoli.length : '') + ')');
           const raw = [];
-          for (let bi = 0; bi < branches.length; bi++) {
-            const b = branches[bi];
+          for (let bi = 0; bi < ramiT.length; bi++) {
+            const b = ramiT[bi];
             const material = _branchMaterial(b);
             if (!material.trim()) continue;
             counter.calls++;
             if (t === 'open') {
               /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
                  domande che collegano due macro-aree (Giacomo, 11/8) */
-              const comp = _ramoCompagno(b, branches);
+              const comp = _ramoCompagno(b, ramiT);
               const materialeB = comp ? _branchMaterial(comp) : '';
               const insieme = materialeB
                 ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
@@ -522,9 +536,9 @@
                  `config.quiz.angle` (già scelto nel bento) e la quota di
                  default — è la stessa generazione, e due tarature diverse fra
                  «Genera materiali» e il gesto singolo si noterebbero subito */
-              const items = await _genOpenQuestions(insieme, _clean(b.label), perBranch, apiKey,
+              const items = await _genOpenQuestions(insieme, _clean(b.label), quanti, apiKey,
                 { areaB: comp ? _clean(comp.label) : '', angolo: ang,
-                  base: PC().quotaBase(perBranch, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
+                  base: PC().quotaBase(quanti, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
               /* le AREE le porta già l'item (filtrate contro i nomi veri in
                  `_genOpenQuestions`): qui si tiene `l1` come area principale, che
                  è quella per cui stiamo generando */
@@ -534,10 +548,10 @@
                  l'informazione non c'è più. */
               items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
             } else if (t === 'flashcards') {
-              const items = await _genFlashcards(material, _clean(b.label), perBranch, apiKey);
+              const items = await _genFlashcards(material, _clean(b.label), quanti, apiKey, { angolo: ang });
               items.forEach(it => raw.push(it));
             } else {
-              const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: perBranch, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
+              const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: quanti, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
               (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             }
           }
@@ -589,7 +603,7 @@
         /* ⚠️ `clone` è il campo da cui ELABORA legge il nome della variante (e
            `buildFileName` il nome del file): senza, i sette set per angolo si
            chiamavano tutti «Scelta Multipla». */
-        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: perBranch, date: _now(), clone: nomeVar, _pipeline: true };
+        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: nomeVar, _pipeline: true };
         _state().db.studySets = _state().db.studySets || [];
         _state().db.studySets.push(set);
         // PDF (forma stampabile)
@@ -1003,6 +1017,23 @@
           }
         } catch (e) { console.warn('[Pipeline] analisi della fonte:', e && e.message); }
 
+        /* LA FOTO PIENA in Allegati/ (fase 3): la scheda porta un JPEG da 900px
+           (quota localStorage), che PROIETTATO a una LIM sgrana. Il vault deve
+           bastare a sé per la lezione (inv. 7) — quindi l'originale entra qui,
+           best-effort: una foto che non si copia non ferma il dossier. */
+        try {
+          const srcFoto = (_state().sources || []).find(x => x && x._scheda === config.dossier);
+          const fFoto = srcFoto && srcFoto.file;
+          if (fFoto && typeof fFoto.arrayBuffer === 'function') {
+            const buf = new Uint8Array(await fFoto.arrayBuffer());
+            let bin = '';
+            for (let bi2 = 0; bi2 < buf.length; bi2 += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(bi2, bi2 + 0x8000));
+            const ext = (String(fFoto.name || '').match(/\.[a-z0-9]+$/i) || ['.jpg'])[0];
+            const FCx = window.MappAIFilesCore;
+            const nomeFoto = ((FCx && FCx.safeName) ? FCx.safeName(st.rootNodeLabel, 'fonte') : 'fonte') + ext.toLowerCase();
+            await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'Allegati/' + nomeFoto, base64: btoa(bin), ifAbsent: true });
+          }
+        } catch (e) { console.warn('[Pipeline] foto originale non copiata:', e && e.message); }
         manifest = PC().stepTransition(manifest, 'A', 'done', { now: _now() });
         await _writeManifest(vaultPath, manifest);
         try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-creata', { vaultPath: vaultPath }); } catch (e) { }
@@ -1585,15 +1616,39 @@
          niente da spuntare. Le spunte del box «Output automatici» restano la
          leva della generazione NORMALE (dalla mappa). La voce naturale segue
          la spunta: è l'unico output che costa in modo visibile. */
-      const cfgFoto = Object.assign({}, cfg, {
-        quiz: { types: ['flashcards', 'open'], perBranch: (cfg.quiz && cfg.quiz.perBranch) || 3, angle: 'auto' },
-        synthesis: { audio: !!(cfg.synthesis && cfg.synthesis.audio) }
-      });
+      /* Le OPZIONI le porta la SCHEDA (fase 3): quante per categoria, quali
+         categorie, quali angoli — per genere. Una scheda senza opzioni (fase
+         2, o confermata senza toccare niente) genera i tre output di default:
+         è lo stesso comportamento di prima, dichiarato qui. */
+      const cfgDossier = (sch) => {
+        const op = sch.opzioni || {};
+        const oq = op.oq || {}, fc = op.fc || {};
+        const types = [];
+        if (oq.on !== false) types.push('open');
+        if (fc.on !== false) types.push('flashcards');
+        /* un genere si MOLTIPLICA solo se ha degli angoli scelti: senza, resta
+           una generazione sola ad angolo misto (multiTypes chiede angoli). */
+        const multi = [];
+        if ((oq.angoli || []).length) multi.push('open');
+        if ((fc.angoli || []).length) multi.push('flashcards');
+        return Object.assign({}, cfg, {
+          quiz: types.length ? {
+            types: types, perBranch: 3, angle: 'auto',
+            multi: multi,
+            angoli: (oq.angoli || []).concat(fc.angoli || []),
+            angoliPerTipo: { open: oq.angoli || [], flashcards: fc.angoli || [] },
+            perTipo: { open: oq.n, flashcards: fc.n },
+            catPerTipo: { open: oq.cat || null, flashcards: fc.cat || null }
+          } : null,
+          synthesis: (op.syn === false) ? null : { audio: !!(cfg.synthesis && cfg.synthesis.audio) },
+          dossier: sch
+        });
+      };
       /* `run` non rilancia (il suo catch fa il toast): qui si va solo in
          sequenza — un dossier fallito ha già detto la sua, e i successivi
          partono lo stesso (trappola 36). */
       for (const sch of schede) {
-        await Pipeline.run(Object.assign({}, cfgFoto, { dossier: sch }));
+        await Pipeline.run(cfgDossier(sch));
       }
       if (schede.length > 1) {
         _toast(_t('mp_dossier_fine', '{n} dossier lavorati — l\'esito di ognuno è nel suo riepilogo')

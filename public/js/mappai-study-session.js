@@ -139,6 +139,25 @@ window.quizAngleBlock = function (angleKey) {
     return head + syntax;
 };
 
+/* ── L'ANGOLO DI UN MAZZO DI FLASHCARD (20/8 notte) ──────────────────────────
+   Terzo gemello sulla STESSA tabella `QUIZ_ANGLES` (gli angoli sono uno solo).
+   Fino a oggi `_genFlashcards` l'angolo non lo riceveva: otto spunte facevano
+   otto mazzi IDENTICI con otto nomi diversi — per questo le flashcard erano
+   escluse dal «Più set per angolo». Ora il taglio è vero, e il blocco deve
+   anche SCAVALCARE la riga «VARIA il tipo di domanda (definizione, causa…)»
+   che il template FLASHCARD_GENERATOR porta scritta dentro: con un angolo
+   forzato quella riga direbbe il contrario (è la trappola già pagata con la
+   `varieta` delle domande aperte — ma qui la riga è nel template, quindi si
+   nega, non si toglie). */
+window.flashcardAngleBlock = function (angleKey) {
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    var a = (window.QUIZ_ANGLES || []).filter(function (x) { return x.key === angleKey; })[0];
+    if (!a || a.key === 'auto') return '';
+    return en
+        ? ('ANGLE OF THIS DECK (mandatory, overrides any instruction below about varying question types): EVERY card must be built around ' + (a.hintEn || a.key) + '. Vary the WORDING, never the angle.')
+        : ('ANGOLO DI QUESTO MAZZO (obbligatorio, scavalca qualunque istruzione sotto sul variare il tipo di domanda): OGNI carta deve avere come taglio ' + a.hint + '. Varia la FORMULAZIONE, mai l\'angolo.');
+};
+
 /* ── L'ANGOLO E LA GRADUAZIONE DI UN FOGLIO DI DOMANDE APERTE (13/8 sera) ────
    Gemello di `quizAngleBlock`, e legge la STESSA tabella `QUIZ_ANGLES`: gli
    angoli sono uno solo, e due elenchi divergerebbero al primo aggiunto.

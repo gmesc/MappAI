@@ -1944,6 +1944,9 @@
              MindMap c'è e sui KG no. */
           type: (v.extractionMode === 'kg' ? 'kg' : (v.extractionMode === 'mindmap' ? 'mindmap' : null))
             || (p && p.type) || 'mindmap',
+          /* DOSSIER di fonte (20/8): l'icona della foto nelle sidebar, e
+             l'azione «Proietta». Lo dice il vault (index.yaml), inv. 7. */
+          dossier: !!v.dossier,
           p: p, v: v,
           /* ── UN VAULT ARRIVATO DA FUORI (Giacomo, 9/8) ────────────────────
              Ordine: la CARTELLA (fonte di verità dove c'è) → il progetto in
@@ -2419,10 +2422,14 @@
      dove «Elabora» non ha un bersaglio. Le tabelle non tornano su due colonne. */
   function _consBentoMappa(s, p) {
     var soloKg = p.type === 'kg';
-    var gen = soloKg ? 'network' : 'git-merge';   /* icona del genere, come la sidebar */
+    var gen = p.dossier ? 'image' : (soloKg ? 'network' : 'git-merge');   /* icona del genere, come la sidebar */
     var az = [
       { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') }
     ];
+    /* PROIETTA (20/8): la lezione sulla fonte — l'immagine grande, e accanto la
+       scheda o un set di domande. Solo sui dossier: sulle mappe non c'è una
+       fotografia da proiettare. */
+    if (p.dossier) az.push({ id: 'proietta', et: _t('lt_cons_proietta', 'Proietta'), forma: 'azione', icona: 'presentation', chiude: false, aiuto: _t('lt_cons_tip_proietta', 'La fotografia a tutto schermo per la lezione, con la scheda e le domande da affiancare.') });
     /* ELABORA solo sulle MindMap (come nel ramo storico): su un KG il suo
        empty-state finisce nella landing nascosta dietro la mappa. */
     if (!soloKg) az.push({ id: 'elabora', et: _t('lt_cons_elabora', 'Elabora'), forma: 'azione', icona: 'hexagon', aiuto: _t('lt_cons_tip_elab', 'Apre ELABORA sulla fonte e sui documenti di questa mappa.') });
@@ -2468,7 +2475,7 @@
       progetti.forEach(function (x) {
         nav.push({
           id: x.id, etichetta: x.nome, attiva: _cons.voce === x.id,
-          icona: x.type === 'kg' ? 'network' : 'git-merge',
+          icona: x.dossier ? 'image' : (x.type === 'kg' ? 'network' : 'git-merge'),
           /* «NUOVO» = generato in questa sessione e mai ancora aperto. La lista
              è la stessa di ELABORA (`MappAIGen`): il bollino sparisce dai due
              elenchi insieme, al primo clic. */
@@ -2539,9 +2546,10 @@
          quel momento è nascosta dietro la mappa — il bottone sembrava aprire la
          mappa e basta. Meglio non offrirlo, e dire perché. */
       var azioni = [
-        { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: 'map', ruolo: 'primario' },
+        { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: p.dossier ? 'image' : 'map', ruolo: 'primario' },
         { id: 'cartella', etichetta: _t('lt_cons_finder', 'Finder'), icona: 'folder', chiude: false }
       ];
+      if (p.dossier) azioni.push({ id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', chiude: false });
       var soloKg = p.type === 'kg';
       if (!soloKg) azioni.push({ id: 'elabora', etichetta: _t('lt_cons_elabora', 'Elabora'), icona: 'wand-2' });
       azioni.push({ id: 'live', etichetta: _t('ui_qs_live', 'Studio attivo'), icona: 'radio' });
@@ -3195,6 +3203,13 @@
          chiudeva la console e sotto riappariva la landing com'era — che se si
          veniva da ELABORA sembrava «si apre ELABORA» (Giacomo, 2/8).
          Ora vivono nel `.then()` di `open()`, che è dove il motore le consegna. */
+      if (id === 'proietta') {
+        var mp = _consMappaScelta();
+        if (mp && window.MappAIProiezione && window.MappAIProiezione.apri) {
+          window.MappAIProiezione.apri({ mapName: mp.nome, vaultPath: mp.v ? mp.v.fullPath : '' });
+        }
+        return;
+      }
       if (id === 'cartella') {
         var mm2 = _consMappaScelta();
         if (mm2 && mm2.v && window.electronAPI && window.electronAPI.pipelineOpenFolder) {

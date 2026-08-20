@@ -49,6 +49,10 @@ window.buildVaultMapData = function () {
     return {
         extractionMode: appState.extractionMode,
         rootNodeLabel: appState.rootNodeLabel,
+        /* DOSSIER di fonte (20/8): lo dice il grafo stesso — la radice dei
+           dossier è `fonte_0` (nodiDaScheda), deterministico. Va in index.yaml
+           perché le sidebar scelgono l'icona SENZA aprire il vault (inv. 7). */
+        dossier: !!(appState.db.nodes && appState.db.nodes[0] && appState.db.nodes[0].id === 'fonte_0'),
         classe: ctx.classe,
         materia: ctx.materia,
         nodes: appState.db.nodes,

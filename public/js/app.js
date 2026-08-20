@@ -1109,6 +1109,12 @@ window.leggiImmagineSorgente = async function (src, file, statusEl) {
     try {
         const scheda = (window.MappAIVisione && window.MappAIVisione.nuovaScheda)
             ? await window.MappAIVisione.nuovaScheda(file) : null;
+        if (scheda && scheda.__scarta) {
+            /* «Non usare questa foto»: la fonte se ne va del tutto — una riga
+               che resta direbbe che c'è qualcosa in coda, e non c'è */
+            window.removeSource(src.id);
+            return;
+        }
         if (scheda) {
             src._scheda = scheda;
             statusEl.className = 'text-[10px] text-emerald-400 mt-1 font-bold';

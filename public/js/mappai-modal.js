@@ -149,7 +149,10 @@
                     return '<option value="' + esc(v) + '"' + (String(v) === String(c.valore) ? ' selected' : '') + '>' + esc(t) + '</option>';
                 }).join('') + '</select>';
         } else if (c.tipo === 'area') {
-            dentro = '<textarea class="mm-campo" rows="3" ' + idAttr + ' ' + aria + ' ' + segna + req +
+            /* `cresce`: l'area si adatta al testo (field-sizing, come il box
+               «Testo» del bento) fra 3 e 18 righe, poi scorre. Il tetto è in
+               RIGHE: un tetto in pixel mente al primo cambio di carattere. */
+            dentro = '<textarea class="mm-campo' + (c.cresce ? ' mm-campo--cresce' : '') + '" rows="3" ' + idAttr + ' ' + aria + ' ' + segna + req +
                 ' data-campo="' + esc(c.id) + '">' + esc(c.valore) + '</textarea>';
         } else if (c.tipo === 'colore') {
             dentro = '<input type="color" class="mm-campo mm-campo--colore" ' + idAttr + ' ' + aria +

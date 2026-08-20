@@ -306,6 +306,16 @@
     background: var(--mm-fondo);
 }
 
+/* area che CRESCE col suo testo (20/8, scheda della fonte): la validazione di
+   un testo tagliato a metà frase non è una validazione. field-sizing è la
+   stessa tecnica del box «Testo» del bento (Chromium 148). */
+.mm-campo--cresce {
+    field-sizing: content;
+    min-height: calc(3 * 1.5em + 18px);
+    max-height: calc(18 * 1.5em + 18px);
+    overflow-y: auto;
+    resize: none;
+}
 .mm-campo::placeholder {
     color: var(--mm-testo-3);
     opacity: 1;
@@ -2278,3 +2288,65 @@ th[aria-sort="descending"] {
    una classe dedicata vincevano su quel `display:flex` — in un foglio con 700+
    `!important` la cascata non è prevedibile a tavolino. Lo fa
    `sincronizzaGenere()` con uno stile inline `!important`, misurato. */
+
+
+/* ══ PROIEZIONE di una fonte iconografica (20/8) — mappai-proiezione.js ══════
+   Vista-lezione scura: si proietta, quindi il fondo è quasi nero e i comandi
+   sono grandi. I token del motore non si toccano: questa è una superficie a
+   sé, come le pagine studente. */
+#pj-overlay { color: #e2e8f0; font-family: 'Space Mono', var(--emoji-font, sans-serif), monospace; }
+#pj-overlay .pj-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: #1e293b; flex: 0 0 auto;
+}
+#pj-overlay .pj-titolo { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pj-overlay .pj-sp { flex: 1; }
+#pj-overlay .pj-btn {
+    background: #334155; color: #e2e8f0; border: none; border-radius: 8px;
+    padding: 8px 14px; font: inherit; font-weight: 700; font-size: 14px;
+    cursor: pointer; min-height: 40px;
+}
+#pj-overlay .pj-btn:hover, #pj-overlay .pj-btn:focus-visible { background: #475569; outline: 2px solid #94a3b8; }
+#pj-overlay .pj-btn[aria-pressed="true"] { background: #4f46e5; color: #fff; }
+#pj-overlay .pj-corpo { display: flex; flex: 1; min-height: 0; }
+#pj-overlay .pj-img-area {
+    position: relative; flex: 55 1 0; min-width: 0; overflow: hidden;
+    cursor: grab; display: flex;
+}
+#pj-overlay .pj-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; user-select: none; max-width: none; }
+#pj-overlay .pj-zoombar {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    display: flex; gap: 6px; align-items: center;
+    background: rgba(15, 23, 42, .85); border-radius: 12px; padding: 6px 10px;
+}
+#pj-overlay .pj-pct { min-width: 52px; text-align: center; font-size: 13px; font-weight: 700; }
+#pj-overlay .pj-mat {
+    flex: 45 1 0; min-width: 0; display: flex; flex-direction: column;
+    background: #f8fafc; color: #1e293b; border-left: 4px solid #334155;
+}
+#pj-overlay .pj-mat-bar {
+    display: flex; gap: 8px; align-items: center; padding: 10px 14px;
+    background: #e2e8f0; flex: 0 0 auto; flex-wrap: wrap;
+}
+#pj-overlay .pj-mat-bar .pj-btn { background: #fff; color: #1e293b; border: 1px solid #cbd5e1; }
+#pj-overlay .pj-mat-bar .pj-btn:hover { background: #eef2ff; }
+#pj-overlay .pj-sel {
+    font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid #cbd5e1; background: #fff; color: #1e293b; max-width: 220px; min-height: 40px;
+}
+#pj-overlay .pj-mat-corpo { flex: 1; overflow-y: auto; padding: 18px 22px; line-height: 1.6; }
+#pj-overlay .pj-mat-corpo h3 {
+    font-size: .72em; font-weight: 900; text-transform: uppercase; letter-spacing: .06em;
+    color: #4f46e5; margin: 1.2em 0 .4em;
+}
+#pj-overlay .pj-mat-corpo p { margin: 0 0 .5em; }
+#pj-overlay .pj-domanda { border-left: 4px solid #0f766e; background: #fff; border-radius: 10px; padding: .6em .8em; margin-bottom: .7em; }
+#pj-overlay .pj-kicker { font-size: .62em; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: .25em; }
+#pj-overlay .pj-carta {
+    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    border: 1px solid #e2e8f0; border-left: 4px solid #7c3aed; background: #fff;
+    border-radius: 10px; padding: .6em .8em; margin-bottom: .7em; color: inherit;
+}
+#pj-overlay .pj-carta:focus-visible { outline: 2px solid #7c3aed; }
+#pj-overlay .pj-retro { margin-top: .5em; padding-top: .5em; border-top: 1px dashed #cbd5e1; color: #334155; }
+@media (max-width: 900px) { #pj-overlay .pj-corpo { flex-direction: column; } #pj-overlay .pj-mat { border-left: none; border-top: 4px solid #334155; } }

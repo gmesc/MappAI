@@ -550,3 +550,288 @@ della fonte» + `_modificaAnalisi`) · `mappai-landing-teach.js` (`^Analisi.?fon
 
 **Verifiche**: suite **1196/0**, sei banchi verdi, composizione del bento valida (0 errori).
 **Mai girato in Electron** — la lista in `docs/HANDOFF.md` §5, in testa.
+
+---
+---
+
+# Fase 3 — la SUPERFICIE DI VALIDAZIONE in CREA (piano, 20/8 notte)
+
+> Braindump: «questa schermata deve diventare una superficie di Crea, coi testi in campi
+> collassabili che si adattano alla loro lunghezza. In fondo due bento box con le opzioni
+> degli output: Domande aperte (quante per ramo · su quali categorie · tutti gli angoli con
+> checkbox individuali) e Flashcard con le stesse opzioni. La sintesi è un output senza
+> opzioni (la voce naturale sta nell'editor di ELABORA). / Nelle sidebar di ELABORA e
+> INSEGNA, per i progetti nati da una fotografia, l'icona Lucide della foto.»
+> Bivio risolto: **l'angolo diventa VERO anche per le flashcard**.
+
+**Braindump tradotto**: la scheda di analisi smette di essere un **modale** e diventa una
+**superficie di CREA** — l'area di lavoro, mentre si valida una fonte. I campi crescono col
+loro testo e i blocchi si piegano. In fondo, **due moduli del bento** (composizione, non DOM
+scritto a mano) con le opzioni di generazione, e i vault nati da una foto si riconoscono
+nelle due console dall'**icona `image`**.
+
+**Stato rilevante**
+- La scheda oggi è `MappAIVisione.apriScheda` → `MappAIModal.open`, taglia `l`, sezioni per
+  blocco già **collassabili** ma coi campi a `rows=3` **fissi**: nello screenshot la
+  descrizione è tagliata a metà frase. Il difetto è quello.
+- **Il bento RENDERIZZA le voci non-strumento** (`pezzo()` in `mappai-costruisci-manifesto.js`
+  costruisce spunte, numeri e tendine): due moduli nuovi non richiedono markup in
+  `index.html` — solo voci nella composizione.
+- **Il testo che cresce esiste già**: il box «Testo» del bento usa `field-sizing: content`
+  fra `min-height` e `max-height` (round 14). Stessa tecnica, niente JS.
+- **`_readConfig()` è l'unico lettore della configurazione** (inv. 6): le opzioni nuove
+  passano di lì, non da un secondo lettore scritto nella superficie.
+- **`index.yaml` porta `extractionMode` e `get-all-vaults` lo restituisce**: è il precedente
+  esatto per marcare un dossier — il DISCO è la fonte, non un campo del progetto (inv. 7).
+- ⚠️ `_genFlashcards` **non riceve l'angolo** e non l'ha mai ricevuto: le otto spunte
+  producevano otto mazzi identici, ed è il difetto tolto il 20/8. Il bivio lo rende vero.
+
+---
+
+## Che cosa si fa
+
+### 1. I campi crescono, i blocchi si piegano — `mappai-modal.js` + token
+- `tipo: 'area'` guadagna `cresce: true` → la textarea prende
+  `field-sizing: content; min-height: 3 righe; max-height: 18 righe`, poi scorre.
+  Il tetto è in RIGHE, non in pixel (round 14: un tetto in pixel mente col carattere).
+- ⚠️ Il tetto serve: la trascrizione di un manifesto può essere lunga quanto la pagina, e
+  senza tetto la superficie diventa un rotolo in cui i due box in fondo non si vedono più.
+- Un blocco piegato **ricorda** di esserlo mentre si valida (stato in memoria, non in
+  `localStorage`: è la piega di QUESTA fonte, non una preferenza).
+
+### 2. La superficie — `mappai-visione.js` + `mappai-costruisci-manifesto.js`
+- `apriScheda(scheda)` smette di aprire un modale e **monta lo stesso schema nell'area di
+  CREA** con `MappAIModal.render(schema)` — è la via dichiarata (l'Officina disegna le
+  anteprime così: «ciò che si vede è il prodotto»). Restano gratis sezioni, collassabili,
+  campi, `validaSchema` (inv. 10).
+- Mentre si valida, **i passi di CREA si spengono e la superficie prende il posto**: una
+  fonte da correggere è un lavoro intero, e lasciare sotto i bottoni delle fonti invita a
+  caricarne un'altra a metà. In testa: l'anteprima della foto e il nome del file.
+- **Via d'uscita**: «Non usare questa foto» toglie la fonte e riporta CREA com'era. Un
+  modale aveva la ×; una superficie deve dichiarare la sua uscita, o è un vicolo cieco
+  (trappola 43).
+- **Più foto**: si valida **una per volta**, con «Fonte 2 di 3» in testata e «Avanti» che
+  porta alla successiva. La scheda confermata resta su `src._scheda`.
+
+### 3. I DUE BENTO BOX delle opzioni — `mappai-bento-composizione.js`
+Due moduli nuovi, `span 4`, marcati `soloDossier: true` — il bento normale li salta, la
+superficie li monta. Le voci le renderizza `pezzo()`, come tutte le altre.
+
+**Box «Domande aperte»**: `mp-oq-on` (master) · `mp-oq-perbranch` (quante per categoria) ·
+`mp-oq-cat-*` (una spunta per blocco: carta d'identità · che cosa si vede · che cosa vuole
+ottenere · che cosa prova) · `mp-oq-ang-*` (**otto spunte individuali**, dalla tabella
+`QUIZ_ANGLES` — mai una lista scritta qui).
+**Box «Flashcard»**: gli stessi campi con prefisso `mp-fc-`.
+**La sintesi** resta una spunta sola nel box «Output automatici» che già c'è: nessuna
+opzione, e la voce naturale sta nell'editor di ELABORA (già vero dal 17/8).
+
+⚠️ **Il preventivo sta nei box e si aggiorna mentre si spunta**: angoli × categorie × due
+generi moltiplica in fretta (4 categorie × 8 angoli × 2 = 64 chiamate). Il numero c'è già —
+mostrarlo è la regola pagata col preavviso della voce (trappola 39) e col bento del 3/8.
+
+### 4. L'angolo diventa VERO per le flashcard — `mappai-study-session.js` + pipeline
+- `window.flashcardAngleBlock(angleKey)` accanto a `quizAngleBlock`, che legge la **stessa**
+  `QUIZ_ANGLES` (inv. 6): «OGNI carta ha come taglio …».
+- ⚠️ Deve **neutralizzare** la riga «VARIA il tipo di domanda (definizione, causa,
+  conseguenza…)» che il template porta dentro: con l'angolo forzato quella riga dice il
+  contrario, ed è la stessa trappola già risolta per le domande aperte col campo `varieta`.
+  Il blocco sta **FUORI e PRIMA** del template — così vale anche per chi ha un
+  `prompts_config.json` personale, che una variabile nuova non ce l'ha (regola dell'11/8).
+- `_genFlashcards(material, nodeLabel, quantity, apiKey, opts)` guadagna `opts.angolo`.
+
+### 5. Le categorie filtrano i RAMI — `mappai-material-pipeline.js`
+Su un dossier i «rami» sono i blocchi della scheda: `config.dossier.categorie` (array di id
+di blocco) filtra `_branchNodes()` nello step B. Senza categorie scelte: tutte.
+⚠️ Il filtro vale **solo** sul ramo dossier: sulla mappa le macro-aree sono un'altra cosa e
+il bento ha già la sua leva.
+
+### 6. L'icona della foto nelle due sidebar — `main.js` + le due console
+- `buildVaultMapData()` scrive `genere: 'dossier'` quando i nodi vengono da una scheda;
+  `saveVault` lo mette in **`index.yaml`**; `get-all-vaults` lo restituisce come
+  `vaultInfo.dossier` — **lo stesso percorso di `extractionMode`**, cioè il disco è la fonte
+  (inv. 7). Dedurlo dai nodi vorrebbe dire aprire ogni vault per disegnare un elenco.
+- ELABORA (`_navV2`) e INSEGNA (`_consCaricaMappe` → le voci) scelgono `image` invece di
+  `map`/`network`. Il campo `type` resta `mindmap`: il dossier È una MindMap per il motore —
+  cambia l'icona, non il genere (o «Elabora» sparirebbe, che è gated sul genere).
+- ⚠️ I dossier già creati oggi **non** hanno il marcatore: si riconoscono anche dal primo
+  nodo (`fonte_0`) quando il vault è già aperto. Ripiego dichiarato, non una migrazione.
+
+---
+
+## Dove vive la logica nuova
+
+| pezzo | dove | perché lì |
+|---|---|---|
+| campo che cresce | token + `mappai-modal.js` | è una proprietà dei campi del motore, non di questa scheda: la prossima superficie con un testo lungo la eredita |
+| la superficie | `mappai-visione.js` monta `MappAIModal.render` | lo schema è già scritto e validato: un secondo renderer sarebbe due modi di disegnare la stessa scheda |
+| i due box | `mappai-bento-composizione.js` (DATO) | inv. 6: la composizione è un dato, e l'Officina li vede. Zero markup nuovo: `pezzo()` li renderizza |
+| la lettura delle opzioni | `_readConfig()` | inv. 6: resta l'unico lettore della configurazione |
+| il blocco d'angolo FC | `mappai-study-session.js`, accanto a `quizAngleBlock` | gli angoli sono UNA tabella; il testo è diverso perché il prodotto è diverso |
+| il marcatore dossier | `index.yaml` via `saveVault` + `get-all-vaults` | inv. 7: il disco è la verità, e le sidebar elencano senza aprire |
+
+---
+
+## Prove
+
+```bash
+node --test tests/                        # + bento-composizione, visione-core
+node tools/smoke/visione-fogli.js         # esteso: categorie che filtrano, angoli FC
+node tools/smoke/cornice-documenti.js
+```
+Nei test puri: i due moduli nuovi passano `valida()` con 0 errori e le loro voci non stanno
+in due moduli · `flashcardAngleBlock` cita l'angolo giusto e nega la varietà · il filtro per
+categorie tiene solo i rami scelti e con l'elenco vuoto li tiene tutti · il preventivo conta
+angoli × categorie × generi.
+Nel banco: una scheda con due sole categorie spuntate produce domande **solo** da quei due
+blocchi; tre angoli sulle flashcard fanno tre mazzi **diversi** (il materiale mandato al
+modello contiene tre blocchi d'angolo distinti).
+
+---
+
+## Verifica a mano (Electron)
+
+1. Carica una foto da «Documenti» → CREA diventa la **superficie di validazione**: la foto
+   in testa, i quattro blocchi, i campi **alti quanto il loro testo** (la descrizione non è
+   più tagliata a metà frase), i blocchi che si piegano.
+2. Un testo lunghissimo nella trascrizione: il campo cresce fino al tetto e poi **scorre** —
+   i due box in fondo restano raggiungibili.
+3. I due box: spunta 2 categorie e 3 angoli → il preventivo dice quante chiamate. Spegni
+   tutto tranne la sintesi → il preventivo scende.
+4. «Usa questa fonte» → si genera: **le domande vengono solo dai blocchi spuntati**, e i
+   mazzi di flashcard per angolo sono **diversi fra loro** (è la cosa che prima era finta).
+5. «Non usare questa foto» → la fonte sparisce e CREA torna com'era, MM/KG riaccesi.
+6. Due foto insieme → «Fonte 1 di 2», «Avanti», poi la generazione in sequenza.
+7. In **ELABORA** e in **INSEGNA**: il dossier ha l'**icona della foto**, le altre mappe no.
+8. `mappai_visione='0'` → CREA come prima, nessuna superficie.
+
+---
+
+## Non-obiettivi
+
+- **Il quiz a scelta multipla dall'immagine**: non è fra i tre output chiesti. La spunta
+  esiste nel box «Output automatici» e vale per la mappa.
+- **La scheda che sopravvive a un reload**: vive in memoria (`src._scheda`). Chiudere CREA a
+  metà validazione perde il lavoro di correzione. Rete possibile in seguito (uno scarto in
+  `sessionStorage`), non oggi.
+- **Un dossier con più fonti** a confronto: una foto, un dossier.
+- **La migrazione dei dossier già creati**: prendono l'icona solo da aperti.
+- **Le opzioni per la sintesi** (lunghezza, sezioni): la sintesi è un output senza opzioni,
+  come chiesto.
+
+---
+
+## Decisioni prese (e revocabili)
+
+- **La superficie SOSTITUISCE i passi di CREA** mentre si valida, e dichiara la sua uscita
+  («Non usare questa foto»): un modale ha la ×, una superficie senza uscita è un vicolo
+  cieco.
+- **Una foto per volta**, con «Fonte 2 di 3».
+- **I due box sono moduli della composizione** (`soloDossier`), non DOM scritto a mano:
+  l'Officina li vede e il validatore li controlla.
+- **Il tetto dei campi è in righe** (18), poi scorrono.
+- **Il dossier resta `type: 'mindmap'`**: cambia l'icona, non il genere — o «Elabora»
+  sparirebbe.
+- **Il preventivo sta nei box** e si aggiorna a ogni spunta.
+
+
+---
+
+## Fase 3-bis — l'uscita con ESC, l'editor della scheda, e la PROIEZIONE in INSEGNA
+> (20/8 notte, secondo braindump. «Tutte le altre proposte vanno bene» = fase 3 approvata.)
+
+**Braindump tradotto**:
+1. la superficie di validazione si chiude anche con **ESC**, e ESC chiede **sempre** che
+   fare del lavoro; in ELABORA l'area del dossier mostra l'**anteprima dell'immagine
+   cliccabile** che apre la scheda come **EDITOR nella tela**, con la barra degli altri
+   editor (Salva · Annulla · Crea PDF · Esci);
+2. in INSEGNA il dossier ha una vista di **PROIEZIONE**: la fotografia grande, e una
+   **split view attivabile** che affianca la scheda (un bottone) o un set di domande
+   aperte / flashcard (due tendine). Il pannello dei materiali scorre e ha l'ingrandimento
+   del testo; l'immagine ha un pannellino zoom (percentuali + «adatta»), lo **zoom con la
+   rotellina sul puntatore** e il **click&drag** per navigare. Serve a proiettare in classe
+   e far rispondere per alzata di mano.
+
+### 1. ESC sulla superficie di validazione — `mappai-visione.js`
+- keydown a cattura mentre la superficie è montata; ESC → **sempre** la conferma a tre vie
+  (`MappAIModal.open`, non confirm nativo): «Riprendi» · «Salva e chiudi» (= conferma la
+  scheda com'è, la fonte resta con `_scheda`) · «Scarta» (= la fonte si toglie, come «Non
+  usare questa foto»). Fuoco mai sul distruttivo (inv. 10/13 pattern).
+- ⚠️ l'ascolto si SGANCIA allo smontaggio, o il prossimo ESC di CREA aprirebbe la conferma
+  di una superficie che non c'è più (trappola 22, forma da listener).
+
+### 2. L'editor della scheda in ELABORA — `mappai-visione.js` + `mappai-elabora-console.js`
+- La SUPERFICIE della fase 3 è una: `schemaScheda(scheda, {modo})`. In CREA si monta col
+  piè «Usa questa fonte»; in ELABORA si monta **nella tela** col piè da editor: **Salva ·
+  Annulla · Crea PDF · Esci** — le stesse azioni della barra di `mappai-doc-editor`
+  (`de_save/de_undo/de_pdf/de_exit`), stessi nomi i18n. Salva = archivio (dedup
+  kind|title|mapName) + PDF rifatto; Annulla = torna alla scheda archiviata; Esci con
+  modifiche → conferma.
+- `_modificaAnalisi` (oggi apre il MODALE) passa a montare l'editor nella tela.
+- **L'anteprima cliccabile**: nell'area del dossier (la vista della mappa in ELABORA), un
+  riquadro con la foto (dalla sorgente `qp-scheda` dell'analisi in archivio) + «Apri la
+  scheda»; il clic apre l'editor. Niente foto in archivio → il riquadro non si mostra.
+
+### 3. La PROIEZIONE in INSEGNA — modulo nuovo `mappai-proiezione.js` + core puro
+- **Ingresso**: in INSEGNA, sulla mappa-dossier, azione **«Proietta»** (icona `presentation`)
+  accanto a Mappa · Finder — solo se il vault è un dossier (il marcatore della fase 3).
+- **Vista a tutto schermo** (piano da `prossimoZ`, ESC chiude): l'immagine al centro;
+  bottone «Affianca» apre la **split** (immagine 55 / materiali 45).
+- **Pannello materiali**: bottone «Scheda» + tendina «Domande aperte» (i fogli del dossier
+  dall'archivio `quizpaper`, SOLO il testo delle domande — niente righe di risposta, coi
+  kicker delle aree) + tendina «Flashcard» (i set del dossier: indice dei set + `setsDelVault`).
+  Scroll suo; bottoni **A− / A+** per il corpo del testo (il docente proietta: 18-32px).
+  Flashcard: il FRONTE sempre, il retro si rivela col clic sulla carta — è il gesto
+  dell'alzata di mano: prima si chiede, poi si mostra.
+- **Pannello immagine**: barrettina con − · % · + · «Adatta» · «100%»; **rotellina = zoom
+  sul puntatore**; **click&drag = pan**. La matematica dello zoom-al-punto e i clamp stanno
+  in un **core puro** (`zoomAlPunto`, `adatta`, `clampPan` — provati in Node, inv. 4); il
+  modulo UI applica `transform` e ascolta wheel/pointer.
+- ⚠️ **La foto piena entra nel vault**: la scheda porta un JPEG da 900px (quota
+  localStorage), che proiettato sgrana. Il ramo dossier dello step A salva ANCHE
+  l'originale in `Allegati/` (nome dal titolo fonte, `ifAbsent`), e la proiezione carica
+  QUELLO — col ripiego sul JPEG della scheda per i dossier già creati. È il caso in cui il
+  vault deve bastare a sé (inv. 7).
+
+### Prove (in aggiunta)
+`tests/proiezione-core.test.js`: zoom-al-punto (il punto sotto il cursore resta fermo),
+clamp del pan ai bordi, «adatta» che entra nei due assi, la scala dei corpi A−/A+.
+Banco: le domande estratte da un foglio `qp-set` NON contengono le righe di risposta;
+i set del dossier si distinguono da quelli di un'altra mappa.
+
+### Verifica a mano (in aggiunta)
+9. ESC sulla validazione → conferma a tre vie; «Salva e chiudi» tiene la scheda.
+10. ELABORA sul dossier: l'anteprima della foto c'è, il clic apre l'EDITOR nella tela con
+    Salva · Annulla · Crea PDF · Esci; Salva riscrive archivio e PDF.
+11. INSEGNA → dossier → «Proietta»: foto a tutto schermo; rotellina zooma sul puntatore,
+    il drag naviga, «Adatta» rientra. «Affianca» → scheda col bottone, un set di aperte
+    dalla tendina (solo domande), flashcard col retro che si rivela al clic. A+ ingrandisce.
+12. Un dossier VECCHIO (senza originale in Allegati): la proiezione usa il JPEG della
+    scheda e non si rompe.
+
+### Decisioni prese (in aggiunta)
+- ESC = conferma **a tre vie** (Riprendi · Salva e chiudi · Scarta): «chiedi sempre di
+  salvare» detto con le tre uscite vere che esistono.
+- Una superficie, due piè: la scheda di CREA e l'editor di ELABORA sono lo stesso schema.
+- Split fissa 55/45, senza maniglia: «Adatta» copre il bisogno; la maniglia è un seguito.
+- Flashcard in proiezione: fronte sempre, retro al clic.
+- La foto piena in `Allegati/` dal prossimo dossier; i vecchi ripiegano sul JPEG.
+
+
+### Fase 3 + 3-bis — esito (20/8, terzo giro)
+Eseguito tutto, con tre deviazioni dichiarate:
+- **i due box sono SEZIONI dello schema della superficie**, non moduli del bento: la
+  superficie è renderizzata dal motore dei modali, che spunte e numeri li disegna già —
+  i moduli `soloDossier` avrebbero aggiunto la macchina del bento per niente. Le scelte
+  viaggiano su `fatta.opzioni` e la pipeline le legge per-tipo (pipeline-core:
+  `angoliPerTipo` · `quantiPerTipo` · `categoriePerTipo`; `flashcards` in `_VALID_MULTI`).
+- **niente contatore «Fonte 2 di 3»**: le schede si aprono comunque una per volta, in
+  sequenza, e il sottotitolo porta il nome del file — il contatore avrebbe chiesto di far
+  viaggiare l'indice attraverso tre strati per un'informazione che c'è già.
+- **`de_save` coniata** (la barra del doc-editor scrive «Salva» senza chiave i18n).
+Il banco prova: 2 categorie × 2 angoli = 4 chiamate aperte SOLO dai blocchi scelti · il
+blocco d'angolo arriva in testa a ogni chiamata flashcard (cablaggio; il testo vero del
+blocco vive in study-session, che il banco non carica — dichiarato nel banco) · i PDF
+portano l'angolo nel nome · sintesi spenta = niente sintesi.
+`tests/proiezione-core.test.js`: lo zoom sul puntatore tiene fermo il punto, il pan non
+perde l'immagine, «adatta» entra nei due assi, i corpi 18-40 coi valori sporchi al default.
+Suite **1202/0**, sei banchi verdi. Mai girato in Electron (HANDOFF §5, punti 11-14).

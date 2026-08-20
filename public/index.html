@@ -3242,7 +3242,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=dos2"></script>
+    <script src="js/app.js?v=dos3"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3252,7 +3252,7 @@
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
     <script src="js/mappai-modal-core.js?v=dh37"></script>
-    <script src="js/mappai-modal.js?v=dh38"></script>
+    <script src="js/mappai-modal.js?v=dos3"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
@@ -3297,11 +3297,11 @@
     <!-- VISIONE (20/8): leggere una fotografia col motore locale. Il core è puro
          e testato in Node — lo carica anche main.js per gli IPC; il modulo del
          gesto va PRIMA di «Crea un documento», che lo interroga. -->
-    <script src="js/mappai-visione-core.js?v=dos1"></script>
+    <script src="js/mappai-visione-core.js?v=dos3"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js?v=kw1"></script>
-    <script src="js/mappai-quiz-print.js?v=dos1"></script>
+    <script src="js/mappai-quiz-print.js?v=dos3"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
@@ -3379,8 +3379,8 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=dos1"></script>
-    <script src="js/mappai-landing-teach.js?v=dos1"></script>
+    <script src="js/mappai-pipeline-core.js?v=dos3"></script>
+    <script src="js/mappai-landing-teach.js?v=dos3"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -3401,14 +3401,18 @@
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=dos1"></script>
-    <script src="js/mappai-material-pipeline.js?v=dos2"></script>
+    <script src="js/mappai-elabora-console.js?v=dos3"></script>
+    <script src="js/mappai-material-pipeline.js?v=dos3"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
-    <script src="js/mappai-visione.js?v=dos2"></script>
+    <script src="js/mappai-visione.js?v=dos3"></script>
+    <!-- PROIEZIONE (20/8): la vista-lezione dei dossier — la geometria è nel
+         core, provata in Node; la vista si apre da INSEGNA («Proietta»). -->
+    <script src="js/mappai-proiezione-core.js?v=dos3"></script>
+    <script src="js/mappai-proiezione.js?v=dos3"></script>
     <script src="js/mappai-crea-quiz.js?v=dos1"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=dos2"></script>
+    <script src="js/mappai-bento-composizione.js?v=dos3"></script>
     <script src="js/mappai-costruisci-manifesto.js?v=ang2"></script>
     <script src="js/mappai-usage-core.js?v=dh12"></script>
     <script src="js/mappai-usage-tracker.js"></script>
@@ -3441,14 +3445,14 @@
     <script src="js/mappai-generation-support.js?v=dh27"></script>
     <script src="js/mappai-kg-extraction.js"></script>
     <script src="js/mappai-mm-extraction.js"></script>
-    <script src="js/mappai-vault-io.js?v=sf1"></script>
+    <script src="js/mappai-vault-io.js?v=dos3"></script>
     <script src="js/mappai-merge-validate.js?v=dh15"></script>
     <script src="js/mappai-print-dossier.js?v=font1"></script>
     <script src="js/mappai-context-menu.js?v=dh26"></script>
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=dh15"></script>
     <script src="js/mappai-ai-tutor.js?v=dh15"></script>
-    <script src="js/mappai-study-session.js?v=cm5"></script>
+    <script src="js/mappai-study-session.js?v=dos3"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-tts-reader.js"></script>
     <script src="js/mappai-dev-selftest.js?v=sf1"></script>

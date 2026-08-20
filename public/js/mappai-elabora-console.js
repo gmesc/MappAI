@@ -491,6 +491,12 @@
        la scheda a quattro blocchi di un dossier iconografico. La sorgente è
        l'HTML con la scheda incorporata (`qp-scheda`) — «Modifica» riapre la
        scheda, non un editor di testo. */
+    function _docArchivioAnalisi() {
+        var l = _archivioAnalisi();
+        if (!l.length) return null;
+        l.sort(function (a, b) { return (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0); });
+        return l[0];
+    }
     function _archivioAnalisi() {
         try {
             var SD = window.MappAIStudyDocs; var st = _appState();
@@ -1141,7 +1147,7 @@
         var voci = (_mappe || []).map(function (m) {
             return {
                 id: 'prog:' + m.id, etichetta: m.nome,
-                icona: m.type === 'kg' ? 'network' : 'map',
+                icona: (m.v && m.v.dossier) ? 'image' : (m.type === 'kg' ? 'network' : 'map'),
                 /* mentre una mappa si sta aprendo è LEI la scelta, non quella
                    ancora caricata sotto */
                 attiva: _inCorsoV2 ? _inCorsoV2 === m.id : !!(corrente && corrente.id === m.id),
@@ -1867,6 +1873,48 @@
             var box = ridisegna(_schema());
             _dipingi(box);
             montaBriciole(box);
+            _montaAnteprimaFoto(box);
+        }
+        /* ── L'ANTEPRIMA DELLA FONTE (fase 3) ────────────────────────────────
+           Sul dossier aperto, senza un documento scelto, l'area mostra la foto
+           in piccolo: il clic apre l'EDITOR della scheda. La foto viene dalla
+           sorgente incorporata dell'analisi in archivio (`qp-scheda`); senza
+           foto il riquadro non si mostra. La scheda riletta si tiene in cache
+           per doc: riparsare l'HTML a ogni ridisegno sarebbe lavoro a vuoto. */
+        var _fotoCache = {};
+        function _montaAnteprimaFoto(box) {
+            try {
+                if (_doc || !box) return;                     /* solo la vista d'insieme */
+                if (!_mappaAperta()) return;
+                var st = _appState();
+                var n0 = st.db.nodes && st.db.nodes[0];
+                if (!n0 || n0.id !== 'fonte_0') return;       /* non è un dossier */
+                var d = _docArchivioAnalisi();
+                if (!d) return;
+                var sch = _fotoCache[d.id];
+                if (sch === undefined) {
+                    var pieno = window.MappAIStudyDocs.get(d.id);
+                    sch = (pieno && window.schedaFromAnalisiHtml) ? window.schedaFromAnalisiHtml(pieno.html) : null;
+                    _fotoCache[d.id] = sch;
+                }
+                if (!sch || !sch.fotoB64) return;
+                var area = box.querySelector('.mm-console__area');
+                if (!area || area.querySelector('.ec-foto-fonte')) return;
+                var w = document.createElement('button');
+                w.type = 'button';
+                w.className = 'ec-foto-fonte';
+                w.setAttribute('title', t('ec_foto_apri', 'Apri la scheda di analisi'));
+                w.setAttribute('aria-label', t('ec_foto_apri', 'Apri la scheda di analisi'));
+                w.style.cssText = 'display:block; border:none; background:none; padding:0; cursor:pointer; margin:0 0 14px;';
+                var img = document.createElement('img');
+                img.src = 'data:' + (sch.mime || 'image/jpeg') + ';base64,' + sch.fotoB64;
+                img.alt = sch.titolo || '';
+                img.style.cssText = 'max-height:160px; max-width:100%; border-radius:10px; display:block;';
+                w.appendChild(img);
+                var did = d.id;
+                w.addEventListener('click', function () { _modificaAnalisi(did); });
+                area.insertBefore(w, area.firstChild);
+            } catch (e) { /* l'anteprima è un di più */ }
         }
         /* Dopo ogni disegno: se c'è un documento scelto, l'host torna nella tela
            e l'editor ridisegna. L'editor tiene il SUO stato (quale documento è
@@ -2171,6 +2219,33 @@
                d'archivio: lasciando decidere al ramo qui sotto si rimonterebbe
                l'anteprima del PDF sopra l'editor appena aperto, e «Modifica»
                sembrerebbe non fare niente. */
+            /* L'EDITOR DELLA SCHEDA (fase 3): si rimonta dal suo stato
+               (`_doc.scheda`) a ogni ridisegno — il pattern del doc-editor. */
+            if (_doc && _doc.editing && _doc.analisiId && _doc.scheda) {
+                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+                var hostAn = _montaHost(box);
+                var V2 = window.MappAIVisione;
+                if (hostAn && V2 && V2.montaSuperficie) {
+                    var docAn = _doc.docAn;
+                    V2.montaSuperficie(_doc.scheda, {
+                        modo: 'editor', host: hostAn,
+                        onSalva: function (fatta) {
+                            if (_salvaAnalisi(fatta, docAn) && _doc && _doc.analisiId) _doc.scheda = fatta;
+                        },
+                        onPdf: function (fatta) {
+                            var st2 = _appState();
+                            var html2 = window.buildAnalisiFonteHtml(fatta, { mapName: (st2 && st2.rootNodeLabel) || '', includeBar: false });
+                            _rifaiPdfAnalisi(html2, (st2 && st2.rootNodeLabel) || '');
+                        }
+                    }).then(function (r) {
+                        if (r && r.uscita && _doc && _doc.analisiId) {
+                            _doc = null; _voce = '';
+                            rifai();
+                        }
+                    });
+                }
+                return;
+            }
             if (_doc && _doc.editing && (_doc.docId || _doc.dallaMappa)) {
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
                 var hostOq = _montaHost(box);
@@ -2311,7 +2386,7 @@
            non tocca la sorgente appena scritta (inv. 18). */
         function _modificaAnalisi(docId) {
             var SD = window.MappAIStudyDocs, V = window.MappAIVisione;
-            if (!SD || !SD.get || !V || !V.apriScheda || !window.schedaFromAnalisiHtml) {
+            if (!SD || !SD.get || !V || !V.montaSuperficie || !window.schedaFromAnalisiHtml) {
                 toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); return;
             }
             var d = SD.get(docId);
@@ -2320,39 +2395,51 @@
                 toast(t('ec_an_no_src', 'Questo documento non porta con sé la scheda: si può stampare, ma non correggere.'), 'warning');
                 return;
             }
-            V.apriScheda(scheda).then(function (fatta) {
-                if (!fatta) return;                      /* annullata: nulla cambia */
-                var st = _appState();
-                var mappa = (st && st.rootNodeLabel) || '';
-                var html = window.buildAnalisiFonteHtml(fatta, { mapName: mappa, includeBar: false });
-                var nuovoId = null;
-                try {
-                    nuovoId = SD.save({ kind: 'analisi', title: d.title, html: html, mapName: d.mapName || mappa, cls: d.cls, disc: d.disc });
-                } catch (e) { nuovoId = null; }
-                if (!nuovoId) { toast(t('ec_an_save_ko', 'Salvataggio non riuscito: archivio pieno?'), 'error'); return; }
-                /* la resa: best-effort, rumorosa se fallisce */
-                var vp = (st && st.activeVaultPath) || '';
-                var PC = window.MappAIPipelineCore;
-                if (vp && PC && window.electronAPI && window.electronAPI.htmlToPdf) {
-                    window.electronAPI.htmlToPdf({ html: html, options: { landscape: false } }).then(function (pdf) {
-                        if (!pdf || !pdf.ok) throw new Error((pdf && pdf.error) || 'PDF non generato');
-                        var nomeF = PC.buildFileName('analisi_fonte', null, false, { mappa: mappa });
-                        return window.electronAPI.saveVaultFile({ vaultPath: vp, relPath: 'Materiale Studio/' + nomeF, base64: pdf.base64 });
-                    }).then(function () {
-                        try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
-                        toast(t('ec_an_fatto', 'Scheda corretta: archivio e PDF aggiornati.'), 'success');
-                        rifai();
-                    }).catch(function (e) {
-                        toast(t('ec_an_pdf_ko', 'Scheda salvata, ma il PDF non si è rifatto: ') + (e && e.message || e), 'warning');
-                        rifai();
-                    });
-                } else {
-                    toast(t('ec_an_solo_arch', 'Scheda corretta e salvata in archivio.'), 'success');
-                    rifai();
-                }
+            /* L'EDITOR nella TELA (fase 3): la stessa superficie della
+               validazione di CREA, col piè degli editor — Salva · Annulla ·
+               Crea PDF · Esci. Lo stato che sopravvive ai ridisegni della
+               console è `_doc.scheda` (l'ultimo salvataggio): è il pattern del
+               doc-editor, che ridisegna dal proprio stato. */
+            _doc = { id: 'an:' + docId, natura: 'crea', editing: true, analisiId: docId, scheda: scheda, docAn: d };
+            _voce = 'an:' + docId;
+            rifai();
+        }
+        /* Il salvataggio dell'analisi: archivio riscritto (la dedup per
+           kind|title|mapName sostituisce) e PDF rifatto — sorgente prima della
+           resa, e una resa che fallisce non tocca la sorgente (inv. 18). */
+        function _salvaAnalisi(fatta, d) {
+            var SD = window.MappAIStudyDocs;
+            var st = _appState();
+            var mappa = (st && st.rootNodeLabel) || '';
+            var html = window.buildAnalisiFonteHtml(fatta, { mapName: mappa, includeBar: false });
+            var nuovoId = null;
+            try {
+                nuovoId = SD.save({ kind: 'analisi', title: d.title, html: html, mapName: d.mapName || mappa, cls: d.cls, disc: d.disc });
+            } catch (e) { nuovoId = null; }
+            if (!nuovoId) { toast(t('ec_an_save_ko', 'Salvataggio non riuscito: archivio pieno?'), 'error'); return false; }
+            _rifaiPdfAnalisi(html, mappa);
+            return true;
+        }
+        function _rifaiPdfAnalisi(html, mappa) {
+            var st = _appState();
+            var vp = (st && st.activeVaultPath) || '';
+            var PC = window.MappAIPipelineCore;
+            if (!vp || !PC || !window.electronAPI || !window.electronAPI.htmlToPdf) {
+                toast(t('ec_an_solo_arch', 'Scheda corretta e salvata in archivio.'), 'success');
+                return;
+            }
+            window.electronAPI.htmlToPdf({ html: html, options: { landscape: false } }).then(function (pdf) {
+                if (!pdf || !pdf.ok) throw new Error((pdf && pdf.error) || 'PDF non generato');
+                var nomeF = PC.buildFileName('analisi_fonte', null, false, { mappa: mappa });
+                return window.electronAPI.saveVaultFile({ vaultPath: vp, relPath: 'Materiale Studio/' + nomeF, base64: pdf.base64 });
+            }).then(function () {
+                try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
+                toast(t('ec_an_fatto', 'Scheda corretta: archivio e PDF aggiornati.'), 'success');
+            }).catch(function (e) {
+                toast(t('ec_an_pdf_ko', 'Scheda salvata, ma il PDF non si è rifatto: ') + (e && e.message || e), 'warning');
             });
         }
-        /* Domande aperte: l'editor si apre sulla voce d'ARCHIVIO, non sul file.
+        /* Domande aperte: l'editor si apre sulla voce d'ARCHIVIO, non sul file.        /* Domande aperte: l'editor si apre sulla voce d'ARCHIVIO, non sul file.
            Salvando, l'archivio si riscrive; il PDF nella cartella lo rifà
            «Stampa» — e finché non lo si fa, il file sul disco resta quello di
            prima. È dichiarato nella barra dell'editor, non qui. */

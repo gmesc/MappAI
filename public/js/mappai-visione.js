@@ -160,108 +160,308 @@
             });
     }
 
-    /* ── LA SCHEDA, DA CORREGGERE ─────────────────────────────────────────────
-       Quattro sezioni, una per blocco, coi campi della GRIGLIA (fonte unica:
-       `BLOCCHI` del core). L'anteprima si inietta in `suApertura` perché il
-       motore ESCAPA il testo delle sezioni (trappola 23). */
-    function apriScheda(scheda) {
-        var C = CORE(), M = MM();
-        if (!M) { toast(t('cq_no_motore', 'Il motore dei modali non è caricato.'), 'warning'); return Promise.resolve(null); }
-
-        var NOTE = {
+    /* ── LA SUPERFICIE DI VALIDAZIONE (fase 3, 20/8 notte) ────────────────────
+       Non più un modale: la scheda si monta NELL'AREA DI CREA (o nella tela di
+       ELABORA come editor) con `MappAIModal.render` — lo schema è lo stesso,
+       cambiano il posto e il piè. I campi crescono col loro testo
+       (`cresce: true`): la validazione di una descrizione tagliata a metà
+       frase non è una validazione.
+       In fondo, in modo 'crea', i DUE BOX delle opzioni: Domande aperte e
+       Flashcard (quante per categoria · quali categorie · quali angoli), più
+       la sintesi senza opzioni. Le scelte finiscono in `fatta.opzioni` e la
+       pipeline le legge per-tipo. */
+    var NOTE = null;
+    function _note() {
+        if (NOTE) return NOTE;
+        NOTE = {
             identita: t('vs_b_id_d', 'Che cos\'è, materialmente. Correggi quello che il modello ha sbagliato o non ha visto.'),
             osservazione: t('vs_b_oss_d', 'Solo ciò che si VEDE. Sui fogli degli allievi non compare: sarebbe la risposta a metà delle domande — va nelle tue tracce.'),
             interpretazione: t('vs_b_int_d', 'IPOTESI del modello, non fatti: ogni riga deve citare l\'elemento visivo che la giustifica («— lo dice…»). Le righe senza appiglio sono state scartate. Correggi: è quello che le domande daranno per vero.'),
             critica: t('vs_b_cri_d', 'Che cosa questa fonte DIMOSTRA (le intenzioni di chi l\'ha fatta) e che cosa tace. È la parte che trasforma un\'immagine in una fonte.')
         };
+        return NOTE;
+    }
+    var CAMPI_LUNGHI = ['descrizione', 'testo', 'iconografia', 'linguaggioVisivo',
+        'strategie', 'prova', 'tace'];
 
-        function sezioni(v) {
-            return C.BLOCCHI.map(function (bl) {
-                return {
-                    id: bl.id, titolo: bl.titolo, testo: NOTE[bl.id] || '',
-                    collassabile: true, chiusa: bl.id === 'osservazione',
-                    campi: bl.campi.map(function (c) {
-                        var chiave = bl.id + '.' + c.id;
-                        var val = (v && v[chiave] != null) ? v[chiave]
-                            : ((scheda[bl.id] || {})[c.id] || '');
-                        /* i campi lunghi respirano in un'area; i corti restano campi */
-                        var lungo = ['descrizione', 'testo', 'iconografia', 'linguaggioVisivo',
-                            'strategie', 'prova', 'tace', 'linguaggio'].indexOf(c.id) >= 0;
-                        return { id: chiave, tipo: lungo ? 'area' : undefined, etichetta: c.et, valore: val };
-                    })
-                };
+    function _sezioniBlocchi(scheda) {
+        var C = CORE();
+        return C.BLOCCHI.map(function (bl) {
+            return {
+                id: bl.id, titolo: bl.titolo, testo: _note()[bl.id] || '',
+                collassabile: true, chiusa: false,
+                campi: bl.campi.map(function (c) {
+                    var lungo = CAMPI_LUNGHI.indexOf(c.id) >= 0;
+                    return { id: bl.id + '.' + c.id, tipo: lungo ? 'area' : undefined,
+                        cresce: lungo, etichetta: c.et,
+                        valore: (scheda[bl.id] || {})[c.id] || '' };
+                })
+            };
+        });
+    }
+    /* I DUE BOX. Le spunte degli angoli vengono da `QUIZ_ANGLES` (mai una lista
+       scritta qui); le categorie sono i BLOCCHI della griglia. */
+    function _sezioniOpzioni(op) {
+        var C = CORE();
+        op = op || {};
+        function box(pref, titolo, g) {
+            g = g || {};
+            var campi = [
+                { id: pref + '.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: g.on !== false },
+                { id: pref + '.n', tipo: 'numero', etichetta: t('vs_op_n', 'Quante per categoria'), valore: g.n || 3, min: 1, max: 30, larghezza: 'meta' }
+            ];
+            C.BLOCCHI.forEach(function (bl) {
+                campi.push({ id: pref + '.cat.' + bl.id, tipo: 'spunta', etichetta: bl.titolo,
+                    valore: !g.cat || g.cat.indexOf(bl.id) >= 0 });
             });
+            (window.QUIZ_ANGLES || []).forEach(function (a) {
+                if (a.key === 'auto') return;
+                var et = window.quizAngleLabel ? window.quizAngleLabel(a.key) : a.key;
+                campi.push({ id: pref + '.ang.' + a.key, tipo: 'spunta', etichetta: et,
+                    valore: !!(g.angoli && g.angoli.indexOf(a.key) >= 0) });
+            });
+            return { id: 'op-' + pref, titolo: titolo,
+                testo: t('vs_op_d', 'Le categorie dicono DA QUALI blocchi della scheda nascono; ogni angolo spuntato produce un set suo. Nessun angolo = un set misto.'),
+                collassabile: true, chiusa: false, campi: campi };
         }
+        return [
+            box('oq', t('vs_op_oq', 'Domande aperte'), op.oq),
+            box('fc', t('vs_op_fc', 'Flashcard'), op.fc),
+            { id: 'op-syn', titolo: t('vs_op_syn', 'Sintesi'),
+              testo: t('vs_op_syn_d', 'Un testo continuo dalla scheda. La voce naturale si aggiunge dopo, dall\'editor della sintesi in ELABORA.'),
+              campi: [{ id: 'syn.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: op.syn !== false }],
+              sotto: '' }
+        ];
+    }
+    function _leggiCampi(box) {
+        var v = {};
+        box.querySelectorAll('[data-campo]').forEach(function (el) {
+            var k = el.getAttribute('data-campo');
+            v[k] = (el.type === 'checkbox') ? el.checked : el.value;
+        });
+        return v;
+    }
+    function _fattaDaCampi(scheda, v) {
+        var C = CORE();
+        var fatta = { titolo: String(v.titolo || scheda.titolo || '').trim(),
+            nomeFile: scheda.nomeFile, fotoB64: scheda.fotoB64, mime: scheda.mime };
+        C.BLOCCHI.forEach(function (bl) {
+            fatta[bl.id] = {};
+            bl.campi.forEach(function (c) {
+                fatta[bl.id][c.id] = String(v[bl.id + '.' + c.id] || '').trim();
+            });
+        });
+        return fatta;
+    }
+    function _opzioniDaCampi(v) {
+        var C = CORE();
+        function genere(pref) {
+            var cat = [], ang = [];
+            C.BLOCCHI.forEach(function (bl) { if (v[pref + '.cat.' + bl.id]) cat.push(bl.id); });
+            (window.QUIZ_ANGLES || []).forEach(function (a) {
+                if (a.key !== 'auto' && v[pref + '.ang.' + a.key]) ang.push(a.key);
+            });
+            return { on: !!v[pref + '.on'], n: parseInt(v[pref + '.n'], 10) || 3,
+                /* tutte spuntate = nessun filtro: la scheda può crescere di un
+                   blocco senza che le opzioni salvate lo escludano */
+                cat: cat.length >= C.BLOCCHI.length ? null : cat, angoli: ang };
+        }
+        return { oq: genere('oq'), fc: genere('fc'), syn: !!v['syn.on'] };
+    }
+    function _blocchiPieni(scheda) {
+        var C = CORE(), n = 0;
+        C.BLOCCHI.forEach(function (bl) { if (C.testoBlocco(scheda, bl.id)) n++; });
+        return n;
+    }
+    function _aggiornaStima(box, scheda) {
+        var el = box.querySelector('[data-vs-stima]');
+        if (!el) return;
+        var C = CORE();
+        var st = C.stimaDossier(_opzioniDaCampi(_leggiCampi(box)), _blocchiPieni(scheda));
+        el.textContent = t('vs_stima', 'Questo dossier: circa {n} chiamate all\'AI')
+            .replace('{n}', st.chiamate) +
+            ' (' + st.oq + ' + ' + st.fc + ' + ' + st.syn + ')';
+    }
 
-        return M.open({
-            titolo: t('vs_scheda_t', 'La fonte, prima di generare'), icona: 'image', taglia: 'l', invio: false,
+    /* ── IL MONTAGGIO ─────────────────────────────────────────────────────────
+       modo 'crea'  : prende il posto dei passi di CREA (il form si spegne, non
+                      si svuota — trappola 11) e risolve con la scheda
+                      confermata, `{__scarta:true}`, o resta aperta.
+       modo 'editor': si monta nell'`host` dato (la tela di ELABORA) col piè
+                      degli editor — Salva · Annulla · Crea PDF · Esci — e
+                      `opts.onSalva(fatta)` a ogni salvataggio. */
+    var _pulisciSuperficie = null;
+    function montaSuperficie(scheda, opts) {
+        opts = opts || {};
+        var M = MM();
+        if (!M || !M.render) { toast(t('cq_no_motore', 'Il motore dei modali non è caricato.'), 'warning'); return Promise.resolve(null); }
+        /* una superficie per volta: l'ascolto di ESC sta sul documento, e un
+           rimontaggio (ELABORA ridisegna la console) senza pulizia ne
+           accumulerebbe due (trappola 22, forma da listener) */
+        if (_pulisciSuperficie) { try { _pulisciSuperficie(); } catch (e) { } _pulisciSuperficie = null; }
+        var editor = opts.modo === 'editor';
+        var originale = JSON.stringify(scheda);
+
+        var schema = {
+            titolo: editor ? t('vs_ed_t', 'Analisi della fonte') : t('vs_scheda_t', 'La fonte, prima di generare'),
+            sottotitolo: scheda.nomeFile || '', icona: 'image', taglia: 'l', invio: false,
             sezioni: [{
                 id: 'chi', titolo: '', nuda: true,
                 campi: [{ id: 'titolo', etichetta: t('vs_titolo', 'Titolo della fonte'), valore: scheda.titolo || '' }]
-            }].concat(sezioni(null)),
-            suApertura: function (box) { _mostraFoto(box, scheda); },
-            azioni: [
-                { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
-                { id: 'ok', etichetta: t('vs_usa', 'Usa questa fonte'), icona: 'check', ruolo: 'primario' }
-            ]
-        }).then(function (r) {
-            if (!r || r.azione !== 'ok') return null;
-            var v = r.valori || {};
-            var fatta = { titolo: String(v.titolo || scheda.titolo || '').trim(),
-                nomeFile: scheda.nomeFile, fotoB64: scheda.fotoB64, mime: scheda.mime };
-            C.BLOCCHI.forEach(function (bl) {
-                fatta[bl.id] = {};
-                bl.campi.forEach(function (c) {
-                    fatta[bl.id][c.id] = String(v[bl.id + '.' + c.id] || '').trim();
-                });
-            });
-            if (!C.schedaPronta(fatta)) {
-                toast(t('vs_troppo_poco', 'Serve almeno qualche riga di analisi: è il materiale da cui nascono i documenti.'), 'warning');
-                return apriScheda(fatta);
-            }
-            /* La scheda confermata resta in mano al modulo: chi genera prima le
-               domande aperte e poi le flashcard dalla stessa foto non paga due
-               letture né corregge due volte («Dalla stessa immagine»). */
-            _scheda = fatta;
-            return fatta;
-        });
-    }
-    var _scheda = null;
-    function schedaCorrente() { return _scheda; }
-    function scordaScheda() { _scheda = null; }
+            }].concat(_sezioniBlocchi(scheda))
+                .concat(editor ? [] : _sezioniOpzioni(scheda.opzioni)),
+            azioni: editor
+                ? [{ id: 'esci', etichetta: t('de_exit', 'Esci'), icona: 'log-out' },
+                   { id: 'annulla', etichetta: t('de_undo', 'Annulla'), icona: 'undo-2' },
+                   { id: 'pdf', etichetta: t('de_pdf', 'Crea PDF'), icona: 'file-down' },
+                   { id: 'salva', etichetta: t('de_save', 'Salva'), icona: 'save', ruolo: 'primario' }]
+                : [{ id: 'scarta', etichetta: t('vs_scarta', 'Non usare questa foto'), icona: 'trash-2', ruolo: 'distruttivo' },
+                   { id: 'ok', etichetta: t('vs_usa', 'Usa questa fonte'), icona: 'check', ruolo: 'primario' }]
+        };
 
-    /* ── MM/KG E IL TEMA SI SPENGONO CON UNA FOTO FRA LE FONTI (20/8) ─────────
-       Con una fonte iconografica non c'è una mappa da impostare: il prodotto è
-       il DOSSIER, e il suo titolo viene dalla SCHEDA. Lasciare vivi il
-       selettore del genere e il campo del tema prometterebbe una scelta che la
-       generazione poi ignora — comandi inerti, peggio che assenti (inv. 21).
-       Si ricalcola DAI DATI a ogni chiamata (fonti aggiunte e tolte), come i
-       passi della vista ridotta: niente stato da tenere allineato. */
-    function _fotoPresente() {
-        var s = _st() || {};
-        return ((s.sources) || []).some(function (x) { return x && x._scheda; });
-    }
-    function sincronizzaGenere() {
-        var giu = _fotoPresente();
-        var perche = t('vs_mappa_no', 'Con una fonte iconografica si genera il DOSSIER: la mappa e il tema non servono — il titolo viene dalla scheda.');
-        ['mode-mindmap', 'mode-kg'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            el.style.pointerEvents = giu ? 'none' : '';
-            el.style.opacity = giu ? '0.4' : '';
-            el.setAttribute('aria-disabled', giu ? 'true' : 'false');
-            if (giu) el.setAttribute('title', perche); else el.removeAttribute('title');
-        });
-        var root = document.getElementById('root-node-name');
-        if (root) {
-            root.disabled = giu;
-            root.style.opacity = giu ? '0.4' : '';
-            if (giu) root.setAttribute('title', perche); else root.removeAttribute('title');
+        var box = M.render(schema);
+        box.classList.add('vs-superficie');
+        /* niente dialog: è una superficie della pagina, non una finestra */
+        box.removeAttribute('aria-modal');
+        var x = box.querySelector('.mm-close'); if (x) x.remove();
+        _mostraFoto(box, scheda);
+        if (!editor) {
+            var stima = document.createElement('p');
+            stima.className = 'mm-piede-nota'; stima.setAttribute('data-vs-stima', '');
+            var foot = box.querySelector('.mm-foot');
+            box.insertBefore(stima, foot || null);
         }
+
+        /* dove sta: la tela dell'editor, o il posto del form di CREA */
+        var form = null;
+        if (editor) {
+            if (!opts.host) return Promise.resolve(null);
+            opts.host.innerHTML = '';
+            opts.host.appendChild(box);
+        } else {
+            form = document.getElementById('setup-form');
+            if (form) form.style.display = 'none';
+            var casa = form ? form.parentNode : document.body;
+            casa.insertBefore(box, form);
+        }
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        _aggiornaStima(box, scheda);
+
+        return new Promise(function (risolvi) {
+            var chiuso = false;
+            function smonta(esito) {
+                if (chiuso) return; chiuso = true;
+                document.removeEventListener('keydown', suEsc, true);
+                if (_pulisciSuperficie === pulisci) _pulisciSuperficie = null;
+                try { box.remove(); } catch (e) { }
+                if (form) form.style.display = '';
+                risolvi(esito);
+            }
+            /* la pulizia per il PROSSIMO montaggio: toglie l'ascolto e basta —
+               il box vecchio se n'è già andato col ridisegno */
+            function pulisci() { document.removeEventListener('keydown', suEsc, true); chiuso = true; }
+            _pulisciSuperficie = pulisci;
+            function fatta() { return _fattaDaCampi(scheda, _leggiCampi(box)); }
+            function sporco() { 
+                var f = fatta(); f.opzioni = scheda.opzioni;
+                var base = JSON.parse(originale); base.opzioni = scheda.opzioni;
+                return JSON.stringify(Object.assign({}, base, { nomeFile: '', fotoB64: '', mime: '' })) !==
+                       JSON.stringify(Object.assign({}, f, { nomeFile: '', fotoB64: '', mime: '' }));
+            }
+            function conferma(f) {
+                var C = CORE();
+                if (!C.schedaPronta(f)) {
+                    toast(t('vs_troppo_poco', 'Serve almeno qualche riga di analisi: è il materiale da cui nascono i documenti.'), 'warning');
+                    return false;
+                }
+                return true;
+            }
+            /* ESC: SEMPRE la conferma a tre vie (richiesta di Giacomo). In
+               editor la via di mezzo è «Salva ed esci». */
+            function suEsc(e) {
+                if (e.key !== 'Escape') return;
+                /* un modale del motore sopra la superficie ha la precedenza:
+                   il suo ESC lo gestisce lui */
+                if (document.querySelector('.mm-overlay')) return;
+                e.stopPropagation(); e.preventDefault();
+                chiediUscita();
+            }
+            function chiediUscita() {
+                M.open({
+                    titolo: t('vs_esc_t', 'Chiudere la scheda?'), icona: 'circle-help', taglia: 's', invio: false,
+                    sezioni: [{ testo: editor
+                        ? t('vs_esc_ed_d', 'Le correzioni non salvate andranno perse.')
+                        : t('vs_esc_d', 'La scheda è il materiale da cui nascono i documenti del dossier.') }],
+                    azioni: [
+                        { id: 'riprendi', etichetta: t('vs_esc_riprendi', 'Riprendi') },
+                        { id: 'scarta', etichetta: editor ? t('vs_esc_perdi', 'Esci senza salvare') : t('vs_scarta', 'Non usare questa foto'), ruolo: 'distruttivo' },
+                        { id: 'salva', etichetta: editor ? t('vs_esc_salva_ed', 'Salva ed esci') : t('vs_esc_salva', 'Salva e chiudi'), ruolo: 'primario' }
+                    ]
+                }).then(function (r) {
+                    var a = r && r.azione;
+                    if (a === 'salva') {
+                        var f = fatta(); f.opzioni = editor ? undefined : _opzioniDaCampi(_leggiCampi(box));
+                        if (!conferma(f)) return;
+                        if (editor && opts.onSalva) opts.onSalva(f);
+                        smonta(editor ? { uscita: true } : f);
+                    } else if (a === 'scarta') {
+                        smonta(editor ? { uscita: true } : { __scarta: true });
+                    }
+                    /* riprendi / ESC sulla conferma: non si smonta niente */
+                });
+            }
+            document.addEventListener('keydown', suEsc, true);
+
+            box.addEventListener('click', function (e) {
+                var b = e.target.closest && e.target.closest('[data-azione]');
+                if (!b) return;
+                var a = b.getAttribute('data-azione');
+                if (a === 'ok') {
+                    var f = fatta();
+                    if (!conferma(f)) return;
+                    f.opzioni = _opzioniDaCampi(_leggiCampi(box));
+                    _scheda = f;
+                    smonta(f);
+                } else if (a === 'scarta') {
+                    smonta({ __scarta: true });
+                } else if (a === 'salva') {
+                    var f2 = fatta();
+                    if (!conferma(f2)) return;
+                    originale = JSON.stringify(f2);
+                    if (opts.onSalva) opts.onSalva(f2);
+                } else if (a === 'annulla') {
+                    /* torna alla scheda com'era all'apertura (o all'ultimo salvataggio) */
+                    var base = JSON.parse(originale);
+                    box.querySelectorAll('[data-campo]').forEach(function (el) {
+                        var k = el.getAttribute('data-campo');
+                        var val = (k === 'titolo') ? (base.titolo || '')
+                            : (k.indexOf('.') > 0 ? ((base[k.split('.')[0]] || {})[k.split('.')[1]] || '') : '');
+                        if (el.type === 'checkbox') return;
+                        el.value = val;
+                    });
+                } else if (a === 'pdf') {
+                    if (opts.onPdf) opts.onPdf(fatta());
+                } else if (a === 'esci') {
+                    if (!sporco()) { smonta({ uscita: true }); return; }
+                    chiediUscita();   /* la stessa conferma a tre vie di ESC */
+                }
+            });
+            /* il preventivo segue le spunte */
+            if (!editor) {
+                box.addEventListener('change', function () { _aggiornaStima(box, scheda); });
+                box.addEventListener('input', function (e) {
+                    if (e.target && e.target.type === 'number') _aggiornaStima(box, scheda);
+                });
+            }
+        });
     }
 
-    /* L'anteprima dentro il modale: prima della prima sezione, così la foto si
-       guarda mentre si correggono i campi che la riguardano. */
+    function apriScheda(scheda, opts) {
+        return montaSuperficie(scheda, opts || { modo: 'crea' });
+    }
+
+    /* L'anteprima dentro la superficie: prima della prima sezione, così la foto
+       si guarda mentre si correggono i campi che la riguardano. */
     function _mostraFoto(box, scheda) {
         if (!scheda || !scheda.fotoB64) return;
         try {
@@ -278,7 +478,7 @@
         } catch (e) { /* senza anteprima la scheda funziona lo stesso */ }
     }
 
-    /* ── IL GESTO INTERO ──────────────────────────────────────────────────────
+    /* ── IL GESTO INTERO    /* ── IL GESTO INTERO ──────────────────────────────────────────────────────
        Scegli → analizza (col velo) → correggi → torna la scheda. `null` a ogni
        passo in cui l'utente si tira indietro. Con un `file` già in mano (le
        fonti di CREA) il picker si salta. */
@@ -329,6 +529,7 @@
         schedaCorrente: schedaCorrente,
         scordaScheda: scordaScheda,
         sincronizzaGenere: sincronizzaGenere,
+        montaSuperficie: montaSuperficie,
         leggi: leggi
     };
     console.log('[MappAI] mappai-visione.js caricato ✓');
