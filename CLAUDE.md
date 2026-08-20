@@ -589,10 +589,11 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ### `/graphify` — knowledge graph da qualsiasi input
 - File: `~/.claude/skills/graphify/SKILL.md`
 - Usato dalla skill analyze-mm per ottenere il "ground truth" semantico dei vault
-- **Il repo ha il suo grafo** (agg. **19/8/26**): `graphify-out/graph.json` — **7835 nodi,
-  13255 archi, 359 comunità**; le etichette delle comunità sono quelle del 18/8 (l'ultimo
-  aggiornamento è stato **strutturale**: AST sui 93 file di codice cambiati, zero chiamate
-  AI). ⚠️ `--update` da solo scansiona TUTTO il repo (1271 file, 2,2 M parole, video
+- **Il repo ha il suo grafo** (agg. **20/8/26**): `graphify-out/graph.json` — **7983 nodi,
+  13523 archi, 364 comunità**; etichette del 18/8 conservate (aggiornamento **strutturale**:
+  AST sui 49 file cambiati del 20/8 — visione, proiezione, scelta — zero chiamate AI; potati
+  i 68 nodi del Cloze pensionato: ⚠️ `prune_sources` confronta percorsi ASSOLUTI coi
+  `source_file` RELATIVI del grafo e non morde — potatura fatta a mano sui path relativi). ⚠️ `--update` da solo scansiona TUTTO il repo (1271 file, 2,2 M parole, video
   compresi) e rifarebbe l'estrazione semantica su piani vecchi e asset: il grafo invece
   vive sul corpus CURATO (corpus CURATO: public/js senza vendored/minificati, main.js,
   server LAN, tools/banco-layout, tests, traduzioni + CLAUDE.md e README del banco come
