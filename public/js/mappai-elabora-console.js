@@ -504,7 +504,17 @@
         var CL = window.MappAIClona;
         var base = CL ? CL.etichetta(tipo, '') : tipo;
         var t2 = String(titolo || '').trim();
-        return t2.indexOf(base + ' - ') === 0 ? t2.slice(base.length + 3).trim() : '';
+        if (t2.indexOf(base + ' - ') === 0) return t2.slice(base.length + 3).trim();
+        /* ⚠️ FORMA STORICA DELLA PIPELINE (20/8): «<Mappa> — <Genere> · causa».
+           I materiali già generati per angolo la portano, e senza questa lettura
+           le sette varianti tornavano in elenco tutte con lo stesso nome. */
+        var i = t2.lastIndexOf(' · ');
+        return i > 0 ? t2.slice(i + 3).trim() : '';
+    }
+    /* Il nome della variante di un set: dichiarato in `clone`, o letto dal
+       titolo per i set scritti prima. */
+    function _cloneDiSet(x, tipo) {
+        return (x && x.clone) || _cloneDalTitolo(x && x.title, tipo);
     }
 
     function _materiali() {
@@ -535,15 +545,16 @@
         var attesi = {};
         var perSet = sets.map(function (x) {
             var g = _generePerSet(x);
-            var nomi = _nomiAttesi(g.genere, x.clone);
+            var cl = _cloneDiSet(x, g.tipo);
+            var nomi = _nomiAttesi(g.genere, cl);
             nomi.forEach(function (n) { attesi[n] = (attesi[n] || 0) + 1; });
-            return { x: x, g: g, nomi: nomi };
+            return { x: x, g: g, nomi: nomi, clone: cl };
         });
         perSet.forEach(function (r) {
             var v = {
-                id: 'set:' + r.x.id, titolo: _nomeFunz(r.g.tipo, r.x.clone), tipo: r.g.tipo,
+                id: 'set:' + r.x.id, titolo: _nomeFunz(r.g.tipo, r.clone), tipo: r.g.tipo,
                 data: Date.parse(r.x.date) || 0, archivio: true, modificabile: true,
-                clonabile: true, clone: r.x.clone || '', voce: false, cls: '', disc: ''
+                clonabile: true, clone: r.clone || '', voce: false, cls: '', disc: ''
             };
             var file = null;
             for (var n = 0; n < r.nomi.length && !file; n++) {

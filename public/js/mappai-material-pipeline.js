@@ -537,6 +537,11 @@
           if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
           const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
+          /* Il DOCUMENTO segue la convenzione dei cloni («Domande Aperte -
+             causa»), la stessa del gesto singolo: è da lì che ELABORA ricava il
+             nome della variante. Con la forma della pipeline le sette varianti
+             si leggevano tutte «Domande Aperte». */
+          const titoloDoc = _titoloDoc(spec, nomeVar, mapName);
 
           /* ── I materiali-DOCUMENTO escono qui: PDF e basta ────────────────────
              Le domande aperte non sono un set giocabile (vedi `_QT.open`), quindi
@@ -544,7 +549,7 @@
              il ri-salvataggio del vault. Producono il foglio, lo archiviano per
              INSEGNA e passano al tipo successivo. */
           if (spec.documento) {
-            const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: setTitle, type: spec.typeLabel, items: raw, angle: ang },
+            const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: ang },
               { mapName, includeBar: false });
             const pdfOq = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
             if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
@@ -565,7 +570,7 @@
             try {
               if (window.MappAIStudyDocs) {
                 window.MappAIStudyDocs.save({
-                  kind: 'quizpaper', title: setTitle, html: htmlOq,
+                  kind: 'quizpaper', title: titoloDoc, html: htmlOq,
                   mapName: mapName, cls: config.className || '', disc: config.disc || ''
                 });
               }
@@ -574,7 +579,10 @@
         }
 
         // Set in-app (forma q/correct o front/back) + persistenza vault
-        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: perBranch, date: _now(), _pipeline: true };
+        /* ⚠️ `clone` è il campo da cui ELABORA legge il nome della variante (e
+           `buildFileName` il nome del file): senza, i sette set per angolo si
+           chiamavano tutti «Scelta Multipla». */
+        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: perBranch, date: _now(), clone: nomeVar, _pipeline: true };
         _state().db.studySets = _state().db.studySets || [];
         _state().db.studySets.push(set);
         // PDF (forma stampabile)
