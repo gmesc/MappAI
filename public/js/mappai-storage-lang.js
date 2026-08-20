@@ -67,11 +67,9 @@ const StorageManager = {
 
     saveCurrentProject: function () {
         // GUARDIA Studio attivo: durante una sessione la mappa sul canvas è
-        // volutamente smontata dall'esercizio (link rimossi, livelli/label
-        // alterati). Persisterla renderebbe DEFINITIVO lo stato dell'esercizio:
-        // gerarchia irrecuperabile al reload (lo snapshot vive solo in memoria).
-        // exit()/emergencyExit() ripristinano la mappa e il salvataggio riprende.
-        if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) return;
+        // (20/8: qui si saltava il salvataggio mentre una modalità di Studio
+        // attivo teneva il grafo smontato. Quelle modalità sono in pensione e
+        // le attività di oggi non toccano il canvas: si salva sempre.)
         if (!appState || !appState.db || !appState.db.nodes || appState.db.nodes.length === 0) return;
 
         if (!this.currentProjectId) {
@@ -1006,8 +1004,7 @@ if (window.electronAPI && window.electronAPI.onSalvaPrimaDiUscire) {
                 try { window.MappAIStudioView.salvaProfilo(); } catch (e) { }
             }
             StorageManager.saveCurrentProject();
-            const inEsercizio = window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active;
-            if (!inEsercizio && appState.activeVaultPath && window.buildVaultMapData && window.electronAPI.saveVault) {
+            if (appState.activeVaultPath && window.buildVaultMapData && window.electronAPI.saveVault) {
                 await window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() });
             }
         } catch (e) { /* si esce comunque: il main ha il suo tetto */ }

@@ -154,7 +154,7 @@
       if (q.hintCount) meta2.push('<span class="lr-tag">💡 ' + q.hintCount + '</span>');
       var proposed = (q.kind === 'tf' && q.proposed) ? ('<div class="lr-q-meta">Affermazione: “' + esc(q.proposed) + '”</div>') : '';
       body += '<div class="lr-q"><div class="lr-q-head"><div class="lr-q-n">' + (i + 1) + '</div>' +
-        '<div><div class="lr-q-text">' + esc(q.text || (q.kind === 'cloze' ? '(completamento)' : '')) + '</div>' +
+        '<div><div class="lr-q-text">' + esc(q.text || '') + '</div>' +
         proposed + '<div class="lr-q-meta">' + meta2.join(' ') + '</div></div></div>' +
         '<div class="lr-bar">' +
         seg('lr-seg-r', q.right, q.pctRight) + seg('lr-seg-w', q.wrong, q.pctWrong) +
@@ -185,7 +185,7 @@
           (pillMark[it.outcome] || '·') + '</div>';
       }).join('');
       // Dettaglio per-domanda (issue 3): n°, esito, risposta allievo, risposta giusta
-      // se non corretta, + mezzo punto/complemento mancante sui cloze incompleti.
+      // se non corretta.
       var detail = (s.items || []).map(function (it, i) {
         var half = (it.missing && it.missing.length);
         var badge = half ? '<span style="color:#d97706;font-weight:700">½</span> '
@@ -288,12 +288,121 @@
     return docShell((meta && meta.mapTitle || 'Report') + ' — costruzione', 'Report costruzione', body);
   }
 
+
+  /* ── Report «Domande a scelta» ───────────────────────────────────────────
+     Non è un voto: è il ritratto di come uno studente RICONOSCE i richiami.
+     Per la classe due righe che valgono più delle risposte — quali tagli non
+     accendono nessuno e su quali aree nessuno si sente sicuro: sono domande
+     per il docente, non giudizi sugli allievi. */
+  var ET_ANGOLO = {
+    definizione: 'Definizione', causa: 'Causa', conseguenza: 'Conseguenza',
+    esempio: 'Esempio', confronto: 'Confronto', eccezione: 'Eccezione',
+    applicazione: 'Applicazione', auto: 'Misto', '': 'Taglio non noto'
+  };
+  var ET_CHIP = {
+    subito: 'mi viene in mente subito', partenza: 'so da dove partire',
+    vago: 'mi dice qualcosa, ma vago', niente: 'non mi accende niente'
+  };
+  function etAng(a) { return ET_ANGOLO[a || ''] || String(a); }
+
+  function barra(quota, colore) {
+    var w = Math.max(0, Math.min(100, Math.round((quota || 0) * 100)));
+    return '<span style="display:inline-block;width:120px;height:10px;border-radius:999px;background:#f1f5f9;vertical-align:middle;overflow:hidden">' +
+      '<span style="display:block;height:100%;width:' + w + '%;background:' + colore + '"></span></span>';
+  }
+
+  function buildSceltaReportHtml(meta, results) {
+    var r = results || {};
+    var extra = 'Allievi: <b>' + (r.joined || 0) + '</b> · Consegne <b>' + (r.consegnato || 0) + '</b>';
+    var body = headerBlock(meta, extra);
+
+    // ── la classe: i tagli ──
+    body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">I tagli — chi li ha evitati del tutto</div>';
+    var ang = Array.isArray(r.angoli) ? r.angoli : [];
+    if (!ang.length) body += '<div style="color:#94a3b8;font-size:11px">Nessun dato.</div>';
+    ang.forEach(function (a) {
+      var q = a.allievi ? (a.evitatoDa / a.allievi) : 0;
+      body += '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">' +
+        '<div style="flex:0 0 150px;font-weight:700">' + esc(etAng(a.angle)) + '</div>' +
+        barra(q, '#b45309') +
+        '<div style="font-size:11px;color:#475569">evitato da ' + (a.evitatoDa || 0) + '/' + (a.allievi || 0) +
+        ' · scelte totali ' + (a.scelteTotali || 0) + '</div></div>';
+    });
+    body += '</div>';
+
+    // ── la classe: le aree ──
+    body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">Le aree — dove la classe non si sente sicura</div>';
+    var ar = Array.isArray(r.aree) ? r.aree : [];
+    if (!ar.length) body += '<div style="color:#94a3b8;font-size:11px">I fogli non dichiarano la macro-area.</div>';
+    ar.forEach(function (a) {
+      var tot = (a.sceltaDa || 0) + (a.evitataDa || 0);
+      body += '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">' +
+        '<div style="flex:0 0 150px;font-weight:700">' + esc(a.ramo) + '</div>' +
+        barra(tot ? (a.sceltaDa / tot) : 0, '#4f46e5') +
+        '<div style="font-size:11px;color:#475569">scelta da ' + (a.sceltaDa || 0) + '/' + tot + '</div></div>';
+    });
+    body += '</div>';
+
+    // ── una scheda per allievo ──
+    (Array.isArray(r.byStudent) ? r.byStudent : []).forEach(function (a) {
+      var n = (a.profilo && a.profilo.conteggio) || {};
+      body += '<div class="lr-card"><div class="lr-card-head">' +
+        '<div><div class="lr-who">' + esc(a.displayName || a.id) + '</div>' +
+        '<div class="lr-who-sub">' + (a.consegnato ? 'consegnato' : 'non consegnato') +
+        (a.aree && a.aree.length ? ' · aree: ' + esc(a.aree.join(', ')) : '') + '</div></div>' +
+        '<div class="lr-metrics"><div class="lr-acc">' + (n.scritte || 0) + '</div>' +
+        '<div class="lr-acc-sub">risposte · ' + (n.lette || 0) + ' lette</div></div></div>';
+
+      var righe = (a.profilo && a.profilo.righe) || [];
+      righe.filter(function (x) { return x.totale; }).forEach(function (x) {
+        body += '<div style="display:flex;gap:10px;align-items:center;font-size:11px;padding:3px 0">' +
+          '<div style="flex:0 0 150px">' + esc(etAng(x.angle)) + '</div>' +
+          barra(x.totale ? (x.scelte / x.totale) : 0, '#4f46e5') +
+          '<div style="color:#475569">scelte ' + x.scelte + '/' + x.totale +
+          (x.spenti ? ' · spente ' + x.spenti : '') + '</div></div>';
+      });
+
+      body += '<div class="lr-detail">';
+      if (!(a.risposte || []).length) body += '<div style="color:#cbd5e1;font-size:11px">Nessuna risposta.</div>';
+      (a.risposte || []).forEach(function (q) {
+        var segno = q.corretta === true ? '<span class="lr-di-right">✓</span>'
+          : q.corretta === false ? '<span class="lr-di-wrong">✗</span>' : '<span class="lr-di-blank">·</span>';
+        body += '<div class="lr-di-row"><div class="lr-di-mark">' + segno + '</div><div class="lr-di-body">' +
+          '<div class="lr-di-q">' + esc(q.testo) + ' <span class="lr-tag">' + esc(etAng(q.angle)) + '</span>' +
+          (q.chip ? ' <span class="lr-tag">' + esc(ET_CHIP[q.chip] || q.chip) + '</span>' : '') + '</div>' +
+          '<div class="lr-di-your">' + esc(q.risposta || '—') + '</div>' +
+          (q.corretta === false && q.giusta ? '<div class="lr-di-correct">giusta: ' + esc(q.giusta) + '</div>' : '') +
+          '</div></div>';
+      });
+      body += '</div>';
+
+      if ((a.spenti || []).length) {
+        body += '<div class="lr-detail"><div class="lr-topic-h">Richiami che non hanno acceso niente</div>';
+        a.spenti.forEach(function (x) {
+          body += '<div class="lr-topic-item lr-bad">' + esc(x.testo) + ' <span class="lr-tag">' + esc(etAng(x.angle)) + '</span></div>';
+        });
+        body += '</div>';
+      }
+      if (a.evitata && (a.evitata.why || a.evitata.testo)) {
+        body += '<div class="lr-detail"><div class="lr-topic-h">Perché questa no</div>' +
+          '<div class="lr-di-q">' + esc(a.evitata.testo) +
+          (a.evitata.angle ? ' <span class="lr-tag">' + esc(etAng(a.evitata.angle)) + '</span>' : '') + '</div>' +
+          '<div class="lr-di-your">' + esc(a.evitata.why || '—') + '</div></div>';
+      }
+      if (a.note) body += '<div class="lr-detail"><div class="lr-topic-h">Osservazioni</div><div class="lr-di-q">' + esc(a.note) + '</div></div>';
+      body += '</div>';
+    });
+
+    return docShell((meta && meta.mapTitle || 'Report') + ' — domande a scelta', 'Report domande a scelta', body);
+  }
+
   var REPORTS = {
     escapeHtml: esc,
     buildQuestionsReportHtml: buildQuestionsReportHtml,
     buildStudentsReportHtml: buildStudentsReportHtml,
     buildCredentialCardsHtml: buildCredentialCardsHtml,
-    buildTimelineWorkshopReportHtml: buildTimelineWorkshopReportHtml
+    buildTimelineWorkshopReportHtml: buildTimelineWorkshopReportHtml,
+    buildSceltaReportHtml: buildSceltaReportHtml
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = REPORTS;

@@ -327,3 +327,76 @@ test('calorAree: su quali rami la classe non si sente', () => {
     assert.strictEqual(per['Oceani'].sceltaDa, 3);
     assert.strictEqual(cal[0].ramo, 'Atmosfera', 'in cima quella evitata da più allievi');
 });
+
+// ── normalizzaStato: la frontiera di fiducia ────────────────────────────────
+// In Live lo stato lo manda il telefono, e finisce su disco e nel report: si
+// tiene solo quello che il core riconosce.
+test('normalizzaStato tiene solo ciò che riconosce', () => {
+  const pool = [
+    { id: 'a', tipo: 'open', ramo: 'R1' },
+    { id: 'b', tipo: 'mc', ramo: 'R2', opzioni: ['x', 'y'] }
+  ];
+  const out = S.normalizzaStato(pool, {
+    aree: ['R1', 'INVENTATA', 'R1'],
+    fase: 'hackerata',
+    letture: { a: { chip: 'subito', nota: 'ok' }, b: { chip: 'inventato' }, zzz: { chip: 'subito' } },
+    risposte: { a: { testo: 'ciao', auto: 9 }, b: { scelta: '1', auto: 2 }, zzz: { testo: 'x' } },
+    note: 'nota',
+    evitata: { id: 'zzz', why: 'boh' }
+  });
+  assert.deepStrictEqual(out.aree, ['R1']);          // area inventata via, nessun doppione
+  assert.strictEqual(out.fase, '');                  // fase sconosciuta → la decide la view
+  assert.deepStrictEqual(Object.keys(out.letture), ['a']);   // chip fuori vocabolario e id finto via
+  assert.strictEqual(out.letture.a.nota, 'ok');
+  assert.deepStrictEqual(Object.keys(out.risposte).sort(), ['a', 'b']);
+  assert.strictEqual(out.risposte.a.auto, undefined);        // fuori scala 1-3
+  assert.strictEqual(out.risposte.b.scelta, 1);              // stringa → indice
+  assert.strictEqual(out.risposte.b.auto, 2);
+  assert.strictEqual(out.evitata, null);                     // puntava a una domanda che non ha
+});
+
+test('normalizzaStato capa i testi e tiene le domande prese ma vuote', () => {
+  const pool = [{ id: 'a', tipo: 'open', ramo: 'R1' }];
+  const out = S.normalizzaStato(pool, {
+    risposte: { a: {} },                       // presa e lasciata a metà: è un dato
+    note: 'n'.repeat(5000),
+    letture: { a: { nota: 'x'.repeat(999) } }
+  });
+  assert.ok('a' in out.risposte);
+  assert.strictEqual(S.conteggio(pool, out).scelte, 1);
+  assert.strictEqual(S.conteggio(pool, out).scritte, 0);
+  assert.strictEqual(out.note.length, 2000);
+  assert.strictEqual(out.letture.a.nota.length, 300);
+});
+
+test('poolDaFogli: `correct` è una STRINGA nei set veri', () => {
+  // lo schema di generateDynamicQuiz dichiara `correct: STRING`: senza il match
+  // sul testo nessuna domanda a scelta multipla aveva una risposta esatta
+  const p = S.poolDaFogli([{ titolo: 'Quiz - causa', angle: 'causa', tipo: 'mc',
+    items: [{ q: 'Capitale?', options: ['Roma', 'Milano'], correct: 'Milano' }] }]);
+  assert.strictEqual(p[0].giusta, 1);
+  // e un indice numerico 1-based continua a funzionare
+  const p2 = S.poolDaFogli([{ titolo: 'Quiz - causa', tipo: 'mc',
+    items: [{ q: 'Q?', options: ['A', 'B'], correct: 2 }] }]);
+  assert.strictEqual(p2[0].giusta, 1);
+});
+
+test('normalizzaStato: le bozze sopravvivono, le chiavi ereditate no', () => {
+  const pool = [{ id: 'a', tipo: 'open', ramo: 'R' }, { id: 'b', tipo: 'mc', ramo: 'R' }];
+  const out = S.normalizzaStato(pool, JSON.parse(
+    '{"risposte":{"constructor":{"testo":"X"},"b":{"scelta":98}},"bozze":{"a":{"testo":"parcheggiata"}}}'));
+  assert.deepStrictEqual(Object.keys(out.risposte), ['b']);   // `constructor` non è nel pool
+  assert.strictEqual(out.risposte.b.scelta, undefined);       // mc senza opzioni: nessun indice valido
+  assert.strictEqual(S.conteggio(pool, out).scritte, 0);      // e quindi non vale come risposta
+  assert.strictEqual(out.bozze.a.testo, 'parcheggiata');      // la domanda lasciata non si butta
+});
+
+test('normalizzaStato non decide la fase al posto della view', () => {
+  // il passo delle AREE si sceglie in `passiUtili`: un ripiego scritto qui
+  // rendeva quel ramo morto, e il primo passo irraggiungibile
+  const pool = [{ id: 'a', tipo: 'open', ramo: 'R1' }, { id: 'b', tipo: 'open', ramo: 'R2' }];
+  assert.strictEqual(S.normalizzaStato(pool, {}).fase, '');
+  assert.strictEqual(S.normalizzaStato(pool, { fase: 'aree' }).fase, 'aree');
+  assert.strictEqual(S.normalizzaStato(pool, { fase: 'scegli' }).fase, 'scegli');
+  assert.strictEqual(S.normalizzaStato(pool, { fase: 'rispondi' }).fase, 'rispondi');
+});

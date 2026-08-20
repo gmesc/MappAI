@@ -28,6 +28,7 @@ const crypto = require('crypto');
 const LC = require(path.join(__dirname, 'public', 'js', 'mappai-live-core.js'));
 const LR = require(path.join(__dirname, 'public', 'js', 'mappai-live-reports.js'));
 const TC = require(path.join(__dirname, 'public', 'js', 'mappai-timeline-core.js'));   // Timeline Live (008)
+const SC = require(path.join(__dirname, 'public', 'js', 'mappai-scelta-core.js'));      // «Domande a scelta»
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -41,6 +42,10 @@ const MIME = {
 const STATIC_ALLOW = [
   '/public/live/',
   '/public/js/mappai-live-core.js',
+  // «Domande a scelta»: la pagina studente carica il core e la view — senza
+  // questi due la superficie non esiste al telefono.
+  '/public/js/mappai-scelta-core.js',
+  '/public/js/mappai-scelta-view.js',   // ⚠️ confronto ESATTO più sotto: un `.bak` accanto non si serve
   '/public/js/vendor/'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB
@@ -62,7 +67,9 @@ function readBody(req, cb) {
 function makeServeStatic(repoRoot) {
   return function serveStatic(urlPath, res) {
     const clean = path.posix.normalize(urlPath);
-    if (clean.includes('..') || !STATIC_ALLOW.some(p => clean === p || clean.startsWith(p))) {
+    // solo le CARTELLE valgono come prefisso; un file elencato si serve per il
+    // suo nome esatto (altrimenti un `…-core.js.bak` lasciato lì uscirebbe)
+    if (clean.includes('..') || !STATIC_ALLOW.some(p => p.endsWith('/') ? clean.startsWith(p) : clean === p)) {
       res.writeHead(403); res.end('forbidden'); return;
     }
     const file = path.join(repoRoot, clean.replace(/^\//, '').split('/').join(path.sep));
@@ -100,6 +107,11 @@ function createLiveServer(opts) {
     session = s.session;
     roster = s.roster || [];
     try { questions = JSON.parse(fs.readFileSync(questionsFile, 'utf8')); } catch (e) { questions = []; }
+    // In «a scelta» il pool È l'attività: riprenderla senza è irrecuperabile, e
+    // proseguire consumerebbe le risposte già raccolte. Meglio non partire.
+    if (session.mode === 'scelta' && !questions.length) {
+      throw new Error('sessione «a scelta» irrecuperabile: questions.json mancante o vuoto in ' + dir);
+    }
     for (const f of fs.readdirSync(studentsDir)) {
       if (!f.endsWith('.json')) continue;
       try {
@@ -119,7 +131,10 @@ function createLiveServer(opts) {
       durationMin: Number(cfg.durationMin) || 0,
       // Timeline Live (008): modalità attività, schema di login, indizi.
       // Default = comportamento storico (quiz / login individuale / indizi su richiesta).
-      mode: cfg.mode === 'build' ? 'build' : 'quiz',
+      mode: (cfg.mode === 'build' || cfg.mode === 'scelta') ? cfg.mode : 'quiz',
+      // «Domande a scelta»: la config dell'attività, normalizzata dal core
+      // (le leve del docente: minimo, aree minime, reveal, perché no…).
+      scelta: cfg.mode === 'scelta' ? SC.normalizzaCfg(cfg.scelta) : null,
       loginMode: cfg.loginMode === 'group' ? 'group' : 'individual',
       hintMode: (['always', 'onrequest', 'never'].indexOf(cfg.hintMode) >= 0) ? cfg.hintMode : 'onrequest',
       // Report profilo studente: mostra le soluzioni (giuste/sbagliate + spiegazione) a
@@ -140,7 +155,12 @@ function createLiveServer(opts) {
     };
     roster = Array.isArray(opts.roster) ? opts.roster : [];
     // valida/normalizza le domande in ingresso; assegna idx stabile
+    // ⚠️ In modalità «scelta» le `questions` NON sono domande di quiz: sono il
+    // POOL del core (`poolDaFogli`), con angolo e soluzione. Passano intatte —
+    // `validateQuestion` le sfigurerebbe — e non vengono MAI servite così: al
+    // telefono va il sottoinsieme campionato, ripulito da `SC.pubblico`.
     questions = (Array.isArray(opts.questions) ? opts.questions : []).map((q, i) => {
+      if (session.mode === 'scelta') return q;
       const v = LC.validateQuestion(q);
       const base = v.ok ? v.clean : q;
       return Object.assign({}, base, { idx: i });
@@ -173,6 +193,31 @@ function createLiveServer(opts) {
       ? LC.slugify(String(body.nick || ''))
       : LC.identityKey(body.emojiKey, body.num);
   }
+  // ── «Domande a scelta»: il pool di UNO studente ─────────────────────────
+  // Il campionamento (una domanda per coppia area × angolo) è del SERVER e per
+  // studente: servire 175 domande per mostrarne 14 vorrebbe dire mandare al
+  // telefono proprio quello che l'attività ha deciso di non fare, angolo
+  // compreso. ⚠️ Si PERSISTE la scelta (gli id): al rientro deve ritrovare le
+  // SUE domande, e il seme da solo non basta — un foglio in più nel vault
+  // sposterebbe tutto.
+  function poolDi(id, st) {
+    if (st.poolIds && st.poolIds.length) {
+      const per = {};
+      questions.forEach(v => { per[v.id] = v; });
+      const out = st.poolIds.map(i => per[i]).filter(Boolean);
+      if (out.length) return out;
+    }
+    const scelto = SC.unaPerAngolo(questions, id);
+    // ⚠️ MAI riscrivere a vuoto: se le domande non si sono rilette (file perso,
+    // scrittura a metà), un `poolIds` azzerato farebbe scartare a
+    // `normalizzaStato` tutte le risposte già su disco al primo salvataggio.
+    if (scelto.length) st.poolIds = scelto.map(v => v.id);
+    return scelto;
+  }
+  // ⚠️ `fase` vuota: da dove si parte lo decide la superficie (col percorso a
+  // tre passi si atterra sulle AREE), non un ripiego scritto qui.
+  function statoDi(st) { return st.stato || { aree: [], fase: '', letture: {}, risposte: {}, bozze: {}, note: '' }; }
+
   // Tutte le proposte (modalità Costruisci), con autore.
   function allProposals() {
     const out = [];
@@ -242,6 +287,59 @@ function createLiveServer(opts) {
       };
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
       fs.writeFileSync(path.join(dir, 'report-costruzione.html'), LR.buildTimelineWorkshopReportHtml(meta(), results));
+    } else if (session.mode === 'scelta') {
+      // Un allievo alla volta, ognuno col SUO pool campionato: il profilo di
+      // due studenti non è confrontabile domanda per domanda, e va bene così —
+      // quello che si confronta sono i tagli e le aree.
+      const perAllievo = Object.keys(students).map(id => {
+        const st = students[id];
+        const mio = poolDi(id, st);
+        return {
+          id, displayName: LC.displayName(st) || id,
+          consegnato: !!st.finishedAt,
+          aree: ((st.stato && st.stato.aree) || []).slice(),
+          note: (st.stato && st.stato.note) || '',
+          // la riga del «perché no?»: si raccoglieva e si perdeva. Nel report
+          // va il TESTO della domanda, non il suo id: un id non dice niente a
+          // chi legge.
+          evitata: (function (e) {
+            if (!e) return null;
+            const q = mio.find(v => v.id === e.id);
+            return { testo: q ? q.testo : '', angle: q ? (q.angle || '') : '', why: e.why || '' };
+          }((st.stato && st.stato.evitata) || null)),
+          profilo: SC.profilo(mio, statoDi(st)),
+          // le risposte col loro angolo e il giudizio di richiamo: è il report
+          risposte: mio.filter(v => statoDi(st).risposte[v.id]).map(v => {
+            const r = statoDi(st).risposte[v.id] || {};
+            const l = (statoDi(st).letture || {})[v.id] || {};
+            return {
+              testo: v.testo, angle: v.angle || '', ramo: v.ramo || '',
+              risposta: (v.tipo === 'mc' && r.scelta != null) ? ((v.opzioni || [])[r.scelta] || '') : (r.testo || ''),
+              giusta: (v.tipo === 'mc' && v.giusta >= 0) ? ((v.opzioni || [])[v.giusta] || '') : '',
+              corretta: (v.tipo === 'mc' && v.giusta >= 0) ? (r.scelta === v.giusta) : null,
+              chip: l.chip || '', nota: l.nota || '', auto: r.auto || 0
+            };
+          }),
+          // i richiami che ha letto e non l'hanno acceso: il dato per cui
+          // l'attività esiste, e si perde se si guardano solo le risposte
+          spenti: mio.filter(v => {
+            const l = (statoDi(st).letture || {})[v.id];
+            return l && l.chip && !SC.accende(l.chip);
+          }).map(v => ({ testo: v.testo, angle: v.angle || '', chip: (statoDi(st).letture[v.id] || {}).chip }))
+        };
+      });
+      const stati = Object.keys(students).map(id => statoDi(students[id]));
+      // il calore si calcola sul pool INTERO: le aree e gli angoli sono gli
+      // stessi per tutti, sono le domande a essere campionate
+      const results = {
+        mode: 'scelta', joined: Object.keys(students).length,
+        consegnato: perAllievo.filter(a => a.consegnato).length,
+        byStudent: perAllievo,
+        angoli: SC.calorClasse(questions, stati),
+        aree: SC.calorAree(questions, stati)
+      };
+      fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
+      fs.writeFileSync(path.join(dir, 'report-scelta.html'), LR.buildSceltaReportHtml(meta(), results));
     } else {
       const results = LC.computeResults(questions, Object.values(students), roster);
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
@@ -261,7 +359,11 @@ function createLiveServer(opts) {
     checkExpiry();
 
     if (p === '/') {
-      res.writeHead(302, { Location: '/public/live/student.html?s=' + session.token });
+      // ogni modalità ha la sua pagina: il QR punta alla radice e il server sa
+      // dove mandare (una sola cosa da tenere allineata, non due URL)
+      const pagina = session.mode === 'scelta' ? 'scelta.html'
+        : session.mode === 'build' ? 'timeline-build.html' : 'student.html';
+      res.writeHead(302, { Location: '/public/live/' + pagina + '?s=' + session.token });
       res.end(); return;
     }
 
@@ -279,6 +381,7 @@ function createLiveServer(opts) {
           // Timeline Live (008): mode/login/hint per il player; build SENZA sourceYears
           // (mai esposti: servono solo al server per il flag yearNotInSources).
           mode: session.mode, loginMode: session.loginMode, hintMode: session.hintMode,
+          scelta: session.scelta || null,
           build: session.build ? {
             gaps: session.build.gaps, freeAllowed: session.build.freeAllowed,
             maxProposals: session.build.maxProposals
@@ -298,7 +401,13 @@ function createLiveServer(opts) {
           msLeft: session.endsAt ? Math.max(0, new Date(session.endsAt).getTime() - now) : null,
           roster: roster.map(r => {
             const st = students[LC.identityKey(r.emojiKey, r.num)];
-            const answered = st ? Object.keys(st.answers || {}).length : 0;
+            const answered = st
+              ? (session.mode === 'scelta'
+                  // scritte, non «prese»: una domanda presa e lasciata vuota
+                  // non è una risposta, e la colonna dice «risposte»
+                  ? SC.conteggio(poolDi(LC.identityKey(r.emojiKey, r.num), st), st.stato).scritte
+                  : Object.keys(st.answers || {}).length)
+              : 0;
             return {
               emojiKey: r.emojiKey, emoji: (LC.emojiByKey(r.emojiKey) || {}).emoji || '?',
               num: r.num, name: r.name || '',
@@ -317,6 +426,9 @@ function createLiveServer(opts) {
       // revealAnswers e lo studente ha consegnato (o la sessione è chiusa).
       if (p === '/api/my-result' && req.method === 'GET') {
         if (u.searchParams.get('s') !== session.token) return json(res, 403, { error: 'token' });
+        // in «a scelta» non esistono risposte da graduare: `computeStudentResult`
+        // qui produrrebbe 200 con dati finti, che è peggio di un no
+        if (session.mode === 'scelta') return json(res, 404, { error: 'not-quiz' });
         const id = pid({ nick: u.searchParams.get('nick'), emojiKey: u.searchParams.get('emojiKey'), num: u.searchParams.get('num') });
         const st = students[id];
         if (!st) return json(res, 404, { error: 'not-joined' });
@@ -332,6 +444,7 @@ function createLiveServer(opts) {
         const w = u.searchParams.get('which');
         const which = w === 'students' ? 'report-studenti.html'
           : w === 'workshop' ? 'report-costruzione.html'
+          : w === 'scelta' ? 'report-scelta.html'
           : 'report-domande.html';
         const f = path.join(dir, which);
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('report non ancora generato'); return; }
@@ -374,6 +487,16 @@ function createLiveServer(opts) {
               } else {
                 st.deviceId = body.deviceId;   // adozione dopo release, o rientro stesso device
               }
+            }
+            if (session.mode === 'scelta') {
+              const mio = poolDi(id, st);
+              persistStudent(id); persist();
+              return json(res, 200, {
+                ok: true, displayName: LC.displayName(st), phase: session.phase,
+                // il pool campionato e SENZA angolo né soluzioni: `pubblico` è
+                // l'unica porta, come `publicQuestions` per il quiz
+                pool: SC.pubblico(mio), stato: statoDi(st), cfg: session.scelta
+              });
             }
             persistStudent(id); persist();
             return json(res, 200, {
@@ -432,6 +555,34 @@ function createLiveServer(opts) {
             return json(res, 200, { ok: true, proposal: Object.assign({ author: ownerId }, found) });
           }
 
+          // ── studente («a scelta»): salva lo STATO intero ──
+          // Non passa da /api/answer, ed è la ragione: qui non si salva «una
+          // risposta» ma un percorso — le aree dichiarate, a che punto è, che
+          // cosa gli ha acceso ogni domanda LETTA (anche quelle che non ha
+          // preso) e le risposte. La view consegna già lo stato intero a ogni
+          // salvataggio; spezzarlo in chiamate per-domanda vorrebbe dire
+          // inventare una `answer` senza `qIdx`.
+          // ⚠️ Ciò che arriva è del telefono: si tiene solo quello che il core
+          // riconosce, e SOLO sul pool campionato di quello studente.
+          if (p === '/api/stato') {
+            if (session.mode !== 'scelta') return json(res, 404, { error: 'not-scelta' });
+            if (body.token !== session.token) return json(res, 403, { error: 'token' });
+            const id = pid(body);
+            const st = students[id];
+            if (!st) return json(res, 404, { error: 'not-joined' });
+            if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
+            if (session.phase === 'closed') return json(res, 409, { error: 'closed' });
+            st.stato = SC.normalizzaStato(poolDi(id, st), body.stato);
+            st.stato.updatedAt = Date.now();
+            // ⚠️ `dopoConsegna` = quello che si scrive NELLA schermata di esito
+            // (il «perché no?»). Senza questo distinguo la consegna si annullava
+            // a ogni tasto premuto, e la dashboard perdeva la spunta.
+            if (!body.dopoConsegna) st.finishedAt = null;   // ha ripreso a lavorare
+            persistStudent(id);
+            const n = SC.conteggio(poolDi(id, st), st.stato);
+            return json(res, 200, { ok: true, conteggio: n });
+          }
+
           // ── studente: salva una risposta (autosave, sovrascrivibile) ──
           if (p === '/api/answer') {
             if (body.token !== session.token) return json(res, 403, { error: 'token' });
@@ -462,6 +613,29 @@ function createLiveServer(opts) {
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
             st.finishedAt = new Date().toISOString();
+            if (session.mode === 'scelta') {
+              // l'ultimo stato viaggia con la consegna (l'ultimo autosave può
+              // non essere partito: 600ms di debounce contro un tocco)
+              if (body.stato) st.stato = SC.normalizzaStato(poolDi(id, st), body.stato);
+              persistStudent(id);
+              const mio = poolDi(id, st);
+              const cfg = session.scelta || SC.normalizzaCfg({});
+              // il profilo dice gli ANGOLI: esce solo ora, e solo se il docente
+              // ha lasciato acceso il reveal — prima della consegna l'angolo
+              // resta sul server come le soluzioni del quiz
+              const rivela = !!cfg.reveal;
+              return json(res, 200, {
+                ok: true, reveal: rivela,
+                profilo: rivela ? SC.profilo(mio, statoDi(st)) : null,
+                // ⚠️ anche l'evitata esce da `SC.pubblico`: è la domanda che lo
+                // studente sta per RIAPRIRE col secondo giro, e mandargliela
+                // grezza vorrebbe dire mandargli la soluzione. L'angolo sì: a
+                // consegna fatta è il senso del reveal.
+                evitata: (rivela && (cfg.perche_no || cfg.secondo_giro)) ? (function (v) {
+                  return v ? Object.assign(SC.pubblico([v])[0], { angle: v.angle || '' }) : null;
+                }(SC.evitata(mio, statoDi(st), id))) : null
+              });
+            }
             persistStudent(id);
             // Feedback immediato: il risultato dello studente (solo il SUO), con soluzioni
             // se il docente ha attivato revealAnswers. Le soluzioni non erano mai state

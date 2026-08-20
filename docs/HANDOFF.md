@@ -23,21 +23,26 @@
 
 ## 0. Le prime cose da sapere
 
-0. **⟵ DA QUI SI RIPRENDE (19/8 sera): la FASE D delle attività «a scelta».**
-   Tre fasi su sei sono spedite. In `main`: il box **«Più set per angolo»** nel bento
-   (un materiale per ogni angolo), il **core** e la **superficie a tre passi** delle
-   attività «a scelta». Nessuna delle due ha ancora un ingresso nell'app: si provano
-   dal banco `public/dev/scelta-harness.html`.
-   **Che cosa fare, in ordine**: leggere [`PIANO-scelta-a-tre-passi.md`](PIANO-scelta-a-tre-passi.md)
-   (il PERCHÉ della forma) e poi la **fase D** in
-   [`PIANO-domande-a-scelta.md`](PIANO-domande-a-scelta.md), che è scritta coi punti di
-   attacco misurati (file e righe). Restano D (Live: server, pagina studente, report,
-   docente), E (lo Studio attivo rifatto sui materiali del vault) ed F (la pensione di
-   cinque modalità storiche + Cloze).
+0. **⟵ DA QUI SI RIPRENDE (20/8): le attività «a scelta» sono COMPLETE, sei fasi su sei.**
+   In `main`: il box **«Più set per angolo»** nel bento (A), il **core** (B), la **superficie
+   a tre passi** (C), la **Live** — server `mode:'scelta'`, pagina studente, report, card nel
+   hub e in INSEGNA (D) — il **guscio in-app** (E) e la **pensione** delle sette modalità
+   storiche e del Cloze (F).
+   **Lo Studio attivo non smonta più la mappa.** Le sette modalità che ricostruivano il grafo
+   sul canvas sono state cancellate insieme al Cloze: `mappai-active-study.js` è passato da
+   **1832 a 190 righe** — resta il solo launcher — e con loro sono cadute `session`,
+   `emergencyExit`, lo snapshot del grafo e le **nove guardie** che sei moduli tenevano per
+   non litigare con una sessione attiva. Il launcher apre ora **Domande a scelta · Quiz a
+   scelta · Palazzo**, più le due viste e i due strumenti.
+   ⚠️ **Niente di tutto questo è mai girato in Electron**: è misurato nei test puri, in tre
+   banchi e in due tornate di revisione avversaria (otto agenti). La lista di che cosa provare
+   è in §5 — e dopo la fase F la prima riga è *aprire una mappa e verificare che la gerarchia
+   resti intatta*.
    ⚠️ La cosa da non dimenticare: l'attività **non è «rispondi a delle domande»** — è
    leggere dei RICHIAMI e riconoscere quali riaccendono le proprie conoscenze. Da lì il
    campionamento, i chip di attivazione e i due registri dello stato (§3).
-
+   📌 I record già scritti (`sessioni.jsonl`, padronanza) citano `mode: 1..7` e `cloze`:
+   **restano leggibili**. Un record di un'attività pensionata è storia, non un errore.
 
 1. **Il push funziona di nuovo, in SSH** (13/8): chiave `~/.ssh/github_mappai`
    registrata su GitHub, remote `git@github.com:gmesc/MappAI.git`. Il token HTTPS
@@ -106,12 +111,16 @@ node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
 node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
 node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
+node tools/smoke/scelta-materiali.js              # atteso: TUTTO OK
 node tools/diagnosi/vault-estranei.js             # sui vault VERI: dice, non tocca
 ```
 I due banchi di `public/dev/` si aprono in un server statico (`python3 -m http.server 8145
 --directory public`) e si leggono dal riquadro nero in cima:
-`/dev/scelta-harness.html` (le attività «a scelta»: i tre passi, il campionamento, i
-contrasti, i bersagli) · `/dev/costruisci-harness.html` (il bento di CREA).
+`/dev/scelta-harness.html` (la SUPERFICIE delle attività «a scelta»: i tre passi, il
+campionamento, i contrasti, i bersagli) · `/dev/scelta-inapp-harness.html` (il GUSCIO
+IN-APP: la stessa attività dentro un modale del motore, coi moduli veri e un archivio
+finto — è il percorso che nessun test puro esegue, e dove il modale si era aperto vuoto) ·
+`/dev/costruisci-harness.html` (il bento di CREA).
 ⚠️ Vanno guardati a **390px**, cioè a larghezza di telefono: è dove vive la pagina dello
 studente, ed è la larghezza a cui sono stati misurati.
 `tools/diagnosi/vault-estranei.js` (17/8) è l'unico che guarda il DISCO dell'utente, in sola
@@ -155,6 +164,7 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
 | `mappai_archivio_insegna` | spento | `'1'` rimostra in INSEGNA le voci d'archivio dei fogli cartacei (`quizpaper`/`flashsheet` senza PDF proprio), nascoste dal 13/8: la loro sorgente vive in ELABORA |
 | `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
+| `mappai_domande_scelta` | acceso | le attività **«a scelta»**. `'0'` → via la card dal hub Live, la voce da INSEGNA › Attività LIVE e le due card dal launcher di Studio attivo (le sette modalità storiche restano) |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
@@ -266,9 +276,24 @@ tre passi in [`PIANO-scelta-a-tre-passi.md`](PIANO-scelta-a-tre-passi.md).
   stato con le `aree` ma senza `fase` ripartiva dal passo ① — che è il comportamento
   giusto (a decidere la schermata è `fase`, ed è ciò che fa ritrovare il posto a chi
   rientra), ma non quello che il banco voleva misurare.
-- ⚠️ **La pagina `live/scelta.html` non c'è ancora**: arriva con la fase D, dove il
-  server sa il `mode` e la si può provare contro il server VERO. Scriverla ora avrebbe
-  voluto dire codice che nessuno può eseguire.
+**Da dove ci si entra (fasi D ed E, 20/8).** Due porte, e sotto la stessa superficie:
+- **Live, col QR** — hub Live › «Domande a scelta», oppure INSEGNA › Attività LIVE.
+  `mappai-scelta.js` legge i fogli e i set del vault (non genera niente), il modale dice
+  **quante domande da quanti fogli**, e si avvia una sessione `mode:'scelta'`.
+  Nel server: il **campionamento è per studente e persistito** (al rientro ritrova le SUE
+  domande), `/api/stato` salva il **percorso** — aree, fase, letture — e non «una
+  risposta», e il profilo per angolo esce **solo alla consegna**, come le soluzioni di un
+  quiz. Alla chiusura: `report-scelta.html`, col calore dei tagli, quello delle aree, le
+  risposte col loro angolo e il «perché no?».
+- **In-app** — Studio attivo › «Domande a scelta» e «Quiz a scelta»: la stessa attività in
+  un modale del motore, bozza in `localStorage`, sessione su `MappAIStudyBus`. Senza
+  materiali le card sono **spente col motivo e la strada**.
+⚠️ **`/api/answer` non c'entra**: qui non si salva una risposta per volta ma un percorso,
+e spezzarlo in chiamate per-domanda avrebbe voluto dire inventare una `answer` senza
+`qIdx`. Per questo `cleanAnswer` non è stata toccata: le sessioni quiz storiche non
+cambiano di una riga.
+⚠️ **Il Palazzo della Memoria NON è stato portato nel guscio**: è il punto 16 della fase E,
+e il suo guadagno arriva solo con la F, quando il launcher si riduce a tre card.
 
 ### «PAROLE CHIAVE CON AI» — il bottone che non faceva niente (19/8)
 Nell'editor del **foglio dei nodi**, riga «a tutte le card». Non era rotto: la sua
@@ -1740,7 +1765,45 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ## 5. Provato in Electron — che cosa è acquisito
 
-### ⏳ DA PROVARE IN ELECTRON — le attività «a scelta» (19/8 sera)
+### ⏳ DA PROVARE IN ELECTRON — la PENSIONE delle sette modalità (20/8, fase F)
+Questa lista viene prima delle altre: qui non si è aggiunto, si è **tolto**, e ciò che si
+rompe togliendo non lo dice nessun test.
+1. **La mappa non si smonta più, e quindi non si perde**: apri una mappa, apri Studio
+   attivo, chiudi, cambia progetto, torna. La gerarchia deve essere intatta — prima c'era
+   una macchina di sicurezza apposta, e ora non serve più perché non c'è più il guasto.
+2. **Il launcher**: Studio attivo mostra **Domande a scelta · Quiz a scelta · Palazzo** +
+   le due viste + i due strumenti. Nessuna card numerata, nessun Cloze.
+3. **Le nove guardie tolte**: salvare mentre si guarda una mappa, uscire con ⌘Q, caricare
+   un vault, accendere Heat map e Mappa lavoro. Nessuna di queste deve comportarsi in modo
+   diverso da prima — erano tutte condizionate a una sessione che non esiste più.
+4. **Il player Live** senza il genere «cloze»: una sessione con V/F, scelta multipla e
+   domande aperte si gioca e si consegna come prima.
+5. **Progressi e Heat map** devono ancora mostrare le sessioni VECCHIE delle modalità
+   pensionate: i record non sono stati migrati apposta.
+
+### ⏳ DA PROVARE IN ELECTRON — le attività «a scelta», ora con un ingresso (20/8)
+Fasi D ed E spedite: la Live e il guscio in-app. Tutto misurato nei test puri, in tre
+banchi e in una revisione avversaria; **niente nell'app vera**. In ordine di quanto
+morde:
+1. **Una sessione Live vera, da un telefono**: hub Live → «Domande a scelta» → il modale
+   dice quante domande e da quanti fogli → QR → il telefono deve aprire **`scelta.html`**
+   (non `student.html`), fare login emoji+numero, e ricevere **una domanda per argomento
+   e per taglio**, non tutte.
+2. **Il rientro a metà percorso**: chiudere il browser del telefono e riscansionare il QR
+   → devono tornare le SUE domande (non altre) e il punto dov'era.
+3. **La consegna e il reveal**: alla consegna compaiono i tagli; con «perché no?» acceso,
+   scrivere la nota **non deve** togliere la spunta dalla dashboard del docente.
+4. **Il report**: «Chiudi sessione» → il bottone porta a `report-scelta.html`, con il
+   calore dei tagli, quello delle aree, le risposte col loro angolo e il «perché no?».
+5. **Il guscio in-app**: Studio attivo → «Domande a scelta» e «Quiz a scelta». Senza
+   materiali le due card devono essere **spente col motivo**; con materiali veri, il
+   percorso a tre passi dentro il modale, la bozza che sopravvive a una chiusura, e la
+   consegna che scrive in `Studio Attivo/sessioni.jsonl`.
+6. **Il kill-switch** `mappai_domande_scelta='0'`: via la card dal hub Live e le due dal
+   launcher, senza lasciare buchi.
+7. Lo **switch EN** sulle schermate nuove.
+
+### ⏳ DA PROVARE IN ELECTRON — la fase A delle attività «a scelta» (19/8 sera)
 Tutto misurato nel banco e nei test puri, **niente nell'app vera** — e per buona parte non
 si può ancora: la superficie non ha un ingresso finché non arrivano le fasi D ed E.
 Quello che si può provare **subito**, ed è della fase A:

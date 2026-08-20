@@ -1469,7 +1469,7 @@
                     <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
                         <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
                     </button>
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Modalità di studio attivo: ricostruisci la mappa" data-i18n-title="tt_active_study">
+                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Attività di studio, viste e strumenti" data-i18n-title="tt_active_study">
                         <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
                     <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
@@ -3263,9 +3263,9 @@
     <script src="js/mappai-console-bento.js?v=dh13"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=dh24"></script>
+    <script src="js/mappai-storage-lang.js?v=sf1"></script>
     <script src="js/mappai-d3-render.js?v=font1"></script>
-    <script src="js/mappai-ui-canvas.js?v=font1"></script>
+    <script src="js/mappai-ui-canvas.js?v=sf1"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js"></script>
     <script src="js/mappai-lenses.js"></script>
@@ -3336,8 +3336,8 @@
     <script src="js/mappai-l1-checkpoint.js"></script>
     <script src="js/mappai-mastery.js"></script>
     <script src="js/mappai-study-bus.js"></script>
-    <script src="js/mappai-active-study-core.js"></script>
-    <script src="js/mappai-active-study.js"></script>
+    <script src="js/mappai-active-study-core.js?v=sf1"></script>
+    <script src="js/mappai-active-study.js?v=sf1"></script>
     <script src="js/mappai-menu-hubs.js"></script>
     <!-- Lavagna Collaborativa (003): QR vendored + core puro + lato docente -->
     <script src="js/vendor/qrcode-generator.js"></script>
@@ -3346,13 +3346,19 @@
     <script src="js/mappai-collab-core.js"></script>
     <script src="js/mappai-collab-teacher.js"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
-    <script src="js/mappai-live-core.js"></script>
-    <script src="js/mappai-live-reports.js?v=font1"></script>
+    <script src="js/mappai-live-core.js?v=sf1"></script>
+    <script src="js/mappai-live-reports.js?v=sc1"></script>
     <script src="js/mappai-live-classes.js"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
     <script src="js/mappai-vista-ridotta.js?v=man2"></script>
-    <script src="js/mappai-live-teacher.js?v=dh16"></script>
+    <script src="js/mappai-live-teacher.js?v=sc1"></script>
+    <!-- Attività «a scelta» (19/8): il core puro, la superficie condivisa (telefono,
+         app, banco) e il modulo che legge i materiali del vault e avvia la Live.
+         Dopo live-teacher: `apriLive` chiama `MappAILive.launchExternal`. -->
+    <script src="js/mappai-scelta-core.js?v=sc1"></script>
+    <script src="js/mappai-scelta-view.js?v=sc1"></script>
+    <script src="js/mappai-scelta.js?v=sc1"></script>
     <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
     <script src="js/mappai-timeline-teacher.js"></script>
     <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
@@ -3362,7 +3368,7 @@
     <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
     <script src="js/mappai-teach-core.js?v=dh21"></script>
     <!-- Organizzazione file (010): core puro + impostazioni cartella + registro attività -->
-    <script src="js/mappai-files-core.js?v=dh9"></script>
+    <script src="js/mappai-files-core.js?v=sc1"></script>
     <!-- La VISTA di una mappa (Vista studio · focus · timeline · foglio nodi)
          viaggia col vault in vista.json (15/8). Core puro, prima di chi lo usa
          (vault-io, vault-manager, storage-lang). -->
@@ -3370,7 +3376,7 @@
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
     <script src="js/mappai-pipeline-core.js?v=ang3"></script>
-    <script src="js/mappai-landing-teach.js?v=dh21"></script>
+    <script src="js/mappai-landing-teach.js?v=sc1"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -3404,9 +3410,8 @@
     <script src="js/mappai-usage-dashboard.js?v=font1"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
-    <script src="js/mappai-mastery-view.js"></script>
-    <script src="js/mappai-effort-view.js"></script>
-    <script src="js/mappai-cloze.js"></script>
+    <script src="js/mappai-mastery-view.js?v=sf1"></script>
+    <script src="js/mappai-effort-view.js?v=sf1"></script>
     <script src="js/mappai-celeration.js"></script>
     <script src="js/mappai-study-path.js"></script>
     <script src="js/mappai-palace.js"></script>
@@ -3414,7 +3419,7 @@
     <script src="js/mappai-dungeon-voxel.js"></script>
     <script src="js/mappai-map-loader.js"></script>
     <script src="js/mappai-npc-behavior.js"></script>
-    <script src="js/mappai-games.js"></script>
+    <script src="js/mappai-games.js?v=sf1"></script>
     <script src="js/mappai-pomodoro.js"></script>
     <script src="js/mappai-user-profile.js"></script>
     <script src="js/mappai-teacher-profile.js"></script>
@@ -3426,12 +3431,12 @@
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
     <script src="js/mappai-cabina.js?v=font1"></script>
     <script src="js/mappai-search-finder.js"></script>
-    <script src="js/mappai-vault-manager.js?v=dh18"></script>
+    <script src="js/mappai-vault-manager.js?v=sf1"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>
     <script src="js/mappai-generation-support.js?v=dh27"></script>
     <script src="js/mappai-kg-extraction.js"></script>
     <script src="js/mappai-mm-extraction.js"></script>
-    <script src="js/mappai-vault-io.js?v=dh20"></script>
+    <script src="js/mappai-vault-io.js?v=sf1"></script>
     <script src="js/mappai-merge-validate.js?v=dh15"></script>
     <script src="js/mappai-print-dossier.js?v=font1"></script>
     <script src="js/mappai-context-menu.js?v=dh26"></script>
@@ -3441,7 +3446,7 @@
     <script src="js/mappai-study-session.js?v=cm5"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-tts-reader.js"></script>
-    <script src="js/mappai-dev-selftest.js"></script>
+    <script src="js/mappai-dev-selftest.js?v=sf1"></script>
     <script src="js/dev-console-metrics.js"></script>
     <script>
         window.toggleSidebar = function () {

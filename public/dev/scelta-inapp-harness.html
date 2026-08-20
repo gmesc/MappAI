@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harness — «a scelta» DENTRO l'app</title>
+<!--
+  Banco del GUSCIO IN-APP (`MappAISceltaAttivita.apriInApp`): la stessa attività
+  aperta dentro un modale del motore invece che via QR. Qui girano i moduli VERI
+  — motore dei modali, core, superficie, modulo delle attività — con al posto
+  del disco un archivio finto e un `appState` finto.
+
+  Serve perché è il percorso che nessun test puro esegue: il modale si può
+  aprire VUOTO (è già successo: la `tela` messa dentro una sezione veniva
+  scartata in silenzio) e non lo direbbe nessun errore.
+
+  Aprire in un server statico:  /dev/scelta-inapp-harness.html
+-->
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css">
+<style>
+  body { margin: 0; font: 13px/1.6 'Space Mono', ui-monospace, monospace; background: #eef2f7; color: #0f172a; }
+  #esito { white-space: pre-wrap; background: #0f172a; color: #7dd3fc; padding: 14px 16px; }
+  #esito b { color: #fca5a5; }
+  .barra { padding: 14px 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .barra button { font: inherit; padding: 9px 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="esito">avvio…</div>
+<div class="barra">
+  <button id="b-open">Apri «Domande a scelta»</button>
+  <button id="b-mc">Apri «Quiz a scelta»</button>
+  <button id="b-vuoto">Apri senza materiali</button>
+</div>
+<script>
+  /* ── il vault finto, con la FORMA VERA ─────────────────────────────────── */
+  var MAPPA = 'Il Clima';
+  window.appState = {
+    rootNodeLabel: MAPPA, activeVaultPath: '/finto/Il Clima',
+    db: {
+      nodes: [{ id: 'n0', level: 0, label: 'Il Clima' }, { id: 'n1', level: 1, label: 'Oceani' }, { id: 'n2', level: 1, label: 'Atmosfera' }],
+      studySets: [{
+        id: 's1', title: 'Il Clima — Scelta multipla · causa', mode: 'quiz', angle: 'causa',
+        items: [
+          { q: 'Perché il mare mitiga il clima?', options: ['alta capacità termica', 'è salato', 'è profondo'], correct: 'alta capacità termica', ramo: 'Oceani' },
+          { q: 'Perché si formano le correnti?', options: ['vento e densità', 'la luna', 'le maree'], correct: 'vento e densità', ramo: 'Oceani' }
+        ]
+      }]
+    }
+  };
+  var ANG = ['definizione', 'causa', 'conseguenza', 'esempio', 'confronto', 'eccezione', 'applicazione'];
+  function foglio(angolo, ramo, n) {
+    var items = [];
+    /* ⚠️ Il testo deve essere DIVERSO per angolo, o il dedup del core li fonde
+       (con `angolo.length` due angoli di uguale lunghezza collidevano: 42 → 30).
+       Ma la parola dell'angolo non può comparire, o la prova «nessuna chiave a
+       schermo» accuserebbe la view per colpa dei dati. */
+    var sigla = ANG.indexOf(angolo) + 1;
+    for (var i = 1; i <= n; i++) items.push({ domanda: 'Richiamo ' + sigla + '.' + i + ' su ' + ramo, ramo: ramo, livello: i === 1 ? 'base' : 'ponte' });
+    return { title: 'Il Clima — Domande aperte · ' + angolo, angle: angolo, items: items };
+  }
+  var DOCS = [];
+  ANG.forEach(function (a) {
+    ['Oceani', 'Atmosfera'].forEach(function (r) {
+      DOCS.push({ id: a + '-' + r, kind: 'quizpaper', title: 'Il Clima — Domande aperte · ' + a + ' · ' + r, mapName: MAPPA, hasHtml: true, _set: foglio(a, r, 3) });
+    });
+  });
+  var VUOTO = false;
+  window.MappAIStudyDocs = {
+    list: function () { return VUOTO ? [] : DOCS.map(function (d) { return { id: d.id, kind: d.kind, title: d.title, mapName: d.mapName, hasHtml: true }; }); },
+    get: function (id) {
+      var d = DOCS.find(function (x) { return x.id === id; });
+      return d ? { html: '<script type="application/json" id="qp-set">' + JSON.stringify(d._set) + '<\/script>' } : null;
+    }
+  };
+  window.MappAIQuizPrint = {
+    setFromHtml: function (html) {
+      var m = /<script type="application\/json" id="qp-set">([\s\S]*?)<\/script>/i.exec(String(html || ''));
+      if (!m) return null;
+      try { var o = JSON.parse(m[1]); return (o && o.items && o.items.length) ? o : null; } catch (e) { return null; }
+    }
+  };
+  /* il registro: qui si guarda, non si scrive su disco */
+  window.REGISTRO = [];
+  window.MappAIStudyBus = {
+    _cur: null,
+    begin: function (a, tit) { this._cur = { activity: a, titolo: tit, entries: [] }; },
+    record: function (nodeId, label, act, o) { this._cur && this._cur.entries.push({ nodeId: nodeId, label: label, score: o && o.score }); },
+    end: function () { if (this._cur) { window.REGISTRO.push(this._cur); this._cur = null; } return Promise.resolve(); }
+  };
+  window.showToast = function (m, k) { console.log('[toast ' + (k || '') + '] ' + m); };
+  window.cleanLabel = function (x) { return String(x || ''); };
+  window.safeCreateIcons = function () { };
+</script>
+<script src="../js/mappai-modal-core.js"></script>
+<script src="../js/mappai-modal.js"></script>
+<script src="../js/mappai-scelta-core.js"></script>
+<script src="../js/mappai-scelta-view.js"></script>
+<script src="../js/mappai-scelta.js"></script>
+<script>
+  /* ⚠️ Il banco riparte PULITO: una bozza lasciata dal giro precedente veniva
+     ripristinata e le misure diventavano quelle di uno stato ereditato. */
+  Object.keys(localStorage).forEach(function (k) { if (k.indexOf('mappai_scelta_bozza_') === 0) localStorage.removeItem(k); });
+  var E = document.getElementById('esito');
+  var ko = 0, righe = [];
+  function ok(c, m) { righe.push((c ? '  ok  ' : '  KO  ') + m); if (!c) ko++; E.innerHTML = righe.join('\n').replace(/^  KO  .*$/gm, function (r) { return '<b>' + r + '</b>'; }); }
+  function fine() { E.innerHTML += '\n\n' + (ko ? '<b>' + ko + ' PROVE FALLITE</b>' : 'TUTTO OK'); }
+  var SA = window.MappAISceltaAttivita, SC = window.MappAIScelta;
+
+  /* ── i materiali si leggono ────────────────────────────────────────────── */
+  var l = SA.leggiFogli();
+  ok(l.quanti.archivio === 14, '14 fogli dall\'archivio (7 angoli × 2 rami) — ' + l.quanti.archivio);
+  ok(l.quanti.set === 1, '1 set a scelta multipla — ' + l.quanti.set);
+  var pOpen = SA.poolPer('open'), pMc = SA.poolPer('mc');
+  ok(pOpen.length === 42, '42 domande aperte grezze — ' + pOpen.length);
+  ok(pMc.length === 2, '2 domande a scelta multipla — ' + pMc.length);
+  ok(pMc[0].giusta === 0, 'la risposta esatta si risolve dalla stringa — giusta=' + pMc[0].giusta);
+
+  /* ── il guscio si apre DAVVERO ─────────────────────────────────────────── */
+  SA.apriInApp('open');
+  setTimeout(function () {
+    var box = document.querySelector('.mm-overlay .mm-box');
+    ok(!!box, 'il modale si apre');
+    var host = box && box.querySelector('[data-sez="scelta"] .mm-sez__c');
+    ok(!!host, 'la sezione ospite esiste (qui il modale si apriva VUOTO)');
+    var wrap = host && host.querySelector('.sc-wrap');
+    ok(!!wrap, 'la superficie è montata dentro il modale');
+    ok(!!host && host.getBoundingClientRect().height > 200, 'l\'ospite ha un\'altezza vera — ' + (host ? Math.round(host.getBoundingClientRect().height) : 0) + 'px');
+    ok(!!wrap && wrap.getBoundingClientRect().height > 200, 'la superficie non è collassata a zero');
+
+    /* il campionamento vale anche in-app: 2 rami × 7 angoli = 14 */
+    var card = box.querySelectorAll('.sc-take').length;
+    ok(card === 2, 'si atterra sul passo delle AREE, coi due rami — ' + card);
+
+    /* nessuna chiave d\'angolo a schermo */
+    var testo = box.textContent.toLowerCase();
+    var trapelate = ANG.filter(function (a) { return testo.indexOf(a) >= 0; });
+    ok(trapelate.length === 0, 'nessuna chiave d\'angolo a schermo — ' + JSON.stringify(trapelate));
+
+    /* ── il percorso: aree → scegli → rispondi → consegna ────────────────── */
+    /* ⚠️ Si prendono ENTRAMBE le aree: sotto il minimo il prodotto CHIEDE
+       («vai avanti lo stesso?») e il banco resterebbe fermo davanti a una
+       conferma che nessuno risponde — non è un difetto, è il minimo che parla. */
+    [].slice.call(box.querySelectorAll('.sc-take')).forEach(function (b) { b.click(); });
+    [].slice.call(box.querySelectorAll('.sc-go')).pop().click();   /* «Vai alle domande» */
+    setTimeout(function () {
+      box = document.querySelector('.mm-overlay .mm-box');
+      var dom = box.querySelectorAll('.sc-q').length;
+      ok(dom === 14, 'la lettura mostra 14 domande (2 aree × 7 angoli, campionate) — ' + dom);
+      /* ⚠️ `.sc-take` APRE la card; a prenderla è `.sc-prendi`, dentro il corpo */
+      [].slice.call(box.querySelectorAll('.sc-take')).slice(0, 3).forEach(function (b) { b.click(); });
+      var prendi = [].slice.call(box.querySelectorAll('.sc-prendi'));
+      ok(prendi.length >= 3, 'aprendo una card compare il comando per prenderla — ' + prendi.length);
+      prendi.slice(0, 3).forEach(function (b) { b.click(); });
+      [].slice.call(box.querySelectorAll('.sc-go')).pop().click();   /* «Comincia a rispondere» */
+      setTimeout(function () {
+        box = document.querySelector('.mm-overlay .mm-box');
+        var ta = box.querySelector('.sc-ta');
+        ok(!!ta, 'il passo delle risposte ha la casella');
+        if (ta) { ta.value = 'la mia risposta'; ta.dispatchEvent(new Event('input', { bubbles: true })); }
+        /* la bozza finisce in localStorage */
+        setTimeout(function () {   /* la view salva dopo una pausa di 600ms */
+          var chiavi = Object.keys(localStorage).filter(function (k) { return k.indexOf('mappai_scelta_bozza_') === 0; });
+          ok(chiavi.length === 1, 'la bozza si scrive in localStorage — ' + chiavi.length);
+          /* consegna (sotto il minimo: la conferma del motore chiede) */
+          var cons = [].slice.call(box.querySelectorAll('.sc-go')).pop();
+          cons.click();
+          setTimeout(function () {
+            /* la conferma è un secondo modale: si accetta */
+            var boxes = document.querySelectorAll('.mm-overlay .mm-box');
+            var conferma = boxes[boxes.length - 1];
+            var si = conferma && [].slice.call(conferma.querySelectorAll('button[data-azione]')).filter(function (b) { return b.getAttribute('data-azione') === 'si'; })[0];
+            ok(!!si || boxes.length === 1, 'sotto il minimo la consegna CHIEDE, non vieta');
+            if (si) si.click();
+            setTimeout(function () {
+              var b2 = document.querySelector('.mm-overlay .mm-box');
+              var esito = b2 && b2.querySelector('.sc-esito');
+              ok(!!esito, 'dopo la consegna si vede l\'esito');
+              ok(window.REGISTRO.length === 1, 'la sessione finisce nel registro — ' + window.REGISTRO.length);
+              var rimasta = Object.keys(localStorage).filter(function (k) { return k.indexOf('mappai_scelta_bozza_') === 0; });
+              ok(rimasta.length === 0, 'la bozza si pulisce alla consegna (o si consegnerebbe due volte) — ' + rimasta.length);
+              ok(!!esito && esito.textContent.length > 20, 'l\'esito dice qualcosa');
+              fine();
+            }, 60);
+          }, 60);
+        }, 900);
+      }, 60);
+    }, 60);
+  }, 250);   /* a freddo il primo paint chiede più di un fotogramma */
+
+  document.getElementById('b-open').onclick = function () { VUOTO = false; SA.apriInApp('open'); };
+  document.getElementById('b-mc').onclick = function () { VUOTO = false; SA.apriInApp('mc'); };
+  document.getElementById('b-vuoto').onclick = function () { VUOTO = true; window.appState.db.studySets = []; SA.apriInApp('open'); };
+</script>
+</body>
+</html>

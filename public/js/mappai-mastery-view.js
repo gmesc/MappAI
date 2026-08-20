@@ -56,8 +56,6 @@
 
   function applyTint() {
     if (typeof d3 === 'undefined') return;
-    // non litigare con lo studio attivo (che ricolora per esercizio)
-    if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) return;
     const svg = d3.select('#map-svg');
     if (svg.empty()) return;
     const isKG = _mode() === 'kg';

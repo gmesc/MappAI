@@ -294,9 +294,10 @@ window.loadMapVault = async function () {
        della vecchia, in silenzio. Il velo copre la sola area di CREA apposta,
        per lasciar GIRARE per l'app: guardare sì, sostituire no. */
     if (window.mappaiOccupato && window.mappaiOccupato()) return ;
-    // Mappa in sostituzione: chiudi un'eventuale sessione di Studio attivo
-    // (ripristino snapshot) prima di caricare il vault.
-    if (window.ActiveStudy && window.ActiveStudy.emergencyExit) window.ActiveStudy.emergencyExit();
+    /* 20/8: qui c'era la chiusura d'emergenza dello Studio attivo — una modalità
+       poteva aver smontato il grafo, e salvare o sostituire la mappa in quello
+       stato rendeva la gerarchia irrecuperabile. Le attività di oggi sono
+       MODALI: non toccano il canvas, quindi non c'è più niente da ripristinare. */
     // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
     // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
     // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.

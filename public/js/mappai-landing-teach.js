@@ -2688,7 +2688,8 @@
       id: 'live-avvii', nuda: true, titolo: _t('lt_live_nuova', 'Nuova attività'),
       azioni: [
         { id: 'live-quiz', etichetta: _t('lt_live_quiz', 'Quiz a distanza'), icona: 'list-checks', ruolo: 'primario', chiude: false },
-        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Rispondi e Domanda'), icona: 'message-square', chiude: false }
+        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Rispondi e Domanda'), icona: 'message-square', chiude: false },
+        { id: 'live-scelta', etichetta: _t('lt_live_scelta', 'Domande a scelta'), icona: 'list-checks', chiude: false }
       ],
       testo: _t('lt_live_intro', 'Gli allievi entrano dal telefono con le loro credenziali: il quiz si corregge da sé, la scrittura col tutor consegna testo e trascrizione.')
     });
@@ -3126,6 +3127,13 @@
       if (id === 'live-tutor') {
         if (window.MappAITutor && window.MappAITutor.openSetup) window.MappAITutor.openSetup();
         else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+        return;
+      }
+      if (id === 'live-scelta') {
+        /* nessuna generazione: legge i fogli e i set già nel vault. Se non ce
+           ne sono lo dice il modulo, con la strada per farli. */
+        if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive();
+        else toast(_t('hub_fn_missing', 'Funzione non disponibile'), 'error');
         return;
       }
       if (id.indexOf('rep:') === 0 || id.indexOf('repdir:') === 0) {

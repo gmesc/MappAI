@@ -180,8 +180,24 @@
                     /* la soluzione NON entra nel pool che si serve al telefono:
                        chi trasporta la toglie (come `publicQuestions` in Live).
                        Qui si conserva perché l'in-app corregge in locale. */
-                    var ci = (it.correctIndex != null) ? Number(it.correctIndex)
-                        : (typeof it.correct === 'number' ? Number(it.correct) - 1 : -1);
+                    /* ⚠️ Nei set veri `correct` è la STRINGA della risposta, non
+                       un indice: lo schema di `generateDynamicQuiz` dichiara
+                       `correct: STRING`. Prima si cerca fra le opzioni (come fa
+                       `dynItemToLive` in live-teacher), poi si accetta un indice
+                       numerico — 1-based o 0-based. Senza il primo ramo NESSUNA
+                       domanda a scelta multipla aveva una risposta esatta. */
+                    var ci = -1;
+                    if (it.correctIndex != null) ci = Number(it.correctIndex);
+                    else if (typeof it.correct === 'string' && it.correct) {
+                        var cc = _chiave(it.correct);
+                        for (var oi = 0; oi < v.opzioni.length; oi++) {
+                            if (_chiave(v.opzioni[oi]) === cc) { ci = oi; break; }
+                        }
+                        if (ci < 0) {
+                            var nn = parseInt(it.correct, 10);
+                            if (!isNaN(nn)) ci = (nn >= 1 && nn <= v.opzioni.length) ? nn - 1 : nn;
+                        }
+                    } else if (typeof it.correct === 'number') ci = Number(it.correct) - 1;
                     v.giusta = (ci >= 0 && ci < v.opzioni.length) ? ci : -1;
                 }
                 visti[k] = out.length;
@@ -480,6 +496,96 @@
             .sort(function (x, y) { return (y.evitataDa - x.evitataDa) || (x.ramo < y.ramo ? -1 : 1); });
     }
 
+
+    /* ── LO STATO CHE ARRIVA DA FUORI ────────────────────────────────────────
+       In Live lo stato lo manda il TELEFONO: è una frontiera di fiducia, e
+       quello che ne esce finisce su disco e nel report. Qui si tiene solo ciò
+       che si riconosce — id che esistono davvero nel pool di QUELLO studente,
+       chip del vocabolario, testi capati — e si scarta il resto in silenzio:
+       un client che manda spazzatura non deve poter gonfiare un file né far
+       comparire una domanda che non gli era stata servita.
+       Una funzione sola, perché la usano il server e il guscio in-app. */
+    var MAX_TESTO = 4000, MAX_NOTA = 300, MAX_NOTE = 2000;
+    /* Un testo che arriva dalla rete si capa E si ripulisce: i caratteri di
+       controllo `JSON.stringify` li scrive `\u0001`, sei byte per carattere —
+       un testo al tetto ne pesava sei volte tanto su disco. */
+    function _cap(x, n) { return _s(x).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, n); }
+    /* `{}` eredita `constructor`, `toString`, `hasOwnProperty`: senza questa
+       guardia una chiave inventata dal telefono passava il controllo «esiste nel
+       pool», e `__proto__` cambiava il prototipo dell'oggetto salvato. */
+    function _ha(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+    function normalizzaStato(pool, stato) {
+        stato = stato || {};
+        var validi = {};
+        (pool || []).forEach(function (v) { validi[v.id] = v; });
+        /* ⚠️ `fase` nasce VUOTA, non a 'scegli': è la view che decide da dove si
+           parte (`passiUtili` → il passo delle aree), e un valore di ripiego
+           scritto qui rendeva quel ramo morto per chiunque normalizzi lo stato
+           prima di passarlo — cioè per il server e per il guscio in-app. Il
+           passo ① esisteva e non ci si arrivava mai. */
+        var out = { aree: [], fase: '', letture: {}, risposte: {}, bozze: {}, note: '', evitata: null };
+
+        var rami = {};
+        (pool || []).forEach(function (v) { if (v.ramo) rami[v.ramo] = 1; });
+        (Array.isArray(stato.aree) ? stato.aree : []).forEach(function (r) {
+            r = _trim(r);
+            if (rami[r] && out.aree.indexOf(r) < 0) out.aree.push(r);
+        });
+
+        var f = _s(stato.fase);
+        out.fase = (f === 'aree' || f === 'rispondi' || f === 'scegli') ? f : '';
+
+        var L = stato.letture || {};
+        Object.keys(L).forEach(function (id) {
+            if (!_ha(validi, id) || !L[id] || typeof L[id] !== 'object') return;
+            var l = {}, c = _s(L[id].chip);
+            if (CHIP.indexOf(c) >= 0) l.chip = c;
+            var n = _trim(_cap(L[id].nota, MAX_NOTA));
+            if (n) l.nota = n;
+            if (l.chip || l.nota) out.letture[id] = l;
+        });
+
+        function _risposta(v, src) {
+            var r = {};
+            if (v.tipo === 'mc') {
+                /* ⚠️ Senza opzioni non esiste indice valido: un tetto di ripiego
+                   lasciava entrare un «98» che `scritta()` contava come risposta,
+                   e con quello si arrivava al minimo di consegna a mani vuote. */
+                var quante = (v.opzioni || []).length;
+                var i = parseInt(src.scelta, 10);
+                if (quante && i >= 0 && i < quante) r.scelta = i;
+            } else {
+                var t = _cap(src.testo, MAX_TESTO);
+                if (_trim(t)) r.testo = t;
+            }
+            var a = parseInt(src.auto, 10);
+            if (a >= 1 && a <= 3) r.auto = a;
+            return r;
+        }
+        var R = stato.risposte || {};
+        Object.keys(R).forEach(function (id) {
+            if (!_ha(validi, id) || !R[id] || typeof R[id] !== 'object') return;
+            /* una domanda PRESA e lasciata vuota è un dato: la voce resta, e il
+               contatore la conta fra le «scelte» ma non fra le «scritte» */
+            out.risposte[id] = _risposta(validi[id], R[id]);
+        });
+
+        /* Le domande LASCIATE: la view ci parcheggia la risposta invece di
+           buttarla, e senza questo ciclo il parcheggio non sopravviveva al
+           rientro — cioè l'unico gesto della schermata che distrugge lavoro. */
+        var B = stato.bozze || {};
+        Object.keys(B).forEach(function (id) {
+            if (!_ha(validi, id) || !B[id] || typeof B[id] !== 'object') return;
+            out.bozze[id] = _risposta(validi[id], B[id]);
+        });
+
+        out.note = _cap(stato.note, MAX_NOTE);
+        if (stato.evitata && _ha(validi, _s(stato.evitata.id))) {
+            out.evitata = { id: _s(stato.evitata.id), why: _trim(_cap(stato.evitata.why, MAX_NOTA)) };
+        }
+        return out;
+    }
+
     var CORE = {
         ANGOLI: angoli, CHIP: CHIP, accende: accende,
         CFG_DEFAULT: CFG_DEFAULT, normalizzaCfg: normalizzaCfg,
@@ -489,7 +595,8 @@
         poolDaFogli: poolDaFogli, pubblico: pubblico,
         mescola: mescola, perRamo: perRamo,
         scritta: scritta, conteggio: conteggio, validaConsegna: validaConsegna,
-        profilo: profilo, evitata: evitata, calorClasse: calorClasse, calorAree: calorAree
+        profilo: profilo, evitata: evitata, calorClasse: calorClasse, calorAree: calorAree,
+        normalizzaStato: normalizzaStato
     };
 
     if (typeof module !== 'undefined' && module.exports) module.exports = CORE;

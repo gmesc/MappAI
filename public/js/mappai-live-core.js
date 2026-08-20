@@ -13,7 +13,7 @@
  *  - buildL1Resolver               → nodo → macro-area L1 (replica pura di
  *                                    mappai-entity-backbone.js:_buildL1Resolver)
  *  - cleanAnswer / gradeAnswer     → sanificazione input studente + correzione
- *                                    (tf/mc esatti, cloze fuzzy, open fuzzy)
+ *                                    (tf/mc esatti, open fuzzy)
  *  - rateFromMs                    → fluenza per-item (item/min, cap 30)
  *  - computeResults                → modello dati unico dei due report
  *                                    (heatmap domande + schede individuali)
@@ -131,7 +131,6 @@
   }
 
   // ── Matching risposte (copie autoconsistenti: il server non ha window) ──
-  // normalize/levenshtein/isCloseMatch → stesse regole di mappai-cloze.js
   // answerMatches → stessa regola di mappai-active-study-core.js:111
   function normalize(s) {
     return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -164,55 +163,6 @@
     return levenshtein(a, e) <= (e.length > 6 ? 2 : 1);
   }
 
-  // Correzione di un blank cloze. Concetto → isCloseMatch storico. Buco-RELAZIONE
-  // (seg.conn) → esatto/refuso sulla superficie OPPURE un equivalente della lista
-  // `accept` (match esatto-normalizzato: una FRASE che contiene un equivalente non
-  // vale). `accept` è precalcolata dal generatore con MappAICausalCore.connEquivalents.
-  function matchesCloze(given, seg) {
-    var expected = seg && seg.blank;
-    if (isCloseMatch(given, expected)) return true;
-    if (seg && seg.conn && Array.isArray(seg.accept) && seg.accept.length) {
-      var g = normalize(given);
-      if (!g) return false;
-      for (var i = 0; i < seg.accept.length; i++) if (normalize(seg.accept[i]) === g) return true;
-    }
-    return false;
-  }
-
-  // Punteggio di UN buco: 1 (match pieno), 0.5 (prefisso di un termine multi-parola:
-  // «pianta» per «pianta acquatica» → manca «acquatica»), 0 altrimenti. I buchi-
-  // relazione (conn) non hanno parziale. Mirror di clozeBlankScore in mappai-cloze.js
-  // (parità in-app ↔ Live). Ritorna { score, missing }.
-  var CLOZE_STOPWORDS = {
-    il: 1, lo: 1, la: 1, i: 1, gli: 1, le: 1, un: 1, uno: 1, una: 1, l: 1,
-    di: 1, del: 1, dello: 1, della: 1, dei: 1, degli: 1, delle: 1,
-    a: 1, al: 1, allo: 1, alla: 1, ai: 1, agli: 1, alle: 1, e: 1, ed: 1, o: 1,
-    the: 1, an: 1, of: 1, and: 1, or: 1, to: 1
-  };
-  function clozeBlankScore(given, seg) {
-    // modalità A SCELTA: match ESATTO (normalizzato) con la soluzione — NIENTE fuzzy
-    // (un distrattore edit-vicino o prefisso NON deve valere), niente equivalenti,
-    // niente ½. Deve stare PRIMA di matchesCloze (che è fuzzy).
-    if (seg && Array.isArray(seg.choices) && seg.choices.length) {
-      return { score: normalize(given) === normalize(seg.blank) ? 1 : 0, missing: '' };
-    }
-    if (matchesCloze(given, seg)) return { score: 1, missing: '' };
-    if (seg && seg.conn) return { score: 0, missing: '' };
-    var expected = String((seg && seg.blank) || '').trim();
-    var eWords = expected.split(/\s+/);
-    if (eWords.length < 2) return { score: 0, missing: '' };
-    var g = normalize(given);
-    if (!g) return { score: 0, missing: '' };
-    // prefisso di sole parole-funzione («il» per «Il Rinascimento») → niente ½
-    if (g.split(' ').every(function (w) { return CLOZE_STOPWORDS[w]; })) return { score: 0, missing: '' };
-    for (var k = 1; k < eWords.length; k++) {
-      if (normalize(eWords.slice(0, k).join(' ')) === g) {
-        return { score: 0.5, missing: eWords.slice(k).join(' ') };
-      }
-    }
-    return { score: 0, missing: '' };
-  }
-
   // "roma" NON matcha "romania" (ratio 4/7 < 0.7).
   function answerMatches(selected, correct) {
     var ns = normalize(selected), nc = normalize(correct);
@@ -226,19 +176,18 @@
 
   // ── Domande ─────────────────────────────────────────────────────────────
   // Schema mappai-live-question@1:
-  //   { idx, kind:'tf'|'mc'|'cloze'|'open', text, options?, correct?,
+  //   { idx, kind:'tf'|'mc'|'open', text, options?, correct?,
   //     proposed?, statementTrue?, segments?, answerText?,
   //     nodeId, nodeLabel, l1Id, l1Label, source:'map'|'custom' }
   //   - tf: text = domanda, proposed = risposta proposta, statementTrue = bool
-  //   - cloze: segments = [{text}|{blank:'termine'}]
   //   - open: answerText opzionale → senza, la correzione è manuale
   function validateQuestion(q) {
     var errors = [];
     if (!q || typeof q !== 'object') return { ok: false, errors: ['not-an-object'], clean: null };
     var kind = q.kind;
-    if (['tf', 'mc', 'cloze', 'open'].indexOf(kind) < 0) errors.push('bad-kind');
+    if (['tf', 'mc', 'open'].indexOf(kind) < 0) errors.push('bad-kind');
     var text = sanitizeText(q.text, LIMITS.textMax);
-    if (!text && kind !== 'cloze') errors.push('empty-text');
+    if (!text) errors.push('empty-text');
     var clean = {
       kind: kind, text: text,
       nodeId: q.nodeId != null ? String(q.nodeId) : null,
@@ -260,32 +209,6 @@
       if (typeof q.statementTrue !== 'boolean') errors.push('bad-statement');
       clean.proposed = sanitizeText(q.proposed, LIMITS.optionMax) || null;
       clean.statementTrue = !!q.statementTrue;
-    } else if (kind === 'cloze') {
-      var segs = Array.isArray(q.segments) ? q.segments : [];
-      var blanks = segs.filter(function (s) { return s && s.blank; });
-      if (!blanks.length) errors.push('no-blanks');
-      clean.segments = segs.map(function (s) {
-        if (!s || !s.blank) return { text: String((s && s.text) || '') };
-        // buco-RELAZIONE (Cloze allineato allo Studio attivo): conserva il flag e
-        // la lista `accept` degli equivalenti (precalcolata dal generatore col
-        // core; il server non può derivarla). Restano lato server — mai in public.
-        var seg = { blank: sanitizeText(s.blank, LIMITS.optionMax) };
-        if (s.conn) {
-          seg.conn = true;
-          if (Array.isArray(s.accept)) {
-            // cap 48: la lista espansa (forme articolate + equivalenti + answerOnly)
-            // di un gruppo verbale arriva a ~22 voci; 48 dà margine senza troncare.
-            seg.accept = s.accept.map(function (a) { return sanitizeText(a, LIMITS.optionMax); })
-              .filter(Boolean).slice(0, 48);
-          }
-        }
-        // modalità A SCELTA: opzioni fisse (soluzione + 2 distrattori, già mescolate).
-        // Vanno al pubblico (servono a rendere i bottoni), la soluzione NON è marcata.
-        if (Array.isArray(s.choices) && s.choices.length) {
-          seg.choices = s.choices.map(function (o) { return sanitizeText(o, LIMITS.optionMax); }).filter(Boolean).slice(0, 6);
-        }
-        return seg;
-      });
     } else if (kind === 'open') {
       clean.answerText = sanitizeText(q.answerText, LIMITS.answerMax) || null;
       // Timeline Live (008): campi opzionali per l'autovalutazione avanzata.
@@ -325,25 +248,6 @@
       if (q.tlYear != null) pub.tlYear = q.tlYear;
       if (q.kind === 'mc') pub.options = (q.options || []).slice();
       if (q.kind === 'tf') pub.proposed = q.proposed || null;
-      if (q.kind === 'cloze') {
-        // SOLO lunghezza (mai il termine) + flag conn per il rendering (riquadro
-        // ambra + hint). La lista `accept` NON viene copiata → nessun leak.
-        // A scelta: manda le opzioni (già mescolate, la soluzione non è marcata) —
-        // come le options di una MC. `blank` (soluzione) non viene mai inviato.
-        pub.segments = (q.segments || []).map(function (s) {
-          if (!s.blank) return { text: s.text };
-          var b = {};
-          if (Array.isArray(s.choices) && s.choices.length) {
-            // A scelta: SOLO le opzioni (niente `len` — la lunghezza della soluzione
-            // tradirebbe quale opzione è giusta; lo slot ha larghezza fissa).
-            b.choices = s.choices.slice();
-          } else {
-            b.len = String(s.blank).length;   // modalità scrivi: larghezza del campo
-          }
-          if (s.conn) b.conn = true;
-          return { blank: b };
-        });
-      }
       return pub;
     });
   }
@@ -425,22 +329,6 @@
       var c = Number(raw.choice);
       if (!Number.isInteger(c) || c < 0 || c >= (question.options || []).length) return null;
       a.choice = c;
-    } else if (question.kind === 'cloze') {
-      var blankSegs = (question.segments || []).filter(function (s) { return s.blank; });
-      var blanks = Array.isArray(raw.blanks) ? raw.blanks : [];
-      a.blanks = [];
-      for (var i = 0; i < blankSegs.length; i++) {
-        var val = sanitizeText(blanks[i], LIMITS.optionMax);
-        // Modalità A SCELTA: la risposta DEVE essere una delle opzioni servite (anti
-        // client-manomesso: niente valore inventato o soluzione digitata a mano).
-        var choices = blankSegs[i].choices;
-        if (Array.isArray(choices) && choices.length) {
-          var ok = false, vN = normalize(val);
-          for (var j = 0; j < choices.length; j++) if (normalize(choices[j]) === vN) { val = choices[j]; ok = true; break; }
-          if (!ok) val = '';   // fuori dalle opzioni → vuoto (conta come non risposto)
-        }
-        a.blanks.push(val);
-      }
     } else if (question.kind === 'open') {
       a.text = sanitizeText(raw.text, LIMITS.answerMax);
     } else return null;
@@ -450,7 +338,6 @@
   // Corregge una risposta. outcome: 'right'|'wrong'|'blank'|'manual'.
   //  - blank  = nessuna risposta / Salta / contenuto vuoto
   //  - manual = domanda aperta senza answerText → la corregge il docente
-  //  - cloze: score = frazione di blank corretti; right solo se tutti
   function gradeAnswer(question, answer) {
     if (!answer || answer.skipped) return { score: 0, outcome: 'blank' };
     if (question.kind === 'tf') {
@@ -462,22 +349,6 @@
       if (!Number.isInteger(answer.choice)) return { score: 0, outcome: 'blank' };
       var okMc = answer.choice === question.correct;
       return { score: okMc ? 1 : 0, outcome: okMc ? 'right' : 'wrong' };
-    }
-    if (question.kind === 'cloze') {
-      var segs = (question.segments || []).filter(function (s) { return s.blank; });
-      var given = Array.isArray(answer.blanks) ? answer.blanks : [];
-      if (!segs.length) return { score: 0, outcome: 'blank' };
-      if (given.every(function (g) { return !String(g || '').trim(); })) return { score: 0, outcome: 'blank' };
-      var sum = 0;
-      var detail = segs.map(function (s, i) {
-        // buco-RELAZIONE: match esatto/equivalente (accept). Concetto: match pieno
-        // O mezzo punto se prefisso di un termine multi-parola (complemento mancante).
-        var b = clozeBlankScore(given[i], s);
-        sum += b.score;
-        return { given: String(given[i] || ''), expected: s.blank, score: b.score, missing: b.missing, conn: !!s.conn };
-      });
-      var score = sum / segs.length;
-      return { score: score, outcome: score === 1 ? 'right' : 'wrong', blanks: detail };
     }
     if (question.kind === 'open') {
       var txt = String(answer.text || '').trim();
@@ -575,7 +446,7 @@
         items.push({
           idx: idx, kind: q.kind, outcome: g.outcome, score: g.score, ms: ms, rate: rate,
           label: q.nodeLabel || null,
-          text: q.text || (q.kind === 'cloze' ? _clozePlain(q) : ''),
+          text: q.text || '',
           yourText: _yourText(q, answers[idx]),
           correctText: (g.outcome === 'right') ? '' : _correctText(q),
           missing: (g.blanks || []).filter(function (b) { return b.score === 0.5; }).map(function (b) { return b.missing; }).filter(Boolean)
@@ -673,19 +544,13 @@
     if (!a || a.skipped) return '';
     if (q.kind === 'mc') return (typeof a.choice === 'number' && q.options) ? (q.options[a.choice] || '') : '';
     if (q.kind === 'tf') return (typeof a.choice === 'boolean') ? (a.choice ? 'Vero' : 'Falso') : '';
-    if (q.kind === 'cloze') return (Array.isArray(a.blanks) ? a.blanks.filter(Boolean).join(', ') : '');
     if (q.kind === 'open') return String(a.text || '');
     return '';
-  }
-  // Frase cloze RICOSTRUITA (segmenti + termini soluzione) — per il report docente.
-  function _clozePlain(q) {
-    return (q.segments || []).map(function (s) { return s.blank ? s.blank : (s.text || ''); }).join('');
   }
   // Testo leggibile della risposta CORRETTA (dalla domanda completa, lato server).
   function _correctText(q) {
     if (q.kind === 'mc') return (q.options && q.options[q.correct]) || '';
     if (q.kind === 'tf') return q.statementTrue ? 'Vero' : 'Falso';
-    if (q.kind === 'cloze') return (q.segments || []).filter(function (s) { return s.blank; }).map(function (s) { return s.blank; }).join(', ');
     if (q.kind === 'open') {
       if (q.answerText) return q.answerText;
       if (q.answerYear != null) return String(q.answerYear) + (q.answerYearEnd ? '–' + q.answerYearEnd : '');
@@ -719,17 +584,9 @@
       }
       var row = { idx: idx, kind: q.kind, outcome: g.outcome, score: g.score };
       if (reveal) {
-        row.text = q.text || (q.kind === 'cloze' ? _clozePlain(q) : '');
+        row.text = q.text || '';
         row.yourText = _yourText(q, a);
         row.correctText = _correctText(q);
-        // Cloze: dettaglio PER-BUCO allineato (issue 7) — la lista giunta con ", "
-        // perdeva la corrispondenza posizionale. Frammenti di soluzione → reveal ON.
-        if (q.kind === 'cloze' && Array.isArray(g.blanks)) {
-          row.blanks = g.blanks.map(function (b) {
-            return { given: b.given, expected: b.expected, score: b.score, missing: b.missing };
-          });
-          row.missing = g.blanks.filter(function (b) { return b.score === 0.5; }).map(function (b) { return b.missing; }).filter(Boolean);
-        }
         if (q.explanation) row.explanation = q.explanation;
       }
       return row;
@@ -783,8 +640,6 @@
     normalize: normalize,
     levenshtein: levenshtein,
     isCloseMatch: isCloseMatch,
-    matchesCloze: matchesCloze,
-    clozeBlankScore: clozeBlankScore,
     answerMatches: answerMatches,
     validateQuestion: validateQuestion,
     publicQuestions: publicQuestions,

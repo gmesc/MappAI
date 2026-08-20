@@ -1,11 +1,11 @@
 /*
  * mappai-live-teacher.js — MappAI Live, lato docente (hub QR)
  * -----------------------------------------------------------
- * - window.openLiveHub(): hub con 3 card — Studio attivo live (quiz/cloze/
+ * - window.openLiveHub(): hub con le card delle attività — Studio attivo live (quiz/
  *   domande via QR) · Lavagna collaborativa (→ openCollabHub esistente) ·
  *   Materiali di studio (download via QR, no login).
  * - openLiveSetup(): wizard — classe → modalità (V/F | scelta multipla |
- *   cloze | domande personalizzate) → scope (mappa/ramo L1) → quantità/timer
+ *   domande personalizzate) → scope (mappa/ramo L1) → quantità/timer
  *   → genera domande (nodeId + l1 su ognuna) → avvia sessione.
  * - Dashboard: QR + URL + proiettore, griglia roster (polling 3s diretto
  *   a 127.0.0.1:<port>/api/status con adminToken), avvia domande, countdown,
@@ -14,7 +14,7 @@
  *
  * IPC (preload): liveStartSession/liveStopSession/liveSessionInfo/liveOpenFolder,
  * liveMaterials*. Riusa MappAILiveCore (domande/l1), MappAIGames.genQuizForNode
- * (MC ancorati al contenuto), MappAIClozeCore.makeCloze (cloze).
+ * (MC ancorati al contenuto).
  * Caricare DOPO mappai-live-core.js, mappai-live-classes.js, mappai-games.js.
  */
 (function () {
@@ -72,6 +72,12 @@
     openHubMenu();
   };
 
+  // «Domande a scelta» (19/8): la card compare solo se il modulo c'è ed è
+  // acceso — un kill-switch che lascia la card aprirebbe il vuoto.
+  function _sceltaOn() {
+    return !!(window.MappAISceltaAttivita && window.MappAISceltaAttivita.attiva());
+  }
+
   function openHubMenu() {
     var body = '<p style="font-size:13px;color:#475569;line-height:1.55;margin:0 0 14px">' +
       t('lv_hub_intro', 'Attività di classe via QR: gli allievi entrano dal telefono sulla rete d\'aula.') + '</p>' +
@@ -81,6 +87,7 @@
       card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
       card('message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
       card('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lv_card_timeline_d', 'Completa o costruisci insieme la timeline della mappa'), t('lv_card_timeline_tip', 'Due modalità: Completa (domande autovalutate sulle date) o Costruisci (gli allievi propongono le date mancanti, tu approvi). Zero costi AI.')) +
+      (_sceltaOn() ? card('list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere'), t('lv_card_scelta_tip', 'Nessuna generazione: usa i fogli «Domande aperte» e i set a scelta multipla già nel vault. Il taglio di ogni domanda resta nascosto: alla consegna si scopre quali tipi di richiamo funzionano per ciascuno.')) : '') +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, '560px');
     var cards = ov.querySelectorAll('.lh-card');
@@ -89,6 +96,7 @@
     cards[2].onclick = function () { openMaterialsPanel(); };
     cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chatta e Scrivi non disponibile', 'error'); };
     cards[4].onclick = function () { closeModal(); if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
+    if (cards[5]) cards[5].onclick = function () { closeModal(); if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
@@ -294,6 +302,10 @@
     if (extra.loginMode) payload.loginMode = extra.loginMode;
     if (extra.hintMode) payload.hintMode = extra.hintMode;
     if (extra.build) payload.build = extra.build;
+    if (extra.scelta) payload.scelta = extra.scelta;
+    // quali report sa produrre QUESTA sessione: la dashboard è una sola, ma
+    // «domande» e «allievi» non esistono fuori dal quiz
+    LT._reports = extra.reports || null;
     // Variante WEB: la scelta WiFi/Internet del wizard viaggia nello start IPC
     if (window.MappAINetMode) payload.netMode = window.MappAINetMode.get();
     return window.electronAPI.liveStartSession(payload).then(function (r) {
@@ -362,8 +374,18 @@
       html += '<span id="lv-timerbadge" style="font-size:13px;font-weight:800;color:#4f46e5"></span><span style="flex:1"></span>';
       html += actBtn('lv-close', t('lv_close', 'Chiudi sessione'), '#7f1d1d', '#fecaca');
     } else if (phase === 'closed') {
-      html += actBtn('lv-rep-q', t('lv_rep_q', 'Report domande'), '#4f46e5', '#fff');
-      html += actBtn('lv-rep-s', t('lv_rep_s', 'Report allievi'), '#4f46e5', '#fff');
+      /* ⚠️ `LT._reports` lo scrive `launch`, ma a una sessione già in corso ci
+         si riaggancia SENZA passare di lì (openLiveHub dopo un riavvio): la
+         modalità arriva con l'info del server, e da quella si deduce. */
+      var reps = (LT._reports && LT._reports.length) ? LT._reports
+        : (LT.info && LT.info.mode === 'scelta') ? [{ which: 'scelta', label: t('ds_report', 'Report domande a scelta') }] : null;
+      LT._reports = reps;
+      if (reps) {
+        reps.forEach(function (r, i) { html += actBtn('lv-rep-x' + i, r.label, '#4f46e5', '#fff'); });
+      } else {
+        html += actBtn('lv-rep-q', t('lv_rep_q', 'Report domande'), '#4f46e5', '#fff');
+        html += actBtn('lv-rep-s', t('lv_rep_s', 'Report allievi'), '#4f46e5', '#fff');
+      }
       html += actBtn('lv-folder', t('lv_folder', 'Apri cartella'), '#f1f5f9', '#334155');
       html += actBtn('lv-end', t('lv_end', 'Chiudi pannello'), '#f1f5f9', '#334155');
     }
@@ -386,6 +408,10 @@
       fetch('http://127.0.0.1:' + LT.info.port + '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: LT.info.adminToken }) })
         .then(function () { renderActions('closed'); toast(t('lv_closed', 'Sessione chiusa — report pronti'), 'success'); });
     };
+    (LT._reports || []).forEach(function (r, i) {
+      var b = document.getElementById('lv-rep-x' + i);
+      if (b) b.onclick = function () { window.open('http://127.0.0.1:' + LT.info.port + '/api/report?admin=' + encodeURIComponent(LT.info.adminToken) + '&which=' + encodeURIComponent(r.which), '_blank'); };
+    });
     var rq = document.getElementById('lv-rep-q');
     if (rq) rq.onclick = function () { window.open('http://127.0.0.1:' + LT.info.port + '/api/report?admin=' + encodeURIComponent(LT.info.adminToken) + '&which=questions', '_blank'); };
     var rs = document.getElementById('lv-rep-s');

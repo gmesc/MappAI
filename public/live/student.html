@@ -90,23 +90,6 @@
             font-size: 22px; font-weight: 800; }
   .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
   .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
-  .cloze-text { font-size: 20px; line-height: 2.2; }
-  .cloze-in { display: inline-block; border: none; border-bottom: 2px solid #6366f1; background: #eef2ff;
-              border-radius: 4px; padding: 2px 8px; font: inherit; color: #3730a3; margin: 0 3px; }
-  .cloze-in.cloze-conn { border-bottom-color: #d97706; background: #fef3c7; }
-  .cloze-hint { font-size: 14px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a;
-                border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
-  /* Cloze A SCELTA: slot nella frase + pannelli opzioni a tocco */
-  .cloze-slot { display: inline-block; min-width: 96px; text-align: center; border-bottom: 2px solid #6366f1;
-                background: #eef2ff; border-radius: 4px; padding: 1px 10px; color: #3730a3; font-weight: 700; margin: 0 3px; }
-  .cloze-slot.cloze-conn { border-bottom-color: #d97706; background: #fef3c7; }
-  .cloze-slot.cloze-empty { color: #a5b4fc; font-weight: 400; letter-spacing: 2px; }
-  .cloze-opts { margin: 16px 0 4px; }
-  .cloze-opts-lab { font-size: 13px; font-weight: 700; color: #64748b; margin-bottom: 7px; }
-  .cloze-opt { flex: 1; text-align: left; border: 2px solid #e2e8f0; background: #fff;
-               border-radius: 12px; padding: 16px 18px; font: inherit; font-size: 20px; color: #0f172a;
-               cursor: pointer; min-height: 54px; }
-  .cloze-opt.sel { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; font-weight: 700; }
   #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid #e2e8f0;
            font-size: 19px; outline: none; resize: vertical; }
   #qopen:focus { border-color: #6366f1; }
@@ -120,7 +103,6 @@
     #qtext { font-size: 21px; }
     .opt { font-size: 18px; padding: 13px 15px; }
     .opt-row { margin-bottom: 8px; }
-    .cloze-opt { font-size: 18px; padding: 12px 15px; min-height: 46px; }
     .tf-btn { padding: 16px 8px; }
     #pbar { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 8px; }
     #pfoot { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
@@ -268,10 +250,9 @@
     row.appendChild(b); row.appendChild(ttsBtn(text));
     return row;
   }
-  // testo da leggere per la domanda corrente (cloze → frase con «spazio» nei buchi)
+  // testo da leggere per la domanda corrente
   function questionSpeech(q) {
     if (!q) return '';
-    if (q.kind === 'cloze') return (q.segments || []).map(function (s) { return s.blank ? ' spazio ' : (s.text || ''); }).join('').replace(/\s+/g, ' ').trim();
     if (q.kind === 'tf') return q.proposed || q.text || '';
     return q.text || '';
   }
@@ -279,7 +260,7 @@
   var SESS = null;          // meta sessione
   var IDENT = null;         // { emojiKey, num }
   var QUESTIONS = [];       // pubbliche (senza soluzioni)
-  var ANSWERS = {};         // idx → { choice/text/blanks/skipped, ms }
+  var ANSWERS = {};         // idx → { choice/text/skipped, ms }
   var LSK = null;           // chiave localStorage risposte
   var i = 0;                // domanda corrente
   var qStart = 0;           // ts di visualizzazione domanda corrente
@@ -432,73 +413,6 @@
       var bf = document.createElement('button'); bf.className = 'tf-btn' + (a.choice === false ? ' sel-f' : ''); bf.textContent = 'FALSO';
       bt.onclick = function () { setChoice(true); }; bf.onclick = function () { setChoice(false); };
       row.appendChild(bt); row.appendChild(bf); body.appendChild(row);
-    } else if (q.kind === 'cloze') {
-      $('qtext').textContent = '';
-      var isChoice = (q.segments || []).some(function (s) { return s.blank && Array.isArray(s.blank.choices) && s.blank.choices.length; });
-      var hasConn = (q.segments || []).some(function (s) { return s.blank && s.blank.conn; });
-      if (hasConn && !isChoice) {
-        var hint = document.createElement('div'); hint.className = 'cloze-hint';
-        hint.textContent = 'Nel riquadro ambra va la PAROLA-LEGAME: valgono anche i sinonimi (es. «poiché» per «perché»).';
-        body.appendChild(hint);
-      }
-      var wrap = document.createElement('div'); wrap.className = 'cloze-text';
-      var bi = 0; var saved = a.blanks || [];
-      (q.segments || []).forEach(function (seg) {
-        if (seg.blank) {
-          var isConn = !!seg.blank.conn;
-          if (Array.isArray(seg.blank.choices) && seg.blank.choices.length) {
-            // A SCELTA: chip «___» che apre le 3 opzioni sotto; tocca per riempire.
-            var slot = document.createElement('span'); slot.className = 'cloze-slot' + (isConn ? ' cloze-conn' : '');
-            slot.setAttribute('data-bi', bi); slot.setAttribute('role', 'group');
-            slot.setAttribute('aria-label', 'Spazio da completare ' + (bi + 1));
-            var picked = saved[bi];
-            slot.textContent = (picked != null && picked !== '') ? picked : '_____';
-            if (picked == null || picked === '') slot.classList.add('cloze-empty');
-            wrap.appendChild(slot); bi++;
-          } else {
-            var isc = bi;
-            var inp = document.createElement('input'); inp.className = 'cloze-in' + (isConn ? ' cloze-conn' : '');
-            inp.setAttribute('data-bi', bi); inp.setAttribute('aria-label', 'Spazio da completare ' + (bi + 1));
-            var len = (seg.blank && seg.blank.len) || 6;
-            inp.style.width = (isConn ? Math.max(150, len * 11) : Math.max(60, len * 11)) + 'px';
-            inp.autocomplete = 'off'; inp.spellcheck = false;
-            if (saved[bi] != null) inp.value = saved[bi];
-            wrap.appendChild(inp); bi++;
-          }
-        } else { wrap.appendChild(document.createTextNode(seg.text || '')); }
-      });
-      body.appendChild(wrap);
-      if (isChoice) {
-        // pannello opzioni per ogni buco (sotto la frase): bottoni grandi da toccare
-        var bi2 = 0;
-        (q.segments || []).forEach(function (seg) {
-          if (!seg.blank) return;
-          var myBi = bi2++;
-          if (!(Array.isArray(seg.blank.choices) && seg.blank.choices.length)) return;
-          var opts = document.createElement('div'); opts.className = 'cloze-opts';
-          opts.setAttribute('role', 'group');
-          opts.setAttribute('aria-label', 'Opzioni per lo spazio ' + (myBi + 1));
-          opts.appendChild(Object.assign(document.createElement('div'), { className: 'cloze-opts-lab', textContent: 'Spazio ' + (myBi + 1) + (seg.blank.conn ? ' — parola-legame' : '') }));
-          seg.blank.choices.forEach(function (opt) {
-            var row = document.createElement('div'); row.className = 'opt-row';
-            var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'cloze-opt'; ob.textContent = opt;
-            if ((saved[myBi] || '') === opt) { ob.classList.add('sel'); ob.setAttribute('aria-pressed', 'true'); }
-            ob.onclick = function () {
-              accumMs();   // conta il tempo sull'item (fluenza) come mc/tf
-              var cur = ANSWERS[q.idx] || {}; var blanks = cur.blanks || [];
-              blanks[myBi] = opt; cur.blanks = blanks; delete cur.skipped; ANSWERS[q.idx] = cur;
-              // aggiorna slot + evidenzia bottone scelto nel gruppo
-              var slotEl = wrap.querySelector('.cloze-slot[data-bi="' + myBi + '"]');
-              if (slotEl) { slotEl.textContent = opt; slotEl.classList.remove('cloze-empty'); }
-              opts.querySelectorAll('.cloze-opt').forEach(function (x) { var on = x === ob; x.classList.toggle('sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-              saveAnswer(q.idx);   // persiste subito (localStorage + POST), come mc/tf
-            };
-            row.appendChild(ob); row.appendChild(ttsBtn(opt));
-            opts.appendChild(row);
-          });
-          body.appendChild(opts);
-        });
-      }
     } else { // open
       $('qtext').innerHTML = esc(q.text);
       // Timeline (008): domanda evento→anno → input numerico dedicato.
@@ -555,18 +469,10 @@
     else if (q.kind === 'tf') { var bs = $('qbody').querySelectorAll('.tf-btn'); bs[0].classList.toggle('sel-t', val === true); bs[1].classList.toggle('sel-f', val === false); }
   }
 
-  // raccoglie il valore corrente della domanda (cloze/open) nel modello
+  // raccoglie il valore corrente della domanda aperta nel modello
   function collectCurrent() {
     var q = QUESTIONS[i]; var a = ANSWERS[q.idx] || {};
-    if (q.kind === 'cloze') {
-      var ins = $('qbody').querySelectorAll('.cloze-in');
-      if (ins.length) {   // modalità SCRIVI: leggi i campi
-        var vals = []; ins.forEach(function (inp) { vals.push(inp.value || ''); });
-        if (vals.some(function (v) { return v.trim(); })) { a.blanks = vals; delete a.skipped; ANSWERS[q.idx] = a; }
-        else if (a.blanks) { a.blanks = vals; ANSWERS[q.idx] = a; }
-      }
-      // modalità SCEGLI: a.blanks è già popolato dai bottoni (onclick) → nulla da fare
-    } else if (q.kind === 'open') {
+    if (q.kind === 'open') {
       var ta = $('qopen'); if (ta && ta.value.trim()) { a.text = ta.value; delete a.skipped; ANSWERS[q.idx] = a; }
       else if (ta && a.text) { a.text = ta.value; ANSWERS[q.idx] = a; }
     }
@@ -587,7 +493,6 @@
     var payload = { token: TOKEN, emojiKey: IDENT.emojiKey, num: IDENT.num, deviceId: deviceId, qIdx: idx, ms: a.ms || 0 };
     if (a.skipped) payload.skipped = true;
     else if (a.choice !== undefined) payload.choice = a.choice;
-    else if (a.blanks) payload.blanks = a.blanks;
     else if (a.text !== undefined) payload.text = a.text;
     if (a.hintUsed) payload.hintUsed = true;   // Timeline (008): uso indizio
     setSync('wait');
@@ -619,7 +524,7 @@
   };
   $('skip').onclick = function () {
     var q = QUESTIONS[i]; accumMs();
-    var a = ANSWERS[q.idx] || {}; a.skipped = true; delete a.choice; delete a.blanks; delete a.text;
+    var a = ANSWERS[q.idx] || {}; a.skipped = true; delete a.choice; delete a.text;
     ANSWERS[q.idx] = a; saveAnswer(q.idx);
     if (i < QUESTIONS.length - 1) { i++; renderQuestion(); } else showDone(false);
   };
@@ -652,7 +557,7 @@
     clearInterval(pollTimer); clearInterval(timerTimer);
     show('done');
     var answered = 0, skipped = 0;
-    QUESTIONS.forEach(function (q) { var a = ANSWERS[q.idx]; if (a && a.skipped) skipped++; else if (a && (a.choice !== undefined || a.blanks || a.text)) answered++; });
+    QUESTIONS.forEach(function (q) { var a = ANSWERS[q.idx]; if (a && a.skipped) skipped++; else if (a && (a.choice !== undefined || a.text)) answered++; });
     $('done-recap').innerHTML = 'Risposte: <b>' + answered + '</b> / ' + QUESTIONS.length + (skipped ? ' · saltate: ' + skipped : '');
     if (closed) {
       $('done-emoji').textContent = '🔒'; $('done-title').textContent = 'Sessione chiusa';
@@ -703,23 +608,9 @@
       res.perQuestion.forEach(function (q, n) {
         var half = (q.missing && q.missing.length);
         var ic = q.outcome === 'right' ? '✅' : half ? '½' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
-        var bodyHtml;
-        if (q.kind === 'cloze' && Array.isArray(q.blanks) && q.blanks.length) {
-          // Dettaglio PER-BUCO allineato (issue 7): un rigo per buco, risposta data
-          // e — se non piena — la giusta o il complemento mancante. Niente più
-          // «sole, e, luna» da rimappare a mano sulla frase.
-          bodyHtml = q.blanks.map(function (b, k) {
-            var given = b.given && b.given.trim() ? '<b>' + esc(b.given) + '</b>' : '<span style="color:#94a3b8">vuoto</span>';
-            var tail = b.score === 1 ? '<span style="color:#16a34a"> ✓</span>'
-              : b.score === 0.5 ? '<span style="color:#92400e"> ✎ manca: <b>' + esc(b.missing) + '</b></span>'
-                : '<span style="color:#991b1b"> ✗ giusto: <b>' + esc(b.expected) + '</b></span>';
-            return '<div class="rq-a">Buco ' + (k + 1) + ': ' + given + tail + '</div>';
-          }).join('');
-        } else {
-          bodyHtml = (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
-                                 : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
-            (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '');
-        }
+        var bodyHtml = (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
+                                   : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
+          (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '');
         list += '<div class="rq">' +
           '<div class="rq-q">' + ic + ' ' + esc(q.text || ('Domanda ' + (n + 1))) + '</div>' +
           bodyHtml +

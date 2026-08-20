@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>MappAI · Domande a scelta</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0f172a; --indigo:#4f46e5; --slate:#64748b; --line:#e2e8f0; --emoji:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji'; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font-family:'Space Mono',var(--emoji),monospace; color:var(--ink); background:#fafbff; }
+  /* il login ha la veste puntinata delle altre pagine Live; l'attività no —
+     là dentro comanda il CSS che la view si porta dietro */
+  #login { display:none; padding:20px 16px; max-width:560px; margin:0 auto;
+    background-image:radial-gradient(#ddd6fe 1px,transparent 1px); background-size:22px 22px; min-height:100%; }
+  #login.on { display:block; }
+  #app { display:none; height:100%; }
+  #app.on { display:block; }
+  h1 { font-size:19px; margin:6px 0 2px; }
+  .sub { color:var(--slate); font-size:12px; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  label { display:block; font-size:11px; font-weight:700; color:var(--slate); margin:10px 0 4px; }
+  input { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; font:inherit; font-size:16px; }
+  .egrid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .egrid-btn { font-size:30px; padding:8px; border:2px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-family:var(--emoji); }
+  .egrid-btn.sel { border-color:var(--indigo); background:#eef2ff; }
+  .btn { background:var(--indigo); color:#fff; border:0; border-radius:12px; padding:13px 18px; font:inherit; font-weight:700; cursor:pointer; width:100%; font-size:15px; min-height:48px; }
+  .err { color:#dc2626; font-size:12px; margin-top:8px; min-height:16px; }
+</style>
+</head>
+<body>
+  <section id="login" class="on">
+    <h1>Domande a scelta</h1>
+    <div class="sub" id="login-activity"></div>
+    <div class="card">
+      <div id="login-individual">
+        <label>Emoji</label>
+        <div class="egrid" id="emoji-grid"></div>
+        <label>Il tuo numero</label>
+        <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="es. 07" autocomplete="off">
+      </div>
+      <div id="login-group" style="display:none">
+        <label>Nome del gruppo</label>
+        <input id="in-nick" maxlength="30" placeholder="es. I Galli" autocomplete="off">
+      </div>
+      <button class="btn" id="btn-join" style="margin-top:14px">Entra</button>
+      <div class="err" id="login-err"></div>
+    </div>
+  </section>
+
+  <div id="app"></div>
+
+<script src="/public/js/mappai-live-core.js"></script>
+<script src="/public/js/mappai-scelta-core.js"></script>
+<script src="/public/js/mappai-scelta-view.js"></script>
+<script>
+  var LC = window.MappAILiveCore, SC = window.MappAIScelta, SV = window.MappAISceltaView;
+  var QS = new URLSearchParams(location.search);
+  var TOKEN = QS.get('s') || '';
+  var DEV_KEY = 'mappai_live_device';
+  var deviceId = localStorage.getItem(DEV_KEY);
+  if (!deviceId) { deviceId = 'd_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem(DEV_KEY, deviceId); }
+  var $ = function (id) { return document.getElementById(id); };
+  function api(p, opts) { return fetch(p, opts).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }, function () { return { status: r.status, body: null }; }); }); }
+  function post(p, obj) { return api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }); }
+
+  var SESS = null, IDENT = null, chosenEmoji = null, POOL = [], CFG = null, STATO = null;
+
+  function boot() {
+    if (!TOKEN) { $('login-err').textContent = 'Link non valido. Riscansiona il QR.'; return; }
+    api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
+      if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
+      SESS = r.body;
+      $('login-activity').textContent = (SESS.className ? SESS.className + ' · ' : '') + (SESS.name || '');
+      if (SESS.loginMode === 'group') { $('login-individual').style.display = 'none'; $('login-group').style.display = 'block'; }
+      else buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
+    }).catch(function () { $('login-err').textContent = 'Connessione assente. Sei sulla rete della classe?'; });
+  }
+
+  function buildEmojiGrid(set) {
+    var g = $('emoji-grid'); g.innerHTML = '';
+    set.forEach(function (e) {
+      var b = document.createElement('button'); b.className = 'egrid-btn'; b.textContent = e.emoji; b.setAttribute('data-key', e.key);
+      b.onclick = function () { chosenEmoji = e.key; g.querySelectorAll('.egrid-btn').forEach(function (x) { x.classList.toggle('sel', x === b); }); };
+      g.appendChild(b);
+    });
+  }
+
+  $('btn-join').onclick = function () {
+    var payload = { token: TOKEN, deviceId: deviceId };
+    if (SESS && SESS.loginMode === 'group') {
+      var nick = ($('in-nick').value || '').trim();
+      if (!nick) { $('login-err').textContent = 'Scrivi il nome del gruppo.'; return; }
+      payload.nick = nick;
+    } else {
+      var num = ($('in-num').value || '').trim().padStart(2, '0');
+      if (!chosenEmoji || !num) { $('login-err').textContent = 'Scegli emoji e numero.'; return; }
+      payload.emojiKey = chosenEmoji; payload.num = num;
+    }
+    post('/api/join', payload).then(function (r) {
+      if (r.status !== 200) {
+        $('login-err').textContent = r.body && r.body.error === 'identity-taken' ? 'Già in uso su un altro dispositivo.'
+          : (r.body && r.body.error === 'not-in-roster' ? 'Non sei nell\'elenco della classe.' : 'Accesso non riuscito.');
+        return;
+      }
+      IDENT = payload;
+      // il pool arriva GIÀ campionato e senza angolo: il server serve solo le
+      // domande di questo studente (una per area × taglio)
+      POOL = r.body.pool || [];
+      CFG = r.body.cfg || null;
+      STATO = r.body.stato || {};
+      $('login').classList.remove('on'); $('app').classList.add('on');
+      monta();
+    });
+  };
+
+  // ── il trasporto: lo stato INTERO a ogni salvataggio ──────────────────────
+  // La view accumula e chiama dopo una pausa (600ms): qui si spedisce quello
+  // che c'è. Lo stato è un percorso, non una risposta — aree, a che punto sono,
+  // che cosa mi ha acceso ogni domanda letta, e le risposte.
+  // `dopoConsegna` marca quello che si scrive NELLA schermata di esito: senza,
+  // il server riaprirebbe la consegna a ogni tasto premuto nel «perché no?».
+  function salva(stato, dopoConsegna) {
+    return post('/api/stato', Object.assign({
+      token: TOKEN, deviceId: deviceId, stato: stato, dopoConsegna: !!dopoConsegna
+    }, IDENT));
+  }
+  // il campo del «perché no?» non ha debounce nella view (si scrive una riga
+  // sola): lo mette qui chi lo spedisce
+  var attesaPn = null;
+  function salvaPn() {
+    if (attesaPn) clearTimeout(attesaPn);
+    attesaPn = setTimeout(function () { attesaPn = null; salva(STATO, true); }, 600);
+  }
+
+  function monta() {
+    SV.monta($('app'), {
+      pool: POOL, cfg: CFG, stato: STATO,
+      onCambia: function (id, risposta, stato) { STATO = stato; salva(stato); },
+      onConsegna: function (stato) {
+        STATO = stato;
+        post('/api/finish', Object.assign({ token: TOKEN, deviceId: deviceId, stato: stato }, IDENT)).then(function (r) {
+          if (r.status !== 200) { alert('Consegna non riuscita. Riprova.'); return; }
+          SV.mostraEsito($('app'), {
+            cfg: CFG, profilo: r.body.profilo, evitata: r.body.evitata,
+            onPercheNo: function (idQ, why) {
+              STATO.evitata = { id: idQ, why: why };
+              salvaPn();
+            },
+            onSecondoGiro: function (v) {
+              // riapre UNA domanda: si torna alle risposte con quella presa.
+              // ⚠️ Se viene da un'area che non aveva scelto, l'area va aggiunta:
+              // il passo ③ mostra solo le domande delle aree attive, e senza
+              // questo la domanda riaperta non comparirebbe da nessuna parte.
+              STATO.risposte = STATO.risposte || {};
+              if (!STATO.risposte[v.id]) STATO.risposte[v.id] = {};
+              STATO.aree = STATO.aree || [];
+              if (v.ramo && STATO.aree.length && STATO.aree.indexOf(v.ramo) < 0) STATO.aree.push(v.ramo);
+              STATO.fase = 'rispondi';
+              salva(STATO).then(monta);
+            }
+          });
+        });
+      }
+    });
+  }
+
+  boot();
+</script>
+</body>
+</html>

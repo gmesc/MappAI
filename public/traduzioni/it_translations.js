@@ -270,7 +270,7 @@ const it_translations = {
     tt_jigsaw_export: "Esporta copie JIGSAW: una per gruppo, editing sbloccato su un solo ramo, studio su tutta la mappa",
     tt_jigsaw_merge: "Ricomponi le copie dei gruppi nel master: rami lavorati + ponti ratificati",
     tt_jigsaw_compare: "Confronta le copie dei gruppi col master: elenco lacune da restituire in revisione privata",
-    tt_active_study: "Modalità di studio attivo: ricostruisci la mappa",
+    tt_active_study: "Attività di studio, viste e strumenti",
     tt_branch_synthesis: "Genera una sintesi narrativa con citazioni di un ramo",
     tt_nothing_undo: "Nulla da annullare",
     tt_new_project: "Nuovo Progetto",

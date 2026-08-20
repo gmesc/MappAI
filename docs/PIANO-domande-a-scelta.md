@@ -1,7 +1,28 @@
 # Piano — «Domande a scelta» (Live + Studio attivo), il box «Più set per angolo» nel bento, e lo Studio attivo rifatto sui materiali del vault
 
 > Piano da `/architetto` (19/8/26, seconda stesura).
-> **Stato al 19/8/26 sera: fasi A · B · C SPEDITE.** Commit: `256648f` `9b0ff4f` `416a003`
+> **Stato al 20/8/26: TUTTE E SEI LE FASI SPEDITE (A · B · C · D · E · F).**
+> La **F** ha cancellato le sette modalità del canvas e il Cloze: `mappai-active-study.js`
+> da **1832 a 190 righe** (resta il launcher), via `session`/`emergencyExit`/lo snapshot del
+> grafo e le **nove guardie** in sei moduli, via il genere `kind:'cloze'` del player Live
+> (con 20 test) e 52 chiavi i18n orfane. **−2315 righe** in tutto.
+> ⚠️ Il punto 16 (Palazzo nel guscio comune) **non è stato fatto**: rifà la UI di una
+> superficie che funziona e ha un core già puro e testato. Il Palazzo resta col suo modale.
+>
+> (Prima: fasi A · B · C · D · E SPEDITE, restava la FASE F.)
+> La D (Live: `mode:'scelta'` nel server, `/api/stato`, `public/live/scelta.html`,
+> `buildSceltaReportHtml`, `mappai-scelta.js`, card nel hub) e la E (il guscio in-app e le
+> due attività nel launcher) sono passate da una revisione avversaria a sei agenti: **21
+> difetti corretti**, fra cui tre che sarebbero costati dati — la consegna annullata a ogni
+> tasto premuto nel «perché no?», la soluzione della domanda evitata mandata al telefono, e
+> una ripresa senza `questions.json` che **cancellava le risposte già su disco**. Il difetto
+> più insidioso non l'ha trovato nessun test: il passo ① delle AREE era irraggiungibile
+> perché `normalizzaStato` riempiva `fase`, e quel valore di ripiego rendeva morto il ramo
+> che lo sceglie.
+> Banchi: `public/dev/scelta-harness.html` (superficie) e `public/dev/scelta-inapp-harness.html`
+> (guscio in-app, NUOVO) · banco Node `tools/smoke/scelta-materiali.js`.
+>
+> (Stato precedente al 19/8/26 sera: fasi A · B · C SPEDITE.) Commit: `256648f` `9b0ff4f` `416a003`
 > (A, il bento e la generazione per angolo) · `5f09145` (B, il core) · `9707bd0` + `322d65f`
 > (C, la superficie, poi rifatta a **tre passi**). **Si riprende dalla FASE D**, riscritta
 > qui sotto con quello che le fasi B/C hanno cambiato sotto di lei.
@@ -148,7 +169,7 @@
    con `{avoided:{idx, why}}`; secondo giro → `/api/answer` (azzera `finishedAt`, già così) +
    `/api/finish`. NUOVO harness `public/dev/scelta-harness.html` (pool finto, trasporto stub).
 
-**Fase D — Live: server, pagina studente, report, docente** ⟵ **SI RIPARTE DA QUI**
+**Fase D — Live: server, pagina studente, report, docente** ✅ **SPEDITA (20/8)**
 
 > Che cosa è cambiato sotto, rispetto a come questa fase era stata scritta il 19/8 mattina:
 > il pool si **campiona** (`unaPerAngolo`), lo stato ha **tre campi nuovi** (`aree`, `fase`,
@@ -205,7 +226,10 @@
     scelta: cfg, logActivity:'scelta'})` (`mappai-live-teacher.js` riga ~536) e QR alla
     pagina nuova. Card nel hub Live (riga ~79) + avvio in INSEGNA › Attività LIVE.
     Senza fogli → avviso con la strada (CREA col box «Più set per angolo»).
-**Fase E — lo Studio attivo rifatto: tre attività sui materiali del vault**
+**Fase E — lo Studio attivo rifatto** ✅ **SPEDITA (20/8), tranne il punto 16**
+⚠️ Il **Palazzo della Memoria non è stato portato nel guscio** (punto 16): è un rifacimento
+della UI di una superficie che funziona, e il suo guadagno arriva solo con la fase F, quando
+il launcher si riduce a tre card. Le sette modalità storiche sono ancora tutte lì.
 14. `public/js/mappai-scelta.js` (lo stesso file della Fase D) — `apriInApp(tipo)`, il **guscio
     in-app** condiviso dalle attività nuove: `MappAIModal.open` taglia XL con `tela` dove si monta `MappAISceltaView`
     (inv. 10-11: piano dal motore, `chiude:false`, ESC chiede conferma se ci sono risposte);
@@ -243,7 +267,7 @@
     i18n: `_tSafe` nei moduli condivisi/UMD, `window.t` altrove, chiavi `ds_*` solo in
     `en_translations.js` (inv. 14).
 
-**Fase F — pensione DEFINITIVA delle sette modalità e del Cloze**
+**Fase F — pensione DEFINITIVA delle sette modalità e del Cloze** ✅ **SPEDITA (20/8)**
 19. **Cloze in-app**: via `public/js/mappai-cloze.js`, lo `<script>` (`index.html:3409`), la card
     e il ramo `key === 'cloze'` nel launcher, il flag `mappai_cloze_enabled`, `tests/cloze.test.js`
     e `tests/cloze-live-parity.test.js`, la riga in `mappai-dev-selftest.js`, il commento in

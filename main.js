@@ -2085,7 +2085,10 @@ ipcMain.handle('garden-start-session', async (event, opts) => {
         const st = gardenSrv.state();
         gardenInfo = {
             port, urls: lanUrls(port), token: st.session.token,
-            adminToken: st.session.adminToken, dir, name, resumed: resuming
+            adminToken: st.session.adminToken, dir, name, resumed: resuming,
+            // la modalità viaggia con l'info: riagganciando una sessione dopo un
+            // riavvio dell'app, la dashboard deve sapere quali report esistono
+            mode: o.mode || 'quiz'
         };
         gardenInfo = await maybeRelay('garden', gardenInfo, opts, 'garden');
         console.log('[garden] sessione avviata su :' + port, resuming ? '(RIPRESA)' : '');
@@ -2337,6 +2340,7 @@ ipcMain.handle('live-start-session', async (event, opts) => {
                 durationMin: Number(o.durationMin) || 0,
                 mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
                 hintMode: o.hintMode || 'onrequest', build: o.build || null,
+                scelta: o.scelta || null,   // «Domande a scelta»: le leve del docente
                 revealAnswers: o.revealAnswers !== false   // report profilo con soluzioni (default ON)
             },
             roster: Array.isArray(o.roster) ? o.roster : [],

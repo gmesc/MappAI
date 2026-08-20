@@ -81,19 +81,6 @@ test('sequenceScore: studente senza catena → 0 ma total corretto', () => {
   assert.equal(r.total, 2);
 });
 
-// ── pickDistantBranchIndex (modo 5: intruso non plausibile) ─────────────────
-test('pickDistantBranchIndex: sceglie il ramo lessicalmente più lontano', () => {
-  const leaf = 'clorofilla pigmento verde della fotosintesi nelle foglie';
-  const idx = C.pickDistantBranchIndex(leaf, [
-    'fotosintesi clorofilla luce foglie pigmenti',       // vicino
-    'rivoluzione francese assemblea nazionale bastiglia' // lontano
-  ]);
-  assert.equal(idx, 1);
-});
-
-test('pickDistantBranchIndex: lista vuota → -1', () => {
-  assert.equal(C.pickDistantBranchIndex('x', []), -1);
-});
 
 // ── rateFromSeconds (fluenza per-item) ──────────────────────────────────────
 test('rateFromSeconds: 10s → 6/min', () => {

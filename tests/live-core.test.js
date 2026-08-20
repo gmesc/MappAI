@@ -91,30 +91,29 @@ test('validateQuestion: tf richiede statementTrue boolean', () => {
   assert.ok(!LC.validateQuestion({ kind: 'tf', text: 'x', statementTrue: 'yes' }).ok);
 });
 
-test('validateQuestion: cloze richiede almeno un blank', () => {
-  assert.ok(LC.validateQuestion({ kind: 'cloze', segments: [{ text: 'La ' }, { blank: 'clorofilla' }] }).ok);
-  assert.ok(!LC.validateQuestion({ kind: 'cloze', segments: [{ text: 'niente blank' }] }).ok);
-});
 
-test('publicQuestions: strippa correct (mc), termine blank (cloze), answerText (open)', () => {
+test('publicQuestions: strippa correct (mc), answerText (open), statementTrue (tf)', () => {
   const full = [
     mcQ(),
-    { kind: 'cloze', text: '', segments: [{ text: 'La ' }, { blank: 'clorofilla' }, { text: ' cattura la luce' }], nodeLabel: 'Foto' },
     { kind: 'open', text: 'Spiega la fotosintesi', answerText: 'processo che converte luce in energia', nodeLabel: 'Foto' },
     { kind: 'tf', text: 'Il Sole è una stella', proposed: 'vero', statementTrue: true }
   ];
   const pub = LC.publicQuestions(full);
   assert.strictEqual(pub[0].correct, undefined);
   assert.deepStrictEqual(pub[0].options, ['Roma', 'Milano', 'Napoli']);
-  // cloze: blank diventa solo lunghezza, nessun termine
-  const blankSeg = pub[1].segments.find(s => s.blank);
-  assert.strictEqual(blankSeg.blank.len, 'clorofilla'.length);
-  assert.strictEqual(blankSeg.blank.term, undefined);
   // open: niente answerText
-  assert.strictEqual(pub[2].answerText, undefined);
+  assert.strictEqual(pub[1].answerText, undefined);
   // tf: proposed resta ma statementTrue sparisce
-  assert.strictEqual(pub[3].proposed, 'vero');
-  assert.strictEqual(pub[3].statementTrue, undefined);
+  assert.strictEqual(pub[2].proposed, 'vero');
+  assert.strictEqual(pub[2].statementTrue, undefined);
+});
+
+// Il CLOZE è in pensione (20/8): una `session.json` scritta prima della potatura
+// non si riapre più, e lo dice — `bad-kind` invece di una domanda muta.
+test('validateQuestion: `cloze` non è più un genere valido', () => {
+  const v = LC.validateQuestion({ kind: 'cloze', segments: [{ blank: 'clorofilla' }] });
+  assert.strictEqual(v.ok, false);
+  assert.ok(v.errors.indexOf('bad-kind') >= 0);
 });
 
 // ── mcFromItem / tfFromMc ─────────────────────────────────────────────────
@@ -166,79 +165,14 @@ test('gradeAnswer tf/mc: giusto/sbagliato/blank/skip', () => {
   assert.strictEqual(LC.gradeAnswer(mc, { choice: 2 }).outcome, 'wrong');
 });
 
-test('gradeAnswer cloze: credito parziale, right solo se tutti', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'clorofilla' }, { blank: 'luce' }] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['clorofilla', 'luce'] }).outcome, 'right');
-  const part = LC.gradeAnswer(q, { blanks: ['clorofilla', 'sbagliato'] });
-  assert.strictEqual(part.outcome, 'wrong');
-  assert.strictEqual(part.score, 0.5);
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['', ''] }).outcome, 'blank');
-});
 
-test('gradeAnswer cloze: tollera refuso/accento (BES/DSA)', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'clorofilla' }] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['Clorofila'] }).outcome, 'right'); // refuso 1
-});
 
 // ── Buchi-RELAZIONE allineati al Cloze di Studio attivo (19/7/26) ────────────
-test('gradeAnswer cloze conn: equivalente della lista accept accettato', () => {
-  const q = { kind: 'cloze', segments: [
-    { blank: 'perché', conn: true, accept: ['dato che', 'perché', 'poiché', 'because'] },
-    { blank: 'Clorofilla' }
-  ] };
-  // sinonimo giusto + concetto giusto → right
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['poiché', 'Clorofilla'] }).outcome, 'right');
-  // superficie esatta ovviamente ok
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['perché', 'Clorofilla'] }).outcome, 'right');
-});
 
-test('gradeAnswer cloze conn: direzione/classe sbagliata RIFIUTATA', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'perché', conn: true, accept: ['dato che', 'perché', 'poiché'] }] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['quindi'] }).outcome, 'wrong'); // fuori accept
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['a causa di'] }).outcome, 'wrong');
-});
 
-test('gradeAnswer cloze conn: FRASE che contiene un equivalente NON vale', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'perché', conn: true, accept: ['dato che', 'perché', 'poiché'] }] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['poiché la luce colpisce'] }).outcome, 'wrong');
-});
 
-test('matchesCloze: esatto/refuso su concetto; accept solo per conn', () => {
-  assert.ok(LC.matchesCloze('clorofila', { blank: 'clorofilla' }));          // refuso concetto
-  assert.ok(!LC.matchesCloze('poiché', { blank: 'perché' }));                 // concetto: niente equivalenti
-  assert.ok(LC.matchesCloze('poiché', { blank: 'perché', conn: true, accept: ['perché', 'poiché'] }));
-});
 
-test('publicQuestions: cloze conn → flag conn pubblico, accept MAI copiato', () => {
-  const full = [{ kind: 'cloze', text: '', segments: [
-    { text: 'La luce agisce ' },
-    { blank: 'perché', conn: true, accept: ['dato che', 'perché', 'poiché'] },
-    { text: ' scalda ' },
-    { blank: 'Clorofilla' }
-  ], nodeLabel: 'Foto' }];
-  const pub = LC.publicQuestions(full);
-  const segs = pub[0].segments.filter(s => s.blank);
-  const connSeg = segs.find(s => s.blank.conn);
-  assert.ok(connSeg, 'flag conn presente nel pubblico');
-  assert.strictEqual(connSeg.blank.len, 'perché'.length);
-  assert.strictEqual(connSeg.blank.term, undefined);
-  // nessun segmento pubblico porta accept
-  pub[0].segments.forEach(s => { assert.strictEqual(s.accept, undefined); assert.strictEqual(s.blank && s.blank.accept, undefined); });
-});
 
-test('validateQuestion: cloze conserva conn + accept (capped, sanificati)', () => {
-  const r = LC.validateQuestion({ kind: 'cloze', segments: [
-    { text: 'x ' }, { blank: 'perché', conn: true, accept: ['poiché', 'dato che'] }, { blank: 'Nodo' }
-  ] });
-  assert.ok(r.ok);
-  const conn = r.clean.segments.find(s => s.conn);
-  assert.ok(conn && conn.conn === true);
-  assert.deepStrictEqual(conn.accept, ['poiché', 'dato che']);
-  // blank-concetto: nessun conn/accept
-  const plain = r.clean.segments.find(s => s.blank === 'Nodo');
-  assert.strictEqual(plain.conn, undefined);
-  assert.strictEqual(plain.accept, undefined);
-});
 
 test('gradeAnswer open: con answerText fuzzy; senza → manual', () => {
   const withAns = { kind: 'open', answerText: 'Roma' };
@@ -478,26 +412,18 @@ test('validateQuestion: preserva explanation lato server', () => {
 });
 
 // ── Credito parziale cloze + dettaglio report (issue 3/5, 19/7/26) ───────
-test('gradeAnswer cloze: mezzo punto su concetto multi-parola incompleto', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'pianta acquatica' }, { blank: 'Cellulosa' }] };
-  const g = LC.gradeAnswer(q, { blanks: ['pianta', 'Cellulosa'] });
-  assert.strictEqual(g.score, 0.75);                 // (0.5 + 1) / 2
-  assert.strictEqual(g.outcome, 'wrong');            // non pieno
-  const half = g.blanks.find(b => b.score === 0.5);
-  assert.strictEqual(half.missing, 'acquatica');
-});
 
 test('computeResults: items del report docente hanno testo/risposta/corretta', () => {
   const questions = [
-    { kind: 'cloze', idx: 0, segments: [{ text: 'La ' }, { blank: 'Clorofilla' }, { text: ' cattura la luce' }], nodeLabel: 'Foto' },
+    { kind: 'open', idx: 0, text: 'Che cosa cattura la luce?', answerText: 'Clorofilla', nodeLabel: 'Foto' },
     { kind: 'mc', idx: 1, text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, nodeLabel: 'Geo' }
   ];
-  const students = [{ emojiKey: 'volpe', num: '01', answers: { 0: { blanks: ['sbagliato'] }, 1: { choice: 1 } } }];
+  const students = [{ emojiKey: 'volpe', num: '01', answers: { 0: { text: 'sbagliato' }, 1: { choice: 1 } } }];
   const res = LC.computeResults(questions, students, null);
   const it0 = res.perStudent[0].items[0];
   assert.strictEqual(it0.yourText, 'sbagliato');
   assert.strictEqual(it0.correctText, 'Clorofilla');   // errata → mostra la giusta
-  assert.ok(it0.text.includes('cattura la luce'));     // frase ricostruita
+  assert.ok(it0.text.includes('cattura la luce'));
   const it1 = res.perStudent[0].items[1];
   assert.strictEqual(it1.yourText, 'Milano');
   assert.strictEqual(it1.correctText, 'Roma');
@@ -510,104 +436,18 @@ test('computeResults: risposta corretta → correctText vuoto (niente rumore)', 
   assert.strictEqual(res.perStudent[0].items[0].correctText, '');
 });
 
-test('computeStudentResult: mezzo punto → missing nella scheda studente', () => {
-  const questions = [{ kind: 'cloze', idx: 0, segments: [{ blank: 'pianta acquatica' }] }];
-  const student = { answers: { 0: { blanks: ['pianta'] } } };
-  const r = LC.computeStudentResult(questions, student, { reveal: true });
-  assert.deepStrictEqual(r.perQuestion[0].missing, ['acquatica']);
-});
 
-test('computeStudentResult: reveal OFF → nessun frammento di soluzione (missing/correctText)', () => {
-  const questions = [{ kind: 'cloze', idx: 0, segments: [{ blank: 'pianta acquatica' }] }];
-  const student = { answers: { 0: { blanks: ['pianta'] } } };
-  const r = LC.computeStudentResult(questions, student, { reveal: false });
-  assert.strictEqual(r.perQuestion[0].missing, undefined);   // no leak del complemento
-  assert.strictEqual(r.perQuestion[0].correctText, undefined);
-  assert.strictEqual(r.perQuestion[0].text, undefined);
-  assert.strictEqual(r.perQuestion[0].outcome, 'wrong');     // l'esito sì (già così prima)
-});
 
 // ── Fix batch review telefono #2: accuratezza studente coerente col docente ──
-test('computeStudentResult: accuratezza FRAZIONARIA (mezzi punti) come il report docente', () => {
-  const q = [{ kind: 'cloze', idx: 0, segments: [{ blank: 'pianta acquatica' }, { blank: 'Cellulosa' }] }];
-  const st = { answers: { 0: { blanks: ['pianta', 'Cellulosa'] } } };
-  const r = LC.computeStudentResult(q, st, { reveal: true });
-  assert.strictEqual(r.accuracyPct, 75);   // (0.5 + 1)/2 — non più 0
-  assert.strictEqual(r.halfCount, 1);
-  // stessa base del report docente
-  const res = LC.computeResults(q, [{ emojiKey: 'ape', num: '01', answers: st.answers }], null);
-  assert.strictEqual(res.perStudent[0].accuracyPct, 75);
-});
 
-test('computeStudentResult: dettaglio per-buco allineato (reveal ON), assente (reveal OFF)', () => {
-  const q = [{ kind: 'cloze', idx: 0, segments: [{ text: 'La ' }, { blank: 'pianta acquatica' }, { text: ' del Nilo' }] }];
-  const st = { answers: { 0: { blanks: ['pianta'] } } };
-  const on = LC.computeStudentResult(q, st, { reveal: true });
-  assert.strictEqual(on.perQuestion[0].blanks[0].score, 0.5);
-  assert.strictEqual(on.perQuestion[0].blanks[0].missing, 'acquatica');
-  const off = LC.computeStudentResult(q, st, { reveal: false });
-  assert.strictEqual(off.perQuestion[0].blanks, undefined);   // no leak
-});
 
 // ── Cloze a SCELTA (tap) — leak/grading ──────────────────────────────────
-test('publicQuestions choice: manda le opzioni, MAI la soluzione marcata', () => {
-  const full = [{ kind: 'cloze', text: '', choice: true, segments: [
-    { text: 'Inventata da ' }, { blank: 'Cai Lun', choices: ['Filigrana', 'Cai Lun', 'Papiro'] }, { text: '.' }
-  ], nodeLabel: 'Cina' }];
-  const pub = LC.publicQuestions(full);
-  const seg = pub[0].segments.find(s => s.blank);
-  assert.deepStrictEqual(seg.blank.choices, ['Filigrana', 'Cai Lun', 'Papiro']); // opzioni pubbliche
-  assert.strictEqual(seg.blank.term, undefined);   // soluzione mai marcata
-  assert.strictEqual(pub[0].segments.find(s => s.text) !== undefined, true);
-});
 
-test('gradeAnswer choice: esatto/distrattore, niente ½ su distrattore-prefisso', () => {
-  const q = { kind: 'cloze', segments: [
-    { blank: 'pianta acquatica', choices: ['pergamena', 'pianta acquatica', 'pianta'] }
-  ] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['pianta acquatica'] }).outcome, 'right');
-  // "pianta" è un DISTRATTORE (prefisso del corretto) → deve valere 0, non 0.5
-  const g = LC.gradeAnswer(q, { blanks: ['pianta'] });
-  assert.strictEqual(g.score, 0);
-  assert.strictEqual(g.outcome, 'wrong');
-});
 
-test('validateQuestion choice: conserva le opzioni (cap 6, sanificate)', () => {
-  const r = LC.validateQuestion({ kind: 'cloze', segments: [
-    { text: 'x ' }, { blank: 'Cai Lun', choices: ['Cai Lun', 'Papiro', 'Filigrana'] }
-  ] });
-  assert.ok(r.ok);
-  assert.deepStrictEqual(r.clean.segments.find(s => s.blank).choices, ['Cai Lun', 'Papiro', 'Filigrana']);
-});
 
 // ── Cloze a scelta: fix review (leak len / grading esatto / membership) ──────
-test('publicQuestions choice: NIENTE len accanto alle opzioni (no tell lunghezza)', () => {
-  const full = [{ kind: 'cloze', text: '', choice: true, segments: [
-    { text: 'Da ' }, { blank: 'cloroplasto', choices: ['Radice', 'Cloroplasto', 'Xilema'] }
-  ] }];
-  const seg = LC.publicQuestions(full)[0].segments.find(s => s.blank);
-  assert.strictEqual(seg.blank.len, undefined, 'len non deve viaggiare in modalità scelta');
-  assert.ok(Array.isArray(seg.blank.choices));
-});
 
-test('gradeAnswer choice: SOLO match esatto — distrattore edit-vicino/prefisso → wrong', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'biologia', choices: ['Biologia', 'Biolog', 'Chimica'] }] };
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['Biologia'] }).outcome, 'right');
-  assert.strictEqual(LC.gradeAnswer(q, { blanks: ['Biolog'] }).outcome, 'wrong');   // prefisso: NO fuzzy
-  const conn = { kind: 'cloze', segments: [{ blank: 'colonizzazione', conn: false, choices: ['Colonizzazione', 'Colonizzazioni', 'Migrazione'] }] };
-  assert.strictEqual(LC.gradeAnswer(conn, { blanks: ['Colonizzazioni'] }).outcome, 'wrong'); // plurale: NO fuzzy
-});
 
-test('cleanAnswer choice: valore fuori dalle opzioni → scartato (anti client-manomesso)', () => {
-  const q = { kind: 'cloze', segments: [{ blank: 'fotosintesi', choices: ['Fotosintesi', 'Respirazione', 'Digestione'] }] };
-  const a = LC.cleanAnswer(q, { blanks: ['clorofilla'] });   // non è tra le opzioni
-  assert.strictEqual(a.blanks[0], '');                        // azzerato
-  assert.strictEqual(LC.gradeAnswer(q, a).outcome, 'blank');
-  // opzione valida (anche con case diverso) → normalizzata all'opzione servita
-  const ok = LC.cleanAnswer(q, { blanks: ['fotosintesi'] });
-  assert.strictEqual(ok.blanks[0], 'Fotosintesi');
-  assert.strictEqual(LC.gradeAnswer(q, ok).outcome, 'right');
-});
 
 // ── Anti-leak titolo grigio: al client va la MACRO-AREA, non l'etichetta nodo ──
 test('publicQuestions: topic = l1Label (macro-area), nodeLabel NON viaggia al client', () => {

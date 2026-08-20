@@ -35,7 +35,6 @@
 
   function applyTint() {
     if (typeof d3 === 'undefined') return;
-    if (window.ActiveStudy && window.ActiveStudy.session && window.ActiveStudy.session.active) return; // non litigare con lo studio attivo
     const svg = d3.select('#map-svg');
     if (svg.empty()) return;
     let max = 1;

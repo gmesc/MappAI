@@ -175,6 +175,13 @@
            inutilizzabile su una LAN di scuola. 600ms è l'attesa di una pausa
            vera nella scrittura, non di un carattere. */
         var attese = {};
+        /* ⚠️ Prima di consegnare i salvataggi in coda si buttano, non si
+           aspettano: lo stato intero viaggia già con la consegna, e un
+           `/api/stato` che arriva DOPO il `/api/finish` rimetterebbe lo studente
+           fra quelli che stanno ancora lavorando. */
+        function svuotaAttese() {
+            Object.keys(attese).forEach(function (k) { clearTimeout(attese[k]); delete attese[k]; });
+        }
         function salva(id, subito) {
             if (attese[id]) clearTimeout(attese[id]);
             var manda = function () { delete attese[id]; try { onCambia(id, stato.risposte[id] || null, stato); } catch (e) { } };
@@ -224,7 +231,7 @@
                 var sotto = stato.aree.length < cfg.minimoAree;
                 cnt.className = 'sc-cnt' + (sotto ? ' ko' : '');
                 cnt.innerHTML = '<b>' + stato.aree.length + '</b> ' +
-                    esc(_t(t, 'sc_aree_scelte', 'argomenti')) +
+                    esc(stato.aree.length === 1 ? _t(t, 'sc_area_scelta', 'argomento') : _t(t, 'sc_aree_scelte', 'argomenti')) +
                     (cfg.minimoAree ? ' ' + esc(_t(t, 'sc_su_minimo', 'su')) + ' ' + cfg.minimoAree : '') +
                     ' · <b>' + q + '</b> ' + esc(_t(t, 'sc_da_leggere', 'domande da leggere'));
             }
@@ -258,7 +265,9 @@
                    Il minimo qui è un consiglio di metodo, non un requisito. */
                 var m = v.motivi[0];
                 var testo = (m.id === 'sotto_minimo_aree')
-                    ? _t(t, 'sc_ko_aree', 'Hai scelto {n} argomenti su {m} consigliati.').replace('{n}', m.scelte).replace('{m}', m.minimo)
+                    ? (m.scelte === 1
+                        ? _t(t, 'sc_ko_area1', 'Hai scelto un argomento solo, ne sono consigliati {m}.').replace('{m}', m.minimo)
+                        : _t(t, 'sc_ko_aree', 'Hai scelto {n} argomenti su {m} consigliati.').replace('{n}', m.scelte).replace('{m}', m.minimo))
                     : _t(t, 'sc_ko_aree_vuote', 'Gli argomenti scelti non hanno domande.');
                 Promise.resolve(chiedi(testo + '\n\n' + _t(t, 'sc_ko_aree_ok', 'Vai avanti lo stesso?')))
                     .then(function (si) { if (si) vaiA('scegli'); });
@@ -504,13 +513,13 @@
             }
             foot.appendChild(bottone(_t(t, 'sc_consegna', 'Consegna'), function () {
                 var v2 = S().validaConsegna(attivo(), stato, cfg);
-                if (v2.ok) return onConsegna(stato);
+                if (v2.ok) { svuotaAttese(); return onConsegna(stato); }
                 var righe = v2.motivi.map(function (m) {
                     if (m.id === 'sotto_minimo') return _t(t, 'sc_ko_min', 'Hai scritto {n} risposte su {m} chieste.').replace('{n}', m.scritte).replace('{m}', m.minimo);
                     return _t(t, 'sc_ko_vuote', 'Hai preso {n} domande senza rispondere.').replace('{n}', m.quante);
                 });
                 Promise.resolve(chiedi(righe.join('\n') + '\n\n' + _t(t, 'sc_ko_ok', 'Consegni lo stesso?')))
-                    .then(function (si) { if (si) onConsegna(stato); });
+                    .then(function (si) { if (si) { svuotaAttese(); onConsegna(stato); } });
             }));
         }
 

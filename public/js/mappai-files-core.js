@@ -305,7 +305,8 @@
     'report-domande.html': { which: 'questions', label: 'Report domande' },
     'report-studenti.html': { which: 'students', label: 'Report studenti' },
     'report-costruzione.html': { which: 'workshop', label: 'Report costruzione' },
-    'report-tutor.html': { which: 'tutor', label: 'Report tutor' }
+    'report-tutor.html': { which: 'tutor', label: 'Report tutor' },
+    'report-scelta.html': { which: 'scelta', label: 'Report domande a scelta' }
   };
   function reportMeta(fileName) {
     if (REPORT_FILES[fileName]) {

@@ -439,3 +439,210 @@ test('reveal OFF: /api/finish non manda soluzioni', async () => {
   assert.strictEqual(fin.body.result.perQuestion[0].outcome, 'wrong');          // ma l'esito sì
   await srv.stop();
 });
+
+// ══════════════ «Domande a scelta» (mode: 'scelta') ════════════════════════
+// Il pool arriva intero e il SERVER lo campiona per studente: al telefono va
+// una domanda per (area × angolo), senza angolo e senza soluzioni.
+const SC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-scelta-core.js'));
+
+function sceltaPool() {
+  // 2 rami × 2 angoli × 3 varianti = 12 grezze → campionate a 4 (una per coppia)
+  const fogli = [];
+  ['causa', 'esempio'].forEach(ang => {
+    ['Oceani', 'Atmosfera'].forEach(ramo => {
+      fogli.push({
+        titolo: 'Domande-aperte-Clima-' + ang + '-' + ramo, angle: ang, tipo: 'open',
+        items: [1, 2, 3].map(i => ({ domanda: 'Domanda ' + ang + ' ' + ramo + ' n' + i, ramo: ramo, livello: 'base' }))
+      });
+    });
+  });
+  return SC.poolDaFogli(fogli);
+}
+
+test('scelta: join campiona per studente, stato, finish con profilo, close con report', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-'));
+  const roster = mkRoster(2);
+  const pool = sceltaPool();
+  assert.strictEqual(pool.length, 12);
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta', scelta: { minimo: 1, minimoAree: 1 } },
+    roster, questions: pool
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+
+  // la sessione dichiara modalità e config
+  const sess = await api('/api/session?s=' + tok);
+  assert.strictEqual(sess.body.mode, 'scelta');
+  assert.strictEqual(sess.body.scelta.minimo, 1);
+
+  // join → pool campionato: 2 rami × 2 angoli = 4 domande, zero angoli a bordo
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(j.status, 200);
+  assert.strictEqual(j.body.pool.length, 4);
+  j.body.pool.forEach(v => {
+    assert.strictEqual(v.angle, undefined, 'l\'angolo non deve mai uscire dal server');
+    assert.strictEqual(v.giusta, undefined);
+    assert.strictEqual(v.foglio, undefined);
+  });
+  const ids = j.body.pool.map(v => v.id);
+
+  // rientro: le SUE domande, identiche (la scelta è persistita, non ricalcolata)
+  const j2 = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.deepStrictEqual(j2.body.pool.map(v => v.id), ids);
+
+  // stato: aree, fase, letture (anche su una domanda NON presa) e risposte
+  const st = await api('/api/stato', {
+    method: 'POST', body: JSON.stringify({
+      token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1',
+      stato: {
+        aree: ['Oceani', 'INVENTATA'], fase: 'rispondi',
+        letture: { [ids[0]]: { chip: 'subito' }, [ids[1]]: { chip: 'niente' }, 'id-finto': { chip: 'subito' } },
+        risposte: { [ids[0]]: { testo: 'la mia risposta' } },
+        note: 'ho scelto quelle che ricordavo'
+      }
+    })
+  });
+  assert.strictEqual(st.status, 200);
+  assert.strictEqual(st.body.conteggio.scritte, 1);
+  assert.strictEqual(st.body.conteggio.lette, 2);
+  assert.strictEqual(st.body.conteggio.spente, 1);
+
+  // sul disco: niente aree inventate, niente id fuori dal pool servito
+  const suDisco = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
+  assert.deepStrictEqual(suDisco.stato.aree, ['Oceani']);
+  assert.strictEqual(Object.keys(suDisco.stato.letture).length, 2);
+
+  // /api/answer non è la strada di questa attività
+  const ans = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, text: 'x' }) });
+  assert.ok(ans.status >= 400);
+
+  // consegna → il profilo (che PARLA di angoli) esce solo ora
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.status, 200);
+  assert.strictEqual(fin.body.reveal, true);
+  assert.ok(fin.body.profilo.righe.length >= 2);
+  assert.strictEqual(fin.body.profilo.conteggio.scritte, 1);
+  assert.deepStrictEqual(fin.body.profilo.aree, ['Oceani']);
+
+  // un secondo allievo: il campionamento è per identità
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'panda', num: '00', deviceId: 'd2' }) });
+
+  // chiusura → report + results
+  const cl = await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  assert.strictEqual(cl.status, 200);
+  const res = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+  assert.strictEqual(res.mode, 'scelta');
+  assert.strictEqual(res.joined, 2);
+  assert.strictEqual(res.consegnato, 1);
+  assert.ok(res.aree.length >= 2, 'il calore delle aree');
+  assert.ok(res.angoli.length >= 2, 'il calore dei tagli');
+  const mio = res.byStudent.find(a => a.id === 'volpe-00');
+  assert.strictEqual(mio.risposte.length, 1);
+  assert.ok(mio.risposte[0].angle, 'nel report l\'angolo c\'è (al docente serve)');
+  assert.strictEqual(mio.spenti.length, 1);
+  assert.ok(fs.existsSync(path.join(dir, 'report-scelta.html')));
+
+  const rep = await fetch('http://127.0.0.1:' + port + '/api/report?admin=' + admin + '&which=scelta');
+  assert.strictEqual(rep.status, 200);
+  await srv.stop();
+});
+
+test('scelta: reveal OFF → alla consegna nessun profilo', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-nr-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta', scelta: { reveal: false } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(fin.body.reveal, false);
+  assert.strictEqual(fin.body.profilo, null);
+  await srv.stop();
+});
+
+test('scelta: la pagina studente e i suoi moduli sono serviti', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-st-'));
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta' },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const tok = srv.state().session.token;
+  const r = await fetch('http://127.0.0.1:' + port + '/', { redirect: 'manual' });
+  assert.strictEqual(r.status, 302);
+  assert.ok(r.headers.get('location').indexOf('/public/live/scelta.html?s=' + tok) === 0, r.headers.get('location'));
+  for (const f of ['/public/live/scelta.html', '/public/js/mappai-scelta-core.js', '/public/js/mappai-scelta-view.js']) {
+    assert.strictEqual((await fetch('http://127.0.0.1:' + port + f)).status, 200, f);
+  }
+  await srv.stop();
+});
+
+test('scelta: la coda dopo la consegna non annulla la consegna, e l\'evitata è pubblica', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-pn-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta', scelta: { minimo: 1, minimoAree: 1, perche_no: true, secondo_giro: true } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  const id0 = j.body.pool[0].id;
+  await api('/api/stato', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', stato: { risposte: { [id0]: { testo: 'ok' } } } }) });
+
+  const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.ok(fin.body.evitata, 'con perche_no acceso arriva una domanda evitata');
+  assert.strictEqual(fin.body.evitata.giusta, undefined, 'la soluzione non deve arrivare al telefono');
+  assert.strictEqual(fin.body.evitata.foglio, undefined);
+  assert.ok(fin.body.evitata.testo && fin.body.evitata.id);
+
+  // la nota del «perché no?» si scrive DOPO la consegna: non la annulla
+  await api('/api/stato', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', dopoConsegna: true, stato: { risposte: { [id0]: { testo: 'ok' } }, evitata: { id: fin.body.evitata.id, why: 'non la capivo' } } }) });
+  const stt = await api('/api/status?admin=' + admin);
+  assert.strictEqual(stt.body.roster[0].finished, true, 'la consegna resta');
+  assert.strictEqual(stt.body.roster[0].answered, 1, 'la dashboard conta le risposte SCRITTE');
+
+  // senza il flag, salvare vuol dire aver ripreso a lavorare
+  // (lo stato viaggia INTERO: il client rimanda anche l'evitata già scritta)
+  await api('/api/stato', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', stato: { risposte: { [id0]: { testo: 'ok2' } }, evitata: { id: fin.body.evitata.id, why: 'non la capivo' } } }) });
+  assert.strictEqual((await api('/api/status?admin=' + admin)).body.roster[0].finished, false);
+
+  // /api/my-result non esiste in questa modalità
+  assert.strictEqual((await api('/api/my-result?s=' + tok + '&emojiKey=volpe&num=00&deviceId=d1')).status, 404);
+
+  await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  const res = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+  assert.strictEqual(res.byStudent[0].evitata.why, 'non la capivo', 'il «perché no?» arriva nel report');
+  assert.ok(res.byStudent[0].evitata.testo);
+  await srv.stop();
+});
+
+test('scelta: ripresa senza il pool → non parte, invece di consumare le risposte', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-rip-'));
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta' },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/stato', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', stato: { risposte: { [j.body.pool[0].id]: { testo: 'RISPOSTA IMPORTANTE' } } } }) });
+  await srv.stop();
+
+  // il file delle domande sparisce (disco, sincronizzazione, scrittura a metà)
+  fs.unlinkSync(path.join(dir, 'questions.json'));
+  assert.throws(() => createLiveServer({ repoRoot, dir }), /irrecuperabile/);
+  // e la risposta è ancora lì
+  const st = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
+  assert.ok(JSON.stringify(st.stato.risposte).indexOf('RISPOSTA IMPORTANTE') >= 0);
+});

@@ -3125,7 +3125,9 @@
     return tot ? hit / tot : 0;
   }
   // Scoring risposta aperta (produzione): coverage AI 0-100 se c'è chiave, altrimenti fallback deterministico.
-  // Riproduce il pattern di ActiveStudy.scoreDesc (BES/DSA, JSON {accuracy, feedback}). Ritorna {ok, acc, feedback}.
+  // Riproduce il pattern che era in ActiveStudy.scoreDesc (BES/DSA, JSON
+  // {accuracy, feedback}; quella modalità è in pensione dal 20/8, il pattern no).
+  // Ritorna {ok, acc, feedback}.
   function _scoreOpen(student, q) {
     student = String(student || '').trim();
     if (!student) return Promise.resolve({ ok: false, acc: 0, feedback: 'Nessuna risposta.' });

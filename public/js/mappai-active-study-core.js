@@ -7,7 +7,7 @@
  *
  * API: window.MappAIActiveStudyCore = { normalizeText, levenshtein, similarity,
  *      labelMatches, wordTokens, jaccardWords, lcsLength, sequenceScore,
- *      answerMatches, pickDistantBranchIndex, rateFromSeconds }
+ *      answerMatches, rateFromSeconds }
  *
  * Caricare in index.html PRIMA di mappai-active-study.js e mappai-study-session.js.
  */
@@ -119,16 +119,6 @@
     }
 
     // mode 5: indice del ramo lessicalmente PIÙ DISTANTE dal testo della foglia
-    // (min Jaccard) — un intruso semanticamente plausibile punirebbe risposte difendibili.
-    function pickDistantBranchIndex(leafText, branchTexts) {
-        if (!branchTexts || !branchTexts.length) return -1;
-        let best = 0, bestScore = Infinity;
-        branchTexts.forEach((t, i) => {
-            const s = jaccardWords(leafText, t);
-            if (s < bestScore) { bestScore = s; best = i; }
-        });
-        return best;
-    }
 
     // Fluenza per-item: da secondi impiegati a item/min, cap 30 (anti-click istantaneo).
     function rateFromSeconds(sec) {
@@ -138,6 +128,5 @@
     }
 
     return { normalizeText, levenshtein, similarity, labelMatches, wordTokens,
-        jaccardWords, lcsLength, sequenceScore, answerMatches,
-        pickDistantBranchIndex, rateFromSeconds };
+        jaccardWords, lcsLength, sequenceScore, answerMatches, rateFromSeconds };
 });

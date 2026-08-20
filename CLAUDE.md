@@ -1,7 +1,32 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **19 agosto 2026, sera** — nascono le **attività «a scelta»**: lo
+> Ultimo aggiornamento: **20 agosto 2026** — le attività «a scelta» sono **complete**, e lo
+> Studio attivo **non smonta più la mappa**. Sei fasi su sei: la **Live** (D), il **guscio
+> in-app** (E) e la **PENSIONE** (F) delle sette modalità del canvas e del Cloze —
+> `mappai-active-study.js` da **1832 a 190 righe**, via `session`, `emergencyExit`, lo
+> snapshot del grafo e le **nove guardie** che sei moduli tenevano per non litigare con una
+> sessione attiva; via anche il genere `kind:'cloze'` del player Live e 52 chiavi i18n
+> orfane. **−2315 righe.** Suite **1173/0**, cinque banchi verdi.
+> 📌 La macchina di sicurezza è sparita ed è un GUADAGNO, non un rischio: esisteva perché una
+> modalità smontava il grafo (una gerarchia persa per sempre, 10/7). Le attività di oggi sono
+> modali e leggono i materiali del vault — *quando togli la causa, la difesa diventa peso*.
+> ⚠️ I record già scritti citano `mode: 1..7` e `cloze`: restano leggibili, nessuna migrazione.
+> (Prima, in giornata: le attività «a scelta» hanno un **INGRESSO**:
+> la **Live** (fase D: `mode:'scelta'` nel server, `/api/stato`, `public/live/scelta.html`,
+> il report col calore dei tagli e delle aree, la card nel hub) e il **guscio in-app**
+> (fase E: «Domande a scelta» e «Quiz a scelta» nel launcher di Studio attivo, che LEGGONO
+> i materiali del vault e non generano niente). Cinque fasi su sei; resta la **F**, la
+> pensione delle sette modalità storiche. Revisione avversaria a sei agenti, **21 difetti
+> corretti** — i tre che costavano dati: la consegna annullata a ogni tasto premuto nel
+> «perché no?», la soluzione della domanda evitata mandata al telefono, e una ripresa senza
+> `questions.json` che **cancellava le risposte già su disco**. Il peggiore però non l'ha
+> preso nessun test: il passo ① delle AREE era irraggiungibile, perché `normalizzaStato`
+> riempiva `fase` e quel ripiego rendeva **morto** il ramo che sceglie da dove si parte —
+> *un valore di default scritto in fondo alla catena spegne la decisione che sta in cima.*
+> Suite **1237/0**, cinque banchi verdi, ⚠️ **mai girato in Electron**: la lista di prova è
+> in [`docs/HANDOFF.md`](docs/HANDOFF.md) §5.)
+> (Prima: **19 agosto 2026, sera** — nascono le **attività «a scelta»**: lo
 > studente riceve tutte le domande che la mappa ha prodotto, con l'**angolo nascosto**, e
 > sceglie a quali rispondere. Tre fasi su sei spedite (il box **«Più set per angolo»** nel
 > bento, il **core**, la **superficie a tre passi**); si riprende dalla **fase D** —
@@ -11,7 +36,7 @@
 > quali riaccendono le tue conoscenze** — da lì il campionamento (una domanda per area ×
 > angolo, non trentacinque), i chip che dicono attivazione e non preferenza, e il fatto
 > che il giudizio si dia anche a una domanda che non si prende. Il VERO/FALSO esce dalla
-> pipeline. Lo stato è in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0**.
+> pipeline. Lo stato è in **[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0**.)
 > (Prima: **19 agosto** — il **CARATTERE si sceglie** (Cabina per
 > l'app, ELABORA per il singolo documento; quattro caratteri, tutti locali), e i **SIMBOLI
 > SCIENTIFICI sono cuciti dentro** ognuno di essi: nessuno dei quattro aveva `✓`, l'`Ω` ce
