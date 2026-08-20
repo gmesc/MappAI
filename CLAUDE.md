@@ -1,7 +1,20 @@
 # CLAUDE.md — MappAI Swiss Edition
 > Documento di briefing per Claude Code.
 > Autore: Giacomo Meschini — giacomo@insegnai.ch
-> Ultimo aggiornamento: **20 agosto 2026** — le attività «a scelta» sono **complete**, e lo
+> Ultimo aggiornamento: **20 agosto 2026, sera** — un'**IMMAGINE** produce le domande aperte
+> per angolo e le flashcard. Nasce da docenti di **storia di scuola media**: da una miniatura,
+> un manifesto, una carta si ricavano un testo di **contesto e descrizione** e i fogli, con
+> **l'immagine in testa**. La legge un modello **in casa** (Ollama + `qwen2.5vl`): la foto non
+> lascia il computer. ⚠️ `node-llama-cpp`, il motore locale che l'app ha già per gli NPC,
+> **non fa visione** — misurato, zero simboli `mtmd`/`mmproj` nei binari.
+> 📌 **La decisione che regge tutto**: un modello di visione **descrive bene e contestualizza
+> male**. Fra la lettura e la generazione c'è una **scheda che il docente corregge**, e i due
+> campi sono separati apposta — con un contesto ipotizzato dal modello, sette fogli
+> nascerebbero da una premessa inventata, con l'errore dove nessuno lo cerca. Il taglio nel
+> motore è di **tre righe** (`opts.sorgente` in `generaSet`, a monte del ciclo sui rami): da lì
+> in poi angoli, nomi, archivio e PDF sono quelli di sempre, e le flashcard escono dallo stesso
+> interruttore. Suite **1194/0**, sei banchi, ⚠️ **mai girato in Electron**.
+> (Prima, in giornata: le attività «a scelta» sono **complete**, e lo
 > Studio attivo **non smonta più la mappa**. Sei fasi su sei: la **Live** (D), il **guscio
 > in-app** (E) e la **PENSIONE** (F) delle sette modalità del canvas e del Cloze —
 > `mappai-active-study.js` da **1832 a 190 righe**, via `session`, `emergencyExit`, lo
@@ -11,7 +24,7 @@
 > 📌 La macchina di sicurezza è sparita ed è un GUADAGNO, non un rischio: esisteva perché una
 > modalità smontava il grafo (una gerarchia persa per sempre, 10/7). Le attività di oggi sono
 > modali e leggono i materiali del vault — *quando togli la causa, la difesa diventa peso*.
-> ⚠️ I record già scritti citano `mode: 1..7` e `cloze`: restano leggibili, nessuna migrazione.
+> ⚠️ I record già scritti citano `mode: 1..7` e `cloze`: restano leggibili, nessuna migrazione.)
 > (Prima, in giornata: le attività «a scelta» hanno un **INGRESSO**:
 > la **Live** (fase D: `mode:'scelta'` nel server, `/api/stato`, `public/live/scelta.html`,
 > il report col calore dei tagli e delle aree, la card nel hub) e il **guscio in-app**
@@ -680,6 +693,83 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 ---
 
 ## 11. SESSIONE DI SVILUPPO CORRENTE — PRIORITÀ
+
+### ✅ FATTO (20/8/26, sera): dall'IMMAGINE, le domande aperte per angolo e le flashcard
+Richiesta di **docenti di storia di scuola media**. Stato in
+**[`docs/HANDOFF.md`](docs/HANDOFF.md) §0 punto 0-bis, §2 e §5**; il piano in
+[`docs/PIANO-immagini.md`](docs/PIANO-immagini.md). Qui il perché e le cose trovate misurando.
+Suite **1194/0**, sei banchi verdi, un commit.
+
+**Il flusso**: «Crea un documento» → Domande aperte o Flashcard → «Le genera l'AI» → **«Da che
+cosa: la mappa · un'immagine»** → lettura in casa → **scheda da correggere** → i fogli.
+
+**Tre misure hanno deciso l'architettura, e nessuna era indovinabile.**
+1. **Il motore LLM locale che l'app ha già NON fa visione.** `main_npc_llm.js` gira su
+   node-llama-cpp 3.19: `nm` sui binari dà **zero** simboli `mtmd`/`mmproj`, e negli export non
+   c'è niente per le immagini. Qwen-VL non ci passa. Quindi si parla con **Ollama**, che è un
+   processo a sé — nessun binario nuovo nel pacchetto, e la foto resta comunque sul computer.
+   ⚠️ Ollama era **già installato** sul Mac di Giacomo (`/usr/local/bin/ollama`, server spento).
+2. **HEIC e TIFF non li decodifica nessuno dei due** (né Chromium né llama.cpp, che legge solo
+   jpeg e png). Converte **`sips`**, che è nel Mac: zero dipendenze — ma è **solo macOS**, e
+   fuori di lì il passo **dice perché no** invece di fallire con un errore di libreria.
+3. **`_genFlashcards` ha la stessa firma di `_genOpenQuestions`** (materiale-stringa +
+   etichetta): il taglio per la sorgente esplicita sta **a monte** del ciclo sui rami, quindi
+   copre tutti i generi senza un rigo nei generatori.
+
+**⚠️ LA DECISIONE CHE REGGE TUTTO, ed è la parte riusabile.** Un modello di visione **descrive
+bene e contestualizza male**: su una miniatura dice con precisione «un uomo incoronato, due
+figure inginocchiate» e poi può **inventare** «incoronazione di Carlo Magno, anno 800». Arriva
+nella stessa frase e con lo stesso tono: a valle non si distingue. Costruirci sopra sette fogli
+vuol dire sette verifiche sbagliate, con l'errore **nella premessa**, dove nessuno lo cerca.
+La cura non è un prompt migliore: è **spezzare la risposta in due campi** — `descrizione` (che
+cosa si vede) e `contesto` (che cosa potrebbe essere) — **concedere esplicitamente al modello di
+lasciare il contesto VUOTO** («meglio vuoto che inventato») e mettere il **docente** fra la
+lettura e l'uso. Il contesto di una fonte storica lo sa lui.
+📌 Corollario nel codice: quando la risposta non arriva in forma e si ripiega sul testo nudo,
+quel testo diventa **descrizione** e **mai** contesto — o il ripiego sarebbe il posto da cui
+entra l'invenzione. È la **trappola 49** della guida, e vale per qualunque estrazione da una
+fonte che un modello «riconosce»: un audio, un logo, una firma, una citazione.
+
+**Il taglio nel motore è di TRE righe**: `opts.sorgente = { etichetta, materiale }` in
+`Pipeline.generaSet`, sopra il `for` sui rami, più un `_branchMaterial` che crede a un ramo che
+dichiara il suo materiale. Da lì in poi non cambia niente — angoli, quota d'avvio, titolo con la
+convenzione dei cloni, `buildFileName`, archivio, PDF, righe in ELABORA e in INSEGNA. Un secondo
+generatore avrebbe fatto divergere i **nomi dei file**, cioè ciò da cui INSEGNA riconosce un
+materiale (invariante 6).
+
+**Il foglio PORTA l'immagine**, e due dettagli lo rendono vero:
+- **incorporata, non referenziata**: la finestra che stampa carica l'HTML come `data:` e da lì
+  un `file://` è **bloccato** — è la lezione dei caratteri del 19/8, «l'editor sì, il PDF no»;
+- **l'intro sta DENTRO la sorgente incorporata** (`qp-set`), non solo nella resa: l'editor
+  ricostruisce il foglio da quel JSON, e un'immagine che vivesse solo negli `opts` di chi genera
+  sparirebbe **al primo salvataggio**, senza che nessuno sapesse perché (invariante 18).
+- ⚠️ Sulla copia degli allievi vanno **titolo e contesto, mai la descrizione**: la descrizione
+  dice che cosa si vede, cioè la risposta a metà delle domande. Va in coda, sul foglio delle
+  tracce, dove serve a chi corregge.
+
+**Un difetto PREESISTENTE corretto per strada**: in «Crea un documento» le otto spunte delle
+**angolazioni comparivano anche per le FLASHCARD**, ma `_genFlashcards` l'angolo non lo riceve e
+non l'ha mai ricevuto — otto spunte producevano **otto mazzi identici con otto nomi diversi**
+(«…-causa», «…-conseguenza»), cioè una varietà che nel contenuto non c'è. Il bento di «Genera
+materiali» le escludeva già (`multi: ['open','mc']`); questa strada era rimasta indietro.
+
+**Due cose NON fatte, e dichiarate** (il piano le prevedeva, misurando sono cadute):
+- **l'originale nel vault**: `copySourcesTo` legge `appState.sources`, cioè le fonti di CREA, e
+  l'immagine di questo percorso lì dentro non entra. L'avevo esteso, e l'ho tolto: era codice
+  per una strada che non esiste. Il foglio si porta dentro la sua copia, l'originale ce l'ha il
+  docente;
+- **la riga nel registro consumi**: avrebbe voluto dire toccare `usage-core` e la guardia
+  «niente token, niente riga» del tracker — cioè il percorso dei **costi** — per una riga a costo
+  zero in un cruscotto che parla di spesa.
+
+**Soglie tarate misurando, non a occhio**: lettura a **1600px** di lato lungo (sotto i ~1200 il
+testo di una pagina fitta non si legge più, sopra l'Air si trascina), immagine del foglio a
+**900px in JPEG** (sette angoli portano **sette copie** della stessa foto dentro `localStorage`),
+e `schedaPronta` a **dieci parole** — una soglia alta boccerebbe un contesto **corto ma vero**
+scritto a mano dal docente, che è il caso in cui la scheda vale di più.
+
+**Kill-switch** `mappai_visione`. ⚠️ **Mai girato in Electron**, e serve `ollama pull
+qwen2.5vl:7b` una volta: la lista di prova è in [`docs/HANDOFF.md`](docs/HANDOFF.md) §5, in testa.
 
 ### ✅ FATTO (18-19/8/26): il CARATTERE si sceglie — e i SIMBOLI restano aperti
 Quattro caratteri invece di uno: **Space Mono** (default, monospazio), **TestMe Sans** e
@@ -4842,6 +4932,8 @@ Phase 3 a 8192 (4096×2) con margine futuro. KG Community a ~16000 resta fuori �
 | `mappai_active_discipline` | **Disciplina attiva** (contesto di generazione, 29/7). Scritta dal modale classe+disciplina; vale solo se coerente con la classe attiva (`effectiveDiscipline`). Governa la cartella `Mappe/<classe>/<disciplina>/` | vuoto |
 | `mappai_font_selettore` | **il carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte | ON |
 | `mappai_font_app` | il carattere dell'app, scritto da Cabina › Aspetto e leggibilità | assente = Space Mono |
+| `mappai_visione` | **leggere le immagini col motore locale** (20/8, Ollama + `qwen2.5vl`). `'0'` → il passo «Da che cosa» sparisce da «Crea un documento» | ON |
+| `mappai_visione_model` · `mappai_visione_host` | il modello VL e l'indirizzo del motore | `qwen2.5vl:7b` · `http://127.0.0.1:11434` |
 | `mappai_a11y_everywhere` | `'1'` = **strumenti compensativi ovunque** (comportamento storico). Di default il bottone a11y vive solo nel contesto di lettura — mappa, schede dei nodi, sidebar/Raccoglitore — e fuori di lì gli effetti si sospendono e si ripristinano al rientro | OFF |
 
 **Comandi console:**

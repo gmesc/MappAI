@@ -5,6 +5,8 @@ node tools/smoke/cornice-documenti.js        # testata e piè dei sei documenti
 node tools/smoke/elenchi-elabora-insegna.js  # gli elenchi di ELABORA e INSEGNA
 node tools/smoke/studio-sidebar.js           # le leve della Vista studio
 node tools/smoke/pipeline-lucchetto.js       # il lucchetto e la sentinella della pipeline
+node tools/smoke/scelta-materiali.js         # le attività «a scelta» leggono i materiali
+node tools/smoke/visione-fogli.js            # da un'immagine ai fogli, per angolo
 ```
 
 ⚠️ **`censimento-maniglia-cdp.js` non è di questa famiglia**: vuole l'APP VERA
@@ -56,6 +58,16 @@ sandbox invece che *come* sandbox, quei file esplodono al caricamento.
 - Il DISEGNO della Vista studio: `studio-sidebar.js` fa girare il pannello con un
   DOM finto e legge l'HTML che produce (quali leve, in che ordine, su che
   valore). Che la mappa esca leggibile con quei default si vede solo a schermo.
+- **Il MOTORE di visione**, in `visione-fogli.js`. Il banco parte da una scheda
+  già corretta e prova la catena da lì in giù (materiale → foglio per angolo →
+  archivio → nome del file → giro dell'editor). Restano fuori, apposta:
+  **Ollama** — un banco che dipende da un server esterno fallisce per il motivo
+  sbagliato, e direbbe «rotto» su un computer dove il modello non è installato —
+  **`sips`** e la conversione di HEIC e TIFF, la **superficie** dei passi di
+  «Crea un documento», e il PDF vero. E soprattutto non prova la cosa che conta
+  di più: **se il contesto che il modello propone sia giusto**. Quello lo può
+  dire solo un docente che guarda la sua fonte, ed è il motivo per cui fra la
+  lettura e la generazione c'è una scheda da correggere.
 
 ⚠️ **Un banco può passare per il motivo sbagliato.** È già successo: la prova
 che i `.json` non finissero negli elenchi di INSEGNA girava sulla lista di

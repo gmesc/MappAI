@@ -36,7 +36,9 @@ Le proprietà che lo definiscono più di ogni funzione:
   non nella toolchain.
 
 Che cosa questo progetto NON fa: non manda dati di allievi all'AI se non nelle attività che lo
-dichiarano (Tutor QR) e col provider scelto dal docente; il **misuratore**
+dichiarano (Tutor QR) e col provider scelto dal docente; **le fotografie delle fonti si leggono
+in casa** (Ollama + un modello VL, dal 20/8): una pagina di manuale o il quaderno di un allievo
+non escono dal computer; il **misuratore**
 (repo a sé, cartella sorella `~/Claude/MappAI - misuratore`) è un'app separata *per
 principio* — chi misura l'accessibilità non deve essere chi produce il materiale — e non
 importa nulla da MappAI a runtime: le porzioni riusate sono COPIE dichiarate, sorvegliate
@@ -217,7 +219,9 @@ public/
                              idempotenza — due caricamenti = due ascolti;
                              files-core = i NOMI dei file del vault: `nomeFileSet`,
                              `setsDelVault`, `materialeEstraneo`, `nomeDiceLaMappa`;
-                             usage-core = quote e limiti: `limiteGiornaliero`, `stimaTts`)
+                             usage-core = quote e limiti: `limiteGiornaliero`, `stimaTts`;
+                             visione-core = leggere un'immagine: formati, misure,
+                             prompt e la separazione descrizione/contesto)
   js/mappai-*.js            moduli UI, script globali, caricati dopo app.js
   js/riuso/ (nel misuratore) copie dichiarate, mai import a runtime fra le due app
   js/vendor/                librerie vendorizzate: si lavora OFFLINE, niente CDN a runtime
@@ -248,6 +252,7 @@ in main.js — mai comporre percorsi a mano).
 | `Mappe/<classe>/<materia>/<mappa>/` | **dell'utente** (vault, compatibile Obsidian) | dentro: `Nodi/*.md`, `links.json`, `vista.json`, `Materiale Studio/`, `Allegati/`. La posizione nella gerarchia È il dato classe/materia (invariante 7) |
 | `Mappe/Generico/<mappa>/` | dell'utente | i vault senza classe (15/8). **Nome riservato** (`FilesCore.GENERICO`): chi legge lo ritraduce in «nessuna classe», o diventa una classe fantasma nei chip e nei filtri |
 | `…/<mappa>/vista.json` | dell'app, per-mappa | Vista studio · focus/lenti · timeline · foglio dei nodi: vivevano solo nello snapshot di UN computer. Vuoto = il file non c'è (e uno stantio si toglie) |
+| `<userData>/visione-tmp/` | dell'app, effimera | l'immagine convertita e ridotta prima di andare al modello locale. Si cancella SUBITO dopo la lettura: è lavoro in corso, non un materiale — e sta fuori dal vault, o Obsidian e iCloud la sincronizzerebbero fra i documenti di classe |
 | `Diagnostica/` | dell'app | `errori.jsonl` (dedup 60s, tetto 200, rotazione 1 MB) + `sessione-aperta.json`, il segnaposto che smaschera una chiusura improvvisa al boot dopo |
 | `Allievi/<nome>/Mappe/` | dell'utente | le mappe generate con un allievo attivo vivono QUI, non fra quelle di classe: sono materiale suo |
 | `Classi/<classe>/` | dell'app, rigenerabile | credenziali PDF, riscritte al salvataggio della classe |
@@ -675,6 +680,24 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     risolto perché quiz e sintesi uscivano bene: erano tutti e due Chromium); e un
     simbolo scelto per un foglio va verificato contro il carattere, non dato per
     scontato — `tools/font/copertura-glifi.py` risponde in un secondo.
+
+49. **Un modello che risponde SEMPRE è un modello che inventa quando non sa.**
+    Un modello di visione descrive con precisione ciò che vede e sbaglia con la
+    stessa sicurezza ciò che riconosce: su una miniatura, «un uomo incoronato,
+    due figure inginocchiate» è affidabile, «incoronazione di Carlo Magno, anno
+    800» può essere inventato di sana pianta. E siccome arriva nella stessa
+    frase e nello stesso tono, non c'è modo di distinguerli a valle.
+    La cura non è un prompt migliore: è **spezzare la risposta in due campi**,
+    uno per ciò che si osserva e uno per ciò che si interpreta, concedere
+    esplicitamente al modello di lasciare il secondo VUOTO («meglio vuoto che
+    inventato»), e mettere un umano fra la lettura e l'uso. Chi corregge il
+    contesto di una fonte storica è il docente, non il modello.
+    ⚠️ Corollario nel codice: quando la risposta non arriva in forma e si
+    ripiega sul testo nudo, quel testo va nel campo che si OSSERVA, mai in
+    quello che si interpreta. Il campo che si può inventare non si riempie mai
+    per ripiego — altrimenti il ripiego è il posto da cui entra l'invenzione.
+    📌 Vale per qualunque estrazione da una fonte che il modello «riconosce»:
+    un audio, un logo, una firma, una citazione.
 
 ---
 
