@@ -114,7 +114,14 @@
   }
 
   // Materiale di studio del ramo: nodo + discendenti (label: desc), come il quiz in-app.
+  /* ⚠️ UN RAMO PUÒ DICHIARARE IL SUO MATERIALE (20/8). Serve alle sorgenti che
+     non vengono dalla mappa — oggi una FOTOGRAFIA letta dal motore locale, di
+     cui il materiale è la scheda che il docente ha corretto. Il ramo finto la
+     porta in `_materiale` e qui si crede a lui: senza, `getDescendants` di un
+     id che nella mappa non esiste tornerebbe vuoto e il materiale sarebbe una
+     riga sola col titolo. */
   function _branchMaterial(branch) {
+    if (branch && typeof branch._materiale === 'string') return branch._materiale.slice(0, 12000);
     const kids = (window.getDescendants ? window.getDescendants(branch.id) : []) || [];
     const all = [branch].concat(kids);
     return all.map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n').slice(0, 12000);
@@ -1739,9 +1746,22 @@
     const nome = (CLN && CLN.pulisci) ? CLN.pulisci(opts.nome) : String(opts.nome || '').trim();
 
     /* Su quale materiale: una macro-area sola, o tutte. Il materiale è quello
-       del ramo — nodo più discendenti — come nello step B e come il quiz in-app. */
-    const tutte = _branchNodes();
-    const scelte = (opts.area && opts.area !== 'all')
+       del ramo — nodo più discendenti — come nello step B e come il quiz in-app.
+       ── LA SORGENTE ESPLICITA (20/8) ──────────────────────────────────────
+       `opts.sorgente = { etichetta, materiale }` sostituisce i rami: è la
+       strada di una FOTOGRAFIA letta dal motore locale, il cui materiale è la
+       scheda corretta dal docente. Sta QUI, a monte del ciclo, e non in un
+       secondo generatore, per la ragione di sempre: generare, nominare e
+       archiviare un foglio ha UN proprietario (invariante 6) — la prima cosa a
+       divergere sarebbe il NOME dei file, cioè ciò da cui INSEGNA riconosce un
+       materiale. E siccome il taglio è sopra il `for`, vale per TUTTI i generi:
+       domande aperte e flashcard escono dallo stesso interruttore. */
+    const sorg = opts.sorgente && String(opts.sorgente.materiale || '').trim()
+      ? { id: 'sorgente:esplicita', label: String(opts.sorgente.etichetta || '').trim() || mapName,
+          _materiale: String(opts.sorgente.materiale) }
+      : null;
+    const tutte = sorg ? [sorg] : _branchNodes();
+    const scelte = (!sorg && opts.area && opts.area !== 'all')
       ? tutte.filter(b => b.id === opts.area)
       : tutte;
     if (!scelte.length) return { ok: false, errore: _t('cq_no_area', 'Questa mappa non ha aree da cui generare.') };
@@ -1817,7 +1837,11 @@
            (la dedup dell'archivio è per kind|title|mapName) invece di
            affiancarne una seconda. */
         const titoloDoc = _titoloDoc(spec, nome, mapName);
-        const html = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: angle },
+        /* `intro` = la fonte iconografica da cui il foglio nasce (20/8): il
+           builder la mette in testa E dentro la sorgente incorporata, così
+           l'immagine sopravvive alla riapertura nell'editor. */
+        const html = window.buildOpenQuestionsHtml(
+          { id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: angle, intro: opts.intro || null },
           { mapName, includeBar: false });
         /* La SORGENTE si salva PRIMA della RESA. L'archivio porta l'HTML con
            dentro le domande — è ciò che si riapre e si corregge in ELABORA;

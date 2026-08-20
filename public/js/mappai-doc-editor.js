@@ -244,6 +244,11 @@
             id: set.id || docId,
             title: set.title || doc.title || t('de_oq', 'Domande aperte'),
             kind: 'openq',
+            /* ⚠️ La FONTE ICONOGRAFICA viaggia col documento (20/8): se non la
+               si riprende qui, il primo salvataggio dall'editor riscrive il
+               foglio SENZA l'immagine — e il foglio di domande su una fonte
+               diventa un foglio di domande su niente. */
+            intro: set.intro || null,
             items: DE().normOpenItems(set.items)
         };
         _kind = 'openq';
@@ -1178,7 +1183,7 @@
     function _openqHtml(includeAnswers) {
         const s = _appState();
         return window.buildOpenQuestionsHtml(
-            { id: _doc.id, title: _doc.title, type: 'Domande aperte', items: _doc.items },
+            { id: _doc.id, title: _doc.title, type: 'Domande aperte', intro: _doc.intro || null, items: _doc.items },
             { mapName: (s && s.rootNodeLabel) || '', includeBar: false, includeAnswers: includeAnswers !== false,
               font: _fontCorrente() });
     }

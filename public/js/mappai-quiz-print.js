@@ -403,6 +403,17 @@ window.buildQuizSetHtml = function (set, opts) {
 //
 // Forma degli item: { question, guide?, lines?, l1? }.
 // opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true) }.
+//
+// ── LA FONTE ICONOGRAFICA IN TESTA AL FOGLIO (20/8) ─────────────────────────
+// `set.intro = { fotoB64, mime, titolo, contesto, descrizione }` — quando il
+// foglio nasce da un'IMMAGINE, l'immagine sta sul foglio. Un foglio di domande
+// su una fonte che l'allievo non vede non serve a niente.
+// ⚠️ L'immagine è INCORPORATA, non referenziata: la finestra che stampa carica
+//    l'HTML come `data:` (origine opaca) e da lì un `file://` è bloccato — è la
+//    lezione dei caratteri del 19/8, «l'editor sì, il PDF no».
+// ⚠️ Sul foglio degli allievi vanno TITOLO e CONTESTO, mai la DESCRIZIONE: la
+//    descrizione dice che cosa si vede, cioè la risposta a metà delle domande.
+//    Va in coda, sul foglio delle tracce, dove serve a chi corregge.
 window.buildOpenQuestionsHtml = function (set, opts) {
     opts = opts || {};
     const mapName = opts.mapName || _qpMapName();
@@ -428,6 +439,32 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         if (a.length) return a.slice(0, 2);
         return item.l1 ? [item.l1] : [];
     };
+
+    /* Il blocco della fonte: si emette solo se c'è. `intro` senza foto resta
+       valido (un contesto scritto a mano vale un foglio), ma senza NIENTE non
+       si stampa una cornice vuota. */
+    const intro = (set && set.intro) || null;
+    const introTit = intro ? escHtmlQP(intro.titolo || '') : '';
+    const introCtx = intro ? escHtmlQP(intro.contesto || '') : '';
+    const introFoto = (intro && intro.fotoB64)
+        ? `<img src="data:${intro.mime || 'image/jpeg'};base64,${intro.fotoB64}" alt="${introTit}" style="
+              display:block; max-width:100%; max-height:340px;
+              margin:0 auto 10px; border-radius:8px;">`
+        : '';
+    const introHtml = (intro && (introFoto || introCtx || introTit)) ? `
+        <div style="
+            background:white; border-radius:12px;
+            padding:18px 22px; margin-bottom:18px;
+            border-left:4px solid ${accentColor};
+            page-break-inside:avoid;">
+            ${introFoto}
+            ${introTit ? `<div style="
+                font-size:11px; font-weight:700; text-transform:uppercase;
+                letter-spacing:0.06em; color:${accentColor}; margin-bottom:6px;
+                text-align:center;">${introTit}</div>` : ''}
+            ${introCtx ? `<div style="
+                font-size:13px; color:#334155; line-height:1.6;">${introCtx}</div>` : ''}
+        </div>` : '';
 
     let questionsHtml = '';
     items.forEach((item, idx) => {
@@ -526,10 +563,19 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         badge: items.length + ' domande'
     })}
 
+    ${introHtml}
+
     <div class="oq-section-title">Domande</div>
     ${questionsHtml}
 
     ${includeAnswers ? `<div class="answer-key" style="page-break-before:always;">
+        ${(intro && intro.descrizione) ? `<div style="
+            background:#f8fafc; border-radius:10px; padding:14px 18px; margin-bottom:16px;
+            font-size:12px; color:#334155; line-height:1.6;">
+            <div style="font-weight:900; color:${accentColor}; font-size:11px;
+                text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px;">Che cosa mostra la fonte</div>
+            ${escHtmlQP(intro.descrizione)}
+        </div>` : ''}
         <div class="oq-section-title">Tracce di correzione</div>
         ${_grad.base ? `<div style="font-size:11px; color:#475569; margin:-6px 0 14px;">
             ${_grad.base} domande di avvio (si rispondono con un concetto solo) · ${_grad.ponte} di ponte (ne collegano due o più).
@@ -543,6 +589,12 @@ window.buildOpenQuestionsHtml = function (set, opts) {
            riapre il foglio (l'editor, le attività di studio) deve sapere con
            che taglio è stato generato, e un nome di file si può rinominare. */
         angle: set.angle || '',
+        /* ⚠️ L'INTRO STA NELLA SORGENTE, non solo nella resa (invariante 18).
+           L'editor ricostruisce il foglio da questo JSON (`setFromHtml`): se la
+           fonte iconografica vivesse solo negli `opts` di chi genera, al primo
+           salvataggio dall'editor l'immagine sparirebbe dal foglio — e nessuno
+           saprebbe perché. */
+        intro: set.intro || null,
         items: items
     }).replace(/<\//g, '<\\/')}<\/script>` : ''}
 

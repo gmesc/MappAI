@@ -15,6 +15,9 @@ const npcLlm = require('./main_npc_llm');
 // Logica pura organizzazione file (010): nomi cartelle, gerarchia per-classe,
 // piano migrazione, parsing sessioni. UMD → in Node ritorna module.exports.
 const FilesCore = require('./public/js/mappai-files-core.js');
+// Leggere un'immagine con un modello di visione locale (20/8): formati, misure,
+// prompt e diagnosi dei guasti stanno nel core, qui c'è solo l'I/O.
+const VisioneCore = require('./public/js/mappai-visione-core.js');
 
 let mainWindow;
 let launcherWindow;
@@ -626,6 +629,108 @@ ipcMain.handle('open-external', async (event, url) => {
         return { success: true };
     } catch (err) {
         return { success: false, error: err.message };
+    }
+});
+
+// ===================== VISIONE: leggere un'immagine in casa (20/8) =========
+// Due handler sottili (invariante 19): convertire un file in qualcosa che il
+// modello sappia leggere, e chiedere al motore locale che cosa ci vede.
+// Le regole — quali formati, quanto grandi, che cosa chiedere, come si chiama
+// un guasto — stanno in `mappai-visione-core.js`, provato in Node.
+//
+// ⚠️ PERCHÉ NON `node-llama-cpp`, che il progetto ha già. Misurato il 20/8:
+// nella 3.19 non c'è visione — zero simboli `mtmd`/`mmproj` nei binari e
+// nessun export per le immagini. Il motore degli NPC non può caricare un
+// modello VL. Quindi si parla con **Ollama**, che è un processo a sé: nessun
+// binario nuovo nel pacchetto, e l'immagine non lascia comunque il computer.
+
+const { execFile } = require('child_process');
+
+function _visioneTmpDir() {
+    const d = path.join(app.getPath('userData'), 'visione-tmp');
+    try { fs.mkdirSync(d, { recursive: true }); } catch (e) { /* esiste già */ }
+    return d;
+}
+
+// `sips` è nel Mac e converte HEIC e TIFF, che né Chromium né llama.cpp sanno
+// decodificare. Fuori da macOS non c'è: jpg e png passano letti e basta, gli
+// altri due DICONO perché no invece di fallire con un errore di libreria.
+ipcMain.handle('immagine-prepara', async (event, { path: filePath, quale }) => {
+    try {
+        if (!filePath || typeof filePath !== 'string') return { ok: false, motivo: 'percorso-mancante' };
+        const nome = path.basename(filePath);
+        if (!VisioneCore.accetta(nome)) return { ok: false, motivo: 'formato-non-supportato' };
+
+        let st;
+        try { st = fs.statSync(filePath); }
+        catch (e) { return { ok: false, motivo: 'file-non-trovato' }; }
+        if (!st.isFile()) return { ok: false, motivo: 'file-non-trovato' };
+        if (st.size > VisioneCore.MAX_BYTE_SORGENTE) return { ok: false, motivo: 'troppo-grande' };
+
+        const prep = VisioneCore.preparazione(quale);
+        const serve = VisioneCore.serveConversione(nome);
+
+        // Niente da convertire E già piccola abbastanza? Si legge e basta.
+        // (La riduzione la fa comunque `sips`: una foto da 12 MP mandata intera
+        // al modello è tempo speso per niente.)
+        if (process.platform !== 'darwin') {
+            if (serve) return { ok: false, motivo: 'conversione-non-disponibile' };
+            const b = fs.readFileSync(filePath);
+            return { ok: true, base64: b.toString('base64'), mime: VisioneCore.mimeDi(nome), byte: b.length, convertita: false };
+        }
+
+        const fuori = path.join(_visioneTmpDir(),
+            'v-' + crypto.randomBytes(6).toString('hex') + (prep.formato === 'jpeg' ? '.jpg' : '.png'));
+        await new Promise((risolvi, rifiuta) => {
+            execFile('/usr/bin/sips',
+                ['-Z', String(prep.maxLato), '-s', 'format', prep.formato, filePath, '--out', fuori],
+                { timeout: 60000 },
+                (err) => err ? rifiuta(err) : risolvi());
+        });
+        const buf = fs.readFileSync(fuori);
+        // Il temporaneo si cancella SUBITO: è lavoro in corso, non un materiale,
+        // e una cartella che cresce e basta è già costata una volta (i clip TTS).
+        try { fs.unlinkSync(fuori); } catch (e) { /* pazienza */ }
+        return { ok: true, base64: buf.toString('base64'), mime: prep.mime, byte: buf.length, convertita: true };
+    } catch (err) {
+        return { ok: false, motivo: err.message || String(err) };
+    }
+});
+
+// Il motore risponde? E con quale modello? Timeout corto: questa domanda si fa
+// per DECIDERE che cosa mostrare, non per aspettare.
+ipcMain.handle('visione-locale-stato', async (event, { host } = {}) => {
+    const base = String(host || VisioneCore.HOST_DEF).replace(/\/$/, '');
+    try {
+        const r = await axios.get(base + '/api/tags', { timeout: 1500 });
+        const modelli = ((r.data && r.data.models) || []).map(m => String(m.name || m.model || ''));
+        return { ok: true, acceso: true, modelli };
+    } catch (err) {
+        return { ok: true, acceso: false, modelli: [], motivo: err.message || String(err) };
+    }
+});
+
+// La lettura vera. `stream:false`: una lettura è un risultato, non una
+// conversazione — non c'è niente da mostrare mentre arriva.
+ipcMain.handle('visione-locale', async (event, { base64, prompt, model, host, timeoutMs } = {}) => {
+    try {
+        if (!base64) return { ok: false, motivo: 'immagine-mancante' };
+        const base = String(host || VisioneCore.HOST_DEF).replace(/\/$/, '');
+        const r = await axios.post(base + '/api/generate', {
+            model: String(model || VisioneCore.MODELLO_DEF),
+            prompt: String(prompt || ''),
+            images: [base64],
+            stream: false,
+            options: { temperature: 0.1 }
+        }, { timeout: Number(timeoutMs) > 0 ? Number(timeoutMs) : VisioneCore.TIMEOUT_DEF });
+        return { ok: true, testo: (r.data && r.data.response) || '' };
+    } catch (err) {
+        /* Il motivo va restituito INTERO: è quello che `diagnosi` classifica per
+           dare il rimedio giusto (server spento ≠ modello assente), e sono due
+           cose che arrivano nella stessa forma — un errore di rete. */
+        const d = err && err.response && err.response.data;
+        const testo = (d && (d.error || d.message)) || err.message || String(err);
+        return { ok: false, motivo: testo };
     }
 });
 

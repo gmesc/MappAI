@@ -151,6 +151,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     capturePage: () => ipcRenderer.invoke('capture-page'),
+    // --- VISIONE: leggere un'immagine col motore locale (20/8) ---
+    immaginePrepara: (data) => ipcRenderer.invoke('immagine-prepara', data),
+    visioneLocaleStato: (data) => ipcRenderer.invoke('visione-locale-stato', data || {}),
+    visioneLocale: (data) => ipcRenderer.invoke('visione-locale', data),
     // --- NPC LLM locale (node-llama-cpp) ---
     generateLocalNPC: (data) => ipcRenderer.invoke('generate-local-npc', data),
     generateLocalNPCAction: (data) => ipcRenderer.invoke('generate-local-npc-action', data),

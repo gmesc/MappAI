@@ -1105,7 +1105,74 @@
            col suo velo: senza questo, un click a vuoto lo riporterebbe davanti. */
         var m = document.getElementById('config-ai-modal');
         if (m) m.classList.add('hidden');
+        _rigaVisione(host);
         if (window.safeCreateIcons) window.safeCreateIcons();
+    }
+
+    /* ── IL LETTORE DI IMMAGINI (20/8) ───────────────────────────────────────
+       Una riga che DICE, non una procedura guidata che installa al posto del
+       docente: il motore è un programma a sé (Ollama) e va acceso da lui.
+       Quello che l'app può fare è rispondere a due domande — risponde? ha il
+       modello? — e dare il comando da incollare, che è il rimedio (trappola 38).
+       ⚠️ È l'unico pezzo COSTRUITO di questa vista: gli altri sono gli elementi
+       veri del modale storico, spostati. Questo nasce qui e muore col riquadro,
+       quindi non entra in `_restituisciAi`. */
+    function _rigaVisione(host) {
+        var V = window.MappAIVisione, C = window.MappAIVisioneCore;
+        if (!V || !C || !V.attivo()) return;
+        var box = document.createElement('div');
+        box.className = 'mm-sez';
+        box.style.marginTop = '18px';
+        var stato = document.createElement('p');
+        stato.className = 'mm-testo';
+        stato.textContent = t('cb_vs_chiedo', 'Controllo il motore locale…');
+        /* La forma di una sezione la detta il motore: titolo fuori, contenuto
+           dentro `.mm-sez__c`. Appendere al riquadro invece che al contenuto
+           lascerebbe i pezzi fuori da ogni regola del foglio. */
+        box.innerHTML = '<span class="mm-sez__t">' +
+            _esc(t('cb_vs_t', 'Leggere le immagini (sul tuo computer)')) + '</span>' +
+            '<div class="mm-sez__c"></div>';
+        var dentro = box.querySelector('.mm-sez__c');
+        dentro.appendChild(stato);
+
+        var riga = document.createElement('div');
+        riga.style.cssText = 'display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;';
+        var lab = document.createElement('label');
+        lab.textContent = t('cb_vs_mod', 'Modello');
+        lab.style.cssText = 'font-size:12px; font-weight:700; color:#475569;';
+        var inp = document.createElement('input');
+        inp.className = 'mm-campo';
+        inp.value = V.modello();
+        inp.setAttribute('aria-label', t('cb_vs_mod', 'Modello'));
+        inp.style.cssText = 'max-width:280px;';
+        inp.addEventListener('change', function () {
+            var v = String(inp.value || '').trim();
+            try { if (v) localStorage.setItem('mappai_visione_model', v); } catch (e) { /* niente */ }
+            aggiorna(true);
+        });
+        riga.appendChild(lab); riga.appendChild(inp);
+        dentro.appendChild(riga);
+        host.appendChild(box);
+
+        function aggiorna(forza) {
+            V.disponibile(forza).then(function (st) {
+                if (!st.acceso) {
+                    var d = C.diagnosi('ECONNREFUSED');
+                    stato.textContent = d.messaggio + ' ' + d.rimedio;
+                    return;
+                }
+                if (st.modelli.length && !V.modelloPresente(st)) {
+                    var dm = C.diagnosi('no such model');
+                    stato.textContent = dm.messaggio + ' ' + dm.rimedio;
+                    return;
+                }
+                stato.textContent = t('cb_vs_ok', 'Il motore risponde: le immagini si leggono qui, senza uscire dal computer.');
+            });
+        }
+        aggiorna(true);
+    }
+    function _esc(x) {
+        return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
     function _restituisciAi() {
         if (!_aiSegno || !_aiSegno.parentNode || !_aiPezzi) { _aiSegno = null; _aiPezzi = null; return; }

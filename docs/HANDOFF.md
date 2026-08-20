@@ -23,7 +23,25 @@
 
 ## 0. Le prime cose da sapere
 
-0. **⟵ DA QUI SI RIPRENDE (20/8): le attività «a scelta» sono COMPLETE, sei fasi su sei.**
+0-bis. **⟵ DA QUI SI RIPRENDE (20/8 sera): un'IMMAGINE produce le domande aperte e le
+   flashcard.** Nasce da una richiesta di docenti di **storia di scuola media**: da una
+   fonte iconografica — una miniatura, un manifesto, una carta — si ricavano (1) un testo
+   di **contesto e descrizione** e (2) i fogli di **domande aperte, uno per angolo**, con
+   **l'immagine in testa**, o le **flashcard**.
+   La legge un modello **in casa** (Ollama + `qwen2.5vl:7b`): la foto non lascia il
+   computer. ⚠️ `node-llama-cpp`, il motore locale che l'app ha già per gli NPC, **non fa
+   visione** — misurato, zero simboli `mtmd`/`mmproj` nei binari.
+   ⚠️ **La cosa da non dimenticare**: un modello di visione **descrive bene e
+   contestualizza male**. Fra la lettura e la generazione c'è una **scheda che il docente
+   corregge**, e i due campi sono separati apposta — se il contesto fosse un'ipotesi del
+   modello, sette fogli nascerebbero da una premessa inventata, con l'errore nel punto in
+   cui nessuno lo cerca. Il testo nudo, quando la risposta non arriva in forma, diventa
+   **descrizione** e mai contesto.
+   Il taglio nel motore è **tre righe** (`opts.sorgente` in `Pipeline.generaSet`, a monte
+   del ciclo sui rami): angoli, nomi, archivio, PDF e le righe di ELABORA sono quelli di
+   sempre. ⚠️ **Mai girato in Electron**: la lista è in §5, in testa.
+
+0. **Le attività «a scelta» sono COMPLETE, sei fasi su sei.**
    In `main`: il box **«Più set per angolo»** nel bento (A), il **core** (B), la **superficie
    a tre passi** (C), la **Live** — server `mode:'scelta'`, pagina studente, report, card nel
    hub e in INSEGNA (D) — il **guscio in-app** (E) e la **pensione** delle sette modalità
@@ -112,6 +130,7 @@ node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
 node tools/smoke/pipeline-lucchetto.js            # atteso: TUTTO OK
 node tools/smoke/scelta-materiali.js              # atteso: TUTTO OK
+node tools/smoke/visione-fogli.js                 # atteso: TUTTO OK
 node tools/diagnosi/vault-estranei.js             # sui vault VERI: dice, non tocca
 ```
 I due banchi di `public/dev/` si aprono in un server statico (`python3 -m http.server 8145
@@ -167,6 +186,8 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_domande_scelta` | acceso | le attività **«a scelta»**. `'0'` → via la card dal hub Live, la voce da INSEGNA › Attività LIVE e le due card dal launcher di Studio attivo (le sette modalità storiche restano) |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
+| `mappai_visione` | acceso | **leggere le immagini col motore locale** (20/8). `'0'` → il passo «Da che cosa» sparisce da «Crea un documento» e la riga della Cabina non si monta: tutto torna a partire dalla mappa |
+| `mappai_visione_model` · `mappai_visione_host` | scritti dall'uso | il modello VL (default `qwen2.5vl:7b`) e l'indirizzo del motore (default `http://127.0.0.1:11434`) |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
 | `mappai_tts_model` | assente = `gemini-2.5-flash-preview-tts` | il modello della voce naturale |
 | `mappai_font_selettore` | acceso | il **carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte: esattamente com'era prima della feature |
@@ -1764,6 +1785,38 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 ---
 
 ## 5. Provato in Electron — che cosa è acquisito
+
+### ⏳ DA PROVARE IN ELECTRON — le IMMAGINI, lette in casa (20/8 sera)
+Niente di questo è mai girato nell'app vera: è misurato in 21 test puri e in un banco
+(`tools/smoke/visione-fogli.js`). **Il motore è un programma a sé e va acceso**: Ollama è
+già installato sul Mac di Giacomo, ma serve `ollama pull qwen2.5vl:7b` (~6 GB) una volta.
+In ordine di quanto morde:
+1. **Il motore SPENTO deve dire il rimedio.** Con Ollama chiuso: «Crea un documento →
+   Domande aperte → Le genera l'AI → Da un'immagine» deve rispondere «il motore locale non
+   risponde: apri Ollama e lascialo acceso», non un errore generico. Stessa cosa col
+   modello non installato (il rimedio è il comando da incollare).
+2. **Una fotografia vera di una fonte storica** (una miniatura, un manifesto): la
+   **descrizione** deve essere fedele, e il **contesto** è il campo da guardare col
+   sospetto giusto — è lì che un modello di visione inventa date e nomi. Correggerlo, e
+   verificare che il testo corretto sia quello che finisce nelle domande (non l'ipotesi).
+3. **Un `.heic` dall'iPhone e un `.tiff` da scanner**: `sips` converte, la lettura funziona.
+4. **Tre angoli** → tre PDF nel vault e tre righe in ELABORA, ognuna col nome della fonte e
+   l'angolo. Aprire un foglio: **l'immagine è in testa**, il contesto sotto, le domande
+   dopo. Stamparlo, e controllare che la **descrizione compaia solo sul foglio delle
+   tracce** — sulla copia degli allievi sarebbe la risposta a metà delle domande.
+5. **Il giro dell'editor**: aprire quel foglio in ELABORA → «Modifica» → salvare → **la
+   foto deve esserci ancora**. È il punto in cui un'immagine che viaggiasse solo nella resa
+   sparirebbe in silenzio.
+6. **Dalla stessa scheda, le flashcard**: la voce «Dalla stessa immagine» deve comparire, e
+   non deve rileggere la foto né richiedere di correggere di nuovo il contesto.
+7. **Una foto senza testo** (un paesaggio) e una **pagina di manuale**: nel secondo caso la
+   descrizione deve contenere il testo trascritto, non parlare della pagina.
+8. **Il peso dell'archivio** dopo sette fogli con la stessa foto (Cabina › Gestione
+   cartelle): è `localStorage`, e sette copie della stessa immagine ci vivono dentro.
+9. **Cabina › Impostazioni AI**: la riga «Leggere le immagini» dice se il motore risponde,
+   e cambiare il modello nel campo si ricorda.
+10. `mappai_visione='0'` → il passo «Da che cosa» non compare e «Crea un documento» è
+    esattamente quello di prima.
 
 ### ⏳ DA PROVARE IN ELECTRON — la PENSIONE delle sette modalità (20/8, fase F)
 Questa lista viene prima delle altre: qui non si è aggiunto, si è **tolto**, e ciò che si

@@ -120,7 +120,58 @@
         }).then(function (r) {
             if (!r || !r.azione) return;
             if (r.azione === 'mano') { _aMano(tp); return; }
-            if (r.azione === 'ai') { _passoParametri(tp); }
+            if (r.azione === 'ai') { _passoSorgente(tp); }
+        });
+    }
+
+    /* ── passo 2-bis: da che cosa (20/8) ─────────────────────────────────────
+       Nato da una richiesta di docenti di STORIA di scuola media: da una fonte
+       iconografica — una miniatura, un manifesto, una carta — ricavare le
+       domande aperte con i vari angoli, e le flashcard.
+       ⚠️ Il passo compare SOLO per i due generi chiesti. Su Scelta multipla e
+       Vero/Falso la strada dall'immagine funzionerebbe già (la sorgente
+       esplicita di `generaSet` è a monte del ciclo), ma non è stata chiesta: un
+       ingresso in più senza un bisogno dietro è un bivio che tutti devono
+       leggere e nessuno usa.
+       ⚠️ E se il lettore è spento o non c'è, il passo NON compare: un bivio con
+       una strada sola è una domanda a cui l'utente non può rispondere. */
+    var GENERI_IMMAGINE = ['open', 'flashcards'];
+    function _visione() { return window.MappAIVisione; }
+    function _daImmagine(tp) {
+        var V = _visione();
+        return !!(V && V.attivo() && GENERI_IMMAGINE.indexOf(tp.id) >= 0);
+    }
+    function _passoSorgente(tp) {
+        if (!_daImmagine(tp)) { _passoParametri(tp, null); return; }
+        var V = _visione();
+        var gia = V.schedaCorrente();
+        var voci = [
+            { id: 'mappa', icona: 'map', etichetta: t('cq_src_mappa', 'Dalla mappa'),
+              sotto: t('cq_src_mappa_d', 'Il materiale sono le macro-aree e le loro schede.') },
+            { id: 'img', icona: 'image', etichetta: t('cq_src_img', 'Da un\'immagine'),
+              sotto: t('cq_src_img_d', 'Una fonte iconografica letta sul tuo computer: la leggi, correggi il contesto, e le domande nascono da lì.') }
+        ];
+        /* La scheda già corretta si riusa: chi ha appena fatto le domande aperte
+           e ora vuole le flashcard non deve rileggere la foto né riscrivere il
+           contesto. È l'unica voce che dice un NOME, perché è l'unica che
+           riguarda una cosa che esiste già. */
+        if (gia) {
+            voci.splice(1, 0, { id: 'stessa', icona: 'image', etichetta: t('cq_src_stessa', 'Dalla stessa immagine'),
+                sotto: gia.titolo });
+        }
+        MM().open({
+            titolo: t('cq_src_t', 'Da che cosa'), icona: tp.icona, taglia: 'm', invio: false,
+            sezioni: [{ voci: voci }]
+        }).then(function (r) {
+            if (!r || !r.azione) return;
+            if (r.azione === 'mappa') { _passoParametri(tp, null); return; }
+            if (r.azione === 'stessa') { _passoParametri(tp, gia); return; }
+            if (r.azione === 'img') {
+                V.nuovaScheda().then(function (sch) {
+                    if (!sch) return;              /* annullata: si resta dov'era */
+                    _passoParametri(tp, sch);
+                });
+            }
         });
     }
 
@@ -134,10 +185,18 @@
        Costa: un foglio per angolo, e ogni foglio è una chiamata all'AI per
        ramo. Per questo la stima sta nel modale e si aggiorna mentre si sceglie:
        si decide vedendo quanto costa, non dopo. */
-    function _passoParametri(tp) {
+    function _passoParametri(tp, sch) {
         var aree = _aree();
         var opzAree = [{ valore: 'all', etichetta: t('cq_area_tutta', 'Tutta la mappa') }].concat(
             aree.map(function (a) { return { valore: a.id, etichetta: a.et }; }));
+        /* ── L'ANGOLO NON VALE PER LE FLASHCARD (20/8) ───────────────────────
+           `_genFlashcards` non riceve l'angolo e non l'ha mai ricevuto: le otto
+           spunte producevano otto MAZZI IDENTICI con otto nomi diversi
+           («…-causa», «…-conseguenza»), cioè una varietà che nel contenuto non
+           c'è. Il bento di «Genera materiali» le esclude già dal box «Più set
+           per angolo»; questa strada era rimasta indietro. Comandi inerti sono
+           peggio che assenti (invariante 21). */
+        var conAngoli = tp.id !== 'flashcards';
         /* Gli angoli li dichiara il motore dei quiz (`QUIZ_ANGLES`), non questo
            modale: sono gli stessi del modale «Genera materiali», e una seconda
            lista qui divergerebbe al primo angolo nuovo. */
@@ -151,10 +210,11 @@
             var out = ANG.filter(function (a) { return v['ang_' + a.key]; }).map(function (a) { return a.key; });
             return out;
         }
-        /* La stima: fogli × rami. `area` diversa da «tutta» = un ramo solo. */
+        /* La stima: fogli × rami. `area` diversa da «tutta» = un ramo solo, e
+           una SORGENTE (un'immagine) è un ramo solo per definizione. */
         function stima(v) {
-            var n = scelti(v).length;
-            var rami = (v && v.area && v.area !== 'all') ? 1 : Math.max(1, aree.length);
+            var n = conAngoli ? scelti(v).length : 1;
+            var rami = sch ? 1 : ((v && v.area && v.area !== 'all') ? 1 : Math.max(1, aree.length));
             return { fogli: n, chiamate: n * rami };
         }
 
@@ -162,15 +222,26 @@
             var st = stima(v);
             return {
                 titolo: t('cq_t3', 'Genera con l\'AI'), icona: 'sparkles', taglia: 'm', invio: false,
+                /* ⚠️ Le sezioni `null` si FILTRANO, come i campi: il motore
+                   normalizzerebbe un null in una sezione vuota, che a schermo è
+                   un riquadro senza contenuto e senza motivo. */
                 sezioni: [
-                    {
+                    /* Da un'IMMAGINE non c'è un'area da scegliere: il materiale
+                       è la scheda che si è appena corretta. Al posto del campo
+                       si dice QUALE fonte, che è l'informazione che serve a
+                       riconoscere quello che si sta per generare. */
+                    sch ? {
+                        id: 'che', titolo: t('cq_g_fonte', 'Da quale fonte'),
+                        dati: [{ etichetta: t('vs_titolo', 'Titolo della fonte'), valore: sch.titolo }],
+                        testo: t('cq_fonte_d', 'Le domande nascono dal contesto e dalla descrizione che hai appena confermato.')
+                    } : {
                         id: 'che', titolo: t('cq_g_che', 'Che cosa chiedono'),
                         campi: [
                             { id: 'area', tipo: 'scelta', etichetta: t('cq_area', 'Su quale area'),
                               opzioni: opzAree, valore: (v && v.area) || 'all' }
                         ]
                     },
-                    {
+                    conAngoli ? {
                         id: 'ang', titolo: t('cq_g_ang', 'Angolazioni'),
                         testo: t('cq_ang_d2', 'Che cosa devono chiedere le domande. Ogni angolazione spuntata produce un FOGLIO SUO sullo stesso materiale: è il modo di preparare due versioni della stessa verifica. «Automatico» distribuisce i tipi di ragionamento dentro un foglio solo.'),
                         /* Otto spunte in colonna sono una lista che fa scorrere;
@@ -193,14 +264,15 @@
                                 : t('cq_stima', '{f} fogli · circa {c} chiamate all\'AI')
                                     .replace('{f}', st.fogli).replace('{c}', st.chiamate))
                             : t('cq_stima_zero', 'Nessuna angolazione scelta: spuntane almeno una.')
-                    },
+                    } : null,
                     {
                         id: 'quante', titolo: t('cq_g_quante', 'Quante e come graduate'),
                         /* ⚠️ La lista si FILTRA: un `null` fra i campi non sparisce —
                            `normalizzaCampo` lo trasforma in un campo di testo vuoto
                            senza etichetta, che a schermo è una riga misteriosa. */
                         campi: [
-                            { id: 'quante', tipo: 'numero', etichetta: t('cq_quante', 'Quante domande per area'),
+                            { id: 'quante', tipo: 'numero',
+                              etichetta: sch ? t('cq_quante_f', 'Quante domande') : t('cq_quante', 'Quante domande per area'),
                               valore: (v && v.quante) || 5, min: 1, max: 30, larghezza: 'meta' },
                             /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────
                                Solo per le domande aperte: nei quiz a scelta multipla
@@ -224,7 +296,7 @@
                                   .replace('{es}', _esempioNome(tp)) }
                         ]
                     }
-                ],
+                ].filter(Boolean),
                 /* La stima si aggiorna mentre si sceglie: ridisegnare col valori
                    correnti è la strada che il motore prevede (`__campo`), e
                    rimette il fuoco dov'era. */
@@ -241,15 +313,26 @@
         MM().open(schema(null)).then(function (r) {
             if (!r || r.azione !== 'vai') return;
             var v = r.valori || {};
-            var angoli = scelti(v);
+            var angoli = conAngoli ? scelti(v) : ['auto'];
             if (!angoli.length) {
                 toast(t('cq_no_ang', 'Spunta almeno un\'angolazione: è quella che dice che cosa chiedere.'), 'warning');
-                _passoParametri(tp);   // si riapre com'era: non si perde quello che era già scritto
+                _passoParametri(tp, sch);   // si riapre com'era: non si perde quello che era già scritto
                 return;
             }
             _generaVarianti(tp, {
-                nome: v.nome || '', quantita: v.quante || 5, area: v.area || 'all',
-                base: (v.base != null && v.base !== '') ? v.base : null
+                nome: v.nome || '', quantita: v.quante || 5, area: sch ? 'all' : (v.area || 'all'),
+                base: (v.base != null && v.base !== '') ? v.base : null,
+                /* La sorgente esplicita: `generaSet` la preferisce ai rami della
+                   mappa. Il materiale lo compone il core della visione — un
+                   secondo compositore direbbe un giorno un'altra cosa. */
+                sorgente: sch ? {
+                    etichetta: sch.titolo,
+                    materiale: (window.MappAIVisioneCore ? window.MappAIVisioneCore.materialeDaScheda(sch) : '')
+                } : null,
+                intro: sch ? {
+                    fotoB64: sch.fotoB64 || '', mime: sch.mime || 'image/jpeg',
+                    titolo: sch.titolo || '', contesto: sch.contesto || '', descrizione: sch.descrizione || ''
+                } : null
             }, angoli);
         });
     }
@@ -293,10 +376,20 @@
                docente ha scritto — o, se non ne ha scritto nessuno, di nuovo
                l'angolo: due varianti generate in due momenti diversi devono
                poter convivere nella stessa cartella. */
-            var nome = (opts.nome ? opts.nome + ' - ' : '') + _nomeAng(k);
+            /* ⚠️ DA UN'IMMAGINE, IL NOME LO DÀ LA FONTE (20/8). Senza, tutti i
+               fogli generati da fotografie diverse si chiamerebbero uguale
+               («Domande-aperte-<Mappa>-causa») e il secondo si rifiuterebbe di
+               nascere per nome già preso. Il titolo della fonte è ciò che li
+               distingue, ed è anche ciò che il docente cerca nell'elenco. */
+            var base = opts.nome || (opts.sorgente ? opts.sorgente.etichetta : '');
+            var nome = (base ? base + ' - ' : '') + _nomeAng(k);
+            /* Le flashcard non hanno angolo (vedi `conAngoli`): il suffisso
+               «misto» direbbe una distinzione che nel mazzo non esiste. */
+            if (angoli.length === 1 && !_angoliContano(tp)) nome = base;
             return P().generaSet({
                 tipo: tp.id, nome: nome, quantita: opts.quantita,
-                area: opts.area, angolo: k, base: opts.base
+                area: opts.area, angolo: k, base: opts.base,
+                sorgente: opts.sorgente || null, intro: opts.intro || null
             }).then(function (r) {
                 if (r && r.ok) fatti.push({ angolo: k, r: r });
                 else falliti.push({ angolo: k, errore: (r && r.errore) || t('cq_ko', 'Generazione non riuscita.') });
@@ -321,6 +414,9 @@
         var PC = window.MappAIPipelineCore;
         return (PC && PC.nomeAngolo) ? PC.nomeAngolo(k) : (k === 'auto' ? 'misto' : k);
     }
+    /* Per quali generi l'angolo arriva davvero al prompt. Le flashcard no: la
+       loro generazione non lo riceve (vedi `conAngoli` nel passo 3). */
+    function _angoliContano(tp) { return tp && tp.id !== 'flashcards'; }
 
     /* Che cosa è successo, detto per intero. Con un foglio solo il messaggio
        resta quello di sempre (dove si corregge, dove si stampa); con più fogli
