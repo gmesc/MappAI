@@ -4,7 +4,14 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **19 agosto 2026**. La giornata in una riga: **il CARATTERE
+> Ultimo allineamento: **20 agosto 2026**. La giornata in una riga: **una FOTOGRAFIA
+> diventa un dossier di fonte** — si carica da «Documenti» (autoriconosciuta), la legge
+> Gemini, il docente corregge la **scheda a quattro blocchi** in una superficie di CREA, e
+> ne escono l'analisi in PDF + flashcard + domande aperte + sintesi. In INSEGNA il dossier
+> si **PROIETTA** per la lezione. Prima, in giornata: le attività **«a scelta»** complete
+> (sei fasi su sei, e le sette modalità storiche di Studio attivo in pensione — −2315
+> righe). Otto commit. Dettagli in §0 punti 0-ter, 0-bis e 0.
+> Prima: **19 agosto 2026**. La giornata in una riga: **il CARATTERE
 > si sceglie** — quattro caratteri (Space Mono · TestMe Sans · TestMe Alt · Atkinson
 > Hyperlegible), uno per l'app dalla Cabina e uno per il singolo documento in ELABORA; e
 > **tutti i caratteri sono locali**, mentre fino a stamattina perfino Space Mono arrivava
@@ -49,6 +56,12 @@
      prima si chiede, poi si mostra). A− / A+ scala il corpo (18-40px). La geometria è in
      `mappai-proiezione-core.js`, pura. **La foto PIENA entra in `Allegati/`** del dossier
      alla generazione; i dossier vecchi ripiegano sul JPEG della scheda.
+   · in coda alla giornata, **la sidebar di INSEGNA usa `map` per le MindMap** come
+     ELABORA (erano due glifi per lo stesso genere; i dossier restano `image`, i KG
+     `network`).
+   📌 Il resto del percorso — le foto autoriconosciute da «Documenti», gli output fissi,
+   MM/KG spenti — sta nel punto 0-bis qui sotto, che descrive la stessa pipeline dal
+   caricamento in giù.
    ⚠️ Mai girato in Electron: la lista in §5 in testa. Suite **1202/0**, sei banchi.
 
 0-bis. **Un'immagine produce un DOSSIER DI FONTE (20/8 notte).**
@@ -66,6 +79,10 @@
    spunta e si accende anche dall'editor di ELABORA). Con una foto fra le fonti **MM/KG e
    il campo del tema si DISABILITANO** col perché nel tooltip (inv. 21): il titolo viene
    dalla scheda.
+   ⚠️ Il riconoscimento ha chiuso un difetto LATENTE: `window.handleImageUpload` era GIÀ
+   preso da `mappai-flashcards-sr.js` (le immagini dei nodi), che carica DOPO `app.js` —
+   la funzione delle fonti veniva sovrascritta al boot, e l'`onchange` sarebbe finito
+   sull'uploader sbagliato. Ora si chiama `leggiImmagineSorgente` e non c'è più contesa.
    ⚠️ Le TRE decisioni che reggono tutto:
    · **la separazione osservazione/interpretazione + la REGOLA DELL'APPIGLIO**: un campo
      interpretativo senza « — l'elemento visivo che lo giustifica» viene SCARTATO dalla
@@ -162,9 +179,9 @@
 
 ```bash
 cd "/Users/giacomomeschini/Claude/MappAI re"
-git log --oneline -5                              # 17/8 o più recente in testa
+git log --oneline -5                              # 20/8 o più recente in testa
 git status --short -- public tests tools main.js  # atteso: VUOTO
-node --test tests/                                # atteso: 0 fail (1162 pass al 17/8)
+node --test tests/                                # atteso: 0 fail (1202 pass al 20/8)
 node tools/smoke/cornice-documenti.js             # atteso: TUTTO OK
 node tools/smoke/elenchi-elabora-insegna.js       # atteso: TUTTO OK
 node tools/smoke/studio-sidebar.js                # atteso: TUTTO OK
@@ -226,7 +243,7 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_domande_scelta` | acceso | le attività **«a scelta»**. `'0'` → via la card dal hub Live, la voce da INSEGNA › Attività LIVE e le due card dal launcher di Studio attivo (le sette modalità storiche restano) |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
-| `mappai_visione` | acceso | **le fonti iconografiche** (20/8): il bottone «Immagini» in CREA, i dossier, il passo «Da che cosa» in ELABORA. `'0'` → tutto torna a partire dalla mappa |
+| `mappai_visione` | acceso | **le fonti iconografiche** (20/8): il riconoscimento delle foto dentro «Documenti», la superficie di validazione, i dossier, il passo «Da che cosa» in ELABORA e «Proietta» in INSEGNA. `'0'` → tutto torna a partire dalla mappa |
 | `mappai_error_log` | acceso | il **registro locale degli errori** (15/8) e con esso gli **allarmi di saturazione del cassetto** (16/8). `'0'` → non si registra più niente, né su disco né in memoria; la vista «Segnalazione» resta e mostra il registro vuoto |
 | `mappai_tts_model` | assente = `gemini-2.5-flash-preview-tts` | il modello della voce naturale |
 | `mappai_font_selettore` | acceso | il **carattere scegliibile** (18/8). `'0'` → tutto Space Mono e la vista «Aspetto e leggibilità» resta inerte: esattamente com'era prima della feature |
@@ -237,6 +254,34 @@ sezione. Il cablaggio bento non è più opzionale.
 ---
 
 ## 3. Le superfici, oggi
+
+### LA SCHEDA DELLA FONTE — una superficie, due piè (20/8, terzo giro)
+Lo stesso schema (`MappAIVisione.montaSuperficie`) in due posti, ed è la ragione per cui non
+diverge: in **CREA** prende il posto del form (`#setup-form` si spegne, non si svuota —
+trappola 11) col piè «Non usare questa foto · Usa questa fonte» e i **due box delle
+opzioni** in fondo; in **ELABORA** si monta nella tela col piè degli editor (Salva ·
+Annulla · Crea PDF · Esci) e senza i box, perché lì non si genera.
+- I campi lunghi hanno `cresce: true` → `.mm-campo--cresce`, `field-sizing: content` fra 3 e
+  18 righe. Il tetto è in RIGHE: in pixel mentirebbe al primo cambio di carattere.
+- **ESC chiede sempre**, a tre vie, e la stessa conferma serve «Esci» dell'editor: una
+  domanda sola, due ingressi.
+- ⚠️ L'ascolto di ESC vive sul **documento**: `_pulisciSuperficie` lo sgancia prima di ogni
+  rimontaggio, o ELABORA (che ridisegna la console a ogni scelta) ne accumulerebbe due.
+- Le opzioni escono in `fatta.opzioni` e la pipeline le legge PER TIPO
+  (`angoliPerTipo` · `quantiPerTipo` · `categoriePerTipo`): il bento resta la leva della
+  generazione dalla mappa, la superficie quella del dossier. Nessuna spunta in due posti.
+
+### LA PROIEZIONE — la vista-lezione di un dossier (20/8, terzo giro)
+`mappai-proiezione.js` + `mappai-proiezione-core.js` (puro: `zoomAlPunto`, `clampPan`,
+`adatta`, i corpi 18-40). Si apre da INSEGNA, azione «Proietta», solo sui dossier.
+- Rotellina = zoom **sul puntatore** (il punto sotto il cursore resta fermo), drag = pan con
+  48px sempre dentro, «Adatta» nei due assi, pannellino − · % · + · 100%.
+- La split affianca la **scheda** (bottone) o un set dalle due **tendine**: domande aperte
+  SENZA le righe di risposta, flashcard col fronte e il retro al clic.
+- **Da dove vengono i dati**: scheda e fogli dall'ARCHIVIO (per `mapName`), i set di
+  flashcard dal DISCO del vault (`set-*.json` col marchio `_mappa`), la foto da
+  `Allegati/` col ripiego sul JPEG della scheda. Trappola 17 in azione: due mondi, e qui si
+  attinge a entrambi — su un altro computer la scheda può mancare e la foto no.
 
 ### PIÙ SET PER ANGOLO — il box nel bento di CREA (19/8)
 Vista estesa (combo SHIFT+CTRL+L,K,J,H), riga sua a tutta larghezza sotto `Preset ·
@@ -1470,6 +1515,19 @@ e i suoi L1 diventavano radici. Valeva per **ogni** MindMap, non per una mappa s
 ## 4. I debiti aperti, in ordine di quanto mordono
 
 Verificati sul codice il 13/8: ognuno esiste ancora.
+
+0-A. 🟠 **La scheda della fonte vive in MEMORIA** (`src._scheda`, 20/8). Chiudere CREA
+   o ricaricare l'app a metà validazione perde le correzioni fatte a mano — e quelle sono
+   il lavoro che conta, perché è il contesto che il modello non sa. Non è un guasto
+   quotidiano (la scheda si conferma in un minuto), ma è il caso peggiore che il percorso
+   ha. Rete possibile: uno scarto in `sessionStorage` per `source_id`, ripreso al
+   rimontaggio. Non fatto: si è preferito consegnare il percorso intero e vederlo girare.
+
+0-B. 🟡 **La proiezione dipende dall'ARCHIVIO per la scheda e i fogli.** Su un altro
+   computer un dossier ha la foto (è nel vault) e i set di flashcard (idem), ma la scheda e
+   le domande aperte no: vivono in `localStorage` di chi l'ha creato. Il pannello lo dice
+   invece di mostrarsi vuoto, ma la cura vera è archiviare la scheda **anche** come file nel
+   vault. Vale la pena solo se qualcuno prova a proiettare un dossier ricevuto.
 
 0. ✅ **I SIMBOLI SONO CUCITI DENTRO I CARATTERI (19/8).** Chiuso: i glifi
    scientifici ora ci sono in tutti e quattro, e nessun foglio li perde più.

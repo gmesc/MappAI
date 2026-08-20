@@ -6,7 +6,7 @@ node tools/smoke/elenchi-elabora-insegna.js  # gli elenchi di ELABORA e INSEGNA
 node tools/smoke/studio-sidebar.js           # le leve della Vista studio
 node tools/smoke/pipeline-lucchetto.js       # il lucchetto e la sentinella della pipeline
 node tools/smoke/scelta-materiali.js         # le attività «a scelta» leggono i materiali
-node tools/smoke/visione-fogli.js            # da un'immagine ai fogli, per angolo
+node tools/smoke/visione-fogli.js            # dalla scheda al DOSSIER e ai materiali
 ```
 
 ⚠️ **`censimento-maniglia-cdp.js` non è di questa famiglia**: vuole l'APP VERA
@@ -59,15 +59,22 @@ sandbox invece che *come* sandbox, quei file esplodono al caricamento.
   DOM finto e legge l'HTML che produce (quali leve, in che ordine, su che
   valore). Che la mappa esca leggibile con quei default si vede solo a schermo.
 - **Il MOTORE di visione**, in `visione-fogli.js`. Il banco parte da una scheda
-  già corretta e prova la catena da lì in giù (materiale → foglio per angolo →
-  archivio → nome del file → giro dell'editor). Restano fuori, apposta:
-  **Ollama** — un banco che dipende da un server esterno fallisce per il motivo
-  sbagliato, e direbbe «rotto» su un computer dove il modello non è installato —
-  **`sips`** e la conversione di HEIC e TIFF, la **superficie** dei passi di
-  «Crea un documento», e il PDF vero. E soprattutto non prova la cosa che conta
-  di più: **se il contesto che il modello propone sia giusto**. Quello lo può
-  dire solo un docente che guarda la sua fonte, ed è il motivo per cui fra la
-  lettura e la generazione c'è una scheda da correggere.
+  già corretta e prova la catena da lì in giù: il DOSSIER (grafo dai blocchi →
+  vault → documento «Analisi della fonte» → gli output), le OPZIONI per-tipo
+  (categorie che filtrano i rami, angoli che moltiplicano i set) e il gesto di
+  ELABORA (un foglio per angolo, con l'immagine incorporata).
+  Restano fuori, apposta: **Gemini** — un banco che dipende da un servizio
+  esterno fallisce per il motivo sbagliato, e direbbe «rotto» su un computer
+  senza chiave — **`sips`** e la conversione dell'HEIC, la **superficie** di
+  validazione, la **proiezione** (la sua geometria è in `tests/proiezione-core`)
+  e il PDF vero.
+  ⚠️ E il **testo** del blocco d'angolo delle flashcard è stubbato: vive in
+  `mappai-study-session.js`, che vuole il DOM dell'app. Il banco prova il
+  CABLAGGIO (che `_genFlashcards` lo chiami e lo metta in testa), non le parole.
+  E soprattutto non prova la cosa che conta di più: **se il contesto che il
+  modello propone sia giusto**. Quello lo può dire solo un docente che guarda la
+  sua fonte, ed è il motivo per cui fra la lettura e la generazione c'è una
+  scheda da correggere.
 
 ⚠️ **Un banco può passare per il motivo sbagliato.** È già successo: la prova
 che i `.json` non finissero negli elenchi di INSEGNA girava sulla lista di

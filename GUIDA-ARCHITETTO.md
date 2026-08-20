@@ -273,6 +273,8 @@ node tools/smoke/cornice-documenti.js          # i banchi: moduli VERI, stub min
 node tools/smoke/elenchi-elabora-insegna.js
 node tools/smoke/studio-sidebar.js
 node tools/smoke/pipeline-lucchetto.js
+node tools/smoke/scelta-materiali.js
+node tools/smoke/visione-fogli.js
 node tools/diagnosi/vault-estranei.js          # i VAULT VERI sul disco: dice, non tocca
 npm start                                      # l'app vera (solo Giacomo o CDP)
 npx electron . --remote-debugging-port=9222    # debug remoto: misurare NELL'app vera
@@ -698,6 +700,26 @@ vince», il difetto è nella misura. Questo catalogo vive QUI; HANDOFF.md vi pun
     per ripiego — altrimenti il ripiego è il posto da cui entra l'invenzione.
     📌 Vale per qualunque estrazione da una fonte che il modello «riconosce»:
     un audio, un logo, una firma, una citazione.
+
+50. **Un confronto fra PERCORSI va fatto sulla stessa FORMA** — assoluta o relativa, mai
+    una contro l'altra. `prune_sources` di graphify riceve i file cancellati come percorsi
+    ASSOLUTI e li confronta coi `source_file` del grafo, che sono RELATIVI: non combaciano
+    mai, e la potatura rispondeva **«already clean»** — una frase che suona come un esito e
+    invece è il sintomo. Sessantotto nodi di un modulo pensionato erano ancora nel grafo.
+    È il fratello della trappola 25 (NFC/NFD): due stringhe che *nominano la stessa cosa*
+    non sono due stringhe uguali. Regola: normalizzare **entrambi i lati** prima di
+    confrontare, e diffidare di un «nessuna corrispondenza» che arriva troppo pulito.
+
+51. **Un nome su `window` può essere già preso da un modulo che carica DOPO di te.**
+    `mappai-flashcards-sr.js` definisce `window.handleImageUpload` (le immagini dei nodi) e
+    viene caricato dopo `app.js`: la funzione omonima scritta in `app.js` per le fonti
+    veniva **sovrascritta al boot**, e l'`onchange` dell'input sarebbe finito sull'uploader
+    sbagliato. Il sintomo sarebbe stato «il bottone fa una cosa che non c'entra», senza un
+    errore in console — l'ultima definizione vince e basta.
+    In un progetto a script globali (invariante 5) l'ordine di caricamento **è una
+    dipendenza**: prima di prendere un nome, `grep -rn "window.NOME" public/js`, e preferire
+    un nome che dica il DOMINIO (`leggiImmagineSorgente`) a uno che dica il gesto
+    (`handleImageUpload`) — il gesto lo fanno in tanti.
 
 ---
 

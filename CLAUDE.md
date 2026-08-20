@@ -12,6 +12,9 @@
 > `mappai-proiezione-core.js`), drag, «Adatta», e la split con scheda / domande senza righe
 > / flashcard col retro al clic — per far rispondere per alzata di mano. La foto PIENA
 > entra in `Allegati/`. Suite **1202/0**, ⚠️ mai girato in Electron (HANDOFF §5, 11-14).
+> In coda: le foto si caricano da **«Documenti»** (autoriconosciute — via il bottone
+> «Immagini»), con una foto fra le fonti **MM/KG e il tema si spengono** e gli output del
+> dossier sono **fissi**; e la sidebar di INSEGNA usa `map` per le MindMap come ELABORA.
 > (Prima, in notte: un'immagine produce un **DOSSIER DI
 > FONTE**. Secondo giro della stessa giornata, su decisione di Giacomo: **via Ollama**
 > (restava un programma da installare a mano), la lettura passa a **GEMINI** via
@@ -766,6 +769,24 @@ sottotitolo porta il nome del file) · `de_save` coniata (la barra dell'editor s
 ⚠️ **Un guasto evitato per disciplina**: l'ascolto di ESC della superficie sta sul
 documento — al rimontaggio (ELABORA ridisegna la console) senza pulizia se ne
 accumulerebbero due. `_pulisciSuperficie` è la guardia (trappola 22 in forma di listener).
+
+**In coda alla giornata, tre rifiniture dai rilievi di Giacomo:**
+1. **Le foto entrano da «Documenti», autoriconosciute** dall'estensione: il bottone
+   «Immagini» non esiste più, né nel markup né nel bento. Il riconoscimento sta in
+   `processSourceFile`, PRIMA dell'estrazione testuale — il genere lo dice il file, non un
+   bottone a parte.
+   ⚠️ E ha chiuso un difetto **latente**: `window.handleImageUpload` era **già preso** da
+   `mappai-flashcards-sr.js` (le immagini dei nodi), che carica DOPO `app.js` — la mia
+   veniva sovrascritta al boot e l'`onchange` sarebbe finito sull'uploader sbagliato. Il
+   rinomina in `leggiImmagineSorgente` l'ha risolto per caso, ed è la lezione generale:
+   *prima di prendere un nome su `window`, guardare chi lo prende DOPO di te.*
+2. **Con una foto fra le fonti, MM/KG e il tema si spengono** (inv. 21: il prodotto è il
+   dossier, e il titolo viene dalla scheda). Si ricalcola dai dati a ogni lettura e a ogni
+   rimozione: togli la foto e si riaccendono. E **gli output del dossier sono FISSI** —
+   flashcard + domande aperte + sintesi, niente da spuntare; il box «Output automatici»
+   resta la leva della generazione DALLA MAPPA.
+3. **La sidebar di INSEGNA usa `map` per le MindMap**, come ELABORA: erano due glifi per lo
+   stesso genere, cioè due alfabeti da imparare (i dossier restano `image`, i KG `network`).
 
 ### ✅ FATTO (20/8/26, notte): il DOSSIER DI FONTE — Gemini, la griglia, il box degli output
 Secondo giro della giornata, su tre decisioni di Giacomo: **Gemini al posto di Ollama**

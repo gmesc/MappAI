@@ -835,3 +835,15 @@ portano l'angolo nel nome · sintesi spenta = niente sintesi.
 `tests/proiezione-core.test.js`: lo zoom sul puntatore tiene fermo il punto, il pan non
 perde l'immagine, «adatta» entra nei due assi, i corpi 18-40 coi valori sporchi al default.
 Suite **1202/0**, sei banchi verdi. Mai girato in Electron (HANDOFF §5, punti 11-14).
+
+
+### Coda della giornata (20/8): tre rifiniture dopo la prima demo
+1. **Le foto entrano da «Documenti»**, autoriconosciute dall'estensione — il bottone
+   «Immagini» non esiste più (markup, bento, `addSource`). Il riconoscimento sta in
+   `processSourceFile`, prima dell'estrazione testuale.
+   ⚠️ Ha chiuso un difetto **latente**: `window.handleImageUpload` era già preso da
+   `mappai-flashcards-sr.js`, che carica dopo `app.js` — trappola 51 della guida.
+2. **MM/KG e il tema si spengono** con una foto fra le fonti (inv. 21), e **gli output del
+   dossier sono FISSI**: flashcard + domande aperte + sintesi, niente da spuntare. Il box
+   «Output automatici» resta la leva della generazione dalla mappa.
+3. **La sidebar di INSEGNA usa `map`** per le MindMap come ELABORA.
