@@ -2475,7 +2475,11 @@
       progetti.forEach(function (x) {
         nav.push({
           id: x.id, etichetta: x.nome, attiva: _cons.voce === x.id,
-          icona: x.dossier ? 'image' : (x.type === 'kg' ? 'network' : 'git-merge'),
+          /* stessa icona della sidebar di ELABORA (Giacomo, 20/8): MindMap =
+             `map` — `git-merge` restava da prima che le due console si
+             allineassero, e due sidebar con due glifi per lo stesso genere
+             sono due alfabeti da imparare */
+          icona: x.dossier ? 'image' : (x.type === 'kg' ? 'network' : 'map'),
           /* «NUOVO» = generato in questa sessione e mai ancora aperto. La lista
              è la stessa di ELABORA (`MappAIGen`): il bollino sparisce dai due
              elenchi insieme, al primo clic. */
