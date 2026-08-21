@@ -370,10 +370,21 @@
   }
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
-  function openDashboard() {
-    var url = studentUrl();
-    var qrSrc = qrDataUrl(url);
-    var body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;align-items:start">' +
+  /* ══ LA DASHBOARD HA DUE CASE, MAI DUE COPIE (21/8/26) ═══════════════════
+     Richiesta di Giacomo: mentre il server è in piedi deve poter guardare la
+     mappa. Il modale la copre, quindi la dashboard si STACCA in un pannello
+     fluttuante — è lo stesso gesto che la Lavagna ha dal 12/7
+     (`openFloatingPanel` in collab-teacher): stessa forma, così non si
+     imparano due modi di fare la stessa cosa.
+
+     ⚠️ Si SPOSTA, non si duplica: il corpo usa `id` (`lv-qr`, `lv-rosterlist`,
+     `lv-actions`…) e due host vivi darebbero id ripetuti, con `getElementById`
+     che ne servirebbe uno solo — il roster si aggiornerebbe in una copia e
+     l'altra resterebbe ferma a mentire. Un host per volta: o il modale, o il
+     pannello. (La Lavagna può averne due perché usa CLASSI e tiene l'elenco
+     degli host: là serviva, qui no.) */
+  function dashBodyHtml(url, qrSrc) {
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;align-items:start">' +
       '<div style="text-align:center">' +
       (qrSrc ? '<img id="lv-qr" src="' + qrSrc + '" alt="QR" style="width:210px;height:210px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">'
              : '<div style="color:#b45309;font-size:12px">QR non disponibile</div>') +
@@ -389,12 +400,62 @@
       '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#92400e;margin-top:14px">' +
       t('lv_net_note', 'Rete: usa l\'hotspot del PC o un router d\'aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.') + '</div>' +
       '<div id="lv-actions" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center"></div>';
-    var ov = modal('radio', t('lv_dash_title', 'Sessione live'), body);
+  }
+
+  /* La fase da cui ripartire quando la dashboard cambia casa: senza, staccando
+     durante le domande si tornerebbe a mostrare «Avvia domande». */
+  function _fase() {
+    try { return (LT._lastStatus && LT._lastStatus.session && LT._lastStatus.session.phase) || _curPhase || 'lobby'; }
+    catch (e) { return 'lobby'; }
+  }
+
+  function openDashboard() {
+    _chiudiFloat();                       // una casa per volta
+    var url = studentUrl();
+    var ov = modal('radio', t('lv_dash_title', 'Sessione live'), dashBodyHtml(url, qrDataUrl(url)));
     var qrImg = ov.querySelector('#lv-qr');
     if (qrImg) qrImg.onclick = function () { openQrFull(url); };
     LT._dashOpen = true;
-    renderActions('lobby');
+    renderActions(_fase());
     startPolling();
+  }
+
+  // ── Pannello fluttuante: la stessa dashboard, fuori dal modale ────────────
+  function _chiudiFloat() {
+    var fp = document.getElementById('lv-float-panel');
+    if (fp) fp.remove();
+  }
+  function _staccaDash() {
+    var fase = _fase();
+    LT._dashOpen = false;                 // sposto: non è un'uscita, niente avviso
+    closeModal();                         // ⚠️ ferma anche il polling: si riaccende in fondo
+    _chiudiFloat();
+    var url = studentUrl();
+    var fp = document.createElement('div');
+    fp.id = 'lv-float-panel';
+    fp.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9985;width:min(420px,92vw);' +
+      'max-height:86vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;' +
+      'box-shadow:0 20px 50px -12px rgba(0,0,0,.35)';
+    fp.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef2ff;position:sticky;top:0">' +
+      '<i data-lucide="radio" style="width:16px;height:16px;color:#4f46e5"></i>' +
+      '<span style="flex:1;font-weight:800;font-size:13px;color:#0f172a">' + esc(t('lv_dash_title', 'Sessione live')) + '</span>' +
+      '<button type="button" class="lv-fp-collapse" title="' + esc(t('lv_collapse', 'Riduci')) + '" style="background:none;border:0;cursor:pointer;color:#64748b;font-size:16px;line-height:1;padding:2px 6px">–</button>' +
+      '<button type="button" class="lv-fp-dock" title="' + esc(t('lv_dock', 'Riporta al centro')) + '" style="background:none;border:0;cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 6px">×</button>' +
+      '</div><div class="lv-fp-body" style="padding:14px 16px">' + dashBodyHtml(url, qrDataUrl(url)) + '</div>';
+    document.body.appendChild(fp);
+    if (window.safeCreateIcons) window.safeCreateIcons();
+    var qrImg = fp.querySelector('#lv-qr');
+    if (qrImg) qrImg.onclick = function () { openQrFull(url); };
+    fp.querySelector('.lv-fp-collapse').onclick = function () {
+      var b = fp.querySelector('.lv-fp-body'), btn = fp.querySelector('.lv-fp-collapse');
+      var chiuso = b.style.display === 'none';
+      b.style.display = chiuso ? '' : 'none';
+      btn.textContent = chiuso ? '–' : '+';
+    };
+    fp.querySelector('.lv-fp-dock').onclick = function () { openDashboard(); };
+    renderActions(fase);
+    startPolling();
+    toast(t('lv_staccata', 'Pannello staccato: la mappa è di nuovo utilizzabile.'), 'info');
   }
 
   function renderActions(phase) {
@@ -421,6 +482,12 @@
       html += actBtn('lv-folder', t('lv_folder', 'Apri cartella'), '#f1f5f9', '#334155');
       html += actBtn('lv-end', t('lv_end', 'Chiudi pannello'), '#f1f5f9', '#334155');
     }
+    /* «Stacca» solo quando la dashboard sta nel modale: dentro il pannello
+       fluttuante il gesto inverso è già la × della sua testata. */
+    if (!document.getElementById('lv-float-panel')) {
+      html += (phase === 'closed' ? '' : '<span style="flex:1"></span>') +
+        actBtn('lv-detach', t('lv_detach', 'Stacca'), '#f1f5f9', '#334155');
+    }
     if (phase !== 'closed') { html += '<span style="flex:1"></span>' + actBtn('lv-stop', t('lv_stop', 'Ferma server'), '#f1f5f9', '#64748b'); }
     box.innerHTML = html;
     wire(phase);
@@ -429,6 +496,8 @@
     return '<button type="button" id="' + id + '" style="background:' + bg + ';color:' + fg + ';border:0;border-radius:10px;padding:9px 15px;cursor:pointer;font-weight:700;font-size:12.5px">' + esc(label) + '</button>';
   }
   function wire(phase) {
+    var det = document.getElementById('lv-detach');
+    if (det) det.onclick = _staccaDash;
     var run = document.getElementById('lv-run');
     if (run) run.onclick = function () {
       fetch('http://127.0.0.1:' + LT.info.port + '/api/phase', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: LT.info.adminToken, phase: 'running' }) })
@@ -459,7 +528,7 @@
     if (!confirm(t('lv_stop_confirm', 'Fermare il server? Le risposte restano su disco.'))) return;
     stopPolling();
     if (window.electronAPI.liveStopSession) window.electronAPI.liveStopSession();
-    LT.info = null; closeModal();
+    LT.info = null; closeModal(); _chiudiFloat();
     toast(t('lv_stopped', 'Server fermato — i dati restano nella cartella della sessione'), 'success');
   }
 
