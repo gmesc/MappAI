@@ -609,6 +609,19 @@ test('elenco: valori e comando di aggiunta normalizzati', () => {
     assert.deepStrictEqual(MC.normalizzaCampo({ tipo: 'elenco', etichetta: 'x' }, 0).valori, []);
 });
 
+// ── campo che cresce col testo (21/8) ───────────────────────────────────────
+// Regressione: `normalizzaCampo` costruisce un oggetto NUOVO elencando ciò che
+// sopravvive, e per dieci mesi `cresce` non era in quell'elenco — la scheda
+// della fonte lo dichiarava dal 20/8 e i suoi campi lunghi restavano alti tre
+// righe. Terza proprietà persa così (dopo `gruppo` dei radio e `vociDi`).
+test('cresce: sopravvive alla normalizzazione, e sopravvive due volte', () => {
+    const c = MC.normalizzaCampo({ id: 'desc', tipo: 'area', cresce: true }, 0);
+    assert.strictEqual(c.cresce, true);
+    // idempotenza: open() normalizza e render() rinormalizza (difetto del 2/8)
+    assert.strictEqual(MC.normalizzaCampo(c, 0).cresce, true);
+    assert.strictEqual(MC.normalizzaCampo({ id: 'x', tipo: 'area' }, 0).cresce, false);
+});
+
 test('elenco senza etichetta di aggiunta → avviso (un «+» non dice cosa aggiunge)', () => {
     const v = MC.validaSchema({
         titolo: 'Profilo',

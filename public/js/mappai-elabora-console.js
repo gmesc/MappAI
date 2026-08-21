@@ -2225,8 +2225,21 @@
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
                 var hostAn = _montaHost(box);
                 var V2 = window.MappAIVisione;
-                if (hostAn && V2 && V2.montaSuperficie) {
-                    var docAn = _doc.docAn;
+                /* ⚠️ GUASTO CHE PARLA (21/8): questa era l'unica uscita MUTA
+                   della catena — host o modulo mancante e la tela restava
+                   vuota, senza scheda e senza messaggio («Modifica non fa
+                   niente»). Ora si avvisa e si TORNA dove si era: anteprima
+                   del PDF se c'è, elenco altrimenti. */
+                if (!hostAn || !V2 || !V2.montaSuperficie) {
+                    toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning');
+                    _doc.editing = false;
+                    _voce = _doc.relPath ? ('disk:' + _doc.relPath) : '';
+                    if (!_voce) _doc = null;
+                    rifai();
+                    return;
+                }
+                var docAn = _doc.docAn;
+                try {
                     V2.montaSuperficie(_doc.scheda, {
                         modo: 'editor', host: hostAn,
                         onSalva: function (fatta) {
@@ -2236,13 +2249,23 @@
                             var st2 = _appState();
                             var html2 = window.buildAnalisiFonteHtml(fatta, { mapName: (st2 && st2.rootNodeLabel) || '', includeBar: false });
                             _rifaiPdfAnalisi(html2, (st2 && st2.rootNodeLabel) || '');
-                        }
+                        },
+                        onRigenera: function (fatta) { _rigeneraMateriali(fatta, docAn); }
                     }).then(function (r) {
                         if (r && r.uscita && _doc && _doc.analisiId) {
-                            _doc = null; _voce = '';
+                            /* F4: da un file si torna all'ANTEPRIMA, non al vuoto */
+                            if (_doc.relPath) { _doc.editing = false; _voce = 'disk:' + _doc.relPath; }
+                            else { _doc = null; _voce = ''; }
                             rifai();
                         }
                     });
+                } catch (e) {
+                    console.warn('[ELABORA] superficie analisi:', e);
+                    toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning');
+                    _doc.editing = false;
+                    _voce = _doc.relPath ? ('disk:' + _doc.relPath) : '';
+                    if (!_voce) _doc = null;
+                    rifai();
                 }
                 return;
             }
@@ -2310,7 +2333,16 @@
             return nome;
         }
         function _sporco() {
-            try { return !!(DEd().haDocumento && DEd().haDocumento() && DEd().hasUnsaved && DEd().hasUnsaved()); }
+            try {
+                if (DEd().haDocumento && DEd().haDocumento() && DEd().hasUnsaved && DEd().hasUnsaved()) return true;
+                /* l'editor della SCHEDA (analisi fonte) non passa dal doc-editor:
+                   il suo stato sporco vive nella superficie della visione (③) */
+                var V2 = window.MappAIVisione;
+                if (_doc && _doc.analisiId && _doc.editing && V2 && V2.superficie && V2.superficie.sporca) {
+                    return !!V2.superficie.sporca();
+                }
+                return false;
+            }
             catch (e) { return false; }
         }
         /* ⚠️ `poi` non è mai sincrono quando c'è da chiedere: chi chiama deve
@@ -2350,6 +2382,13 @@
         function _chiudiDocumento() {
             _voce = '';
             _doc = null;                       /* v2: si torna a S1 (per la v1 era già null) */
+            /* la superficie dell'analisi ha un ascolto ESC sul documento: senza
+               questo, chiudere il documento lo lasciava vivo fino al montaggio
+               successivo — ESC sull'elenco vuoto apriva «Chiudere la scheda?» */
+            try {
+                var V2c = window.MappAIVisione;
+                if (V2c && V2c.scordaSuperficie) V2c.scordaSuperficie();
+            } catch (e) { }
             _fermaLettura();
             try { if (DEd().reset) DEd().reset(); } catch (e) { }
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
@@ -2400,8 +2439,19 @@
                Crea PDF · Esci. Lo stato che sopravvive ai ridisegni della
                console è `_doc.scheda` (l'ultimo salvataggio): è il pattern del
                doc-editor, che ridisegna dal proprio stato. */
-            _doc = { id: 'an:' + docId, natura: 'crea', editing: true, analisiId: docId, scheda: scheda, docAn: d };
-            _voce = 'an:' + docId;
+            /* ⚠️ Si MUTA `_doc`, non lo si sostituisce (21/8): la riga arriva
+               dall'anteprima del PDF con `relPath` e `natura:'disk'` — un
+               oggetto nuovo li perdeva, e con essi il ritorno all'anteprima
+               (F4) e il «torna» che invece CHIUDEVA il documento. È il pattern
+               del gemello che funziona (_apriEditorAperte). */
+            if (_doc) {
+                _doc.editing = true; _doc.analisiId = docId;
+                _doc.scheda = scheda; _doc.docAn = d;
+                if (!_doc.id) _doc.id = 'an:' + docId;
+            } else {
+                _doc = { id: 'an:' + docId, natura: 'crea', editing: true, analisiId: docId, scheda: scheda, docAn: d };
+            }
+            _voce = _doc.relPath ? ('disk:' + _doc.relPath) : ('an:' + docId);
             rifai();
         }
         /* Il salvataggio dell'analisi: archivio riscritto (la dedup per
@@ -2419,6 +2469,35 @@
             if (!nuovoId) { toast(t('ec_an_save_ko', 'Salvataggio non riuscito: archivio pieno?'), 'error'); return false; }
             _rifaiPdfAnalisi(html, mappa);
             return true;
+        }
+        /* ── RIGENERA I MATERIALI dalla scheda corretta (21/8, punto 2) ─────
+           Il gesto vive nel piè dell'editor della scheda: salva è già passato
+           (la superficie salva PRIMA di chiamarci), qui si chiede conferma —
+           è una corsa di minuti che SOVRASCRIVE i materiali — e si passa la
+           palla a `Pipeline.rigeneraDossier`, che rifà grafo, analisi,
+           domande/flashcard (B) e sintesi (D) sul vault aperto. */
+        function _rigeneraMateriali(fatta, d) {
+            var P = window.MappAIPipeline;
+            if (!P || !P.rigeneraDossier) {
+                toast(t('ec_rig_no_pipeline', 'La pipeline dei materiali non è caricata.'), 'warning');
+                return;
+            }
+            MM().open({
+                titolo: t('ec_rig_t', 'Rigenerare i materiali?'), icona: 'refresh-cw', taglia: 's', invio: false,
+                sezioni: [{ testo: t('ec_rig_d', 'Domande aperte, flashcard e sintesi si RIFANNO dalla scheda corretta e sovrascrivono i file attuali nel vault. Servono alcune chiamate all\'AI e qualche minuto.') }],
+                azioni: [
+                    { id: 'no', etichetta: t('mm_annulla', 'Annulla') },
+                    { id: 'si', etichetta: t('ec_rig_vai', 'Rigenera'), ruolo: 'primario' }
+                ]
+            }).then(function (r) {
+                if (!r || r.azione !== 'si') return;
+                P.rigeneraDossier(fatta).then(function (esito) {
+                    if (esito && esito.ok) {
+                        toast(t('ec_rig_ok', 'Materiali rigenerati dalla scheda corretta.'), 'success');
+                        rifai();
+                    }
+                });
+            });
         }
         function _rifaiPdfAnalisi(html, mappa) {
             var st = _appState();

@@ -134,7 +134,24 @@
         righe.push(' "critica":{"prova":"…","tace":"…"}}');
         righe.push('');
         righe.push('IDENTITA — che genere di fonte è (manifesto, dipinto, fotografia, vignetta, miniatura, carta, pubblicità), titolo o slogan, autore o firma SE VISIBILI, data o periodo, luogo e lingua, tecnica e supporto (litografia, xilografia, olio, fotografia, offset).');
+        /* ⚠️ LO SLANG NON SI TRADUCE PAROLA PER PAROLA (21/8/26). Su un
+           manifesto americano del '42 «GRIND these HEELS in our WHEELS» è
+           uscito come «macina questi TALLONI»: "heel" lì è slang per
+           «farabutto», e la resa alla lettera ha prodotto una frase senza
+           senso — che poi la sintesi ha ripetuto agli allievi. Lo slogan resta
+           in lingua ORIGINALE; il senso si spiega, e si spiega il gioco di
+           parole se c'è. */
+        righe.push('⚠️ SLOGAN E SCRITTE: trascrivili nella lingua ORIGINALE, alla lettera. Se contengono un modo di dire, un gergo o un gioco di parole, NON tradurli parola per parola: aggiungi fra parentesi tonde che cosa VOGLIONO DIRE, e di\' che è un modo di dire. Se non sei sicuro del senso, lascia solo l\'originale.');
         righe.push('OSSERVAZIONE — solo ciò che si VEDE, concreto e verificabile: "descrizione" (la scena, denotativa); "testo" (ogni scritta trascritta PER INTERO e alla lettera); "iconografia" (simboli, attributi, allegorie); "linguaggioVisivo" (composizione, punto di vista, luce, colore, gerarchia dimensionale, sguardi e gesti); "tipografia" (caratteri, corpo, gerarchia, rapporto testo-immagine).');
+        /* ⚠️ LE FIGURE SI NOMINANO, GLI STEREOTIPI NO (21/8/26). Sullo stesso
+           manifesto le tre teste caricaturali — Hitler, Mussolini, l'imperatore
+           giapponese — sono rimaste «i nemici», e a una il modello ha attribuito
+           di sua iniziativa uno «stereotipo antisemita» che nell'immagine non ha
+           nessun appiglio: una caricatura antigiapponese letta come antiebraica.
+           Due regole, non una: nominare quando il tratto è inequivocabile,
+           e non appiccicare un'etichetta etnica a una figura senza il tratto
+           visivo che la giustifica. */
+        righe.push('⚠️ FIGURE RICONOSCIBILI: se una figura — anche caricaturale — ha tratti INEQUIVOCABILI di un personaggio storico (baffo e ciuffo, mento sporgente e testa rasata, occhiali tondi e uniforme, corona, tiara), NOMINALA in "iconografia" col tratto che la identifica, con un trattino: "Hitler — i baffi e il ciuffo". Se i tratti non bastano, descrivili e basta: non scrivere «i nemici» quando i volti si riconoscono, e non attribuire a una figura uno stereotipo etnico o religioso senza un elemento visivo che lo giustifichi (una caricatura antigiapponese non è una caricatura antisemita).');
         righe.push('INTERPRETAZIONE — che cosa la fonte vuole ottenere: corrente grafica o artistica, committente, destinatario, finalità (informare, celebrare, persuadere, vendere, denigrare), strategie persuasive (appello all\'emozione, autorità, urgenza, noi/loro, semplificazione), diffusione (dove circolava, come, per quanto).');
         righe.push('⚠️ REGOLA DELL\'APPIGLIO: ogni campo di INTERPRETAZIONE deve citare l\'elemento VISIVO che lo giustifica, con un trattino — così: "propagandistica — lo dicono lo slogan in maiuscolo e la figura vista dal basso". Un\'interpretazione che non sai ancorare a qualcosa che si vede NON va scritta: lascia il campo come stringa VUOTA.');
         righe.push('CRITICA — "prova": che cosa questa fonte DIMOSTRA davvero (le intenzioni di chi l\'ha prodotta, non i fatti che rappresenta); "tace": che cosa NON mostra, chi non è rappresentato, da quale parte sta.');

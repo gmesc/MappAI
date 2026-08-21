@@ -247,7 +247,11 @@
   /* ⚠️ Una sola implementazione, in `mappai-generazione.js`: la usano la
      pipeline E le generazioni MM/KG nude. Due copie si sarebbero contese lo
      stesso nodo (`#loading-overlay`) e il suo segnaposto di ritorno. */
-  function _veloNellArea() { if (window.MappAIGen) window.MappAIGen.veloNellArea(); }
+  /* `_veloLibero`: chi lancia la pipeline da FUORI CREA (la rigenerazione del
+     dossier parte da ELABORA) lo alza — il velo resta a tutto schermo invece
+     di sparire dentro `#build-content`, che lì è nascosto (trappola nota). */
+  Pipeline._veloLibero = false;
+  function _veloNellArea() { if (Pipeline._veloLibero) return; if (window.MappAIGen) window.MappAIGen.veloNellArea(); }
   function _veloACasa() { if (window.MappAIGen) window.MappAIGen.veloACasa(); }
   /* `nome` = che cosa si sta creando, per l'indicatore nella barra in alto
      (`mappai-lavori.js`). Il velo lo dice a modo suo («Genero le domande…»);
@@ -750,6 +754,16 @@
       _overlay(_t('mp_step_d', 'Scrivo la sintesi…'));
       const mapName = _mapName();
       const data = await window.MappAISynthesis.runWholeMap({ apiKey, tuned: !!config.tuned, silent: true });
+      /* DOSSIER: la sintesi si apre con la FOTO della fonte (21/8). L'immagine
+         viaggia nei DATI e non negli opts del chiamante, o sparirebbe al primo
+         salvataggio dall'editor (inv. 18). */
+      if (config.dossier && config.dossier.fotoB64) {
+        data.foto = {
+          b64: config.dossier.fotoB64,
+          mime: config.dossier.mime || 'image/jpeg',
+          titolo: config.dossier.titolo || mapName
+        };
+      }
       const v = PC().validateSynthesis(data);
       if (!v.ok) throw new Error('Sintesi: ' + v.error);
       const htmlName = PC().buildFileName('synthesis', null, config.tuned, { mappa: mapName });
@@ -2121,6 +2135,108 @@
       try { if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela(); } catch (e) { }
       _overlay(false);
     }
+  };
+
+  /* ══ RIGENERA I MATERIALI DA UNA SCHEDA CORRETTA (21/8) ═══════════════════
+     Il gesto dell'editor della fonte: il docente corregge la scheda e i
+     materiali si RIFANNO, sovrascrivendo i precedenti. Riusa `run` con
+     `only:['B','D']` su un manifest fresco (uno step `done` non torna
+     `running`: ALLOWED.done = [] — serve un manifest in cui B e D siano
+     ancora `pending`). Precondizioni: la mappa del dossier è APERTA
+     (`activeVaultPath` = quel vault) — B genera dai rami del grafo corrente.
+     Le OPZIONI (angoli, quantità, categorie) vengono dal `pipeline.json` del
+     vault, MAI dalla scheda riletta: `qp-scheda` non le porta (trappola 3
+     della ricognizione). */
+  Pipeline.rigeneraDossier = async function (scheda) {
+    if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return { ok: false }; }
+    const st = _state();
+    const vaultPath = st.activeVaultPath;
+    const VC = window.MappAIVisioneCore;
+    if (!vaultPath || !window.electronAPI || !window.electronAPI.vaultMaterialsList) {
+      _toast(_t('mp_rig_no_vault', 'Apri prima la mappa del dossier: i materiali vivono nel suo vault.'), 'warning');
+      return { ok: false };
+    }
+    if (!VC || !scheda || !VC.schedaPronta(scheda)) {
+      _toast(_t('mp_rig_scheda', 'La scheda è troppo vuota per generare.'), 'warning');
+      return { ok: false };
+    }
+    /* config originale dal manifest del vault: porta quiz/synthesis/classe */
+    let vecchio = null;
+    try {
+      const res = await window.electronAPI.vaultMaterialsList({ vaultPath });
+      vecchio = res && res.manifest;
+    } catch (e) { /* senza manifest si va coi default */ }
+    const base = (vecchio && vecchio.config) || {};
+    const config = Object.assign({}, base, {
+      dossier: scheda,
+      /* default del dossier se il manifest non c'era: gli output sono FISSI
+         (flashcard + domande aperte + sintesi, decisione 20/8) */
+      quiz: base.quiz || { types: ['open', 'flashcards'], perBranch: 3, angle: 'auto' },
+      synthesis: base.synthesis || { audio: false }
+    });
+
+    /* identità e grafo PRIMA di `run` (la sentinella dell'identità scatta sui
+       cambi DURANTE): il grafo del dossier È la scheda. */
+    const vecchiaMappa = st.rootNodeLabel;
+    st.rootNodeLabel = String(scheda.titolo || vecchiaMappa || 'Fonte');
+    const g = VC.nodiDaScheda(scheda);
+    st.db.nodes = g.nodes; st.db.links = g.links;
+    /* i set della pipeline precedente si TOLGONO, o _stepB li accoda ai vecchi */
+    st.db.studySets = (st.db.studySets || []).filter(x => !x || !x._pipeline);
+    try { await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { }
+
+    /* il documento dell'analisi si RIFÀ qui (è roba dello step A, che non
+       rigira): voce d'archivio aggiornata (dedup kind|title|mapName) + PDF
+       sovrascritto nel vault. */
+    try {
+      const htmlAn = window.buildAnalisiFonteHtml(scheda, {
+        mapName: st.rootNodeLabel, includeBar: false,
+        classe: config.className || '', materia: config.disc || ''
+      });
+      if (window.MappAIStudyDocs) {
+        window.MappAIStudyDocs.save({
+          kind: 'analisi', title: 'Analisi della fonte — ' + st.rootNodeLabel,
+          html: htmlAn, mapName: st.rootNodeLabel,
+          cls: config.className || '', disc: config.disc || ''
+        });
+      }
+      const pdfAn = await window.electronAPI.htmlToPdf({ html: htmlAn, options: { landscape: false } });
+      if (pdfAn && pdfAn.ok) {
+        const nomeAn = PC().buildFileName('analisi_fonte', null, config.tuned, { mappa: st.rootNodeLabel });
+        await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'Materiale Studio/' + nomeAn, base64: pdfAn.base64 });
+      }
+    } catch (e) { console.warn('[Pipeline] analisi non rifatta:', e && e.message); }
+
+    /* manifest FRESCO con A già done (i file di A restano quelli di prima) */
+    let manifest = PC().createManifest(config, { now: _now(), vaultPath });
+    manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
+    manifest = PC().stepTransition(manifest, 'A', 'done', { now: _now() });
+    try { if (vecchio && vecchio.steps && vecchio.steps.A && vecchio.steps.A.files) manifest.steps.A.files = vecchio.steps.A.files.slice(); } catch (e) { }
+
+    Pipeline._veloLibero = true;
+    try {
+      await Pipeline.run(config, { only: ['B', 'D'], vaultPath, manifest });
+    } finally {
+      Pipeline._veloLibero = false;
+    }
+
+    /* titolo cambiato = file nuovi con nome nuovo: i VECCHI di B e D si
+       portano nel Cestino (deleteVaultFile passa da shell.trashItem), o
+       resterebbero accanto ai nuovi come materiali fantasma. */
+    if (vecchio && vecchiaMappa && vecchiaMappa !== st.rootNodeLabel &&
+        window.electronAPI.deleteVaultFile) {
+      const vecchiFile = ['B', 'D'].reduce(function (a, k) {
+        const f = vecchio.steps && vecchio.steps[k] && vecchio.steps[k].files;
+        return a.concat(f || []);
+      }, []);
+      const vecchioAn = 'Materiale Studio/' + PC().buildFileName('analisi_fonte', null, base.tuned, { mappa: vecchiaMappa });
+      vecchiFile.push(vecchioAn);
+      for (const rel of vecchiFile) {
+        try { await window.electronAPI.deleteVaultFile({ vaultPath, relPath: rel }); } catch (e) { }
+      }
+    }
+    try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vaultPath }); } catch (e) { }
+    return { ok: true };
   };
 
   window.MappAIPipeline = Pipeline;

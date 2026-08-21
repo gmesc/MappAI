@@ -768,6 +768,25 @@
             : (data.whole
                 ? _wholeBodyHtml(data, 'print')
                 : _senzaRichiami(_mdToHtml(data.rawText, 'print')) + _coda());
+        /* ── L'IMMAGINE DI RIFERIMENTO (dossier di fonte, 21/8) ─────────────
+           Una sintesi che nasce da una fonte iconografica si apre con la FOTO:
+           il testo parla di ciò che si vede, e senza l'immagine accanto va
+           letto a memoria. Larghezza dichiarata in CENTIMETRI (max 15) perché
+           la misura che conta è quella sul FOGLIO — in px sarebbe tarata sullo
+           schermo e in stampa uscirebbe a caso.
+           Sta DENTRO .bs-body: così l'editor documenti la legge come blocco
+           `raw` e la conserva al salvataggio, invece di perderla al primo
+           ritocco del testo. */
+        const foto = data.foto || null;
+        const fotoHtml = (foto && foto.b64)
+            ? '<figure class="bs-fonte">'
+                + '<img src="data:' + _escBS(foto.mime || 'image/jpeg') + ';base64,' + String(foto.b64).replace(/[^A-Za-z0-9+/=]/g, '') + '"'
+                + ' alt="' + _escBS(foto.titolo || data.branchLabel || '') + '">'
+                + '<figcaption>' + _escBS(foto.didascalia
+                    || (window.t('bs_fonte_cap', 'Fonte iconografica analizzata') + (foto.titolo ? ' — ' + foto.titolo : '')))
+                + '</figcaption>'
+              + '</figure>'
+            : '';
         const kindLabel = data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
             : 'Sintesi di ramo';
@@ -855,6 +874,16 @@
         .bs-body ul { margin:0 0 10px 18px; padding:0; }
         .bs-body li { font-size:calc(11px * var(--ap-txt-k)); line-height:1.7; color:#334155; margin-bottom:4px; }
         .bs-body sup { color:${accentColor}; font-weight:bold; }
+        /* Immagine di riferimento: 15cm di larghezza massima (misura del foglio,
+           non dello schermo), centrata, con la didascalia sotto. Non si spezza
+           fra due pagine. */
+        .bs-fonte { margin:0 0 22px; padding:0; text-align:center; break-inside:avoid; page-break-inside:avoid; }
+        /* Larghezza e altezza sono TETTI, non misure imposte: con width:100%
+           il tetto d'altezza della stampa schiacciava il ritratto del 9%
+           invece di rimpicciolirlo. Cosi' le proporzioni le tiene il
+           browser, e un'immagine piccola non viene ingrandita sfocata. */
+        .bs-fonte img { display:block; width:auto; height:auto; max-width:min(15cm, 100%); margin:0 auto; border-radius:8px; }
+        .bs-fonte figcaption { margin-top:8px; font-size:calc(9px * var(--ap-txt-k)); color:#64748b; line-height:1.5; }
         .bs-citations { margin-top:20px; padding-top:14px; border-top:1px solid #e2e8f0; }
         .bs-citations-title { font-size:calc(9px * var(--ap-txt-k)); font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#94a3b8; margin-bottom:10px; }
         .bs-cite-row { display:flex; gap:8px; padding:6px 0; border-bottom:1px solid #f1f5f9; }
@@ -1056,6 +1085,26 @@ ${_bsPie(data.mapName)}
             .mm-dh__s, .mm-dh__c, .mm-dh__b { font-size: calc(var(--ap-pt) * 0.909); }
             .bs-cite-num, .bs-cite-text { font-size: calc(var(--ap-pt) * 0.909); }
             .bs-citations-title, .bs-footer { font-size: calc(var(--ap-pt) * 0.818); }
+            .bs-fonte figcaption { font-size: calc(var(--ap-pt) * 0.818); }
+            /* ⚠️ TESTATA E IMMAGINE SULLO STESSO FOGLIO (21/8/26). L'area
+               stampabile di un A4 con questi margini è alta 252mm: la testata a
+               taglia piena ne prendeva 32,7 e la figura 228,1 — 260,8 in tutto,
+               cioè 9mm di troppo, e l'immagine scivolava a pagina 2 lasciando
+               la prima quasi vuota. Due leve, non una:
+                 · la testata si stringe (titolo da 1,818 a 1,4 del corpo,
+                   sottotitolo e pillole a 0,77, meno respiro sotto);
+                 · l'immagine dichiara un TETTO DI ALTEZZA, o un ritratto molto
+                   stretto tornerebbe a sfondare anche con la testata piccola —
+                   i 15cm di larghezza non dicono nulla sull'altezza.
+               Vale SOLO dove la figura c'e' (body:has(.bs-fonte)): le sintesi
+               senza fonte iconografica tengono la testata di sempre. */
+            body:has(.bs-fonte) .mm-dh { padding:0 0 6px; margin-bottom:10px; break-after:avoid; page-break-after:avoid; }
+            body:has(.bs-fonte) .mm-dh__t { font-size: calc(var(--ap-pt) * 1.4); }
+            body:has(.bs-fonte) .mm-dh__s,
+            body:has(.bs-fonte) .mm-dh__c,
+            body:has(.bs-fonte) .mm-dh__b { font-size: calc(var(--ap-pt) * 0.77); }
+            .bs-fonte { margin-bottom:16px; }
+            .bs-fonte img { max-height: 200mm; }
             /* La veste ad alta leggibilità resta proporzionale al corpo di
                stampa, non ai px dello schermo: 1,5× e 2× di TREDICI punti. */
             body.ap-dys .bs-body p, body.ap-dys .bs-body li { font-size: calc(var(--ap-pt) * 1.364 * var(--ap-scala)); }
@@ -1104,7 +1153,7 @@ ${_bsPie(data.mapName)}
     <div id="ap-riga" class="no-print" aria-hidden="true"></div>
 
     ${_bsTestata(data, kindLabel, now)}
-    <div class="bs-body">${audioTag}${cuesTag}${contentHtml}</div>
+    <div class="bs-body">${audioTag}${cuesTag}${fotoHtml}${contentHtml}</div>
     <div class="bs-footer no-print">MappAI by insegnai.ch · ${now}</div>
     <script>
     (function(){

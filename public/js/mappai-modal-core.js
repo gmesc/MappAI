@@ -101,6 +101,17 @@
             /* i radio si escludono a vicenda DENTRO il loro gruppo: perderlo
                qui significava un solo gruppo per tutto il modale (audit 31/7) */
             gruppo: c.gruppo ? String(c.gruppo) : '',
+            /* `cresce`: l'area si adatta al suo testo (`mm-campo--cresce`,
+               field-sizing fra 3 e 18 righe). ⚠️ Terza volta che un campo si
+               perde QUI: questa funzione costruisce un oggetto nuovo ELENCANDO
+               ciò che sopravvive, quindi ogni proprietà nuova che nessuno
+               aggiunge a questa lista viene scartata in silenzio — chi scrive
+               lo schema la vede nel suo codice, chi disegna non la riceve mai.
+               Era già successo col `gruppo` dei radio (audit 31/7) e con
+               `vociDi()` (5/8). Qui il costo: la scheda della fonte dichiarava
+               `cresce: true` dal 20/8 e i suoi tredici campi lunghi sono sempre
+               rimasti alti tre righe, col testo che scorreva dentro. */
+            cresce: !!c.cresce,
             aiuto: c.aiuto ? String(c.aiuto) : '',
             obbligatorio: !!c.obbligatorio,
             larghezza: c.larghezza || 'piena',   // piena | meta | breve

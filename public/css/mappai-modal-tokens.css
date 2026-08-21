@@ -2350,3 +2350,49 @@ th[aria-sort="descending"] {
 #pj-overlay .pj-carta:focus-visible { outline: 2px solid #7c3aed; }
 #pj-overlay .pj-retro { margin-top: .5em; padding-top: .5em; border-top: 1px dashed #cbd5e1; color: #334155; }
 @media (max-width: 900px) { #pj-overlay .pj-corpo { flex-direction: column; } #pj-overlay .pj-mat { border-left: none; border-top: 4px solid #334155; } }
+
+/* ══ LA SCHEDA DELLA FONTE COME EDITOR (21/8/26) ═══════════════════════════
+   La superficie della visione (validazione in CREA · correzione in ELABORA)
+   porta i comandi in una barra IN ALTO, nella veste dei quattro editor
+   (`.de-bar`, foglio di mappai-doc-editor.js). Qui vivono solo le tre regole
+   che il riuso richiede — la veste NON si riscrive.
+   ⚠️ A scorrere è il BOX (`.mm-box{overflow-y:auto}`), non il corpo: quindi la
+   barra resta ferma con `sticky`, non perché sta fuori da un'area scrollata. */
+.vs-superficie > .de-bar {
+    position: sticky;
+    /* ⚠️ `top: 0` NON basta: per un elemento sticky lo zero è il bordo del
+       PADDING box del contenitore che scorre, quindi la barra si fermava 22px
+       più in basso e il testo scorreva scoperto in quella striscia. Il tetto è
+       il padding, in negativo — così aderisce al bordo del riquadro. */
+    top: calc(var(--mm-pad) * -1);
+    z-index: 5;
+    /* a filo dei bordi come negli altri editor: il box ha il suo imbottitura,
+       la barra la annulla invece di rientrare di 24px */
+    margin: calc(var(--mm-pad) * -1) calc(var(--mm-pad) * -1) var(--mm-gap);
+    border-radius: var(--mm-r-box) var(--mm-r-box) 0 0;
+}
+/* Il distruttivo in barra: grigio a riposo, rosso al passaggio e col fuoco —
+   è la veste del cestino nelle celle di comando, non un quarto rosso. */
+.de-btn--rosso:hover,
+.de-btn--rosso:focus-visible {
+    background: #fef2f2;
+    border-color: #fee2e2;
+    color: #dc2626;
+}
+/* LA SUPERFICIE PRENDE LA TELA, come ogni altro editor: il riquadro non è più
+   una finestra da 820px centrata in mezzo al bianco — la barra corre da bordo a
+   bordo e il contenuto resta leggibile con un tetto suo, centrato. È il pattern
+   di `.de-list` nel doc-editor: contenitore pieno, colonna di lettura capata.
+   Il tetto è il token della taglia L, quello che il riquadro aveva già: una
+   misura sola, non un numero nuovo. Vale per le DUE vesti — la validazione in
+   CREA e la correzione in ELABORA sono la stessa superficie. */
+.vs-superficie {
+    width: 100%;
+    max-width: none;
+}
+.vs-superficie > .mm-body {
+    max-width: var(--mm-l);
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}

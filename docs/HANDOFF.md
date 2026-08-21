@@ -4,7 +4,16 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
-> Ultimo allineamento: **20 agosto 2026**. La giornata in una riga: **una FOTOGRAFIA
+> Ultimo allineamento: **21 agosto 2026**. La giornata in una riga: **la scheda della fonte
+> diventa un EDITOR come gli altri** — i comandi in una barra `.de-bar` fissa in alto (nelle
+> due vesti: validazione in CREA e correzione in ELABORA), la superficie prende la tela col
+> contenuto capato a una colonna leggibile, e i **tredici campi lunghi crescono davvero col
+> loro testo**. ⚠️ Il difetto che lo impediva era nel MOTORE: `normalizzaCampo` scartava
+> `cresce` — terza proprietà persa così (dopo `gruppo` dei radio e `vociDi`), e la feature
+> dichiarata il 20/8 non ha mai funzionato. Corretto anche `sporco()` della superficie, che
+> diceva SEMPRE «sporca» (due `JSON.stringify` con le chiavi in ordine diverso). Dettagli
+> in §0 punto 0-quater.
+> Prima: **20 agosto 2026**. La giornata in una riga: **una FOTOGRAFIA
 > diventa un dossier di fonte** — si carica da «Documenti» (autoriconosciuta), la legge
 > Gemini, il docente corregge la **scheda a quattro blocchi** in una superficie di CREA, e
 > ne escono l'analisi in PDF + flashcard + domande aperte + sintesi. In INSEGNA il dossier
@@ -30,7 +39,59 @@
 
 ## 0. Le prime cose da sapere
 
-0-ter. **⟵ DA QUI SI RIPRENDE (20/8, terzo giro): la SCHEDA è una SUPERFICIE, e il dossier
+0-quater. **⟵ DA QUI SI RIPRENDE (21/8): la scheda della fonte è un EDITOR come gli altri.**
+   La superficie della visione (`montaSuperficie`, `mappai-visione.js`) aveva i comandi in un
+   piè di pagina in fondo a tredici campi: si raggiungevano scorrendo. Ora, in **entrambe le
+   vesti**, i comandi stanno in una barra `.de-bar` **fissa in alto** — la stessa veste dei
+   quattro editor, presa dal foglio di `mappai-doc-editor.js` via `assicuraStili`, non
+   riscritta. In ELABORA: Annulla · Rigenera materiali · Crea PDF · **Salva** · Esci; in CREA:
+   Non usare questa foto · **Usa questa fonte**. I bottoni portano gli STESSI `data-azione` di
+   prima → il gestore delegato sul box resta l'unico (inv. 6).
+   · **La superficie prende la TELA** (`width:100%`) col corpo capato a `--mm-l` e centrato:
+     è il pattern di `.de-list`, contenitore pieno e colonna di lettura leggibile. Misurato:
+     barra 1234px su una tela da 1240 in CREA, 1192 su 1198 in ELABORA; corpo 820 in
+     entrambe. La testata `.mm-head` del motore se ne va — il titolo lo porta la barra.
+   · **I tredici campi lunghi crescono col testo** (0 aree tagliate su 13, misurato). Ora
+     crescono anche «Finalità», «Tipografia», «Diffusione», «Corrente», «Committente»,
+     «Destinatario», che erano campi a riga singola con dentro tre-cinque righe.
+   · ⚠️ **Due difetti veri trovati misurando, tutti e due preesistenti:**
+     (a) `normalizzaCampo` (`mappai-modal-core.js`) costruisce un oggetto nuovo ELENCANDO
+     ciò che sopravvive, e `cresce` non era in quell'elenco: la feature del 20/8 era morta
+     in mezzo, dichiarata dalla voce e mai ricevuta da chi disegna. Terza volta (dopo
+     `gruppo` dei radio, audit 31/7, e `vociDi()`, 5/8). Test di regressione aggiunto,
+     idempotenza compresa;
+     (b) `sporco()` confrontava due `JSON.stringify` di schede con le stesse chiavi in
+     ORDINE diverso (`schedaFromAnalisiHtml` dà titolo·mime·fotoB64, `_fattaDaCampi` dà
+     titolo·nomeFile·fotoB64·mime) → diceva **sempre** «sporca», anche su una scheda appena
+     aperta: la conferma d'uscita usciva sempre e la console chiedeva a ogni cambio riga. Ora
+     un'**impronta canonica** costruita dai `BLOCCHI` del core (inv. 6). È la trappola 50 in
+     forma nuova. Misurato dopo: apertura pulita → modifica sporca → annulla pulita.
+   · **Provato in Electron via CDP**: le due vesti, sticky a 0 dopo scroll, i cinque comandi
+     dell'editor, «Esci» su scheda pulita che NON chiede più e torna all'anteprima (F4),
+     ESC su scheda sporca che dà le tre vie, «Usa questa fonte» che risolve la promise con
+     le opzioni, stima viva (9 → 5 → 9 spegnendo le flashcard), dati veri intatti.
+   · ⚠️ **Aperto, dichiarato**: ESC e il bottone «Esci» aprono due conferme DIVERSE (l'ESC
+     passa da `_conSalvataggio` della console, «Salvi le modifiche?»; il bottone dà le tre
+     vie della superficie, «Chiudere la scheda?»). Nessuna delle due perde lavoro, ed
+     entrambe sono preesistenti — ma sono due grammatiche per lo stesso gesto (inv. 21).
+
+0-quinquies. **Il QUIZ di Studio attivo va anche via QR (20/8).** Due cose nuove nelle
+   attività «a scelta»: il **genere si sceglie all'avvio** (domande aperte · quiz a scelta ·
+   tutt'e due, con quante ne porta ognuno) e **«Correggi subito»** — dopo ogni risposta a
+   scelta multipla l'allievo vede se è giusta, con la spiegazione. Il verdetto lo calcola il
+   **server**: al telefono non arriva mai una soluzione, e una risposta già corretta è
+   **definitiva** (409 `already-graded`). Spento di default, kill-switch
+   `mappai_quiz_live_feedback`. Piano ed esito in [`PIANO-quiz-live.md`](PIANO-quiz-live.md).
+   📌 Il difetto da ricordare, trovato da una revisione avversaria: quel blocco stava **solo
+   nel telefono**, e col verdetto in mano si tirava a caso, si leggeva la soluzione e si
+   riscriveva — il report del docente diceva **100%**. *Una regola che protegge un dato del
+   docente non può vivere nel client che la deve rispettare.*
+   ⚠️ E il campionamento aveva la chiave sbagliata: con `ramo|angolo` una domanda aperta e una
+   a scelta multipla dello stesso taglio si escludevano, e su un pool misto **spariva un
+   genere intero**. Ora la chiave porta il TIPO — e «Tutt'e due» raddoppia il carico (14 → 28
+   con due aree), cosa che la riga del preventivo adesso dice.
+
+0-ter. **(20/8, terzo giro): la SCHEDA è una SUPERFICIE, e il dossier
    si PROIETTA.** Quattro pezzi, tutti dietro `mappai_visione`:
    · la validazione non è più un modale: è una **superficie di CREA** (il form si spegne,
      lei prende il posto) coi campi che **crescono col testo** (`cresce: true` nel motore,
@@ -240,6 +301,7 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
 | `mappai_archivio_insegna` | spento | `'1'` rimostra in INSEGNA le voci d'archivio dei fogli cartacei (`quizpaper`/`flashsheet` senza PDF proprio), nascoste dal 13/8: la loro sorgente vive in ELABORA |
 | `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
+| `mappai_quiz_live_feedback` | acceso | la spunta **«Correggi subito»** nel setup delle «Domande a scelta» (il verdetto immediato sulle risposte a scelta multipla, calcolato dal server). `'0'` → la spunta non compare e le sessioni partono come prima. ⚠️ La spunta è comunque **spenta di default** |
 | `mappai_domande_scelta` | acceso | le attività **«a scelta»**. `'0'` → via la card dal hub Live, la voce da INSEGNA › Attività LIVE e le due card dal launcher di Studio attivo (le sette modalità storiche restano) |
 | `mappai_gen_ctx_sempre` | acceso | «per chi è questa mappa?» chiesto SEMPRE prima di generare. `'0'` → si chiede solo quando serve (storico: classe con 2+ materie e nessuna scelta) |
 | `mappai_progetti_nuovi` | scritto dall'uso | i progetti marcati **NUOVO** negli elenchi (non è un interruttore: è la lista, e si svuota da sé al primo clic su ogni riga) |
@@ -1953,6 +2015,24 @@ rompe togliendo non lo dice nessun test.
    domande aperte si gioca e si consegna come prima.
 5. **Progressi e Heat map** devono ancora mostrare le sessioni VECCHIE delle modalità
    pensionate: i record non sono stati migrati apposta.
+
+### ⏳ DA PROVARE IN ELECTRON — il QUIZ via QR e «Correggi subito» (20/8)
+Piano ed esito in [`PIANO-quiz-live.md`](PIANO-quiz-live.md). Provato contro il server VERO
+e nel browser, mai in Electron.
+1. **Hub Live › «Domande a scelta»** (o INSEGNA › Attività LIVE): il modale fa scegliere il
+   **genere** — aperte · quiz a scelta · tutt'e due — con quante domande porta ognuno. Con un
+   genere solo lo dice, invece di far credere che ci siano anche le altre.
+2. **«Quiz a scelta» dal telefono**: arrivano domande con le **opzioni**; la sessione si
+   chiama «Quiz a scelta» anche nella cartella di `Attività di studio/`.
+3. **«Correggi subito» acceso**: dopo ogni risposta compare l'esito (giusto/sbagliato + la
+   risposta corretta + la spiegazione), il contatore dice «giuste/date», la domanda si chiude.
+4. ⚠️ **La prova che conta**: rispondere a caso, leggere la soluzione nell'esito, **provare a
+   riscrivere**. Il server deve rifiutare (409) e il report del docente dire zero giuste.
+   Stessa cosa premendo «Salta» su una domanda già corretta.
+5. **Ricaricare la pagina a metà**: verdetti e blocchi devono tornare, il punteggio non si
+   azzera, e il pallino di sincronia non resta in errore.
+6. Con la spunta **spenta** (default) la sessione si comporta esattamente come prima; con
+   `localStorage.mappai_quiz_live_feedback='0'` la spunta sparisce dal modale.
 
 ### ⏳ DA PROVARE IN ELECTRON — le attività «a scelta», ora con un ingresso (20/8)
 Fasi D ed E spedite: la Live e il guscio in-app. Tutto misurato nei test puri, in tre

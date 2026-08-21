@@ -181,8 +181,16 @@
         };
         return NOTE;
     }
+    /* I campi che CRESCONO col loro testo (`mm-campo--cresce`, 3-18 righe).
+       Sono tutti tranne i sei della carta d'identità, che sono dati di UNA riga
+       (genere, titolo, autore, data, luogo, tecnica): farli crescere
+       aggiungerebbe solo aria. ⚠️ Prima qui ce n'erano sette, e gli altri sei
+       — «finalità», «tipografia», «diffusione», «corrente», «committente»,
+       «destinatario» — erano campi a riga singola con dentro tre-cinque righe
+       di testo: si correggevano leggendone un pezzo per volta. */
     var CAMPI_LUNGHI = ['descrizione', 'testo', 'iconografia', 'linguaggioVisivo',
-        'strategie', 'prova', 'tace'];
+        'tipografia', 'corrente', 'committente', 'destinatario', 'finalita',
+        'strategie', 'diffusione', 'prova', 'tace'];
 
     function _sezioniBlocchi(scheda) {
         var C = CORE();
@@ -253,6 +261,30 @@
         });
         return fatta;
     }
+    /* ── L'IMPRONTA DI UNA SCHEDA (21/8) ─────────────────────────────────────
+       Serve a rispondere a «è stata toccata?», e la risposta va data sui CAMPI,
+       non sulla forma dell'oggetto.
+       ⚠️ Difetto trovato misurando: `sporco()` confrontava due `JSON.stringify`
+       e diceva SEMPRE «sporca», anche su una scheda appena aperta e mai toccata
+       — perché le due schede portano le stesse chiavi in ORDINE diverso
+       (`schedaFromAnalisiHtml` dà titolo·mime·fotoB64…, `_fattaDaCampi` dà
+       titolo·nomeFile·fotoB64·mime…) e `stringify` è sensibile all'ordine. Il
+       costo: la conferma d'uscita usciva sempre, anche quando non c'era niente
+       da salvare, e la console chiedeva a ogni cambio di riga.
+       È la trappola 50 in forma nuova: due rappresentazioni della stessa cosa
+       non sono due stringhe uguali. L'impronta le porta sulla STESSA forma,
+       elencando i campi dalla griglia del core (inv. 6) e ignorando ciò che non
+       si corregge (foto, nome del file, opzioni). */
+    function _impronta(sch) {
+        var C = CORE();
+        sch = sch || {};
+        var pezzi = [String(sch.titolo || '').trim()];
+        C.BLOCCHI.forEach(function (bl) {
+            var src = sch[bl.id] || {};
+            bl.campi.forEach(function (c) { pezzi.push(String(src[c.id] || '').trim()); });
+        });
+        return pezzi.join('\u0001');
+    }
     function _opzioniDaCampi(v) {
         var C = CORE();
         function genere(pref) {
@@ -291,6 +323,74 @@
                       degli editor — Salva · Annulla · Crea PDF · Esci — e
                       `opts.onSalva(fatta)` a ogni salvataggio. */
     var _pulisciSuperficie = null;
+    /* lo sguardo di chi ospita: MappAIVisione.superficie.sporca() / .leggi() */
+    var SUP = { sporca: null, leggi: null };
+    /* smontaggio dall'esterno: toglie l'ascolto ESC della superficie quando la
+       console chiude il documento SENZA rimontarne un'altra (③, 21/8) */
+    function scordaSuperficie() {
+        if (_pulisciSuperficie) { try { _pulisciSuperficie(); } catch (e) { } _pulisciSuperficie = null; }
+        SUP.sporca = null; SUP.leggi = null;
+    }
+    /* ── LA BARRA DEI COMANDI, IN ALTO (21/8) ─────────────────────────────────
+       La veste è quella dei quattro editor (`.de-bar` / `.de-btn`, foglio di
+       `mappai-doc-editor.js`, che `assicuraStili` inietta anche per chi un
+       editor non lo apre): la scheda della fonte È un editor, e non deve avere
+       una sua grammatica di comandi.
+       I bottoni portano gli STESSI `data-azione` del piè di prima → il gestore
+       delegato sul box resta l'unico (inv. 6): nessun secondo ascolto, nessuna
+       logica duplicata.
+       Due vesti, un solo posto: cambia l'elenco dei comandi, non dove stanno. */
+    function _barraComandi(box, editor, opts, scheda) {
+        try { if (window.MappAIDocEditor && window.MappAIDocEditor.assicuraStili) window.MappAIDocEditor.assicuraStili(); } catch (e) { }
+        var barra = document.createElement('div');
+        barra.className = 'de-bar';
+
+        var tit = document.createElement('div');
+        tit.className = 'de-bar-t';
+        tit.textContent = editor ? t('vs_ed_t', 'Analisi della fonte') : t('vs_scheda_t', 'La fonte, prima di generare');
+        barra.appendChild(tit);
+        var nome = String((scheda && scheda.nomeFile) || '').trim();
+        if (nome) {
+            var sub = document.createElement('div');
+            sub.className = 'de-row-m';          /* il grigio 11px degli elenchi */
+            sub.textContent = nome;
+            barra.appendChild(sub);
+        }
+        var sp = document.createElement('div');
+        sp.className = 'de-spacer';
+        barra.appendChild(sp);
+
+        function btn(azione, etichetta, icona, ruolo, titolo) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'de-btn' + (ruolo === 'primario' ? ' de-primary' : '') +
+                (ruolo === 'distruttivo' ? ' de-btn--rosso' : '');
+            b.setAttribute('data-azione', azione);
+            if (titolo) b.title = titolo;
+            b.innerHTML = '<i data-lucide="' + icona + '" class="w-4 h-4"></i> ' +
+                String(etichetta).replace(/</g, '\u003c');
+            barra.appendChild(b);
+            return b;
+        }
+
+        if (editor) {
+            btn('annulla', t('de_undo', 'Annulla'), 'undo-2');
+            /* «Rigenera materiali» solo se chi ospita sa farlo (`opts.onRigenera`):
+               la superficie non conosce la pipeline, chiede a chi la monta */
+            if (opts && opts.onRigenera) {
+                btn('rigenera', t('vs_rigenera', 'Rigenera materiali'), 'refresh-cw', null,
+                    t('vs_rigenera_tip', 'Rifà domande aperte, flashcard e sintesi da questa scheda, sovrascrivendo i materiali attuali.'));
+            }
+            btn('pdf', t('de_pdf', 'Crea PDF'), 'file-down');
+            btn('salva', t('de_save', 'Salva'), 'save', 'primario');
+            btn('esci', t('de_exit', 'Esci'), 'log-out');
+        } else {
+            btn('scarta', t('vs_scarta', 'Non usare questa foto'), 'trash-2', 'distruttivo');
+            btn('ok', t('vs_usa', 'Usa questa fonte'), 'check', 'primario');
+        }
+        box.insertBefore(barra, box.firstChild);
+    }
+
     function montaSuperficie(scheda, opts) {
         opts = opts || {};
         var M = MM();
@@ -310,26 +410,33 @@
                 campi: [{ id: 'titolo', etichetta: t('vs_titolo', 'Titolo della fonte'), valore: scheda.titolo || '' }]
             }].concat(_sezioniBlocchi(scheda))
                 .concat(editor ? [] : _sezioniOpzioni(scheda.opzioni)),
-            azioni: editor
-                ? [{ id: 'esci', etichetta: t('de_exit', 'Esci'), icona: 'log-out' },
-                   { id: 'annulla', etichetta: t('de_undo', 'Annulla'), icona: 'undo-2' },
-                   { id: 'pdf', etichetta: t('de_pdf', 'Crea PDF'), icona: 'file-down' },
-                   { id: 'salva', etichetta: t('de_save', 'Salva'), icona: 'save', ruolo: 'primario' }]
-                : [{ id: 'scarta', etichetta: t('vs_scarta', 'Non usare questa foto'), icona: 'trash-2', ruolo: 'distruttivo' },
-                   { id: 'ok', etichetta: t('vs_usa', 'Usa questa fonte'), icona: 'check', ruolo: 'primario' }]
+            /* NIENTE `azioni` (21/8): i comandi stanno nella BARRA IN ALTO,
+               come in tutti gli altri editor — vedi `_barraComandi`. In un piè
+               di pagina si raggiungevano solo scorrendo tredici campi. */
+            azioni: []
         };
 
         var box = M.render(schema);
         box.classList.add('vs-superficie');
+        if (!editor) box.classList.add('vs-superficie--crea');
         /* niente dialog: è una superficie della pagina, non una finestra */
         box.removeAttribute('aria-modal');
         var x = box.querySelector('.mm-close'); if (x) x.remove();
+        /* la testata del motore se ne va: il titolo lo porta la barra, come in
+           tutti gli altri editor — due titoli alla stessa quota sarebbero lo
+           stesso nome scritto due volte */
+        var head = box.querySelector('.mm-head'); if (head) head.remove();
+        var piede = box.querySelector('.mm-foot'); if (piede) piede.remove();
+        _barraComandi(box, editor, opts, scheda);
         _mostraFoto(box, scheda);
         if (!editor) {
+            /* la STIMA resta in fondo al corpo, sotto i due box delle opzioni:
+               è la conseguenza delle spunte e sta vicino a ciò che la muove
+               (inv. 21), non fra i comandi in cima */
             var stima = document.createElement('p');
             stima.className = 'mm-piede-nota'; stima.setAttribute('data-vs-stima', '');
-            var foot = box.querySelector('.mm-foot');
-            box.insertBefore(stima, foot || null);
+            var corpo = box.querySelector('.mm-body') || box;
+            corpo.appendChild(stima);
         }
 
         /* dove sta: la tela dell'editor, o il posto del form di CREA */
@@ -351,6 +458,7 @@
             var chiuso = false;
             function smonta(esito) {
                 if (chiuso) return; chiuso = true;
+                SUP.sporca = null; SUP.leggi = null;
                 document.removeEventListener('keydown', suEsc, true);
                 if (_pulisciSuperficie === pulisci) _pulisciSuperficie = null;
                 try { box.remove(); } catch (e) { }
@@ -359,15 +467,17 @@
             }
             /* la pulizia per il PROSSIMO montaggio: toglie l'ascolto e basta —
                il box vecchio se n'è già andato col ridisegno */
-            function pulisci() { document.removeEventListener('keydown', suEsc, true); chiuso = true; }
+            function pulisci() { document.removeEventListener('keydown', suEsc, true); chiuso = true; SUP.sporca = null; SUP.leggi = null; }
             _pulisciSuperficie = pulisci;
+            /* La console che ospita l'editor deve poter chiedere «c'è lavoro
+               non salvato?» prima di cambiare riga o progetto (③, 21/8): lo
+               stato sporco vive in questa closure e da fuori non si vede.
+               Si azzera allo smontaggio — un riferimento che sopravvive alla
+               superficie mentirebbe sul documento successivo. */
+            SUP.sporca = function () { try { return sporco(); } catch (e) { return false; } };
+            SUP.leggi = function () { try { return fatta(); } catch (e) { return null; } };
             function fatta() { return _fattaDaCampi(scheda, _leggiCampi(box)); }
-            function sporco() { 
-                var f = fatta(); f.opzioni = scheda.opzioni;
-                var base = JSON.parse(originale); base.opzioni = scheda.opzioni;
-                return JSON.stringify(Object.assign({}, base, { nomeFile: '', fotoB64: '', mime: '' })) !==
-                       JSON.stringify(Object.assign({}, f, { nomeFile: '', fotoB64: '', mime: '' }));
-            }
+            function sporco() { return _impronta(fatta()) !== _impronta(JSON.parse(originale)); }
             function conferma(f) {
                 var C = CORE();
                 if (!C.schedaPronta(f)) {
@@ -441,6 +551,15 @@
                     });
                 } else if (a === 'pdf') {
                     if (opts.onPdf) opts.onPdf(fatta());
+                } else if (a === 'rigenera') {
+                    /* prima si SALVA (stessa strada del bottone Salva: la
+                       rigenerazione parte dall'ultimo stato scritto, mai da
+                       una scheda a metà), poi si rigenera */
+                    var f3 = fatta();
+                    if (!conferma(f3)) return;
+                    originale = JSON.stringify(f3);
+                    if (opts.onSalva) opts.onSalva(f3);
+                    if (opts.onRigenera) opts.onRigenera(f3);
                 } else if (a === 'esci') {
                     if (!sporco()) { smonta({ uscita: true }); return; }
                     chiediUscita();   /* la stessa conferma a tre vie di ESC */
@@ -458,6 +577,41 @@
 
     function apriScheda(scheda, opts) {
         return montaSuperficie(scheda, opts || { modo: 'crea' });
+    }
+
+    /* ⚠️ BLOCCO RIPRISTINATO (21/8): il terzo giro del 20/8 (ee42ca9) l'aveva
+       cancellato riscrivendo la superficie, ma l'export in fondo lo cita —
+       `schedaCorrente is not defined` al load e il MODULO INTERO moriva:
+       niente scheda da CREA, niente «Modifica» in ELABORA. La lezione è la
+       regola del 16/8: dopo aver sostituito un blocco, verificare che nessuna
+       funzione del file sia sparita con lui. */
+    var _scheda = null;
+    function schedaCorrente() { return _scheda; }
+    function scordaScheda() { _scheda = null; }
+
+    /* MM/KG e il tema si spengono con una foto fra le fonti (inv. 21):
+       si ricalcola DAI DATI a ogni chiamata, niente stato da tenere allineato. */
+    function _fotoPresente() {
+        var s = _st() || {};
+        return ((s.sources) || []).some(function (x) { return x && x._scheda; });
+    }
+    function sincronizzaGenere() {
+        var giu = _fotoPresente();
+        var perche = t('vs_mappa_no', 'Con una fonte iconografica si genera il DOSSIER: la mappa e il tema non servono — il titolo viene dalla scheda.');
+        ['mode-mindmap', 'mode-kg'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.pointerEvents = giu ? 'none' : '';
+            el.style.opacity = giu ? '0.4' : '';
+            el.setAttribute('aria-disabled', giu ? 'true' : 'false');
+            if (giu) el.setAttribute('title', perche); else el.removeAttribute('title');
+        });
+        var root = document.getElementById('root-node-name');
+        if (root) {
+            root.disabled = giu;
+            root.style.opacity = giu ? '0.4' : '';
+            if (giu) root.setAttribute('title', perche); else root.removeAttribute('title');
+        }
     }
 
     /* L'anteprima dentro la superficie: prima della prima sezione, così la foto
@@ -482,6 +636,38 @@
        Scegli → analizza (col velo) → correggi → torna la scheda. `null` a ogni
        passo in cui l'utente si tira indietro. Con un `file` già in mano (le
        fonti di CREA) il picker si salta. */
+    /* ── IL CONTESTO DEL DOCENTE, PRIMA DELLA LETTURA (21/8) ─────────────────
+       `promptAnalisi` ha da sempre il campo `notaDocente` («IL DOCENTE
+       DICHIARA: questo è VERO») — ma nessuna superficie lo chiedeva: era un
+       parametro senza ingresso. È la leva più forte contro le due classi di
+       errore viste sul manifesto del '42 (figure non nominate, slang tradotto
+       alla lettera): due righe del docente («manifesto USA 1942, i tre sono
+       Hitler, Mussolini e l'imperatore giapponese») vincolano il modello dove
+       da solo tira a indovinare.
+       Facoltativo: campo vuoto = si analizza come prima. «Annulla» invece
+       abbandona il gesto — chi chiude non voleva analizzare. Ripiego senza
+       motore: si procede senza nota, mai bloccare la lettura per un extra. */
+    function chiediNota(nomeFile) {
+        if (!window.MappAIModal || !window.MappAIModal.open) return Promise.resolve({ ok: true, nota: '' });
+        return window.MappAIModal.open({
+            titolo: t('vs_nota_titolo', 'Che cosa sai di questa fonte?'),
+            icona: 'image',
+            taglia: 's',
+            sezioni: [{
+                testo: t('vs_nota_testo', 'Facoltativo, ma migliora molto la lettura: periodo, luogo, personaggi raffigurati, occasione. Quello che scrivi qui l\'AI lo tiene per VERO.'),
+                campi: [{ id: 'nota', tipo: 'area', cresce: true,
+                    etichetta: t('vs_nota_campo', 'Contesto (es. «manifesto USA del 1942; i tre schiacciati sono Hitler, Mussolini e l\u2019imperatore del Giappone»)') }]
+            }],
+            azioni: [
+                { id: 'no', etichetta: t('mm_annulla', 'Annulla') },
+                { id: 'si', etichetta: t('vs_nota_avanti', 'Analizza'), ruolo: 'primario' }
+            ]
+        }).then(function (r) {
+            if (!r || r.azione !== 'si') return { ok: false };
+            return { ok: true, nota: (r.valori && r.valori.nota || '').trim() };
+        });
+    }
+
     function nuovaScheda(fileGia) {
         var C = CORE();
         if (!attivo()) return Promise.resolve(null);
@@ -499,13 +685,20 @@
                 toast(t('vs_formato', 'Formato non gestito: servono JPG, PNG o HEIC.'), 'warning');
                 return null;
             }
+            return chiediNota(file.name).then(function (ctx) {
+                if (!ctx.ok) return null;
+                return _analizza(file, ctx.nota, C);
+            });
+        });
+    }
+    function _analizza(file, nota, C) {
             var abbandonata = false;
             if (window.showLoadingOverlay) {
                 window.showLoadingOverlay(true,
                     t('vs_leggo', 'Analizzo la fonte con l\'AI… qualche secondo.'),
                     'default', '', function () { abbandonata = true; });
             }
-            return leggi(file).then(function (scheda) {
+            return leggi(file, { nota: nota }).then(function (scheda) {
                 if (window.showLoadingOverlay) window.showLoadingOverlay(false);
                 /* «Annulla» abbandona l'ATTESA: una richiesta già partita non si
                    richiama indietro — il risultato arriva e si butta. */
@@ -518,7 +711,6 @@
                 toast(d.messaggio + ' ' + d.rimedio, 'error');
                 return null;
             });
-        });
     }
 
     window.MappAIVisione = {
@@ -530,6 +722,8 @@
         scordaScheda: scordaScheda,
         sincronizzaGenere: sincronizzaGenere,
         montaSuperficie: montaSuperficie,
+        superficie: SUP,
+        scordaSuperficie: scordaSuperficie,
         leggi: leggi
     };
     console.log('[MappAI] mappai-visione.js caricato ✓');
