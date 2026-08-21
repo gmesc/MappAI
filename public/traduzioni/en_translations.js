@@ -613,6 +613,8 @@ const en_translations = {
     lv_waiting: "Waiting for students…",
     lv_net_note: "Network: use the PC hotspot or a classroom router. School networks often block device-to-device traffic.",
     lv_dash_title: "Live session",
+    lv_dash_closed: "The session is still ACTIVE. To resume: «Live active study» in the sidebar.",
+    lim_live_on: "Session running — click to manage it again",
     lv_run: "Start questions",
     lv_close: "Close session",
     lv_close_confirm: "Close the session and generate the reports?",

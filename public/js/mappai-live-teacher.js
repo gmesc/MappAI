@@ -51,7 +51,21 @@
     if (window.safeCreateIcons) window.safeCreateIcons();
     return ov;
   }
-  function closeModal() { var m = document.getElementById('live-hub-modal'); if (m) m.remove(); }
+  /* ⚠️ Chiudere il modale della DASHBOARD non chiude la sessione — il server
+     resta in ascolto e gli allievi rispondono ancora. Due conseguenze che
+     vivono entrambe qui, perché questo è l'unico imbuto da cui i modali di
+     questo file spariscono:
+       · il polling va fermato (girava a vuoto ogni 3s su nodi già rimossi);
+       · va DETTO che la sessione continua, e da dove si torna a gestirla —
+         una finestra che sparisce senza dire niente si legge come «finito». */
+  function closeModal() {
+    var m = document.getElementById('live-hub-modal'); if (m) m.remove();
+    stopPolling();
+    if (LT._dashOpen) {
+      LT._dashOpen = false;
+      if (LT.info) toast(t('lv_dash_closed', 'La sessione resta ATTIVA. Per riprenderla: «Studio attivo live» nella sidebar.'), 'info');
+    }
+  }
 
   function card(icon, title, desc, tip) {
     return '<button type="button" class="lh-card" ' + (tip ? 'data-tip="' + esc(tip) + '" ' : '') +
@@ -141,7 +155,16 @@
       return x && Array.isArray(x.items) && x.items.length && (x.mode || 'quiz') === 'quiz';
     });
   }
-  function openLiveSetup() {
+  /* ⚠️ LA GUARDIA STA QUI, non nei chiamanti (21/8/26). `openLiveHub` la
+     faceva già, ma la sidebar LIM e la console di INSEGNA chiamano
+     `MappAILive.openSetup()` DIRITTO: con una sessione in corso offrivano di
+     sceglierne un'altra, e alla gestione non si tornava più. Un posto solo,
+     tre ingressi coperti. */
+  async function openLiveSetup() {
+    if (window.electronAPI && window.electronAPI.liveSessionInfo) {
+      var att = await window.electronAPI.liveSessionInfo();
+      if (att && att.success) { LT.info = att; openDashboard(); return; }
+    }
     var MM = window.MappAIModal;
     var sets = _setLive();
     if (!MM) {                       /* ripiego: senza motore si va sull'ultimo set */
@@ -369,6 +392,7 @@
     var ov = modal('radio', t('lv_dash_title', 'Sessione live'), body);
     var qrImg = ov.querySelector('#lv-qr');
     if (qrImg) qrImg.onclick = function () { openQrFull(url); };
+    LT._dashOpen = true;
     renderActions('lobby');
     startPolling();
   }

@@ -454,6 +454,26 @@
         panel.querySelectorAll('.lim-card').forEach(function (btn) {
             btn.onclick = function () { const fn = actions[btn.getAttribute('data-act')]; if (fn) fn(); };
         });
+        /* ⚠️ Una sessione live in corso non si vede da nessuna parte: chiuso il
+           modale della dashboard, il docente non sa se il server è ancora su
+           (21/8/26). La card lo dichiara — la domanda «è ancora attiva?» va
+           risolta dove si guarda, non ricordata. Il controllo è asincrono e
+           arriva dopo il disegno: la card intanto è già lì. */
+        if (window.electronAPI && window.electronAPI.liveSessionInfo) {
+            window.electronAPI.liveSessionInfo().then(function (info) {
+                if (!info || !info.success) return;
+                const c = panel.querySelector('.lim-card[data-act="live"]');
+                if (!c) return;
+                const sotto = c.querySelector('div > div:last-child');
+                if (sotto) {
+                    sotto.textContent = t('lim_live_on', 'Sessione in corso — clic per tornare a gestirla');
+                    sotto.style.color = '#047857';
+                    sotto.style.fontWeight = '700';
+                }
+                c.style.borderColor = '#6ee7b7';
+                c.style.background = '#f0fdf4';
+            }).catch(function () { });
+        }
         // sessione Lavagna attiva → monta la dashboard anche qui (host coesistente)
         const active = panel.querySelector('#lim-active');
         if (CT.info) {
