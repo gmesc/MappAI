@@ -11,7 +11,8 @@
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "test": "node --test"
+    "test": "node --test",
+    "dove": "node tools/dove.js"
   },
   "build": {
     "asar": true,
