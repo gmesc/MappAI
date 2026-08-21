@@ -4,6 +4,10 @@
 > acceso, che cosa manca e come si verifica. Scritto il **12 agosto 2026** unificando i
 > tre handoff precedenti, che da qui in poi sono **diari**: si leggono per il *perché* di
 > una decisione, mai per sapere com'è fatto il codice adesso.
+> ⚠️ **Dal 21 agosto 2026** anche il diario giorno-per-giorno di `CLAUDE.md` è un file a
+> parte — **[`DIARIO-2026.md`](DIARIO-2026.md)** (4581 righe): `CLAUDE.md` è stato potato a
+> ~780 righe perché entrava in contesto a ogni sessione. Nessuna riga è andata persa
+> (verificato riga per riga contro `git show HEAD:CLAUDE.md`).
 > Ultimo allineamento: **21 agosto 2026**. La giornata in una riga: **la scheda della fonte
 > diventa un EDITOR come gli altri** — i comandi in una barra `.de-bar` fissa in alto (nelle
 > due vesti: validazione in CREA e correzione in ELABORA), la superficie prende la tela col
