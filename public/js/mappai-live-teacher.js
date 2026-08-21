@@ -33,7 +33,12 @@
     closeModal();
     var ov = document.createElement('div');
     ov.id = 'live-hub-modal';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9991;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
+    /* ⚠️ Il piano si CHIEDE al motore (`prossimoZ`): un 9991 fisso finisce
+       DIETRO la console di INSEGNA, che parte da 12000 — il QR si apriva
+       davvero, invisibile sotto. */
+    var _z = 9991;
+    try { if (window.MappAIModal && window.MappAIModal.prossimoZ) _z = window.MappAIModal.prossimoZ(); } catch (e) { }
+    ov.style.cssText = 'position:fixed;inset:0;z-index:' + _z + ';background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = '<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxWidth || '780px') + ',96vw);max-height:90vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
       '<div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:#0f172a">' +
@@ -333,7 +338,9 @@
   function openQrFull(url) {
     var big = qrDataUrl(url, 14); if (!big) return;
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out';
+    var _zf = 10001;
+    try { if (window.MappAIModal && window.MappAIModal.prossimoZ) _zf = window.MappAIModal.prossimoZ(); } catch (e) { }
+    ov.style.cssText = 'position:fixed;inset:0;z-index:' + _zf + ';background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out';
     ov.innerHTML = '<img src="' + big + '" alt="QR" style="width:min(70vh,70vw);image-rendering:pixelated"><div style="font-size:22px;font-weight:800;color:#0f172a">' + esc(url) + '</div>';
     ov.onclick = function () { ov.remove(); };
     document.body.appendChild(ov);

@@ -428,6 +428,7 @@
             limSection(t('lim_sec_live', 'Attività live')) +
             limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue')) +
             limCard('board', 'presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
+            limCard('scelta', 'list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere')) +
             limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
             limCard('timeline', 'calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
             // ── § Condivisione ───────────────────────────────────────────────
@@ -443,6 +444,7 @@
         const actions = {
             'live': function () { if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup(); else missing(); },
             'board': function () { if (window.openCollabHub) window.openCollabHub(); else missing(); },
+            'scelta': function () { if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive(); else missing(); },
             'tutor': function () { if (window.MappAITutor && window.MappAITutor.open) window.MappAITutor.open(); else missing(); },
             'timeline': function () { if (window.MappAITimelineLive && window.MappAITimelineLive.openSetup) window.MappAITimelineLive.openSetup(); else missing(); },
             'materials': function () { if (window.MappAILive && window.MappAILive.openMaterials) window.MappAILive.openMaterials(); else missing(); },
