@@ -65,7 +65,7 @@
   function api(p, opts) { return fetch(p, opts).then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }, function () { return { status: r.status, body: null }; }); }); }
   function post(p, obj) { return api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }); }
 
-  var SESS = null, IDENT = null, chosenEmoji = null, POOL = [], CFG = null, STATO = null;
+  var SESS = null, IDENT = null, chosenEmoji = null, POOL = [], CFG = null, STATO = null, VISTA = null, VERDETTI = {};
 
   function boot() {
     if (!TOKEN) { $('login-err').textContent = 'Link non valido. Riscansiona il QR.'; return; }
@@ -110,6 +110,9 @@
       POOL = r.body.pool || [];
       CFG = r.body.cfg || null;
       STATO = r.body.stato || {};
+      /* i verdetti li tiene il SERVER: al rientro tornano di qui, e le domande
+         già corrette restano chiuse */
+      VERDETTI = r.body.verdetti || {};
       $('login').classList.remove('on'); $('app').classList.add('on');
       monta();
     });
@@ -121,10 +124,18 @@
   // che cosa mi ha acceso ogni domanda letta, e le risposte.
   // `dopoConsegna` marca quello che si scrive NELLA schermata di esito: senza,
   // il server riaprirebbe la consegna a ogni tasto premuto nel «perché no?».
-  function salva(stato, dopoConsegna) {
+  function salva(stato, dopoConsegna, id) {
     return post('/api/stato', Object.assign({
-      token: TOKEN, deviceId: deviceId, stato: stato, dopoConsegna: !!dopoConsegna
-    }, IDENT));
+      token: TOKEN, deviceId: deviceId, stato: stato, dopoConsegna: !!dopoConsegna, id: id || ''
+    }, IDENT)).then(function (r) {
+      /* «Correggi subito»: il verdetto lo calcola il server e torna col
+         salvataggio — al telefono non arriva mai una soluzione da custodire */
+      if (r.status === 200 && r.body && r.body.verdetto && id) {
+        VERDETTI[id] = r.body.verdetto;
+        if (VISTA) VISTA.verdetto(id, r.body.verdetto);
+      }
+      return r;
+    });
   }
   // il campo del «perché no?» non ha debounce nella view (si scrive una riga
   // sola): lo mette qui chi lo spedisce
@@ -135,9 +146,9 @@
   }
 
   function monta() {
-    SV.monta($('app'), {
-      pool: POOL, cfg: CFG, stato: STATO,
-      onCambia: function (id, risposta, stato) { STATO = stato; salva(stato); },
+    VISTA = SV.monta($('app'), {
+      pool: POOL, cfg: CFG, stato: STATO, verdetti: VERDETTI,
+      onCambia: function (id, risposta, stato) { STATO = stato; salva(stato, false, id); },
       onConsegna: function (stato) {
         STATO = stato;
         post('/api/finish', Object.assign({ token: TOKEN, deviceId: deviceId, stato: stato }, IDENT)).then(function (r) {

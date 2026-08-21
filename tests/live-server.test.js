@@ -646,3 +646,236 @@ test('scelta: ripresa senza il pool → non parte, invece di consumare le rispos
   const st = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
   assert.ok(JSON.stringify(st.stato.risposte).indexOf('RISPOSTA IMPORTANTE') >= 0);
 });
+
+// ── «Quiz a scelta» via QR: pool a scelta multipla, correzione dal DATO ──────
+function sceltaPoolMc() {
+  return SC.poolDaFogli([{
+    titolo: 'Clima — Scelta multipla · causa', angle: 'causa', tipo: 'mc',
+    items: [
+      { q: 'Perché il mare mitiga il clima?', options: ['alta capacità termica', 'è salato', 'è profondo'], correct: 'alta capacità termica', ramo: 'Oceani' },
+      { q: 'Perché si formano le correnti?', options: ['vento e densità', 'la luna', 'le maree'], correct: 'vento e densità', ramo: 'Atmosfera' }
+    ]
+  }]);
+}
+
+test('scelta mc: le opzioni viaggiano, la soluzione no, il report corregge', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-mc-'));
+  const pool = sceltaPoolMc();
+  assert.ok(pool.every(v => v.tipo === 'mc' && v.giusta === 0), 'la risposta esatta si risolve dalla stringa');
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta', scelta: { minimo: 1, minimoAree: 1 } },
+    roster: mkRoster(1), questions: pool
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(j.body.pool.length, 2, 'due rami × un angolo × un genere');
+  j.body.pool.forEach(v => {
+    assert.ok(Array.isArray(v.opzioni) && v.opzioni.length === 3, 'le opzioni servono a rispondere: viaggiano');
+    assert.strictEqual(v.giusta, undefined, 'la soluzione resta sul server');
+    assert.strictEqual(v.angle, undefined);
+  });
+
+  // una giusta e una sbagliata
+  const ids = j.body.pool.map(v => v.id);
+  const giusto = {}, opz = {};
+  j.body.pool.forEach(v => { opz[v.id] = v.opzioni; });
+  await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1',
+    stato: { risposte: { [ids[0]]: { scelta: 0 }, [ids[1]]: { scelta: 2 } } }
+  }) });
+  void giusto;
+
+  await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  const res = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+  const mie = res.byStudent[0].risposte;
+  assert.strictEqual(mie.length, 2);
+  assert.strictEqual(mie.filter(r => r.corretta === true).length, 1, 'una giusta');
+  assert.strictEqual(mie.filter(r => r.corretta === false).length, 1, 'una sbagliata');
+  assert.ok(mie.every(r => r.risposta), 'nel report c\'è il testo dell\'opzione scelta, non l\'indice');
+  const html = fs.readFileSync(path.join(dir, 'report-scelta.html'), 'utf8');
+  assert.ok(html.indexOf('a scelta multipla') >= 0, 'la scheda conta i due generi separati');
+  await srv.stop();
+});
+
+test('feedback immediato: verdetto col salvataggio, e la risposta corretta è DEFINITIVA', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta', feedbackImmediato: true },
+    roster: mkRoster(1), questions: sceltaPoolMc()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  assert.strictEqual((await api('/api/session?s=' + tok)).body.feedbackImmediato, true);
+
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  const q0 = j.body.pool[0], q1 = j.body.pool[1];
+  const iGiusto = (q) => Math.max(q.opzioni.indexOf('alta capacità termica'), q.opzioni.indexOf('vento e densità'));
+
+  // risposta GIUSTA → esito right, e nessun testo di soluzione (non serve)
+  let r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', id: q0.id,
+    stato: { risposte: { [q0.id]: { scelta: iGiusto(q0) } } } }) });
+  assert.strictEqual(r.body.verdetto.esito, 'right');
+  assert.strictEqual(r.body.verdetto.giusta, undefined);
+
+  // risposta SBAGLIATA sull'ALTRA domanda → wrong + il testo giusto (è il feedback)
+  const iSbagliato = (iGiusto(q1) + 1) % q1.opzioni.length;
+  r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', id: q1.id,
+    stato: { risposte: { [q0.id]: { scelta: iGiusto(q0) }, [q1.id]: { scelta: iSbagliato } } } }) });
+  assert.strictEqual(r.body.verdetto.esito, 'wrong');
+  assert.ok(r.body.verdetto.giusta, 'chi sbaglia riceve la risposta giusta');
+
+  // ⚠️ IL PUNTO: letta la soluzione, si riscrive la risposta. Il server non deve
+  // accettarla — il blocco lato telefono non difende il dato del docente.
+  r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', id: q1.id,
+    stato: { risposte: { [q0.id]: { scelta: iGiusto(q0) }, [q1.id]: { scelta: iGiusto(q1) } } } }) });
+  assert.strictEqual(r.body.verdetto.esito, 'wrong', 'il verdetto resta quello dato');
+  const suDisco = JSON.parse(fs.readFileSync(path.join(dir, 'students', 'volpe-00.json'), 'utf8'));
+  assert.strictEqual(suDisco.stato.risposte[q1.id].scelta, iSbagliato, 'e sul disco resta la risposta vera');
+
+  // ⚠️ senza dichiarare QUALE domanda, nessun verdetto: non si sfoglia il pool
+  r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1',
+    stato: { risposte: { [q0.id]: { scelta: iGiusto(q0) } } } }) });
+  assert.strictEqual(r.body.verdetto, null);
+
+  // al RIENTRO i verdetti tornano dal server: un ricaricamento non sblocca niente
+  const j2 = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(Object.keys(j2.body.verdetti).length, 2);
+  assert.strictEqual(j2.body.verdetti[q1.id].esito, 'wrong');
+  await srv.stop();
+});
+
+test('feedback immediato SPENTO (default): niente verdetto, come prima', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-off-'));
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta' },
+    roster: mkRoster(1), questions: sceltaPoolMc()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  assert.strictEqual((await api('/api/session?s=' + tok)).body.feedbackImmediato, false);
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  const q0 = j.body.pool[0];
+  const r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', id: q0.id,
+    stato: { risposte: { [q0.id]: { scelta: 0 } } } }) });
+  assert.strictEqual(r.body.verdetto, null);
+  await srv.stop();
+});
+
+test('feedback immediato nel quiz storico: /api/answer porta il verdetto', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-quiz-'));
+  const qs = [{ kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'È Roma.', source: 'map' }];
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', feedbackImmediato: true },
+    roster: mkRoster(1), questions: qs
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  const r = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 1, ms: 900 }) });
+  assert.strictEqual(r.body.verdetto.esito, 'wrong');
+  assert.strictEqual(r.body.verdetto.giusta, 'Roma');
+  assert.strictEqual(r.body.verdetto.spiegazione, 'È Roma.');
+  // le domande servite restano senza soluzioni: il verdetto non è una scorciatoia
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(j.body.questions[0].correct, undefined);
+  await srv.stop();
+});
+
+test('feedback immediato (quiz storico): seconda mano rifiutata, «Salta» non cancella', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-lock-'));
+  const qs = [{ kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'È Roma.', source: 'map' }];
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', feedbackImmediato: true },
+    roster: mkRoster(1), questions: qs
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+
+  // tiro a caso: sbagliato, e il server mi dice qual era la giusta
+  let r = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 1, ms: 900 }) });
+  assert.strictEqual(r.body.verdetto.esito, 'wrong');
+  assert.strictEqual(r.body.verdetto.giusta, 'Roma');
+
+  // ⚠️ ora la riscrivo con la soluzione letta: il server rifiuta
+  r = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 0, ms: 200 }) });
+  assert.strictEqual(r.status, 409);
+  assert.strictEqual(r.body.error, 'already-graded');
+
+  // ⚠️ e nemmeno «Salta» cancella una risposta già corretta
+  r = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, skipped: true }) });
+  assert.strictEqual(r.status, 409);
+
+  // il report del docente dice la verità
+  await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+  const res = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
+  assert.strictEqual(res.perStudent[0].rightCount, 0, 'zero giuste, non una');
+
+  // al rientro il verdetto torna col join (sta dentro `answers`, cioè su disco)
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  assert.strictEqual(j.body.answers[0].verdetto.esito, 'wrong');
+  await srv.stop();
+});
+
+test('feedback immediato: una domanda aperta da correggere a mano NON riceve un verdetto', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-manual-'));
+  // `open` senza answerText → gradeAnswer torna 'manual': la corregge il docente
+  const qs = [{ kind: 'open', text: 'Spiega la fotosintesi', explanation: 'Vedi il ramo Piante.', source: 'map' }];
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', feedbackImmediato: true },
+    roster: mkRoster(1), questions: qs
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  const r = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, text: 'La pianta converte la luce in zuccheri', ms: 4000 }) });
+  assert.strictEqual(r.body.verdetto, null, 'niente «Sbagliato» su ciò che nessuno ha corretto');
+  // e resta modificabile: non è stata chiusa da un verdetto che non c'è
+  const r2 = await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, text: 'Meglio: la clorofilla cattura la luce', ms: 3000 }) });
+  assert.strictEqual(r2.status, 200);
+  await srv.stop();
+});
+
+test('feedback immediato: la spiegazione arriva col verdetto, mai prima', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-sp-'));
+  const pool = SC.poolDaFogli([{ titolo: 'Clima — Scelta multipla · causa', angle: 'causa', tipo: 'mc',
+    items: [{ q: 'Perché il mare mitiga?', options: ['capacità termica', 'è salato'], correct: 'capacità termica',
+              explanation: 'L\'acqua accumula calore.', ramo: 'Oceani' }] }]);
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta', feedbackImmediato: true },
+    roster: mkRoster(1), questions: pool
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  const tok = srv.state().session.token;
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+  const q = j.body.pool[0];
+  assert.strictEqual(q.spiegazione, undefined, 'prima di rispondere la spiegazione non viaggia');
+  const sbagliata = q.opzioni.indexOf('è salato');
+  const r = await api('/api/stato', { method: 'POST', body: JSON.stringify({
+    token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', id: q.id,
+    stato: { risposte: { [q.id]: { scelta: sbagliata } } } }) });
+  assert.strictEqual(r.body.verdetto.esito, 'wrong');
+  assert.strictEqual(r.body.verdetto.spiegazione, 'L\'acqua accumula calore.');
+  await srv.stop();
+});

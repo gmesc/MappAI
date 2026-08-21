@@ -171,7 +171,11 @@
                     ramo: _trim(it.ramo || it.l1 || (Array.isArray(it.areas) ? it.areas[0] : '')),
                     livello: (_s(it.livello).toLowerCase() === 'base') ? 'base' : 'ponte',
                     foglio: titolo,
-                    traccia: _trim(it.guide || it.traccia || '')
+                    traccia: _trim(it.guide || it.traccia || ''),
+                    /* la spiegazione NON viaggia col pool (`pubblico` non la
+                       copia): esce solo dentro il verdetto, cioè dopo che si è
+                       risposto — è materiale didattico, non una chiave */
+                    spiegazione: _trim(it.explanation || it.spiegazione || '')
                 };
                 if (tipo === 'mc') {
                     var opz = Array.isArray(it.options) ? it.options.slice()
@@ -286,14 +290,19 @@
        stesso angolo sono lo stesso richiamo riscritto (l'angolo è assoluto nel
        prompt). Le cinque servono al docente, che ne fa le righe A e B di una
        verifica; a chi deve riconoscere quale taglio lo accende servono i sette
-       tagli. Quindi: una per coppia (ramo, angolo), scelta col SEME dello
+       tagli. Quindi: una per coppia (ramo, angolo) E PER GENERE, scelta col SEME dello
        studente — deterministica al rientro, diversa fra due studenti, così la
        classe copre tutto il materiale senza che nessuno legga tutto.
        ⚠️ Le altre varianti non si perdono: restano nei fogli del vault. */
     function unaPerAngolo(pool, seed) {
         var per = {}, ordine = [];
         (pool || []).forEach(function (v) {
-            var k = (v.ramo || '') + '|' + (v.angle || '');
+            /* ⚠️ Il TIPO entra nella chiave: senza, su un pool misto una domanda
+               aperta e una a scelta multipla dello stesso ramo e angolo si
+               escludono a vicenda, e un genere intero sparisce dal campione
+               (misurato: 4 domande → 1, tutte aperte). Il taglio deve ridurre le
+               varianti dello stesso richiamo, non togliere un modo di rispondere. */
+            var k = (v.ramo || '') + '|' + (v.angle || '') + '|' + (v.tipo || 'open');
             if (!per[k]) { per[k] = []; ordine.push(k); }
             per[k].push(v);
         });
@@ -309,6 +318,26 @@
         var tenuti = {};
         out.forEach(function (v) { tenuti[v.id] = 1; });
         return (pool || []).filter(function (v) { return tenuti[v.id]; });
+    }
+
+    /* Una risposta a scelta multipla è giusta? Sta QUI e non nel server perché
+       il server la chiedeva in due punti (il report a chiusura e il verdetto
+       immediato) e le due copie erano già a 275 righe di distanza: la seconda
+       che si dimentica di seguire la prima è una questione di tempo (inv. 6).
+       Torna null quando non c'è niente da correggere — una domanda aperta, un
+       set senza soluzione, una domanda lasciata in bianco. */
+    function corretta(v, r) {
+        if (!v || v.tipo !== 'mc' || !(v.giusta >= 0)) return null;
+        if (!r || r.scelta == null) return null;
+        return r.scelta === v.giusta;
+    }
+
+    /* Quante domande per genere: serve al modale del docente, che fa scegliere
+       vedendo quanto costa ogni strada (inv. 21). */
+    function conteggioPerTipo(pool) {
+        var out = { open: 0, mc: 0 };
+        (pool || []).forEach(function (v) { if (v.tipo === 'mc') out.mc++; else out.open++; });
+        return out;
     }
 
     /* Il percorso a tre passi serve? No quando il primo passo non ha niente da
@@ -590,7 +619,8 @@
         ANGOLI: angoli, CHIP: CHIP, accende: accende,
         CFG_DEFAULT: CFG_DEFAULT, normalizzaCfg: normalizzaCfg,
         aree: aree, filtraPerAree: filtraPerAree, unaPerAngolo: unaPerAngolo,
-        passiUtili: passiUtili, validaAree: validaAree,
+        passiUtili: passiUtili, validaAree: validaAree, conteggioPerTipo: conteggioPerTipo,
+        corretta: corretta,
         angoloDalTitolo: angoloDalTitolo,
         poolDaFogli: poolDaFogli, pubblico: pubblico,
         mescola: mescola, perRamo: perRamo,

@@ -2417,6 +2417,7 @@ ipcMain.handle('live-start-session', async (event, opts) => {
                 mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
                 hintMode: o.hintMode || 'onrequest', build: o.build || null,
                 scelta: o.scelta || null,   // «Domande a scelta»: le leve del docente
+                feedbackImmediato: o.feedbackImmediato === true,   // «Correggi subito»
                 revealAnswers: o.revealAnswers !== false   // report profilo con soluzioni (default ON)
             },
             roster: Array.isArray(o.roster) ? o.roster : [],

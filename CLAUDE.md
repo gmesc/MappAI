@@ -39,6 +39,23 @@
 > motore è di **tre righe** (`opts.sorgente` in `generaSet`, a monte del ciclo sui rami): da lì
 > in poi angoli, nomi, archivio e PDF sono quelli di sempre, e le flashcard escono dallo stesso
 > interruttore. Suite **1194/0**, sei banchi, ⚠️ **mai girato in Electron**.
+> (Prima, in giornata: il **QUIZ di Studio attivo va anche via QR**. Due cose: il **genere si
+> sceglie all'avvio** delle «Domande a scelta» (aperte · quiz a scelta · tutt'e due, con quante
+> ne porta ognuno) e **«Correggi subito»** — dopo ogni risposta a scelta multipla l'allievo vede
+> se è giusta, con la spiegazione. Il verdetto lo calcola il **SERVER** e torna con la risposta:
+> al telefono non arriva mai una soluzione. Spento di default, kill-switch
+> `mappai_quiz_live_feedback`; piano in [`docs/PIANO-quiz-live.md`](docs/PIANO-quiz-live.md).
+> 📌 **Il difetto che vale il lavoro**, trovato da una revisione avversaria: il blocco «una
+> risposta corretta non si ripensa» l'avevo scritto **solo nel telefono** — cioè al livello che
+> il piano stesso aveva scartato per il feedback. Si tirava a caso, si leggeva la soluzione
+> nell'esito, si riscriveva: il report del docente diceva **100%**. *Una regola che protegge un
+> dato del docente non può vivere nel client che la deve rispettare.* Ora sta nel server (409
+> `already-graded`), il verdetto si persiste dentro la risposta e torna col rientro.
+> ⚠️ E il **campionamento aveva la chiave sbagliata**: con `ramo|angolo` una domanda aperta e
+> una a scelta multipla dello stesso taglio si escludevano, e su un pool misto spariva un
+> genere intero (4 → 1, misurato). Ora la chiave porta il TIPO — e «Tutt'e due» raddoppia il
+> carico (14 → 28 con due aree), cosa che la riga del preventivo adesso dice.
+> Nove difetti corretti, suite **1214/0**, cinque banchi verdi, ⚠️ mai girato in Electron.)
 > (Prima, in giornata: le attività «a scelta» sono **complete**, e lo
 > Studio attivo **non smonta più la mappa**. Sei fasi su sei: la **Live** (D), il **guscio
 > in-app** (E) e la **PENSIONE** (F) delle sette modalità del canvas e del Cloze —

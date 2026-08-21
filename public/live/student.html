@@ -90,6 +90,14 @@
             font-size: 22px; font-weight: 800; }
   .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
   .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
+  /* Esito immediato (20/8, «Correggi subito»): compare SOTTO la domanda, non
+     in un modale — chi risponde dal telefono non deve perdere di vista quello
+     che ha appena scelto. */
+  .verd { margin-top: 16px; border-radius: 12px; padding: 12px 14px; font-size: 16px; line-height: 1.45; }
+  .verd-ok { background: #dcfce7; border: 2px solid #16a34a; color: #14532d; }
+  .verd-ko { background: #fee2e2; border: 2px solid #dc2626; color: #7f1d1d; }
+  .verd b { font-weight: 800; }
+  .verd .sp { display: block; margin-top: 6px; font-size: 14px; color: #334155; }
   #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid #e2e8f0;
            font-size: 19px; outline: none; resize: vertical; }
   #qopen:focus { border-color: #6366f1; }
@@ -320,6 +328,13 @@
       QUESTIONS = r.body.questions || [];
       LSK = 'mappai_live_ans::' + TOKEN + '::' + (LC ? LC.identityKey(IDENT.emojiKey, IDENT.num) : IDENT.emojiKey + IDENT.num);
       ANSWERS = mergeAnswers(r.body.answers || {}, loadLocal());
+      /* ⚠️ I verdetti tornano DENTRO le risposte (il server li scrive lì): senza
+         questa riga una ricarica azzerava il punteggio, sbloccava le domande già
+         corrette e mandava la pagina a ritentare all'infinito una POST che il
+         server rifiuta. `scelta.html` lo fa già dal suo `join`. */
+      Object.keys(ANSWERS).forEach(function (k) {
+        if (ANSWERS[k] && ANSWERS[k].verdetto) VERDETTI[k] = ANSWERS[k].verdetto;
+      });
       enterPhase(r.body.phase, r.body.displayName);
     }).catch(function () { $('login-err').textContent = 'Connessione assente.'; });
   };
@@ -392,11 +407,12 @@
   function renderQuestion() {
     var q = QUESTIONS[i];
     qStart = Date.now();
-    $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length;
+    $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length + puntiTesto();
     $('pprogress').firstElementChild.style.width = Math.round((i) / QUESTIONS.length * 100) + '%';
     $('back').disabled = (i === 0);
     // bottone «Ascolta la domanda» → legge testo/frase della domanda corrente
     $('qread').onclick = function () { speak(questionSpeech(q)); };
+    var giaCorretta = !!VERDETTI[q.idx];
     var body = $('qbody');
     body.innerHTML = '';
     var a = ANSWERS[q.idx] || {};
@@ -454,6 +470,49 @@
       }
       body.appendChild(hintWrap);
     }
+
+    /* già corretta: si rivede l'esito e non si ripensa (il verdetto è stato dato) */
+    if (giaCorretta) { mostraVerdetto(q.idx); bloccaDomanda(); }
+  }
+
+  /* ── «Correggi subito» ────────────────────────────────────────────────────
+     Il verdetto lo calcola il SERVER e arriva con la risposta: qui non c'è
+     nessuna soluzione da custodire, e non ci sarà mai. Se il docente non ha
+     acceso la leva, `VERDETTI` resta vuoto e non cambia niente. */
+  /* ⚠️ I verdetti NON vivono qui: il server li scrive dentro `answers` e il
+     join li riconsegna. Tenerli solo in memoria voleva dire che un
+     ricaricamento sbloccava le domande già corrette e azzerava il contatore. */
+  var VERDETTI = {};        // idx → { esito, giusta, spiegazione }
+  function puntiTesto() {
+    if (!SESS || !SESS.feedbackImmediato) return '';
+    var date = 0, ok = 0;
+    Object.keys(VERDETTI).forEach(function (k) { date++; if (VERDETTI[k].esito === 'right') ok++; });
+    return date ? '  ·  ' + ok + '/' + date : '';
+  }
+  function mostraVerdetto(idx) {
+    var v = VERDETTI[idx]; if (!v) return;
+    var vecchio = $('qbody').querySelector('.verd'); if (vecchio) vecchio.remove();
+    var d = document.createElement('div');
+    d.className = 'verd ' + (v.esito === 'right' ? 'verd-ok' : 'verd-ko');
+    d.setAttribute('role', 'status');
+    d.innerHTML = (v.esito === 'right' ? '<b>Giusto</b>' : '<b>Sbagliato</b>') +
+      (v.giusta ? ' — corretta: <b>' + esc(v.giusta) + '</b>' : '') +
+      (v.spiegazione ? '<span class="sp">' + esc(v.spiegazione) + '</span>' : '');
+    $('qbody').appendChild(d);
+    $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length + puntiTesto();
+  }
+  /* ⚠️ Una domanda già corretta non si ripensa: correggere e poi lasciar
+     cambiare la risposta trasformerebbe il punteggio in un contatore di
+     tentativi. Si spengono i comandi, non si nasconde la domanda. */
+  function bloccaDomanda() {
+    $('qbody').querySelectorAll('button, input, textarea').forEach(function (el) {
+      if (el.closest && el.closest('.verd')) return;
+      el.disabled = true; el.style.opacity = '.75';
+    });
+    /* «Salta» vive nel piè, fuori da #qbody: senza questa riga cancellava una
+       risposta già corretta (il server ora la rifiuta comunque, ma un comando
+       che risponde 409 è un comando inerte — inv. 21) */
+    var sk = $('skip'); if (sk) { sk.disabled = true; sk.style.opacity = '.55'; }
   }
 
   // mc/tf: selezione immediata + autosave
@@ -497,8 +556,28 @@
     if (a.hintUsed) payload.hintUsed = true;   // Timeline (008): uso indizio
     setSync('wait');
     post('/api/answer', payload).then(function (r) {
-      if (r.status === 200) setSync('ok');
+      if (r.status === 200) {
+        setSync('ok');
+        if (r.body && r.body.verdetto) {
+          VERDETTI[idx] = r.body.verdetto;
+          if (QUESTIONS[i] && QUESTIONS[i].idx === idx) { mostraVerdetto(idx); bloccaDomanda(); }
+        }
+      }
       else if (r.status === 409 && r.body && r.body.error === 'closed') { setSync('ok'); showDone(true); }
+      else if (r.status === 409 && r.body && r.body.error === 'already-graded') {
+        /* già corretta: il server ha ragione e la POST non passerà mai. Si
+           rimette a schermo il verdetto vero invece di ritentare a vuoto —
+           `scheduleRetry` qui girava ogni 4s per sempre, col pallino in errore. */
+        setSync('ok');
+        if (r.body.verdetto) {
+          VERDETTI[idx] = r.body.verdetto;
+          if (QUESTIONS[i] && QUESTIONS[i].idx === idx) {
+            var a2 = ANSWERS[idx] || {};
+            if (r.body.verdetto.scelta !== undefined) a2.choice = r.body.verdetto.scelta;
+            renderQuestion();
+          }
+        }
+      }
       else { setSync('err'); scheduleRetry(idx); }
     }).catch(function () { setSync('err'); scheduleRetry(idx); });
   }

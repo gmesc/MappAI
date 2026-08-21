@@ -29,6 +29,12 @@
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
     function attiva() { return localStorage.getItem('mappai_domande_scelta') !== '0'; }
+    /* «Correggi subito» ha il SUO interruttore: è la leva che cambia la
+       pedagogia dell'attività (con la correzione immediata si smette di
+       ragionare e si prova finché non diventa verde), e va potuta spegnere
+       senza toccare il resto — inv. 1. Spento = la spunta non compare nemmeno
+       nel modale, e le sessioni partono come prima. */
+    function feedbackDisponibile() { return localStorage.getItem('mappai_quiz_live_feedback') !== '0'; }
 
     /* ⚠️ La STESSA catena di `_mapName()` della pipeline (material-pipeline.js),
        che è chi ha scritto `mapName` nell'archivio: `rootNodeLabel` grezzo per
@@ -113,20 +119,72 @@
         var cls = (window.MappAIClasses && window.MappAIClasses.getActive) ? window.MappAIClasses.getActive() : null;
         if (!cls) { toast(t('ds_no_class', 'Scegli prima una classe: gli allievi entrano con le loro credenziali.'), 'warning'); return; }
 
+        /* ── IL GENERE ────────────────────────────────────────────────────
+           Aperte e scelta multipla sono due misure diverse: la seconda si
+           corregge da sé, la prima no. Mescolarle per default vorrebbe dire
+           farle convivere nello stesso profilo senza che nessuno l'abbia
+           deciso. Si sceglie all'avvio, vedendo quante domande porta ognuna
+           (inv. 21) — e se un genere solo esiste, non c'è niente da chiedere. */
+        var q = SC().conteggioPerTipo(p.pool);
         var D = SC().CFG_DEFAULT;
-        var righe = [
+        var righe = [];
+        if (q.open && q.mc) {
+            righe.push(
+                { id: 'gen_open', tipo: 'radio', gruppo: 'gen', valore: true,
+                  etichetta: t('ds_gen_open', 'Domande aperte') + ' (' + q.open + ')',
+                  aiuto: t('ds_gen_open_d', 'Si scrive la risposta: la corregge il docente.') },
+                { id: 'gen_mc', tipo: 'radio', gruppo: 'gen',
+                  etichetta: t('ds_gen_mc', 'Quiz a scelta') + ' (' + q.mc + ')',
+                  aiuto: t('ds_gen_mc_d', 'Si sceglie fra le opzioni: la correzione è nel dato.') },
+                { id: 'gen_due', tipo: 'radio', gruppo: 'gen',
+                  etichetta: t('ds_gen_due', 'Tutt\'e due') + ' (' + (q.open + q.mc) + ')',
+                  aiuto: t('ds_gen_due_d', 'Ogni allievo legge domande di entrambi i generi.') }
+            );
+        }
+        righe = righe.concat([
             { id: 'minimoAree', tipo: 'numero', etichetta: t('ds_min_aree', 'Argomenti da scegliere (almeno)'), valore: D.minimoAree, min: 1, max: 20 },
             { id: 'minimo', tipo: 'numero', etichetta: t('ds_min', 'Risposte da scrivere (almeno)'), valore: D.minimo, min: 1, max: 30 },
             { id: 'reveal', tipo: 'spunta', etichetta: t('ds_reveal', 'Alla consegna mostra il profilo dei tagli'), valore: D.reveal },
             { id: 'osservazioni', tipo: 'spunta', etichetta: t('ds_oss', 'Campo «Osservazioni» in fondo'), valore: D.osservazioni },
             { id: 'perche_no', tipo: 'spunta', etichetta: t('ds_pn', 'Chiedi «perché questa no?» su una evitata'), valore: D.perche_no },
             { id: 'autovalutazione', tipo: 'spunta', etichetta: t('ds_auto', 'Autovalutazione per risposta'), valore: D.autovalutazione },
-            { id: 'secondo_giro', tipo: 'spunta', etichetta: t('ds_giro', 'Secondo giro su una domanda evitata'), valore: D.secondo_giro }
-        ];
-        var quante = t('ds_quante', '{n} domande da {k} fogli. Ogni allievo ne legge una per argomento e per taglio.')
+            { id: 'secondo_giro', tipo: 'spunta', etichetta: t('ds_giro', 'Secondo giro su una domanda evitata'), valore: D.secondo_giro },
+        ]);
+        /* ⚠️ Spenta di default, e non è timidezza: con la correzione immediata
+           si smette di ragionare e si prova finché non diventa verde. Vale solo
+           per le domande a scelta multipla — su una risposta scritta non c'è
+           niente da correggere sul momento, quindi la spunta non compare se il
+           genere scelto non le contiene. */
+        if (feedbackDisponibile() && q.mc) {
+            righe.push({ id: 'feedback', tipo: 'spunta', valore: false,
+              etichetta: t('ds_feedback', 'Correggi subito (solo scelta multipla)'),
+              aiuto: t('ds_feedback_d', 'Dopo ogni risposta l\'allievo vede se è giusta, con la spiegazione. La domanda si chiude: una risposta già corretta non si ripensa.') });
+        }
+        /* ⚠️ Col genere nella chiave del campionamento, «Tutt'e due» RADDOPPIA
+           il carico (una per argomento × taglio × genere): la riga che serve a
+           decidere deve dirlo, o promette la metà del lavoro vero. */
+        var quante = t('ds_quante', '{n} domande da {k} fogli. Ogni allievo ne legge una per argomento, per taglio e per genere.')
             .replace('{n}', p.pool.length).replace('{k}', p.fogli);
+        if (!q.open || !q.mc) {
+            /* un genere solo: si dice QUALE, invece di lasciar credere che ci
+               siano anche le altre */
+            quante += ' — ' + (q.mc ? t('ds_solo_mc', 'solo domande a scelta multipla')
+                                    : t('ds_solo_open', 'solo domande aperte')) + '.';
+        }
 
-        if (!MM || !MM.open) { avvia(cls, p.pool, SC().normalizzaCfg({})); return; }
+        /* Il pool che parte davvero, secondo il genere scelto. */
+        function perGenere(v) {
+            if (!q.open || !q.mc) return p.pool;
+            if (v && v.gen_mc) return p.pool.filter(function (x) { return x.tipo === 'mc'; });
+            if (v && v.gen_due) return p.pool;
+            return p.pool.filter(function (x) { return x.tipo === 'open'; });
+        }
+
+        if (!MM || !MM.open) {
+            var d = perGenere(null);
+            avvia(cls, d, SC().normalizzaCfg({}), SC().conteggioPerTipo(d));
+            return;
+        }
         MM.open({
             titolo: t('ds_titolo', 'Domande a scelta'),
             icona: 'list-checks',
@@ -142,17 +200,28 @@
             ]
         }).then(function (r) {
             if (!r || r.azione !== 'avvia') return;
-            avvia(cls, p.pool, SC().normalizzaCfg(r.valori || {}));
+            var scelto = perGenere(r.valori || {});
+            if (!scelto.length) { toast(t('ds_gen_vuoto', 'Quel genere non ha domande per questa mappa.'), 'warning'); return; }
+            avvia(cls, scelto, SC().normalizzaCfg(r.valori || {}), SC().conteggioPerTipo(scelto),
+                !!(r.valori && r.valori.feedback));
         });
     }
 
-    function avvia(cls, poolIntero, cfg) {
+    function avvia(cls, poolIntero, cfg, quanti, feedback) {
         if (!window.MappAILive || !window.MappAILive.launchExternal) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return; }
+        /* ⚠️ Il nome dell'attività si decide QUI, alla nascita della sessione, e
+           se lo porta dietro: finisce nel nome della cartella
+           (`Attività di studio/<classe>/<… nome …>`) e nel registro. Leggerlo
+           dopo, o lasciarlo generico, vorrebbe dire due attività diverse con lo
+           stesso nome sul disco (inv. 20-bis). */
+        var q = quanti || { open: 1, mc: 0 };
+        var nome = (q.open && q.mc) ? t('ds_attivita', 'Domande a scelta')
+            : (q.mc ? t('ds_mc_titolo', 'Quiz a scelta') : t('ds_attivita', 'Domande a scelta'));
         /* il pool viaggia intero: il campionamento è del server, e per studente
            (due allievi leggono varianti diverse dello stesso taglio, così la
            classe copre tutto il materiale senza che nessuno legga tutto) */
-        window.MappAILive.launchExternal(cls, t('ds_attivita', 'Domande a scelta'), poolIntero, 0, {
-            mode: 'scelta', scelta: cfg, logActivity: 'scelta',
+        window.MappAILive.launchExternal(cls, nome, poolIntero, 0, {
+            mode: 'scelta', scelta: cfg, feedbackImmediato: !!feedback, logActivity: 'scelta',
             reports: [{ which: 'scelta', label: t('ds_report', 'Report domande a scelta') }]
         });
     }
@@ -338,6 +407,7 @@
 
     window.MappAISceltaAttivita = {
         attiva: attiva,
+        feedbackDisponibile: feedbackDisponibile,
         leggiFogli: leggiFogli,
         pool: pool,
         apriLive: apriLive,

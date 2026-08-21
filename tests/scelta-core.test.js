@@ -400,3 +400,50 @@ test('normalizzaStato non decide la fase al posto della view', () => {
   assert.strictEqual(S.normalizzaStato(pool, { fase: 'scegli' }).fase, 'scegli');
   assert.strictEqual(S.normalizzaStato(pool, { fase: 'rispondi' }).fase, 'rispondi');
 });
+
+// ── Il pool MISTO (aperte + scelta multipla): il campionamento non deve togliere
+// un modo di rispondere ────────────────────────────────────────────────────────
+test('unaPerAngolo: su un pool misto sopravvivono ENTRAMBI i generi', () => {
+  // stesso ramo, stesso angolo, due generi: con la chiave `ramo|angolo` si
+  // escludevano a vicenda e un genere intero spariva dal campione
+  const pool = S.poolDaFogli([
+    { titolo: 'Domande-aperte-X-causa', angle: 'causa', tipo: 'open',
+      items: [{ domanda: 'Perche il mare mitiga?', ramo: 'Oceani' }, { domanda: 'Perche le correnti?', ramo: 'Oceani' }] },
+    { titolo: 'Quiz-X-causa', angle: 'causa', tipo: 'mc',
+      items: [{ q: 'Quale causa?', options: ['a', 'b', 'c'], correct: 'a', ramo: 'Oceani' },
+              { q: 'E quale altra?', options: ['d', 'e', 'f'], correct: 'd', ramo: 'Oceani' }] }
+  ]);
+  assert.strictEqual(pool.length, 4);
+  const camp = S.unaPerAngolo(pool, 'volpe-00');
+  assert.strictEqual(camp.length, 2, 'una per genere, non una in tutto');
+  assert.deepStrictEqual(camp.map(v => v.tipo).sort(), ['mc', 'open']);
+  // e dentro un genere il taglio continua a mordere: 2 varianti → 1
+  const soloAperte = S.unaPerAngolo(pool.filter(v => v.tipo === 'open'), 'volpe-00');
+  assert.strictEqual(soloAperte.length, 1);
+});
+
+test('conteggioPerTipo: quante domande per genere (la riga del modale docente)', () => {
+  assert.deepStrictEqual(S.conteggioPerTipo([{ tipo: 'open' }, { tipo: 'mc' }, { tipo: 'mc' }]), { open: 1, mc: 2 });
+  assert.deepStrictEqual(S.conteggioPerTipo([]), { open: 0, mc: 0 });
+  assert.deepStrictEqual(S.conteggioPerTipo(null), { open: 0, mc: 0 });
+});
+
+test('normalizzaStato: la risposta deve avere la FORMA del suo genere', () => {
+  // un client manomesso (o un bug) manda una scelta a una domanda aperta e un
+  // testo a una a scelta multipla: entrambe restano prese ma VUOTE, e non
+  // contano come risposte scritte
+  const pool = [{ id: 'a', tipo: 'open', ramo: 'R' }, { id: 'b', tipo: 'mc', ramo: 'R', opzioni: ['x', 'y'] }];
+  const out = S.normalizzaStato(pool, { risposte: { a: { scelta: 1 }, b: { testo: 'inventata' } } });
+  assert.deepStrictEqual(out.risposte, { a: {}, b: {} });
+  assert.strictEqual(S.conteggio(pool, out).scritte, 0);
+});
+
+test('la spiegazione sta nel pool ma NON viaggia col pubblico', () => {
+  // esce solo dentro il verdetto, cioè dopo che si è risposto: è materiale
+  // didattico, non una chiave per indovinare
+  const p = S.poolDaFogli([{ titolo: 'Quiz - causa', tipo: 'mc', angle: 'causa',
+    items: [{ q: 'Perché?', options: ['a', 'b'], correct: 'a', explanation: 'Perché sì.' }] }]);
+  assert.strictEqual(p[0].spiegazione, 'Perché sì.');
+  assert.strictEqual(S.pubblico(p)[0].spiegazione, undefined);
+  assert.strictEqual(S.pubblico(p)[0].giusta, undefined);
+});

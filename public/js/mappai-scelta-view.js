@@ -72,6 +72,12 @@
         '.sc-oss:focus{border-color:#6366f1;outline:none}',
         '.sc-go{width:100%;min-height:52px;border-radius:12px;background:#4f46e5;color:#fff;font-size:17px;font-weight:700}',
         '.sc-go[disabled]{opacity:.55}',
+        /* esito immediato: una riga sotto il campo, mai un modale — qui si
+           risponde una domanda alla volta e il modale coprirebbe la domanda */
+        '.sc-verd{margin-top:14px;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}',
+        '.sc-verd--ok{background:#dcfce7;border:2px solid #16a34a;color:#14532d}',
+        '.sc-verd--ko{background:#fee2e2;border:2px solid #dc2626;color:#7f1d1d}',
+        '.sc-verd .sp{display:block;margin-top:6px;font-size:13px;color:#334155}',
         '.sc-esito{flex:1;overflow-y:auto;padding:24px max(20px,env(safe-area-inset-left))}',
         '.sc-esito h2{font-size:20px;font-weight:700;margin-bottom:6px}',
         '.sc-esito p{color:#475569;font-size:14px;line-height:1.6;margin-bottom:14px}',
@@ -157,6 +163,12 @@
            di questa schermata che distrugge del lavoro. */
         stato.bozze = stato.bozze || {};
         var onCambia = o.onCambia || function () { };
+        /* ── «Correggi subito» ────────────────────────────────────────────────
+           Il verdetto lo calcola CHI TRASPORTA (in Live il server, che è l'unico
+           ad avere le soluzioni): qui si mostra e basta. `stato.verdetti` non
+           esiste finché il docente non accende la leva, e senza non cambia
+           niente. */
+        var verdetti = o.verdetti || {};
         var onConsegna = o.onConsegna || function () { };
         var chiedi = o.chiedi || function (testo) { return Promise.resolve(window.confirm(testo)); };
 
@@ -439,6 +451,7 @@
                     b.type = 'button'; b.className = 'sc-opt'; b.setAttribute('role', 'radio');
                     b.setAttribute('aria-checked', String(r.scelta === oi));
                     b.textContent = testo;
+                    if (verdetti[v.id]) b.disabled = true;   /* già corretta: non si ripensa */
                     b.onclick = function () {
                         r.scelta = oi;
                         list.querySelectorAll('.sc-opt').forEach(function (x, xi) { x.setAttribute('aria-checked', String(xi === oi)); });
@@ -452,6 +465,18 @@
                 ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
                 ta.oninput = function () { r.testo = ta.value; salva(v.id); };
                 list.appendChild(ta);
+            }
+
+            /* l'esito della domanda corrente, se è già stato dato */
+            var vd = verdetti[v.id];
+            if (vd) {
+                var box2 = document.createElement('div');
+                box2.className = 'sc-verd ' + (vd.esito === 'right' ? 'sc-verd--ok' : 'sc-verd--ko');
+                box2.setAttribute('role', 'status');
+                box2.innerHTML = '<b>' + esc(vd.esito === 'right' ? _t(t, 'sc_giusto', 'Giusto') : _t(t, 'sc_sbagliato', 'Sbagliato')) + '</b>' +
+                    (vd.giusta ? ' — ' + esc(_t(t, 'sc_corretta', 'corretta')) + ': <b>' + esc(vd.giusta) + '</b>' : '') +
+                    (vd.spiegazione ? '<span class="sp">' + esc(vd.spiegazione) + '</span>' : '');
+                list.appendChild(box2);
             }
 
             if (cfg.autovalutazione) {
@@ -539,6 +564,9 @@
             /* il chiamante può forzare il ridisegno quando lo stato cambia da
                fuori (il rientro, il secondo giro) */
             aggiorna: disegna,
+            /* il verdetto arriva dopo la risposta, in asincrono: chi trasporta
+               lo consegna qui e la schermata si riscrive */
+            verdetto: function (id, v) { if (id && v) { verdetti[id] = v; disegna(); } },
             vaiA: vaiA,
             stato: stato
         };

@@ -346,12 +346,22 @@
     // ── una scheda per allievo ──
     (Array.isArray(r.byStudent) ? r.byStudent : []).forEach(function (a) {
       var n = (a.profilo && a.profilo.conteggio) || {};
+      /* ⚠️ I due generi si contano SEPARATI: la scelta multipla si corregge da
+         sé, la domanda aperta no. Una percentuale sola mescolerebbe una misura
+         di conoscenza e una di lavoro svolto. */
+      var mc = (a.risposte || []).filter(function (q) { return q.corretta !== null && q.corretta !== undefined; });
+      var giuste = mc.filter(function (q) { return q.corretta === true; }).length;
+      var scritte = (a.risposte || []).length - mc.length;
       body += '<div class="lr-card"><div class="lr-card-head">' +
         '<div><div class="lr-who">' + esc(a.displayName || a.id) + '</div>' +
         '<div class="lr-who-sub">' + (a.consegnato ? 'consegnato' : 'non consegnato') +
         (a.aree && a.aree.length ? ' · aree: ' + esc(a.aree.join(', ')) : '') + '</div></div>' +
-        '<div class="lr-metrics"><div class="lr-acc">' + (n.scritte || 0) + '</div>' +
-        '<div class="lr-acc-sub">risposte · ' + (n.lette || 0) + ' lette</div></div></div>';
+        '<div class="lr-metrics">' +
+        (mc.length
+          ? '<div class="lr-acc">' + giuste + '/' + mc.length + '</div><div class="lr-acc-sub">a scelta multipla' +
+            (scritte ? ' · ' + scritte + ' scritte' : '') + ' · ' + (n.lette || 0) + ' lette</div>'
+          : '<div class="lr-acc">' + (n.scritte || 0) + '</div><div class="lr-acc-sub">risposte scritte · ' + (n.lette || 0) + ' lette</div>') +
+        '</div></div>';
 
       var righe = (a.profilo && a.profilo.righe) || [];
       righe.filter(function (x) { return x.totale; }).forEach(function (x) {

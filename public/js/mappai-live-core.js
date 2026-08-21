@@ -652,7 +652,11 @@
     rateFromMs: rateFromMs,
     median: median,
     computeResults: computeResults,
-    computeStudentResult: computeStudentResult
+    computeStudentResult: computeStudentResult,
+    /* il testo della risposta giusta: serve al feedback immediato del server —
+       riscriverlo là sarebbe la seconda copia di una regola che sa già di
+       `tf`/`mc`/anni e tolleranze (inv. 6) */
+    correctText: _correctText
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = CORE;

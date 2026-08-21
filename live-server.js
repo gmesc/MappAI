@@ -140,6 +140,13 @@ function createLiveServer(opts) {
       // Report profilo studente: mostra le soluzioni (giuste/sbagliate + spiegazione) a
       // fine sessione. Default ON. Le soluzioni NON viaggiano durante il gioco.
       revealAnswers: cfg.revealAnswers !== false,
+      // «Correggi subito» (20/8): il VERDETTO su ciò che lo studente ha già
+      // mandato torna con la risposta, insieme alla spiegazione. Le soluzioni
+      // continuano a NON viaggiare: `publicQuestions` le strippa comunque, e chi
+      // non ha risposto non riceve niente. Default SPENTO — con la correzione
+      // immediata si smette di ragionare e si tira a indovinare finché non
+      // diventa verde, e in classe è una scelta del docente, non dell'app.
+      feedbackImmediato: cfg.feedbackImmediato === true,
       build: (cfg.mode === 'build' && cfg.build) ? {
         gaps: Array.isArray(cfg.build.gaps) ? cfg.build.gaps : [],
         freeAllowed: cfg.build.freeAllowed !== false,
@@ -216,6 +223,23 @@ function createLiveServer(opts) {
   }
   // ⚠️ `fase` vuota: da dove si parte lo decide la superficie (col percorso a
   // tre passi si atterra sulle AREE), non un ripiego scritto qui.
+  /* Il verdetto su UNA risposta appena arrivata. Vive qui perché è l'unico
+     posto che ha le soluzioni (inv. 6): al telefono va l'esito di ciò che ha
+     già mandato, mai la chiave per indovinare. Con la leva spenta torna null e
+     non cambia niente rispetto a prima. */
+  function verdettoSu(q, a) {
+    if (!session.feedbackImmediato || !q || !a) return null;
+    const g = LC.gradeAnswer(q, a);
+    // ⚠️ `manual` è «la corregge il docente» (una domanda aperta senza soluzione
+    // attesa): dirgli «sbagliato» sarebbe una bugia, e bloccargli la risposta
+    // gliela toglierebbe di mano. Niente verdetto, come per una domanda vuota.
+    if (!g || g.outcome === 'blank' || g.outcome === 'manual') return null;
+    const out = { esito: g.outcome, punteggio: g.score };
+    if (g.outcome !== 'right') out.giusta = LC.correctText(q);
+    if (q.explanation) out.spiegazione = q.explanation;
+    return out;
+  }
+
   function statoDi(st) { return st.stato || { aree: [], fase: '', letture: {}, risposte: {}, bozze: {}, note: '' }; }
 
   // Tutte le proposte (modalità Costruisci), con autore.
@@ -382,6 +406,7 @@ function createLiveServer(opts) {
           // (mai esposti: servono solo al server per il flag yearNotInSources).
           mode: session.mode, loginMode: session.loginMode, hintMode: session.hintMode,
           scelta: session.scelta || null,
+          feedbackImmediato: !!session.feedbackImmediato,
           build: session.build ? {
             gaps: session.build.gaps, freeAllowed: session.build.freeAllowed,
             maxProposals: session.build.maxProposals
@@ -495,7 +520,11 @@ function createLiveServer(opts) {
                 ok: true, displayName: LC.displayName(st), phase: session.phase,
                 // il pool campionato e SENZA angolo né soluzioni: `pubblico` è
                 // l'unica porta, come `publicQuestions` per il quiz
-                pool: SC.pubblico(mio), stato: statoDi(st), cfg: session.scelta
+                pool: SC.pubblico(mio), stato: statoDi(st), cfg: session.scelta,
+                // ⚠️ i verdetti stanno sul SERVER: al rientro tornano di qui,
+                // altrimenti un ricaricamento sbloccherebbe le domande già
+                // corrette (e il contatore ripartirebbe da zero)
+                verdetti: st.verdetti || {}
               });
             }
             persistStudent(id); persist();
@@ -572,15 +601,46 @@ function createLiveServer(opts) {
             if (!st) return json(res, 404, { error: 'not-joined' });
             if (st.deviceId !== body.deviceId) return json(res, 403, { error: 'not-your-identity' });
             if (session.phase === 'closed') return json(res, 409, { error: 'closed' });
-            st.stato = SC.normalizzaStato(poolDi(id, st), body.stato);
+            const poolMio = poolDi(id, st);
+            const nuovo = SC.normalizzaStato(poolMio, body.stato);
+            /* ⚠️ Le risposte già corrette non si riscrivono: il verdetto le ha
+               chiuse. Si rimettono quelle vecchie sopra quelle in arrivo, invece
+               di rifiutare tutto lo stato — qui il corpo è il PERCORSO intero, e
+               rifiutarlo butterebbe anche le letture e le aree. */
+            st.verdetti = st.verdetti || {};
+            Object.keys(st.verdetti).forEach(function (k) {
+              const prima = (st.stato && st.stato.risposte) ? st.stato.risposte[k] : null;
+              if (prima) nuovo.risposte[k] = prima;
+            });
+            st.stato = nuovo;
             st.stato.updatedAt = Date.now();
             // ⚠️ `dopoConsegna` = quello che si scrive NELLA schermata di esito
             // (il «perché no?»). Senza questo distinguo la consegna si annullava
             // a ogni tasto premuto, e la dashboard perdeva la spunta.
             if (!body.dopoConsegna) st.finishedAt = null;   // ha ripreso a lavorare
             persistStudent(id);
-            const n = SC.conteggio(poolDi(id, st), st.stato);
-            return json(res, 200, { ok: true, conteggio: n });
+            const mioPool = poolDi(id, st);
+            const n = SC.conteggio(mioPool, st.stato);
+            /* Il verdetto della SOLA domanda che il client dichiara di aver
+               appena risposto (`id`), e solo se è a scelta multipla: su una
+               domanda aperta non c'è niente da correggere qui. */
+            let verdetto = null;
+            if (session.feedbackImmediato && body.id) {
+              const idQ = String(body.id);
+              if (st.verdetti[idQ]) verdetto = st.verdetti[idQ];   // già corretta: si ridà quello
+              else {
+                const v = mioPool.find(x => x.id === idQ);
+                const ok = SC.corretta(v, (st.stato.risposte || {})[idQ]);
+                if (ok !== null) {
+                  verdetto = { esito: ok ? 'right' : 'wrong', punteggio: ok ? 1 : 0 };
+                  if (!ok) verdetto.giusta = (v.opzioni || [])[v.giusta] || '';
+                  if (v.spiegazione) verdetto.spiegazione = v.spiegazione;
+                  st.verdetti[idQ] = verdetto;
+                }
+              }
+              persistStudent(id);
+            }
+            return json(res, 200, { ok: true, conteggio: n, verdetto: verdetto });
           }
 
           // ── studente: salva una risposta (autosave, sovrascrivibile) ──
@@ -597,12 +657,25 @@ function createLiveServer(opts) {
             if (!q) return json(res, 400, { error: 'bad-question' });
             const a = LC.cleanAnswer(q, body);
             if (!a) return json(res, 400, { error: 'bad-answer' });
-            a.updatedAt = Date.now();
             st.answers = st.answers || {};
-            st.answers[qIdx] = a;              // Indietro = sovrascrittura
+            /* ⚠️ Una risposta GIÀ CORRETTA è definitiva, e la regola vive QUI —
+               non nel telefono. Col verdetto in mano si poteva tirare a caso,
+               leggere la soluzione e riscrivere: il report del docente dava
+               100%. Il blocco lato client resta (è l'interfaccia), ma non è lui
+               a difendere il dato. Vale anche per «Salta», che cancellava una
+               risposta giusta. */
+            const vecchia = st.answers[qIdx];
+            if (session.feedbackImmediato && vecchia && vecchia.verdetto) {
+              return json(res, 409, { error: 'already-graded', verdetto: vecchia.verdetto });
+            }
+            a.updatedAt = Date.now();
+            const v = verdettoSu(q, a);
+            if (v) a.verdetto = v;             // viaggia col rientro: il join riconsegna `answers`
+            st.answers[qIdx] = a;              // Indietro = sovrascrittura (finché non è corretta)
             st.finishedAt = null;              // ha ripreso a rispondere
             persistStudent(id);
-            return json(res, 200, { ok: true, saved: qIdx, answered: Object.keys(st.answers).length });
+            return json(res, 200, { ok: true, saved: qIdx, answered: Object.keys(st.answers).length,
+              verdetto: v });
           }
 
           // ── studente: consegna (può ancora riaprire fino a chiusura) ──

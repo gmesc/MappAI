@@ -42,7 +42,7 @@
     <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
          Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
          modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
-    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=dh37">
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=bar2">
 
     <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
          Ogni regola è scoped sotto html.manifesto: senza quella classe questo
@@ -3251,7 +3251,7 @@
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
-    <script src="js/mappai-modal-core.js?v=dh37"></script>
+    <script src="js/mappai-modal-core.js?v=bar3"></script>
     <script src="js/mappai-modal.js?v=dos3"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
@@ -3297,7 +3297,7 @@
     <!-- VISIONE (20/8): leggere una fotografia col motore locale. Il core è puro
          e testato in Node — lo carica anche main.js per gli IPC; il modulo del
          gesto va PRIMA di «Crea un documento», che lo interroga. -->
-    <script src="js/mappai-visione-core.js?v=dos3"></script>
+    <script src="js/mappai-visione-core.js?v=rig1"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js?v=kw1"></script>
@@ -3314,7 +3314,7 @@
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
     <script src="js/mappai-causal-chains.js?v=font1"></script>
-    <script src="js/mappai-branch-synthesis.js?v=font4"></script>
+    <script src="js/mappai-branch-synthesis.js?v=rig1"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
@@ -3350,19 +3350,19 @@
     <script src="js/mappai-collab-core.js"></script>
     <script src="js/mappai-collab-teacher.js"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
-    <script src="js/mappai-live-core.js?v=sf1"></script>
-    <script src="js/mappai-live-reports.js?v=sc1"></script>
+    <script src="js/mappai-live-core.js?v=qz2"></script>
+    <script src="js/mappai-live-reports.js?v=qz1"></script>
     <script src="js/mappai-live-classes.js"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
     <script src="js/mappai-vista-ridotta.js?v=man2"></script>
-    <script src="js/mappai-live-teacher.js?v=sc1"></script>
+    <script src="js/mappai-live-teacher.js?v=qz1"></script>
     <!-- Attività «a scelta» (19/8): il core puro, la superficie condivisa (telefono,
          app, banco) e il modulo che legge i materiali del vault e avvia la Live.
          Dopo live-teacher: `apriLive` chiama `MappAILive.launchExternal`. -->
-    <script src="js/mappai-scelta-core.js?v=sc1"></script>
-    <script src="js/mappai-scelta-view.js?v=sc1"></script>
-    <script src="js/mappai-scelta.js?v=sc1"></script>
+    <script src="js/mappai-scelta-core.js?v=qz3"></script>
+    <script src="js/mappai-scelta-view.js?v=qz2"></script>
+    <script src="js/mappai-scelta.js?v=qz2"></script>
     <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
     <script src="js/mappai-timeline-teacher.js"></script>
     <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
@@ -3401,11 +3401,11 @@
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=dos3"></script>
-    <script src="js/mappai-material-pipeline.js?v=dos3"></script>
+    <script src="js/mappai-elabora-console.js?v=rig1"></script>
+    <script src="js/mappai-material-pipeline.js?v=rig1"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
-    <script src="js/mappai-visione.js?v=dos3"></script>
+    <script src="js/mappai-visione.js?v=bar3"></script>
     <!-- PROIEZIONE (20/8): la vista-lezione dei dossier — la geometria è nel
          core, provata in Node; la vista si apre da INSEGNA («Proietta»). -->
     <script src="js/mappai-proiezione-core.js?v=dos3"></script>

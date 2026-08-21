@@ -303,6 +303,7 @@
     if (extra.hintMode) payload.hintMode = extra.hintMode;
     if (extra.build) payload.build = extra.build;
     if (extra.scelta) payload.scelta = extra.scelta;
+    if (extra.feedbackImmediato) payload.feedbackImmediato = true;
     // quali report sa produrre QUESTA sessione: la dashboard è una sola, ma
     // «domande» e «allievi» non esistono fuori dal quiz
     LT._reports = extra.reports || null;
