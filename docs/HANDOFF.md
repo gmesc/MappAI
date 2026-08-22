@@ -43,6 +43,30 @@
 
 ## 0. Le prime cose da sapere
 
+0-sexies. **⟵ DA QUI SI RIPRENDE (23/8): la GUIDA PER I DOCENTI esiste, ed è fotografata
+   nell'app vera.** `~/Claude/MappAI - guida docenti/index.html` (fuori dal repo: 13 capitoli
+   + appendice QR, ~90 screenshot a 2× scattati via CDP su un'istanza isolata con i vault
+   COPIATI della 4R). Gli strumenti sono nel repo, `tools/guida-docenti/` (lab, campagna
+   ripetibile, telefono headless, verifica, la mappa dei fatti in `fatti/`). Il punto di
+   ripresa completo — comandi, trappole, che cosa resta — è il blocco in testa a
+   [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md).
+   · **La campagna è anche una prova in Electron**: «Proietta» (con «Affianca» e il mazzo di
+     flashcard) e le «Domande a scelta» via QR (sessione, telefono, consegna, report) sono
+     stati VISTI girare — v. §5 in testa. La scheda del dossier e la generazione (mappa da
+     PDF, dossier da foto) NO: nell'istanza non è mai stata incollata la chiave Gemini.
+   · ⚠️ **Difetti veri trovati leggendo e fotografando, NON corretti** (decisione del piano:
+     si riferiscono, si correggono a parte): il segnaposto «[EMAIL_ADDRESS]» nello schermo di
+     sblocco (`it_translations.js:207`); il tutor del nodo che scrive nickname ed età nel
+     prompt (`mappai-ai-tutor.js:524-529`) contro il testo Privacy «Il NOME dell'allievo non
+     entra mai»; «Attività già svolte» in INSEGNA sempre vuota (`landing-teach.js:3034`
+     legge `sessions|records`, il main dà `rows`); l'onboarding lingue è codice morto
+     (`storage-lang.js:864` scrive la lingua prima del controllo :869); `#dst-btn` (Dev
+     self-test) si monta anche per i docenti; la voce naturale prezzata come testo nei
+     Consumi (prefix-match `mappai-ui-modals.js:1005`); «15 req/min» costante stantia; la
+     nota «MappAI estrarrà i contenuti audio/visivi del video» promette ciò che il codice non
+     fa (YouTube = solo l'URL); ESC non chiude «Proietta» via CDP (da provare a mano);
+     `#mp-estimate` (il preventivo) non è montato nel bento.
+
 0-quater. **⟵ DA QUI SI RIPRENDE (21/8): la scheda della fonte è un EDITOR come gli altri.**
    La superficie della visione (`montaSuperficie`, `mappai-visione.js`) aveva i comandi in un
    piè di pagina in fondo a tredici campi: si raggiungevano scorrendo. Ora, in **entrambe le
@@ -1949,6 +1973,35 @@ e il costo letto dal codice. Si rigenera con `node tools/atlante-ui/build.js`.
 
 ## 5. Provato in Electron — che cosa è acquisito
 
+### ✅ VISTO GIRARE dalla campagna della guida docenti (22-23/8, app vera via CDP)
+Istanza isolata (`--user-data-dir` proprio, vault COPIATI, classe 4R anonimizzata), senza
+chiave Gemini. Gli esiti, riga per riga, in `tools/guida-docenti/fatti/esiti-electron.md`.
+- **«Proietta»** (punto 14 del blocco dossier qui sotto): compare sul dossier con `dossier:
+  true` in `index.yaml`; overlay con la foto, zoombar, **«Affianca»** → pannello; la tendina
+  «Flashcard…» si riempie dai `set-*.json` e le carte si affiancano. Su un computer senza
+  l'archivio (il caso dell'istanza) il pannello dice «Questo dossier non ha una scheda in
+  archivio su questo computer.» e la tendina «Domande aperte…» resta vuota: è il debito 0-B,
+  confermato. ⚠️ ESC via CDP non chiude l'overlay (il × sì): da provare a mano.
+- ⚠️ Il vault `grind this heels` sul disco vero ha **`dossier: false`** (riaperto e
+  risalvato: `buildVaultMapData` guarda `nodes[0].id === 'fonte_0'`, ma `_vaultWalkMd` legge
+  i file in ordine alfabetico) → su quel dossier INSEGNA non mostra «Proietta». La campagna
+  lo corregge nella copia; nel vault vero resta.
+- **«Domande a scelta» via QR, da capo a fondo** (blocco «le attività a scelta» qui sotto):
+  card nel hub «MappAI Live» ✅ · setup «Il materiale» con la riga «230 domande da 9 fogli…
+  — solo domande a scelta multipla. · 4R» ✅ · «Avvia con QR» → sessione, URL LAN, QR ✅ ·
+  login dal telefono (emoji + numero) → «1/20 entrati» ✅ · «Avvia domande» ✅ · sul telefono
+  la mappa «non dichiara i suoi argomenti» e si va dritti alle domande (Elettricità ha i
+  rami, ma i set MC non portano il ramo) · scelta, risposta, «Consegna» → «Consegnato» ✅ ·
+  dashboard «✓ consegnato» ✅ · «Chiudi sessione» → «Report domande a scelta» ✅ · cartella
+  `Attività di studio/4R/2026-08-23 · Quiz a scelta · Elettricità · 00/` con `questions.json
+  · session.json · results.json · students/ · report-scelta.html` ✅ (col solo genere MC
+  l'attività si chiama «Quiz a scelta», come da codice). La stessa identità da un secondo
+  dispositivo → «Già in uso su un altro dispositivo.» ✅ (visto per sbaglio, e funziona).
+- **La scheda della fonte in ELABORA** (0-quater): su un dossier copiato senza archivio
+  locale `.ec-foto-fonte` non compare — coerente col debito 0-B, non una regressione.
+- **Non visto**: la generazione (mappa da PDF, «Genera materiali», dossier da foto), la
+  voce naturale, il passo «Da che cosa» fino in fondo. Serve la chiave nell'istanza.
+
 ### ⏳ DA PROVARE IN ELECTRON — il DOSSIER DI FONTE (20/8 notte)
 Niente di questo è mai girato nell'app vera: è misurato in 22 test puri, nel banco
 `tools/smoke/visione-fogli.js` e nella suite (1196/0). La lettura passa da **Gemini**:
@@ -2300,7 +2353,8 @@ cambia la misura, non è la cascata — è la misura.**
 
 | | |
 |---|---|
-| il **diario** giorno per giorno, coi motivi e le misure | `CLAUDE.md` §11 |
+| il **diario** giorno per giorno, coi motivi e le misure | [`DIARIO-2026.md`](DIARIO-2026.md) |
+| la **guida illustrata per i docenti** (fuori repo) e la campagna di screenshot che la rifà | `~/Claude/MappAI - guida docenti/index.html` · `tools/guida-docenti/` · [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md) |
 | **assistere un beta tester da remoto** (comandi per la console, per sintomo) | [`ASSISTENZA-REMOTA.md`](ASSISTENZA-REMOTA.md) |
 | il diario di «creare un materiale a mano» (**chiuso il 13/8 sera**) | [`HANDOFF-crea-materiali.md`](HANDOFF-crea-materiali.md) |
 | il diario del filone **console-bento / ELABORA** (6-12 agosto) | [`HANDOFF-console-bento.md`](HANDOFF-console-bento.md) |
