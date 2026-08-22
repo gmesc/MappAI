@@ -151,7 +151,7 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
     await lab.clicca('#card-btn-layout'); await lab.pausa(900);   // FASCI → DAG
     await lab.clicca('#card-btn-layout'); await lab.pausa(8000);  // DAG → MAPPA, e la fisica si allarga
     await lab.val('window.resetZoom && window.resetZoom(); 1'); await lab.pausa(1500);
-    await lab.clicca('#card-btn-layout'); await lab.pausa(1800);  // MAPPA → ALBERO
+    await lab.clicca('#card-btn-layout'); await lab.pausa(4500);  // MAPPA → ALBERO (e il toast «Vista studio…» se ne va)
     await lab.scatta('06-mappa-albero', J);
     await lab.numeri([{ sel: '#sidebar-toggle-btn', n: 1 }, { sel: '#sidebar-tab-structure', n: 2, dove: 'b' }, { sel: '#map-control-card', n: 3, dove: 'tl' }, { sel: '#a11y-panel-toggle', n: 4 }, { sel: '#floating-actions-toggle', n: 5 }]);
     await lab.scatta('06-mappa-albero-numeri', J);

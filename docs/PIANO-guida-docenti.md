@@ -34,13 +34,16 @@
 > passo 4: Workflow di 6 verificatori scettici → 224 affermazioni rette, 28 rilievi, 23 corretti
 > nel testo; il verificatore dei capitoli 4-5 era caduto (rete) ed è stato rilanciato.
 >
+> **Stato al 23/8 (notte): FATTO** — campagna completa (91 scatti, tutti i capitoli, QR da capo a
+> fondo), `verifica.js` a 0 difetti (62 immagini rese, indice 13/13, lightbox, contrasti ≥ 4,5:1,
+> niente scorrimento a 390 px), 28 + 23 rilievi dei verificatori applicati al testo, due commit
+> (`fd0c6d0`, `aa2f390`). **Resta a Giacomo:** aprire `index.html`, leggere cap. 1, 2 e 12, guardare
+> 3-4 figure in lightbox; dire se la 4R finta va bene; e i punti 4-6 qui sotto.
+>
 > **Da fare (in ordine):**
-> 1. Se la campagna `--da-zero` dell'ultimo giro non è completa (log in
->    `lab/campagna-da-zero.log`, atteso ~75 scatti, 0 «✗»): rilanciarla; poi `python3
->    tools/guida-docenti/provini.py` e guardare `img/_provini*.jpg`.
-> 2. `node tools/guida-docenti/verifica.js` → 0 difetti (immagini rotte, TOC, lightbox,
->    contrasti, scorrimento a 390px) e leggere le etichette «non trascritte dai lettori».
-> 3. Applicare i rilievi del verificatore cap-4-5 (se ne ha), poi rileggere cap. 1 e 12 a voce.
+> 1. (fatto) la campagna `--da-zero` + provini.
+> 2. (fatto) `verifica.js` → 0 difetti.
+> 3. (fatto) i rilievi dei verificatori.
 > 4. Difetti VERI dell'app trovati strada facendo, da riferire a Giacomo (NON corretti qui,
 >    decisione del piano): (a) `it_translations.js:207` stampa il segnaposto «[EMAIL_ADDRESS]»
 >    nello schermo di sblocco; (b) il tutor del nodo scrive nel prompt «L'utente è <nickname>,
