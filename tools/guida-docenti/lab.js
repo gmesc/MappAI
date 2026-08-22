@@ -6,8 +6,13 @@
  *
  * Istanza di prova isolata (MAI i dati veri):
  *   L="$HOME/Claude/MappAI - guida docenti/lab"
- *   npx electron . --remote-debugging-port=9333 --user-data-dir="$L/userData"
+ *   ./node_modules/.bin/electron . --remote-debugging-port=9333 --user-data-dir="$L/userData" \
+ *     --disable-renderer-backgrounding --disable-background-timer-throttling --disable-backgrounding-occluded-windows
  *   → userData in <L>/userData/dev, cartella madre in <L>/casa (mappai-settings.json).
+ *   ⚠️ I tre flag finali non sono cosmesi: con la finestra coperta da altre finestre Chromium ferma
+ *   requestAnimationFrame (document.visibilityState = hidden), la fisica D3 non fa un tick e la
+ *   mappa libera si fotografa con tutti i cerchi ammucchiati sotto la radice. Misurato il 23/8:
+ *   0 fotogrammi in 500 ms senza i flag. È la trappola 2 della GUIDA-ARCHITETTO, sull'app vera.
  *
  * Variabili: MAPPAI_PORTA (9333) · IMG_DIR (…/MappAI - guida docenti/img).
  * ⚠️ Trappole pagate (memoria electron-debug-remoto): niente replMode; electronAPI è

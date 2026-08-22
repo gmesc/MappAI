@@ -18,7 +18,10 @@
 >
 > **Istanza di prova** (mai i dati veri): `~/Claude/MappAI - guida docenti/lab/` → `userData/`
 > (lanciare con `./node_modules/.bin/electron . --remote-debugging-port=9333
-> --user-data-dir="$HOME/Claude/MappAI - guida docenti/lab/userData"`), `casa/MappAI - file/`
+> --user-data-dir="$HOME/Claude/MappAI - guida docenti/lab/userData" --disable-renderer-backgrounding
+> --disable-background-timer-throttling --disable-backgrounding-occluded-windows` — ⚠️ senza i
+> tre flag una finestra coperta ferma `requestAnimationFrame` e la fisica della mappa libera non
+> fa un tick: i cerchi restano ammucchiati sotto la radice; misurato il 23/8), `casa/MappAI - file/`
 > (i due vault COPIATI da 4R + `Classi/classi.json` con la 4R anonimizzata: nota neutra, niente
 > nomi). `--da-zero` ricopia i vault dal disco vero, toglie `pipeline.json` (o compare «Riprendi»)
 > e mette `dossier: true` nel dossier (o niente «Proietta»), svuota localStorage tenendo chiave e

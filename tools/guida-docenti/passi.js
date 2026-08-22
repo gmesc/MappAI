@@ -143,7 +143,15 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
 
   /* ══════════════ 06 — LA MAPPA ════════════════════════════════════════ */
   passo('06-mappa-albero', async () => {
+    await lab.ls('mappai_map_rel_labels', 'full');   // le parole sulle frecce intere, qualunque cosa abbia lasciato il giro prima
     await apriMappa('Elettricità');
+    // la mappa si apre in ALBERO (vista a schede) e sotto la fisica non ha ancora allargato i cerchi:
+    // si passa una volta alla mappa libera, la si lascia assestare, e si torna in ALBERO (un clic)
+    await lab.clicca('#card-btn-layout'); await lab.pausa(900);   // ALBERO → FASCI
+    await lab.clicca('#card-btn-layout'); await lab.pausa(900);   // FASCI → DAG
+    await lab.clicca('#card-btn-layout'); await lab.pausa(8000);  // DAG → MAPPA, e la fisica si allarga
+    await lab.val('window.resetZoom && window.resetZoom(); 1'); await lab.pausa(1500);
+    await lab.clicca('#card-btn-layout'); await lab.pausa(1800);  // MAPPA → ALBERO
     await lab.scatta('06-mappa-albero', J);
     await lab.numeri([{ sel: '#sidebar-toggle-btn', n: 1 }, { sel: '#sidebar-tab-structure', n: 2, dove: 'b' }, { sel: '#map-control-card', n: 3, dove: 'tl' }, { sel: '#a11y-panel-toggle', n: 4 }, { sel: '#floating-actions-toggle', n: 5 }]);
     await lab.scatta('06-mappa-albero-numeri', J);
@@ -157,13 +165,15 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
   passo('06-mappa-layout-ciclo', async () => {
     for (const nome of ['fasci', 'dag', 'mappa']) {
       await lab.clicca('#card-btn-layout'); await lab.pausa(1800);
-      if (nome === 'mappa') { await lab.val('window.resetZoom && window.resetZoom(); 1'); await lab.pausa(2500); await lab.val('(()=>{const s=document.querySelector("svg"); if(s) s.dispatchEvent(new MouseEvent("click",{bubbles:true})); return 1;})()'); await lab.pausa(1200); }
+      // uscendo dalla vista a schede la fisica riparte dal centro: i cerchi si allargano in qualche secondo
+      if (nome === 'mappa') { await lab.pausa(6000); await lab.val('window.resetZoom && window.resetZoom(); 1'); await lab.pausa(2500); await lab.val('(()=>{const s=document.querySelector("svg"); if(s) s.dispatchEvent(new MouseEvent("click",{bubbles:true})); return 1;})()'); await lab.pausa(1200); }
       await lab.scatta('06-mappa-layout-' + nome, J);
     }
   });
   passo('06-mappa-livelli-testo', async () => {
+    await lab.val('(()=>{const s=document.querySelector("svg"); if(s) s.dispatchEvent(new MouseEvent("click",{bubbles:true})); return 1;})()'); await lab.pausa(600);   // via ogni evidenziazione
     await lab.val('(()=>{const s=document.querySelector("#level-slider"); s.value=1; s.dispatchEvent(new Event("input",{bubbles:true})); s.dispatchEvent(new Event("change",{bubbles:true})); return s.value;})()');
-    await lab.pausa(1200); await lab.scatta('06-mappa-livello-1', J);
+    await lab.pausa(2500); await lab.scatta('06-mappa-livello-1', J);
     await lab.val('(()=>{const s=document.querySelector("#level-slider"); s.value=s.max; s.dispatchEvent(new Event("input",{bubbles:true})); s.dispatchEvent(new Event("change",{bubbles:true})); return s.value;})()');
     await lab.pausa(1000);
     await lab.clicca('#card-btn-labels'); await lab.pausa(900); await lab.scatta('06-mappa-testo-no', Object.assign({ sel: '#map-control-card', margine: 30 }, P));
@@ -215,7 +225,11 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
   passo('06-mappa-azioni-rapide', async () => {
     await lab.finoA('(()=>{const e=document.querySelector("#floating-actions-toggle"); return e && e.getBoundingClientRect().width>0;})()', 5000);
     await lab.clicca('#floating-actions-toggle'); await lab.pausa(1500);
-    if (await visibile('#floating-actions-menu')) { const r = await lab.rect('#floating-actions-menu'); await lab.scatta('06-mappa-azioni-rapide', Object.assign({ clip: { x: 0, y: Math.max(0, r.y - 20), width: Math.max(0, r.x) + r.w + 40, height: r.h + 60 } }, P)); }
+    if (await visibile('#floating-actions-menu')) {
+      // il contenitore ha una transform: il rettangolo vero è quello dei bottoni
+      const r = await lab.val('(()=>{const bs=[...document.querySelectorAll("#floating-actions-menu button, #floating-actions-menu a")].filter(b=>b.getBoundingClientRect().width>0); if(!bs.length) return null; const rs=bs.map(b=>b.getBoundingClientRect()); const x=Math.min(...rs.map(r=>r.left)), y=Math.min(...rs.map(r=>r.top)), x2=Math.max(...rs.map(r=>r.right)), y2=Math.max(...rs.map(r=>r.bottom)); return {x,y,w:x2-x,h:y2-y};})()');
+      if (r) await lab.scatta('06-mappa-azioni-rapide', Object.assign({ clip: { x: Math.max(0, r.x - 30), y: Math.max(0, r.y - 30), width: r.w + 60, height: r.h + 110 } }, P));
+    }
     await lab.clicca('#floating-actions-toggle'); await lab.pausa(400);
   });
 
