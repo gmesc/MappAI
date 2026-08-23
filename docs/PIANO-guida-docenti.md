@@ -1,81 +1,71 @@
 # Piano — Guida illustrata di MappAI per i docenti che la testano
 
-> Scritto il 22 agosto 2026 da `/architetto`; **approvato da Giacomo il 22/8** con le
-> modifiche recepite qui sotto (capitolo di filosofia, attività QR in appendice come
-> sperimentali, vault scelti, bivi risolti, prosa con `/bella-prosa`).
-> Stato: **IN ESECUZIONE** — passo 0 avviato il 22/8.
+> Scritto il 22 agosto 2026 da `/architetto`, approvato da Giacomo lo stesso giorno.
+> **Stato: CONSEGNATO il 23 agosto 2026.** Il piano resta come storia del lavoro; quello che
+> serve per riprendere sta nel blocco qui sotto.
 
-> ## ⟵ PUNTO DI RIPRESA (23/8/2026, notte) — leggere questo blocco prima di tutto
+> ## ⟵ DA QUI SI RIPRENDE (23 agosto 2026, notte)
 >
-> **Che cosa c'è.** La guida è SCRITTA e quasi finita: `~/Claude/MappAI - guida docenti/index.html`
-> (13 capitoli + appendice QR, veste manifesto in `assets/`, immagini in `img/`). Gli strumenti
-> sono nel repo, `tools/guida-docenti/`: `lab.js` (CDP sull'app viva, porta 9333), `campagna.js`
-> + `passi.js` (la campagna di screenshot, ripetibile: `--da-zero`, `--solo NN`, `--elenco`),
-> `telefono.js` (Chrome headless = il telefono dell'allievo, porta 9444), `provini.py` (foglio dei
-> provini), `verifica.js` (immagini integre, indice, lightbox, contrasti, etichette «…» contro i
-> fatti), `fatti/*.md` (la mappa dei fatti: 8 aree + 4 buchi, ~430 KB, file:riga) e
-> `fatti/esiti-electron.md` (che cosa la campagna ha visto girare davvero nell'app).
+> **La guida è finita e si legge**: `~/Claude/MappAI - guida docenti/index.html` — doppio clic.
+> Tredici capitoli per percorso del docente più l'appendice QR, 95 fotografie vere dell'app,
+> indice navigabile, immagini che si ingrandiscono al clic. Cartella autonoma di 52 MB, fuori
+> da git: si copia o si manda così com'è.
 >
-> **Istanza di prova** (mai i dati veri): `~/Claude/MappAI - guida docenti/lab/` → `userData/`
-> (lanciare con `./node_modules/.bin/electron . --remote-debugging-port=9333
-> --user-data-dir="$HOME/Claude/MappAI - guida docenti/lab/userData" --disable-renderer-backgrounding
-> --disable-background-timer-throttling --disable-backgrounding-occluded-windows` — ⚠️ senza i
-> tre flag una finestra coperta ferma `requestAnimationFrame` e la fisica della mappa libera non
-> fa un tick: i cerchi restano ammucchiati sotto la radice; misurato il 23/8), `casa/MappAI - file/`
-> (i due vault COPIATI da 4R + `Classi/classi.json` con la 4R anonimizzata: nota neutra, niente
-> nomi). `--da-zero` ricopia i vault dal disco vero, toglie `pipeline.json` (o compare «Riprendi»)
-> e mette `dossier: true` nel dossier (o niente «Proietta»), svuota localStorage tenendo chiave e
-> sblocco beta. ⚠️ La chiave Gemini NON è mai stata incollata nell'istanza: le scene che generano
-> (mappa da PDF, dossier da foto) non sono fotografate; la guida le racconta a parole.
+> **Come si rifà**, quando l'app cambia: [`tools/guida-docenti/LEGGIMI.md`](../tools/guida-docenti/LEGGIMI.md)
+> — i tre comandi (app di prova su :9333 con i flag anti-sospensione, `campagna.js --da-zero`,
+> `verifica.js`), che cosa gli strumenti NON provano, le nove trappole pagate.
 >
-> **Fatto in quest'ordine:** passo 0 ✅ · passo 1 (Workflow 8 lettori + critico + 4 buchi) ✅ ·
-> passo 2 campagna ✅ per i capitoli 03·05·06·07·08·09·10·13 (il QR end-to-end: sessione, telefono
-> headless, consegna, report) · passo 3 pagina ✅ (prosa /bella-prosa, «tu», zero gergo) ·
-> passo 4: Workflow di 6 verificatori scettici → 224 affermazioni rette, 28 rilievi, 23 corretti
-> nel testo; il verificatore dei capitoli 4-5 era caduto (rete) ed è stato rilanciato.
+> ### Che cosa resta a Giacomo
+> 1. **Leggerla.** In particolare il capitolo 1 (la filosofia: meta-materiali, didattica non
+>    stravolta, «domani meglio»), il 2 (che cosa esce verso l'AI, i costi) e il 12 («Che cosa
+>    NON esiste ancora»). Sono i due che i docenti leggeranno per primi e per ultimi.
+> 2. **Dire se la classe di prova va bene**: una 4R finta con venti allievi-animale, nessun
+>    nome, nota di taratura neutra; e i due vault che hai scelto, copiati nel laboratorio.
+> 3. **Il PDF**: rinviato per tua scelta (bivio A). Se lo vuoi, servono un foglio di stampa e
+>    le figure ridimensionate — mezza giornata.
+> 4. **La chiave Gemini nell'istanza di prova** (Cabina › Impostazioni AI, una volta): sblocca
+>    le uniche scene che oggi la guida racconta a parole invece di mostrarle — la generazione
+>    di una mappa da un PDF, «Genera materiali», il dossier da una foto, la voce naturale.
+>    I passi da aggiungere a `passi.js` sono al punto 6 qui sotto.
 >
-> **Stato al 23/8 (notte): FATTO** — campagna completa (91 scatti, tutti i capitoli, QR da capo a
-> fondo), `verifica.js` a 0 difetti (62 immagini rese, indice 13/13, lightbox, contrasti ≥ 4,5:1,
-> niente scorrimento a 390 px), 28 + 23 rilievi dei verificatori applicati al testo, due commit
-> (`fd0c6d0`, `aa2f390`). **Resta a Giacomo:** aprire `index.html`, leggere cap. 1, 2 e 12, guardare
-> 3-4 figure in lightbox; dire se la 4R finta va bene; e i punti 4-6 qui sotto.
+> ### I difetti VERI dell'app trovati leggendo e fotografando
+> Non corretti qui per scelta del piano (la guida non tocca l'app); ognuno è una riga di lavoro
+> a sé. In ordine di quanto morde per un docente-tester:
+> - **a.** lo schermo di sblocco dice «Invia il seguente ID Macchina a **[EMAIL_ADDRESS]**»: il
+>   segnaposto è a schermo (`it_translations.js:207`). È la primissima cosa che un tester legge.
+> - **b.** il tutor di un nodo scrive nel prompt «L'utente è \<nickname\>, ha \<età\> anni…»
+>   (`mappai-ai-tutor.js:524-529`), mentre il testo «Privacy» della Cabina promette «Il NOME
+>   dell'allievo non entra mai» (`mappai-cabina.js:487`). O si corregge il codice, o si corregge
+>   la promessa: oggi si contraddicono.
+> - **c.** in INSEGNA la tabella «Attività già svolte» non si popola mai: `landing-teach.js:3034`
+>   legge `r.sessions || r.records`, `main.js:3437` restituisce `rows` (e le celle leggono
+>   `cls`/`joined` invece di `className`/`participants`).
+> - **d.** l'onboarding delle lingue è codice morto: `storage-lang.js:864` scrive
+>   `mappai_language` **prima** del controllo `:869` che lo vuole nullo. Non compare mai.
+> - **e.** il bottone «Dev self-test» (lo stetoscopio in basso a sinistra) si monta anche
+>   nell'app dei docenti (`mappai-dev-selftest.js:141`).
+> - **f.** nei Consumi la voce naturale è prezzata come testo: `matchModelKB` fa prefix-match e
+>   `gemini-2.5-flash-preview-tts` cade su `gemini-2.5-flash` (`mappai-ui-modals.js:1005`).
+> - **g.** «Include piano Gratuito (15 req/min)» è una costante scritta a mano del 2024
+>   (`app.js:495`).
+> - **h.** la nota sotto YouTube promette «MappAI estrarrà i contenuti audio/visivi del video»,
+>   ma al modello arriva **solo l'URL** (`app.js:1338-1340`).
+> - **i.** ESC non chiude «Proietta» quando arriva via CDP (il × sì): da provare a mano prima
+>   di dichiararlo un difetto.
+> - **j.** il preventivo delle chiamate (`#mp-estimate`) non è montato in nessun riquadro del
+>   bento: si sceglie senza vedere quanto costa.
 >
-> **Da fare (in ordine):**
-> 1. (fatto) la campagna `--da-zero` + provini.
-> 2. (fatto) `verifica.js` → 0 difetti.
-> 3. (fatto) i rilievi dei verificatori.
-> 4. Difetti VERI dell'app trovati strada facendo, da riferire a Giacomo (NON corretti qui,
->    decisione del piano): (a) `it_translations.js:207` stampa il segnaposto «[EMAIL_ADDRESS]»
->    nello schermo di sblocco; (b) il tutor del nodo scrive nel prompt «L'utente è <nickname>,
->    ha <età> anni…» (`mappai-ai-tutor.js:524-529`) e contraddice il testo Privacy «Il NOME
->    dell'allievo non entra mai»; (c) la tabella «Attività già svolte» di INSEGNA non si popola
->    mai (`landing-teach.js:3034` legge `sessions|records`, il main dà `rows`); (d) l'onboarding
->    lingue è codice morto (`storage-lang.js:864` scrive la lingua prima del controllo :869);
->    (e) il bottone «Dev self-test» (stetoscopio, `#dst-btn`) si monta anche nell'app dei
->    docenti; (f) la voce naturale è prezzata come testo nei Consumi (prefix-match
->    `mappai-ui-modals.js:1005`); (g) «15 req/min» in Impostazioni AI è una costante stantia;
->    (h) la nota «MappAI estrarrà i contenuti audio/visivi del video» promette ciò che il codice
->    non fa (YouTube = solo l'URL); (i) ESC non chiude «Proietta» quando arriva via CDP — da
->    provare a mano; (j) il preventivo `#mp-estimate` non è montato nel bento.
-> 5. Chiusura: HANDOFF.md §0 (una riga) + §5 (gli esiti di `fatti/esiti-electron.md`: Proietta,
->    scheda, Domande a scelta via QR sono ORA provati in Electron) + §8 (puntatore alla guida);
->    commit narrativo di `tools/guida-docenti/` + questo piano (la cartella della guida resta
->    fuori da git); memoria `~/.claude/projects/.../memory/` con puntatore e comando.
-> 6. Se arriva la chiave: scena 05 «Genera» vera e scena 09 dossier da foto (passi da aggiungere
->    a `passi.js`: `aggiungiFile('doc',[FOTO])` → «Che cosa sai di questa fonte?» → «Analizza» →
->    scheda → «Usa questa fonte» → «Genera materiali»); poi rifare le foto del cap. 9.
->
-> **Trappole pagate in campagna** (stanno nei commenti di `passi.js`/`telefono.js`): i
-> `confirm()` nativi si rispondono con `window.confirm=()=>true` PRIMA del clic; il bottone
-> «Documenti» apre il Finder nativo → si spegne `HTMLInputElement.prototype.click` durante
-> `addSource` e si usa `DOM.setFileInputFiles`; il menu della briciola porta la stessa classe su
-> «4R»/«Scienze» → si clicca il più a SINISTRA fra i visibili; i filtri Classe?/Materia? restano
-> da una console all'altra → `mostraTutti()` prima di cercare una mappa; una seconda finestra
-> Electron coperta non produce fotogrammi (cattura appesa) e `Target.createTarget` non esiste →
-> il telefono è Chrome headless; una seconda connessione CDP alla stessa pagina headless resta
-> appesa → `telefono.js corsa` è UN processo con semafori su file (`lab/tel-*`); un PDF dentro
-> un iframe si fotografa nero → si apre una riga .html; il velo di blocco resta finché non si
-> ricarica.
+> ### Se si riprende il lavoro sulla guida
+> 5. Chiusura già fatta: `docs/HANDOFF.md` §0 (punto 0-sexies), §5 (gli esiti in Electron) e §8
+>    (il puntatore); tre commit su `main` (`fd0c6d0`, `aa2f390`, `7b91461`); memoria
+>    `guida-docenti-ripresa`.
+> 6. **Con la chiave**: aggiungere a `passi.js` un passo `05-crea-genera` (fonte già caricata →
+>    «Genera Mappa» → velo con le fasi → toast finale) e un passo `09-dossier-crea`
+>    (`aggiungiFile('doc', [FOTO])` → modale «Che cosa sai di questa fonte?» → «Analizza» →
+>    la scheda a quattro blocchi → «Usa questa fonte» → «Genera materiali»); poi rifare le
+>    figure del capitolo 9, che oggi mostrano un dossier già fatto.
+> 7. Possibili seguiti dichiarati: il PDF stampabile; una versione inglese; il bottone «Come
+>    usare MappAI» della Cabina che apre questa guida invece del modale storico.
 
 **Braindump tradotto**: una **guida utente illustrata** (HTML con indice, lightbox, screenshot
 VERI scattati sull'app viva via CDP) che copre le superfici di `main` oggi — landing/CREA con il

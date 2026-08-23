@@ -8,7 +8,12 @@
 > parte — **[`DIARIO-2026.md`](DIARIO-2026.md)** (4581 righe): `CLAUDE.md` è stato potato a
 > ~780 righe perché entrava in contesto a ogni sessione. Nessuna riga è andata persa
 > (verificato riga per riga contro `git show HEAD:CLAUDE.md`).
-> Ultimo allineamento: **21 agosto 2026**. La giornata in una riga: **la scheda della fonte
+> Ultimo allineamento: **23 agosto 2026**. La giornata in una riga: **la GUIDA PER I DOCENTI
+> è consegnata** — 13 capitoli e 95 fotografie vere dell'app, fuori dal repo
+> (`~/Claude/MappAI - guida docenti/index.html`), con nel repo la campagna che la rifà
+> (`tools/guida-docenti/`, il suo [`LEGGIMI`](../tools/guida-docenti/LEGGIMI.md)) e dieci
+> difetti dell'app da correggere a parte. Dettagli in §0 punto 0-sexies. Tre commit.
+> Prima: **21 agosto 2026**. La giornata in una riga: **la scheda della fonte
 > diventa un EDITOR come gli altri** — i comandi in una barra `.de-bar` fissa in alto (nelle
 > due vesti: validazione in CREA e correzione in ELABORA), la superficie prende la tela col
 > contenuto capato a una colonna leggibile, e i **tredici campi lunghi crescono davvero col
@@ -45,9 +50,10 @@
 
 0-sexies. **⟵ DA QUI SI RIPRENDE (23/8): la GUIDA PER I DOCENTI esiste, ed è fotografata
    nell'app vera.** `~/Claude/MappAI - guida docenti/index.html` (fuori dal repo: 13 capitoli
-   + appendice QR, ~90 screenshot a 2× scattati via CDP su un'istanza isolata con i vault
+   + appendice QR, 95 screenshot a 2× scattati via CDP su un'istanza isolata con i vault
    COPIATI della 4R). Gli strumenti sono nel repo, `tools/guida-docenti/` (lab, campagna
-   ripetibile, telefono headless, verifica, la mappa dei fatti in `fatti/`). Il punto di
+   ripetibile, telefono headless, verifica, la mappa dei fatti in `fatti/`, e il `LEGGIMI`
+   coi tre comandi e le nove trappole pagate). Il punto di
    ripresa completo — comandi, trappole, che cosa resta — è il blocco in testa a
    [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md).
    · **La campagna è anche una prova in Electron**: «Proietta» (con «Affianca» e il mazzo di
