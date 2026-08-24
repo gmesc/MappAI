@@ -6,10 +6,11 @@
 
 ## Che cos'è, e dove
 
-**La guida** è `~/Claude/MappAI - guida docenti/index.html` — doppio clic e si legge. Tredici
-capitoli nell'ordine in cui un docente incontra l'app, più un'appendice sulle attività via QR
-marcata sperimentale; 95 fotografie vere, indice navigabile, immagini che si ingrandiscono al
-clic. Cartella autonoma (~52 MB), **fuori da git**: si copia o si manda così com'è.
+**La guida** è `~/Claude/MappAI - guida docenti/index.html` — doppio clic e si legge. Quattordici
+capitoli nell'ordine in cui un docente incontra l'app (il 13, «Sotto il cofano», spiega come
+lavora la pipeline con le mosse di un buon lettore — aggiunto il 24/8, fatti in
+`fatti/i-cofano.md`), più un'appendice sulle attività via QR marcata sperimentale; 95
+fotografie vere, indice navigabile, immagini che si ingrandiscono al clic. Cartella autonoma (~52 MB), **fuori da git**: si copia o si manda così com'è.
 
 **Gli strumenti che la rigenerano** stanno nel repo, `tools/guida-docenti/`, e il loro
 [`LEGGIMI`](../tools/guida-docenti/LEGGIMI.md) è il documento operativo: i tre comandi, che cosa
@@ -30,9 +31,14 @@ node tools/guida-docenti/campagna.js --da-zero && node tools/guida-docenti/verif
    esiste ancora»): sono quelli che i docenti leggeranno per primi e per ultimi.
 2. **Dire se la classe di prova va bene**: una 4R finta, venti allievi-animale, nessun nome,
    nota di taratura neutra; e i due vault scelti da lui, copiati nel laboratorio.
-3. **Il PDF stampabile**: rinviato per sua scelta. Se lo vuole: foglio di stampa e figure
+3. **Pubblicarla su `insegnai.ch/mappai/guida/`** (deciso il 24/8): la cartella si carica
+   a mano così com'è, SENZA `lab/` (dentro c'è la chiave AI) e senza `img/_provini*.jpg`.
+   Il pacchetto per rifare la pagina `mappai.html` (badge alla guida compreso) è pronto in
+   `~/Claude/insegnai.ch/PACCHETTO-mappai-2026-08.md`, con dieci scatti già copiati in
+   `assets/mappai/`.
+4. **Il PDF stampabile**: rinviato per sua scelta. Se lo vuole: foglio di stampa e figure
    ridimensionate, mezza giornata.
-4. **La chiave Gemini nell'istanza di prova** (Cabina › Impostazioni AI, una volta sola).
+5. **La chiave Gemini nell'istanza di prova** (Cabina › Impostazioni AI, una volta sola).
    Sblocca le uniche scene che oggi la guida racconta a parole invece di mostrarle: la
    generazione di una mappa da un PDF, «Genera materiali», il dossier da una foto, la voce
    naturale. I passi da aggiungere a `passi.js` sono in fondo.
@@ -100,6 +106,11 @@ Tre cose misurate, che sono finite nella guida:
   **25** perché la voce naturale ne fa una per blocco di testo (18);
 - una mappa di 49 nodi da un PDF di 24 pagine: **1 minuto**, e il quiz a scelta multipla un
   altro minuto — con la chiave gratuita, zero franchi.
+
+⚠️ Audit del 24/8 (richiesta di Giacomo): la guida copre bene l'IMPARARE (a) e ora anche il
+SOTTO IL COFANO (c, capitolo 13); resta scoperto il RISOLVERE PROBLEMI (b) — non c'è una
+sezione «se qualcosa non va»; i modali d'errore sono già censiti in `fatti/i-buco-costi.md §4`.
+Possibile seguito.
 
 Resta fuori solo la **registrazione della voce** vista da vicino (il preavviso «N blocchi ·
 circa M minuti» e il velo «Genero audio 12/78»): si fotografa con un passo `07-voce` che apra

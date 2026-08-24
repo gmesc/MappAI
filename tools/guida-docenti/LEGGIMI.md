@@ -64,7 +64,7 @@ sintesi, flashcard e voce no).
 | `telefono.js` | il telefono dell'allievo per l'appendice QR: Chrome **headless** con la sua porta (9444) |
 | `provini.py` | il foglio dei provini (PIL): tutte le immagini in una griglia col nome sotto |
 | `verifica.js` | immagini integre (`naturalWidth`), indice completo, lightbox, contrasti ≥ 4,5:1, niente scorrimento a 1280 e 390 px, e ogni etichetta «…» del testo cercata nei `fatti/` |
-| `fatti/` | **la mappa dei fatti**: 8 aree + 4 buchi, ~430 KB letti dal codice con `file:riga`, più `esiti-electron.md` (che cosa la campagna ha visto girare davvero) |
+| `fatti/` | **la mappa dei fatti**: 8 aree + 4 buchi + `i-cofano.md` (la pipeline per il capitolo 13, 24/8), ~430 KB letti dal codice con `file:riga`, più `esiti-electron.md` (che cosa la campagna ha visto girare davvero) |
 
 ℹ️ In `img/` restano una trentina di scatti **non citati** dalla pagina: sono le varianti
 (la stessa schermata senza i numeri cerchiati, un ritaglio più stretto, la versione intera di
