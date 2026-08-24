@@ -204,7 +204,7 @@ const it_translations = {
     admin_confirm_reset_all_prompts: "Sei sicuro di voler ripristinare TUTTI i prompt ai valori di default? Questa operazione eliminerà permanentemente tutte le tue personalizzazioni.",
 
     // Extra
-    machine_id_desc: "Invia il seguente <b>ID Macchina</b> a [EMAIL_ADDRESS] per ricevere il tuo codice di sblocco univoco:",
+    machine_id_desc: "Invia il seguente <b>ID Macchina</b> a <b>giacomo@insegnai.ch</b> per ricevere il tuo codice di sblocco univoco:",
     src_web: "URL Web",
     src_yt: "YouTube",
     src_audio: "Audio",

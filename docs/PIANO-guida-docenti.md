@@ -29,10 +29,11 @@
 >    I passi da aggiungere a `passi.js` sono al punto 6 qui sotto.
 >
 > ### I difetti VERI dell'app trovati leggendo e fotografando
-> Non corretti qui per scelta del piano (la guida non tocca l'app); ognuno è una riga di lavoro
-> a sé. In ordine di quanto morde per un docente-tester:
-> - **a.** lo schermo di sblocco dice «Invia il seguente ID Macchina a **[EMAIL_ADDRESS]**»: il
->   segnaposto è a schermo (`it_translations.js:207`). È la primissima cosa che un tester legge.
+> Uno corretto (a), gli altri no per scelta del piano (la guida non tocca l'app): ognuno è una
+> riga di lavoro a sé. In ordine di quanto mordono per un docente-tester:
+> - **a.** ~~lo schermo di sblocco dice «…a [EMAIL_ADDRESS]»~~ — **CORRETTO il 23/8**: ora dice
+>   «a **giacomo@insegnai.ch**» nei due dizionari e nel markup di ripiego, e lo scatto del
+>   capitolo 3 è rifatto.
 > - **b.** il tutor di un nodo scrive nel prompt «L'utente è \<nickname\>, ha \<età\> anni…»
 >   (`mappai-ai-tutor.js:524-529`), mentre il testo «Privacy» della Cabina promette «Il NOME
 >   dell'allievo non entra mai» (`mappai-cabina.js:487`). O si corregge il codice, o si corregge

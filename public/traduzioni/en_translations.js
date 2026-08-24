@@ -668,7 +668,7 @@ const en_translations = {
     admin_confirm_reset_all_prompts: "Are you sure you want to restore ALL prompts to their default values? This will permanently delete all your customizations.",
 
     // Extra
-    machine_id_desc: "Send the following <b>Machine ID</b> to Giacomo to receive your unique unlock code:",
+    machine_id_desc: "Send the following <b>Machine ID</b> to <b>giacomo@insegnai.ch</b> to receive your unique unlock code:",
     src_web: "Web URL",
     src_yt: "YouTube",
     src_audio: "Audio",
