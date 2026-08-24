@@ -111,6 +111,66 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
     await lab.pausa(400);
   });
 
+  /* ══════════════ 05-bis — LA GENERAZIONE VERA (serve la chiave AI) ══════
+     Costa richieste e minuti: si fa una mappa sola, con UN tipo di quiz e senza
+     angolazioni (le sette moltiplicherebbero per sette). Se la chiave non c'è, il passo
+     lo dice e non fotografa niente di falso. */
+  passo('05-crea-genera', async () => {
+    if (!(await lab.val('!!localStorage.getItem("gemini_api_key")'))) { esito('Generazione vera (capitolo 5)', false, 'nessuna chiave nell\'istanza: scena non fotografata'); return; }
+    await landing(); await menuCosa('Crea');
+    // lo stato lasciato dai passi prima: fonte, tema, classe. Si rimette se la campagna gira da sola.
+    if (!(await lab.val('/pronto|caricato/.test(document.querySelector("#sources-container")?.textContent||"")'))) {
+      await aggiungiFile('doc', [PDF_FONTE]);
+      await lab.finoA('/pronto|caricato/.test(document.querySelector("#sources-container")?.textContent||"")', 20000);
+    }
+    await lab.val(`(()=>{ const t=document.querySelector('#root-node-name'); if(t && !t.value){ t.value='Elettricità'; t.dispatchEvent(new Event('input',{bubbles:true})); }
+      const sc=document.querySelector('#mp-chi'), sd=document.querySelector('#mp-disc');
+      const o1=sc && [...sc.options].find(o=>o.textContent.trim()==='4R'); if(o1 && sc.value!==o1.value){ sc.value=o1.value; sc.dispatchEvent(new Event('change',{bubbles:true})); }
+      return 1; })()`);
+    await lab.pausa(800);
+    await lab.val(`(()=>{const sd=document.querySelector('#mp-disc'); const o=sd && [...sd.options].find(o=>o.textContent.trim()==='Scienze'); if(o){ sd.value=o.value; sd.dispatchEvent(new Event('change',{bubbles:true})); } return 1; })()`);
+    await lab.pausa(600);
+    /* il conto: mappa (≈2 + un ramo per macro-area) + un tipo di quiz per ramo. Gli angoli
+       nascono TUTTI accesi e in vista ridotta non si vedono: qui si spengono, o sarebbero
+       sette fogli per ramo e un quarto d'ora di attesa (fatti/i-buco-costi §2.2). */
+    const scelte = await lab.val(`(()=>{const spegni=[], accendi=['mp-qt-mc'];
+      document.querySelectorAll('#mn-bento input[type=checkbox]').forEach(c=>{ const on=accendi.includes(c.id); if(c.checked!==on){ c.checked=on; c.dispatchEvent(new Event('change',{bubbles:true})); if(!on) spegni.push(c.id); } });
+      return {spente: spegni.length, faccia: (document.querySelector('#mn-genera')||{}).textContent.trim()};})()`);
+    await lab.pausa(800);
+    console.log('  opzioni: spente ' + scelte.spente + ', bottone «' + scelte.faccia + '»');
+    await lab.clicca('#mn-genera'); await lab.pausa(1500);
+    if (await visibile('#gen-class')) { await lab.val('(()=>{const b=document.querySelector("[data-gok]"); if(b) b.click(); return 1;})()'); await lab.pausa(1200); }
+    // il velo: si aspetta che dica una FASE, non solo che esista
+    const acceso = await lab.finoA('(()=>{const t=document.querySelector("#loading-title"); const e=document.querySelector("#loading-overlay, .loading-overlay"); return t && e && e.getBoundingClientRect().width>0 && /lavorando|elaborando/i.test(t.textContent);})()', 30000);
+    esito('Generazione vera: il velo compare con le fasi', !!acceso, acceso ? '' : 'nessun velo in 30 s (chiave? fonte?)');
+    if (!acceso) { await lab.scatta('05-crea-genera-esito', J); return; }
+    await lab.finoA('/Macro-Categorie|Ramo|Fase/i.test((document.querySelector("#loading-desc")||{}).textContent||"")', 60000);
+    await lab.pausa(400);
+    await lab.scatta('05-crea-velo', J);
+    const rv = await lab.val('(()=>{const t=document.querySelector("#loading-title"); if(!t) return null; let e=t; while(e && e.getBoundingClientRect().width<400) e=e.parentElement; const r=(e||t).getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height};})()');
+    if (rv) await lab.scatta('05-crea-velo-riquadro', Object.assign({ clip: { x: Math.max(0, rv.x - 16), y: Math.max(0, rv.y - 16), width: rv.w + 32, height: rv.h + 32 } }, P));
+    // lo spinner in barra: dice il nome del lavoro mentre si può fare altro
+    if (await visibile('#mn-lavori')) await lab.scatta('05-crea-lavori', Object.assign({ sel: '#mn-lavori', margine: 14 }, P));
+    /* ⚠️ il velo copre la sola MAPPA: quando se ne va, la pipeline dei materiali continua in
+       sottofondo e l'app torna navigabile (è il progetto: «generare mentre si lavora»).
+       Misurato il 24/8: velo spento a 59 s, quiz ancora in corso per un altro minuto. Quindi
+       la fine vera è il RIEPILOGO, non il velo. */
+    const finito = await lab.finoA('!!document.querySelector("#mp-summary")', 720000);
+    esito('Generazione vera: arriva in fondo', !!finito, finito ? 'riepilogo a schermo' : 'nessun riepilogo dopo 12 minuti');
+    await lab.pausa(1200);
+    if (finito) {
+      await lab.scatta('05-crea-riepilogo', J);
+      /* `#mp-summary` è il VELO a tutto schermo: il riquadro bianco è il figlio con un fondo suo */
+      const rs = await lab.val(`(()=>{const o=document.querySelector('#mp-summary'); if(!o) return null;
+        const c=[...o.querySelectorAll('*')].filter(e=>{const r=e.getBoundingClientRect(); const b=getComputedStyle(e).backgroundColor; return r.width>320&&r.width<1200&&r.height>200&&b&&!/rgba\\(0, 0, 0, 0\\)/.test(b);});
+        const e=c[0]; if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height};})()`);
+      if (rs) await lab.scatta('05-crea-riepilogo-riquadro', Object.assign({ clip: { x: rs.x - 14, y: rs.y - 14, width: rs.w + 28, height: rs.h + 28 } }, P));
+      esito('Riepilogo «Materiali generati»', true, await lab.val('(document.querySelector("#mp-summary")||{}).textContent?.replace(/\\s+/g," ").trim().slice(0,90)'));
+    } else esito('Riepilogo «Materiali generati»', false, 'nessun #mp-summary a schermo');
+    // se l'app è passata al canvas, la mappa nuova è pronta: si torna indietro per i passi dopo
+    await landing();
+  });
+
   /* ══════════════ 06 — LA MAPPA ════════════════════════════════════════ */
   passo('06-mappa-albero', async () => {
     await lab.ls('mappai_map_rel_labels', 'full');   // le parole sulle frecce intere, qualunque cosa abbia lasciato il giro prima
@@ -331,6 +391,72 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
     await lab.scatta('09-dossier-elabora', J);
     const foto = await visibile('.ec-foto-fonte');
     esito('ELABORA: anteprima della foto del dossier', foto, foto ? '' : '.ec-foto-fonte assente');
+  });
+
+
+  /* ══════════════ 09-bis — IL DOSSIER, GENERATO DAVVERO (serve la chiave) ══════
+     Una foto → la lettura dell'AI (1 chiamata) → la scheda che il docente corregge →
+     i materiali del dossier (≈9 chiamate). Le figure che la guida non aveva. */
+  passo('09-dossier-crea', async () => {
+    if (!(await lab.val('!!localStorage.getItem("gemini_api_key")'))) { esito('Dossier da foto (capitolo 9)', false, 'nessuna chiave nell\'istanza: scena non fotografata'); return; }
+    await landing(); await menuCosa('Crea');
+    // via le fonti di prima: una foto in mezzo a un PDF genererebbe due cose insieme
+    await lab.val(`(()=>{ document.querySelectorAll('#mn-files .mn-togli, #mn-files button').forEach(b=>b.click());
+      const t=document.querySelector('#root-node-name'); if(t){ t.value=''; t.dispatchEvent(new Event('input',{bubbles:true})); } return 1; })()`);
+    await lab.pausa(1200);
+    await aggiungiFile('doc', [FOTO]);
+    // il modale della nota: quello che il docente sa e l'AI no
+    const chiede = await lab.finoA('!![...document.querySelectorAll(".mm-box")].find(b=>/Che cosa sai di questa fonte/.test(b.textContent))', 20000);
+    esito('Foto riconosciuta: chiede «Che cosa sai di questa fonte?»', !!chiede, chiede ? '' : 'nessun modale in 20 s');
+    if (!chiede) { await lab.scatta('09-dossier-esito', J); return; }
+    await scattaBox('09-dossier-nota');
+    await lab.val(`(()=>{const t=[...document.querySelectorAll('.mm-box textarea')].find(e=>e.getBoundingClientRect().width>0); if(!t) return 0;
+      t.focus(); t.value=${JSON.stringify('Manifesto statunitense del 1942; i tre schiacciati sono Hitler, Mussolini e Hirohito.')};
+      t.dispatchEvent(new Event('input',{bubbles:true})); return 1;})()`);
+    await lab.pausa(500);
+    await scattaBox('09-dossier-nota-scritta');
+    await lab.clicca(await lab.perTesto('Analizza', 'body', 'button'));
+    /* ⚠️ la lettura è UNA chiamata, ma può prendersi mezzo minuto — e NON basta aspettare
+       `.vs-superficie`: la scheda di un giro precedente resta montata, e si fotograferebbe
+       quella, sfocata dietro il modale della nota (misurato il 24/8). E nemmeno «nessuna
+       .mm-box»: la superficie della scheda È una .mm-box. La fine vera è il modale della
+       NOTA che se ne va — si cerca per testo. ⚠️ Caricare una foto mentre una scheda è
+       ancora aperta impila le due cose: il modale nuovo sopra la scheda vecchia. */
+    const letta = await lab.finoA('![...document.querySelectorAll(".mm-box")].some(b=>/Che cosa sai di questa fonte/.test(b.textContent)) && !!document.querySelector(".vs-superficie")', 120000);
+    esito('L\'AI legge la foto e apre la scheda', !!letta, letta ? '' : 'nessuna scheda dopo 2 minuti');
+    if (!letta) { await lab.scatta('09-dossier-esito', J); return; }
+    await lab.pausa(1500);
+    await lab.val('window.scrollTo(0,0)'); await lab.pausa(400);
+    await lab.scatta('09-dossier-scheda', J);
+    /* il blocco che vale il capitolo: «Che cosa vuole ottenere», dove ogni riga porta
+       l'appiglio visivo che la giustifica (o resta vuota) */
+    const rb = await lab.val(`(()=>{const t=[...document.querySelectorAll('.vs-superficie *')].find(e=>e.children.length<3 && /Che cosa vuole ottenere/.test(e.textContent));
+      if(!t) return null; let e=t; while(e && e.getBoundingClientRect().width<500) e=e.parentElement; if(!e) return null;
+      e.scrollIntoView({block:'start'}); return 1;})()`);
+    if (rb) { await lab.pausa(900); await lab.scatta('09-dossier-interpretazione', J); }
+    // in fondo: i box delle opzioni e il preventivo «circa N chiamate»
+    const stima = await lab.val(`(()=>{const e=document.querySelector('[data-vs-stima]'); if(!e) return null; e.scrollIntoView({block:'center'}); return e.textContent.replace(/\\s+/g,' ').trim();})()`);
+    if (stima) { await lab.pausa(800); await lab.scatta('09-dossier-opzioni', J); esito('Preventivo del dossier a schermo', true, stima); }
+    else esito('Preventivo del dossier a schermo', false, 'nessun [data-vs-stima]');
+    /* ⚠️ sulla superficie della scheda i clic per COORDINATE non arrivano: sopra i bottoni
+       c'è un `div.mm-overlay` del motore dei modali (misurato il 24/8 — `elementFromPoint`
+       torna l'overlay, non il bottone). Il clic DOM invece passa. */
+    await lab.val(`(()=>{const b=[...document.querySelectorAll('.vs-superficie button')].find(x=>/Usa questa fonte/.test(x.textContent)); if(!b) return 0; b.click(); return 1;})()`);
+    await lab.finoA('!document.querySelector(".vs-superficie")', 15000); await lab.pausa(1500);
+    await lab.val('window.scrollTo(0,0)'); await lab.pausa(600);
+    await lab.scatta('09-dossier-fonte-confermata', Object.assign({ clip: { x: 60, y: 180, width: 1350, height: 420 } }, P));
+    await lab.clicca('#mn-genera'); await lab.pausa(2000);
+    if (await visibile('#gen-class')) { await lab.val('(()=>{const b=document.querySelector("[data-gok]"); if(b) b.click(); return 1;})()'); await lab.pausa(1500); }
+    const fine = await lab.finoA('!!document.querySelector("#mp-summary")', 600000);
+    esito('Dossier generato dalla foto', !!fine, fine ? 'riepilogo a schermo' : 'nessun riepilogo dopo 10 minuti');
+    if (fine) {
+      const rs = await lab.val(`(()=>{const o=document.querySelector('#mp-summary'); if(!o) return null;
+        const c=[...o.querySelectorAll('*')].filter(e=>{const r=e.getBoundingClientRect(); const b=getComputedStyle(e).backgroundColor; return r.width>320&&r.width<1200&&r.height>200&&b&&!/rgba\\(0, 0, 0, 0\\)/.test(b);});
+        const e=c[0]; if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height};})()`);
+      if (rs) await lab.scatta('09-dossier-riepilogo', Object.assign({ clip: { x: rs.x - 14, y: rs.y - 14, width: rs.w + 28, height: rs.h + 28 } }, P));
+      await lab.val('(()=>{const b=[...document.querySelectorAll("#mp-summary button")].find(e=>/Chiudi/.test(e.textContent)); if(b) b.click(); return 1;})()');
+      await lab.pausa(800);
+    }
   });
 
   /* ══════════════ 10 — CABINA ══════════════════════════════════════════ */

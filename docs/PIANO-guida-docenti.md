@@ -84,12 +84,23 @@ a sé. In ordine di quanto mordono per un docente-tester.
 - **Non-obiettivi confermati**: la presentazione orale (se ne è occupato il demo video); una
   versione inglese; toccare Cabina › Tutorial e il modale «Come usare MappAI».
 
-## Se si riprende con la chiave AI
+## La generazione, fotografata davvero (24/8)
 
-Due passi da aggiungere a `passi.js`, poi rifare le figure dei capitoli 5 e 9:
+Con la chiave di Giacomo nell'istanza sono nati due passi, `05-crea-genera` e
+`09-dossier-crea`, e sette figure che prima mancavano: il velo con le fasi, la girandola in
+barra, «Materiali generati»; il modale «Che cosa sai di questa fonte?», la scheda appena letta,
+il blocco che interpreta con gli appigli, i box delle opzioni, il riepilogo del dossier.
 
-- `05-crea-genera`: fonte già caricata → «Genera Mappa» → il velo con le fasi → il toast finale.
-- `09-dossier-crea`: `aggiungiFile('doc', [FOTO])` → «Che cosa sai di questa fonte?» →
-  «Analizza» → la scheda a quattro blocchi → «Usa questa fonte» → «Genera materiali».
+Tre cose misurate, che sono finite nella guida:
 
-Oggi il capitolo 9 mostra un dossier **già fatto**, e il 5 si ferma prima del velo.
+- **il velo finisce prima del lavoro**: quando se ne va la mappa è pronta, ma la pipeline dei
+  materiali continua in sottofondo (59 s di velo, un altro minuto di quiz). La fine vera è la
+  finestra «Materiali generati», non il velo;
+- **il preventivo del dossier non conta la voce**: dice «circa 9 chiamate», ne sono servite
+  **25** perché la voce naturale ne fa una per blocco di testo (18);
+- una mappa di 49 nodi da un PDF di 24 pagine: **1 minuto**, e il quiz a scelta multipla un
+  altro minuto — con la chiave gratuita, zero franchi.
+
+Resta fuori solo la **registrazione della voce** vista da vicino (il preavviso «N blocchi ·
+circa M minuti» e il velo «Genero audio 12/78»): si fotografa con un passo `07-voce` che apra
+una sintesi in ELABORA e prema «Voce».
