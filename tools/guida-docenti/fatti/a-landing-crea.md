@@ -88,7 +88,11 @@ I cinque bottoni-fonte mostrano **solo l'icona** finché non ci passi sopra; il 
 | Spento (classe `mn-card--spento`, `disabled`) col motivo nel title/aria-label: «Genera materiali — Scegli prima CHI: una classe o un allievo» oppure «… — Scegli anche COSA: la materia della classe»; lo stesso motivo esce come toast al clic | `#mn-genera`, `#mn-bento.mn-manca-ctx` | `mappai-costruisci-manifesto.js:1090-1094, 1141-1147, 938-943` |
 | Il bottone storico `#generate-btn` «Genera Mappa» e `#generate-materials-btn` «Genera materiali» (form) sono **nascosti** nella veste | — | `public/css/mappai-stile-manifesto.css:706-707`; markup `index.html:1008-1030` |
 
-### 1.7 CREA — il bento delle OPZIONI (tutti visibili di default; fondo scuro = nascondibili SOLO in vista ridotta)
+### 1.7 CREA — il bento delle OPZIONI (fondo scuro = fuori dalla VISTA RIDOTTA, che è la configurazione dei tester)
+> ⚠️ Aggiornato il 23/8 (sera): i docenti-tester useranno la vista ridotta, quindi i box a fondo
+> scuro NON sono a schermo per loro e la guida non ne parla. La campagna li fotografa in quella
+> configurazione (`campagna.js › vistaRidotta()`). Le loro spunte restano montate e `_readConfig()`
+> le legge lo stesso: la generazione non cambia, cambia solo ciò che si vede.
 Composizione: `public/js/mappai-bento-composizione.js:530-642` (ordine: `output` · `preset` · `quiz` · `ns` · `src` · `multi` · `modalita` · `focus` · `macroaree` · `input` · `input-box` · `testo`). Verificato con Node (`MappAIBento.MODULI`): 18 moduli, 12 marcati nascondibili, nessuno nascosto finché `html.mappai-ridotta` è assente (`mappai-stile-manifesto.css:1261`).
 
 | box (titolo ESATTO) | voci e etichette ESATTE | default | file:riga |

@@ -35,6 +35,25 @@ node tools/guida-docenti/verifica.js            # 0 difetti = si consegna
 tutti i cerchi ammucchiati sotto la radice. È la trappola 2 della `GUIDA-ARCHITETTO`, sull'app
 vera invece che nel pannello browser.
 
+## La configurazione fotografata: VISTA RIDOTTA
+
+I docenti-tester usano COSTRUISCI **in forma ridotta**, e la guida fotografa quello che
+vedranno: fonte · genere · tema · «Chi:»/«Cosa:» · il bottone verde, senza i riquadri a fondo
+scuro (Output automatici, Preset, Quiz, Fogli nodi, Fonte & Sintesi, Più set per angolo,
+Modalità, FOCUS, Macro-aree, INPUT, Testo libero), che `html.mappai-ridotta #mn-bento
+.mn-card--extra` spegne (`mappai-stile-manifesto.css:1261`). Il flag lo accende `campagna.js ›
+vistaRidotta()` **prima di ogni campagna**, anche senza `--da-zero` — che lo azzererebbe con
+tutto il resto di localStorage — e ci vuole una **ricarica**, perché la classe `mappai-ridotta`
+la mette il boot inline di `index.html` (:74-90) leggendo localStorage.
+
+Due conseguenze già scritte nella guida: i riquadri scuri **non sono descritti** (al loro posto
+il riquadro «In breve» del capitolo 5 dice che cosa nasce di partenza), e il pallino del **Dev
+self-test** non esiste per i tester (`.mappai-ridotta #dst-btn`, `mappai-modal-tokens.css:2276`).
+⚠️ Le spunte nascoste **contano lo stesso**: `_readConfig()` legge i loro campi anche spenti dal
+foglio, quindi il bottone verde genera mappa + quiz a scelta multipla + domande aperte nelle
+sette angolazioni (`mp-qt-mc`, `mp-qt-open`, `mp-multi-*` e i sette angoli nascono accesi;
+sintesi, flashcard e voce no).
+
 ## I pezzi
 
 | file | che cos'è |

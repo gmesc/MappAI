@@ -1,0 +1,15 @@
+{
+  "_nota": "I dati del cartello finale del demo. Cambiali e rilancia `node tools/demo-video/monta.js`: il video si rifà senza rigirare le scene. L'asterisco *evidenzia* una parola nel titolo (fondo verde).",
+  "occhiello": "Formazione · mezza giornata · sede da definire",
+  "titolo": "Mezza giornata,\ne esci con i *tuoi* materiali",
+  "sotto": "Porta una scheda che usi davvero: la trasformiamo insieme in mappa, quiz,\nflashcard, fogli da ricostruire e sintesi con voce per i tuoi allievi DSA.",
+  "punti": [
+    "Dalla scheda alla mappa",
+    "I materiali da stampare",
+    "Correggere e adattare",
+    "Mostrare in classe"
+  ],
+  "quando": "data da definire",
+  "dove": "sede da definire",
+  "contatto": "giacomo@insegnai.ch"
+}

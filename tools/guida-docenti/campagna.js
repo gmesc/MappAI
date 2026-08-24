@@ -59,18 +59,31 @@ async function daZero() {
   await lab.ricarica(3500);
 }
 
-/* ── aiuti comuni ───────────────────────────────────────────────────── */
-async function nascondiDev() { await lab.val('(()=>{const b=document.getElementById("dst-btn"); if(b) b.style.display="none"; return 1})()'); }
-/** il menu «Cosa» della briciola: il bottone più a SINISTRA fra quelli visibili (la briciola porta la
- *  stessa classe su «4R» e «Scienze», e la landing sotto una console ha la sua, coperta) */
-async function menuCosa(voce) {
-  const pt = await lab.val(`(()=>{const els=[...document.querySelectorAll('.mn-briciole__l--menu')].filter(e=>{const r=e.getBoundingClientRect(); if(!r.width) return false; const p=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return p&&(e.contains(p)||e===p);});
-    const e=els.sort((a,b)=>a.getBoundingClientRect().x-b.getBoundingClientRect().x)[0]; if(!e) return null; const r=e.getBoundingClientRect(); return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()`);
-  if (!pt) throw new Error('menu della briciola non visibile (una finestra sopra?)');
-  await lab.clicca(pt); await lab.pausa(350);
-  await lab.clicca(await lab.perTesto(voce, 'body', 'button.mn-bric-menu__it')); await lab.pausa(1200);
-  await nascondiDev();
+/* ── la VISTA RIDOTTA è la configurazione dei tester (23/8) ─────────────
+   I docenti-tester useranno COSTRUISCI in forma ridotta: la strada breve
+   (fonte · genere · tema · Chi/Cosa · genera) senza i riquadri a fondo scuro,
+   che `html.mappai-ridotta #mn-bento .mn-card--extra` spegne
+   (`mappai-stile-manifesto.css:1261`). La guida fotografa quello che vedranno,
+   quindi il flag si accende PRIMA di ogni campagna — anche senza `--da-zero`,
+   che lo azzererebbe insieme al resto di localStorage.
+   ⚠️ La classe `mappai-ridotta` la mette il boot inline di `index.html` (:74-90)
+   leggendo localStorage: scritto il flag, ci vuole una RICARICA. */
+async function vistaRidotta() {
+  /* il velo di blocco beta: senza il flag copre tutto (z-index 10000) e ogni clic
+     finisce su di lui — «menu della briciola non visibile» era questo */
+  const gia = await lab.val("document.documentElement.classList.contains('mappai-ridotta') && localStorage.getItem('mappai_beta_access_granted')==='true' && !document.querySelector('#beta-lock-screen')");
+  if (gia) return;
+  await lab.val("(()=>{localStorage.setItem('mappai_vista_ridotta','1'); localStorage.setItem('mappai_beta_access_granted','true'); return 1})()");
+  await lab.ricarica(3500);
+  const ok = await lab.val("document.documentElement.classList.contains('mappai-ridotta')");
+  if (!ok) throw new Error('vista ridotta non attiva dopo la ricarica');
+  console.log('— vista ridotta ACCESA (la configurazione dei tester)');
 }
+
+/* ── aiuti comuni ───────────────────────────────────────────────────── */
+/* i gesti di navigazione vivono in gesti.js: li usa anche il demo video (inv. 6) */
+const gesti = require('./gesti.js')(lab);
+const { nascondiDev, menuCosa } = gesti;
 async function vocePer(testo, dentro, tag) { return lab.perTesto(testo, dentro, tag); }
 function fotoDi(nomeMateria, nomeVault, f) { return path.join(CASA, 'Mappe', '4R', nomeMateria, nomeVault, f); }
 
@@ -86,6 +99,7 @@ require('./passi.js')({ passo, esito, lab, menuCosa, vocePer, nascondiDev, fotoD
   await lab.collega();
   await lab.metrica(1470, 956, 2);
   if (opz.daZero) await daZero();
+  await vistaRidotta();
   await nascondiDev();
   const daFare = passi.filter((p) => !opz.solo || p.nome.startsWith(opz.solo));
   const ko = [];

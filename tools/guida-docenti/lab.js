@@ -26,6 +26,7 @@ const WS = require('ws');
 const PORTA = process.env.MAPPAI_PORTA || '9333';
 const IMG = process.env.IMG_DIR || path.join(process.env.HOME, 'Claude', 'MappAI - guida docenti', 'img');
 let ws, id = 0, attesi = new Map();
+const ascolti = new Map();          /* metodo CDP → [callback]: vedi `suEvento` */
 const erroriConsole = [];
 
 /** si collega alla pagina dell'app (index.html) o, con `filtro` (RegExp sull'URL), a un'altra finestra — es. quella
@@ -40,6 +41,10 @@ async function collega(filtro) {
   ws.on('message', (raw) => {
     const m = JSON.parse(raw);
     if (m.id && attesi.has(m.id)) { attesi.get(m.id)(m); attesi.delete(m.id); }
+    /* gli EVENTI (non le risposte): `Page.screencastFrame` per il video. Chi ascolta si
+       registra con `suEvento`; senza questo giro servirebbe una SECONDA connessione CDP
+       alla stessa pagina, che è il modo noto per appendere tutto (LEGGIMI, trappola 5). */
+    if (m.method && ascolti.has(m.method)) ascolti.get(m.method).forEach((f) => { try { f(m.params); } catch (e) { /* un ascoltatore rotto non ferma la corsa */ } });
     if (m.method === 'Runtime.exceptionThrown') erroriConsole.push((m.params.exceptionDetails.exception || {}).description || m.params.exceptionDetails.text);
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') erroriConsole.push((m.params.args || []).map((a) => a.value || a.description || '').join(' '));
   });
@@ -49,6 +54,12 @@ async function collega(filtro) {
   return t;
 }
 function chiudi() { try { ws.close(); } catch (e) { /* già chiuso */ } }
+/** ascolta un EVENTO CDP (es. 'Page.screencastFrame'); torna la funzione che lo stacca */
+function suEvento(metodo, fn) {
+  if (!ascolti.has(metodo)) ascolti.set(metodo, []);
+  ascolti.get(metodo).push(fn);
+  return () => { const a = ascolti.get(metodo) || []; const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); };
+}
 function invia(method, params) {
   const n = ++id;
   return new Promise((ok) => { attesi.set(n, ok); ws.send(JSON.stringify({ id: n, method, params: params || {} })); });
@@ -300,5 +311,5 @@ async function fileIn(sel, percorsi) {
   return r;
 }
 
-module.exports = { collega, chiudi, invia, val, ls, ricarica, metrica, centro, rect, perTesto, muovi, clicca, tastoDestro, scrivi, tasto, rotella,
+module.exports = { collega, chiudi, invia, suEvento, val, ls, ricarica, metrica, centro, rect, perTesto, muovi, clicca, tastoDestro, scrivi, tasto, rotella,
   puntatore, cornice, banda, numeri, tendinaFinta, dialogoFinto, overlayPulisci, scatta, finoA, pulito, rilascia, fileIn, pausa, IMG, PORTA, erroriConsole };

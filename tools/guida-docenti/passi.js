@@ -10,58 +10,10 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
   const J = { formato: 'jpeg', qualita: 88 };          // scatti interi: jpeg leggero
   const P = { formato: 'png' };                         // ritagli: png nitido
 
-  /* ── navigazione ─────────────────────────────────────────────────── */
-  const visibile = (sel) => lab.val(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return false; const r=e.getBoundingClientRect(); return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden';})()`);
-  async function chiudiConferma() { if (await visibile('#mpr-no')) { await lab.clicca('#mpr-no'); await lab.pausa(600); } }
-  /** torna alla landing da qualunque stato: mappa aperta → Home (ricarica); console → briciola «Crea» */
-  async function landing() {
-    if (await visibile('#map-control-card')) {
-      await lab.val('window.backToLanding && window.backToLanding()'); await lab.pausa(1500);
-      await lab.finoA('document.readyState==="complete" && !!window.safeCreateIcons && !document.documentElement.classList.contains("mn-boot")', 20000); await lab.pausa(800);
-    }
-    if (await visibile('.mm-box--console')) { await menuCosa('Crea'); }
-    await nascondiDev();
-  }
-  async function cabinaChiudi() {
-    const c = await lab.val('(()=>{const b=[...document.querySelectorAll(".mm-head__ico")].find(e=>/^Chiudi/.test(e.title||e.getAttribute("aria-label")||"")); if(!b) return 0; b.click(); return 1})()');
-    if (c) { await lab.pausa(700); const esci = await lab.val('(()=>{const b=[...document.querySelectorAll(".mm-overlay button")].find(e=>e.textContent.trim()==="Esci"); if(!b) return 0; b.click(); return 1})()'); if (esci) await lab.pausa(700); }
-  }
-  async function cabinaVoce(testo) {
-    // la Cabina è aperta solo se c'è il suo bottone «Chiudi — Cabina» (anche INSEGNA/ELABORA hanno una colonna .mm-nav__v)
-    const aperta = await lab.val('!![...document.querySelectorAll(".mm-head__ico")].find(e=>/^Chiudi/.test(e.title||e.getAttribute("aria-label")||"")&&e.getBoundingClientRect().width>0)');
-    if (!aperta) {
-      const inConsole = await lab.val('(()=>{const b=[...document.querySelectorAll(".mm-head__ico--cabina")].find(e=>e.getBoundingClientRect().width>0); if(b){b.click(); return 1;} return 0;})()');
-      if (!inConsole) await lab.clicca('#btn-cabina');
-      await lab.pausa(1200);
-    }
-    await lab.clicca(await lab.perTesto(testo, 'body', 'button.mm-nav__v')); await lab.pausa(900);
-  }
-  /** i filtri Classe?/Materia? restano da una console all'altra: «mostra tutti» prima di cercare una mappa */
-  async function mostraTutti() { await lab.val('(()=>{const b=[...document.querySelectorAll(".mn-filtri__tutte")].find(e=>e.getBoundingClientRect().width>0); if(b) b.click(); return 1;})()'); await lab.pausa(700); }
-  async function apriMappa(nome) {
-    await landing(); await menuCosa('Insegna'); await mostraTutti();
-    await lab.clicca(await lab.perTesto(nome, 'body', 'button.mm-nav__v')); await lab.pausa(900);
-    await lab.clicca(await lab.perTesto('Mappa', 'body', 'button.mn-cmd')); await lab.pausa(4500);
-    await chiudiConferma(); await nascondiDev();
-    await lab.finoA('document.querySelector("#map-control-card") && document.querySelectorAll("svg g.node-group").length>0', 15000);
-    await lab.pausa(1500);
-  }
-  /** rettangolo dell'ultima finestra del motore dei modali (quella in cima) */
-  async function boxInCima() {
-    const r = await lab.val('(()=>{const b=[...document.querySelectorAll(".mm-box")].filter(e=>{const r=e.getBoundingClientRect(); return r.width>0&&r.height>0;}); const e=b[b.length-1]; if(!e) return null; const r=e.getBoundingClientRect(); return {x:r.x,y:r.y,w:r.width,h:r.height};})()');
-    if (!r) throw new Error('nessuna finestra del motore visibile');
-    return r;
-  }
+  /* ── navigazione: i gesti stanno in gesti.js, condivisi col demo video (inv. 6) ── */
+  const g = require('./gesti.js')(lab);
+  const { visibile, chiudiConferma, landing, cabinaChiudi, cabinaVoce, mostraTutti, apriMappa, boxInCima, aggiungiFile } = g;
   async function scattaBox(nome, margine) { const r = await boxInCima(); await lab.scatta(nome, Object.assign({ clip: { x: r.x - (margine || 10), y: r.y - (margine || 10), width: r.w + 2 * (margine || 10), height: r.h + 2 * (margine || 10) } }, P)); }
-  /** mette un file VERO nella fonte «Documenti» senza aprire il Finder: si spegne `click()` sull'input per la durata del gesto */
-  async function aggiungiFile(tipo, percorsi) {
-    await lab.val(`(()=>{ HTMLInputElement.prototype.__click = HTMLInputElement.prototype.click; HTMLInputElement.prototype.click = function(){}; window.addSource(${JSON.stringify(tipo)}); HTMLInputElement.prototype.click = HTMLInputElement.prototype.__click; return 1; })()`);
-    await lab.pausa(300);
-    const sel = await lab.val('(()=>{const r=[...document.querySelectorAll("#sources-container .source-entry")]; const e=r[r.length-1]&&r[r.length-1].querySelector("input[type=file]"); if(!e) return null; e.id=e.id||("__src"+Date.now()); return "#"+e.id;})()');
-    if (!sel) throw new Error('riga fonte senza input file');
-    await lab.fileIn(sel, percorsi);
-    await lab.val(`(()=>{const i=document.querySelector(${JSON.stringify(sel)}); i.dispatchEvent(new Event('change',{bubbles:true})); return 1;})()`);
-  }
 
   /* ══════════════ 03 — LA PRIMA APERTURA ══════════════════════════════ */
   passo('03-blocco-beta', async () => {
@@ -90,6 +42,16 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
   /* ══════════════ 05 — CREA ═════════════════════════════════════════════ */
   passo('05-crea-vuota', async () => {
     await landing(); await menuCosa('Crea');
+    /* la pagina come la trova un tester che non ha ancora scelto niente: senza fonti,
+       senza tema, col riquadro giallo vuoto. Una campagna ripetuta trova «Chi:» e
+       «Cosa:» già compilati dal passo successivo — si azzerano qui, non a mano. */
+    await lab.val(`(()=>{ ['mp-chi','mp-disc'].forEach(id=>{const s=document.getElementById(id); if(s){s.value=''; s.dispatchEvent(new Event('change',{bubbles:true}));}});
+      const t=document.querySelector('#root-node-name'); if(t){t.value=''; t.dispatchEvent(new Event('input',{bubbles:true}));}
+      document.querySelectorAll('#mn-files .mn-file__x, #mn-files button').forEach(b=>b.click()); return 1; })()`);
+    /* il toast «Nessuna classe attiva: contenuti AI generici» nasce dal cambio dei due
+       menu e finirebbe nello scatto: si aspetta che sparisca davvero, non a cronometro */
+    await lab.finoA('![...document.querySelectorAll("body *")].some(e=>e.children.length===0 && /Nessuna classe attiva/.test(e.textContent))', 12000);
+    await lab.pausa(600);
     await lab.val('window.scrollTo(0,0); document.querySelector("#landing-view")?.scrollTo(0,0)');
     await lab.scatta('05-crea-vuota', J);
   });
@@ -115,17 +77,25 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
     await lab.tendinaFinta('#mp-chi', { largh: 210, allinea: 'sinistra' });
     await lab.scatta('05-crea-chi-tendina', Object.assign({ clip: { x: 90, y: 520, width: 480, height: 320 } }, P));
     await lab.pulito();
-    await lab.numeri([{ sel: '#mp-chi', n: 1, dove: 'l' }, { sel: '#mp-disc', n: 2, dove: 'l' }, { sel: '#mn-genera', n: 3, dove: 'tl' }]);
-    await lab.scatta('05-crea-chi-cosa-genera', Object.assign({ clip: { x: 60, y: 520, width: 1350, height: 200 } }, P));
+    /* ⚠️ i numeri a SINISTRA coprivano le etichette «Chi:» e «Cosa:» (misurato: il
+       cerchio cade a x 125 e la parola comincia a 140): vanno a destra del menu, sul
+       bordo del riquadro giallo, dove non c'è testo. */
+    await lab.numeri([{ sel: '#mp-chi', n: 1, dove: 'r' }, { sel: '#mp-disc', n: 2, dove: 'r' }, { sel: '#mn-genera', n: 3, dove: 'tl' }]);
+    /* la card verde mostra l'ICONA a riposo e l'etichetta solo sotto il puntatore
+       (`.mn-card--genera > span { opacity: 0 }`, stile-manifesto.css:2213): senza
+       hover la guida mostrerebbe un riquadro verde muto, mentre il testo parla
+       della scritta «Genera materiali». Si passa il mouse davvero e si disegna il
+       puntatore, così si capisce anche perché la scritta è lì. */
+    const rg = await lab.rect('#mn-genera');
+    const cx = Math.round(rg.x + rg.w / 2), cy = Math.round(rg.y + rg.h / 2);
+    await lab.muovi(cx, cy); await lab.pausa(450);
+    await lab.puntatore(cx + 90, cy + 26);
+    await lab.scatta('05-crea-chi-cosa-genera', Object.assign({ clip: { x: 100, y: rg.y - 26, width: Math.round(rg.x + rg.w + 12 - 100), height: rg.h + 40 } }, P));
     await lab.pulito();
+    await lab.muovi(20, 900);   /* via il puntatore: l'hover resterebbe acceso negli scatti dopo */
   });
-  passo('05-crea-bento', async () => {
-    await lab.val('document.querySelector("#mn-bento")?.scrollIntoView({block:"start"}); window.scrollBy(0,-16)'); await lab.pausa(700);
-    await lab.scatta('05-crea-bento', J);
-    await lab.val('window.scrollBy(0, innerHeight-120)'); await lab.pausa(700);
-    await lab.scatta('05-crea-bento-2', J);
-    await lab.val('window.scrollTo(0,0)'); await lab.pausa(400);
-  });
+  /* niente passo «05-crea-bento»: i riquadri a fondo scuro non esistono nella vista ridotta,
+     che è la configurazione dei tester (campagna.js › vistaRidotta) — e la guida non ne parla più. */
   passo('05-crea-per-chi', async () => {
     // «Genera Mappa» (nessun materiale spuntato) → modale «Per chi è questa mappa?» — si fotografa e si annulla
     await lab.val('(()=>{document.querySelectorAll("#mn-bento input[type=checkbox]:checked").forEach(c=>{c.checked=false;c.dispatchEvent(new Event("change",{bubbles:true}));}); return 1;})()');
