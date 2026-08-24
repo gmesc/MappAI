@@ -105,23 +105,31 @@ Resta fuori solo la **registrazione della voce** vista da vicino (il preavviso �
 circa M minuti» e il velo «Genero audio 12/78»): si fotografa con un passo `07-voce` che apra
 una sintesi in ELABORA e prema «Voce».
 
-### ⚠️ La prima cosa da fare, alla ripresa
+### ⚠️ La prima cosa da fare, alla ripresa: il passo 09 è APERTO
 
-I due passi sono stati **corretti dopo** il giro che li aveva scoperti, e al momento di
-chiudere la sessione (24/8 sera) erano in **rilancio, non finito**. Quindi:
+**`05-crea-genera` gira pulito** (provato due volte il 24/8: velo con le fasi → girandola →
+«Materiali generati», 126 s). **`09-dossier-crea` no**, e va ripreso da qui.
+
+Il sintomo, misurato: il passo si ferma su «L'AI legge la foto e apre la scheda — nessuna
+scheda dopo 2 minuti», ma **la lettura è avvenuta davvero** (una riga `pipeline · visione` nel
+registro consumi, e la superficie ha i campi pieni). Quello che non succede è la **chiusura del
+modale «Che cosa sai di questa fonte?»**: resta a schermo sopra la scheda, e l'attesa del passo
+— che aspetta proprio la sua sparizione — non si avvera mai. Da capire se è il modale che non
+si chiude quando il clic arriva dal DOM (il motore conclude e chiude solo passando dal suo
+gestore, invariante 10) o se ne resta aperto uno del giro precedente. Due strade da provare
+nell'ordine: leggere `chiediNota` in `mappai-visione.js:651-667` per vedere chi chiude la
+finestra, e provare a mano nell'app se premendo «Analizza» col mouse il modale se ne va.
+
+⚠️ **Le figure del capitolo 9 nella guida sono comunque VERE**: sono state scattate a mano
+dentro la stessa sessione, su una scheda letta davvero dall'AI. Non vanno rifatte: va rimesso
+in piedi il passo, perché la campagna torni ripetibile da capo a fondo.
 
 ```bash
 # l'istanza di prova coi tre flag (vedi sopra), poi:
-node tools/guida-docenti/campagna.js --solo 05-crea-genera
 node tools/guida-docenti/campagna.js --solo 09-dossier-crea
-cat tools/guida-docenti/fatti/esiti-electron.md      # deve essere tutto ✅
-node tools/guida-docenti/verifica.js                 # 0 difetti
+cat tools/guida-docenti/fatti/esiti-electron.md      # oggi porta il ❌ di sopra
+node tools/guida-docenti/verifica.js                 # 0 difetti (verificato il 24/8)
 ```
-
-`esiti-electron.md` porta ancora un ❌ («Dossier generato dalla foto — nessun riepilogo dopo
-10 minuti»): è del giro **prima** della correzione del clic sull'overlay. La generazione poi è
-riuscita a mano, e le figure nella guida sono quelle vere; ma finché i due passi non girano
-puliti dall'inizio alla fine, l'esito resta da confermare.
 
 ⚠️ **La chiave AI è nell'istanza di prova** (`lab/userData`, in chiaro nel `localStorage` di
 quel profilo). Se non serve più:

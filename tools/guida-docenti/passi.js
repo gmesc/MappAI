@@ -415,7 +415,8 @@ module.exports = function ({ passo, esito, lab, menuCosa, nascondiDev, fotoDi, C
       t.dispatchEvent(new Event('input',{bubbles:true})); return 1;})()`);
     await lab.pausa(500);
     await scattaBox('09-dossier-nota-scritta');
-    await lab.clicca(await lab.perTesto('Analizza', 'body', 'button'));
+    /* anche «Analizza» è un bottone del motore: stesso overlay, stesso rimedio (clic DOM) */
+    await lab.val(`(()=>{const b=[...document.querySelectorAll('.mm-box button')].find(x=>/Analizza/.test(x.textContent)); if(!b) return 0; b.click(); return 1;})()`);
     /* ⚠️ la lettura è UNA chiamata, ma può prendersi mezzo minuto — e NON basta aspettare
        `.vs-superficie`: la scheda di un giro precedente resta montata, e si fotograferebbe
        quella, sfocata dietro il modale della nota (misurato il 24/8). E nemmeno «nessuna
