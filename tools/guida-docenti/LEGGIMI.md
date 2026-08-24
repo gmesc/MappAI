@@ -73,10 +73,10 @@ un riquadro). Non sono scarti: servono se una figura va cambiata senza rifare la
 
 ## Che cosa questi strumenti NON provano
 
-- **La generazione.** Nell'istanza di prova non è mai stata incollata la chiave Gemini: la
-  mappa da un PDF, «Genera materiali», il dossier da una foto e la voce naturale sono
-  raccontati a parole, non fotografati. Con la chiave, i passi mancanti sono al punto 6 del
-  piano.
+- **La voce naturale.** Con la chiave nell'istanza (24/8) la mappa da un PDF, «Genera
+  materiali» e il dossier da una foto sono fotografati davvero (`05-crea-genera`,
+  `09-dossier-crea`). Resta fuori la **registrazione della voce** vista da vicino: serve un
+  passo `07-voce` che apra una sintesi in ELABORA e prema «Voce».
 - **Windows.** Tutto è macOS: il Finder, `sips` per le foto HEIC, il menu di sistema.
 - **La resa a occhio.** `verifica.js` misura; il giudizio sulle immagini lo dà il foglio dei
   provini, e su quello decide una persona.
@@ -103,6 +103,10 @@ un riquadro). Non sono scarti: servono se una figura va cambiata senza rifare la
    i file di `Nodi/` si rileggono in ordine alfabetico): `--da-zero` corregge entrambi.
 9. Un commento `//` a fine riga dentro una riga lunga si è mangiato il codice che seguiva:
    `node --check` dopo ogni modifica a `passi.js`.
+10. `DOM.setFileInputFiles` spara **già lui** l'evento `change`: aggiungerne uno a mano fa
+    girare `processSourceFile` due volte. Con un PDF non si vede; con una **foto** impila due
+    modali «Che cosa sai di questa fonte?» e il passo 09 non finisce più (misurato il 24/8:
+    2 → 1 dopo il fix).
 
 Il piano, con il punto di ripresa e i difetti dell'app trovati strada facendo, è in
 [`docs/PIANO-guida-docenti.md`](../../docs/PIANO-guida-docenti.md).

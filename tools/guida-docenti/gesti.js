@@ -88,7 +88,12 @@ module.exports = function (lab) {
         const sel = await lab.val('(()=>{const r=[...document.querySelectorAll("#sources-container .source-entry")]; const e=r[r.length-1]&&r[r.length-1].querySelector("input[type=file]"); if(!e) return null; e.id=e.id||("__src"+Date.now()); return "#"+e.id;})()');
         if (!sel) throw new Error('riga fonte senza input file');
         await lab.fileIn(sel, percorsi);
-        await lab.val(`(()=>{const i=document.querySelector(${JSON.stringify(sel)}); i.dispatchEvent(new Event('change',{bubbles:true})); return 1;})()`);
+        /* ⚠️ NIENTE `change` a mano qui: `DOM.setFileInputFiles` lo spara già lui (misurato
+           il 24/8 — `processSourceFile` girava 2 volte, 1 sola senza questa riga). Con un PDF
+           il doppio giro non si vedeva; con una FOTO impilava DUE modali «Che cosa sai di
+           questa fonte?», e il passo 09, che aspetta la sparizione di quel testo, non finiva
+           mai. Se un giorno l'evento non arrivasse più, rimettere il dispatch CONDIZIONATO
+           al fatto che la riga della fonte sia rimasta vuota, mai incondizionato. */
     }
 
     return { visibile, nascondiDev, menuCosa, chiudiConferma, landing, cabinaChiudi, cabinaVoce, mostraTutti, apriMappa, boxInCima, aggiungiFile };

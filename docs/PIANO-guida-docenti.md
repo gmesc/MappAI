@@ -105,29 +105,27 @@ Resta fuori solo la **registrazione della voce** vista da vicino (il preavviso �
 circa M minuti» e il velo «Genero audio 12/78»): si fotografa con un passo `07-voce` che apra
 una sintesi in ELABORA e prema «Voce».
 
-### ⚠️ La prima cosa da fare, alla ripresa: il passo 09 è APERTO
+### Il passo 09 era rotto, ed era lo strumento — non l'app (24/8, sera)
 
-**`05-crea-genera` gira pulito** (provato due volte il 24/8: velo con le fasi → girandola →
-«Materiali generati», 126 s). **`09-dossier-crea` no**, e va ripreso da qui.
+**Tutti e due i passi ora girano puliti**: `05-crea-genera` (126 s) e `09-dossier-crea`
+(223 s, otto figure, dossier generato dalla foto). `verifica.js`: nessun difetto.
 
-Il sintomo, misurato: il passo si ferma su «L'AI legge la foto e apre la scheda — nessuna
-scheda dopo 2 minuti», ma **la lettura è avvenuta davvero** (una riga `pipeline · visione` nel
-registro consumi, e la superficie ha i campi pieni). Quello che non succede è la **chiusura del
-modale «Che cosa sai di questa fonte?»**: resta a schermo sopra la scheda, e l'attesa del passo
-— che aspetta proprio la sua sparizione — non si avvera mai. Da capire se è il modale che non
-si chiude quando il clic arriva dal DOM (il motore conclude e chiude solo passando dal suo
-gestore, invariante 10) o se ne resta aperto uno del giro precedente. Due strade da provare
-nell'ordine: leggere `chiediNota` in `mappai-visione.js:651-667` per vedere chi chiude la
-finestra, e provare a mano nell'app se premendo «Analizza» col mouse il modale se ne va.
+Il sintomo era «nessuna scheda dopo 2 minuti», eppure la lettura avveniva davvero. Non era
+l'invariante 10 — il motore dei modali si chiude regolarmente col clic dal DOM (provato in
+isolamento: box 1→0, promessa risolta con `azione:"si"`). Era `aggiungiFile` in `gesti.js`:
+**`DOM.setFileInputFiles` spara già lui l'evento `change`**, e la riga seguente ne sparava un
+secondo. `processSourceFile` girava quindi **due volte**: con un PDF non si vedeva, con una
+foto impilava **due** modali «Che cosa sai di questa fonte?». Il clic ne chiudeva uno,
+l'analisi partiva — e l'attesa del passo, che cerca la sparizione di quel testo, trovava
+ancora il secondo. Misurato prima e dopo: `processSourceFile` 2 → 1, modali 2 → 1.
 
-⚠️ **Le figure del capitolo 9 nella guida sono comunque VERE**: sono state scattate a mano
-dentro la stessa sessione, su una scheda letta davvero dall'AI. Non vanno rifatte: va rimesso
-in piedi il passo, perché la campagna torni ripetibile da capo a fondo.
+Tolto il dispatch a mano (commento sul posto: se un giorno l'evento non arrivasse più, va
+rimesso **condizionato** alla riga della fonte rimasta vuota, mai incondizionato).
 
 ```bash
 # l'istanza di prova coi tre flag (vedi sopra), poi:
 node tools/guida-docenti/campagna.js --solo 09-dossier-crea
-cat tools/guida-docenti/fatti/esiti-electron.md      # oggi porta il ❌ di sopra
+cat tools/guida-docenti/fatti/esiti-electron.md      # oggi tutto ✅
 node tools/guida-docenti/verifica.js                 # 0 difetti (verificato il 24/8)
 ```
 
