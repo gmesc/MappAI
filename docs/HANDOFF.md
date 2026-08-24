@@ -8,11 +8,12 @@
 > parte — **[`DIARIO-2026.md`](DIARIO-2026.md)** (4581 righe): `CLAUDE.md` è stato potato a
 > ~780 righe perché entrava in contesto a ogni sessione. Nessuna riga è andata persa
 > (verificato riga per riga contro `git show HEAD:CLAUDE.md`).
-> Ultimo allineamento: **23 agosto 2026**. La giornata in una riga: **la GUIDA PER I DOCENTI
-> è consegnata** — 13 capitoli e 95 fotografie vere dell'app, fuori dal repo
-> (`~/Claude/MappAI - guida docenti/index.html`), con nel repo la campagna che la rifà
-> (`tools/guida-docenti/`, il suo [`LEGGIMI`](../tools/guida-docenti/LEGGIMI.md)) e dieci
-> difetti dell'app da correggere a parte. Dettagli in §0 punto 0-sexies. Tre commit.
+> Ultimo allineamento: **24 agosto 2026**. La giornata in una riga: **il DEMO VIDEO di 4
+> minuti è montato** dall'app vera — e il giorno prima la **guida per i docenti** era stata
+> consegnata. Due prodotti fuori dal repo (`~/Claude/MappAI - demo/`,
+> `~/Claude/MappAI - guida docenti/`), i loro strumenti dentro (`tools/demo-video/`,
+> `tools/guida-docenti/`, ognuno col suo `LEGGIMI`), e undici difetti dell'app trovati
+> guardandola lavorare — uno già corretto. Dettagli in §0, punti 0-septies e 0-sexies.
 > Prima: **21 agosto 2026**. La giornata in una riga: **la scheda della fonte
 > diventa un EDITOR come gli altri** — i comandi in una barra `.de-bar` fissa in alto (nelle
 > due vesti: validazione in CREA e correzione in ELABORA), la superficie prende la tela col
@@ -48,6 +49,101 @@
 
 ## 0. Le prime cose da sapere
 
+0-septies. **⟵ DA QUI SI RIPRENDE (24/8): il DEMO VIDEO di 4 minuti esiste.**
+   `~/Claude/MappAI - demo/demo-mappai-4min.mp4` — 240 s esatti, 2560×1440, girato
+   sull'**app vera** (font TM Sans, vista ridotta) coi vault della 4R: la classe, la
+   generazione VERA di «Elettricità - demo» (time-lapse ×3,5), le viste della mappa,
+   «Proietta», lo sfoglio dei PDF veri, le slide comparative dei sette angoli (testi
+   estratti dai PDF delle domande aperte), l'editor di ELABORA e la sintesi col karaoke
+   e la voce vera. Unico audio: la voce vera
+   della sintesi (scelta di Giacomo, 24/8 — niente traccia guida nel file); le schermate
+   d'app sono FULL BLEED e la scena delle viste nasce dai PDF della Vista studio
+   (td-00→03 in sequenza, fasci in zoom-out, DAG e mappa libera in pan). Giacomo registra
+   sul `copione-da-leggere.md` e incolla con `--voce`; un provino a voce sintetica si
+   rifà con `monta.js --traccia`. Gli strumenti:
+   `tools/demo-video/` (il suo [`LEGGIMI`](../tools/demo-video/LEGGIMI.md), con le otto
+   trappole pagate — screencast, SAR, concat col filtro, poppler contro i .ttf TestMe).
+   I gesti di navigazione della campagna guida sono ora CONDIVISI in
+   `tools/guida-docenti/gesti.js` (inv. 6). Due effetti sul disco vero, voluti:
+   il vault «Elettricità - demo» (si cestina quando si vuole) e la riparazione
+   `dossier: false → true` nell'index.yaml di `grind this heels` (trappola 8 della guida
+   sul disco vero: senza, «Proietta» non compariva; backup in /tmp).
+   · ⚠️ **Nella cartella ci sono DUE video**, misurati il 24/8 sera: `demo-mappai-4min.mp4`
+     (240,0 s · 13,9 MB · 24/8 00:40) è quello descritto qui; **`MappAI intro.mp4`**
+     (69,0 s · 34,7 MB · 24/8 11:54) è più recente e più corto, accanto a un
+     `testo-presentazione.md` che non è il copione del demo — nessuna riga di documento lo
+     spiega. Prima di consegnare, guardarlo e dire quale dei due è il video buono.
+
+0-sexies. **⟵ DA QUI SI RIPRENDE (23/8): la GUIDA PER I DOCENTI esiste, ed è fotografata
+   nell'app vera.** `~/Claude/MappAI - guida docenti/index.html` (fuori dal repo: 13 capitoli
+   + appendice QR, 95 screenshot a 2× scattati via CDP su un'istanza isolata con i vault
+   COPIATI della 4R). Gli strumenti sono nel repo, `tools/guida-docenti/` (lab, campagna
+   ripetibile, telefono headless, verifica, la mappa dei fatti in `fatti/`, e il `LEGGIMI`
+   coi tre comandi e le nove trappole pagate). Il punto di
+   ripresa completo — comandi, trappole, che cosa resta — è il blocco in testa a
+   [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md).
+   · **La campagna è anche una prova in Electron**: «Proietta» (con «Affianca» e il mazzo di
+     flashcard) e le «Domande a scelta» via QR (sessione, telefono, consegna, report) sono
+     stati VISTI girare — v. §5 in testa. La scheda del dossier e la generazione (mappa da
+     PDF, dossier da foto) NO: nell'istanza non è mai stata incollata la chiave Gemini.
+   · ⚠️ **Undici difetti veri dell'app** sono stati trovati leggendo il codice e fotografando
+     l'app: stanno nel piano, elencati a-k con `file:riga` e in ordine di quanto mordono.
+     Uno è già corretto (lo schermo di sblocco diceva «Invia l'ID Macchina a
+     [EMAIL_ADDRESS]»: commit `88c686c`). Gli altri no per scelta — la guida non tocca l'app —
+     e ognuno è una riga di lavoro a sé.
+
+0-quater.
+> Prima: **20 agosto 2026**. La giornata in una riga: **una FOTOGRAFIA
+> diventa un dossier di fonte** — si carica da «Documenti» (autoriconosciuta), la legge
+> Gemini, il docente corregge la **scheda a quattro blocchi** in una superficie di CREA, e
+> ne escono l'analisi in PDF + flashcard + domande aperte + sintesi. In INSEGNA il dossier
+> si **PROIETTA** per la lezione. Prima, in giornata: le attività **«a scelta»** complete
+> (sei fasi su sei, e le sette modalità storiche di Studio attivo in pensione — −2315
+> righe). Otto commit. Dettagli in §0 punti 0-ter, 0-bis e 0.
+> Prima: **19 agosto 2026**. La giornata in una riga: **il CARATTERE
+> si sceglie** — quattro caratteri (Space Mono · TestMe Sans · TestMe Alt · Atkinson
+> Hyperlegible), uno per l'app dalla Cabina e uno per il singolo documento in ELABORA; e
+> **tutti i caratteri sono locali**, mentre fino a stamattina perfino Space Mono arrivava
+> da una CDN in nove documenti stampabili. OpenDyslexic in pensione.
+> Prima, in giornata: **il PDF della mappa torna VETTORIALE** — il ripiego raster non
+> scatta più (debito §4 7-bis, chiuso).
+> Prima: **17 agosto 2026, sera**. La giornata in una riga: **la VOCE della
+> sintesi diventa usabile** (si registra anche dopo, scrive la copia parlante, si può
+> annullare, dice quanto costa prima e riprende il giorno dopo dai blocchi mancanti), i
+> **file del vault prendono nomi che dicono a chi appartengono** (set, materiali, mappa
+> esportata) e il **pathfinder è stato pensionato**. Dodici commit, tutti su `main`.
+>
+> Progetto: Giacomo Meschini — giacomo@insegnai.ch
+
+---
+
+## 0. Le prime cose da sapere
+
+0-septies. **⟵ DA QUI SI RIPRENDE (24/8): il DEMO VIDEO di 4 minuti esiste.**
+   `~/Claude/MappAI - demo/demo-mappai-4min.mp4` — 240 s esatti, 2560×1440, girato
+   sull'**app vera** (font TM Sans, vista ridotta) coi vault della 4R: la classe, la
+   generazione VERA di «Elettricità - demo» (time-lapse ×3,5), le viste della mappa,
+   «Proietta», lo sfoglio dei PDF veri, le slide comparative dei sette angoli (testi
+   estratti dai PDF delle domande aperte), l'editor di ELABORA e la sintesi col karaoke
+   e la voce vera. Unico audio: la voce vera
+   della sintesi (scelta di Giacomo, 24/8 — niente traccia guida nel file); le schermate
+   d'app sono FULL BLEED e la scena delle viste nasce dai PDF della Vista studio
+   (td-00→03 in sequenza, fasci in zoom-out, DAG e mappa libera in pan). Giacomo registra
+   sul `copione-da-leggere.md` e incolla con `--voce`; un provino a voce sintetica si
+   rifà con `monta.js --traccia`. Gli strumenti:
+   `tools/demo-video/` (il suo [`LEGGIMI`](../tools/demo-video/LEGGIMI.md), con le otto
+   trappole pagate — screencast, SAR, concat col filtro, poppler contro i .ttf TestMe).
+   I gesti di navigazione della campagna guida sono ora CONDIVISI in
+   `tools/guida-docenti/gesti.js` (inv. 6). Due effetti sul disco vero, voluti:
+   il vault «Elettricità - demo» (si cestina quando si vuole) e la riparazione
+   `dossier: false → true` nell'index.yaml di `grind this heels` (trappola 8 della guida
+   sul disco vero: senza, «Proietta» non compariva; backup in /tmp).
+   · ⚠️ **Nella cartella ci sono DUE video**, misurati il 24/8 sera: `demo-mappai-4min.mp4`
+     (240,0 s · 13,9 MB · 24/8 00:40) è quello descritto qui; **`MappAI intro.mp4`**
+     (69,0 s · 34,7 MB · 24/8 11:54) è più recente e più corto, accanto a un
+     `testo-presentazione.md` che non è il copione del demo — nessuna riga di documento lo
+     spiega. Prima di consegnare, guardarlo e dire quale dei due è il video buono.
+
 0-sexies. **⟵ DA QUI SI RIPRENDE (23/8): la GUIDA PER I DOCENTI esiste, ed è fotografata
    nell'app vera.** `~/Claude/MappAI - guida docenti/index.html` (fuori dal repo: 13 capitoli
    + appendice QR, 95 screenshot a 2× scattati via CDP su un'istanza isolata con i vault
@@ -61,8 +157,10 @@
      stati VISTI girare — v. §5 in testa. La scheda del dossier e la generazione (mappa da
      PDF, dossier da foto) NO: nell'istanza non è mai stata incollata la chiave Gemini.
    · ⚠️ **Difetti veri trovati leggendo e fotografando, NON corretti** (decisione del piano:
-     si riferiscono, si correggono a parte): il segnaposto «[EMAIL_ADDRESS]» nello schermo di
-     sblocco (`it_translations.js:207`); il tutor del nodo che scrive nickname ed età nel
+     si riferiscono, si correggono a parte). ✅ **Corretto il 23/8**: lo schermo di sblocco diceva
+     «Invia l'ID Macchina a [EMAIL_ADDRESS]» — il segnaposto era a schermo — e ora dice
+     l'indirizzo vero nei due dizionari e nel markup (`it/en_translations.js`, `index.html`,
+     marcatore `?v=sblocco`). Restano: il tutor del nodo che scrive nickname ed età nel
      prompt (`mappai-ai-tutor.js:524-529`) contro il testo Privacy «Il NOME dell'allievo non
      entra mai»; «Attività già svolte» in INSEGNA sempre vuota (`landing-teach.js:3034`
      legge `sessions|records`, il main dà `rows`); l'onboarding lingue è codice morto
