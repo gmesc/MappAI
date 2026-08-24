@@ -104,3 +104,25 @@ Tre cose misurate, che sono finite nella guida:
 Resta fuori solo la **registrazione della voce** vista da vicino (il preavviso «N blocchi ·
 circa M minuti» e il velo «Genero audio 12/78»): si fotografa con un passo `07-voce` che apra
 una sintesi in ELABORA e prema «Voce».
+
+### ⚠️ La prima cosa da fare, alla ripresa
+
+I due passi sono stati **corretti dopo** il giro che li aveva scoperti, e al momento di
+chiudere la sessione (24/8 sera) erano in **rilancio, non finito**. Quindi:
+
+```bash
+# l'istanza di prova coi tre flag (vedi sopra), poi:
+node tools/guida-docenti/campagna.js --solo 05-crea-genera
+node tools/guida-docenti/campagna.js --solo 09-dossier-crea
+cat tools/guida-docenti/fatti/esiti-electron.md      # deve essere tutto ✅
+node tools/guida-docenti/verifica.js                 # 0 difetti
+```
+
+`esiti-electron.md` porta ancora un ❌ («Dossier generato dalla foto — nessun riepilogo dopo
+10 minuti»): è del giro **prima** della correzione del clic sull'overlay. La generazione poi è
+riuscita a mano, e le figure nella guida sono quelle vere; ma finché i due passi non girano
+puliti dall'inizio alla fine, l'esito resta da confermare.
+
+⚠️ **La chiave AI è nell'istanza di prova** (`lab/userData`, in chiaro nel `localStorage` di
+quel profilo). Se non serve più:
+`node -e "const l=require('./tools/guida-docenti/lab.js');(async()=>{await l.collega();await l.ls('gemini_api_key',null);l.chiudi()})()"`

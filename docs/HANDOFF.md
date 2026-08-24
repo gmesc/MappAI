@@ -9,8 +9,10 @@
 > ~780 righe perché entrava in contesto a ogni sessione. Nessuna riga è andata persa
 > (verificato riga per riga contro `git show HEAD:CLAUDE.md`).
 > Ultimo allineamento: **24 agosto 2026**. La giornata in una riga: **il DEMO VIDEO di 4
-> minuti è montato** dall'app vera — e il giorno prima la **guida per i docenti** era stata
-> consegnata. Due prodotti fuori dal repo (`~/Claude/MappAI - demo/`,
+> minuti è montato** dall'app vera, e la sera la **guida per i docenti** ha smesso di
+> raccontare la generazione a parole: con la chiave AI nell'istanza di prova sono state
+> fotografate le scene che mancavano (il velo con le fasi, «Materiali generati», la scheda di
+> una foto letta dall'AI). Il giorno prima la guida era stata consegnata. Due prodotti fuori dal repo (`~/Claude/MappAI - demo/`,
 > `~/Claude/MappAI - guida docenti/`), i loro strumenti dentro (`tools/demo-video/`,
 > `tools/guida-docenti/`, ognuno col suo `LEGGIMI`), e undici difetti dell'app trovati
 > guardandola lavorare — uno già corretto. Dettagli in §0, punti 0-septies e 0-sexies.
@@ -84,8 +86,14 @@
    [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md).
    · **La campagna è anche una prova in Electron**: «Proietta» (con «Affianca» e il mazzo di
      flashcard) e le «Domande a scelta» via QR (sessione, telefono, consegna, report) sono
-     stati VISTI girare — v. §5 in testa. La scheda del dossier e la generazione (mappa da
-     PDF, dossier da foto) NO: nell'istanza non è mai stata incollata la chiave Gemini.
+     stati VISTI girare — v. §5 in testa. ✅ **Il 24/8 sera, con la chiave AI nell'istanza,
+     anche la GENERAZIONE**: una mappa vera da un PDF (49 nodi in un minuto), il quiz a
+     scelta multipla, e il dossier da una foto — lettura, scheda a quattro blocchi con gli
+     appigli, materiali. Due misure che sono finite nella guida: il **velo copre la sola
+     mappa** (quando se ne va, i materiali continuano in sottofondo: la fine vera è la
+     finestra «Materiali generati»), e il **preventivo del dossier non conta la voce**
+     naturale (dice «circa 9 chiamate», ne servono 25). Resta fuori solo la registrazione
+     della voce vista da vicino.
    · ⚠️ **Undici difetti veri dell'app** sono stati trovati leggendo il codice e fotografando
      l'app: stanno nel piano, elencati a-k con `file:riga` e in ordine di quanto mordono.
      Uno è già corretto (lo schermo di sblocco diceva «Invia l'ID Macchina a
