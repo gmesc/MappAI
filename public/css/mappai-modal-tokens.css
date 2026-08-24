@@ -2396,3 +2396,22 @@ th[aria-sort="descending"] {
     margin-right: auto;
     width: 100%;
 }
+/* ── NELLA CONSOLE la superficie NON è più una finestra (24/8/26) ────────────
+   Dentro `#elab-doc-host` (la tela di ELABORA) il riquadro perdeva la veste
+   degli altri editor: angoli tondi, ombra da modale, `max-height:88vh` che
+   lasciava una striscia grigia sotto, e uno scroll INTERNO col cursore dentro
+   la card invece che sul bordo dell'area. Qui il box riempie l'host a filo,
+   come `.de-doc`: a scorrere è l'HOST (`#elab-doc-host{overflow:auto}`, foglio
+   del doc-editor), quindi la barra si aggancia a `top:0` — il tetto negativo
+   della regola generica vale solo quando a scorrere è il box stesso. */
+#elab-doc-host > .vs-superficie {
+    min-height: 100%;
+    max-height: none;
+    overflow-y: visible;   /* se il box resta scroll-container, la barra sticky si aggancia a LUI e scorre via con l'host */
+    border-radius: 0;
+    box-shadow: none;
+}
+#elab-doc-host > .vs-superficie > .de-bar {
+    top: 0;
+    border-radius: 0;
+}
