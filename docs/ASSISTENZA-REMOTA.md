@@ -235,7 +235,7 @@ Per rimettere tutto com'era:
 ```js
 // ⚠️ SCRIVE — riporta gli interruttori al default. Non tocca mappe né documenti.
 ['mappai_stile_manifesto','mappai_teach_console','mappai_studio_view','mappai_lavori_barra',
- 'mappai_vista_ridotta','mappai_teach_row_select','mappai_legacy_float_btns']
+ 'mappai_vista_ridotta','mappai_teach_row_select']
   .forEach(k => localStorage.removeItem(k)); location.reload()
 ```
 

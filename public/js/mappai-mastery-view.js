@@ -139,21 +139,5 @@
     if (b) { b.style.background = MV.active ? 'linear-gradient(135deg,#16a34a,#22c55e)' : '#fff'; b.style.color = MV.active ? '#fff' : '#16a34a'; }
   }
 
-  function injectBtn() {
-    // Spostato nel launcher Studio attivo: il flottante torna solo in modalità legacy.
-    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
-    if (document.getElementById('mv-btn')) return;
-    const b = document.createElement('button');
-    b.id = 'mv-btn';
-    b.title = 'Mostra padronanza sul grafo';
-    b.innerHTML = '<i data-lucide="target" style="width:20px;height:20px"></i>';
-    b.style.cssText = 'position:fixed;bottom:84px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #16a34a;background:#fff;color:#16a34a;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(22,163,74,.5)';
-    b.onclick = () => MV.toggle();
-    document.body.appendChild(b);
-    if (window.safeCreateIcons) window.safeCreateIcons();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
-  else injectBtn();
-
   console.log('[MasteryView] overlay padronanza caricato');
 })();

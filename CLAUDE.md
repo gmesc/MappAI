@@ -684,7 +684,6 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
 | `mappai_l1_split_enabled` | Fase 1.6: spezza macro-aree composte ("Neutralità e Difesa" → 2 atomiche) | OFF |
 | `mappai_rich_rel_enabled` | Fase 3: linking words significative su ogni arco (concept-map), non "include" | OFF |
 | `mappai_kg_community_mode` | **KG Community (stile MiniMAP)**: single-pass + comunità GraphRAG invece dell'albero forzato. Solo modalità KG | OFF |
-| `mappai_legacy_float_btns` | **Ripristina i 7 bottoni flottanti storici** del bordo destro (Cloze 📝 20 · Padronanza 🎯 84 · Progressi 📈 148 · Percorso 🧭 212 · Palazzo 🏛️ 276 · Dungeon 🎮 340 · Lavoro 🔥 404). Con feature 001-menu-reorg tutto vive nel launcher Studio attivo (viste+strumenti) e la colonna è vuota; `'1'` torna alla disposizione precedente | OFF |
 | `mappai_deepening_enabled` | Kill-switch generale della **Fase 3.7 deepening** (nodi `_D` di approfondimento). `'false'` = niente pass di approfondimento | ON |
 | `mappai_deepen_residue` | Deepening in **modalità residuo+verdetto (P1+P2)**: materiale dalla fonte + scarto delle parafrasi. `'false'` = comportamento legacy (materiale = desc del padre, nessun verdetto anti-parafrasi) | ON |
 | `mappai_doc_zoom_<kind>` | **Dimensione dell'anteprima** nell'editor documenti, per tipo (`quiz`/`flashcards`/`synthesis`/`nodesheet`). Gradini 0.85·1·1.15·1.3·1.5; moltiplica lo zoom automatico, non tocca la stampa | 1 |

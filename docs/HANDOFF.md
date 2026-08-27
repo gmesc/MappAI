@@ -438,7 +438,6 @@ sezione. Il cablaggio bento non è più opzionale.
 | `mappai_studio_profile` | scritto dall'uso | il profilo della Vista studio a livello UTENTE (non di progetto), **con una taratura per motore** (`perMotore`) |
 | `mappai_vista_ridotta` | scritto dalla combo | la vista ridotta di CREA (SHIFT+CTRL+L,K,J,H) |
 | `mappai_teach_row_select` | acceso | in INSEGNA il clic sulla riga SELEZIONA la mappa. `'0'` → la apre (storico) |
-| `mappai_legacy_float_btns` | spento | `'1'` rimette i 7 bottoni flottanti del bordo destro |
 | `mappai_archivio_insegna` | spento | `'1'` rimostra in INSEGNA le voci d'archivio dei fogli cartacei (`quizpaper`/`flashsheet` senza PDF proprio), nascoste dal 13/8: la loro sorgente vive in ELABORA |
 | `mappai_lavori_barra` | acceso | l'indicatore del lavoro in corso nella barra in alto (spinner + nome). `'0'` → nessun indicatore e nessun aggancio a `showLoadingOverlay` |
 | `mappai_quiz_live_feedback` | acceso | la spunta **«Correggi subito»** nel setup delle «Domande a scelta» (il verdetto immediato sulle risposte a scelta multipla, calcolato dal server). `'0'` → la spunta non compare e le sessioni partono come prima. ⚠️ La spunta è comunque **spenta di default** |

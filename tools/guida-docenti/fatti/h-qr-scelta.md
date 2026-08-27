@@ -183,7 +183,7 @@ Polling della dashboard: ogni **3 s** su `http://127.0.0.1:<porta>/api/status?ad
 - **Report «Report domande» / «Report allievi»** (heatmap + schede): solo per il quiz classico; in modalità scelta esiste il solo «Report domande a scelta» (`live-server.js:314-366`, `mappai-live-teacher.js:474-478`).
 - **Correzione automatica delle domande aperte**: non esiste — il report mostra il testo scritto con segno «·», e «la corregge il docente» (`mappai-live-reports.js:370-372`, `mappai-scelta.js:134`).
 - **Il Palazzo della Memoria nel guscio in-app**: non portato (HANDOFF §3 `:466-467`).
-- **Le sette modalità storiche di Studio attivo e il Cloze**: cancellate (HANDOFF §0 punto 0, `mappai-active-study.js` = solo launcher, 191 righe). I bottoni flottanti storici solo con `mappai_legacy_float_btns='1'`.
+- **Le sette modalità storiche di Studio attivo e il Cloze**: cancellate (HANDOFF §0 punto 0, `mappai-active-study.js` = solo launcher, 191 righe). I bottoni flottanti storici non esistono più (potati il 24/8/26).
 - **Menu «Riprendi» esplicito per una sessione Live**: esiste solo per la Lavagna (`main.js:2223-2229`, `:2298`); per Live la ripresa è automatica (ultima cartella non chiusa) oppure tramite il hub che rileva la sessione viva.
 - **Una «Domande a scelta» senza classe**: via QR no (serve il roster); senza classe c'è solo il guscio in-app dal launcher.
 - **Lavagna e Tutor** (fuori dalla guida): «Lavagna collaborativa — I gruppi propongono nodi dal telefono, live sulla mappa» (`mappai-live-teacher.js:105`); «Chatta e Scrivi (Tutor AI) — Ogni allievo chatta col tutor sull'argomento e consegna un testo suo» (`:107`; in INSEGNA si chiama «Rispondi e Domanda», `mappai-landing-teach.js:2705`).

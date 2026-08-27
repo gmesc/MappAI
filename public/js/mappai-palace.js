@@ -209,21 +209,5 @@
     };
   }
 
-  function injectBtn() {
-    // Spostato nel launcher Studio attivo (Strumenti): flottante solo in modalità legacy.
-    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
-    if (document.getElementById('pal-btn')) return;
-    const b = document.createElement('button');
-    b.id = 'pal-btn';
-    b.title = 'Palazzo della Memoria (viaggio per stanze)';
-    b.innerHTML = '<i data-lucide="landmark" style="width:20px;height:20px"></i>';
-    b.style.cssText = 'position:fixed;bottom:276px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(124,58,237,.5)';
-    b.onclick = () => PAL.start();
-    document.body.appendChild(b);
-    if (window.safeCreateIcons) window.safeCreateIcons();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
-  else injectBtn();
-
   console.log('[Palace] Palazzo della Memoria caricato');
 })();

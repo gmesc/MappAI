@@ -114,21 +114,5 @@
     modal.querySelector('#cel-x').onclick = () => modal.remove();
   };
 
-  function injectBtn() {
-    // Spostato nel launcher Studio attivo (Strumenti): flottante solo in modalità legacy.
-    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
-    if (document.getElementById('cel-btn')) return;
-    const b = document.createElement('button');
-    b.id = 'cel-btn';
-    b.title = 'I tuoi progressi nel tempo';
-    b.innerHTML = '<i data-lucide="trending-up" style="width:20px;height:20px"></i>';
-    b.style.cssText = 'position:fixed;bottom:148px;right:20px;z-index:9996;width:48px;height:48px;border-radius:50%;border:1.5px solid #2563eb;background:#fff;color:#2563eb;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(37,99,235,.5)';
-    b.onclick = () => CEL.open();
-    document.body.appendChild(b);
-    if (window.safeCreateIcons) window.safeCreateIcons();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBtn);
-  else injectBtn();
-
   console.log('[Celeration] grafico progressi caricato');
 })();

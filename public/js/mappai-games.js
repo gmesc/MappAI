@@ -4066,9 +4066,9 @@
   });
 
   function _injectLauncher() {
-    // Bottone Memory Dungeon rimosso dalla UI di default (l'ingresso passerà
-    // dall'hub Knowledge Garden): flottante solo in modalità legacy.
-    if (localStorage.getItem('mappai_legacy_float_btns') !== '1') return;
+    // Bottone Memory Dungeon FUORI dalla UI di default: appare solo via
+    // MappAIGames.enable() (flag dev mappai_games_enabled). La colonna
+    // flottante legacy non esiste più (potata il 24/8/26).
     if (document.getElementById('mdg-launch') || !document.body) return;
     var b = document.createElement('button');
     b.id = 'mdg-launch'; b.type = 'button'; b.textContent = '🎮';
@@ -4252,9 +4252,6 @@
     disable: function () { localStorage.removeItem('mappai_games_enabled'); var b = document.getElementById('mdg-launch'); if (b) b.remove(); }
   };
 
-  // auto-mostra il launcher se il flag è attivo
-  if (window.MappAIGames.enabled()) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _injectLauncher);
-    else _injectLauncher();
-  }
+  // Niente auto-mostra all'avvio (24/8/26, potatura flottanti): il bottone
+  // 🎮 compare solo chiamando MappAIGames.enable() nella sessione corrente.
 })();
