@@ -377,7 +377,6 @@ const it_translations = {
     ui_total_tokens: "Token Totali:",
     ui_model_used: "Modello Usato:",
     ui_center_caps: "CENTRA",
-    ui_glossary: "Glossario",
     ui_title: "Titolo",
     ui_level: "Livello",
     ui_bidirectional: "Bidirezionale",

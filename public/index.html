@@ -1599,13 +1599,6 @@
 
                 <!-- PDF spostato nel menu "Materiali di studio" (openStudyMaterialsModal) -->
                 <!-- Timeline spostata nel menu Stampa -->
-                <!-- GLOSSARIO -->
-                <button id="card-btn-glossary" onclick="window.openGlossaryView()"
-                    class="hidden flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition"
-                    title="Glossario termini disciplinari">
-                    <i data-lucide="book-open" class="w-5 h-5"></i>
-                    <span class="text-[9px] font-bold mt-1 uppercase" data-i18n="ui_glossary">Glossario</span>
-                </button>
             </div>
 
             <!-- Hint delle modalità che aspettano un secondo clic sul canvas:
@@ -3273,7 +3266,6 @@
     <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
     <script src="js/mappai-timeline-core.js"></script>
     <script src="js/mappai-timeline.js?v=font1"></script>
-    <script src="js/mappai-glossary.js?v=font1"></script>
     <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
     <script src="js/mappai-docedit-core.js?v=font4"></script>
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
@@ -3286,7 +3278,7 @@
     <!-- La CORNICE dei documenti stampabili: testata (titolo · classe · materia)
          e piè coi numeri di pagina, in un posto solo (11/8). Era scritta nove
          volte con nove misure diverse. Va PRIMA di tutti i builder che la usano
-         (quiz-print, branch-synthesis, timeline, causal-chains, glossary,
+         (quiz-print, branch-synthesis, timeline, causal-chains,
          study-doc, print-dossier). Fuori ambito: il materiale da ritagliare
          (foglio dei nodi, flashcard) e i report, che sono un'altra famiglia. -->
     <script src="js/mappai-doc-head.js?v=font2"></script>

@@ -950,7 +950,6 @@ const en_translations = {
     ui_total_tokens: "Total Tokens:",
     ui_model_used: "Model Used:",
     ui_center_caps: "CENTER",
-    ui_glossary: "Glossary",
     ui_title: "Title",
     ui_level: "Level",
     ui_bidirectional: "Bidirectional",

@@ -9,7 +9,7 @@
  * ── PERCHÉ ESISTE ────────────────────────────────────────────────────────────
  * La stessa testata a card era scritta NOVE volte, con nove misure diverse:
  * quiz e domande aperte (.qp-header), sintesi (.bs-header), timeline
- * (.tl-header), catena dei perché (.cc-header), glossario (.gl-header),
+ * (.tl-header), catena dei perché (.cc-header),
  * documento di studio (.sd-header), report Live (.lr-header) e Tutor
  * (.tr-header), più l'anteprima dell'editor (.de-sheet-head). Il dossier ne
  * aveva una decima, di tutt'altra forma. Padding 24/26/28, bordo 2px o 3px,
