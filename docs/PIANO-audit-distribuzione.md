@@ -50,34 +50,97 @@ Questi non sono ipotesi: sono stati misurati sulla cartella del progetto.
 ### FASE 1 — Igiene del pacchetto (giorni 1-2)
 Obiettivo: dentro l'app solo ciò che le serve per girare.
 
-- [ ] `power _keys.rtf` fuori dal progetto (Giacomo).
-- [ ] Whitelist `files` in `package.json → build`. Prima bozza ragionata:
-      `main.js`, `garden-server.js`, `preload` (sta in `public/js/`), `public/**`
-      (⚠️ contiene anche `public/dev/` — valutare se escluderlo), `prompts_config.json`,
-      i `node_modules` di produzione (li gestisce electron-builder da solo).
-      **Esclusi espliciti**: `ios/`, `PITCH/`, `tools/`, `docs/`, `tests/`, `specs/`,
-      `graphify-out/`, `Inkscape/`, `game graphic cassets/`, `implementation_plans/`,
-      `relay/`, `scripts/`, `*.bak*`, `.claude/`, `.specify/`.
-- [ ] Versione vera al posto di `1.0.0` (proposta: `1.0.0-beta.1` — i tester la
-      leggeranno nelle segnalazioni).
-- [ ] `npm run pack` (build senza installer) e **ispezione dell'asar**:
-      `npx asar list dist/mac-arm64/MappAI.app/Contents/Resources/app.asar | head -100`
-      — dentro non deve comparire nulla della lista esclusi.
-- [ ] Peso finale annotato qui: ______ MB (atteso: decine, non centinaia).
+- [ ] `power _keys.rtf` fuori dal progetto (Giacomo). ⚠️ 30/8: sta in `docs/`
+      (non più in radice); la whitelist ora esclude `docs/` quindi NON finisce
+      nell'app, ma va comunque spostato fuori dal repo.
+- [x] Whitelist `files` in `package.json → build` (30/8). Whitelist POSITIVA:
+      `main.js` + i 6 file server di root (`main_npc_llm`, `garden-server`,
+      `live-server`, `tutor-server`, `collab-server`, `relay-client` — tutti
+      `require`-ati da `main.js`), `prompts_config.json`, `public/**`.
+      Esclusi dentro public: `dev/` (solo commenti lo citano), `*.bak*`,
+      `*.code-workspace`, `index_classi_nuove_modifiche_manual.html`,
+      `map_font_config.html` (zero riferimenti runtime). Tutto il resto del
+      repo è fuori per costruzione (whitelist, non blacklist).
+- [x] **`node-llama-cpp` rimosso dalle `dependencies`** + `asarUnpack` tolto
+      (30/8): verificato che `main_npc_llm.js` fa dynamic `import()` lazy solo
+      in `ensureLoaded` — il `require` di main.js non esplode senza il modulo.
+      −51 MB. Reversibile: ripristinare la riga in package.json + `npm install`.
+- [x] Versione → `1.0.0-beta.1` (30/8).
+- [x] `npm run pack` + ispezione asar (30/8): radice asar = solo i file della
+      whitelist; zero `ios/PITCH/tools/docs/tests/dev`; zero llama; nessun
+      `app.asar.unpacked`.
+- [x] Peso (30/8): **app.asar 55 MB** · `MappAI.app` totale 310 MB, di cui
+      254 MB è il framework Electron (incomprimibile, uguale per tutti);
+      il .dmg comprimerà. Peso .dmg da annotare in Fase 2 al primo `npm run dist`.
+
+#### Aggiornamento Fase 1 dopo l'audit di Fase 2 (30/8, sera) — whitelist v2
+L'audit multi-agente (23 rilievi confermati, verifica avversaria ciascuno) e la
+prova di avvio della build hanno CORRETTO la whitelist v1:
+- [x] **`relay/relay-core.js` AGGIUNTO** — la v1 lo escludeva e l'app impacchettata
+      **crashava all'avvio** (require dinamico `path.join(__dirname,'relay',...)` in
+      relay-client.js:23, invisibile al grep su `require('./`). Il sintomo: NSAlert
+      nativo muto prima della finestra. Trovato rieseguendo l'asar con l'electron di
+      dev (`npx electron <app.asar>` → stderr parla).
+- [x] **`tools/voxel-proto/**` AGGIUNTO** (428 KB) — il bottone «Knowledge Garden»
+      della landing carica `tools/voxel-proto/studio.html` (main.js:60) e il
+      garden-server reindirizza gli studenti su `/tools/voxel-proto/garden.html`:
+      senza, finestra vuota + 404. Verificato nella build: la finestra Studio si
+      apre e renderizza.
+- [x] **Potati (tutti a zero riferimenti runtime, verificati due volte):**
+      `public/esempi/` (16,3 MB — «esempi» nei js era la parola italiana, non il path),
+      `public/MappAI_logo.svg` (324 KB), `public/data/piano-studio-ticino.json`
+      (232 KB — la lente curricolare non è mai stata cablata), legendoflua
+      sounds/fonts/_edit/_shelf/effects/ui + sorgenti .aseprite/.xcf (~3 MB),
+      spacebears tutto tranne i 2 font DejaVu woff/woff2 (unico uso:
+      mappai-games.js:799), fantasticdungeons js+css, rogue8x8, roguedb32.
+- [x] **`docx` rimosso dalle dependencies** (−8 MB di asar: mai `require`-ato da
+      nessun file); **`jszip` dichiarato esplicito** `^3.10.1` (main.js:3222 lo
+      richiede direttamente: prima funzionava solo perché transitivo di docx/mammoth).
+- [x] **Peso finale v2: app.asar 31 MB** (da 55). `.dmg` costruiti il 30/8:
+      **arm64 114 MB**, **x64 (Intel) 128 MB** — il grosso è il framework
+      Electron, uguale per qualsiasi app. Asar x64 verificato identico
+      (relay-core + voxel-proto dentro).
+- [x] **Installer Windows costruito** (30/8, cross-build NSIS dal Mac):
+      `MappAI Setup 1.0.0-beta.1.exe`, **98 MB, x64** (⚠️ il default di
+      electron-builder su Apple Silicon è win-arm64: serve sempre
+      `npx electron-builder --win --x64`). Asar verificato. Da provare sul
+      PC Windows di Giacomo (Fase 2).
 
 ### FASE 2 — Prima esecuzione da zero (giorni 2-4)
 Obiettivo: l'app in un mondo che non ha mai visto MappAI. È il mondo dei tester,
 e l'app non ci gira MAI durante lo sviluppo.
 
+**Fatto in automatico (30/8, sulla build vera via CDP):**
+- [x] La build impacchettata **si avvia e renderizza la landing**: 162 script
+      caricati, **zero file mancanti** (Network.loadingFailed = 0), console pulita
+      (3 warning innocui: CDN Tailwind, voci Bento non montate, DevSelfTest senza
+      mappa). Schermo di sblocco presente nel DOM.
+- [x] La finestra **Knowledge Garden Studio si apre e carica** (studio.html
+      completo dalla build).
+- [x] **Verdetto Gatekeeper misurato**: `spctl -a` → **rejected**. La firma è
+      «Apple Development: giacomomeschini@gmail.com» — vale solo sui Mac di
+      sviluppo, per i tester è come non firmata. La decisione (Developer ID +
+      notarizzazione vs istruzione xattr/clic-destro-Apri) resta da prendere.
+- [x] ⚠️ Scoperto in corsa: **`--enable-logging` sulla build impacchettata non
+      stampa nulla e l'errore fatale del main process appare solo come NSAlert
+      muto**. Per diagnosticare un crash di avvio del pacchetto:
+      `npx electron dist/mac-arm64/MappAI.app/Contents/Resources/app.asar` —
+      lì stderr parla. (Trucco da ricordare per l'assistenza remota.)
+- [x] ⚠️ **Tailwind è via CDN a runtime**: senza rete la veste grafica degrada.
+      Da scrivere nella mail ai tester: serve la connessione (comunque necessaria
+      per l'AI).
+
+**Restano gesti di Giacomo (macchine/utenti che l'agente non ha):**
 - [ ] **Utente macOS pulito** sul Mac di sviluppo (Sistema → Utenti): installare
       il .dmg lì. Niente localStorage, niente vault, niente chiave API.
+      (Il tentativo con `HOME` finto non vale: macOS ignora `$HOME` per
+      Application Support — serve l'utente vero.)
 - [ ] Percorso completo: primo avvio → schermo di sblocco (machine-id,
       `main.js:3540`) → onboarding lingua → CREA senza chiave API (l'errore è
       parlante?) → inserimento chiave → prima generazione → primo vault.
-- [ ] **Senza rete**: l'app si apre? I messaggi dicono la verità?
-- [ ] **Gatekeeper (macOS)**: il .dmg NON è firmato/notarizzato. Su un Mac
-      vergine arm64 l'app verrà **bloccata** («danneggiata» o «sviluppatore non
-      verificato»). Decidere la strada e SCRIVERLA nella mail ai tester:
+- [ ] **Senza rete**: l'app si apre? I messaggi dicono la verità? (vedi nota
+      Tailwind CDN qui sopra)
+- [ ] **Gatekeeper (macOS)**: decidere la strada e SCRIVERLA nella mail ai tester:
       1. Apple Developer ID + notarizzazione (pulita, costa l'iscrizione Apple), o
       2. istruzione `xattr -cr /Applications/MappAI.app` / clic destro → Apri
          (gratis, ma è un passo in più che i tester possono sbagliare).
@@ -86,6 +149,18 @@ e l'app non ci gira MAI durante lo sviluppo.
       percorso completo come sopra. ⚠️ Su Windows i percorsi cambiano
       (`%APPDATA%` vs `~/Library`): i punti che toccano il filesystem
       (vault, registro errori, cache TTS, `visione-tmp`) vanno guardati lì.
+
+**Rilievi minori dall'audit (non bloccanti, da triage in Fase 3):**
+- `public/vault_demo/` non esiste (né nel repo root né nel pacchetto): il seeding
+  del vault demo in `initDefaultVaultFolder` (main.js:143) è codice morto
+  silenzioso — nessun demo arriva al tester. O si aggiunge la cartella, o si
+  toglie il codice + `vault_demo_manifest.json`.
+- `.gemini_status.json` viene scritto in `__dirname` (main.js:348): dentro l'asar
+  è read-only → write fallisce sempre in silenzio. Solo debug, ma se serve va
+  spostato in `userData`.
+- La feature NPC-LLM on-device è **morta nella build distribuita** (node-llama-cpp
+  non più impacchettato — scelta deliberata di Fase 1, −51 MB; il Dungeon non ha
+  ingressi UI dal 24/8).
 
 ### FASE 3 — Gli undici difetti censiti (giorni 4-6)
 La lista **a-k** con `file:riga` sta in [`PIANO-guida-docenti.md`](PIANO-guida-docenti.md)
