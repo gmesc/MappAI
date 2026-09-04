@@ -8,10 +8,6 @@ const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
-// Servizio LLM locale per gli NPC narranti. Require sicuro: node-llama-cpp
-// è caricato lazy SOLO al primo uso (vedi main_npc_llm.js). Se la dep manca,
-// il servizio resta dormiente e gli handler ritornano un errore gestito.
-const npcLlm = require('./main_npc_llm');
 // Logica pura organizzazione file (010): nomi cartelle, gerarchia per-classe,
 // piano migrazione, parsing sessioni. UMD → in Node ritorna module.exports.
 const FilesCore = require('./public/js/mappai-files-core.js');
@@ -697,117 +693,6 @@ ipcMain.handle('immagine-prepara', async (event, { path: filePath, quale }) => {
         return { ok: false, motivo: err.message || String(err) };
     }
 });
-
-// ===================== NPC LLM locale (node-llama-cpp) =====================
-// Stato del servizio: modello caricato?, RAM libera, sessioni attive.
-ipcMain.handle('npc-model-status', async () => {
-    try { return { success: true, ...npcLlm.status() }; }
-    catch (err) { return { success: false, error: err.message }; }
-});
-
-// Genera la storia di priming o continua il dialogo con un NPC.
-// stream=true → invia i token man mano sul canale 'npc-token' (typewriter).
-ipcMain.handle('generate-local-npc', async (event, { npcId, systemPrompt, userText, modelPath, temperature, maxTokens, requestId, stream }) => {
-    try {
-        await npcLlm.ensureLoaded(modelPath);
-        const onChunk = stream
-            ? (token) => { try { event.sender.send('npc-token', { npcId, requestId, token }); } catch (e) { /* renderer chiuso */ } }
-            : null;
-        const text = await npcLlm.prompt({ npcId, systemPrompt, userText, temperature, maxTokens }, onChunk);
-        return { success: true, text };
-    } catch (err) {
-        return { success: false, error: err.message };
-    }
-});
-
-// Resetta la conversazione di un NPC (es. al cambio mappa).
-ipcMain.handle('npc-reset', async (event, { npcId }) => {
-    try { await npcLlm.resetNpc(npcId); return { success: true }; }
-    catch (err) { return { success: false, error: err.message }; }
-});
-
-// AZIONE strutturata (JSON-schema vincolato) per NPC che agiscono nel dungeon.
-ipcMain.handle('generate-local-npc-action', async (event, { npcId, systemPrompt, userText, schema, modelPath, temperature, maxTokens }) => {
-    try {
-        await npcLlm.ensureLoaded(modelPath);
-        const data = await npcLlm.promptStructured({ npcId, systemPrompt, userText, schema, temperature, maxTokens });
-        return { success: true, data };
-    } catch (err) { return { success: false, error: err.message }; }
-});
-
-// Cartella dei modelli GGUF in userData.
-function _npcModelsDir() {
-    const dir = path.join(app.getPath('userData'), 'models');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    return dir;
-}
-
-ipcMain.handle('npc-models-dir', async () => {
-    try { return { success: true, dir: _npcModelsDir() }; }
-    catch (err) { return { success: false, error: err.message }; }
-});
-
-// Elenca i GGUF già scaricati in userData/models.
-ipcMain.handle('npc-list-local-models', async () => {
-    try {
-        const dir = _npcModelsDir();
-        const models = fs.readdirSync(dir)
-            .filter(f => f.toLowerCase().endsWith('.gguf'))
-            .map(f => {
-                const p = path.join(dir, f);
-                const st = fs.statSync(p);
-                return { fileName: f, path: p, sizeMB: Math.round(st.size / 1e6) };
-            });
-        return { success: true, models };
-    } catch (err) { return { success: false, error: err.message }; }
-});
-
-// Elimina un GGUF scaricato. Sicurezza: solo file dentro userData/models e solo .gguf.
-ipcMain.handle('npc-delete-model', async (event, { path: filePath }) => {
-    try {
-        if (!filePath) throw new Error('Percorso mancante');
-        const dir = path.resolve(_npcModelsDir());
-        const resolved = path.resolve(filePath);
-        if (resolved !== dir && !resolved.startsWith(dir + path.sep)) throw new Error('Percorso fuori dalla cartella modelli');
-        if (!resolved.toLowerCase().endsWith('.gguf')) throw new Error('Non è un file .gguf');
-        if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
-        return { success: true };
-    } catch (err) { return { success: false, error: err.message }; }
-});
-
-// Scarica un GGUF da URL in userData/models, con progresso su 'npc-download-progress'.
-ipcMain.handle('npc-download-model', async (event, { url, fileName, modelId }) => {
-    try {
-        if (!url || !fileName) throw new Error('URL o fileName mancante');
-        const dir = _npcModelsDir();
-        const dest = path.join(dir, fileName);
-        const tmp = dest + '.part';
-        const response = await axios({ method: 'get', url, responseType: 'stream', maxRedirects: 5 });
-        const total = parseInt(response.headers['content-length'] || '0', 10);
-        let received = 0, lastEmit = 0;
-        const writer = fs.createWriteStream(tmp);
-        response.data.on('data', (chunk) => {
-            received += chunk.length;
-            const now = Date.now();
-            if (now - lastEmit > 250) { // throttle progressi
-                lastEmit = now;
-                try { event.sender.send('npc-download-progress', { modelId, received, total, pct: total ? Math.round(received / total * 100) : null }); } catch (e) { /* renderer chiuso */ }
-            }
-        });
-        await new Promise((resolve, reject) => {
-            response.data.pipe(writer);
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-            response.data.on('error', reject);
-        });
-        fs.renameSync(tmp, dest);
-        try { event.sender.send('npc-download-progress', { modelId, received: total || received, total, pct: 100, done: true }); } catch (e) { /* noop */ }
-        return { success: true, path: dest };
-    } catch (err) { return { success: false, error: err.message }; }
-});
-
-// Libera il modello alla chiusura dell'app (best-effort).
-app.on('before-quit', () => { try { npcLlm.dispose(); } catch (e) { /* noop */ } });
 
 // Capture current window content as image
 ipcMain.handle('capture-page', async () => {

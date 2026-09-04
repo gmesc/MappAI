@@ -18,7 +18,6 @@
     "asar": true,
     "files": [
       "main.js",
-      "main_npc_llm.js",
       "garden-server.js",
       "live-server.js",
       "tutor-server.js",
@@ -36,26 +35,10 @@
       "!public/esempi/**",
       "!public/MappAI_logo.svg",
       "!public/data/piano-studio-ticino.json",
-      "!public/assets/legendoflua/sounds/**",
-      "!public/assets/legendoflua/fonts/**",
-      "!public/assets/legendoflua/sprites/_edit/**",
-      "!public/assets/legendoflua/sprites/_shelf/**",
-      "!public/assets/legendoflua/sprites/effects/**",
-      "!public/assets/legendoflua/sprites/ui/**",
       "!public/assets/**/*.aseprite",
       "!public/assets/**/*.ase",
       "!public/assets/**/*.xcf",
-      "!public/assets/spacebears/js/**",
-      "!public/assets/spacebears/libs/**",
-      "!public/assets/spacebears/index.html",
-      "!public/assets/spacebears/favicon.png",
-      "!public/assets/spacebears/*.md",
-      "!public/assets/spacebears/css/DejaVuSansMono.ttf",
-      "!public/assets/spacebears/css/style.css",
-      "!public/assets/fantasticdungeons/js/**",
-      "!public/assets/fantasticdungeons/css/**",
-      "!public/assets/rogue8x8/**",
-      "!public/assets/roguedb32/**"
+      "!public/assets/rogue8x8/**"
     ],
     "appId": "com.mappai.generatore",
     "productName": "MappAI",
@@ -108,7 +91,6 @@
     "ws": "^8.21.0"
   },
   "allowScripts": {
-    "node-llama-cpp@3.19.0": true,
     "electron@39.8.10": true
   }
 }

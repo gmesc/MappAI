@@ -572,7 +572,7 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
     - Stringhe nei moduli JS: `window.t('chiave', 'fallback italiano')` (helper in
       `public/traduzioni/i18n-helper.js`, caricato subito dopo i dizionari). Il fallback
       inline È il testo italiano → chiave solo in `en_translations.js`.
-    - Moduli UMD testati in Node (jigsaw, palace, games): usare `_tSafe(k, f)` locale,
+    - Moduli UMD testati in Node (jigsaw, palace): usare `_tSafe(k, f)` locale,
       MAI `window.t` diretto (in Node `window` non esiste → test rossi).
     Verifica di coerenza: ogni chiave `data-i18n` in index.html presente in entrambi i
     dizionari; ogni chiave `t()`/`_tSafe()` presente in en_translations.js.
@@ -593,8 +593,6 @@ const prompt = window.fillPromptTemplate('NOME_TEMPLATE_IT', {
       (lingua mappe). MAI ri-hardcodare l'enum.
     - Prompt JS: KG Community ha coppia IT/EN completa; Fase 2 KG multi-pass, Fase 3
       JSONL e Fase 4 usano istruzioni IT + `mapLangNote()` (output nella lingua giusta).
-    - Dungeon: prompt quiz/tutor/NPC condizionali via `_dgEn()` (segue `getMapLanguage`,
-      'auto' → italiano). Narrativa di gioco e Studio Attivo via `_tSafe`/`t()`.
     - ⚠️ Le mappe già generate NON vengono ritradotte: il selettore governa solo le
       generazioni successive.
 15. **Tabelle di dati (righe multiple con colonne, 19 lug 2026)** → SEMPRE

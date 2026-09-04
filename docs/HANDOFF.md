@@ -51,6 +51,16 @@
 
 ## 0. Le prime cose da sapere
 
+0-octies. **Il Memory Dungeon non c’è più (4/9).** Via `mappai-games.js`, il voxel, gli NPC
+   (comportamenti, pannello admin, LLM locale in `main.js`/`preload.js`), `rot.js`, le mappe
+   dell’hub, gli asset di gioco (legendoflua, spacebears, fantasticdungeons, roguedb32),
+   `tools/mapgen` e `tools/assets-manager`, 96 chiavi i18n, 5 file di test (−84 casi),
+   l’anello dorato delle sintesi in `mappai-mastery-view.js`, la card «Importa piano Dungeon»
+   e il suo interruttore `mappai_dungeon_visible`. Resta **`mappai-dungeon-core.js` potato
+   al solo validatore dei piani** (`validatePlan`, `STEP_UP_JUMP`, la griglia con le quote):
+   lo usa il **Knowledge Garden** (`tools/voxel-proto/studio.html` e `editor.js`), che è
+   intatto e si apre ancora dal menu della mappa. Contratto: `docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md`.
+
 0-septies. **⟵ DA QUI SI RIPRENDE (24/8): il DEMO VIDEO di 4 minuti esiste.**
    `~/Claude/MappAI - demo/demo-mappai-4min.mp4` — 240 s esatti, 2560×1440, girato
    sull'**app vera** (font TM Sans, vista ridotta) coi vault della 4R: la classe, la

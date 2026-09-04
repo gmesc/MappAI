@@ -152,26 +152,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     capturePage: () => ipcRenderer.invoke('capture-page'),
     // --- VISIONE: preparare un'immagine (la lettura passa da fetchModelAPI) ---
-    immaginePrepara: (data) => ipcRenderer.invoke('immagine-prepara', data),
-    // --- NPC LLM locale (node-llama-cpp) ---
-    generateLocalNPC: (data) => ipcRenderer.invoke('generate-local-npc', data),
-    generateLocalNPCAction: (data) => ipcRenderer.invoke('generate-local-npc-action', data),
-    npcModelStatus: () => ipcRenderer.invoke('npc-model-status'),
-    npcReset: (data) => ipcRenderer.invoke('npc-reset', data),
-    // streaming token NPC: onNpcToken(cb) → cb({ npcId, requestId, token }); ritorna unsubscribe
-    onNpcToken: (cb) => {
-        const listener = (_event, payload) => cb(payload);
-        ipcRenderer.on('npc-token', listener);
-        return () => ipcRenderer.removeListener('npc-token', listener);
-    },
-    // --- Gestione modello GGUF ---
-    npcModelsDir: () => ipcRenderer.invoke('npc-models-dir'),
-    npcListLocalModels: () => ipcRenderer.invoke('npc-list-local-models'),
-    npcDownloadModel: (data) => ipcRenderer.invoke('npc-download-model', data),
-    npcDeleteModel: (data) => ipcRenderer.invoke('npc-delete-model', data),
-    onNpcDownloadProgress: (cb) => {
-        const listener = (_event, payload) => cb(payload);
-        ipcRenderer.on('npc-download-progress', listener);
-        return () => ipcRenderer.removeListener('npc-download-progress', listener);
-    }
+    immaginePrepara: (data) => ipcRenderer.invoke('immagine-prepara', data)
 });

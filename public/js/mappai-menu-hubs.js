@@ -286,14 +286,10 @@
                        title: t('ui_merge_maps', 'Unisci Mappe'),        tip: t('tt_merge_json', 'Unisce un altro JSON alla mappa corrente.') },
             notes:   { icon: 'file-text',   ok: !!window.exportNotesMarkdown, fn: () => window.exportNotesMarkdown(),
                        title: t('ui_export_notes', 'Esporta Appunti'),   tip: t('tt_export_notes_md', 'Esporta gli appunti della mappa in Markdown.') },
-            dungeon: { icon: 'castle',      ok: !!document.getElementById('menu-import-floorplan'), fn: () => clickInput('menu-import-floorplan'),
-                       title: t('ui_import_floorplan', 'Importa piano Dungeon'), tip: t('tt_import_floorplan', 'Importa un piano del Memory Dungeon nel vault.') }
         };
         Object.keys(defs).forEach(k => { defs[k].key = k; defs[k].offTip = offTip; });
         // JIGSAW studente: niente import JSON (bypass dei lock di ramo)
         const jsonCards = jigsawStudentOn() ? [defs.jmergef] : [defs.jimport, defs.jmergef];
-        // il dungeon è nascosto di default (pivot Knowledge Garden): appare solo col kill-switch
-        if (localStorage.getItem('mappai_dungeon_visible') === '1') jsonCards.push(defs.dungeon);
         const body =
             sectionHeader(t('gm_section_vault', 'Vault (salvataggio consigliato)')) +
             grid([defs.vexport, defs.vimport]) +

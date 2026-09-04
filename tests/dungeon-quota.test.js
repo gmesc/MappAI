@@ -118,15 +118,3 @@ test('validatePlan: memoria su plateau isolato dal dislivello → warning slot-u
   assert.ok(r.warnings.some(w => w.code === 'slot-unreachable'));
   assert.ok(!r.errors.some(e => e.code === 'slot-unreachable'));   // pedagogia: warning, non error
 });
-
-// ── worldZones quota-aware ───────────────────────────────────────────────────
-test('worldZones: una rupe > 1.6 divide due zone come un muro (flood-fill quota-aware)', () => {
-  const mk = (q) => ({
-    schema: 'mappai-dungeon-world@1', id: 'mondo', size: 8,
-    cells: [1, 2, 3, 4, 5, 6].map(x => ({ x, z: 1, biome: 'floor', quota: x >= 4 ? q : 0 })),
-    slots: [{ type: 'spawn', x: 1, z: 1 }]
-  });
-  assert.equal(C.worldZones(mk(0)).zones.length, 1);
-  assert.equal(C.worldZones(mk(2.5)).zones.length, 2);      // rupe tra x=3 e x=4
-  assert.equal(C.worldZones(mk(1.2)).zones.length, 1);      // gradino saltabile: zona unica
-});

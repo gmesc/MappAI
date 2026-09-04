@@ -96,8 +96,6 @@
 
     <!-- Three.js (Local, r128 UMD) — usato lazy da mappai-games.js -->
     <script src="js/vendor/three.min.js"></script>
-    <!-- rot.js (Local, UMD global ROT) — logica dungeon di mappai-games.js -->
-    <script src="js/vendor/rot.min.js"></script>
 
     <!-- Custom CSS for Smooth Transitions -->
     <style>
@@ -1496,8 +1494,6 @@
                         onchange="window.importGraph(event)">
                     <input type="file" id="sidebar-merge" accept=".json" class="hidden"
                         onchange="window.mergeGraph(event)">
-                    <input type="file" id="menu-import-floorplan" accept=".json" class="hidden"
-                        onchange="window.MappAIGames && window.MappAIGames.importFloorPlan(event)">
                     <script>
                         // Hub Knowledge Garden = finestra Studio (11/7/26). Il bottone del menu
                         // azioni rapide chiama questa funzione (contratto 001-menu-reorg).
@@ -3416,11 +3412,6 @@
     <script src="js/mappai-celeration.js"></script>
     <script src="js/mappai-study-path.js"></script>
     <script src="js/mappai-palace.js"></script>
-    <script src="js/mappai-dungeon-core.js"></script>
-    <script src="js/mappai-dungeon-voxel.js"></script>
-    <script src="js/mappai-map-loader.js"></script>
-    <script src="js/mappai-npc-behavior.js"></script>
-    <script src="js/mappai-games.js?v=sf1"></script>
     <script src="js/mappai-pomodoro.js"></script>
     <script src="js/mappai-user-profile.js"></script>
     <script src="js/mappai-teacher-profile.js"></script>
@@ -3610,72 +3601,6 @@
                         </button>
                     </div>
 
-                    <!-- Pannello gestione NPC (overlay, mostrato dal tab NPC) -->
-                    <div id="npc-management-panel"
-                        class="absolute inset-0 bg-white p-6 overflow-y-auto modal-scroll hidden flex-col gap-5">
-                        <div class="flex items-center gap-3 shrink-0">
-                            <div style="font-size: 34px; line-height: 1; font-family: var(--emoji-font);">🤖</div>
-                            <div>
-                                <h3 class="text-xl font-bold text-slate-800">Gestione NPC</h3>
-                                <p class="text-sm text-slate-500">Modello locale (SLM) che dà voce ai personaggi del prato
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Stato motore -->
-                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-xs font-black text-indigo-600 uppercase tracking-[0.15em]">Stato motore</h4>
-                                <button onclick="window.MappAINpcAdmin && window.MappAINpcAdmin.refresh()"
-                                    class="text-xs text-slate-500 hover:text-indigo-600 flex items-center gap-1">
-                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> <span data-i18n="ui_refresh">Aggiorna</span>
-                                </button>
-                            </div>
-                            <div id="npc-status-body" class="text-sm text-slate-600 space-y-1">Caricamento…</div>
-                        </div>
-
-                        <!-- Modello attivo -->
-                        <div class="bg-white rounded-xl border border-slate-200 p-4">
-                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Modello attivo
-                            </h4>
-                            <div id="npc-active-model" class="text-sm text-slate-700 break-all mb-3">Nessun modello
-                                selezionato</div>
-                            <div class="flex gap-2 flex-wrap">
-                                <button onclick="window.MappAINpcAdmin && window.MappAINpcAdmin.pickLocal()"
-                                    class="px-3 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-2 text-sm">
-                                    <i data-lucide="folder-open" class="w-4 h-4"></i> Scegli file GGUF…
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Modelli consigliati -->
-                        <div>
-                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Modelli
-                                consigliati (italiano, 16 GB)</h4>
-                            <div id="npc-model-list" class="grid grid-cols-1 gap-3"></div>
-                            <div class="mt-3">
-                                <label class="text-xs text-slate-500">Oppure URL GGUF diretto:</label>
-                                <div class="flex gap-2 mt-1">
-                                    <input id="npc-custom-url" type="text" placeholder="https://…/modello.gguf"
-                                        class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus_ring_standard">
-                                    <button onclick="window.MappAINpcAdmin && window.MappAINpcAdmin.downloadCustom()"
-                                        class="px-3 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition-colors text-sm">Scarica</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Modelli scaricati (gestione/eliminazione) -->
-                        <div>
-                            <h4 class="text-xs font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Modelli
-                                scaricati</h4>
-                            <div id="npc-local-list" class="grid grid-cols-1 gap-2"></div>
-                        </div>
-
-                        <!-- Opzioni future -->
-                        <div class="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-400 italic">
-                            Altre opzioni NPC (comportamenti nel giardino, voce, lingua) arriveranno qui.
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -3712,7 +3637,6 @@
         <div id="magnifier-content"></div>
     </div>
     <script src="js/admin_prompts.js?v=oq6"></script>
-    <script src="js/mappai-npc-admin.js"></script>
     <script>
         // Uscita segreta: 5 click nell'angolo in alto a sinistra (entro 3s) → launcher
         // (schermata di scelta MappAI/Studio). Listener sul documento: zero elementi

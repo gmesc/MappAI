@@ -103,37 +103,6 @@ test('normalizePlanSlots: tipi singolari — vale il primo', () => {
   assert.equal(s.spawn, '1,1');
 });
 
-// ── assignMemorySlots ────────────────────────────────────────────────────────
-const NODES = [
-  { id: 'a', label: 'A' }, { id: 'b', label: 'B' }, { id: 'c', label: 'C' }
-];
-
-test('assignMemorySlots: i nodi più deboli emergono per primi', () => {
-  const score = (n) => (n.id === 'b' ? 0 : 1);    // b = il più debole
-  const r = C.assignMemorySlots(['3,1', '2,2'], NODES, score);
-  assert.equal(r.placed.length, 2);
-  assert.equal(r.placed[0].node.id, 'b');
-  assert.equal(r.unplacedNodes.length, 1);
-});
-
-test('assignMemorySlots: staleness — slot in più restano vuoti', () => {
-  const r = C.assignMemorySlots(['1,1', '2,2', '3,3', '4,4'], NODES.slice(0, 2), () => 0);
-  assert.equal(r.placed.length, 2);
-  assert.equal(r.emptySlots.length, 2);
-  assert.equal(r.unplacedNodes.length, 0);
-});
-
-test('assignMemorySlots: staleness — nodi in più tornano al chiamante', () => {
-  const r = C.assignMemorySlots(['1,1'], NODES, () => 0);
-  assert.equal(r.placed.length, 1);
-  assert.equal(r.unplacedNodes.length, 2);
-});
-
-test('assignMemorySlots: input vuoti non esplodono', () => {
-  assert.deepEqual(C.assignMemorySlots([], [], () => 0).placed, []);
-  assert.deepEqual(C.assignMemorySlots(null, null, () => 0).placed, []);
-});
-
 // ── validatePlan (contratto §4) ──────────────────────────────────────────────
 const codes = (list) => list.map(e => e.code);
 

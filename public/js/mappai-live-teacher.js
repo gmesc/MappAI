@@ -13,9 +13,9 @@
  * - openMaterialsPanel(): server materiali, QR, lista file, aggiungi file.
  *
  * IPC (preload): liveStartSession/liveStopSession/liveSessionInfo/liveOpenFolder,
- * liveMaterials*. Riusa MappAILiveCore (domande/l1), MappAIGames.genQuizForNode
+ * liveMaterials*. Riusa MappAILiveCore (domande/l1)
  * (MC ancorati al contenuto).
- * Caricare DOPO mappai-live-core.js, mappai-live-classes.js, mappai-games.js.
+ * Caricare DOPO mappai-live-core.js, mappai-live-classes.js.
  */
 (function () {
   'use strict';
@@ -270,7 +270,7 @@
   // lista `accept` degli equivalenti e la attacco al blank; resta lato server
   // (publicQuestions non la copia), come il termine-soluzione.
 
-  // MC / V/F: genera con MappAIGames.genQuizForNode (ancorato al contenuto)
+  // MC / V/F: ancorati al contenuto del nodo
 
   // MC / V/F con la STESSA qualità del quiz in-app (DYNAMIC_QUIZ per-nodo):
   // domande vere con opzioni + V/F nativo, ancorate al contenuto del nodo.

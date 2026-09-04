@@ -163,7 +163,7 @@ introducibile gradualmente (es. solo i top del pavimento) e sempre revocabile.
 - Sorgenti mappa in ordine di priorità: `?map=file.json` → editor
   (localStorage `voxelproto_map`) → demo hardcoded
 
-La pipeline `tools/mapgen` in futuro produce questo JSON (generazione deterministica
+Questo JSON lo produce l'editor (`editor.html`); la pipeline `tools/mapgen` è stata eliminata col Dungeon il 4/9/26
 + eventuale AI solo per il layout logico); i PNG restano solo per characters & items.
 
 ## Mappe custom nel vault (design)
@@ -175,7 +175,7 @@ Design completo: [`docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md`](../../docs/
 ## Integrazione futura nell'app
 
 - Three.js come script globale nel renderer Electron (pattern `window.*`, no bundler)
-- Sostituzione del renderer 2D del dungeon in `mappai-games.js`, core logico invariato
+- Il Memory Dungeon (`mappai-games.js`) è stato eliminato il 4/9/26: resta solo `validatePlan` in `mappai-dungeon-core.js`
 - Rotazione camera ad angoli fissi ok per iPadOS (nessuna dipendenza da IPC Electron)
 
 ## F0 — §19 (6 luglio 2026, sera)
