@@ -105,6 +105,18 @@ prova di avvio della build hanno CORRETTO la whitelist v1:
       electron-builder su Apple Silicon è win-arm64: serve sempre
       `npx electron-builder --win --x64`). Asar verificato. Da provare sul
       PC Windows di Giacomo (Fase 2).
+- [x] **electron-builder 24 → 26.15.3** (4/9, branch `chore/electron-builder-26`):
+      chiude 8 degli 11 avvisi Dependabot (restano `extract-zip` di Electron e
+      `xmldom` di mammoth). Verificato costruendo DUE volte lo stesso codice
+      (24 → `dist-eb24`, 26 → `dist-eb26`) e confrontando: **file dell'app
+      nell'asar identici** (0 mancanti, 0 aggiunti, 0 di peso diverso) su mac
+      arm64, mac x64 e win; `Info.plist` uguale salvo l'hash d'integrità;
+      `codesign --verify --deep --strict` OK per tutte e quattro le app; le
+      quattro app partono e restano vive 12 s con log identico. Due differenze di
+      forma: il 26 mette `jszip` in `app.asar.unpacked/` (51 file, l'asar
+      scende da 30,7 a 29,9 MB; `require` lo trova lo stesso) e l'exe NSIS pesa
+      94,6 MB invece di 103,7 (compressione diversa, contenuto uguale). Windows
+      resta da provare sul PC (⚠️ costruito arm64 per il confronto).
 
 ### FASE 2 — Prima esecuzione da zero (giorni 2-4)
 Obiettivo: l'app in un mondo che non ha mai visto MappAI. È il mondo dei tester,

@@ -70,3 +70,4 @@ brain/
 # File personali del docente, non del progetto
 Piano-di-studio-perfezionato.pdf
 assessment-*.html
+dist-*/
