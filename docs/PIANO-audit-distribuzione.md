@@ -117,6 +117,16 @@ prova di avvio della build hanno CORRETTO la whitelist v1:
       scende da 30,7 a 29,9 MB; `require` lo trova lo stesso) e l'exe NSIS pesa
       94,6 MB invece di 103,7 (compressione diversa, contenuto uguale). Windows
       resta da provare sul PC (⚠️ costruito arm64 per il confronto).
+- [ ] **Electron 39.8.10 → 41.10.7** (4/9, branch `chore/electron-40`, NON in main):
+      chiesto il 40, ma il 40 chiude `extract-zip` e apre un altro avviso alto sul
+      motore (GHSA-9f4c-93c8-jc8g, sandboxed iframe → popup) corretto solo dalla
+      41.10.3: la 41.10.7 chiude ENTRAMBI e lascia solo `xmldom` (mammoth, moderato).
+      Provato nell'app viva via CDP (Chrome 146): vault caricato, mappa disegnata
+      (43/43 nodi), 103 funzioni IPC, `htmlToPdf` ok, ELABORA/Cabina/INSEGNA aprono
+      e chiudono, in console solo i quattro avvisi di sempre. DMG arm64 e x64 col
+      builder 26 in `dist-e41/` (119,9 / 128,6 MB): l'app impacchettata parte e resta
+      viva 12 s, `codesign --verify` OK. Da decidere il merge; poi una prova
+      lunga a mano (generazione vera, stampa, QR) prima di darla ai tester.
 
 ### FASE 2 — Prima esecuzione da zero (giorni 2-4)
 Obiettivo: l'app in un mondo che non ha mai visto MappAI. È il mondo dei tester,
