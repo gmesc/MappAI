@@ -1315,8 +1315,6 @@
     const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
     if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
-      const mul = o.quiz.multi || [];
-      set('mp-multi-open', mul.indexOf('open') >= 0); set('mp-multi-mc', mul.indexOf('mc') >= 0);
       const ang = o.quiz.angoli || [];
       PC().angoliMulti().forEach(k => set('mp-ang-' + k, ang.indexOf(k) >= 0)); }
     set('mp-ns-on', !!o.nodesheet);
@@ -1529,15 +1527,14 @@
       if (on('mp-qt-open')) types.push('open');
       if (types.length) {
         cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 3)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
-        /* «Più set per angolo»: un materiale per ognuno dei sette angoli invece
-           che uno solo. I campi vivono nel BENTO (vista estesa) e nel modale
-           storico non esistono: senza di loro `on()` è falso e la generazione
+        /* «Più set per angolo»: un materiale per ognuno degli angoli spuntati
+           invece che uno solo, per i generi che lo ammettono (aperte, MC). Le
+           caselle-angolo vivono nel BENTO (vista estesa) e nel modale storico
+           non esistono: senza angoli `multiTypes` ritorna [] e la generazione
            resta quella di sempre — la strada vecchia non cambia (inv. 1).
            Il filtro contro `types` lo fa il core: chiedere più set per un genere
            non spuntato sarebbe una generazione che non avviene. */
-        const multi = [];
-        if (on('mp-multi-open')) multi.push('open');
-        if (on('mp-multi-mc')) multi.push('mc');
+        const multi = ['open', 'mc'];
         /* gli angoli si leggono dalle caselle, non da un elenco scritto qui:
            l'elenco vero è `QUIZ_ANGLES`, e una copia divergerebbe (inv. 6) */
         const angoli = PC().angoliMulti().filter(k => on('mp-ang-' + k));

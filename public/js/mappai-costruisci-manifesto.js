@@ -542,8 +542,6 @@
             /* il box «Più set per angolo» nasce tutto ACCESO (Giacomo, 19/8): i
                due generi e i sette angoli. È la configurazione che serve alle
                attività «a scelta», dove lo studente sceglie fra le versioni. */
-            case 'mp-multi-open': return spunta('mp-multi-open', v.et, true);
-            case 'mp-multi-mc': return spunta('mp-multi-mc', v.et, true);
             case 'mp-ns-title': return spunta('mp-ns-title', v.et, true);
             default:
                 if (v.base && v.base.tipo === 'azione') {
@@ -1171,14 +1169,15 @@
         ristima();
     }
 
-    /* «Più set per angolo»: i sette angoli dicono QUANTE versioni, i due generi
-       A CHE COSA. Senza nessun genere spuntato gli angoli non governano niente
-       → si spengono (inv. 21: un comando inerte è peggio che assente).
-       ⚠️ Un genere spuntato QUI ma non nel box «Quiz» è ugualmente inerte: quel
-       filtro lo fa il core (`multiTypes`), che è anche ciò che legge la stima. */
+    /* «Più set per angolo»: i sette angoli dicono QUANTE versioni; A CHE COSA
+       lo dicono i generi spuntati in «Output automatici» (scelta multipla,
+       domande aperte) — dal 4/9 il box non li ripete. Senza nessuno dei due
+       gli angoli non governano niente → si spengono (inv. 21: un comando
+       inerte è peggio che assente). Il filtro vero lo fa il core (`multiTypes`),
+       che è anche ciò che legge la stima. */
     function sincronizzaMulti() {
         var on = function (id) { var e = document.getElementById(id); return !!(e && e.checked); };
-        var almenoUnGenere = on('mp-multi-open') || on('mp-multi-mc');
+        var almenoUnGenere = on('mp-qt-open') || on('mp-qt-mc');
         var caselle = document.querySelectorAll('#mn-bento input[id^="mp-ang-"]');
         for (var i = 0; i < caselle.length; i++) caselle[i].disabled = !almenoUnGenere;
     }

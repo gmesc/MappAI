@@ -712,10 +712,10 @@ test('«Più set per angolo» è un box suo, a tutta riga, nella vista estesa', 
         'sta SOTTO i quattro box delle opzioni: moltiplica il loro costo');
 });
 
-test('il box porta i due generi e UNA casella per angolo', () => {
+test('il box porta SOLO una casella per angolo: i generi stanno in «Output automatici»', () => {
     const ids = B.vociDi(B.MODULI.find(x => x.id === 'multi')).map(v => v.id);
-    assert.deepStrictEqual(ids.slice(0, 2), ['mp-multi-open', 'mp-multi-mc'], 'a che cosa si applica');
-    const angoli = ids.slice(2);
+    assert.ok(!B.voce('mp-multi-open') && !B.voce('mp-multi-mc'), 'i due generi non si ripetono qui (4/9)');
+    const angoli = ids;
     assert.strictEqual(angoli.length, 7, 'una casella per angolo (senza «misto»)');
     angoli.forEach(id => assert.ok(id.indexOf('mp-ang-') === 0, id + ' non è una casella-angolo'));
     assert.ok(!B.voce('mp-multi-on'), 'l\'interruttore generale non c\'è più: spegnere le caselle È lo spegnimento');

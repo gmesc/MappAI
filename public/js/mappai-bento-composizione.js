@@ -131,11 +131,9 @@
            cosa che un interruttore solo non poteva dire. Con esse la tendina
            «Angolo» del box Quiz è uscita dalla composizione: erano due comandi
            per la stessa domanda (inv. 21).
-           I due generi dicono A CHE COSA si applica; gli angoli QUANTE volte. */
-        { id: 'mp-multi-open', aiuto: 'Applica la generazione per angolo alle domande aperte: un foglio per ogni angolo spuntato qui sotto.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.multi',
-          seFuori: 'le domande aperte restano un foglio solo, ad angolo misto' },
-        { id: 'mp-multi-mc', aiuto: 'Applica la generazione per angolo ai quiz a scelta multipla: un set per ogni angolo spuntato qui sotto.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.multi',
-          seFuori: 'il quiz a scelta multipla resta un set solo, ad angolo misto' },
+           A CHE COSA si applica lo dicono le spunte di «Output automatici»
+           («Scelta multipla», «Domande aperte»): ripeterle qui era una ridondanza
+           (Giacomo, 4/9) — qui stanno SOLO gli angoli, cioè QUANTE volte. */
         { id: 'mp-ang-definizione', aiuto: 'Genera un materiale con questo taglio: che cos\u0027è: il concetto spiegato. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Definizione', tipo: 'spunta', chiave: 'quiz.angoli',
           seFuori: 'l\u0027angolo «Definizione» non viene generato' },
         { id: 'mp-ang-causa', aiuto: 'Genera un materiale con questo taglio: perché avviene, che cosa lo provoca. Ogni angolo spuntato è una generazione in più — guarda la stima.', et: 'Causa', tipo: 'spunta', chiave: 'quiz.angoli',
@@ -572,8 +570,7 @@
            sarebbe una spunta come le altre, e non lo è (sette generazioni). */
         { id: 'multi', titolo: 'Più set per angolo', icona: 'layers', span: 4, altezza: 130,
           layout: { colonneVoci: 3 },
-          voci: ['mp-multi-open', 'mp-multi-mc',
-              'mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
+          voci: ['mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
               'mp-ang-confronto', 'mp-ang-eccezione', 'mp-ang-applicazione'] },
         { id: 'modalita', titolo: 'Modalità', icona: 'book-open', span: 1, altezza: 260,
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },

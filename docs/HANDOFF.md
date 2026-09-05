@@ -60,6 +60,14 @@
    al solo validatore dei piani** (`validatePlan`, `STEP_UP_JUMP`, la griglia con le quote):
    lo usa il **Knowledge Garden** (`tools/voxel-proto/studio.html` e `editor.js`), che è
    intatto e si apre ancora dal menu della mappa. Contratto: `docs/game-design/VAULT_DUNGEON_MAPS_CONTRACT.md`.
+   **Lo stesso giorno, tre ritocchi al bento di CREA** (branch `chore/electron-builder-26`):
+   il box «Più set per angolo» porta SOLO le sette caselle-angolo — «Domande aperte» e
+   «Scelta multipla» le dice già «Output automatici», e `_readConfig` passa al core
+   `multi: ['open','mc']` filtrato su tipi e angoli (senza angoli, un set solo, come
+   prima); nei box scuri le etichette dei bottoni-fonte (URL Web, YouTube, Audio, Testo)
+   si vedono sempre invece di comparire al passaggio (pillole da 30px, non c'è spazio
+   per lo scambio icona→testo, che resta ai bottoni grandi); «Nuova macro-area» non è
+   più alto 48px (`h-12` di `.btn_mode_selector_sm` battuto da `height:auto`).
 
 0-septies. **⟵ DA QUI SI RIPRENDE (24/8): il DEMO VIDEO di 4 minuti esiste.**
    `~/Claude/MappAI - demo/demo-mappai-4min.mp4` — 240 s esatti, 2560×1440, girato
