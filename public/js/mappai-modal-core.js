@@ -465,7 +465,7 @@
             invio: s.invio !== false,
             veloChiude: s.veloChiude !== false,
             /* un modale con dati in scrittura non si chiude per sbaglio */
-            sporco: !!s.sporco,
+            sporco: (typeof s.sporco === 'function') ? s.sporco : !!s.sporco,   /* funzione = si chiede al momento di uscire */
             nota: s.nota ? String(s.nota) : ''
         };
     }

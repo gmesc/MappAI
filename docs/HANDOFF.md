@@ -68,6 +68,18 @@
    si vedono sempre invece di comparire al passaggio (pillole da 30px, non c'è spazio
    per lo scambio icona→testo, che resta ai bottoni grandi); «Nuova macro-area» non è
    più alto 48px (`h-12` di `.btn_mode_selector_sm` battuto da `height:auto`).
+   **E due difetti dal test di Giacomo (4/9, stesso branch):** (1) in ELABORA la sintesi
+   fatta A MANO dopo la pipeline non compariva nell'elenco dei materiali — le righe
+   delle sintesi nascevano SOLO dai file `Sintesi-*.html` (che scrive la pipeline),
+   mentre le domande aperte vengono dall'archivio; ora anche le sintesi fanno la
+   riga dall'archivio (e dalla memoria), col file agganciato se c'è (`_materiali` e
+   `_apriDocV2`, prefisso `syn:`); (2) la Cabina chiedeva «Uscire senza salvare?»
+   in base alla SEZIONE aperta (profilo = sempre, anche dopo «Salva profilo»; altre =
+   mai, anche con modifiche vere in sospeso). Ora `sporco` è una FUNZIONE letta al
+   momento di uscire — il motore dei modali la accetta (`mappai-modal-core.js`,
+   `mappai-modal.js`) — e dice «profilo a schermo ≠ profilo su disco», da qualunque
+   sezione. Provato via CDP nell'app viva: modifica → chiede anche da «Allievi»,
+   «Torna indietro» conserva il testo, salva → non chiede più.
 
 0-septies. **⟵ DA QUI SI RIPRENDE (24/8): il DEMO VIDEO di 4 minuti esiste.**
    `~/Claude/MappAI - demo/demo-mappai-4min.mp4` — 240 s esatti, 2560×1440, girato

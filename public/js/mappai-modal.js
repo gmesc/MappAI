@@ -831,7 +831,8 @@
             /* uscita: se ci sono dati in scrittura si chiede conferma invece di
                buttare via quello che l'utente stava facendo */
             function esci() {
-                if (!s.sporco) return chiudi(null);
+                var sporco = (typeof s.sporco === 'function') ? !!s.sporco() : !!s.sporco;
+                if (!sporco) return chiudi(null);
                 open({
                     titolo: tt('mm_esci_titolo', 'Uscire senza salvare?'),
                     icona: 'alert-triangle',

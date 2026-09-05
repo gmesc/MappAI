@@ -596,6 +596,32 @@
             }
             out.push(v);
         });
+        /* ── LE SINTESI VENGONO DALL'ARCHIVIO (E DALLA MEMORIA), NON SOLO DAL DISCO (4/9/26)
+           🐛 Giacomo: una sintesi generata a mano dopo la pipeline compariva a
+           schermo, apriva l'editor, e poi non era in questo elenco — mentre un
+           foglio di domande aperte fatto allo stesso modo sì. La ragione era di
+           costruzione: qui le sintesi nascevano SOLO dai file `Sintesi-*.html`,
+           che scrive la pipeline; quella manuale finisce in memoria e in
+           archivio (`archiveDoc`), e il file arriva solo con «Crea PDF». Ora la
+           riga nasce dalla sorgente, come per le aperte, e il file ci si
+           aggancia se c'è (così la riga della pipeline non si raddoppia).
+           La copia «in memoria» si tace quando l'archivio ha già la stessa
+           sintesi: sarebbero due righe per un documento. */
+        (function () {
+            var sint = _sintesi();
+            var titoliArchivio = sint.filter(function (d) { return d.id !== 'current'; })
+                .map(function (d) { return _nomeMappa(d.titolo); });
+            sint.forEach(function (d) {
+                if (d.id === 'current' && titoliArchivio.indexOf(_nomeMappa(d.titolo)) >= 0) return;
+                var v4 = {
+                    id: 'syn:' + d.id, titolo: d.titolo, tipo: 'Sintesi',
+                    data: 0, archivio: d.id !== 'current', modificabile: true, clonabile: false,
+                    docId: d.id, voce: false, cls: '', disc: ''
+                };
+                _agganciaFile(v4, 'Sintesi', '', dischi, presi);
+                out.push(v4);
+            });
+        })();
         /* i file del vault rimasti soli (già senza `Sintesi-voce`, filtrata a
            monte in `_caricaDisco` — D8) */
         dischi.forEach(function (f) {
@@ -2648,6 +2674,23 @@
                         _voce = mid;
                         rifai();
                         _apriEditorAperte(mo.docId);
+                        return;
+                    }
+                } else if (mid.indexOf('syn:') === 0) {
+                    var ms = _materiali().filter(function (x) { return x.id === mid; })[0];
+                    if (!ms) return;
+                    if (ms.relPath) {
+                        /* il file c'è: si guarda, e «Modifica» lo riapre dal vault */
+                        _doc = { id: mid, natura: 'disk', relPath: ms.relPath };
+                        _voce = 'disk:' + ms.relPath;
+                    } else {
+                        /* solo in archivio o in memoria: l'editor è l'unica resa
+                           (stesso patto di `natura:'syn'` più sotto) */
+                        _doc = { id: mid, natura: 'syn', editing: true };
+                        _voce = mid;
+                        rifai();
+                        try { DEd().openSynthesis(mid.slice(4)); }
+                        catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
                         return;
                     }
                 } else if (mid.indexOf('ns:') === 0 || mid.indexOf('cc:') === 0) {

@@ -916,12 +916,31 @@
     /* ═══════════════════════════════════════════════════════════════════════
        LO SCHEMA
        ═══════════════════════════════════════════════════════════════════════ */
+    /* «Uscire senza salvare?» si chiede solo se c'è qualcosa da perdere: il
+       profilo a schermo diverso da quello su disco. Prima la domanda dipendeva
+       dalla SEZIONE aperta (profilo = sempre, le altre = mai): dopo «Salva
+       profilo» chiedeva lo stesso, e da un'altra sezione non chiedeva nemmeno
+       con modifiche vere in sospeso (Giacomo, 4/9). Si legge al momento di
+       uscire, per questo è una funzione e non un valore. */
+    function _canon(o) {
+        if (o === null || typeof o !== 'object') return o === undefined || o === '' ? null : o;
+        if (Array.isArray(o)) return o.map(_canon);
+        var out = {}; Object.keys(o).sort().forEach(function (k) { var v = _canon(o[k]); if (v !== null) out[k] = v; }); return out;
+    }
+    function _profiloSporco() {
+        try {
+            var TP = window.MappAITeacherProfile;
+            if (!TP || !_st || !_st.profilo) return false;
+            return JSON.stringify(_canon(_st.profilo)) !== JSON.stringify(_canon(TP.get()));
+        } catch (e) { return false; }
+    }
+
     function schema() {
         var s = {
             titolo: t('cb_titolo', 'Cabina'),
             sottotitolo: t('cb_sub', 'Il tuo profilo, il contesto di lavoro e l’AI'),
             icona: 'sliders-horizontal', taglia: 'xl', layout: 'console', piena: true,
-            invio: false, veloChiude: false, sporco: _st.voce === 'profilo',
+            invio: false, veloChiude: false, sporco: _profiloSporco,
             nav: VOCI.map(function (v) {
                 if (v.gruppo) return { gruppo: t(v.gruppo, v.gruppoTesto) };
                 return {
