@@ -2108,7 +2108,7 @@ html.manifesto #mn-sezione {
     font-weight: 700;
     color: var(--mn-tit-col);
     letter-spacing: normal;
-    line-height: 1;
+    line-height: 1.25;   /* 1 tagliava la discendente della «g» (6/9, Giacomo): il riquadro era alto quanto il corpo, e `overflow:hidden` sulle briciole faceva il resto */
     white-space: nowrap;
 }
 /* la barra vuota non scrive niente: la prima pagina è un manifesto */
@@ -2135,7 +2135,7 @@ html.manifesto .mm-box--console .mm-head .mm-title {
     font-size: var(--mn-tit-fs);     /* lo stesso della barra: è la stessa riga */
     font-weight: 700;
     color: var(--mn-tit-col);
-    line-height: 1;
+    line-height: 1.25;   /* 1 tagliava la discendente della «g» (6/9, Giacomo): il riquadro era alto quanto il corpo, e `overflow:hidden` sulle briciole faceva il resto */
     margin: 0;
     flex: 0 1 auto;
 }
@@ -2307,7 +2307,7 @@ html.manifesto .mn-briciole__l {
     font-weight: 700;
     color: var(--mn-tit-col);
     letter-spacing: -.01em;
-    line-height: 1;
+    line-height: 1.25;   /* 1 tagliava la discendente della «g» (6/9, Giacomo): il riquadro era alto quanto il corpo, e `overflow:hidden` sulle briciole faceva il resto */
     background: none;
     border: none;
     padding: 0;
@@ -2338,7 +2338,7 @@ html.manifesto .mn-briciole__sep {
     font-weight: 400;
     color: var(--mn-tit-col);
     opacity: .35;
-    line-height: 1;
+    line-height: 1.25;   /* 1 tagliava la discendente della «g» (6/9, Giacomo): il riquadro era alto quanto il corpo, e `overflow:hidden` sulle briciole faceva il resto */
 }
 /* col percorso a vista il titolo del motore sparisce: sarebbe lo stesso nome,
    scritto due volte sulla stessa riga */
