@@ -71,8 +71,8 @@
        generi di profilo: chi la chiama così (link vecchi, header non aggiornato)
        non deve trovarsi altrove. */
     var ALIAS = { classe: 'classi', guida: 'tutorial' };
-    /* ⚠️ Indirizzo pubblico della guida illustrata (13 capitoli, agosto 2026): da
-       confermare con Giacomo — se cambia, cambia QUI e basta. */
+    /* Indirizzo pubblico della guida illustrata (13 capitoli, agosto 2026),
+       confermato da Giacomo il 6/9: se cambia, cambia QUI e basta. */
     var GUIDA_DOCENTI_URL = 'https://www.insegnai.ch/mappai-guida.html';
     function _apriEsterno(url) {
         if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
