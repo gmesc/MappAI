@@ -31,7 +31,9 @@
     var CLASSE = 'mappai-ridotta';
     var t = function (k, f) { return window.t ? window.t(k, f) : f; };
 
-    function attiva() { try { return localStorage.getItem(LS) === '1'; } catch (e) { return false; } }
+    /* Dal 7/9 la vista ridotta è il DEFAULT (Giacomo: un'installazione nuova mostrava i
+       riquadri scuri, che i tester non devono vedere): assente o '1' = ridotta, '0' = estesa. */
+    function attiva() { try { return localStorage.getItem(LS) !== '0'; } catch (e) { return true; } }
 
     /* ── I default della vista ridotta ────────────────────────────────────────
        Qui non si sceglie: le impostazioni di generazione non sono a schermo,

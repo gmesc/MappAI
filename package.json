@@ -41,6 +41,7 @@
       "!public/assets/rogue8x8/**"
     ],
     "appId": "com.mappai.generatore",
+    "icon": "public/MappAI_icon.png",
     "productName": "MappAI",
     "mac": {
       "target": [

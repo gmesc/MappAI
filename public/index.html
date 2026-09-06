@@ -74,7 +74,7 @@
         (function () {
             var h = document.documentElement, veste = true, ridotta = false;
             try { veste = localStorage.getItem('mappai_stile_manifesto') !== '0'; } catch (e) { }
-            try { ridotta = localStorage.getItem('mappai_vista_ridotta') === '1'; } catch (e) { }
+            try { ridotta = localStorage.getItem('mappai_vista_ridotta') !== '0'; } catch (e) { ridotta = true; }   /* default ridotta (7/9) */
             if (!veste) return;                     /* kill-switch: nessuna classe, nessun velo */
             h.classList.add('manifesto', 'mn-boot');
             if (ridotta) h.classList.add('mappai-ridotta');
