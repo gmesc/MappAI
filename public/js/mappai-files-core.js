@@ -195,6 +195,7 @@
   // assoluti, drive Windows, caratteri illegali. Ritorna il path normalizzato
   // (forward slash) o null se illegale — il chiamante (main.js) NON reimplementa
   // le regole.
+  var SORGENTI = 'Sorgenti';   // Materiale Studio/Sorgenti/ — i gemelli .html dei fogli (6/9)
   function sanitizeVaultRelPath(relPath) {
     var raw = String(relPath == null ? '' : relPath).replace(/\\/g, '/').trim();
     if (!raw) return null;
@@ -210,6 +211,13 @@
        contratto del vault già prevede per i media, e resta separata da 'Fonti',
        dove ELABORA mette gli originali che gli servono per l'anteprima. */
     if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Fonti' || segs[0] === 'Allegati')) return segs.join('/');
+    /* 'Materiale Studio/Sorgenti' (6/9): i gemelli `.html` dei fogli di domande
+       aperte — la sorgente col `qp-set` che prima viveva solo nell'archivio in
+       localStorage di UN computer. Sottocartella e non fratello del PDF, di
+       proposito: `vault-materials-list` non ricorre, quindi gli elenchi di
+       ELABORA e INSEGNA non vedono una riga in più. Solo questa sottocartella,
+       solo un livello: il resto del vault resta com'è. */
+    if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI) return segs.join('/');
     return null;
   }
 
@@ -511,6 +519,7 @@
     titoloDaFile: titoloDaFile,
     disciplineFolder: disciplineFolder,
     GENERICO: GENERICO,
+    SORGENTI: SORGENTI,
     classDirDaCartella: classDirDaCartella,
     mapVaultParents: mapVaultParents,
     mapVaultRoot: mapVaultRoot,

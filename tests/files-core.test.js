@@ -137,6 +137,11 @@ test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', (
   assert.strictEqual(FC.sanitizeVaultRelPath('C:\\Windows\\x'), null);
   assert.strictEqual(FC.sanitizeVaultRelPath('Nodi/hack.md'), null);       // sottocartella non ammessa
   assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/sub/deep.pdf'), null); // troppo profondo
+  // Sorgenti/ (6/9): l'UNICA sottocartella ammessa, un livello solo — i gemelli .html dei fogli
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/Sorgenti/Domande-aperte-Il Clima-causa.html'), 'Materiale Studio/Sorgenti/Domande-aperte-Il Clima-causa.html');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Materiale Studio/Sorgenti/x/y.html'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/Sorgenti/y.html'), null);
+  assert.strictEqual(FC.SORGENTI, 'Sorgenti');
   assert.strictEqual(FC.sanitizeVaultRelPath(''), null);
   assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
 });

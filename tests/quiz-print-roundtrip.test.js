@@ -232,3 +232,31 @@ test('buildFlashcardSetHtml: senza mappa in memoria la carta non stampa una riga
     assert.ok(/Mappa X/.test(html), 'riga 1 ripiega sul nome mappa passato dal chiamante');
     noMap();
 });
+
+
+/* ── La sorgente nel vault (6/9) ─────────────────────────────────────────── */
+test('scriviSorgente: gemello .html in Materiale Studio/Sorgenti/, stesso stem del PDF', async () => {
+    const scritti = [];
+    W.electronAPI = { saveVaultFile: async (p) => { scritti.push(p); return { ok: true }; } };
+    const html = W.buildOpenQuestionsHtml({ title: 'T', items: [{ question: 'Q?' }], angle: 'causa' }, { mapName: 'M', now: '01/01/2026', includeBar: false });
+    const r = await W.MappAIQuizPrint.scriviSorgente('/v', 'Domande-aperte-Il Clima-causa - TM Sans.pdf', html);
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(r.relPath, 'Materiale Studio/Sorgenti/Domande-aperte-Il Clima-causa - TM Sans.html');
+    assert.strictEqual(scritti[0].relPath, r.relPath);
+    assert.ok(/id="qp-set"/.test(scritti[0].text), 'il gemello porta la sorgente');
+    const set = W.MappAIQuizPrint.setFromHtml(scritti[0].text);
+    assert.strictEqual(set.angle, 'causa', 'e da lì si rilegge, angolo compreso');
+    /* senza vault o senza IPC non scrive e lo dice */
+    assert.strictEqual((await W.MappAIQuizPrint.scriviSorgente('', 'x.pdf', html)).ok, false);
+    delete W.electronAPI;
+});
+
+test('buildOpenQuestionsHtml: con `risposta` il foglio è COMPILATO e senza soluzioni', () => {
+    const set = { title: 'T', items: [{ question: 'Q?', guide: 'traccia segreta', risposta: 'La mia risposta' }, { question: 'R?' }] };
+    const html = W.buildOpenQuestionsHtml(set, { mapName: 'M', now: '01/01/2026', includeBar: false, includeAnswers: false });
+    assert.ok(/La mia risposta/.test(html), 'la risposta al posto delle righe');
+    assert.strictEqual((html.match(/height:26px/g) || []).length, 4, 'le righe vuote restano solo sulla domanda senza risposta');
+    assert.ok(!/traccia segreta/.test(html) && !/answer-key/.test(html) && !/qp-set/.test(html), 'niente tracce, niente sorgente');
+    const doc = W.buildOpenQuestionsHtml({ title: 'T', items: [{ question: 'Q?' }] }, { mapName: 'M', now: '01/01/2026' });
+    assert.ok(!/oq-risposta/.test(doc), 'senza `risposta` il foglio è quello di sempre');
+});

@@ -1680,6 +1680,10 @@
                DOCENTE, con le tracce. La copia per gli allievi si ottiene da
                «Stampa → Senza tracce». */
             const htmlOq = _openqHtml(true);
+            /* il gemello `.html` in Sorgenti/ segue le correzioni del docente (6/9) */
+            try {
+                if (window.MappAIQuizPrint && window.MappAIQuizPrint.scriviSorgente) await window.MappAIQuizPrint.scriviSorgente(vaultPath, fileName, htmlOq);
+            } catch (e) { console.warn('[DocEditor] sorgente domande aperte:', e && e.message); }
             if (window.electronAPI.htmlToPdf) {
                 const r = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
                 if (r && r.ok && r.base64) return { vaultPath: vaultPath, relPath: rel, base64: r.base64 };

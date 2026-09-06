@@ -97,6 +97,11 @@ window.saveMapVault = async function () {
             if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
                 window.MappAIElabora.flushSourcesToVault();
             }
+            /* Sorgenti/: i fogli di domande aperte che l'archivio tiene ancora
+               per questa mappa (6/9) — stessa strada di `flushSourcesToVault` */
+            try {
+                if (window.MappAIQuizPrint && window.MappAIQuizPrint.ripescaSorgenti) window.MappAIQuizPrint.ripescaSorgenti(result.folderPath, appState.rootNodeLabel || '');
+            } catch (e) { }
 
             // Applica upgrade per ripulire il Base64 dalla memoria
             if (saveRes.upgrades) {
@@ -151,6 +156,10 @@ window.ensureProjectVault = async function (opts) {
         if (appState.activeVaultPath) {
             var upd = await window.electronAPI.saveVault({ folderPath: appState.activeVaultPath, mapData: window.buildVaultMapData() });
             if (upd && upd.success && window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
+            /* Sorgenti/: ripescaggio dei fogli di domande aperte dall'archivio (6/9), senza sovrascrivere */
+            try {
+                if (upd && upd.success && window.MappAIQuizPrint && window.MappAIQuizPrint.ripescaSorgenti) window.MappAIQuizPrint.ripescaSorgenti(appState.activeVaultPath, appState.rootNodeLabel || '');
+            } catch (e) { }
             return { created: false, folderPath: appState.activeVaultPath, classDir: appState.activeVaultClassDir || null, discDir: appState.activeVaultDiscDir || null };
         }
 

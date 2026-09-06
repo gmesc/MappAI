@@ -600,6 +600,12 @@
                 });
               }
           } catch (e) { /* l'archivio è un di più: il file nel vault c'è già */ }
+            /* Il gemello `.html` nel vault (6/9): la sorgente viaggia con la
+               cartella, non solo con questo computer. Dopo PDF e archivio; un
+               errore qui non porta via niente. */
+            try {
+              if (window.MappAIQuizPrint && window.MappAIQuizPrint.scriviSorgente) await window.MappAIQuizPrint.scriviSorgente(vaultPath, nomeOq, htmlOq);
+            } catch (e) { console.warn('[Pipeline] sorgente domande aperte:', e && e.message); }
           continue;
         }
 
@@ -2054,6 +2060,10 @@
             inArchivio = !!(idDoc && (!window.MappAIStudyDocs.get || window.MappAIStudyDocs.get(idDoc)));
           }
         } catch (e) { /* senza archivio resta il PDF: si prova comunque */ }
+        /* il gemello `.html` nel vault (6/9): stesso stem del PDF, in Sorgenti/ */
+        try {
+          if (vaultPath && window.MappAIQuizPrint && window.MappAIQuizPrint.scriviSorgente) await window.MappAIQuizPrint.scriviSorgente(vaultPath, fileName, html);
+        } catch (e) { console.warn('[Pipeline] sorgente domande aperte:', e && e.message); }
         /* La resa: se fallisce si AVVISA (`pdfErrore` arriva al toast del
            chiamante), senza toccare la sorgente appena scritta. */
         let pdf = null, pdfErrore = '';

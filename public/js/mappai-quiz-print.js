@@ -494,7 +494,15 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                 ${escHtmlQP(item.question)}
             </div>
             <div style="display:flex; flex-direction:column; gap:0;">
-                ${new Array(_righe(item.lines)).fill(rigaVuota).join('')}
+                ${(item.risposta != null && String(item.risposta).trim())
+                    /* IL FOGLIO COMPILATO (6/9): quando l'item porta `risposta`,
+                       al posto delle righe vuote va il testo — è il foglio che
+                       lo studente rimanda al docente da MappAI studente. Con
+                       `includeAnswers:false` non porta né tracce né `qp-set`:
+                       «senza soluzioni» è già la forma di questo builder. */
+                    ? `<div class="oq-risposta" style="white-space:pre-wrap; border-left:3px solid ${accentColor};
+                        background:#f0fdfa; padding:8px 12px; font-size:13px; line-height:1.6; color:#1e293b;">${escHtmlQP(item.risposta)}</div>`
+                    : new Array(_righe(item.lines)).fill(rigaVuota).join('')}
             </div>
         </div>`;
     });
@@ -976,10 +984,81 @@ window.printAllStudySets = function () {
     });
 };
 
+// ── LA SORGENTE NEL VAULT (6/9) ─────────────────────────────────────────
+// Il foglio delle domande aperte sul disco era SOLO il PDF; l'HTML col
+// `<script id="qp-set">` — l'unica forma da cui si rileggono gli item — viveva
+// nell'archivio in localStorage di UN computer (HANDOFF §4, debito 0-B). Da
+// qui in poi accanto al PDF, in `Materiale Studio/Sorgenti/`, va anche il
+// gemello `.html`: è ciò che un altro computer, o MappAI studente, rilegge con
+// `setFromHtml`. Il nome è lo STEM del PDF già deciso da `buildFileName`
+// (un secondo compositore di nomi è il guasto della copia che sovrascriveva
+// l'originale, inv. 6); la regola sul percorso sta in FilesCore. Un errore qui
+// non ferma niente: la sorgente è già in archivio, il PDF già nel vault.
+// Kill-switch: localStorage `mappai_sorgenti_nel_vault` = '0'.
+function _sorgentiAccese() {
+    try { return localStorage.getItem('mappai_sorgenti_nel_vault') !== '0'; } catch (e) { return true; }
+}
+function _relSorgente(nomeFile) {
+    const FC = window.MappAIFilesCore;
+    const base = String(nomeFile || '').replace(/^.*\//, '').replace(/\.(pdf|html?)$/i, '').trim();
+    if (!base) return null;
+    return 'Materiale Studio/' + ((FC && FC.SORGENTI) || 'Sorgenti') + '/' + base + '.html';
+}
+async function scriviSorgente(vaultPath, nomeFile, html, opts) {
+    opts = opts || {};
+    if (!_sorgentiAccese()) return { ok: false, spento: true };
+    const rel = _relSorgente(nomeFile);
+    if (!vaultPath || !rel || !html || !window.electronAPI || !window.electronAPI.saveVaultFile) {
+        return { ok: false, error: 'niente da scrivere' };
+    }
+    try {
+        const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, text: String(html), ifAbsent: !!opts.ifAbsent });
+        if (!w || w.ok === false) {
+            /* `exists` è il ripescaggio che trova il file già scritto: non è un errore */
+            if (!(w && w.exists)) console.warn('[QuizPrint] sorgente non scritta:', rel, w && w.error);
+            return { ok: false, relPath: rel, exists: !!(w && w.exists), error: w && w.error };
+        }
+        return { ok: true, relPath: rel };
+    } catch (e) {
+        console.warn('[QuizPrint] sorgente non scritta:', rel, e && e.message);
+        return { ok: false, relPath: rel, error: e && e.message };
+    }
+}
+// Il RIPESCAGGIO dei vault scritti prima di oggi: i fogli che l'archivio tiene
+// ancora per questa mappa si copiano nel vault, senza sovrascrivere. Si chiama
+// dove la mappa si salva (`saveMapVault`, `ensureProjectVault`), come
+// `flushSourcesToVault`. Quelli usciti dall'archivio (tetto 30) non tornano:
+// chi non trova la sorgente lo DICE, non tace. Il nome viene dal titolo della
+// voce (il nome del PDF l'archivio non lo sa): può differire dal gemello che
+// la pipeline scrive per lo stesso foglio — chi legge deduplica per titolo.
+async function ripescaSorgenti(vaultPath, mapName) {
+    if (!_sorgentiAccese() || !vaultPath || !window.MappAIStudyDocs) return { scritte: 0 };
+    let docs = [];
+    try {
+        docs = (window.MappAIStudyDocs.list() || []).filter(d => d && d.kind === 'quizpaper' &&
+            String(d.mapName || '') === String(mapName || '') && /domande.?aperte/i.test(d.title || ''));
+    } catch (e) { return { scritte: 0 }; }
+    const FC = window.MappAIFilesCore;
+    let scritte = 0;
+    for (const d of docs) {
+        let full = null;
+        try { full = window.MappAIStudyDocs.get(d.id); } catch (e) { full = null; }
+        if (!full || !full.html || !/id="qp-set"/.test(full.html)) continue;
+        const nome = (FC && FC.safeName ? FC.safeName(d.title, '') : String(d.title || '').replace(/[\/\\:]/g, '-')) || ('Domande-aperte-' + d.id);
+        const r = await scriviSorgente(vaultPath, nome, full.html, { ifAbsent: true });
+        if (r && r.ok) scritte++;
+    }
+    return { scritte };
+}
+
 // ── API riusabile ────────────────────────────────────────
 // Gli stessi stili e builder usati dal foglio stampato servono all'editor di
 // ELABORA: l'anteprima editabile deve essere il foglio, non una sua imitazione.
 window.MappAIQuizPrint = {
+    // la sorgente delle domande aperte nel vault, e il ripescaggio dall'archivio (6/9)
+    scriviSorgente: scriviSorgente,
+    ripescaSorgenti: ripescaSorgenti,
+    relSorgente: _relSorgente,
     STYLES: QP_BASE_STYLES,
     printBar: QP_PRINT_BAR,
     accent: { quiz: '#4f46e5', flashcards: '#059669' },
