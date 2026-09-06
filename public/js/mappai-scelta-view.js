@@ -16,7 +16,7 @@
  * questa view non lo legge, e dopo la consegna lo dice `mostraEsito`.
  * ⚠️ Salvo `mostraAngolo` (6/9): è l'esercizio INVERSO di MappAI studente — si
  * legge la stessa domanda in tutti i tagli per trovare la propria porta. Con
- * esso arrivano `chip` (vocabolario e colori), `raggruppa` e `chipPrende`:
+ * esso arrivano `chip` (vocabolario e colori), `raggruppa`, `chipPrende` e `senzaAree`:
  * opzioni di `monta()`, mai di `cfg` (che fa il giro del server e viene
  * coerce a booleano da `normalizzaCfg`). Tutte spente per default.
  *
@@ -205,7 +205,9 @@
         var chiedi = o.chiedi || function (testo) { return Promise.resolve(window.confirm(testo)); };
 
         /* Il percorso serve? Lo dice il core guardando le aree, non un flag. */
-        var conPassi = S().passiUtili(pool, cfg);
+        /* `senzaAree` (7/9): chi monta ha già scelto l'ambito altrove (la prova su
+           misura di MappAI studente) — niente passo ① e niente «Cambia argomenti» */
+        var conPassi = !o.senzaAree && S().passiUtili(pool, cfg);
         if (!stato.fase) stato.fase = conPassi ? 'aree' : 'scegli';
         /* uno stato vecchio può dire «aree» su un vault che aree non ne ha:
            lasciarlo lì vorrebbe dire una schermata vuota senza uscita */
