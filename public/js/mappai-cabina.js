@@ -73,7 +73,7 @@
     var ALIAS = { classe: 'classi', guida: 'tutorial' };
     /* Indirizzo pubblico della guida illustrata (13 capitoli, agosto 2026),
        confermato da Giacomo il 6/9: se cambia, cambia QUI e basta. */
-    var GUIDA_DOCENTI_URL = 'https://www.insegnai.ch/mappai-guida.html';
+    var GUIDA_DOCENTI_URL = 'https://insegnai.ch/mappai/guida/';
     function _apriEsterno(url) {
         if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
         else window.open(url, '_blank', 'noopener');
