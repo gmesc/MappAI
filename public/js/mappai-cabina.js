@@ -46,6 +46,9 @@
         { gruppo: 'cb_g_studio', gruppoTesto: 'Imparare' },
         { id: 'consigli', chiave: 'cb_v_consigli', testo: 'Consigli di studio', icona: 'lightbulb' },
         { id: 'tutorial', chiave: 'cb_v_tutorial', testo: 'Tutorial', icona: 'book-open' },
+        /* La guida illustrata per i docenti vive sul web, non nell'app: la voce apre
+           il browser (come i collegamenti di insegnai.ch) e non cambia vista. */
+        { id: 'guida-online', chiave: 'cb_v_guida', testo: 'Guida per i docenti', icona: 'book-marked' },
         { gruppo: 'cb_g_note', gruppoTesto: 'Note d’uso' },
         { id: 'termini', chiave: 'cb_v_termini', testo: 'Termini & Condizioni', icona: 'scroll-text' },
         { id: 'privacy', chiave: 'cb_v_privacy', testo: 'Privacy', icona: 'shield-check' },
@@ -68,6 +71,13 @@
        generi di profilo: chi la chiama così (link vecchi, header non aggiornato)
        non deve trovarsi altrove. */
     var ALIAS = { classe: 'classi', guida: 'tutorial' };
+    /* ⚠️ Indirizzo pubblico della guida illustrata (13 capitoli, agosto 2026): da
+       confermare con Giacomo — se cambia, cambia QUI e basta. */
+    var GUIDA_DOCENTI_URL = 'https://www.insegnai.ch/mappai-guida.html';
+    function _apriEsterno(url) {
+        if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
+        else window.open(url, '_blank', 'noopener');
+    }
     /* Le due viste dei profili si aggiornano quando i dati cambiano ALTROVE:
        la scheda si modifica e si elimina dalla finestra di gestione, che di
        questa console non sa niente. Senza, la riga eliminata restava a schermo
@@ -422,6 +432,22 @@
             testo: 'Testo denso, L3-L4, e «Genera materiali» che produce in un colpo quiz, flashcard, foglio dei nodi e sintesi nella cartella della classe. A questo punto la classe sa già costruire: il materiale serve ad allenare, non a spiegare.'
         }
     ];
+    /* Sei casi d'uso, uno per prodotto: la situazione del docente, il gesto in
+       MappAI, che cosa ricevono gli allievi. Ogni frase è verificata sull'app. */
+    var CASI = [
+        { id: 'uc1', chiave: 'cb_tu_uc1', titolo: 'Ripasso prima della verifica',
+          testo: 'Dalla scheda del capitolo genera la mappa a L3 e premi «Genera materiali»: quiz a scelta multipla e flashcard finiscono nella cartella della classe. In classe, venti minuti di flashcard a coppie, poi il quiz via QR («Domande a scelta») con «Correggi subito»: il registro dei risultati ti dice su quali rami tornare.' },
+        { id: 'uc2', chiave: 'cb_tu_uc2', titolo: 'L’allievo con DSA legge con la voce',
+          testo: 'Genera la sintesi e registrale la voce naturale dall’editor di ELABORA: in INSEGNA compare «Sintesi con voce», da consegnare via QR o come file. Con il contesto dell’allievo attivo il testo è tarato sul suo registro; da Cabina › Aspetto e leggibilità scegli un carattere ad alta leggibilità per tutta l’app.' },
+        { id: 'uc3', chiave: 'cb_tu_uc3', titolo: 'La mappa si costruisce sul banco',
+          testo: 'Stampa il Foglio dei nodi con i soli titoli e ritaglia le card: i gruppi costruiscono la mappa sul banco, poi «Proietta» da INSEGNA mostra quella dell’AI per il confronto. Le differenze sono la lezione: perché questo nodo sta qui e non lì?' },
+        { id: 'uc4', chiave: 'cb_tu_uc4', titolo: 'Dalla fotografia del libro',
+          testo: 'Fotografa la pagina del manuale o la lavagna a fine ora e caricala con «Documenti»: l’AI la legge e ne fa la scheda, che correggi prima di generare. Da lì nascono mappa e materiali come da un PDF.' },
+        { id: 'uc5', chiave: 'cb_tu_uc5', titolo: 'Domande aperte, un angolo al giorno',
+          testo: 'Con «Più set per angolo» ottieni un foglio di domande aperte per ogni taglio: «Causa» come compito di oggi, «Confronto» domani, «Applicazione» per la verifica. Ogni foglio porta in coda le tracce di correzione per te; la copia per gli allievi esce da «Stampa → Senza tracce».' },
+        { id: 'uc6', chiave: 'cb_tu_uc6', titolo: 'Stessa scheda, due classi diverse',
+          testo: 'Genera una volta con la classe a registro semplice e una con quella a registro ricco: i fatti restano gli stessi, cambiano frasi ed esempi, e i materiali finiscono ognuno nella cartella della sua classe. «Fai una copia» in ELABORA ti dà varianti della stessa verifica per due gruppi.' }
+    ];
     function _vistaTutorial(s) {
         s.area = 'due';
         s.sezioni.push({
@@ -438,6 +464,13 @@
                 { id: 'apri-guida', etichetta: t('cb_tu_guida', 'Come usare MappAI'), icona: 'help-circle', chiude: false },
                 { id: 'vai-consumi', etichetta: t('cb_tu_costi', 'Quanto costa'), icona: 'coins', chiude: false }
             ]
+        });
+        s.sezioni.push({
+            id: 'tu-casi', nuda: true, largo: true,
+            testo: t('cb_tu_uc_intro', 'In classe — sei casi d’uso, uno per prodotto. Ognuno parte da una situazione vera e dice il gesto in MappAI e che cosa ricevono gli allievi.')
+        });
+        CASI.forEach(function (c) {
+            s.sezioni.push({ id: 'tu-' + c.id, titolo: t(c.chiave + '_t', c.titolo), testo: t(c.chiave + '_d', c.testo) });
         });
         s.nota = t('cb_tu_nota', 'Ogni passo si prova con la stessa fonte: cambiano la profondità e chi disegna la mappa, non l’argomento.');
         return s;
@@ -1188,6 +1221,7 @@
             }
 
             if (id === '__nav') {
+                if (ev.voce === 'guida-online') { _apriEsterno(GUIDA_DOCENTI_URL); return; }   /* non è una vista */
                 if (_st.voce === 'ai') _restituisciAi();
                 _st.voce = ev.voce;
                 if (_st.voce === 'consumi') _caricaConsumi();

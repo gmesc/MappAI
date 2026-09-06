@@ -144,6 +144,10 @@
            3. STRUTTURA A STEP DEL FORM DI CREAZIONE (STEP SECTIONS & BADGES)
            ========================================================================== */
         .step_container { @apply flex items-center gap-2 mb-2; } /* Contenitore del titolo numerato di ogni step del form */
+        /* Beta (6/9, Giacomo): nelle Azioni Rapide restano solo le voci della prova — Materiali di studio,
+           MappAI Live, Elabora, Annulla, Home. Studio attivo, Knowledge Garden, Graph manager e Revisione
+           portano `data-beta-nascosto`; `mappai_azioni_tutte='1'` le rimette (mappai-a11y.js). */
+        #floating-actions-menu [data-beta-nascosto] { display: none !important; }
         .step_badge { @apply inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xl font-bold shrink-0; } /* Cerchietto contenente il numero dello step (1, 2, 3, 4) */
         .step_badge_blue { @apply bg-purple-500; } /* Colore di sfondo per il badge dello Step 1 (Carica Fonti) */
         .step_badge_green { @apply bg-violet-500; } /* Colore di sfondo per il badge dello Step 2 (Scelta Generazione/Modalità) */
@@ -1467,13 +1471,13 @@
                     <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
                         <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
                     </button>
-                    <button onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Attività di studio, viste e strumenti" data-i18n-title="tt_active_study">
+                    <button data-beta-nascosto onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Attività di studio, viste e strumenti" data-i18n-title="tt_active_study">
                         <i data-lucide="puzzle"></i> <span data-i18n="ui_active_study_btn">Studio attivo</span>
                     </button>
-                    <button onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
+                    <button data-beta-nascosto onclick="window.openKnowledgeGardenHub ? window.openKnowledgeGardenHub() : (window.showToast && window.showToast(window.t('tst_kg_soon', 'Knowledge Garden — in arrivo'), 'info'))" title="Knowledge Garden: crea, condividi ed esplora i giardini della classe" data-i18n-title="tt_knowledge_garden">
                         <i data-lucide="sprout"></i> <span data-i18n="ui_knowledge_garden">Knowledge Garden</span>
                     </button>
-                    <button onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
+                    <button data-beta-nascosto onclick="window.openGraphManagerModal && window.openGraphManagerModal()" title="Salva, apri, importa ed esporta la mappa" data-i18n-title="tt_graph_manager">
                         <i data-lucide="folder-cog"></i> <span data-i18n="ui_graph_manager">Graph manager</span>
                     </button>
                     <!-- Sincronizzazione vault: mostrato/nascosto dinamicamente da
@@ -1483,7 +1487,7 @@
                         <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
                     </button>
                     <!-- Sotto Sincronizza Vault (22/7/26): Revisione (correzioni annotate) + Co-docente -->
-                    <button onclick="window.MappAICorrection && (window.MappAICorrection.isActive() ? window.MappAICorrection.review() : window.MappAICorrection.start())" title="Revisione mappa: raccogli correzioni annotate come ground-truth" data-i18n-title="tt_revisione_hub">
+                    <button data-beta-nascosto onclick="window.MappAICorrection && (window.MappAICorrection.isActive() ? window.MappAICorrection.review() : window.MappAICorrection.start())" title="Revisione mappa: raccogli correzioni annotate come ground-truth" data-i18n-title="tt_revisione_hub">
                         <i data-lucide="clipboard-pen"></i> <span data-i18n="ui_revisione_hub">Revisione</span>
                     </button>
                     <button onclick="window.MappAIElabora && window.MappAIElabora.openFromMap()" title="Elabora: analizza la scheda e arricchisci la mappa con citazioni dalla fonte" data-i18n-title="tt_elabora_hub">

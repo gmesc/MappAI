@@ -43,6 +43,8 @@ window.toggleHyphenation = function (btn) {
 window.toggleFloatingActions = function () {
     const menu = document.getElementById('floating-actions-menu');
     if (!menu) return;
+    /* le voci fuori dalla prova beta tornano solo con l'interruttore (chi sviluppa) */
+    try { if (localStorage.getItem('mappai_azioni_tutte') === '1') menu.querySelectorAll('[data-beta-nascosto]').forEach(b => b.removeAttribute('data-beta-nascosto')); } catch (e) { }
     menu.classList.toggle('hidden');
     if (!menu.classList.contains('hidden')) {
         window.safeCreateIcons();
