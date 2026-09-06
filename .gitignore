@@ -1,73 +1,49 @@
-# Dependencies
+# WHITELIST: sul repo vanno solo i file indispensabili all'app.
+# Fonte di verita': "build.files" in package.json. Tutto il resto (md di
+# progettazione/architettura, specs, piani, ios/, asset sorgente, sessioni
+# Claude) resta locale. Per aggiungere qualcosa: riga "!percorso" qui sotto.
+
+*
+!*/
+
+# Repo
+!/.gitignore
+!.github/**
+!/package.json
+!/package-lock.json
+
+# App (Electron main + server)
+!/main.js
+!/garden-server.js
+!/live-server.js
+!/tutor-server.js
+!/collab-server.js
+!/relay-client.js
+!relay/**
+!/prompts_config.json
+
+# Frontend
+!public/**
+!tools/voxel-proto/**
+
+# Test (npm test)
+!tests/**
+
+# Esclusioni dentro le cartelle ammesse
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
-dist/
-release/
-out/
-*.dmg
-*.AppImage
-*.exe
-*.zip
-
-# OS files
 .DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-
-# Application state
 *.log
-app_data/
-temp/
-
-# Graphify
-graphify-out/
-
-# Generated Artifacts and Reports
-implementation_plan.md
-ipad_compatibility_report.md
-xcode console.md
-Xcode report *
-*report*.md
-# ⚠️ NON usare `*console*.md`: teneva fuori dal repo tre documenti veri
-# (docs/HANDOFF-console.md, HANDOFF-console-bento.md, SPEC-elabora-console.md).
-# La regola serviva agli artefatti di Xcode, che sono gia' nominati qui sopra.
-
-# IDE Antigravity — regole e workflow agente (non appartengono all'app)
-.agents/
-
-# iOS / Xcode / Capacitor — file di build (da rigenerare localmente)
-ios/DerivedData/
-ios/App/Pods/
-ios/App/App.xcworkspace/xcuserdata/
-ios/App/App.xcodeproj/xcuserdata/
-
-# File di backup generati durante lo sviluppo
 *.bak
 *.bak_*
 *.bak-*
-prompts_config_backup_*.json
-
-# File workspace IDE
 *.code-workspace
-
-# File di sessione Claude (briefing, non appartengono al repo)
-CONTEXT.md
-brain/
-.gemini_status.json
-
-# Claude Code — credenziali/log locali (spec-kit warning)
-.claude/settings.local.json
-.claude/*.log
-
-# File personali del docente, non del progetto
-Piano-di-studio-perfezionato.pdf
-assessment-*.html
-dist-*/
+public/dev/
+public/esempi/
+public/**/*.aseprite
+public/**/*.ase
+public/**/*.xcf
+public/assets/rogue8x8/
+prompts_config_backup_*.json
+# Test di tool di sviluppo (tools/demo-video, tools/banco-layout), non dell'app
+tests/demo-video-core.test.js
+tests/studio-layouts.test.js
