@@ -11,9 +11,14 @@
  * (`onCambia`, `onConsegna`). In Live quelle due funzioni chiamano il server,
  * in-app scrivono una bozza in `localStorage`.
  *
- * Non mostra MAI l'angolo di una domanda: è il punto dell'attività. Al telefono
+* Non mostra MAI l'angolo di una domanda: è il punto dell'attività. Al telefono
  * l'angolo non arriva nemmeno (`MappAIScelta.pubblico`); in-app c'è nel pool ma
  * questa view non lo legge, e dopo la consegna lo dice `mostraEsito`.
+ * ⚠️ Salvo `mostraAngolo` (6/9): è l'esercizio INVERSO di MappAI studente — si
+ * legge la stessa domanda in tutti i tagli per trovare la propria porta. Con
+ * esso arrivano `chip` (vocabolario e colori), `raggruppa` e `chipPrende`:
+ * opzioni di `monta()`, mai di `cfg` (che fa il giro del server e viene
+ * coerce a booleano da `normalizzaCfg`). Tutte spente per default.
  *
  * Il CSS se lo porta dietro (iniettato una volta): la pagina dello studente non
  * carica `style.css`, e una veste scritta due volte è la stessa divergenza.
@@ -52,6 +57,10 @@
         '.sc-mark{flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:#fff}',
         '.sc-q.on .sc-mark{background:#4f46e5;border-color:#4f46e5}',
         '.sc-txt{flex:1;font-size:16px;line-height:1.45}',
+        /* il taglio sulla card: SOLO con `mostraAngolo` (l'esercizio inverso, 6/9) */
+        '.sc-ang{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0f766e;margin-bottom:3px}',
+        /* l'intestazione di una riga «Domanda i» quando si raggruppa per posizione */
+        '.sc-riga{font-size:12px;font-weight:700;color:#334155;margin:12px 0 6px}',
         '.sc-body{padding:0 16px 16px;border-top:1px solid #eef2ff}',
         '.sc-lbl{font-size:12px;font-weight:700;color:#475569;margin:14px 0 6px}',
         '.sc-ta{width:100%;min-height:110px;padding:12px 14px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;color:#0f172a;font-size:16px;line-height:1.5;resize:vertical}',
@@ -158,6 +167,29 @@
         stato.risposte = stato.risposte || {};
         stato.letture = stato.letture || {};     /* che cosa mi ha acceso, anche se non la prendo */
         stato.aree = stato.aree || [];
+
+        /* ── LE OPZIONI DI MAPPAI STUDENTE (6/9), tutte spente per default ──
+           `chip`         [{k, et, colore}]: vocabolario e colori dei chip; senza, i quattro storici
+           `mostraAngolo` il taglio sulla card
+           `raggruppa`    'domanda-per-angoli' = per ramo, riga i = la i-esima domanda di ogni foglio
+           `chipPrende`   la chiave del chip che PRENDE la domanda (il verde): niente bottone a parte
+           `hint`         la frase in testa al passo ②, se chi monta ne vuole una sua */
+        var CHIPS = (Array.isArray(o.chip) && o.chip.length)
+            ? o.chip.map(function (c) { return { k: String(c.k), et: c.et || etChip(t, c.k), colore: c.colore || '' }; })
+            : S().CHIP.map(function (k) { return { k: k, et: etChip(t, k), colore: '' }; });
+        var VOC = (Array.isArray(o.chip) && o.chip.length) ? CHIPS.map(function (c) { return c.k; }) : undefined;
+        function etChipDi(k) {
+            for (var i = 0; i < CHIPS.length; i++) if (CHIPS[i].k === k) return CHIPS[i].et;
+            return etChip(t, k);
+        }
+        /* il colore va INLINE: la stringa CSS è iniettata una volta sola con
+           guardia `#sc-css`, un secondo blocco con lo stesso id non entra */
+        function dipingiChip(btn, ch, premuto) {
+            btn.setAttribute('aria-pressed', String(!!premuto));
+            if (!ch || !ch.colore) return;
+            btn.style.borderColor = ch.colore; btn.style.color = ch.colore;
+            btn.style.background = premuto ? 'color-mix(in srgb, ' + ch.colore + ' 14%, white)' : '';
+        }
         /* le domande LASCIATE: la risposta non si butta, esce dal conteggio.
            Riprendendo la domanda torna dov'era — buttarla sarebbe l'unico gesto
            di questa schermata che distrugge del lavoro. */
@@ -292,10 +324,12 @@
            Le due cose sono indipendenti: «non mi accende niente» è un giudizio
            che vale su una domanda che non si prende. */
         function passoScegli() {
-            hint.textContent = _t(t, 'sc_hint_leggi', 'Leggi ogni domanda e dì che cosa ti fa venire in mente. Poi prendi quelle a cui vuoi rispondere.');
+            hint.textContent = o.hint || (o.raggruppa === 'domanda-per-angoli'
+                ? _t(t, 'sc_hint_angoli', 'Leggi la domanda in tutti i suoi tagli, poi dì per ognuno che cosa ti succede.')
+                : _t(t, 'sc_hint_leggi', 'Leggi ogni domanda e dì che cosa ti fa venire in mente. Poi prendi quelle a cui vuoi rispondere.'));
             var vive = attivo();
             function conta() {
-                var n = S().conteggio(vive, stato);
+                var n = S().conteggio(vive, stato, VOC);
                 cnt.className = 'sc-cnt' + (n.scelte < cfg.minimo ? ' ko' : '');
                 cnt.innerHTML = esc(_t(t, 'sc_lette', 'Lette')) + ': <b>' + n.lette + '</b>/' + n.totale +
                     ' · ' + esc(_t(t, 'sc_scelte', 'scelte')) + ': <b>' + n.scelte + '</b>' +
@@ -310,7 +344,9 @@
                 var take = document.createElement('button');
                 take.type = 'button'; take.className = 'sc-take';
                 take.setAttribute('aria-expanded', 'false');
-                take.innerHTML = '<span class="sc-mark" aria-hidden="true"></span><span class="sc-txt">' + esc(v.testo) + '</span>';
+                take.innerHTML = '<span class="sc-mark" aria-hidden="true"></span><span class="sc-txt">' +
+                    ((o.mostraAngolo && v.angle) ? '<span class="sc-ang">' + esc(etAngolo(t, v.angle)) + '</span>' : '') +
+                    esc(v.testo) + '</span>';
                 var body = document.createElement('div'); body.className = 'sc-body'; body.hidden = true;
                 art.appendChild(take); art.appendChild(body);
 
@@ -330,23 +366,41 @@
                     take.setAttribute('aria-expanded', chiuso ? 'true' : 'false');
                 };
 
+                /* PRENDERE una domanda, o lasciarla: la risposta in corso si
+                   parcheggia in `bozze`, non si butta */
+                function prendi(si) {
+                    if (si && !stato.risposte[v.id]) {
+                        stato.risposte[v.id] = stato.bozze[v.id] || {};
+                        delete stato.bozze[v.id];
+                    } else if (!si && stato.risposte[v.id]) {
+                        stato.bozze[v.id] = stato.risposte[v.id];
+                        delete stato.risposte[v.id];
+                    }
+                }
                 function corpo() {
                     var l = stato.letture[v.id] || {};
                     var lc = document.createElement('div'); lc.className = 'sc-lbl';
-                    lc.textContent = _t(t, 'sc_richiamo', 'Che cosa ti fa venire in mente?');
+                    lc.textContent = o.chipPrende
+                        ? _t(t, 'sc_perche', 'Perché:')
+                        : _t(t, 'sc_richiamo', 'Che cosa ti fa venire in mente?');
                     body.appendChild(lc);
                     var chips = document.createElement('div'); chips.className = 'sc-chips';
-                    S().CHIP.forEach(function (k) {
+                    CHIPS.forEach(function (ch) {
                         var c = document.createElement('button');
                         c.type = 'button'; c.className = 'sc-chip';
-                        c.setAttribute('aria-pressed', String(l.chip === k));
-                        c.textContent = etChip(t, k);
+                        c.textContent = ch.et;
+                        dipingiChip(c, ch, l.chip === ch.k);
                         c.onclick = function () {
                             var ll = stato.letture[v.id] || (stato.letture[v.id] = {});
-                            ll.chip = (ll.chip === k) ? '' : k;      /* secondo tocco = tolgo */
+                            ll.chip = (ll.chip === ch.k) ? '' : ch.k;      /* secondo tocco = tolgo */
+                            /* per CHIAVE, non per indice: con un vocabolario diverso
+                               l'indice accendeva il chip sbagliato */
                             chips.querySelectorAll('.sc-chip').forEach(function (x, xi) {
-                                x.setAttribute('aria-pressed', String(S().CHIP[xi] === ll.chip));
+                                dipingiChip(x, CHIPS[xi], CHIPS[xi].k === ll.chip);
                             });
+                            /* il chip verde PRENDE la domanda (MappAI studente):
+                               qui il giudizio e la scelta sono lo stesso gesto */
+                            if (o.chipPrende) prendi(ll.chip === o.chipPrende);
                             dipingi(); conta(); salva(v.id, true);
                         };
                         chips.appendChild(c);
@@ -364,14 +418,9 @@
                     };
                     body.appendChild(nota);
 
+                    if (o.chipPrende) return;    /* prende il chip: niente bottone a parte (inv. 21) */
                     var pre = bottone('', function () {
-                        if (stato.risposte[v.id]) {
-                            stato.bozze[v.id] = stato.risposte[v.id];
-                            delete stato.risposte[v.id];
-                        } else {
-                            stato.risposte[v.id] = stato.bozze[v.id] || {};
-                            delete stato.bozze[v.id];
-                        }
+                        prendi(!stato.risposte[v.id]);
                         etichettaPresa(); dipingi(); conta(); salva(v.id, true);
                     }, 'sc-prendi');
                     function etichettaPresa() {
@@ -392,6 +441,19 @@
 
             if (!vive.length) {
                 vuoto(_t(t, 'sc_no_domande', 'Gli argomenti scelti non hanno domande: torna indietro e scegline altri.'));
+            } else if (o.raggruppa === 'domanda-per-angoli') {
+                S().perDomandaPerAngoli(vive).forEach(function (g) {
+                    var h = document.createElement('div'); h.className = 'sc-ramo';
+                    h.textContent = g.ramo || _t(t, 'sc_senza_ramo', 'Altre domande');
+                    list.appendChild(h);
+                    g.righe.forEach(function (r) {
+                        var hr = document.createElement('div'); hr.className = 'sc-riga';
+                        hr.textContent = _t(t, 'sc_domanda_n', 'Domanda {n}').replace('{n}', r.i + 1) +
+                            ' · ' + r.celle.length + ' ' + _t(t, 'sc_tagli', 'tagli');
+                        list.appendChild(hr);
+                        r.celle.forEach(function (v) { list.appendChild(card(v)); });
+                    });
+                });
             } else if (cfg.perRamo) {
                 S().perRamo(vive).forEach(function (g) {
                     var h = document.createElement('div'); h.className = 'sc-ramo';
@@ -404,7 +466,7 @@
             }
             conta();
             foot.appendChild(bottone(_t(t, 'sc_comincia', 'Comincia a rispondere'), function () {
-                var n = S().conteggio(vive, stato);
+                var n = S().conteggio(vive, stato, VOC);
                 if (n.scelte) { iRisposta = 0; return vaiA('rispondi'); }
                 Promise.resolve(chiedi(_t(t, 'sc_nessuna_presa', 'Non hai preso nessuna domanda: non ci sarà niente a cui rispondere.') +
                     '\n\n' + _t(t, 'sc_ko_aree_ok', 'Vai avanti lo stesso?')))
@@ -507,7 +569,7 @@
             var l = stato.letture[v.id];
             if (l && l.chip) {
                 var eco = document.createElement('div'); eco.className = 'sc-eco';
-                eco.textContent = _t(t, 'sc_eco', 'Leggendola avevi detto:') + ' ' + etChip(t, l.chip);
+                eco.textContent = _t(t, 'sc_eco', 'Leggendola avevi detto:') + ' ' + etChipDi(l.chip);
                 list.appendChild(eco);
             }
 

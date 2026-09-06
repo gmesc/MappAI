@@ -57,7 +57,7 @@
     var CHIP = ['subito', 'partenza', 'vago', 'niente'];
     /* i chip che dichiarano un'attivazione (tutti tranne `niente`): serve al
        profilo, e scritto una volta sola non si può sbagliare a elencarlo */
-    function accende(chip) { return CHIP.indexOf(_s(chip)) >= 0 && _s(chip) !== 'niente'; }
+    function accende(chip, vocab) { return _vocab(vocab).indexOf(_s(chip)) >= 0 && _s(chip) !== 'niente'; }
 
     /* La configurazione dell'attività. `minimo` è l'unica leva numerica; le
        altre sono interruttori del docente (in-app: dello studente stesso).
@@ -165,6 +165,10 @@
                     testo: testo,
                     angle: ang,
                     anche: [],
+                    /* la POSIZIONE nel foglio (6/9): serve a `perDomandaPerAngoli`,
+                       che accoppia per posizione la domanda i dei fogli d'angolo.
+                       Prima entrava solo nell'hash e andava perduta. */
+                    idx: i,
                     /* il ramo lo dichiara l'item (la pipeline lo scrive dal
                        19/8); i fogli più vecchi non ce l'hanno e finiscono nel
                        gruppo senza nome, che è la verità e non un difetto */
@@ -255,6 +259,40 @@
         var senza = ordine.indexOf('');
         if (senza >= 0) { ordine.splice(senza, 1); ordine.push(''); }
         return ordine.map(function (r) { return { ramo: r, domande: per[r] }; });
+    }
+
+    /* Per ramo, RIGHE per posizione nel foglio (6/9): la riga i porta la i-esima
+       domanda di ogni foglio d'angolo — è la «sessione metacognitiva» di MappAI
+       studente: si legge la stessa posizione in tutti i tagli, poi si sceglie.
+       ⚠️ È una corrispondenza per POSIZIONE, non di senso: ogni (ramo × angolo)
+       nasce da una chiamata AI a sé, e il foglio rimescola dentro il ramo. Le
+       celle seguono l'ordine di `angoli()`; un angolo senza la domanda i manca
+       e basta (dedup fra fogli, fogli più corti). Si dà il pool NON campionato:
+       su un pool passato da `unaPerAngolo` ogni ramo ha una riga sola. */
+    function perDomandaPerAngoli(pool) {
+        var ordA = angoli();
+        function rango(a) { var i = ordA.indexOf(a); return i < 0 ? 99 : i; }
+        return perRamo(pool).map(function (g) {
+            var per = {}, chiavi = [];
+            g.domande.forEach(function (v) {
+                var a = v.angle || '';
+                if (!per[a]) { per[a] = []; chiavi.push(a); }
+                per[a].push(v);
+            });
+            chiavi.sort(function (x, y) { return rango(x) - rango(y); });
+            var max = 0;
+            chiavi.forEach(function (a) {
+                per[a].sort(function (x, y) { return (x.idx || 0) - (y.idx || 0); });
+                if (per[a].length > max) max = per[a].length;
+            });
+            var righe = [];
+            for (var i = 0; i < max; i++) {
+                var celle = [];
+                chiavi.forEach(function (a) { if (per[a][i]) celle.push(per[a][i]); });
+                righe.push({ i: i, celle: celle });
+            }
+            return { ramo: g.ramo, righe: righe };
+        });
     }
 
     /* ── LE MACRO-AREE ───────────────────────────────────────────────────────
@@ -377,6 +415,10 @@
        Una domanda è SCELTA se ha una voce in `risposte`; è SCRITTA se quella
        voce porta una risposta vera. Sono due cose diverse: si può prendere una
        domanda e lasciarla a metà, e il contatore lo dice. */
+    /* Il VOCABOLARIO dei chip (6/9): i quattro storici, o quello che il
+       chiamante passa (MappAI studente ne ha tre, «Perché:» a colori). Nessun
+       chiamante di oggi lo passa, quindi Live e in-app restano identici. */
+    function _vocab(v) { return (Array.isArray(v) && v.length) ? v.map(_s) : CHIP; }
     function _risposte(stato) { return (stato && stato.risposte) || {}; }
     function _letture(stato) { return (stato && stato.letture) || {}; }
     function scritta(r) {
@@ -384,11 +426,12 @@
         if (r.scelta != null && r.scelta !== '') return true;
         return !!_trim(r.testo);
     }
-    function conteggio(pool, stato) {
+    function conteggio(pool, stato, vocab) {
+        var VOC = _vocab(vocab);
         var R = _risposte(stato), L = _letture(stato), scelte = 0, fatte = 0, lette = 0, spente = 0;
         (pool || []).forEach(function (v) {
             var l = L[v.id];
-            if (l && CHIP.indexOf(_s(l.chip)) >= 0) { lette++; if (!accende(l.chip)) spente++; }
+            if (l && VOC.indexOf(_s(l.chip)) >= 0) { lette++; if (!accende(l.chip, VOC)) spente++; }
             if (!(v.id in R)) return;
             scelte++;
             if (scritta(R[v.id])) fatte++;
@@ -416,7 +459,8 @@
        come «di questo taglio non ne ho voluta nessuna».
        ⚠️ Le domande senza angolo noto (fogli vecchi) finiscono in `''`: dirlo è
        meglio che spalmarle sugli altri. */
-    function profilo(pool, stato) {
+    function profilo(pool, stato, vocab) {
+        var VOC = _vocab(vocab);
         var R = _risposte(stato);
         var per = {}, ordine = [];
         function riga(a) {
@@ -433,10 +477,10 @@
             /* il giudizio di richiamo si conta SEMPRE, anche su una domanda non
                presa: è lì che sta «questo taglio non mi dice niente» */
             var l = L[v.id];
-            if (l && CHIP.indexOf(_s(l.chip)) >= 0) {
+            if (l && VOC.indexOf(_s(l.chip)) >= 0) {
                 r.chip[l.chip] = (r.chip[l.chip] || 0) + 1;
                 r.letti++;
-                if (!accende(l.chip)) r.spenti++;
+                if (!accende(l.chip, VOC)) r.spenti++;
             }
             var a = R[v.id];
             if (a) {
@@ -447,7 +491,7 @@
         });
         var righe = ordine.map(function (a) { return per[a]; })
             .sort(function (x, y) { return (y.scelte - x.scelte) || (x.angle < y.angle ? -1 : 1); });
-        var n = conteggio(pool, stato);
+        var n = conteggio(pool, stato, vocab);
         return {
             righe: righe,
             conteggio: n,
@@ -543,8 +587,9 @@
        guardia una chiave inventata dal telefono passava il controllo «esiste nel
        pool», e `__proto__` cambiava il prototipo dell'oggetto salvato. */
     function _ha(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
-    function normalizzaStato(pool, stato) {
+    function normalizzaStato(pool, stato, vocab) {
         stato = stato || {};
+        var VOC = _vocab(vocab);
         var validi = {};
         (pool || []).forEach(function (v) { validi[v.id] = v; });
         /* ⚠️ `fase` nasce VUOTA, non a 'scegli': è la view che decide da dove si
@@ -568,7 +613,7 @@
         Object.keys(L).forEach(function (id) {
             if (!_ha(validi, id) || !L[id] || typeof L[id] !== 'object') return;
             var l = {}, c = _s(L[id].chip);
-            if (CHIP.indexOf(c) >= 0) l.chip = c;
+            if (VOC.indexOf(c) >= 0) l.chip = c;
             var n = _trim(_cap(L[id].nota, MAX_NOTA));
             if (n) l.nota = n;
             if (l.chip || l.nota) out.letture[id] = l;
@@ -623,7 +668,7 @@
         corretta: corretta,
         angoloDalTitolo: angoloDalTitolo,
         poolDaFogli: poolDaFogli, pubblico: pubblico,
-        mescola: mescola, perRamo: perRamo,
+        mescola: mescola, perRamo: perRamo, perDomandaPerAngoli: perDomandaPerAngoli,
         scritta: scritta, conteggio: conteggio, validaConsegna: validaConsegna,
         profilo: profilo, evitata: evitata, calorClasse: calorClasse, calorAree: calorAree,
         normalizzaStato: normalizzaStato

@@ -447,3 +447,46 @@ test('la spiegazione sta nel pool ma NON viaggia col pubblico', () => {
   assert.strictEqual(S.pubblico(p)[0].spiegazione, undefined);
   assert.strictEqual(S.pubblico(p)[0].giusta, undefined);
 });
+
+
+/* ── MappAI studente (6/9): la posizione nel foglio, le righe per angolo, i chip suoi ── */
+test('poolDaFogli: ogni voce ricorda la POSIZIONE nel suo foglio', () => {
+    const pool = S.poolDaFogli(FOGLI);
+    assert.deepStrictEqual(pool.map(v => v.idx), [0, 1, 1, 0], 'il doppione scartato non sposta gli altri');
+});
+
+test('perDomandaPerAngoli: per ramo, la riga i porta la domanda i di ogni angolo, nell\'ordine dei tagli', () => {
+    const fogli = ['definizione', 'causa'].map(a => ({
+        titolo: 'Domande-aperte-X-' + a, angle: a, tipo: 'open', items: [
+            { question: a + ' uno', ramo: 'A' }, { question: a + ' due', ramo: 'A' }, { question: a + ' tre', ramo: 'B' }
+        ]
+    }));
+    /* il foglio «causa» arriva PRIMA: le celle devono comunque seguire angoli() */
+    const g = S.perDomandaPerAngoli(S.poolDaFogli([fogli[1], fogli[0]]));
+    assert.deepStrictEqual(g.map(x => x.ramo), ['A', 'B']);
+    assert.strictEqual(g[0].righe.length, 2, 'due righe: due domande per angolo sul ramo A');
+    assert.deepStrictEqual(g[0].righe[0].celle.map(v => v.angle), ['definizione', 'causa'], 'celle nell\'ordine dei tagli');
+    assert.deepStrictEqual(g[0].righe[1].celle.map(v => v.testo), ['definizione due', 'causa due']);
+    assert.strictEqual(g[1].righe.length, 1);
+    /* su un pool campionato ogni ramo ha una riga sola */
+    const una = S.perDomandaPerAngoli(S.unaPerAngolo(S.poolDaFogli(fogli), 'seme'));
+    assert.ok(una.every(x => x.righe.length === 1));
+});
+
+test('un vocabolario di chip suo: senza, si scarta come oggi; con, si tiene e si conta', () => {
+    const pool = S.poolDaFogli(FOGLI);
+    const VOC = ['capito', 'nonso', 'noncapita'];
+    const stato = { letture: {} };
+    stato.letture[pool[0].id] = { chip: 'capito' };
+    stato.letture[pool[1].id] = { chip: 'noncapita' };
+    assert.strictEqual(S.normalizzaStato(pool, stato).letture[pool[0].id], undefined, 'fuori dai quattro storici: via');
+    const n = S.normalizzaStato(pool, stato, VOC);
+    assert.strictEqual(n.letture[pool[0].id].chip, 'capito');
+    assert.strictEqual(S.conteggio(pool, stato).lette, 0, 'senza vocabolario non conta');
+    const c = S.conteggio(pool, stato, VOC);
+    assert.strictEqual(c.lette, 2);
+    assert.strictEqual(c.spente, 0, 'nessuno dei tre si chiama «niente»: non sono spenti');
+    assert.strictEqual(S.profilo(pool, stato, VOC).righe.find(r => r.angle === 'causa').chip.capito, 1);
+    /* e i quattro storici restano quelli */
+    assert.deepStrictEqual(S.CHIP, ['subito', 'partenza', 'vago', 'niente']);
+});
