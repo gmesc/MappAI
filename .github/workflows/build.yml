@@ -1,13 +1,6 @@
 name: Build/Release
 on:
-  push:
-    branches:
-      - MappAI_main
-      - MappAI_studente
-      - global
-      - MappAI_iPad
-      - MappAI_iPad_studente
-  workflow_dispatch:
+  workflow_dispatch:   # solo lancio manuale — auto-trigger su push rimosso per limite minuti Actions
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
