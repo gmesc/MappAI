@@ -111,7 +111,7 @@
         var MM = window.MappAIModal;
         var p = pool();
         if (!p.pool.length) {
-            var strada = t('ds_niente_d', 'Genera i materiali da CREA (box «Più set per angolo») oppure da ELABORA › «Crea un documento».');
+            var strada = t('ds_niente_d', 'Genera i materiali da CREA (spunta «Domande aperte» o «Scelta multipla» in «Output automatici») oppure da ELABORA › «Crea un documento».');
             if (MM && MM.avviso) MM.avviso({ titolo: t('ds_niente', 'Non ci sono ancora domande per questa mappa'), icona: 'list-checks', testo: strada });
             else toast(t('ds_niente', 'Non ci sono ancora domande per questa mappa') + ' — ' + strada, 'warning');
             return;
@@ -291,8 +291,8 @@
         var intero = poolPer(tipo);
         if (!intero.length) {
             var strada = (tipo === 'open')
-                ? t('ds_niente_d', 'Genera i materiali da CREA (box «Più set per angolo») oppure da ELABORA › «Crea un documento».')
-                : t('ds_niente_mc_d', 'Servono set a scelta multipla: generali da CREA (box «Più set per angolo») o da ELABORA › «Crea un documento».');
+                ? t('ds_niente_d', 'Genera i materiali da CREA (spunta «Domande aperte» o «Scelta multipla» in «Output automatici») oppure da ELABORA › «Crea un documento».')
+                : t('ds_niente_mc_d', 'Servono set a scelta multipla: generali da CREA (spunta «Scelta multipla» in «Output automatici») o da ELABORA › «Crea un documento».');
             if (MM && MM.avviso) MM.avviso({ titolo: t('ds_niente', 'Non ci sono ancora domande per questa mappa'), icona: A.icona, testo: strada });
             else toast(strada, 'warning');
             return;

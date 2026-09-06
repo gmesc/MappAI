@@ -613,12 +613,36 @@
                 .map(function (d) { return _nomeMappa(d.titolo); });
             sint.forEach(function (d) {
                 if (d.id === 'current' && titoliArchivio.indexOf(_nomeMappa(d.titolo)) >= 0) return;
+                /* la sintesi dell'INTERA mappa si chiama «Sintesi» come la riga che
+                   nasceva dal file (il nome della mappa lo dice già la briciola);
+                   quella di un ramo tiene il ramo nel titolo, che è l'informazione */
+                var titolo4 = /^Sintesi della mappa\b/i.test(d.titolo || '') ? _nomeFunz('Sintesi', '') : d.titolo;
                 var v4 = {
-                    id: 'syn:' + d.id, titolo: d.titolo, tipo: 'Sintesi',
+                    id: 'syn:' + d.id, titolo: titolo4, tipo: 'Sintesi',
                     data: 0, archivio: d.id !== 'current', modificabile: true, clonabile: false,
-                    docId: d.id, voce: false, cls: '', disc: ''
+                    voce: false, cls: '', disc: ''
                 };
-                _agganciaFile(v4, 'Sintesi', '', dischi, presi);
+                /* ⚠️ Solo il file col NOME ESATTO dell'originale (variante VERDE
+                   compresa), non «ciò che non è una copia nota»: per le sintesi
+                   `_cloniNoti` è vuoto, e `_agganciaFile` avrebbe preso TUTTI i
+                   file di sintesi tenendo il più recente — cioè la copia appena
+                   fatta al posto dell'originale, e la copia senza riga (misurato
+                   il 6/9). Le copie restano righe loro, dal disco. */
+                var attesi4 = _nomiAttesi('synthesis', '');
+                for (var na4 = 0; na4 < attesi4.length && !v4.relPath; na4++) {
+                    for (var nb4 = 0; nb4 < dischi.length && !v4.relPath; nb4++) {
+                        if (!presi[dischi[nb4].relPath] && dischi[nb4].name.toLowerCase() === attesi4[na4]) {
+                            presi[dischi[nb4].relPath] = true;
+                            v4.relPath = dischi[nb4].relPath;
+                            v4.data = dischi[nb4].mtime || v4.data;
+                        }
+                    }
+                }
+                /* «Fai una copia» = la copia del FILE (`_clonaFile`, come la riga
+                   che nasceva dal disco): c'è solo se il file c'è. Niente `docId`
+                   qui: `_clonaV2` lo leggerebbe per primo e copierebbe la voce
+                   d'archivio invece del file. */
+                v4.clonabile = !!v4.relPath;
                 out.push(v4);
             });
         })();
@@ -830,7 +854,15 @@
         var rel = (cart ? cart + '/' : '') + nuovo;
         api.readVaultFile({ vaultPath: s.activeVaultPath, relPath: m.relPath })
             .then(function (r) {
+                /* 🐛 (6/9) `read-vault-file` risponde con `base64` (main.js), non con
+                   `text`: la copia falliva SEMPRE («Non riesco a scrivere la copia») —
+                   trovato provando «Fai una copia» su una sintesi. Si decodifica come
+                   UTF-8, che è come il file è stato scritto. */
                 var testo = r && (r.text || r.content);
+                if (testo == null && r && r.base64 != null) {
+                    try { testo = new TextDecoder('utf-8').decode(Uint8Array.from(atob(r.base64), function (c) { return c.charCodeAt(0); })); }
+                    catch (e) { testo = null; }
+                }
                 if (!r || r.ok === false || testo == null) throw new Error('lettura');
                 return api.saveVaultFile({
                     vaultPath: s.activeVaultPath, relPath: rel, text: testo, ifAbsent: true

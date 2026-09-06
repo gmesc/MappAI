@@ -111,11 +111,11 @@
         const scelteModes = !_saOn ? [] : [
             { key: 'scelta_open', icon: 'list-checks', ok: true, quante: _nOpen,
               title: _t('as_scelta_open_title', 'Domande a scelta'),
-              manca: _t('as_scelta_open_missing', 'Nessun foglio «Domande aperte» per questa mappa: generali da CREA (box «Più set per angolo») o da ELABORA › «Crea un documento».'),
+              manca: _t('as_scelta_open_missing', 'Nessun foglio «Domande aperte» per questa mappa: generali da CREA (spunta «Domande aperte» in «Output automatici») o da ELABORA › «Crea un documento».'),
               hint: _t('as_scelta_open_hint', 'Leggi i richiami della mappa e scegli a quali rispondere: alla fine scopri quali tipi di richiamo ti accendono.') },
             { key: 'scelta_mc', icon: 'circle-check-big', ok: true, quante: _nMc,
               title: _t('as_scelta_mc_title', 'Quiz a scelta'),
-              manca: _t('as_scelta_mc_missing', 'Nessun set a scelta multipla per questa mappa: generali da CREA (box «Più set per angolo»).'),
+              manca: _t('as_scelta_mc_missing', 'Nessun set a scelta multipla per questa mappa: generali da CREA (spunta «Scelta multipla» in «Output automatici»).'),
               hint: _t('as_scelta_mc_hint', 'Come «Domande a scelta», ma si risponde scegliendo fra le opzioni: la correzione è immediata.') }
         ];
         const extraModes = [
