@@ -332,6 +332,16 @@
             clearTimeout(t);
             t = setTimeout(() => {
                 if (!S.active) return;
+                /* ⚠️ Misurare un SVG che non è a schermo LANCIA: «Could not resolve
+                   relative length» da `fit()` (SVGLength su un nodo staccato o a
+                   larghezza zero). Capita quando il riquadro è nascosto sotto un
+                   modale o è appena stato staccato da un ridisegno del canvas, e la
+                   finestra cambia taglia in quel momento — cosa normale su un tablet
+                   che ruota, e frequentissima in MappAI studente, dove la console si
+                   apre sopra la mappa. Se non c'è niente da misurare non si misura:
+                   al rientro il ridisegno rifà tutto. */
+                const ov = document.getElementById('studio-overlay');
+                if (!ov || !ov.isConnected || !ov.clientWidth || !ov.clientHeight) return;
                 if (S.focus && S.focus.handle) S.focus.handle.fit('all');
                 else if (S.handle) S.handle.fit('read');
             }, 120);
