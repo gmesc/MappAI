@@ -831,14 +831,27 @@ ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
    vanno nel Cestino (mai cancellati). Solo `Materiale Studio/<file>`, solo con
    `potaVarianti:true` — che il preload mette da sé leggendo il kill-switch
    `mappai_pota_varianti` del renderer. La regola è in files-core (pura). */
-function potaVariantiCarattere(vaultPath, safe) {
+async function potaVariantiCarattere(vaultPath, safe) {
     const segs = safe.split('/');
     if (segs.length !== 2 || segs[0] !== 'Materiale Studio') return [];
     const dir = path.join(vaultPath, 'Materiale Studio');
     let nomi = []; try { nomi = fs.readdirSync(dir).filter(n => n.charAt(0) !== '.'); } catch (e) { return []; }
     const via = FilesCore.variantiDaPotare(nomi, segs[1]);
-    via.forEach(n => { try { shell.trashItem(path.join(dir, n)); } catch (e) { console.warn('[varianti] non cestinato', n, e.message); } });
-    if (via.length) console.log('[varianti] nel Cestino:', via.join(' · '));
+    for (const n of via) {
+        const abs = path.join(dir, n);
+        /* prima il Cestino (si può ripescare); se il sistema lo nega (misurato il 7/9:
+           `trashItem` su ~/Documents rifiutato senza eccezione sincrona) il file va in
+           `Materiale Studio/.vecchi/` — una cartella nascosta che gli elenchi non
+           leggono. In nessun caso `unlink`. */
+        try { await shell.trashItem(abs); continue; } catch (e) { console.warn('[varianti] Cestino negato per', n, '—', e.message); }
+        try {
+            const vec = path.join(dir, '.vecchi'); fs.mkdirSync(vec, { recursive: true });
+            let dest = path.join(vec, n), k = 2;
+            while (fs.existsSync(dest)) { dest = path.join(vec, n.replace(/(\.[^.]+)$/, ' (' + k + ')$1')); k++; }
+            fs.renameSync(abs, dest);
+        } catch (e) { console.warn('[varianti] non spostato', n, e.message); }
+    }
+    if (via.length) console.log('[varianti] tolte dalla cartella:', via.join(' · '));
     return via;
 }
 
@@ -858,7 +871,7 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
         } else {
             fs.writeFileSync(dest, String(text), 'utf-8');
         }
-        const potate = potaVarianti === true ? potaVariantiCarattere(vaultPath, safe) : [];
+        const potate = potaVarianti === true ? await potaVariantiCarattere(vaultPath, safe) : [];
         return { ok: true, path: dest, potate };
     } catch (err) {
         return { ok: false, error: err.message };
