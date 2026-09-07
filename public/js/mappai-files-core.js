@@ -218,7 +218,47 @@
        ELABORA e INSEGNA non vedono una riga in più. Solo questa sottocartella,
        solo un livello: il resto del vault resta com'è. */
     if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI) return segs.join('/');
+    /* 'Consegne/<studente>/<file>' (7/9, scambio con MappAI studente): il PDF delle
+       risposte che l'allievo manda dall'iPad. Tre segmenti esatti: la cartella
+       dello studente e il file, niente di più profondo. `read-vault-file` la
+       usa quando INSEGNA apre una consegna nella tela. */
+    if (segs.length === 3 && segs[0] === CONSEGNE) return segs.join('/');
     return null;
+  }
+
+  /* ── LO SCAMBIO CON MAPPAI STUDENTE (7/9) ──────────────────────────────────
+     Tre regole che valgono su ENTRAMBI i lati (il file è copiato nel reader): */
+  var CONSEGNE = 'Consegne';   // <vault>/Consegne/<studente>/ — ciò che gli allievi mandano
+  /* Che cosa del vault VA allo studente: la mappa (index.yaml, links.json,
+     Nodi/**), i materiali (Materiale Studio/* e /Sorgenti/*), gli allegati e
+     l'indice delle fonti. NON vanno: vista.json (la vista è di chi guarda),
+     Studio Attivo/** (i record di studio), Chat/, Fonti/ (gli originali di
+     ELABORA), pipeline.json, chat_state.json, le consegne, i dotfile.
+     Ritorna il rel normalizzato o null; la usa chi ESPONE (live-server) e chi
+     RICEVE (l'adapter dello studente): fiducia zero nel manifest. */
+  function relVaultStudente(relPath) {
+    var raw = String(relPath == null ? '' : relPath).replace(/\\/g, '/').trim();
+    if (!raw || raw.charAt(0) === '/' || /^[a-zA-Z]:/.test(raw)) return null;
+    var segs = raw.split('/').filter(function (s) { return s !== '' && s !== '.'; });
+    if (!segs.length || segs.indexOf('..') >= 0) return null;
+    for (var i = 0; i < segs.length; i++) {
+      if (safeName(segs[i], '') !== segs[i] || segs[i].charAt(0) === '.') return null;
+    }
+    if (segs.length === 1) return (segs[0] === 'index.yaml' || segs[0] === 'links.json' || segs[0] === 'fonti_e_link.txt') ? segs[0] : null;
+    if (segs[0] === 'Nodi' && segs.length <= 3 && /\.md$/i.test(segs[segs.length - 1])) return segs.join('/');
+    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Allegati')) return segs.join('/');
+    if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI) return segs.join('/');
+    return null;
+  }
+  /* L'identità dell'allievo: numero personale del registro + classe. La classe
+     accetta SOLO una cifra 1-4 e una lettera latina, e si scrive MAIUSCOLA
+     («1a» e «1A» devono finire nella stessa cartella); il numero solo cifre.
+     Ritorna { numero, classe, id } o null; `id` è il nome della cartella. */
+  function identitaStudente(numero, classe) {
+    var n = String(numero == null ? '' : numero).replace(/\s+/g, '');
+    var c = String(classe == null ? '' : classe).replace(/\s+/g, '').toUpperCase();
+    if (!/^[0-9]{1,12}$/.test(n) || !/^[1-4][A-Z]$/.test(c)) return null;
+    return { numero: n, classe: c, id: c + '-' + n };
   }
 
   // Cartelle note NON-vault dentro Mappe/: escluse dalla scansione a 2 livelli
@@ -525,6 +565,9 @@
     mapVaultRoot: mapVaultRoot,
     mapVaultParentsFor: mapVaultParentsFor,
     sanitizeVaultRelPath: sanitizeVaultRelPath,
+    CONSEGNE: CONSEGNE,
+    relVaultStudente: relVaultStudente,
+    identitaStudente: identitaStudente,
     VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,
     activityLabel: activityLabel,
     sessionFolderName: sessionFolderName,

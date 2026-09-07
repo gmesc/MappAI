@@ -2357,7 +2357,15 @@ ipcMain.handle('live-materials-start', async (event, opts) => {
         if (liveMatSrv) { await liveMatSrv.stop(); liveMatSrv = null; liveMatInfo = null; }
         const name = (opts && opts.name) || 'Materiali';
         const dir = path.join(liveBaseDir(), 'materiali-' + slugLive(name) + '-' + dateStamp());
-        liveMatSrv = createMaterialsServer({ repoRoot: __dirname, dir, session: { name } });
+        liveMatSrv = createMaterialsServer({
+            repoRoot: __dirname, dir, session: { name },
+            /* lo scambio con MappAI studente (7/9): il vault esposto per manifest e le
+               consegne che tornano nel vault del docente. `scambio:false` dal renderer =
+               kill-switch `mappai_scambio_studente`. Solo I/O qui: la regola sta in files-core. */
+            scambio: !(opts && opts.scambio === false),
+            vaultDir: findVaultDirByName,
+            onConsegna: info => { try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('live-consegna', info); } catch (e) { } }
+        });
         let port = null, lastErr = null;
         for (let p = 8768; p <= 8778; p++) {
             try { port = await liveMatSrv.listen(p, '0.0.0.0'); break; } catch (e) { lastErr = e; }
@@ -3118,8 +3126,39 @@ ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
         const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
         const fileName = safe.replace(/[^a-zA-Z0-9._-]+/g, '_') + '.zip';
         fs.writeFileSync(path.join(liveMatInfo.filesDir, fileName), buf);
-        return { success: true, file: fileName, files: liveMatSrv ? liveMatSrv.state().files : [] };
+        /* e lo stesso vault ESPOSTO per manifest, per l'app studente (7/9): lo zip resta
+           per il telefono, il QR è lo stesso file (origine + token) */
+        let vault = null;
+        if (liveMatSrv && liveMatSrv.esponiVault) {
+            const hit = walkMappe(mapsBaseDir()).find(v => v.vaultPath === srcDir) || {};
+            let root = safe;
+            try { root = (yaml.load(fs.readFileSync(path.join(srcDir, 'index.yaml'), 'utf-8')) || {}).rootNodeLabel || safe; } catch (e) { }
+            try { vault = liveMatSrv.esponiVault({ nome: safe, dir: srcDir, classe: hit.classDir || null, materia: hit.discDir || null, rootNodeLabel: root }); } catch (e) { console.warn('esponiVault:', e.message); }
+        }
+        return { success: true, file: fileName, files: liveMatSrv ? liveMatSrv.state().files : [], vault: vault ? { n: vault.files.length, totale: vault.totale } : null };
     } catch (err) { console.error('zip-vault-to-materials:', err); return { success: false, error: err.message }; }
+});
+
+// ── Le consegne degli allievi (scambio con MappAI studente, 7/9) ──────────────
+// <vault>/Consegne/<classe-numero>/<file>: due livelli, solo I/O — INSEGNA le elenca sulla mappa.
+ipcMain.handle('vault-consegne-list', async (event, { vaultPath } = {}) => {
+    try {
+        if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente', files: [] };
+        const base = path.join(vaultPath, FilesCore.CONSEGNE);
+        if (!fs.existsSync(base)) return { ok: true, files: [] };
+        const files = [];
+        fs.readdirSync(base, { withFileTypes: true }).forEach(st => {
+            if (!st.isDirectory() || st.name.charAt(0) === '.') return;
+            const d = path.join(base, st.name);
+            fs.readdirSync(d, { withFileTypes: true }).forEach(f => {
+                if (!f.isFile() || f.name.charAt(0) === '.') return;
+                let stat; try { stat = fs.statSync(path.join(d, f.name)); } catch (e) { return; }
+                files.push({ studente: st.name, name: f.name, relPath: FilesCore.CONSEGNE + '/' + st.name + '/' + f.name, size: stat.size, mtime: stat.mtimeMs });
+            });
+        });
+        files.sort((a, b) => b.mtime - a.mtime);
+        return { ok: true, files };
+    } catch (err) { return { ok: false, error: err.message, files: [] }; }
 });
 
 // ── Apri la cartella di una sessione di studio nel Finder (registro attività, 19/7) ──

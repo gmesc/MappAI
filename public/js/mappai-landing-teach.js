@@ -2013,6 +2013,65 @@
     return _consMappe().find(function (m) { return m.id === _cons.voce; }) || null;
   }
 
+  /* ── LO SCAMBIO CON MAPPAI STUDENTE (7/9) ─────────────────────────────────
+     Due cose in INSEGNA: nel picker QR la voce «Tutto il vault del progetto»
+     (lo stesso zip+QR di sempre: l'app studente legge origine e token dal QR e
+     scarica per manifest), e sotto i materiali la tabella «Consegne» —
+     <vault>/Consegne/<classe-numero>/<file>, ciò che gli allievi mandano
+     dall'iPad. Kill-switch `mappai_scambio_studente='0'`: via la voce, via la
+     tabella, e il server Materiali parte senza le rotte dello scambio. */
+  function _scambioOn() {
+    try { return localStorage.getItem('mappai_scambio_studente') !== '0'; } catch (e) { return true; }
+  }
+  function _consCaricaConsegne(m) {
+    var api = window.electronAPI;
+    if (!_scambioOn() || !m || !m.v || !m.v.fullPath || !api || !api.vaultConsegneList) return Promise.resolve([]);
+    return api.vaultConsegneList({ vaultPath: m.v.fullPath }).then(function (r) {
+      return ((r && r.files) || []).map(function (f, i) {
+        var id = 'cns:' + i;
+        _diskCache[id] = { vaultPath: m.v.fullPath, relPath: f.relPath };
+        return { id: id, titolo: f.name, studente: f.studente, data: f.mtime ? new Date(f.mtime).toISOString() : '', relPath: f.relPath, formato: (f.name.split('.').pop() || '').toUpperCase() };
+      });
+    }).catch(function () { return []; });
+  }
+  function _consTabellaConsegne() {
+    var lista = _cons.consegne || [];
+    if (!_scambioOn() || !lista.length) return null;
+    return {
+      id: 'consegne', titolo: _t('lt_g_consegne', 'Consegne degli allievi'), collassabile: true,
+      colonne: [
+        { etichetta: _t('lt_col_studente', 'Studente'), larghezza: '110px' },
+        { etichetta: _t('lt_col_doc', 'Documento') },
+        { etichetta: _t('lt_col_formato', 'Formato'), larghezza: '80px' },
+        { etichetta: _t('lt_col_data', 'Data'), larghezza: '110px' },
+        { etichetta: '', ordinabile: false, larghezza: '48px' }
+      ],
+      righe: lista.map(function (c) {
+        return { id: 'm:' + c.id, chiude: false, celle: [c.studente, c.titolo, c.formato, _dataIt(c.data), {
+          azioni: [{ id: 'fnd:' + c.id, icona: 'folder-open', ruolo: 'quieto', soloIcona: true, etichetta: _t('lt_cons_finder', 'Apri nel Finder') }]
+        }] };
+      })
+    };
+  }
+  function _dataIt(iso) {
+    var d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+  }
+  /* `sessioni.jsonl` dello studente (i record di studio): una riga per record,
+     le chiavi in testa — basta per leggerlo, non è un report */
+  function _consJsonlHtml(txt) {
+    var righe = String(txt || '').split(/\r?\n/).map(function (l) { try { return l.trim() ? JSON.parse(l) : null; } catch (e) { return null; } }).filter(Boolean);
+    var chiavi = [];
+    righe.forEach(function (r) { Object.keys(r).forEach(function (k) { if (chiavi.indexOf(k) < 0 && typeof r[k] !== 'object') chiavi.push(k); }); });
+    var cella = function (v) { return v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v)); };
+    return '<!doctype html><meta charset="utf-8"><style>body{font:12px/1.5 "Space Mono",monospace;padding:16px;color:#1e293b}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap}th{font-size:10px;text-transform:uppercase;color:#64748b}</style>' +
+      '<table><thead><tr>' + chiavi.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      righe.map(function (r) { return '<tr>' + chiavi.map(function (k) { return '<td>' + esc(cella(r[k])) + '</td>'; }).join('') + '</tr>'; }).join('') +
+      '</tbody></table>' + (righe.length ? '' : '<p>' + esc(_t('lt_jsonl_vuoto', 'Nessun record.')) + '</p>');
+  }
+
   /* La chiave con cui si riconosce lo STESSO documento scritto in due grafie:
      via l'estensione, i separatori (trattini, lineette, spazi) diventano uno
      spazio solo, tutto in minuscolo. «Foglio nodi — Mappa (rivisto)» e
@@ -2459,6 +2518,8 @@
          non un'area bianca */
       if (tabsB.length) s.tabelle = tabsB;
     }
+    var tc = _consTabellaConsegne();
+    if (tc) s.tabelle = (s.tabelle || []).concat([tc]);
   }
 
   function _consSchema() {
@@ -2861,6 +2922,7 @@
          PDF e audio restano `data:`: vanno al visualizzatore di Chromium, che
          `srcdoc` non sa costruire. */
       if (/\.html?$/i.test(loc.relPath)) return _consMostra(_testoDaBase64(res.base64));
+      if (/\.jsonl$/i.test(loc.relPath)) return _consMostra(_consJsonlHtml(_testoDaBase64(res.base64)));
       var mime = /\.pdf$/i.test(loc.relPath) ? 'application/pdf'
         : /\.mp3$/i.test(loc.relPath) ? 'audio/mpeg' : 'application/octet-stream';
       _consMostra(null, 'data:' + mime + ';base64,' + res.base64);
@@ -2880,6 +2942,15 @@
      (impostato all'apertura, azzerato alla chiusura). Senza, una mappa generata
      mentre la console è aperta non compariva fino a riaprirla. */
   var _consAggiorna = null;
+  /* una consegna arrivata dall'iPad: la console, se è aperta sulla mappa, si ridisegna */
+  try {
+    if (window.electronAPI && window.electronAPI.onLiveConsegna) {
+      window.electronAPI.onLiveConsegna(function (info) {
+        toast(_t('lt_consegna_ricevuta', 'Consegna ricevuta da') + ' ' + ((info && info.studente) || '') + ' · ' + ((info && info.rel) || '').split('/').pop(), 'success');
+        if (_consAggiorna) _consAggiorna();
+      });
+    }
+  } catch (e) { }
   function openConsoleInsegna(voceIniziale) {
     if (!MM()) { setMode('teach'); return; }
     /* ⚠️ La console DICHIARA la sua sezione, e deve farlo QUI: `setMode('teach')`
@@ -3015,6 +3086,8 @@
         if (_cons.voce !== id) return;          // nel frattempo ha cambiato mappa
         _cons.materiali = list; rifai();
       });
+      _cons.consegne = [];
+      _consCaricaConsegne(m).then(function (list) { if (_cons.voce !== id) return; _cons.consegne = list; rifai(); });
     }
     /* Ogni vista della classe si carica i suoi dati quando la si apre, non
        all'apertura della console: leggere il disco tre volte per una vista che
@@ -3068,7 +3141,10 @@
       if (!ridisegnaCons) return;
       _consRileggi(function () {
         var m = _consMappaScelta();
-        if (m) { _consCaricaMateriali(m).then(function (l) { _cons.materiali = l; rifai(); }); }
+        if (m) {
+          _consCaricaMateriali(m).then(function (l) { _cons.materiali = l; rifai(); });
+          _consCaricaConsegne(m).then(function (l) { _cons.consegne = l; rifai(); });
+        }
         else rifai();
       });
     };
@@ -3224,7 +3300,8 @@
 
       if (id.indexOf('m:') === 0) {
         var mid = id.slice(2);
-        _cons.mat = (_cons.materiali || []).find(function (x) { return x.id === mid; }) || null;
+        _cons.mat = (_cons.materiali || []).find(function (x) { return x.id === mid; })
+          || (_cons.consegne || []).find(function (x) { return x.id === mid; }) || null;
         rifai();
         return;
       }
@@ -3403,15 +3480,24 @@
        picker a «che cosa mando agli allievi» — e l'HTML d'archivio è proprio
        la copia senza soluzioni che si manda. */
     var lista = (_cons.materiali || []).filter(function (m) { return m.qr; });
-    if (!lista.length) {
+    /* in testa «Tutto il vault del progetto» (7/9): per l'app MappAI studente — lo stesso
+       zip+QR della tabella dei progetti, ma senza uscire dalla console (bivio 3 di Giacomo) */
+    var mp = _consMappaScelta();
+    var voci = [];
+    if (_scambioOn() && mp && mp.v && mp.v.folderName && window.MappAILive && window.MappAILive.shareVaultZipQr) {
+      voci.push({ id: 'q:vault', etichetta: _t('lt_cons_qr_vault', 'Tutto il vault del progetto'), seconda: _t('lt_cons_qr_vault_sotto', 'per MappAI studente: la mappa, i nodi e i materiali'), icona: 'folder-down' });
+    }
+    voci = voci.concat(lista.map(function (m) { return { id: 'q:' + m.id, etichetta: m.titolo, seconda: m.mappa || '', icona: 'file-text' }; }));
+    if (!voci.length) {
       toast(_t('lt_cons_qr_vuoto', 'Nessun materiale da condividere: genera prima una Sintesi, un Foglio nodi o una Timeline.'), 'warning');
       return;
     }
     MM().open({
       titolo: _t('lt_cons_qr_pick', 'Condividi un materiale via QR'), icona: 'qr-code', taglia: 's', invio: false,
-      sezioni: [{ voci: lista.map(function (m) { return { id: 'q:' + m.id, etichetta: m.titolo, seconda: m.mappa || '', icona: 'file-text' }; }) }]
+      sezioni: [{ voci: voci }]
     }).then(function (r) {
       if (!r || !r.azione || r.azione.indexOf('q:') !== 0) return;
+      if (r.azione === 'q:vault') { window.MappAILive.shareVaultZipQr(mp.v.folderName, mp.nome); return; }
       var m = lista.filter(function (x) { return x.id === r.azione.slice(2); })[0];
       if (m) _consShareMat(m);
     });

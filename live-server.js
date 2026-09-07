@@ -29,6 +29,7 @@ const LC = require(path.join(__dirname, 'public', 'js', 'mappai-live-core.js'));
 const LR = require(path.join(__dirname, 'public', 'js', 'mappai-live-reports.js'));
 const TC = require(path.join(__dirname, 'public', 'js', 'mappai-timeline-core.js'));   // Timeline Live (008)
 const SC = require(path.join(__dirname, 'public', 'js', 'mappai-scelta-core.js'));      // «Domande a scelta»
+const FC = require(path.join(__dirname, 'public', 'js', 'mappai-files-core.js'));       // scambio con MappAI studente (7/9)
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -57,9 +58,10 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
-function readBody(req, cb) {
+function readBody(req, cb, cap) {
+  const tetto = cap || BODY_CAP;
   let size = 0; const chunks = [];
-  req.on('data', d => { size += d.length; if (size > BODY_CAP) { req.destroy(); return; } chunks.push(d); });
+  req.on('data', d => { size += d.length; if (size > tetto) { req.destroy(); return; } chunks.push(d); });
   req.on('end', () => { try { cb(null, JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); } catch (e) { cb(e); } });
   req.on('error', e => cb(e));
 }
@@ -788,6 +790,75 @@ function createMaterialsServer(opts) {
   fs.mkdirSync(filesDir, { recursive: true });
   const serveStatic = makeServeStatic(repoRoot);
   const sessionFile = path.join(dir, 'session.json');
+  /* ── Lo scambio con MappAI studente (7/9) ─────────────────────────────────
+     Un VAULT esposto per sessione (manifest in memoria e in <dir>/vault.json,
+     crash-safe come session.json): l'app studente legge `/api/vault` e scarica
+     i file uno a uno da `/vault/<rel>` — solo i rel ELENCATI, mai un cammino
+     libero. E `POST /api/consegna`: l'allievo manda il PDF delle risposte, che
+     finisce nel vault del docente in Consegne/<studente>/. `opts.scambio:false`
+     spegne tutto (kill-switch dal renderer). */
+  const scambio = opts.scambio !== false;
+  const vaultFile = path.join(dir, 'vault.json');
+  const CONSEGNA_CAP = 20 * 1024 * 1024;
+  let vault = null;                 // { nome, dir, classe, materia, rootNodeLabel, files:[{rel,size,sha1}] }
+  let vaultSet = new Set();
+  if (scambio && fs.existsSync(vaultFile) && !opts.fresh) {
+    try { vault = JSON.parse(fs.readFileSync(vaultFile, 'utf8')); vaultSet = new Set((vault.files || []).map(f => f.rel)); } catch (e) { vault = null; }
+  }
+  function esponiVault(v) {
+    if (!scambio || !v || !v.dir || !fs.existsSync(v.dir)) return null;
+    const files = [];
+    (function walk(abs, rel) {
+      let ents = []; try { ents = fs.readdirSync(abs, { withFileTypes: true }); } catch (e) { return; }
+      ents.forEach(ent => {
+        const r = rel ? rel + '/' + ent.name : ent.name;
+        if (ent.isDirectory()) { if (ent.name.charAt(0) !== '.') walk(path.join(abs, ent.name), r); return; }
+        if (!ent.isFile()) return;
+        const ok = FC.relVaultStudente(r); if (!ok) return;
+        try {
+          const buf = fs.readFileSync(path.join(abs, ent.name));
+          files.push({ rel: ok, size: buf.length, sha1: crypto.createHash('sha1').update(buf).digest('hex') });
+        } catch (e) { /* illeggibile: non si elenca */ }
+      });
+    })(v.dir, '');
+    files.sort((a, b) => a.rel.localeCompare(b.rel));
+    vault = {
+      schema: 'mappai-vault-manifest@1', nome: String(v.nome || path.basename(v.dir)), dir: v.dir,
+      classe: v.classe || null, materia: v.materia || null, rootNodeLabel: v.rootNodeLabel || '',
+      totale: files.reduce((n, f) => n + f.size, 0), files
+    };
+    vaultSet = new Set(files.map(f => f.rel));
+    try { fs.writeFileSync(vaultFile, JSON.stringify(vault, null, 2)); } catch (e) { /* solo memoria */ }
+    return manifestPubblico();
+  }
+  function manifestPubblico() {
+    if (!vault) return null;
+    const { dir: _d, ...pub } = vault;   // la cartella del Mac non viaggia
+    return pub;
+  }
+  /* la consegna: nome sicuro, mai sovrascrivere */
+  function scriviConsegna(b) {
+    const ident = FC.identitaStudente(b.numero != null ? b.numero : (b.studente && b.studente.numero), b.classe != null ? b.classe : (b.studente && b.studente.classe));
+    if (!ident) return { code: 400, body: { error: 'studente' } };
+    const nome = path.basename(String(b.nome || '')).replace(/^\.+/, '');
+    if (!nome || !/^[^\/\\]+$/.test(nome) || FC.safeName(nome, '') !== nome) return { code: 400, body: { error: 'nome' } };
+    if (typeof b.base64 !== 'string' || !b.base64) return { code: 400, body: { error: 'contenuto' } };
+    const vaultDir = opts.vaultDir ? opts.vaultDir(String(b.vault || '')) : null;
+    if (!vaultDir || !fs.existsSync(vaultDir)) return { code: 404, body: { error: 'vault' } };
+    let buf; try { buf = Buffer.from(b.base64, 'base64'); } catch (e) { return { code: 400, body: { error: 'contenuto' } }; }
+    const cart = path.join(vaultDir, FC.CONSEGNE, ident.id);
+    fs.mkdirSync(cart, { recursive: true });
+    const sess = FC.safeName(String(b.sessione || ''), '');
+    const base = (sess ? sess + ' - ' : '') + nome;
+    const ext = path.extname(base), stem = base.slice(0, base.length - ext.length);
+    let fin = base, n = 2;
+    while (fs.existsSync(path.join(cart, fin))) { fin = stem + ' (' + n + ')' + ext; n++; }
+    fs.writeFileSync(path.join(cart, fin), buf);
+    const rel = FC.CONSEGNE + '/' + ident.id + '/' + fin;
+    const info = { ok: true, rel, size: buf.length, studente: ident.id, vault: String(b.vault || ''), vaultDir };
+    if (opts.onConsegna) { try { opts.onConsegna(info); } catch (e) { /* il renderer non c'è */ } }
+    return { code: 200, body: { ok: true, rel, size: buf.length, studente: ident.id } };
+  }
 
   let session;
   if (fs.existsSync(sessionFile) && !opts.fresh) {
@@ -812,10 +883,45 @@ function createMaterialsServer(opts) {
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
     const p = u.pathname;
+    /* CORS: l'app studente chiama da `capacitor://localhost`, un'origine che
+       non si può prevedere per IP; il gate resta il token. */
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+    const tokenOk = u.searchParams.get('s') === session.token || u.searchParams.get('s') === session.adminToken;
 
     if (p === '/') {
       res.writeHead(302, { Location: '/public/live/materials.html?s=' + session.token });
       res.end(); return;
+    }
+
+    if (p === '/api/vault' && req.method === 'GET') {
+      if (!tokenOk) return json(res, 403, { error: 'token' });
+      if (!scambio || !vault) return json(res, 404, { error: 'nessun-vault' });
+      return json(res, 200, manifestPubblico());
+    }
+    if (p.startsWith('/vault/') && req.method === 'GET') {
+      if (!tokenOk) { res.writeHead(403); res.end('forbidden'); return; }
+      let rel = ''; try { rel = decodeURIComponent(p.slice('/vault/'.length)); } catch (e) { rel = ''; }
+      if (!scambio || !vault || !vaultSet.has(rel)) { res.writeHead(404); res.end('not found'); return; }
+      const file = path.join(vault.dir, ...rel.split('/'));
+      if (!fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
+      const ext = path.extname(file).toLowerCase();
+      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+      res.end(fs.readFileSync(file)); return;
+    }
+    if (p === '/api/consegna' && req.method === 'POST') {
+      if (!tokenOk) return json(res, 403, { error: 'token' });
+      if (!scambio) return json(res, 404, { error: 'scambio-spento' });
+      let chiuso = false;
+      req.on('close', () => { if (!chiuso && req.destroyed && !res.headersSent) { try { json(res, 413, { error: 'troppo-grande' }); } catch (e) { } } });
+      return readBody(req, (err, b) => {
+        chiuso = true;
+        if (err) return json(res, 400, { error: 'json' });
+        const r = scriviConsegna(b || {});
+        return json(res, r.code, r.body);
+      }, CONSEGNA_CAP);
     }
 
     if (p === '/api/materials' && req.method === 'GET') {
@@ -855,8 +961,13 @@ function createMaterialsServer(opts) {
     },
     stop() { return new Promise(r => server.close(r)); },
     filesDir,
+    esponiVault,
     state() {
-      return { session: { name: session.name, token: session.token, adminToken: session.adminToken, startedAt: session.startedAt }, files: listFiles() };
+      return {
+        session: { name: session.name, token: session.token, adminToken: session.adminToken, startedAt: session.startedAt },
+        files: listFiles(),
+        vault: vault ? { nome: vault.nome, rootNodeLabel: vault.rootNodeLabel, n: vault.files.length, totale: vault.totale } : null
+      };
     }
   };
 }

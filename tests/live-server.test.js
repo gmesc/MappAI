@@ -8,6 +8,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { createLiveServer, createMaterialsServer } = require(path.join(__dirname, '..', 'live-server.js'));
 const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
 
@@ -216,6 +217,84 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
   const trav = await fetch('http://127.0.0.1:' + port + '/files/' + encodeURIComponent('../../secret.txt') + '?s=' + tok);
   assert.strictEqual(trav.status, 404);
 
+  await srv.stop();
+});
+
+// ── Scambio con MappAI studente (7/9): manifest del vault, file per rel, consegna ──
+test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> serve solo l\'elencato', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scambio-'));
+  const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
+  fs.writeFileSync(path.join(vdir, 'index.yaml'), 'rootNodeLabel: Il Clima\n');
+  fs.writeFileSync(path.join(vdir, 'vista.json'), '{}');
+  fs.mkdirSync(path.join(vdir, 'Nodi')); fs.writeFileSync(path.join(vdir, 'Nodi', 'Clima.md'), '# Clima');
+  fs.mkdirSync(path.join(vdir, 'Materiale Studio', 'Sorgenti'), { recursive: true });
+  fs.writeFileSync(path.join(vdir, 'Materiale Studio', 'Quiz-MC-Clima.pdf'), '%PDF');
+  fs.writeFileSync(path.join(vdir, 'Materiale Studio', 'Sorgenti', 'Domande-aperte-Clima-causa.html'), '<html>');
+  fs.mkdirSync(path.join(vdir, 'Studio Attivo')); fs.writeFileSync(path.join(vdir, 'Studio Attivo', 'sessioni.jsonl'), '{}');
+  const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  const port = await srv.listen(0, '127.0.0.1');
+  const tok = srv.state().session.token;
+  const base = 'http://127.0.0.1:' + port;
+
+  assert.strictEqual((await fetch(base + '/api/vault?s=' + tok)).status, 404, 'senza esponiVault: nessun-vault');
+  const man = srv.esponiVault({ nome: 'Il Clima', dir: vdir, classe: '4R', materia: 'Geografia', rootNodeLabel: 'Il Clima' });
+  assert.deepStrictEqual(man.files.map(f => f.rel).sort(), ['Materiale Studio/Quiz-MC-Clima.pdf', 'Materiale Studio/Sorgenti/Domande-aperte-Clima-causa.html', 'Nodi/Clima.md', 'index.yaml']);
+  assert.ok(!('dir' in man), 'la cartella del Mac non viaggia');
+  const r = await fetch(base + '/api/vault?s=' + tok);
+  assert.strictEqual(r.headers.get('access-control-allow-origin'), '*');
+  const j = await r.json();
+  assert.strictEqual(j.schema, 'mappai-vault-manifest@1');
+  assert.strictEqual(j.classe, '4R');
+  assert.strictEqual(j.files.find(f => f.rel === 'index.yaml').sha1, crypto.createHash('sha1').update('rootNodeLabel: Il Clima\n').digest('hex'));
+  assert.ok(fs.existsSync(path.join(dir, 'vault.json')), 'crash-safe su disco');
+
+  assert.strictEqual(await fetch(base + '/vault/index.yaml?s=' + tok).then(x => x.text()), 'rootNodeLabel: Il Clima\n');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Nodi/Clima.md') + '?s=' + tok)).status, 200);
+  assert.strictEqual((await fetch(base + '/vault/vista.json?s=' + tok)).status, 404, 'non elencato');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('../session.json') + '?s=' + tok)).status, 404);
+  assert.strictEqual((await fetch(base + '/vault/index.yaml?s=nope')).status, 403);
+  assert.strictEqual((await fetch(base + '/api/vault', { method: 'OPTIONS' })).status, 204);
+  await srv.stop();
+
+  // ripresa dal disco: stesso dir → il manifest torna
+  const srv2 = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  const port2 = await srv2.listen(0, '127.0.0.1');
+  assert.strictEqual((await fetch('http://127.0.0.1:' + port2 + '/api/vault?s=' + tok)).status, 200);
+  await srv2.stop();
+
+  // scambio spento
+  const srv3 = createMaterialsServer({ repoRoot, dir: fs.mkdtempSync(path.join(os.tmpdir(), 'live-off-')), session: { name: 'x' }, scambio: false });
+  const port3 = await srv3.listen(0, '127.0.0.1');
+  assert.strictEqual(srv3.esponiVault({ nome: 'x', dir: vdir }), null);
+  assert.strictEqual((await fetch('http://127.0.0.1:' + port3 + '/api/vault?s=' + srv3.state().session.token)).status, 404);
+  await srv3.stop();
+});
+
+test('scambio: POST /api/consegna scrive in Consegne/<classe-numero>/, mai sovrascrive, rifiuta il resto', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-consegna-'));
+  const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
+  const ricevute = [];
+  const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' },
+    vaultDir: nome => nome === 'Il Clima' ? vdir : null, onConsegna: i => ricevute.push(i) });
+  const port = await srv.listen(0, '127.0.0.1');
+  const tok = srv.state().session.token;
+  const post = (b, s) => fetch('http://127.0.0.1:' + port + '/api/consegna?s=' + (s || tok), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
+    .then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
+  const pdf = Buffer.from('%PDF-1.3 risposte').toString('base64');
+  const ok = await post({ numero: '4517', classe: '1a', vault: 'Il Clima', sessione: 'Domande · Il Clima · 00', nome: 'risposte.pdf', base64: pdf });
+  assert.strictEqual(ok.status, 200, JSON.stringify(ok.body));
+  assert.strictEqual(ok.body.rel, 'Consegne/1A-4517/Domande · Il Clima · 00 - risposte.pdf');
+  assert.strictEqual(fs.readFileSync(path.join(vdir, ok.body.rel), 'utf8'), '%PDF-1.3 risposte');
+  assert.strictEqual(ricevute.length, 1);
+  assert.strictEqual(ricevute[0].studente, '1A-4517');
+  const bis = await post({ numero: '4517', classe: '1A', vault: 'Il Clima', sessione: 'Domande · Il Clima · 00', nome: 'risposte.pdf', base64: pdf });
+  assert.strictEqual(bis.body.rel, 'Consegne/1A-4517/Domande · Il Clima · 00 - risposte (2).pdf', 'mai sovrascrivere');
+  const trav = await post({ numero: '1', classe: '2B', vault: 'Il Clima', sessione: '', nome: '../../x.pdf', base64: pdf });
+  assert.strictEqual(trav.status, 200); assert.strictEqual(trav.body.rel, 'Consegne/2B-1/x.pdf', 'basename');
+  assert.strictEqual((await post({ numero: 'abc', classe: '1A', vault: 'Il Clima', nome: 'x.pdf', base64: pdf })).status, 400);
+  assert.strictEqual((await post({ numero: '1', classe: '5A', vault: 'Il Clima', nome: 'x.pdf', base64: pdf })).status, 400);
+  assert.strictEqual((await post({ numero: '1', classe: '1A', vault: 'Altra', nome: 'x.pdf', base64: pdf })).status, 404);
+  assert.strictEqual((await post({ numero: '1', classe: '1A', vault: 'Il Clima', nome: 'x.pdf', base64: pdf }, 'nope')).status, 403);
   await srv.stop();
 });
 

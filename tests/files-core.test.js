@@ -146,6 +146,38 @@ test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', (
   assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
 });
 
+// ── Scambio con MappAI studente (7/9/26) ─────────────────────────────────
+test('relVaultStudente: la mappa e i materiali sì; vista, Studio Attivo, Chat, Fonti, pipeline no', () => {
+  assert.strictEqual(FC.relVaultStudente('index.yaml'), 'index.yaml');
+  assert.strictEqual(FC.relVaultStudente('links.json'), 'links.json');
+  assert.strictEqual(FC.relVaultStudente('fonti_e_link.txt'), 'fonti_e_link.txt');
+  assert.strictEqual(FC.relVaultStudente('Nodi/Elettricità.md'), 'Nodi/Elettricità.md');
+  assert.strictEqual(FC.relVaultStudente('Nodi/ramo/foglia.md'), 'Nodi/ramo/foglia.md');
+  assert.strictEqual(FC.relVaultStudente('Materiale Studio\\Quiz-MC-x.pdf'), 'Materiale Studio/Quiz-MC-x.pdf');
+  assert.strictEqual(FC.relVaultStudente('Materiale Studio/Sorgenti/Domande-aperte-x-causa.html'), 'Materiale Studio/Sorgenti/Domande-aperte-x-causa.html');
+  assert.strictEqual(FC.relVaultStudente('Allegati/fonte.pdf'), 'Allegati/fonte.pdf');
+  ['vista.json', 'pipeline.json', 'chat_state.json', 'Studio Attivo/sessioni.jsonl', 'Studio Attivo/Prove/x/risposte.pdf',
+   'Chat/x.md', 'Fonti/x.pdf', 'Consegne/1A-12/x.pdf', '.DS_Store', 'Materiale Studio/.nascosto', 'Nodi/a/b/c.md', 'Nodi/x.txt',
+   '../index.yaml', 'Materiale Studio/../vista.json', '/abs/index.yaml', ''].forEach(r => {
+    assert.strictEqual(FC.relVaultStudente(r), null, r + ' non deve passare');
+  });
+});
+
+test('sanitizeVaultRelPath: ammette Consegne/<studente>/<file>, tre segmenti esatti', () => {
+  assert.strictEqual(FC.sanitizeVaultRelPath('Consegne/1A-12/Domande · Clima · 00 - risposte.pdf'), 'Consegne/1A-12/Domande · Clima · 00 - risposte.pdf');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Consegne/x.pdf'), null);
+  assert.strictEqual(FC.sanitizeVaultRelPath('Consegne/1A-12/sub/x.pdf'), null);
+  assert.strictEqual(FC.CONSEGNE, 'Consegne');
+});
+
+test('identitaStudente: numero solo cifre, classe [1-4][A-Z] maiuscola, id = classe-numero', () => {
+  assert.deepStrictEqual(FC.identitaStudente('4517', '1a'), { numero: '4517', classe: '1A', id: '1A-4517' });
+  assert.deepStrictEqual(FC.identitaStudente(' 12 ', ' 4R'), { numero: '12', classe: '4R', id: '4R-12' });
+  [['', '1A'], ['12', ''], ['12', '5A'], ['12', '1'], ['12', '1AB'], ['12', '1à'], ['ab', '1A'], ['12/3', '1A'], ['1234567890123', '1A'], [null, null]].forEach(c => {
+    assert.strictEqual(FC.identitaStudente(c[0], c[1]), null, JSON.stringify(c));
+  });
+});
+
 // ── Fonti/ (22/7/26 — PDF originali per anteprima ELABORA) ──────────────
 test('sanitizeVaultRelPath: ammette Fonti/<file>, nega traversal e profondità', () => {
   assert.strictEqual(FC.sanitizeVaultRelPath('Fonti/scheda-carta.pdf'), 'Fonti/scheda-carta.pdf');

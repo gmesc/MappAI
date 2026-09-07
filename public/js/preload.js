@@ -130,6 +130,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Sezione Progetti/Attività Insegna (19/7): apri cartelle, zip vault → QR.
     openVaultFolder: (data) => ipcRenderer.invoke('open-vault-folder', data),
     zipVaultToMaterials: (data) => ipcRenderer.invoke('zip-vault-to-materials', data),
+    /* scambio con MappAI studente (7/9): le consegne nel vault e il segnale «ne è arrivata una» */
+    vaultConsegneList: (data) => ipcRenderer.invoke('vault-consegne-list', data),
+    onLiveConsegna: (cb) => ipcRenderer.on('live-consegna', (e, info) => cb(info)),
     openMapsFolder: () => ipcRenderer.invoke('open-save-folder'),
     studySessionOpenFolder: (data) => ipcRenderer.invoke('study-session-open-folder', data),
     liveClassesLoad: () => ipcRenderer.invoke('live-classes-load'),

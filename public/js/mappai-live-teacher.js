@@ -590,6 +590,8 @@
     if (LT.matInfo) return Promise.resolve(LT.matInfo);
     var opts = { name: rootLabel() };
     if (window.MappAINetMode) opts.netMode = window.MappAINetMode.get();
+    /* kill-switch dello scambio con MappAI studente (7/9): il server parte senza le rotte */
+    try { if (localStorage.getItem('mappai_scambio_studente') === '0') opts.scambio = false; } catch (e) { }
     return window.electronAPI.liveMaterialsStart(opts).then(function (r) {
       if (r && r.success) {
         LT.matInfo = r;
@@ -728,7 +730,8 @@
     var body = '<div style="text-align:center">' +
       (qrSrc ? '<img id="lv-docqr" src="' + qrSrc + '" style="width:230px;height:230px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">' : '<div style="color:#b45309">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:8px;word-break:break-all">' + esc(url) + '</div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div></div>' +
+      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div>' +
+      '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + t('sd_qr_studente', 'Nell\'app MappAI studente: Docente › Ricevi — inquadra il QR o scrivi questo indirizzo') + '</div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">' +
       actBtn('lv-docqr-close', t('lv_back', 'Indietro'), '#f1f5f9', '#334155') + '</div>';
     var ov = modal('qr-code', t('sd_qr_title', 'Condividi documento'), body, '440px');
