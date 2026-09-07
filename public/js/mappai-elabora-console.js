@@ -972,7 +972,10 @@
             var s = _appState();
             var mappa = (s && s.rootNodeLabel) || '';
             if (!mappa) return '';
-            var base = String(nomeFile).replace(/\.[A-Za-z0-9]+$/, '');
+            /* il suffisso del carattere (« - TM Sans», 18/8) NON è il nome di una copia:
+               si toglie prima di leggere (quirk noto dal 6/9, chiuso il 7/9) */
+            var FCn = window.MappAIFilesCore;
+            var base = FCn && FCn.senzaCarattere ? FCn.senzaCarattere(String(nomeFile)).stem : String(nomeFile).replace(/\.[A-Za-z0-9]+$/, '');
             var pre = genere + '-' + mappa;
             if (base.indexOf(pre) !== 0) return '';
             return base.slice(pre.length).replace(/^[-–—\s]+/, '').trim();

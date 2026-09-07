@@ -226,6 +226,47 @@
     return null;
   }
 
+  /* ── IL CARATTERE NEL NOME DEL FILE (7/9) ───────────────────────────────────
+     Dal 18/8 ogni materiale generato finisce con « - <Carattere>» (buildFileName in
+     pipeline-core). Conseguenza voluta allora, pesante oggi (Giacomo, 7/9): cambiando
+     carattere la cartella CRESCE — «Quiz-MC-Clima - TM Sans.pdf» accanto a
+     «Quiz-MC-Clima.pdf» — e chi rilegge i nomi scambia il suffisso per il nome di una
+     copia. Qui la regola che li distingue: le ETICHETTE dei caratteri (quelle di oggi
+     e quelle che i file vecchi portano ancora: «TestMe Sans» prima della OFL) e due
+     funzioni pure — `senzaCarattere` toglie il suffisso, `variantiDaPotare` dice quali
+     file di una cartella sono lo STESSO documento in un altro carattere. */
+  var ETICHETTE_CARATTERE = ['Space Mono', 'TM Sans', 'TM Alt', 'Atkinson Hyperlegible', 'TestMe Sans', 'TestMe Alt'];
+  function _etichette(extra) {
+    var out = ETICHETTE_CARATTERE.slice();
+    (extra || []).forEach(function (e) { e = String(e || '').trim(); if (e && out.indexOf(e) < 0) out.push(e); });
+    return out.sort(function (a, b) { return b.length - a.length; });   /* la più lunga prima: «TM Alt» non ruba «TM Alt Bold» */
+  }
+  /* «Quiz-MC-Clima - TM Sans.pdf» → { stem: 'Quiz-MC-Clima', carattere: 'TM Sans', est: '.pdf' };
+     un nome senza suffisso noto → carattere '' */
+  function senzaCarattere(nomeFile, etichette) {
+    var nome = String(nomeFile == null ? '' : nomeFile);
+    var m = /\.[A-Za-z0-9]+$/.exec(nome);
+    var est = m ? m[0] : '', base = est ? nome.slice(0, -est.length) : nome;
+    var lst = _etichette(etichette);
+    for (var i = 0; i < lst.length; i++) {
+      var suf = ' - ' + lst[i];
+      if (base.length > suf.length && base.slice(-suf.length) === suf) return { stem: base.slice(0, -suf.length), carattere: lst[i], est: est };
+    }
+    return { stem: base, carattere: '', est: est };
+  }
+  /* i nomi (nella stessa cartella) da togliere quando arriva `nuovo`: stesso stem e
+     stessa estensione, nome diverso. Una copia con un nome suo («Quiz-MC-Clima-verifica
+     ottobre - TM Sans.pdf») ha un altro stem e non si tocca. */
+  function variantiDaPotare(esistenti, nuovo, etichette) {
+    var n = senzaCarattere(nuovo, etichette);
+    if (!n.stem || !n.est) return [];
+    return (esistenti || []).filter(function (e) {
+      if (e === nuovo) return false;
+      var x = senzaCarattere(e, etichette);
+      return x.stem === n.stem && x.est.toLowerCase() === n.est.toLowerCase();
+    });
+  }
+
   /* ── LO SCAMBIO CON MAPPAI STUDENTE (7/9) ──────────────────────────────────
      Tre regole che valgono su ENTRAMBI i lati (il file è copiato nel reader): */
   var CONSEGNE = 'Consegne';   // <vault>/Consegne/<studente>/ — ciò che gli allievi mandano
@@ -566,6 +607,9 @@
     mapVaultParentsFor: mapVaultParentsFor,
     sanitizeVaultRelPath: sanitizeVaultRelPath,
     CONSEGNE: CONSEGNE,
+    ETICHETTE_CARATTERE: ETICHETTE_CARATTERE,
+    senzaCarattere: senzaCarattere,
+    variantiDaPotare: variantiDaPotare,
     relVaultStudente: relVaultStudente,
     identitaStudente: identitaStudente,
     VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,

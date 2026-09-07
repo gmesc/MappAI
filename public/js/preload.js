@@ -50,7 +50,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     savePDFToVault: (data) => ipcRenderer.invoke('save-pdf-to-vault', data),
     // Pipeline «Genera materiali» (011)
     htmlToPdf: (data) => ipcRenderer.invoke('html-to-pdf', data),
-    saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', data),
+    /* `potaVarianti` (7/9): le varianti dello stesso materiale in un altro carattere
+       vanno nel Cestino quando se ne scrive una nuova; kill-switch `mappai_pota_varianti='0'` */
+    saveVaultFile: (data) => ipcRenderer.invoke('save-vault-file', Object.assign({
+        potaVarianti: (function () { try { return localStorage.getItem('mappai_pota_varianti') !== '0'; } catch (e) { return true; } })()
+    }, data || {})),
     readVaultFile: (data) => ipcRenderer.invoke('read-vault-file', data),
     // sposta nel Cestino un file dentro un vault (materiali di INSEGNA)
     deleteVaultFile: (data) => ipcRenderer.invoke('delete-vault-file', data),

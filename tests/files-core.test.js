@@ -146,6 +146,27 @@ test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', (
   assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
 });
 
+// ── Il carattere nel nome del file (7/9/26) ──────────────────────────────
+test('senzaCarattere: toglie solo un suffisso noto, riconosce le etichette vecchie', () => {
+  assert.deepStrictEqual(FC.senzaCarattere('Quiz-MC-Il Clima - TM Sans.pdf'), { stem: 'Quiz-MC-Il Clima', carattere: 'TM Sans', est: '.pdf' });
+  assert.deepStrictEqual(FC.senzaCarattere('Domande-aperte-Elettricità-causa - TestMe Sans.pdf'), { stem: 'Domande-aperte-Elettricità-causa', carattere: 'TestMe Sans', est: '.pdf' });
+  assert.deepStrictEqual(FC.senzaCarattere('Sintesi-Il Clima -VERDE.html'), { stem: 'Sintesi-Il Clima -VERDE', carattere: '', est: '.html' });
+  assert.deepStrictEqual(FC.senzaCarattere('Quiz-MC-Clima-verifica ottobre - TM Alt.pdf'), { stem: 'Quiz-MC-Clima-verifica ottobre', carattere: 'TM Alt', est: '.pdf' });
+  assert.deepStrictEqual(FC.senzaCarattere('Quiz-MC-Clima - Comic Sans.pdf'), { stem: 'Quiz-MC-Clima - Comic Sans', carattere: '', est: '.pdf' }, 'un carattere ignoto non è un suffisso');
+  assert.deepStrictEqual(FC.senzaCarattere('Quiz-MC-Clima - Comic Sans.pdf', ['Comic Sans']).carattere, 'Comic Sans', 'ma si può annunciare');
+});
+
+test('variantiDaPotare: lo stesso documento in un altro carattere sì, una copia con un nome suo no', () => {
+  const dir = ['Quiz-MC-Clima.pdf', 'Quiz-MC-Clima - TestMe Sans.pdf', 'Quiz-MC-Clima - TM Sans.pdf', 'Quiz-MC-Clima-verifica ottobre - TM Sans.pdf',
+    'Quiz-VF-Clima - TM Sans.pdf', 'Sintesi-Clima - TM Sans.html', 'Quiz-MC-Clima - TM Sans.html', 'set-1.json'];
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'Quiz-MC-Clima - TM Sans.pdf').sort(), ['Quiz-MC-Clima - TestMe Sans.pdf', 'Quiz-MC-Clima.pdf']);
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'Quiz-MC-Clima - Atkinson Hyperlegible.pdf').sort(), ['Quiz-MC-Clima - TM Sans.pdf', 'Quiz-MC-Clima - TestMe Sans.pdf', 'Quiz-MC-Clima.pdf']);
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'Quiz-MC-Clima.pdf').sort(), ['Quiz-MC-Clima - TM Sans.pdf', 'Quiz-MC-Clima - TestMe Sans.pdf']);
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'Sintesi-Clima - TM Alt.html'), ['Sintesi-Clima - TM Sans.html'], 'stessa estensione soltanto');
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'set-1.json'), []);
+  assert.deepStrictEqual(FC.variantiDaPotare(dir, 'senza-estensione'), []);
+});
+
 // ── Scambio con MappAI studente (7/9/26) ─────────────────────────────────
 test('relVaultStudente: la mappa e i materiali sì; vista, Studio Attivo, Chat, Fonti, pipeline no', () => {
   assert.strictEqual(FC.relVaultStudente('index.yaml'), 'index.yaml');

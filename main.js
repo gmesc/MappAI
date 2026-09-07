@@ -825,7 +825,24 @@ ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
 
 // save-vault-file: scrittura generica dentro il vault (HTML/MP3/PDF/JSON manifest).
 // La sanitizzazione del percorso arriva da FilesCore — main NON reimplementa regole.
-ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent } = {}) => {
+/* Le VARIANTI dello stesso materiale in un altro carattere (7/9): quando la pipeline
+   scrive «Quiz-MC-Clima - TM Sans.pdf», «Quiz-MC-Clima - TestMe Sans.pdf» e
+   «Quiz-MC-Clima.pdf» nella stessa cartella sono lo stesso documento di prima e
+   vanno nel Cestino (mai cancellati). Solo `Materiale Studio/<file>`, solo con
+   `potaVarianti:true` — che il preload mette da sé leggendo il kill-switch
+   `mappai_pota_varianti` del renderer. La regola è in files-core (pura). */
+function potaVariantiCarattere(vaultPath, safe) {
+    const segs = safe.split('/');
+    if (segs.length !== 2 || segs[0] !== 'Materiale Studio') return [];
+    const dir = path.join(vaultPath, 'Materiale Studio');
+    let nomi = []; try { nomi = fs.readdirSync(dir).filter(n => n.charAt(0) !== '.'); } catch (e) { return []; }
+    const via = FilesCore.variantiDaPotare(nomi, segs[1]);
+    via.forEach(n => { try { shell.trashItem(path.join(dir, n)); } catch (e) { console.warn('[varianti] non cestinato', n, e.message); } });
+    if (via.length) console.log('[varianti] nel Cestino:', via.join(' · '));
+    return via;
+}
+
+ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent, potaVarianti } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
@@ -841,7 +858,8 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
         } else {
             fs.writeFileSync(dest, String(text), 'utf-8');
         }
-        return { ok: true, path: dest };
+        const potate = potaVarianti === true ? potaVariantiCarattere(vaultPath, safe) : [];
+        return { ok: true, path: dest, potate };
     } catch (err) {
         return { ok: false, error: err.message };
     }
