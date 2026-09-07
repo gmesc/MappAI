@@ -797,9 +797,10 @@
         /* ⚠️ L'etichetta dice la TAGLIA, non la diagnosi (Giacomo, 7/9): «Aa Dislessia»
            nominava chi dovrebbe premerlo — su un documento che lo studente apre in
            classe è un'etichetta addosso a lui, e per giunta non diceva a che punto
-           della scala si è. I tre stati ora si leggono come una scala sola. */
+           della scala si è. Il primo stato dice che il testo CRESCE («Aa x+»), gli
+           altri due dicono di quanto: si leggono come una scala sola. */
         const dysLabels = [
-            window.t('bs_doc_dys', 'Aa x1'),
+            window.t('bs_doc_dys', 'Aa x+'),
             window.t('bs_doc_dys_x15', 'Aa x1,5'),
             window.t('bs_doc_dys_x2', 'Aa x2')
         ];
