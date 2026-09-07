@@ -271,22 +271,22 @@
      Tre regole che valgono su ENTRAMBI i lati (il file è copiato nel reader): */
   var CONSEGNE = 'Consegne';   // <vault>/Consegne/<studente>/ — ciò che gli allievi mandano
   /* ── I MATERIALI CHE RESTANO AL DOCENTE (7/9) ───────────────────────────────
-     I PDF di flashcard, fogli dei nodi, quiz e domande aperte NON vanno allo
-     studente, per due ragioni dette da Giacomo: l'ultima pagina porta le
-     SOLUZIONI, e nell'app lo studente quelle attività se le compone da sé
-     (i set `set-*.json` e i gemelli in `Materiale Studio/Sorgenti/` viaggiano
-     proprio per questo). Restano invece la mappa stampata, i Focus, le viste di
-     studio, la catena dei perché, l'analisi della fonte e la sintesi.
-     ⚠️ Solo `.pdf`: i gemelli `.html` in Sorgenti/ sono la SORGENTE da cui l'app
-     dello studente costruisce le prove, e senza di loro «Prova» resta vuota.
-     I prefissi sono quelli di `GENERI` in pipeline-core (inv. 6: là si nominano,
-     qui si riconoscono; le forme tolleranti coprono i nomi vecchi). */
-  var SOLO_DOCENTE = [/^Flashcard/i, /^Foglio.?nodi/i, /^Quiz-(MC|VF)/i, /^Domande.?aperte/i];
+     LA REGOLA, nelle parole di Giacomo: «l'unico PDF che viaggia dal docente
+     all'allievo è quello della scheda didattica originale». Quello sta in
+     `Allegati/`; in `Materiale Studio/` NESSUN pdf va allo studente.
+     Due ragioni. I fogli di quiz, flashcard e domande aperte portano le SOLUZIONI
+     nell'ultima pagina. E tutto il resto — la mappa stampata, i Focus, le viste
+     di studio, la catena dei perché — nell'app lo studente se lo genera da sé
+     dalla mappa che ha in mano: un PDF già impaginato dal docente sarebbe una
+     seconda copia della stessa cosa, più vecchia.
+     Viaggiano invece: la sintesi (`.html` + `.mp3`), i set `set-*.json` e i
+     gemelli `.html` in `Materiale Studio/Sorgenti/` — cioè le SORGENTI con cui
+     l'app costruisce quiz e prove; senza, «Prova» resta vuota.
+     ⚠️ Il nome basta perché tutti i chiamanti guardano dentro `Materiale Studio`
+     (la cartella la decide `relVaultStudente` qui sotto, e gli elenchi dell'app
+     dello studente chiedono quella). */
   function materialeSoloDocente(nomeFile) {
-    var n = String(nomeFile == null ? '' : nomeFile).trim();
-    if (!/\.pdf$/i.test(n)) return false;
-    for (var i = 0; i < SOLO_DOCENTE.length; i++) if (SOLO_DOCENTE[i].test(n)) return true;
-    return false;
+    return /\.pdf$/i.test(String(nomeFile == null ? '' : nomeFile).trim());
   }
 
   /* Che cosa del vault VA allo studente: la mappa (index.yaml, links.json,
