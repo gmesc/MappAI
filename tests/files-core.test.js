@@ -174,7 +174,8 @@ test('relVaultStudente: la mappa e i materiali sì; vista, Studio Attivo, Chat, 
   assert.strictEqual(FC.relVaultStudente('fonti_e_link.txt'), 'fonti_e_link.txt');
   assert.strictEqual(FC.relVaultStudente('Nodi/Elettricità.md'), 'Nodi/Elettricità.md');
   assert.strictEqual(FC.relVaultStudente('Nodi/ramo/foglia.md'), 'Nodi/ramo/foglia.md');
-  assert.strictEqual(FC.relVaultStudente('Materiale Studio\\Quiz-MC-x.pdf'), 'Materiale Studio/Quiz-MC-x.pdf');
+  assert.strictEqual(FC.relVaultStudente('Materiale Studio\\MM-Clima - TM Sans-00.pdf'), 'Materiale Studio/MM-Clima - TM Sans-00.pdf');   // backslash → slash
+  assert.strictEqual(FC.relVaultStudente('Materiale Studio/Quiz-MC-x.pdf'), null, 'i PDF con le soluzioni restano al docente');
   assert.strictEqual(FC.relVaultStudente('Materiale Studio/Sorgenti/Domande-aperte-x-causa.html'), 'Materiale Studio/Sorgenti/Domande-aperte-x-causa.html');
   assert.strictEqual(FC.relVaultStudente('Allegati/fonte.pdf'), 'Allegati/fonte.pdf');
   ['vista.json', 'pipeline.json', 'chat_state.json', 'Studio Attivo/sessioni.jsonl', 'Studio Attivo/Prove/x/risposte.pdf',
@@ -182,6 +183,21 @@ test('relVaultStudente: la mappa e i materiali sì; vista, Studio Attivo, Chat, 
    '../index.yaml', 'Materiale Studio/../vista.json', '/abs/index.yaml', ''].forEach(r => {
     assert.strictEqual(FC.relVaultStudente(r), null, r + ' non deve passare');
   });
+});
+
+test('materialeSoloDocente: i PDF con le soluzioni in coda restano al docente, i gemelli e i set no', () => {
+  ['Flashcard-La carta - TM Sans.pdf', 'Foglio-nodi-La carta-title - TM Sans.pdf', 'Foglio nodi-x.pdf',
+   'Quiz-MC-La carta-causa - TM Sans.pdf', 'Quiz-VF-Il Clima -VERDE.pdf', 'Domande-aperte-La carta-esempio - TM Sans.pdf'].forEach(n => {
+    assert.strictEqual(FC.materialeSoloDocente(n), true, n);
+    assert.strictEqual(FC.relVaultStudente('Materiale Studio/' + n), null, n + ' non viaggia');
+  });
+  ['Sintesi-La carta - TM Sans.html', 'Sintesi-audio-Il Clima.mp3', 'MM-Elettricità - TM Sans-4ª-00.pdf',
+   'Focus-Temperatura-parentela.pdf', 'Studio-Il Clima-fasci.pdf', 'Catena-dei-perche-La carta - TM Sans.pdf',
+   'Analisi-della-fonte-x.pdf', 'set-set_1788.json', 'Domande-aperte-La carta-esempio - TM Sans.html'].forEach(n => {
+    assert.strictEqual(FC.materialeSoloDocente(n), false, n);
+    assert.strictEqual(FC.relVaultStudente('Materiale Studio/' + n), 'Materiale Studio/' + n, n + ' viaggia');
+  });
+  assert.strictEqual(FC.relVaultStudente('Materiale Studio/Sorgenti/Domande-aperte-La carta-causa - TM Sans.html'), 'Materiale Studio/Sorgenti/Domande-aperte-La carta-causa - TM Sans.html', 'il gemello è la sorgente delle prove');
 });
 
 test('sanitizeVaultRelPath: ammette Consegne/<studente>/<file>, tre segmenti esatti', () => {

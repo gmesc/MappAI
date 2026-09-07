@@ -270,6 +270,25 @@
   /* ── LO SCAMBIO CON MAPPAI STUDENTE (7/9) ──────────────────────────────────
      Tre regole che valgono su ENTRAMBI i lati (il file è copiato nel reader): */
   var CONSEGNE = 'Consegne';   // <vault>/Consegne/<studente>/ — ciò che gli allievi mandano
+  /* ── I MATERIALI CHE RESTANO AL DOCENTE (7/9) ───────────────────────────────
+     I PDF di flashcard, fogli dei nodi, quiz e domande aperte NON vanno allo
+     studente, per due ragioni dette da Giacomo: l'ultima pagina porta le
+     SOLUZIONI, e nell'app lo studente quelle attività se le compone da sé
+     (i set `set-*.json` e i gemelli in `Materiale Studio/Sorgenti/` viaggiano
+     proprio per questo). Restano invece la mappa stampata, i Focus, le viste di
+     studio, la catena dei perché, l'analisi della fonte e la sintesi.
+     ⚠️ Solo `.pdf`: i gemelli `.html` in Sorgenti/ sono la SORGENTE da cui l'app
+     dello studente costruisce le prove, e senza di loro «Prova» resta vuota.
+     I prefissi sono quelli di `GENERI` in pipeline-core (inv. 6: là si nominano,
+     qui si riconoscono; le forme tolleranti coprono i nomi vecchi). */
+  var SOLO_DOCENTE = [/^Flashcard/i, /^Foglio.?nodi/i, /^Quiz-(MC|VF)/i, /^Domande.?aperte/i];
+  function materialeSoloDocente(nomeFile) {
+    var n = String(nomeFile == null ? '' : nomeFile).trim();
+    if (!/\.pdf$/i.test(n)) return false;
+    for (var i = 0; i < SOLO_DOCENTE.length; i++) if (SOLO_DOCENTE[i].test(n)) return true;
+    return false;
+  }
+
   /* Che cosa del vault VA allo studente: la mappa (index.yaml, links.json,
      Nodi/**), i materiali (Materiale Studio/* e /Sorgenti/*), gli allegati e
      l'indice delle fonti. NON vanno: vista.json (la vista è di chi guarda),
@@ -287,7 +306,10 @@
     }
     if (segs.length === 1) return (segs[0] === 'index.yaml' || segs[0] === 'links.json' || segs[0] === 'fonti_e_link.txt') ? segs[0] : null;
     if (segs[0] === 'Nodi' && segs.length <= 3 && /\.md$/i.test(segs[segs.length - 1])) return segs.join('/');
-    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Allegati')) return segs.join('/');
+    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Allegati')) {
+      if (segs[0] === 'Materiale Studio' && materialeSoloDocente(segs[1])) return null;
+      return segs.join('/');
+    }
     if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI) return segs.join('/');
     return null;
   }
@@ -611,6 +633,7 @@
     senzaCarattere: senzaCarattere,
     variantiDaPotare: variantiDaPotare,
     relVaultStudente: relVaultStudente,
+    materialeSoloDocente: materialeSoloDocente,
     identitaStudente: identitaStudente,
     VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,
     activityLabel: activityLabel,
