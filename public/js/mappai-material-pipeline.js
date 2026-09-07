@@ -1209,10 +1209,13 @@
          vero/falso, voce naturale SPENTA (costa e si aggiunge dopo, dall'editor),
          e il box «Più set per angolo» tutto acceso — è la configurazione che
          serve alle attività «a scelta», dove lo studente sceglie fra le versioni. */
-      quiz: { types: ['mc', 'open'], perBranch: 5, angle: 'auto',
+      /* 7/9, Giacomo: anche flashcard, sintesi, foglio dei nodi e PDF allegato
+         sono di partenza; la voce naturale resta spenta. */
+      quiz: { types: ['mc', 'open', 'flashcards'], perBranch: 5, angle: 'auto',
               multi: ['open', 'mc'], angoli: PC().angoliMulti() },
       nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
       synthesis: { audio: false },
+      sourcePdf: true,
       causal: true,                    /* deterministica: non costa una chiamata */
       tuned: true, levelTuned: true
     };
@@ -1320,6 +1323,7 @@
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
     const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
+    if (o.sourcePdf !== undefined) set('mp-src-pdf', !!o.sourcePdf);   /* il preset dice anche del PDF allegato (7/9) */
     if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
       const ang = o.quiz.angoli || [];
       PC().angoliMulti().forEach(k => set('mp-ang-' + k, ang.indexOf(k) >= 0)); }

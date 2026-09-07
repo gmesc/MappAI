@@ -561,7 +561,10 @@
         { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
           voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
         { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
-          voci: ['mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
+          /* «Titolo» montato dal 7/9: il master «Fogli nodi» si accende dai figli
+             montati, e il preset Default chiede proprio il foglio dei soli titoli —
+             senza questa spunta a schermo nessun foglio nasceva. */
+          voci: [{ id: 'mp-ns-title', et: 'Titolo' }, 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
               { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
         { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
           voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },

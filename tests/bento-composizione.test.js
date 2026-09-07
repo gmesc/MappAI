@@ -25,7 +25,7 @@ test('le voci fuori dalla composizione sono quelle DECISE, non altre', () => {
     const strumenti = new Set(B.VOCI.filter(x => x.tipo === 'strumento').map(x => x.id));
     const fuoriPipeline = v.fuori.filter(id => !strumenti.has(id)).sort();
     assert.deepStrictEqual(fuoriPipeline,
-        ['mn-solo-mappa', 'mp-adapt-on', 'mp-adapt-scope', 'mp-angle', 'mp-class', 'mp-estimate', 'mp-ns-title'].sort());
+        ['mn-solo-mappa', 'mp-adapt-on', 'mp-adapt-scope', 'mp-angle', 'mp-class', 'mp-estimate'].sort());
 });
 
 /* ═══ GLI STRUMENTI: le funzioni che la vista compatta nasconde ═══════════════
