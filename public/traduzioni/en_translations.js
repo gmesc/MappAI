@@ -1201,7 +1201,7 @@ const en_translations = {
        Le etichette si risolvono nel BUILDER, non nel documento — quel file è
        autoconsistente e non carica `window.t`. ⚠️ `x15` è una chiave e non una
        stringa fissa proprio per il separatore decimale, che cambia lingua. */
-    bs_doc_dys: "Aa x+",
+    bs_doc_dys: "Aa x1",
     bs_doc_dys_x15: "Aa x1.5",
     bs_doc_dys_x2: "Aa x2",
     bs_doc_dys_tip: "High-readability mode: one click for 1.5× text, another for 2×, a third to go back to normal",
