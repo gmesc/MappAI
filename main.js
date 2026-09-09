@@ -28,7 +28,6 @@ const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
-const { StringDecoder } = require('string_decoder');
 // Logica pura organizzazione file (010): nomi cartelle, gerarchia per-classe,
 // piano migrazione, parsing sessioni. UMD → in Node ritorna module.exports.
 const FilesCore = require('./public/js/mappai-files-core.js');
@@ -382,37 +381,7 @@ ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
 
 // Chiamata Infomaniak (stream SSE obbligatorio per bypassare il Gateway Timeout).
 // Estratta dall'IPC per essere riusata dal tutor-server (007).
-/* Il gateway di Infomaniak restituisce 502 a corpo vuoto sotto carico, e la
-   chiamata muore prima ancora di aprire lo stream. Senza ritentativo un solo
-   502 uccide l'intera generazione (la Fase 2 non parte e resta il solo ROOT) o
-   un ramo della sintesi. Il ritentativo sta QUI perche' ogni chiamata a
-   Infomaniak passa da questa funzione: un punto solo invece di 40.
-   Si ritenta SOLO se il guasto e' arrivato prima di leggere del testo: uno
-   stream gia' aperto e poi caduto avrebbe meta' risposta, e rifarlo
-   raddoppierebbe i token senza garanzie. */
-const INFOMANIAK_RETRY_STATUS = [429, 500, 502, 503, 504];
-const INFOMANIAK_RETRY_ATTESE = [4000, 12000];   // ms, due ritentativi
-
-async function callInfomaniakChat(args) {
-    let ultimo = null;
-    for (let tentativo = 0; tentativo <= INFOMANIAK_RETRY_ATTESE.length; tentativo++) {
-        try {
-            return await callInfomaniakChatOnce(args);
-        } catch (err) {
-            const rete = !err.status && /ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(err.message || '');
-            const ripetibile = INFOMANIAK_RETRY_STATUS.includes(err.status) || rete;
-            ultimo = err;
-            if (!ripetibile || tentativo === INFOMANIAK_RETRY_ATTESE.length) break;
-            const attesa = INFOMANIAK_RETRY_ATTESE[tentativo];
-            console.warn(`[Infomaniak] ${err.status || 'rete'} — ritento fra ${attesa / 1000}s ` +
-                `(tentativo ${tentativo + 2}/${INFOMANIAK_RETRY_ATTESE.length + 1})`);
-            await new Promise(r => setTimeout(r, attesa));
-        }
-    }
-    throw ultimo;
-}
-
-async function callInfomaniakChatOnce({ apiKey, payload, productId }) {
+async function callInfomaniakChat({ apiKey, payload, productId }) {
     // Infomaniak endpoint: https://api.infomaniak.com/2/ai/{product_id}/openai/v1/chat/completions
     const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/chat/completions`;
 
@@ -431,45 +400,28 @@ async function callInfomaniakChatOnce({ apiKey, payload, productId }) {
         return new Promise((resolve, reject) => {
             let fullText = '';
             let lastChunk = null;
-            /* I pezzi che arrivano dalla rete NON coincidono con le righe SSE:
-               un chunk TCP puo' finire a meta' di «data: {...}». Senza buffer le
-               due meta' venivano parsate separatamente, fallivano entrambe e il
-               catch le buttava in silenzio: delta persi, e buchi di pochi
-               caratteri DENTRO le parole del JSON finale (quiz impossibili da
-               parsare «NON da troncamento», righe JSONL scartate, crosslink a
-               meta'). StringDecoder per lo stesso guasto sui byte: un accento a
-               cavallo di due chunk si romperebbe con chunk.toString(). */
-            const decoder = new StringDecoder('utf8');
-            let pending = '';
-
-            const consumaRiga = (line) => {
-                if (!line.startsWith('data: ')) return;
-                const dataStr = line.slice(6);
-                if (dataStr.trim() === '[DONE]') return;
-                try {
-                    const dataObj = JSON.parse(dataStr);
-                    lastChunk = dataObj;
-                    const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
-                    if (delta && delta.content) {
-                        fullText += delta.content;
-                    }
-                } catch (e) {
-                    // ignora errori di parsing parziali
-                }
-            };
 
             response.data.on('data', (chunk) => {
-                pending += decoder.write(chunk);
-                const lines = pending.split('\n');
-                pending = lines.pop();   // l'ultima riga puo' essere incompleta
-                for (const line of lines) consumaRiga(line);
+                const lines = chunk.toString().split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6);
+                        if (dataStr.trim() === '[DONE]') continue;
+                        try {
+                            const dataObj = JSON.parse(dataStr);
+                            lastChunk = dataObj;
+                            const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
+                            if (delta && delta.content) {
+                                fullText += delta.content;
+                            }
+                        } catch (e) {
+                            // ignora errori di parsing parziali
+                        }
+                    }
+                }
             });
 
             response.data.on('end', () => {
-                /* Coda: se lo stream chiude senza '\n' finale l'ultima riga resta
-                   nel buffer, e senza questo svuotamento sparirebbe l'ultimo delta. */
-                pending += decoder.end();
-                if (pending) { consumaRiga(pending); pending = ''; }
                 // Diagnostica: stream vuoto = problema lato provider (param rifiutati, ecc.)
                 if (!fullText) {
                     console.warn('[Infomaniak] Stream VUOTO. finish_reason:',
@@ -479,23 +431,6 @@ async function callInfomaniakChatOnce({ apiKey, payload, productId }) {
                         payload.max_tokens, payload.model,
                         '| response_format:', JSON.stringify(payload.response_format));
                 }
-                /* SPIA (9/9/26) — sola diagnostica, nessun cambio di comportamento.
-                   Un ramo della mappa e' tornato tagliato a meta' parola (269 car.
-                   contro i ~5000 degli altri) eppure il tracker ha visto STOP e
-                   zero troncamenti su 51 chiamate: una risposta monca e' stata
-                   consegnata come conclusa. Due cause possibili e indistinguibili
-                   dal renderer: nessun finish_reason e' arrivato e il default
-                   'stop' qui sotto ha coperto il buco, oppure Infomaniak manda
-                   davvero 'stop' su un flusso interrotto. Questa riga lo dice.
-                   Da togliere quando la domanda ha risposta. */
-                const _fr = lastChunk?.choices?.[0]?.finish_reason;
-                if (!_fr) {
-                    console.warn('[Infomaniak] Nessun finish_reason nello stream: ' +
-                        `metto 'stop' per difetto. Testo ${fullText.length} car., ` +
-                        `model=${payload.model}. Se il testo e' monco, il troncamento ` +
-                        'sta passando inosservato.');
-                }
-
                 // Ricostruisci il formato standard atteso da InfomaniakBridge
                 resolve({
                     id: lastChunk?.id || 'stream',
@@ -535,23 +470,7 @@ async function callInfomaniakChatOnce({ apiKey, payload, productId }) {
                     error.response.data.on('error', () => resolve(''));
                 });
                 console.error("Infomaniak Full Error Data:", bodyText);
-                /* Quando il guasto e' a monte dell'API, Infomaniak risponde con la
-                   PAGINA di cortesia («Service momentanement indisponible», ~20 KB
-                   di HTML e CSS). Riversata nel modale, quella pagina seppellisce
-                   l'unica informazione utile: il servizio e' giu' e non dipende da
-                   chi sta usando l'app. Il corpo intero resta nel terminale qui
-                   sopra, dove serve a noi. */
-                const paginaHtml = /^\s*<(!doctype|html)\b/i.test(bodyText);
-                if (paginaHtml) {
-                    errorMsg = `Servizio Infomaniak non disponibile (${status}). ` +
-                        `Il fornitore non sta rispondendo: riprova fra qualche minuto. ` +
-                        `Stato dei servizi: https://status.infomaniak.com`;
-                } else {
-                    /* Anche un corpo non-HTML puo' essere lunghissimo: il modale ne
-                       mostra quanto basta a capire, il resto e' nel terminale. */
-                    const corpo = bodyText.length > 400 ? bodyText.slice(0, 400) + '…' : bodyText;
-                    errorMsg = `Infomaniak Error (${status}): ${corpo}`;
-                }
+                errorMsg = `Infomaniak Error (${status}): ${bodyText}`;
             } catch (_) {
                 errorMsg = `Infomaniak Error (${status}): ${error.message}`;
             }
