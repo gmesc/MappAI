@@ -479,6 +479,23 @@ async function callInfomaniakChatOnce({ apiKey, payload, productId }) {
                         payload.max_tokens, payload.model,
                         '| response_format:', JSON.stringify(payload.response_format));
                 }
+                /* SPIA (9/9/26) — sola diagnostica, nessun cambio di comportamento.
+                   Un ramo della mappa e' tornato tagliato a meta' parola (269 car.
+                   contro i ~5000 degli altri) eppure il tracker ha visto STOP e
+                   zero troncamenti su 51 chiamate: una risposta monca e' stata
+                   consegnata come conclusa. Due cause possibili e indistinguibili
+                   dal renderer: nessun finish_reason e' arrivato e il default
+                   'stop' qui sotto ha coperto il buco, oppure Infomaniak manda
+                   davvero 'stop' su un flusso interrotto. Questa riga lo dice.
+                   Da togliere quando la domanda ha risposta. */
+                const _fr = lastChunk?.choices?.[0]?.finish_reason;
+                if (!_fr) {
+                    console.warn('[Infomaniak] Nessun finish_reason nello stream: ' +
+                        `metto 'stop' per difetto. Testo ${fullText.length} car., ` +
+                        `model=${payload.model}. Se il testo e' monco, il troncamento ` +
+                        'sta passando inosservato.');
+                }
+
                 // Ricostruisci il formato standard atteso da InfomaniakBridge
                 resolve({
                     id: lastChunk?.id || 'stream',
