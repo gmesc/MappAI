@@ -8,6 +8,9 @@
 
 # Repo
 !/.gitignore
+!/LICENSE
+!/README.md
+!/THIRD-PARTY-NOTICES.md
 !.github/**
 !/package.json
 !/package-lock.json
@@ -38,6 +41,9 @@ node_modules/
 *.bak-*
 *.code-workspace
 public/dev/
+# Piano di studio ticinese: materiale del DECS, non nostro da ridistribuire
+# (resta sul disco, non finisce nel repo ne' negli installer)
+public/data/piano-studio-ticino.json
 public/esempi/
 public/**/*.aseprite
 public/**/*.ase

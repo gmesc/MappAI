@@ -1,5 +1,25 @@
 'use strict';
 /*
+ * MappAI — server LAN «Chatta e Scrivi»
+ * Copyright (C) 2026 Giacomo Meschini <giacomo@insegnai.ch>
+ *
+ * Questo programma è software libero: puoi ridistribuirlo e/o modificarlo
+ * secondo i termini della GNU General Public License come pubblicata dalla
+ * Free Software Foundation, nella versione 3 della Licenza o (a tua scelta)
+ * in una versione successiva.
+ *
+ * Questo programma è distribuito nella speranza che sia utile, ma SENZA
+ * ALCUNA GARANZIA; senza neppure la garanzia implicita di COMMERCIABILITÀ o
+ * IDONEITÀ A UNO SCOPO PARTICOLARE. Vedi la GNU General Public License per
+ * maggiori dettagli.
+ *
+ * Dovresti aver ricevuto una copia della GNU General Public License insieme a
+ * questo programma. In caso contrario, vedi <https://www.gnu.org/licenses/>.
+ *
+ * I componenti di terze parti inclusi (font, librerie) restano sotto le loro
+ * licenze: vedi THIRD-PARTY-NOTICES.md.
+ */
+/*
  * tutor-server.js — server LAN "Chatta e Scrivi" (007)
  * -----------------------------------------------------
  * Quinto fratello di garden/collab/live/materiali (stessi pattern): server HTTP

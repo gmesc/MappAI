@@ -17,7 +17,12 @@ window.toggleHyphenation = function (btn) {
 
     if (isHyphenated) {
         body.classList.add('hyphens-auto-force');
-        /* Sezione Hypher commentata per usare il motore nativo del Mac
+        /* Sezione Hypher: la sillabazione la fa il CSS nativo (`hyphens: auto`).
+           ⚠️ 9/9/26: hypher.js e it.js sono stati TOLTI dal repo — la libreria
+           era senza nota di copyright (BSD-3 la richiede) e i pattern italiani
+           venivano da ithyph.tex (LPPL, che la FSF dice incompatibile con la
+           GPL). Questo blocco resta come storia: non gira, e non c’è più niente
+           da chiamare.
         if (!originalModalHtml) originalModalHtml = body.innerHTML;
         
         if (window.Hypher && window.itPatterns) {
