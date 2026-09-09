@@ -14,9 +14,10 @@ mai i nomi degli allievi.
 
 ## Come si prova
 
-Il download è gratuito. Al primo avvio l'app mostra un **ID Macchina**: mandalo a
-<giacomo@insegnai.ch> per ricevere il codice di sblocco, univoco per quel computer. Serve
-anche una chiave gratuita di Google Gemini (la guida spiega come ottenerla).
+Il download è gratuito e non serve alcun codice di sblocco: MappAI è software libero, e
+il blocco per dispositivo che le versioni beta chiedevano fino alla 1.0.0-beta.4 è stato
+tolto. Serve una chiave gratuita di Google Gemini (la guida spiega come ottenerla), oppure
+una chiave Infomaniak se preferisci che i dati restino in Svizzera.
 
 ## Sviluppo
 

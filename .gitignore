@@ -41,6 +41,8 @@ node_modules/
 *.bak-*
 *.code-workspace
 public/dev/
+# Copia di lavoro di index.html rimasta indietro: non e' l'app
+public/index_classi_nuove_modifiche_manual.html
 # Piano di studio ticinese: materiale del DECS, non nostro da ridistribuire
 # (resta sul disco, non finisce nel repo ne' negli installer)
 public/data/piano-studio-ticino.json
