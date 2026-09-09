@@ -521,7 +521,7 @@
                     '<label><input type="radio" name="mp-adapt-scope" value="both" checked><span>' + esc(t('mp_adapt_both', 'Entrambi')) + '</span></label>' +
                     '</div>';
             case 'mp-perbranch':
-                return campo(v.et, '<input type="number" id="mp-perbranch" min="1" max="10" value="5" class="mn-num"' + w + ' aria-label="' + esc(v.et) + '">');
+                return campo(v.et, '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="mn-num"' + w + ' aria-label="' + esc(v.et) + '">');
             case 'mp-angle':
                 return campo(v.et, '<select id="mp-angle" class="mn-sel"' + w + ' aria-label="' + esc(v.et) + '">' +
                     (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>');

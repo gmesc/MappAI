@@ -1203,6 +1203,11 @@
   /* marcatore dei default del 19/8 (aperte · 5 per ramo · niente V/F · voce
      spenta · tutti gli angoli): anche questo si applica UNA volta sola */
   var CHIAVE_PRESET_V2 = 'mappai_preset_default_v2';
+  /* marcatore dei default del 9/9 (3 domande per ramo · catena dei perche' spenta
+     · voce naturale spenta): stessa regola, una volta sola. Va APPLICATO PER
+     ULTIMO fra le migrazioni, perche' quella delle domande aperte riaccende la
+     voce e senza quest'ordine la spegneremmo per poi riaccenderla. */
+  var CHIAVE_PRESET_V3 = 'mappai_preset_default_v3';
   function _opzioniDefault() {
     return {
       /* 19/8, scelte di Giacomo: domande aperte accese, cinque per ramo, niente
@@ -1211,12 +1216,16 @@
          serve alle attività «a scelta», dove lo studente sceglie fra le versioni. */
       /* 7/9, Giacomo: anche flashcard, sintesi, foglio dei nodi e PDF allegato
          sono di partenza; la voce naturale resta spenta. */
-      quiz: { types: ['mc', 'open', 'flashcards'], perBranch: 5, angle: 'auto',
+      /* 9/9, Giacomo: TRE domande per ramo invece di cinque, e la catena dei
+         perche' fuori dal corredo di partenza. Chi la vuole la accende: e' un
+         documento a se', e di partenza allunga ogni generazione senza che sia
+         stata chiesta. */
+      quiz: { types: ['mc', 'open', 'flashcards'], perBranch: 3, angle: 'auto',
               multi: ['open', 'mc'], angoli: PC().angoliMulti() },
       nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
       synthesis: { audio: false },
       sourcePdf: true,
-      causal: true,                    /* deterministica: non costa una chiamata */
+      causal: false,
       tuned: true, levelTuned: true
     };
   }
@@ -1279,17 +1288,40 @@
         const tipi = (o.quiz && Array.isArray(o.quiz.types)) ? o.quiz.types.slice() : [];
         let cambiato = false;
         if (tipi.indexOf('open') < 0) { tipi.push('open'); cambiato = true; }
+        /* ⚠️ questa migrazione accendeva anche la voce naturale. Dal 19/8 la
+           voce e' SPENTA di partenza (costa, e si aggiunge dopo dall'editor):
+           lasciarla qui significava riaccenderla alle spalle di chi non l'ha
+           chiesta. Ora tocca solo le domande aperte, che erano il suo scopo. */
         const opts = Object.assign({}, o, {
-          quiz: Object.assign({ perBranch: 3, angle: 'auto' }, o.quiz || {}, { types: tipi }),
-          synthesis: Object.assign({}, o.synthesis || {}, { audio: true })
+          quiz: Object.assign({ perBranch: 3, angle: 'auto' }, o.quiz || {}, { types: tipi })
         });
-        if (!(o.synthesis && o.synthesis.audio)) cambiato = true;
         if (cambiato) {
           list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: opts }) : x);
           _savePresets(list);
           p = _loadPresets().filter(suo)[0];
         }
         try { localStorage.setItem(CHIAVE_PRESET_OQ, '1'); } catch (e) { }
+      }
+      /* ══ I DEFAULT DEL 9/9 VINCONO UNA VOLTA ═══════════════════════════════
+         Stessa ragione delle due migrazioni sopra: senza questo passaggio i
+         default nuovi li vedrebbero solo le installazioni fresche. Per ULTIMO,
+         cosi' nessuna migrazione precedente puo' rimettere la voce. */
+      let v3 = false;
+      try { v3 = localStorage.getItem(CHIAVE_PRESET_V3) != null; } catch (e) { }
+      if (!v3) {
+        const o3 = p.options || {};
+        const nuove3 = Object.assign({}, o3, {
+          quiz: Object.assign({}, o3.quiz || {}, { perBranch: 3 }),
+          synthesis: Object.assign({}, o3.synthesis || {}, { audio: false }),
+          causal: false
+        });
+        list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: nuove3 }) : x);
+        _savePresets(list);
+        p = _loadPresets().filter(suo)[0];
+        /* come per la v2: la memoria dei box va svuotata, o il ripristino
+           rimetterebbe le scelte di ieri sopra i default nuovi */
+        try { localStorage.removeItem('mappai_bento_scelte'); } catch (e) { }
+        try { localStorage.setItem(CHIAVE_PRESET_V3, '1'); } catch (e) { }
       }
     }
     _refreshPresetSelect();
