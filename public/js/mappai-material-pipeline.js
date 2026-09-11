@@ -435,8 +435,8 @@
   function _bloccoCriteri() {
     var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
     return en
-        ? 'MARKING CRITERIA (mandatory): besides "traccia", fill "criteri" with 2 or 3 SEPARATE elements, each one checkable on its own — «mentions X», «links X to Y», «gives an example from the source». They are what lets a teacher give partial credit to an answer that is half right. Never write the whole expected answer as a single criterion.'
-        : 'CRITERI DI CORREZIONE (obbligatori): oltre alla «traccia», riempi «criteri» con 2 o 3 elementi SEPARATI, ognuno verificabile da solo — «nomina X», «collega X a Y», «porta un esempio preso dalla fonte». Sono ciò che permette al docente di dare un punteggio parziale a una risposta giusta a metà. Non scrivere mai l\'intera risposta attesa come criterio unico.';
+        ? 'SHAPE OF THE MARKING GUIDE: write "traccia" as 2 or 3 SHORT sentences, each one a single element a teacher can tick off on its own — «Names X.» «Links X to Y.» «Gives an example taken from the source.» One sentence, one element, full stop at the end of each. That is what lets a teacher give partial credit to an answer that is half right. Never write one long sentence containing everything.'
+        : 'FORMA DELLA TRACCIA DI CORREZIONE: scrivi la «traccia» come 2 o 3 frasi BREVI, ognuna un elemento che il docente può spuntare da solo — «Nomina X.» «Collega X a Y.» «Porta un esempio preso dalla fonte.» Una frase, un elemento, punto fermo alla fine di ognuna. È questo che permette di dare un punteggio parziale a una risposta giusta a metà. Non scrivere mai un unico periodo lungo che contiene tutto.';
   }
 
   /* Le etichette dei nodi che stanno nel materiale: servono a CONTARE quante
@@ -503,10 +503,6 @@
     catch (e) { prompt = ''; }
     /* il blocco precede SEMPRE, anche il prompt di ripiego qui sotto */
     if (prompt.trim() && blocco) prompt = blocco + '\n\n' + prompt;
-    /* I CRITERI si chiedono FUORI dal template, come l'angolo: chi ha un
-       `prompts_config.json` personale non ha la chiave nuova e la lascerebbe
-       cadere in silenzio. */
-    if (prompt.trim()) prompt += '\n\n' + _bloccoCriteri();
     if (!prompt.trim()) {
       prompt = (blocco ? blocco + '\n\n' : '') +
         'Genera ' + quantity + ' DOMANDE APERTE di verifica basate ESCLUSIVAMENTE su questo materiale.\n' +
@@ -522,21 +518,31 @@
         'Usa l\'italiano. Il tema del ramo è: \'' + nodeLabel + '\'.' +
         (areaB ? ('\nLa seconda area è \'' + areaB + '\': almeno una domanda deve collegarle.') : '');
     }
+    /* LA FORMA DELLA TRACCIA si chiede FUORI dal template, come l'angolo: chi ha
+       un `prompts_config.json` personale non ha la chiave nuova e la lascerebbe
+       cadere in silenzio. In fondo a ENTRAMBI i prompt, template e ripiego: il
+       ripiego chiede «1-2 frasi» e senza questo blocco i suoi fogli sarebbero
+       gli unici senza griglia di correzione. */
+    prompt += '\n\n' + _bloccoCriteri();
     /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
        modello riempie fino al massimo suo. È QUI che è successo per davvero —
        63.437 token in una chiamata sola.
 
-       ⚠️ E QUI IL PRIMO TETTO ERA TROPPO STRETTO, misurato sulla generazione del
-       12 settembre: 280 token per item davano un budget di 2.880, e **16 chiamate
-       su 49** ci hanno sbattuto contro (`finishReason: MAX_TOKENS`). I fogli sono
-       usciti con 7-12 domande invece di 21: metà delle domande perse, e la cura
-       peggiore del male.
-       La distribuzione è a coda lunga — mediana 676 token, un terzo oltre i 2.860
-       — perché con `criteri` e `traccia` il modello a volte scrive tre domande
-       lunghissime. Ma il NUMERO è già vincolato da `maxItems`: il budget non deve
-       contenere la verbosità, deve solo non tagliarla. Tre volte la mediana per
-       item, più il margine. Il tetto assoluto resta quello di
-       `getMaxOutputTokens` (16.384), lontanissimo dai 65.536 della fuga. */
+       ⚠️ POI HO ALZATO DUE VOLTE IL TETTO INSEGUENDO LA CAUSA SBAGLIATA, e il
+       registro consumi lo dice riga per riga. Per chiamata di domande aperte:
+
+         fino all'11/9 ore 00   mediana 445-712 token, MAI una sopra 2.500
+         11/9 ore 10 (tetto 2.880)   12 chiamate su 49 al tetto
+         11/9 ore 22 (tetto 8.400)   28 su 103 al tetto
+         11/9 ore 23 (tetto 8.400)    6 su 42 al tetto
+
+       Prima che aggiungessi il campo `criteri`, nessuna chiamata superava gli
+       850 token: finivano da sole. Non era il tetto a essere stretto, era la
+       richiesta a essere diventata dieci volte più grande. Alzare il tetto
+       spostava il muro; il campo l'ho tolto (vedi lo schema qui sotto), e il
+       budget torna a tre volte la spesa vera per item più il margine. Il tetto
+       assoluto resta quello di `getMaxOutputTokens` (16.384), lontanissimo dai
+       65.536 della fuga. */
     const quanteOq = Math.max(1, parseInt(quantity, 10) || 5);
     const schema = {
       type: 'ARRAY', maxItems: quanteOq, items: {
@@ -546,18 +552,23 @@
           /* ⚠️ ANCHE GLI ARRAY ANNIDATI VOGLIONO IL TETTO (12/9). Il tetto
              sull'array esterno non protegge quelli dentro: il modello può
              scrivere TRE domande e riempire i loro `criteri` fino a esaurire il
-             budget. Misurato: col budget a 2.880 hanno troncato 16 chiamate su
-             49; portandolo a 8.400 ne troncavano ancora 8 — alzare il tetto
-             spostava il muro invece di togliere la causa. I numeri sono quelli
-             che il prompt già dichiara: mai più di due aree, due o tre criteri. */
+             budget. Il numero è quello che il prompt già dichiara: mai più di
+             due aree. */
           aree: { type: 'ARRAY', maxItems: 2, items: { type: 'STRING' } },
-          /* I CRITERI (11/9). La «traccia» è un blocco unico: o la risposta le
-             assomiglia o no, e un allievo che ha capito metà non prende metà.
-             Due o tre elementi separati, ognuno verificabile da solo, danno al
-             docente il credito parziale senza inventare una rubrica — e gli
-             permettono di distinguere un errore di storia da una difficoltà a
-             scrivere, che per chi fatica a esprimersi è tutto. */
-          criteri: { type: 'ARRAY', maxItems: 3, items: { type: 'STRING' } },
+          /* ⚠️ IL CAMPO `criteri` È STATO TOLTO DALLO SCHEMA (12/9), ed è la
+             stessa medicina che la Fase 1 ha preso a giugno per la `desc`: un
+             campo long-form dentro uno schema fa scrivere il modello fino a
+             esaurire il budget, e `maxItems`/`maxLength` su Gemini sono
+             richieste, non leggi — lo dice già il commento di `schemaL1`.
+             MISURATO sul registro consumi: prima che aggiungessi `criteri`, le
+             chiamate delle domande aperte non superavano mai **850 token**;
+             dopo, sei-dodici chiamate per generazione arrivavano al tetto,
+             qualunque tetto — 2.880 prima, 8.400 poi. Le domande di quei fogli
+             andavano perse.
+             I criteri però servono, e si ottengono senza un secondo campo:
+             si chiede che la TRACCIA sia fatta di due o tre frasi brevi, ognuna
+             un elemento spuntabile, e `criteriDaItem` la divide. Un campo solo,
+             la stessa griglia sul foglio. */
           /* `enum` invece di una stringa libera: senza, arrivano «facile»,
              «medio», «base/ponte» — e chi conta non riconosce più niente. */
           livello: { type: 'STRING', enum: ['base', 'ponte'] }
@@ -572,7 +583,7 @@
     };
     let payload = {
       contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }],
-      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quanteOq * 900 + 1500), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
+      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quanteOq * 600 + 1200), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
     };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);
@@ -612,7 +623,7 @@
       return {
         question: String(x.domanda),
         guide: String(x.traccia || ''),
-        criteri: (PC() && PC().criteriDaItem) ? PC().criteriDaItem({ criteri: x.criteri, guide: x.traccia }) : [],
+        criteri: (PC() && PC().criteriDaItem) ? PC().criteriDaItem({ guide: x.traccia }) : [],
         lines: x.righe,
         areas: aree,
         livello: liv
