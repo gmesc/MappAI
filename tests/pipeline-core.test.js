@@ -884,3 +884,38 @@ test('criteriDaItem: una traccia di una frase dà un criterio solo, e va bene', 
   assert.deepStrictEqual(PC.criteriDaItem({}), []);
   assert.deepStrictEqual(PC.criteriDaItem(null), []);
 });
+
+// ══ LA LUNGHEZZA DELLA RISPOSTA GIUSTA (12/9/26) ════════════════════════
+// Misurato su 126 domande vere: la risposta esatta è la più lunga nel 55% dei
+// casi, quando per caso sarebbe un terzo. Il margine mediano è però del 3%,
+// quindi non si scarta e non si accorcia: si misura, e si corregge nel prompt.
+
+test('corretteTroppoLunghe: misura la quota E il caso con cui va confrontata', () => {
+  const tre = (a, b, c, giusta) => ({ options: [a, b, c], correct: giusta });
+  const r = PC.corretteTroppoLunghe([
+    tre('si', 'una risposta molto piu lunga delle altre due', 'no', 'una risposta molto piu lunga delle altre due'),
+    tre('si', 'no', 'forse', 'no'),
+    tre('alfa', 'beta', 'gamma', 'beta')
+  ]);
+  assert.strictEqual(r.n, 1);
+  assert.strictEqual(r.tot, 3);
+  assert.ok(Math.abs(r.atteso - 1 / 3) < 0.001, 'con tre opzioni il caso vale un terzo');
+});
+
+test('corretteTroppoLunghe: il margine mediano dice quanto è marcato il difetto', () => {
+  const pari = PC.corretteTroppoLunghe([
+    { options: ['dodici car.', 'dodici car.', 'dodici car.'], correct: 'dodici car.' }
+  ]);
+  assert.ok(Math.abs(pari.margineMediano - 1) < 0.001, 'opzioni della stessa misura → margine 1');
+  const sbilanciato = PC.corretteTroppoLunghe([
+    { options: ['no', 'una risposta lunga il doppio abbondante', 'si'], correct: 'una risposta lunga il doppio abbondante' }
+  ]);
+  assert.ok(sbilanciato.margineMediano > 2, 'qui il difetto si vede a occhio');
+});
+
+test('corretteTroppoLunghe: senza item riconoscibili non inventa numeri', () => {
+  const r = PC.corretteTroppoLunghe([{ options: ['a', 'b'], correct: 'zzz' }, {}]);
+  assert.strictEqual(r.tot, 0);
+  assert.strictEqual(r.quota, 0);
+  assert.strictEqual(r.margineMediano, 1);
+});

@@ -266,23 +266,41 @@
     return { pos: pos, tot: tot, ignoti: ignoti, maxQuota: tot ? max / tot : 0 };
   }
 
-  // Quante volte la risposta esatta è anche la più lunga: l'altro indizio che si
-  // legge senza sapere la storia. Si SEGNALA, non si accorcia da soli — tagliare
-  // la risposta giusta a macchina la renderebbe sbagliata.
+  /* Quante volte la risposta esatta è anche la più lunga: l'altro indizio che si
+     legge senza sapere la storia. Si MISURA e si segnala; non si accorcia da
+     soli, perché tagliare la risposta giusta le toglie la parte che la rende
+     giusta, e non si scarta l'item, perché il margine mediano è del 3% e non
+     esiste una soglia che separi le domande da buttare da quelle sane
+     (misurato su 126 domande vere: con rapporto 1,4 si scarterebbe UN item).
+     Il difetto si corregge nel prompt — `quizLengthBlock` — e questa funzione
+     è il modo per sapere se l'istruzione ha morso.
+
+     ⚠️ Il numero da guardare non è la quota ma lo SCARTO DAL CASO: con tre
+     opzioni la risposta esatta è la più lunga un terzo delle volte anche quando
+     nessuno bara. «Il 55%» non dice niente finché non lo si mette accanto al
+     33% che ci si aspetta. */
   function corretteTroppoLunghe(items) {
-    var n = 0, tot = 0;
+    var n = 0, tot = 0, atteso = 0, margini = [];
     (items || []).forEach(function (it) {
       var opts = (it && it.a1 != null) ? [it.a1, it.a2, it.a3] : (it && Array.isArray(it.options) ? it.options : null);
       if (!opts || opts.length < 2) return;
       var i = _indiceCorretta(it, opts);
       if (i < 0) return;
       tot++;
+      atteso += 1 / opts.length;
       var len = function (x) { return String(x || '').trim().length; };
       var mia = len(opts[i]);
-      var altre = opts.filter(function (_, k) { return k !== i; }).map(len);
-      if (mia > Math.max.apply(null, altre)) n++;
+      var piuLunga = Math.max.apply(null, opts.filter(function (_, k) { return k !== i; }).map(len));
+      if (mia > piuLunga) n++;
+      if (piuLunga > 0) margini.push(mia / piuLunga);
     });
-    return { n: n, tot: tot, quota: tot ? n / tot : 0 };
+    margini.sort(function (a, b) { return a - b; });
+    return {
+      n: n, tot: tot,
+      quota: tot ? n / tot : 0,
+      atteso: tot ? atteso / tot : 0,
+      margineMediano: margini.length ? margini[Math.floor(margini.length / 2)] : 1
+    };
   }
 
   /* ══ LA PROVA (11/9/26) ═════════════════════════════════════════════════════

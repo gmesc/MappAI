@@ -353,6 +353,26 @@
      ⚠️ NON si confrontano fogli di ANGOLI diversi: «Che cos'è il razionamento»
      e «Perché fu introdotto il razionamento» si somigliano molto ed è esattamente
      ciò che i sette angoli devono produrre. Il confronto resta dentro il foglio. */
+  /* La lunghezza della risposta giusta, misurata sul FOGLIO intero (12/9): è la
+     granularità giusta, perché il difetto è statistico e una singola chiamata
+     per ramo non lo mostra. Si dice al docente solo quando lo scarto dal caso è
+     largo: con tre opzioni la risposta esatta è la più lunga un terzo delle
+     volte anche quando nessuno bara. */
+  function _guardaLunghezze(raw, etichetta) {
+    try {
+      const PCv = PC();
+      if (!PCv || !PCv.corretteTroppoLunghe) return;
+      const r = PCv.corretteTroppoLunghe(raw);
+      if (r.tot < 6) return;
+      if (r.quota - r.atteso < 0.2) return;
+      console.warn('[Materiali] ' + etichetta + ': la risposta esatta è la più lunga in ' +
+        r.n + ' domande su ' + r.tot + ' (' + Math.round(r.quota * 100) + '%, per caso sarebbe ' +
+        Math.round(r.atteso * 100) + '%) — si riconosce senza leggere');
+      _toast(_t('mp_lung', 'In «{f}» la risposta giusta è la più lunga in {n} domande su {t}: controllale')
+        .replace('{f}', etichetta).replace('{n}', r.n).replace('{t}', r.tot), 'warning');
+    } catch (e) { /* la misura è un di più */ }
+  }
+
   function _potaDoppioni(raw, etichetta) {
     try {
       const PCv = PC();
@@ -631,6 +651,7 @@
             }
           }
           raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '')));
+          if (spec.mode === 'quiz') _guardaLunghezze(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : ''));
           if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
           const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
@@ -2115,6 +2136,7 @@
         }
       }
       raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nome ? ' · ' + nome : '')));
+      if (spec.mode === 'quiz') _guardaLunghezze(raw, spec.typeLabel + (nome ? ' · ' + nome : ''));
       if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
       /* Le domande d'avvio in testa al loro ramo: un foglio si comincia da ciò
          che si sa. L'ordine si rimescola solo DENTRO il ramo (il foglio resta
