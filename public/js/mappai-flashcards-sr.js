@@ -45,7 +45,10 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
     // Angolo 'auto' (misto + sintassi varia) anche sul quiz per-nodo → più varietà
     // tra generazioni. Anteposto al payload, non a promptText (guardia template-vuoto).
     const _angleB = window.quizAngleBlock ? window.quizAngleBlock('auto') : '';
-    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
+    /* anche il quiz per-nodo sceglie fra tre opzioni: vale la stessa regola sulla
+       lunghezza dei distrattori (vedi quizLengthBlock) */
+    const _lenB = window.quizLengthBlock ? window.quizLengthBlock() : '';
+    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText + (_lenB ? '\n\n' + _lenB : '') }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
 
     try {
         if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');

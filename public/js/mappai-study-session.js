@@ -208,6 +208,32 @@ window.quizEvidenceBlock = function () {
         : 'LA PROVA (obbligatoria per ogni domanda): nel campo "evidenza" copia la frase del MATERIALE qui sotto che rende vera la risposta esatta. Copiala dal materiale, non riscriverla e non riassumerla. Se nessuna frase del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
 };
 
+/* ── LA LUNGHEZZA DELLA RISPOSTA GIUSTA (12/9) ────────────────────────────────
+   Misurato su 126 domande vere: la risposta esatta è la più lunga delle tre in
+   69 casi, il 55%, quando per caso sarebbe un terzo. Uno studente che non ha
+   studiato sceglie la più lunga e prende il punto: la verifica smette di
+   misurare ciò che dice di misurare.
+
+   ⚠️ Non si corregge dopo. Il margine mediano è del 3% — la risposta giusta è
+   quasi sempre più lunga di POCO — quindi non esiste una soglia che separi le
+   domande da buttare da quelle da tenere: con un rapporto a 1,4 si scarterebbe
+   UN item su 126, e con una soglia più bassa si butterebbero domande sane. E
+   accorciare a macchina la risposta esatta le toglierebbe proprio la parte che
+   la rende esatta. Si risolve dove il difetto nasce: nel momento in cui il
+   modello scrive le opzioni.
+
+   La causa è meccanica: la risposta giusta deve essere precisa, quindi si porta
+   dietro qualificazioni e dettagli; i distrattori sono falsi e non hanno niente
+   da specificare. L'istruzione perciò non dice «fai le opzioni della stessa
+   lunghezza» (che si ottiene allungando a vuoto) ma «dai a ogni opzione sbagliata
+   la SUA qualificazione plausibile». */
+window.quizLengthBlock = function () {
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    return en
+        ? 'LENGTH OF THE OPTIONS (mandatory): the correct answer must NOT be the longest or the most detailed one. A wrong option that is short and bare gives the answer away without any knowledge of the subject. Give each wrong option its OWN plausible qualification — a circumstance, a date, a reason, a consequence — drawn from the same topic, so that the three options are comparable in length and in level of detail. If the correct answer needs a qualification to be exact, the wrong ones need one too.'
+        : 'LUNGHEZZA DELLE OPZIONI (obbligatoria): la risposta esatta NON deve essere la più lunga né la più dettagliata. Un\'opzione sbagliata corta e spoglia regala la risposta a chi non sa niente della materia. Dai a ogni opzione sbagliata la SUA qualificazione plausibile — una circostanza, una data, un motivo, una conseguenza — presa dallo stesso argomento, così che le tre opzioni siano confrontabili per lunghezza e per grado di dettaglio. Se la risposta esatta ha bisogno di una precisazione per essere esatta, anche le sbagliate ne hanno bisogno.';
+};
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
@@ -225,9 +251,13 @@ window.generateDynamicQuiz = async function (opts) {
     const nonce = opts.nonce || window.quizNonce();
     const angleBlock = window.quizAngleBlock ? window.quizAngleBlock(opts.angle || 'auto') : '';
     const evBlock = window.quizEvidenceBlock ? window.quizEvidenceBlock() : '';
+    /* la regola sulla lunghezza vale solo dove ci sono opzioni da scegliere */
+    const lenBlock = (window.quizLengthBlock && !/apert/i.test(String(quizType)))
+        ? window.quizLengthBlock() : '';
     const prompt = (angleBlock ? angleBlock + '\n\n' : '') +
         window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce }) +
-        (evBlock ? '\n\n' + evBlock : '');
+        (evBlock ? '\n\n' + evBlock : '') +
+        (lenBlock ? '\n\n' + lenBlock : '');
     /* ── LA PROVA (11/9) ──────────────────────────────────────────────────────
        `evidenza` = la frase del MATERIALE che rende vera la risposta segnata. Non
        serve al foglio (non viene stampata): serve a poterla CONTROLLARE. Senza,

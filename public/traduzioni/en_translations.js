@@ -1315,6 +1315,7 @@ const en_translations = {
     /* Ancora, copertura e rapporto di qualita (11-12/9/26). Il fallback inline
        nei moduli JS e il testo italiano; qui sta solo l'inglese (regola 13). */
     lo_copertura: "Recovering the parts of the source left out\u2026",
+    mp_lung: "In \u00ab{f}\u00bb the correct answer is the longest one in {n} of {t} questions: check them",
     gen_rep_cov: "Parts of the source almost missing from the map: ",
     gen_rep_nessi: "Impossible causal links, corrected: ",
     gen_rep_fid: "Descriptions weakly anchored to the source, worth re-reading: ",
