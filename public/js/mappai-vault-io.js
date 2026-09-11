@@ -44,6 +44,34 @@ function _contestoDellaMappa() {
     return out;
 }
 
+/* ── LA RETE DI SICUREZZA SI FA SENTIRE (12/9) ────────────────────────────────
+   `save-vault` mette da parte una copia quando la mappa che sta per scrivere è
+   molto più piccola di quella già in cartella. Una protezione silenziosa però
+   non protegge: l'11 settembre il guasto è rimasto invisibile finché il docente
+   non ha riaperto il progetto. Qui si dice che cosa è successo e dove sta la
+   copia, con un avviso che resta a schermo più a lungo di un toast normale. */
+window.avvisaIstantanea = function (res) {
+    try {
+        const i = res && res.istantanea;
+        if (!i || !i.serve) return;
+        const dove = i.dove || '.versioni';
+        const msg = window.t
+            ? window.t('vault_istantanea', 'Attenzione: la cartella conteneva {p} nodi e ne ho salvati {n}. Ho messo da parte una copia di prima in «{d}».')
+                .replace('{p}', i.esistenti).replace('{n}', i.nuovi).replace('{d}', dove)
+            : ('La cartella conteneva ' + i.esistenti + ' nodi e ne ho salvati ' + i.nuovi + '. Copia di prima in «' + dove + '».');
+        console.warn('[Vault] ' + msg);
+        if (window.showToast) window.showToast(msg, 'warning');
+    } catch (e) { /* l'avviso è un di più: la copia c'è comunque */ }
+};
+
+/* Si ascolta una volta sola, all'avvio: da qui in poi ogni salvataggio che ha
+   avuto bisogno della rete lo dice, da qualunque punto sia partito. */
+try {
+    if (window.electronAPI && window.electronAPI.onIstantaneaVault) {
+        window.electronAPI.onIstantaneaVault(function (d) { window.avvisaIstantanea({ istantanea: d }); });
+    }
+} catch (e) { /* senza canale resta l'avviso dei punti espliciti */ }
+
 window.buildVaultMapData = function () {
     var ctx = _contestoDellaMappa();
     return {
@@ -95,6 +123,7 @@ window.saveMapVault = async function () {
 
         window.showLoadingOverlay(false);
         if (saveRes.success) {
+            window.avvisaIstantanea(saveRes);
             appState.activeVaultPath = result.folderPath;
             /* Adottare la cartella, non solo scriverne il percorso (11/9): senza,
                `activeVaultClassDir`/`activeVaultDiscDir` restano quelli della
