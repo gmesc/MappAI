@@ -546,19 +546,34 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
            rilegge anche i nodi appena recuperati.
            ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
            frase della fonte da cui quel nodo viene, quindi le citazioni restano
-           valide; e rimisurare qui darebbe al docente numeri diversi da quelli
-           su cui il giudice ha lavorato.
+           valide.
            Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
-        try {
-            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
-        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
-
-        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
+        /* ── 3b — ARRICCHIMENTO, POI SI RIMISURA (12/9) ───────────────────────
+           Va PRIMA del giudice e prima dell'ultima misura, non dopo. Nella
+           generazione del 12 settembre `enrichThinDescs` ha riscritto 16 desc su
+           16 DOPO che l'àncora aveva misurato e il giudice aveva giudicato: il
+           rapporto consegnato al docente (fedeltà 0,604, sei nodi sotto soglia) e
+           le dieci segnalazioni del giudice descrivevano un testo che a quel punto
+           non esisteva più.
+           Qui invece arricchisce usando le citazioni che l'àncora ha già messo in
+           `sourcesDict` — che è il materiale giusto per riscrivere una desc — e
+           poi si rimisura tutto sul testo definitivo. */
         try {
             await window.enrichThinDescs(textParts, apiKey);
         } catch (e) {
             console.warn('[enrichThinDescs] errore non bloccante:', e.message);
         }
+
+        /* Seconda passata dell'àncora: le desc riscritte hanno citazioni e
+           fedeltà nuove. È deterministica e non costa niente; senza di lei il
+           rapporto racconterebbe la mappa di prima. */
+        try { if (window.applyAnchor) window.applyAnchor(); }
+        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
+
+        /* Il giudice per ULTIMO: legge il testo che il docente leggerà. */
+        try {
+            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
+        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -1298,20 +1313,34 @@ ${textParts.join('\n\n')}`;
            rilegge anche i nodi appena recuperati.
            ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
            frase della fonte da cui quel nodo viene, quindi le citazioni restano
-           valide; e rimisurare qui darebbe al docente numeri diversi da quelli
-           su cui il giudice ha lavorato.
+           valide.
            Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
-        try {
-            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
-        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
-
-        // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
-        // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).
+        /* ── 3b — ARRICCHIMENTO, POI SI RIMISURA (12/9) ───────────────────────
+           Va PRIMA del giudice e prima dell'ultima misura, non dopo. Nella
+           generazione del 12 settembre `enrichThinDescs` ha riscritto 16 desc su
+           16 DOPO che l'àncora aveva misurato e il giudice aveva giudicato: il
+           rapporto consegnato al docente (fedeltà 0,604, sei nodi sotto soglia) e
+           le dieci segnalazioni del giudice descrivevano un testo che a quel punto
+           non esisteva più.
+           Qui invece arricchisce usando le citazioni che l'àncora ha già messo in
+           `sourcesDict` — che è il materiale giusto per riscrivere una desc — e
+           poi si rimisura tutto sul testo definitivo. */
         try {
             await window.enrichThinDescs(textParts, apiKey);
         } catch (e) {
             console.warn('[enrichThinDescs] errore non bloccante:', e.message);
         }
+
+        /* Seconda passata dell'àncora: le desc riscritte hanno citazioni e
+           fedeltà nuove. È deterministica e non costa niente; senza di lei il
+           rapporto racconterebbe la mappa di prima. */
+        try { if (window.applyAnchor) window.applyAnchor(); }
+        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
+
+        /* Il giudice per ULTIMO: legge il testo che il docente leggerà. */
+        try {
+            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
+        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
