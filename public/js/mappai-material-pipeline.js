@@ -321,10 +321,13 @@
        Giacomo: due chiamate delle domande aperte con **63.437 e 63.493 token di
        uscita** contro i 400-700 normali — il modello ha scritto fino a esaurire
        i 65.536 di gemini-2.5-flash, e quella risposta è poi arrivata troncata.
-       Le stesse due righe mancavano anche qui. */
+       Le stesse due righe mancavano anche qui.
+       ⚠️ Il tetto lo mette `maxItems`, NON il budget: una volta che il numero di
+       item è vincolato, il budget deve solo essere abbastanza largo da non
+       tagliare. Vedi `_genOpenQuestions` per che cosa succede quando è stretto. */
     const quante = Math.max(1, parseInt(quantity, 10) || 5);
     const schema = { type: 'ARRAY', maxItems: quante, items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
-    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quante * 90 + 400), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
+    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quante * 160 + 600), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);
     const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
@@ -521,8 +524,19 @@
     }
     /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
        modello riempie fino al massimo suo. È QUI che è successo per davvero —
-       63.437 token in una chiamata sola. Una domanda aperta costa più di una
-       carta (porta traccia, criteri, aree), quindi il budget per item è più largo. */
+       63.437 token in una chiamata sola.
+
+       ⚠️ E QUI IL PRIMO TETTO ERA TROPPO STRETTO, misurato sulla generazione del
+       12 settembre: 280 token per item davano un budget di 2.880, e **16 chiamate
+       su 49** ci hanno sbattuto contro (`finishReason: MAX_TOKENS`). I fogli sono
+       usciti con 7-12 domande invece di 21: metà delle domande perse, e la cura
+       peggiore del male.
+       La distribuzione è a coda lunga — mediana 676 token, un terzo oltre i 2.860
+       — perché con `criteri` e `traccia` il modello a volte scrive tre domande
+       lunghissime. Ma il NUMERO è già vincolato da `maxItems`: il budget non deve
+       contenere la verbosità, deve solo non tagliarla. Tre volte la mediana per
+       item, più il margine. Il tetto assoluto resta quello di
+       `getMaxOutputTokens` (16.384), lontanissimo dai 65.536 della fuga. */
     const quanteOq = Math.max(1, parseInt(quantity, 10) || 5);
     const schema = {
       type: 'ARRAY', maxItems: quanteOq, items: {
@@ -551,7 +565,7 @@
     };
     let payload = {
       contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }],
-      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quanteOq * 280 + 600), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
+      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quanteOq * 900 + 1500), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
     };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);

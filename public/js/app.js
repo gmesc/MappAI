@@ -2037,10 +2037,36 @@ window.showGenerationReport = function () {
                il vault perché una delle due chiavi È il suo percorso — INSEGNA
                elenca cartelle, non progetti. */
             if (_pv && _pv.then) _pv.then(function (res) {
+                /* ── IL RAPPORTO DI QUALITÀ RESTA SUL DISCO (12/9) ─────────────
+                   Àncora e giudice scrivevano in `appState` e in console, cioè in
+                   due posti che spariscono chiudendo l'app. Ma il giudice si
+                   accende la PRIMA volta in sola segnalazione, proprio per
+                   raccogliere i numeri con cui decidere se lasciarlo scrivere: un
+                   verdetto che non sopravvive alla sessione non serve a decidere
+                   niente. Si scrive qui e non prima perché `activeVaultPath` è
+                   ancora nullo durante la generazione — la cartella la risolve
+                   `ensureProjectVault`, che è proprio ciò che stiamo aspettando. */
+                var _cart = (res && res.folderPath) || appState.activeVaultPath || '';
+                try {
+                    if (_cart && window.electronAPI && window.electronAPI.saveVaultFile &&
+                        (appState._qualityReport || appState._giudiceReport)) {
+                        window.electronAPI.saveVaultFile({
+                            vaultPath: _cart, relPath: 'qualita.json',
+                            text: JSON.stringify({
+                                schema: 'mappai-qualita@1',
+                                quando: new Date().toISOString(),
+                                modello: (document.getElementById('model-select') || {}).value || '',
+                                ancora: appState._qualityReport || null,
+                                giudice: appState._giudiceReport || null
+                            }, null, 2)
+                        });
+                    }
+                } catch (e) { /* il rapporto è un di più: la mappa c'è comunque */ }
+
                 if (!window.MappAIGen || !window.MappAIGen.segnaNuovo) return;
                 window.MappAIGen.segnaNuovo({
                     nome: appState.rootNodeLabel || '',
-                    vault: (res && res.folderPath) || appState.activeVaultPath || '',
+                    vault: _cart,
                     id: (window.StorageManager && window.StorageManager.currentProjectId) || ''
                 });
             }).catch(function () { });

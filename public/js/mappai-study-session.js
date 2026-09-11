@@ -267,9 +267,10 @@ window.generateDynamicQuiz = async function (opts) {
        ⚠️ `maxItems` non è ornamentale: senza, il modello riempie l'array fino al
        budget e tronca (regola 05), e un campo obbligatorio in più rende quel
        rischio più vicino. */
+    const _quante = Math.max(1, parseInt(quantity, 10) || 5);
     const schema = {
         type: "ARRAY",
-        maxItems: Math.max(1, parseInt(quantity, 10) || 5),
+        maxItems: _quante,
         items: {
             type: "OBJECT",
             properties: {
@@ -285,7 +286,11 @@ window.generateDynamicQuiz = async function (opts) {
     try {
         const resp = await window.fetchModelAPI(window.injectClassTuning({
             contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + material }] }],
-            generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
+            /* budget largo: il numero di domande lo tiene `maxItems`, questo serve
+               solo a non far troncare una risposta verbosa (misurato il 12/9 sulle
+               domande aperte: un budget stretto ha perso metà del foglio). Le
+               chiamate vere stanno sotto i 900 token. */
+            generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, maxOutputTokens: window.getMaxOutputTokens(_quante * 450 + 1200), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
         }), apiKey);
         const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
         let arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
