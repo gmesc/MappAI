@@ -53,7 +53,18 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
         let rawText = data.candidates[0].content.parts[0].text;
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         const items = salvageTruncatedJSON(cleanText);
-        node.flashcardTest = items;
+        /* Stesso rimescolamento dei quiz di ramo (11/9): qui la forma è a tre
+           campi con l'indice 1-based, e `mescolaOpzioni` la riconosce. Il seme è
+           il nodo più il codice di variazione: due generazioni sullo stesso nodo
+           danno fogli diversi, ristampare lo stesso foglio no. */
+        let items2 = items;
+        try {
+            const PC = window.MappAIPipelineCore;
+            if (PC && PC.mescolaOpzioni && Array.isArray(items2)) {
+                items2 = PC.mescolaOpzioni(items2, String(node.id) + '|' + promptText.length);
+            }
+        } catch (e) { /* ripiego: ordine come è arrivato */ }
+        node.flashcardTest = items2;
         node.nextReview = Date.now(); // Available right away
 
         if (!isBranch) {
@@ -65,7 +76,7 @@ window.generateFlashcardForNode = async function (node, silent = false, isBranch
                 title: `${nodePrefix}: ${node.label}`,
                 mode: 'quiz', // Default mode for nodes is currently 'quiz' (multiple choice)
                 type: 'Multiple Choice',
-                items: items,
+                items: items2,
                 // Sorgente per "Rigenera domande nuove" (vedi regenerateStudySet)
                 material: String((node.label ? node.label + ': ' : '') + (nodeContent || '')).slice(0, 12000),
                 nodeQuiz: true,   // usa il template MULTIPLE_CHOICE (schema a1/a2/a3)

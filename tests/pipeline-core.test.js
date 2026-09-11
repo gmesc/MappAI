@@ -699,3 +699,92 @@ test('preset: generi e angoli sopravvivono al round-trip, filtrati', () => {
         'un preset che chiede più set per un genere non spuntato chiede una generazione che non avverrà');
     assert.deepStrictEqual(n.options.quiz.angoli, ['causa']);
 });
+
+// ══ POST-PRODUZIONE QUIZ (11/9/26) ═════════════════════════════════════
+// Difetto misurato: 56 risposte esatte su 84 in seconda posizione, 12 su 12
+// in un foglio; e domande costruite su fatti assenti dal materiale.
+
+const setMC = [
+  { q: 'D1', options: ['a', 'b', 'c'], correct: 'b' },
+  { q: 'D2', options: ['d', 'e', 'f'], correct: 'e' },
+  { q: 'D3', options: ['g', 'h', 'i'], correct: 'h' },
+  { q: 'D4', options: ['l', 'm', 'n'], correct: 'm' },
+  { q: 'D5', options: ['o', 'p', 'q'], correct: 'p' },
+  { q: 'D6', options: ['r', 's', 't'], correct: 's' }
+];
+
+test('mescolaOpzioni: la risposta resta la stessa, la posizione cambia', () => {
+  const out = PC.mescolaOpzioni(setMC, 'set_abc');
+  assert.strictEqual(out.length, setMC.length);
+  out.forEach((it, i) => {
+    assert.strictEqual(it.correct, setMC[i].correct, 'la risposta esatta non cambia mai');
+    assert.deepStrictEqual([...it.options].sort(), [...setMC[i].options].sort(), 'stesse opzioni');
+    assert.strictEqual(it.options[it.correctIndex], it.correct, 'l\'indice punta alla risposta');
+  });
+  const prima = PC.posizioniCorrette(setMC);
+  const dopo = PC.posizioniCorrette(out);
+  assert.strictEqual(prima.maxQuota, 1, 'in partenza erano tutte in seconda posizione');
+  assert.ok(dopo.maxQuota < 1, 'dopo il mescolamento non più');
+});
+
+test('mescolaOpzioni: stesso seme, stesso foglio (ristampabile)', () => {
+  const a = PC.mescolaOpzioni(setMC, 'set_abc');
+  const b = PC.mescolaOpzioni(setMC, 'set_abc');
+  const c = PC.mescolaOpzioni(setMC, 'set_xyz');
+  assert.deepStrictEqual(a, b, 'ristampare dà lo stesso ordine');
+  assert.notDeepStrictEqual(a.map(x => x.options), c.map(x => x.options), 'un altro set no');
+});
+
+test('mescolaOpzioni: forma a tre campi (a1/a2/a3 + indice 1-based)', () => {
+  const items = [{ q: 'D', a1: 'uno', a2: 'due', a3: 'tre', correct: 2 }];
+  const out = PC.mescolaOpzioni(items, 's');
+  const opts = [out[0].a1, out[0].a2, out[0].a3];
+  assert.strictEqual(opts[out[0].correct - 1], 'due', 'l\'indice segue la risposta');
+  assert.deepStrictEqual([...opts].sort(), ['due', 'tre', 'uno']);
+});
+
+test('mescolaOpzioni: chiave non riconoscibile → item intatto', () => {
+  const items = [{ q: 'D', options: ['a', 'b'], correct: 'zzz' }];
+  const out = PC.mescolaOpzioni(items, 's');
+  assert.deepStrictEqual(out[0], items[0], 'meglio non toccarlo che romperlo');
+});
+
+test('posizioniCorrette: legge testo, indice e lettera', () => {
+  const r = PC.posizioniCorrette([
+    { options: ['a', 'b', 'c'], correct: 'c' },
+    { options: ['a', 'b', 'c'], correct: 2 },
+    { options: ['a', 'b', 'c'], correct: 'B' },
+    { options: ['a', 'b', 'c'], correct: '???' }
+  ]);
+  assert.strictEqual(r.tot, 3);
+  assert.strictEqual(r.ignoti, 1);
+  assert.strictEqual(r.pos[1], 2, 'due in seconda posizione (indice 1)');
+});
+
+test('corretteTroppoLunghe: segnala quando la risposta esatta è la più lunga', () => {
+  const r = PC.corretteTroppoLunghe([
+    { options: ['si', 'una risposta molto piu lunga delle altre', 'no'], correct: 'una risposta molto piu lunga delle altre' },
+    { options: ['si', 'no', 'forse'], correct: 'no' }
+  ]);
+  assert.strictEqual(r.n, 1);
+  assert.strictEqual(r.tot, 2);
+});
+
+test('verificaEvidenza: scarta la domanda costruita su un fatto assente', () => {
+  const materiale = 'La Commissione Bergier pubblico il rapporto finale nel 2002 dopo anni di lavoro. ' +
+    'La Banca Nazionale accettava oro tedesco e forniva valuta.';
+  const items = [
+    { q: 'Quando fu pubblicato il rapporto?', evidenza: 'La Commissione Bergier pubblico il rapporto finale nel 2002' },
+    { q: 'Quando fu formata la Commissione?', evidenza: 'La Commissione Bergier fu formata nel 1996 con mandato parlamentare straordinario' }
+  ];
+  const r = PC.verificaEvidenza(items, materiale);
+  assert.strictEqual(r.items.length, 1);
+  assert.strictEqual(r.scartati.length, 1);
+  assert.ok(/formata/.test(r.scartati[0].evidenza));
+});
+
+test('verificaEvidenza: senza il campo evidenza tiene tutto (retrocompatibile)', () => {
+  const r = PC.verificaEvidenza([{ q: 'D' }, { q: 'E' }], 'qualunque materiale');
+  assert.strictEqual(r.items.length, 2);
+  assert.strictEqual(r.scartati.length, 0);
+});

@@ -196,6 +196,18 @@ window.openQuestionsAngleBlock = function (angleKey, opts) {
     return righe.join('\n\n');
 };
 
+/* ── LA RICHIESTA DELLA PROVA (11/9) ──────────────────────────────────────────
+   Il blocco sta FUORI dal template e PRIMA di esso, come l'angolo: chi ha un
+   `prompts_config.json` personale non ha la variabile nuova e la lascerebbe
+   cadere in silenzio. Chiede la frase del materiale che rende vera la risposta —
+   che poi `verificaEvidenza` controlla davvero. */
+window.quizEvidenceBlock = function () {
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    return en
+        ? 'PROOF (mandatory for every question): in the "evidenza" field copy the sentence from the MATERIAL below that makes the correct answer true. Copy it from the material, do not rewrite it and do not summarise it. If no sentence in the material supports an answer, do NOT write that question: write one fewer.'
+        : 'LA PROVA (obbligatoria per ogni domanda): nel campo "evidenza" copia la frase del MATERIALE qui sotto che rende vera la risposta esatta. Copiala dal materiale, non riscriverla e non riassumerla. Se nessuna frase del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
+};
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
@@ -212,19 +224,32 @@ window.generateDynamicQuiz = async function (opts) {
     }
     const nonce = opts.nonce || window.quizNonce();
     const angleBlock = window.quizAngleBlock ? window.quizAngleBlock(opts.angle || 'auto') : '';
+    const evBlock = window.quizEvidenceBlock ? window.quizEvidenceBlock() : '';
     const prompt = (angleBlock ? angleBlock + '\n\n' : '') +
-        window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce });
+        window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce }) +
+        (evBlock ? '\n\n' + evBlock : '');
+    /* ── LA PROVA (11/9) ──────────────────────────────────────────────────────
+       `evidenza` = la frase del MATERIALE che rende vera la risposta segnata. Non
+       serve al foglio (non viene stampata): serve a poterla CONTROLLARE. Senza,
+       il modello costruisce domande su fatti che ha aggiunto di suo e nessuno se
+       ne accorge — misurato su una cartella vera: «La Commissione Bergier è stata
+       formata nel 2002», mentre la fonte data al 2002 il rapporto.
+       ⚠️ `maxItems` non è ornamentale: senza, il modello riempie l'array fino al
+       budget e tronca (regola 05), e un campo obbligatorio in più rende quel
+       rischio più vicino. */
     const schema = {
         type: "ARRAY",
+        maxItems: Math.max(1, parseInt(quantity, 10) || 5),
         items: {
             type: "OBJECT",
             properties: {
                 q: { type: "STRING" },
                 options: { type: "ARRAY", items: { type: "STRING" } },
                 correct: { type: "STRING" },
-                explanation: { type: "STRING" }
+                explanation: { type: "STRING" },
+                evidenza: { type: "STRING" }
             },
-            required: ["q", "correct", "explanation"]
+            required: ["q", "correct", "explanation", "evidenza"]
         }
     };
     try {
@@ -233,8 +258,38 @@ window.generateDynamicQuiz = async function (opts) {
             generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
         }), apiKey);
         const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
-        const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
-        return Array.isArray(arr) ? arr : [];
+        let arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
+        if (!Array.isArray(arr)) return [];
+        /* ── POST-PRODUZIONE (11/9) ───────────────────────────────────────────
+           Fra la risposta del modello e il PDF stampato non c'era NIENTE: la
+           risposta esatta usciva dov'era stata scritta, e in una cartella vera
+           finiva in seconda posizione 56 volte su 84 (dodici su dodici in un
+           foglio). Qui si mettono i due passaggi che mancavano, entrambi
+           deterministici e senza chiamate:
+             · si scartano le domande la cui `evidenza` non sta nel materiale;
+             · si rimescolano le opzioni con un seme fisso, così la stessa
+               verifica ristampata resta identica (il docente che ha già
+               fotocopiato non si ritrova due versioni in classe). */
+        const PC = window.MappAIPipelineCore;
+        if (PC && PC.verificaEvidenza) {
+            const v = PC.verificaEvidenza(arr, material);
+            if (v.scartati.length) {
+                console.warn('[Quiz] ' + v.scartati.length + ' domande scartate: la prova citata non è nel materiale');
+                v.scartati.forEach(x => console.warn('   · «' + String(x.q).slice(0, 70) + '» → ' + String(x.evidenza).slice(0, 90)));
+            }
+            arr = v.items;
+            const seme = opts.seme || (nodeLabel + '|' + quizType + '|' + (opts.angle || 'auto') + '|' + nonce);
+            arr = PC.mescolaOpzioni(arr, seme);
+            const pos = PC.posizioniCorrette(arr);
+            if (pos.tot >= 4 && pos.maxQuota > 0.6) {
+                console.warn('[Quiz] la risposta esatta cade nella stessa posizione nel ' + Math.round(pos.maxQuota * 100) + '% degli item');
+            }
+            const lun = PC.corretteTroppoLunghe(arr);
+            if (lun.tot >= 4 && lun.quota > 0.6) {
+                console.warn('[Quiz] la risposta esatta è la più lunga in ' + lun.n + '/' + lun.tot + ' item: si riconosce senza leggere');
+            }
+        }
+        return arr;
     } catch (e) { console.warn('[generateDynamicQuiz]', e && e.message); return []; }
 };
 
