@@ -331,7 +331,7 @@ window.buildQuizSetHtml = function (set, opts) {
     });
 
     const fullHtml = `<!DOCTYPE html>
-<html lang="it">
+<html lang="${(window.MappAIDocHead && window.MappAIDocHead.lingua) ? window.MappAIDocHead.lingua() : 'it'}">
 <head>
     <meta charset="UTF-8">
     <title>Quiz — ${escHtmlQP(set.title)}</title>
@@ -537,7 +537,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
     }, { base: 0, ponte: 0 });
 
     return `<!DOCTYPE html>
-<html lang="it">
+<html lang="${(window.MappAIDocHead && window.MappAIDocHead.lingua) ? window.MappAIDocHead.lingua() : 'it'}">
 <head>
     <meta charset="UTF-8">
     <title>Domande aperte — ${escHtmlQP(set.title)}</title>
@@ -661,7 +661,7 @@ window.buildAnalisiFonteHtml = function (scheda, opts) {
     });
 
     return `<!DOCTYPE html>
-<html lang="it">
+<html lang="${(window.MappAIDocHead && window.MappAIDocHead.lingua) ? window.MappAIDocHead.lingua() : 'it'}">
 <head>
     <meta charset="UTF-8">
     <title>Analisi della fonte — ${escHtmlQP(scheda.titolo || mapName)}</title>
@@ -816,7 +816,7 @@ window.buildFlashcardSetHtml = function (set, opts) {
     });
 
     const fullHtml = `<!DOCTYPE html>
-<html lang="it">
+<html lang="${(window.MappAIDocHead && window.MappAIDocHead.lingua) ? window.MappAIDocHead.lingua() : 'it'}">
 <head>
     <meta charset="UTF-8">
     <title>Flashcard — ${escHtmlQP(set.title)}</title>

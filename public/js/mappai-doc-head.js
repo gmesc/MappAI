@@ -148,7 +148,12 @@
             '.mm-dh { text-align:center; padding:' + M.padTop + 'px ' + M.padX + 'px ' + M.padBottom + 'px;',
             '   background:#fff; border-radius:' + M.raggio + 'px; margin-bottom:' + M.margineSotto + 'px;',
             '   border-bottom:' + M.bordo + 'px solid ' + acc + '; page-break-after:avoid; break-after:avoid; }',
-            '.mm-dh__t { font-size:' + M.titolo + 'px; font-weight:' + M.titoloPeso + '; color:' + COL.inchiostro + '; }',
+            /* `margin:0` perché dall'11/9 il titolo è un <h1> vero e non più un
+               <div>: senza, il margine di default del browser scollerebbe la
+               testata di ogni foglio. Il titolo DEVE essere un'intestazione —
+               è da lì che il PDF taggato ricava la struttura per chi legge con
+               un lettore di schermo (`generateTaggedPDF`, main.js). */
+            '.mm-dh__t { font-size:' + M.titolo + 'px; font-weight:' + M.titoloPeso + '; color:' + COL.inchiostro + '; margin:0; line-height:1.25; }',
             '.mm-dh__s { font-size:' + M.sotto + 'px; color:' + COL.tenue + '; margin-top:4px; }',
             /* La riga dei chip esiste solo se c'è almeno un chip: un contenitore
                vuoto lascerebbe 8px di aria che nessuno ha chiesto. */
@@ -256,7 +261,7 @@
         }
 
         var html = '<div class="mm-dh">' +
-            '<div class="mm-dh__t">' + esc(d.titolo || '') + '</div>' +
+            '<h1 class="mm-dh__t">' + esc(d.titolo || '') + '</h1>' +
             (sotto.length ? '<div class="mm-dh__s">' + sotto.join(' · ') + '</div>' : '') +
             (chip.length ? '<div class="mm-dh__r">' + chip.join('') + '</div>' : '') +
             '</div>';
@@ -369,7 +374,24 @@
         return out;
     }
 
+    /* ── LA LINGUA DICHIARATA DEL DOCUMENTO (11/9) ────────────────────────────
+       Era «it» fissa in ogni foglio stampabile: su una mappa in inglese una voce
+       sintetica legge l'inglese con la pronuncia italiana. Segue la lingua delle
+       MAPPE (non quella dell'interfaccia: sono due impostazioni diverse, regola
+       14); con «auto» ripiega sulla lingua dei prompt. Sta qui perché qui vive
+       tutto l'arredo dei documenti stampabili, e così esiste una definizione
+       sola per i quattro fogli che la usano. */
+    function lingua() {
+        try {
+            var g = (typeof window !== 'undefined') ? window : {};
+            var l = (typeof g.getMapLanguage === 'function') ? g.getMapLanguage() : 'it';
+            if (l === 'it' || l === 'en') return l;
+            return (typeof g.getPromptLanguage === 'function' && g.getPromptLanguage() === 'en') ? 'en' : 'it';
+        } catch (e) { return 'it'; }
+    }
+
     return {
+        lingua: lingua,
         stile: stile,
         regolePagina: regolePagina,
         pieDichiarazioni: pieDichiarazioni,
