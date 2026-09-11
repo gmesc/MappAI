@@ -788,3 +788,99 @@ test('verificaEvidenza: senza il campo evidenza tiene tutto (retrocompatibile)',
   assert.strictEqual(r.items.length, 2);
   assert.strictEqual(r.scartati.length, 0);
 });
+
+// ══ DOMANDE RIPETUTE · ETICHETTA «AVVIO» · CRITERI (11/9/26) ════════════
+// Difetti 8, 9 e 10: tre domande su dodici sullo stesso fatto, l'etichetta
+// dichiarata dal modello e mai verificata, la traccia in un blocco unico.
+
+test('similitudine: riconosce due domande sullo stesso fatto, non due sul tema', () => {
+  const a = 'Perché fu adottato il Piano Wahlen durante la guerra?';
+  const b = 'Per quale motivo venne adottato il Piano Wahlen nella guerra?';
+  const c = 'Che cosa prevedeva il razionamento alimentare?';
+  assert.ok(PC.similitudine(a, b) > 0.7, 'stessa domanda riformulata');
+  assert.ok(PC.similitudine(a, c) < 0.3, 'domanda diversa sullo stesso tema');
+  assert.strictEqual(PC.similitudine('', 'qualcosa'), 0);
+});
+
+/* Il confine che conta davvero: i sette angoli chiedono la stessa cosa da tagli
+   diversi, e quella ripetizione è voluta. Se la soglia la mangiasse, il
+   programma cancellerebbe proprio ciò che deve produrre. */
+test('deduplicaDomande: definizione e causa sullo stesso tema NON sono doppioni', () => {
+  const items = [
+    { q: 'Che cos\'è il razionamento alimentare?' },
+    { q: 'Perché fu introdotto il razionamento alimentare?' }
+  ];
+  assert.ok(PC.similitudine(items[0].q, items[1].q) > 0.6, 'si somigliano parecchio…');
+  assert.strictEqual(PC.deduplicaDomande(items).items.length, 2, '…ma restano due domande');
+});
+
+test('deduplicaDomande: toglie la ripetizione dentro il foglio, tiene la prima', () => {
+  const items = [
+    { q: 'Perché fu adottato il Piano Wahlen durante la guerra?' },
+    { q: 'Che cosa prevedeva il razionamento alimentare in Svizzera?' },
+    { q: 'Per quale motivo venne adottato il Piano Wahlen nella guerra?' }
+  ];
+  const r = PC.deduplicaDomande(items);
+  assert.strictEqual(r.items.length, 2);
+  assert.strictEqual(r.items[0].q, items[0].q, 'resta la prima, non l\'ultima');
+  assert.strictEqual(r.scartati.length, 1);
+});
+
+test('deduplicaDomande: toglie anche la domanda già fatta in un altro foglio', () => {
+  const gia = ['Perché la Svizzera accettò l\'oro tedesco durante il conflitto?'];
+  const items = [
+    { q: 'Per quale ragione la Svizzera accettò oro tedesco nel conflitto?' },
+    { q: 'Quali erano i compiti della commissione Bergier?' }
+  ];
+  const r = PC.deduplicaDomande(items, { gia });
+  assert.strictEqual(r.items.length, 1);
+  assert.ok(/Bergier/.test(r.items[0].q));
+});
+
+test('deduplicaDomande: senza domande precedenti e senza ripetizioni non tocca nulla', () => {
+  const items = [{ q: 'Prima domanda sulla neutralità armata svizzera.' }, { q: 'Seconda domanda sul razionamento del pane.' }];
+  assert.strictEqual(PC.deduplicaDomande(items).items.length, 2);
+});
+
+test('livelloVerificato: due macro-aree nominate → ponte, anche se dichiarata avvio', () => {
+  const et = ['Economia di Guerra', 'Politica dei Profughi', 'Difesa Militare'];
+  const due = { domanda: 'Spiega come l\'economia di guerra influenzò la politica dei profughi.' };
+  assert.strictEqual(PC.livelloVerificato(due, et, 'base'), 'ponte', 'la conta scavalca la dichiarazione');
+});
+
+test('livelloVerificato: una sola area → avvio, anche se dichiarata ponte', () => {
+  const et = ['Economia di Guerra', 'Politica dei Profughi'];
+  const una = { domanda: 'Che cosa comprendeva l\'economia di guerra svizzera?' };
+  assert.strictEqual(PC.livelloVerificato(una, et, 'ponte'), 'base');
+});
+
+test('livelloVerificato: un verbo di confronto basta a fare ponte', () => {
+  const et = ['Economia di Guerra'];
+  const q = { domanda: 'Confronta il razionamento e la campicoltura: che cosa cambia?' };
+  assert.strictEqual(PC.livelloVerificato(q, et, 'base'), 'ponte');
+});
+
+test('livelloVerificato: nessuna etichetta riconosciuta → resta la dichiarazione', () => {
+  const et = ['Economia di Guerra'];
+  const q = { domanda: 'Descrivi un episodio significativo avvenuto nel periodo.' };
+  assert.strictEqual(PC.livelloVerificato(q, et, 'base'), 'base');
+  assert.strictEqual(PC.livelloVerificato(q, et, 'ponte'), 'ponte');
+  assert.strictEqual(PC.livelloVerificato({ domanda: '' }, et, 'base'), 'base');
+});
+
+test('criteriDaItem: usa i criteri quando ci sono', () => {
+  const c = PC.criteriDaItem({ criteri: ['Cita il piano Wahlen', 'Collega la campicoltura al cibo', '  '] });
+  assert.deepStrictEqual(c, ['Cita il piano Wahlen', 'Collega la campicoltura al cibo']);
+});
+
+test('criteriDaItem: senza criteri spezza la traccia nelle sue frasi', () => {
+  const c = PC.criteriDaItem({ guide: 'Deve citare il piano Wahlen. Deve collegarlo alla scarsità di cibo.' });
+  assert.strictEqual(c.length, 2);
+  assert.ok(/Wahlen/.test(c[0]) && /cibo/.test(c[1]));
+});
+
+test('criteriDaItem: una traccia di una frase dà un criterio solo, e va bene', () => {
+  assert.strictEqual(PC.criteriDaItem({ guide: 'Deve spiegare che cosa fu la mobilitazione generale.' }).length, 1);
+  assert.deepStrictEqual(PC.criteriDaItem({}), []);
+  assert.deepStrictEqual(PC.criteriDaItem(null), []);
+});

@@ -318,6 +318,151 @@
     return { items: tenuti, scartati: scartati };
   }
 
+  /* ══ DOMANDE RIPETUTE (difetto 8, 11/9) ════════════════════════════════════
+     Ogni foglio nasce senza sapere che cosa c'e negli altri, e dentro lo stesso
+     foglio senza tenere il conto degli argomenti gia toccati. Misurato su una
+     cartella vera: nel foglio «causa» TRE domande su dodici chiedevano perche fu
+     adottato il Piano Wahlen, altre tre perche fu accettato l'oro nazista; e la
+     parola «oro» compariva in 37 consegne su 84.
+     Il codice di variazione che il programma mette nel prompt fa cambiare la
+     FORMULAZIONE, non l'argomento: due domande diverse a parole sullo stesso
+     fatto restano la stessa domanda per chi studia. */
+
+  /* Le parole che in una CONSEGNA non dicono di che cosa si parla. Solo quelle
+     lunghe almeno quattro lettere, perche le piu corte `_parole` le scarta gia.
+     ⚠️ Senza questa lista due riformulazioni della stessa domanda si fermavano
+     a 0,40 di somiglianza — sotto qualunque soglia utile — perche «perche»,
+     «durante», «quale», «venne» contavano come contenuto quanto «Wahlen». */
+  var VUOTE = {};
+  ('perche perché quale quali quando dove cosa quanto quanta quanti quante come ' +
+   'della dello degli delle nella nello negli nelle sulla sullo sugli sulle ' +
+   'dalla dallo dagli dalle alla allo agli quest questo questa questi queste ' +
+   'quello quella quelli quelle durante secondo mediante tramite verso senza ' +
+   'sopra sotto dopo prima ancora anche invece oltre circa presso ' +
+   'essere stato stata stati state avere aveva avevano viene vengono venne ' +
+   'vennero sono erano fosse furono siano possono puo può deve devono ' +
+   'spiega descrivi indica elenca illustra racconta scrivi ' +
+   'altro altra altri altre ogni tutto tutta tutti tutte molto molta molti molte').split(' ')
+    .forEach(function (w) { VUOTE[w] = 1; });
+
+  function _paroleUtili(t) {
+    return _parole(t).filter(function (w) { return !VUOTE[w]; });
+  }
+
+  // Quanto due domande si somigliano: parole-contenuto in comune sul totale
+  // (Jaccard, senza le parole vuote). Deterministico, nessuna dipendenza.
+  function similitudine(a, b) {
+    var A = {}, B = {}, na = 0, nb = 0;
+    _paroleUtili(a).forEach(function (w) { if (!A[w]) { A[w] = 1; na++; } });
+    _paroleUtili(b).forEach(function (w) { if (!B[w]) { B[w] = 1; nb++; } });
+    if (!na || !nb) return 0;
+    var com = 0;
+    Object.keys(A).forEach(function (w) { if (B[w]) com++; });
+    return com / (na + nb - com);
+  }
+
+  /* Toglie le domande troppo simili: a una gia fatta altrove (`gia`) o a una
+     gia tenuta in questo stesso foglio.
+
+     ⚠️ SOGLIA 0,7, e non piu in basso. Misurato: due riformulazioni della stessa
+     domanda stanno a 0,80, ma «Che cos'e il razionamento?» e «Perche fu
+     introdotto il razionamento?» stanno a 0,67 e sono DUE DOMANDE DIVERSE — la
+     prima chiede una definizione, la seconda una causa. Con una soglia piu bassa
+     il programma avrebbe cancellato proprio cio che i sette angoli servono a
+     produrre.
+
+     ⚠️ Per la stessa ragione `gia` deve contenere SOLO le domande dello STESSO
+     angolo: fra un foglio «definizione» e un foglio «causa» la ripetizione del
+     tema e voluta, non un difetto. Lo decide il chiamante, che sa di che foglio
+     si tratta.
+
+     Si tiene la PRIMA: nei fogli per angolo l'ordine e quello di generazione, e
+     la prima e quella che il modello ha ritenuto piu centrale. */
+  function deduplicaDomande(items, opts) {
+    var o = Object.assign({ gia: [], soglia: 0.7 }, opts || {});
+    var testo = function (x) {
+      return String((x && (x.q || x.question || x.domanda)) || '');
+    };
+    var tenuti = [], scartati = [];
+    (items || []).forEach(function (it) {
+      var t = testo(it);
+      if (!t) { tenuti.push(it); return; }
+      var gemella = null;
+      for (var i = 0; i < o.gia.length; i++) {
+        if (similitudine(t, o.gia[i]) >= o.soglia) { gemella = o.gia[i]; break; }
+      }
+      if (!gemella) {
+        for (var j = 0; j < tenuti.length; j++) {
+          if (similitudine(t, testo(tenuti[j])) >= o.soglia) { gemella = testo(tenuti[j]); break; }
+        }
+      }
+      if (gemella) scartati.push({ q: t, come: gemella });
+      else tenuti.push(it);
+    });
+    return { items: tenuti, scartati: scartati };
+  }
+
+  /* ══ L'ETICHETTA «AVVIO» (difetto 9, 11/9) ═════════════════════════════════
+     Ogni domanda aperta e classificata «avvio» (si risponde con un concetto
+     solo) o «ponte» (bisogna collegarne due). Serve a garantire che chi ha
+     studiato meta scheda possa comunque cominciare. Ma l'etichetta la DICHIARA
+     il modello e nessuno la verifica: nei fogli veri una «avvio» chiedeva di
+     distinguere i principi storici della neutralita dalla dichiarazione
+     formale — due concetti, non uno.
+     Qui si CONTA invece di credere: quante macro-aree o nodi della mappa la
+     domanda chiama davvero in causa. Da due in su e «ponte», e questa conta
+     scavalca la dichiarazione.
+     ⚠️ Se la domanda non nomina nessuna etichetta riconoscibile la conta non
+     decide, e resta quello che il modello ha dichiarato: meglio l'etichetta
+     incerta di una sbagliata al contrario. */
+  var VERBI_PONTE = /\b(confronta|confrontando|paragona|metti in relazione|collega|differenz[ae]|somiglianz[ae]|in che cosa differiscono|rispetto a)\b/i;
+
+  function livelloVerificato(item, etichette, dichiarato) {
+    var t = String((item && (item.domanda || item.q || item.question)) || '');
+    if (!t) return dichiarato || 'ponte';
+    var parole = {};
+    _parole(t).forEach(function (w) { parole[w] = 1; });
+    var visti = {}, n = 0;
+    (etichette || []).forEach(function (et) {
+      var pe = _parole(et);
+      if (!pe.length) return;
+      // l'etichetta e «nominata» se TUTTE le sue parole-contenuto sono nella domanda
+      for (var i = 0; i < pe.length; i++) if (!parole[pe[i]]) return;
+      var k = pe.join(' ');
+      if (visti[k]) return;
+      visti[k] = 1; n++;
+    });
+    if (n >= 2) return 'ponte';
+    if (VERBI_PONTE.test(t)) return 'ponte';
+    if (n === 1) return 'base';
+    return dichiarato || 'ponte';
+  }
+
+  /* ══ I CRITERI DI CORREZIONE (difetto 10, 11/9) ════════════════════════════
+     Sotto ogni domanda aperta c'e una traccia per chi corregge: dice che cosa
+     deve contenere la risposta giusta, in un BLOCCO UNICO. Un blocco unico non
+     si puo spuntare a pezzi — o la risposta gli assomiglia o no — quindi non
+     dice che cosa fare di una risposta giusta a meta, ne come distinguere un
+     errore di storia da una difficolta a scrivere. Per un allievo con
+     difficolta espressive quella distinzione e tutto.
+     Due o tre criteri separati, ognuno verificabile da solo, danno al docente
+     il credito parziale senza inventare una rubrica.
+     ⚠️ Il ripiego non e vuoto: se il modello manda solo la traccia, la si
+     spezza nelle sue frasi. Una traccia di due frasi da due criteri veri; una
+     di una frase da un criterio solo, ed e onesto cosi. */
+  function criteriDaItem(item) {
+    if (!item) return [];
+    var c = item.criteri || item.criteria;
+    if (Array.isArray(c)) {
+      var puliti = c.map(function (x) { return String(x == null ? '' : x).trim(); }).filter(Boolean);
+      if (puliti.length) return puliti.slice(0, 4);
+    }
+    var g = String(item.guide || item.traccia || '').trim();
+    if (!g) return [];
+    return g.split(/(?<=[.;])\s+/).map(function (x) { return x.trim(); })
+      .filter(function (x) { return x.length > 12; }).slice(0, 4);
+  }
+
   function _parole(t) {
     return String(t == null ? '' : t).toLowerCase().match(/[a-zàèéìòóùü0-9]{4,}/g) || [];
   }
@@ -805,6 +950,8 @@
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
     semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, posizioniCorrette: posizioniCorrette,
+    similitudine: similitudine, deduplicaDomande: deduplicaDomande,
+    livelloVerificato: livelloVerificato, criteriDaItem: criteriDaItem,
     corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza,
     angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     angoliPerTipo: angoliPerTipo, quantiPerTipo: quantiPerTipo, categoriePerTipo: categoriePerTipo,

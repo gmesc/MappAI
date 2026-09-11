@@ -342,6 +342,54 @@
     return succ && succ.id !== branch.id ? succ : null;
   }
 
+  /* ── I DOPPIONI DENTRO IL FOGLIO (difetto 8, 11/9) ───────────────────────
+     Ogni ramo viene generato da una chiamata che non sa che cosa hanno prodotto
+     le altre. Misurato su una cartella vera: nel foglio «causa» TRE domande su
+     dodici chiedevano perché fu adottato il Piano Wahlen, e altre tre perché fu
+     accettato l'oro nazista. Il codice di variazione nel prompt fa cambiare la
+     formulazione, non l'argomento.
+     Si pota QUI, dove il foglio è completo e si vedono tutti i rami insieme —
+     dentro la singola chiamata il doppione non esiste ancora.
+     ⚠️ NON si confrontano fogli di ANGOLI diversi: «Che cos'è il razionamento»
+     e «Perché fu introdotto il razionamento» si somigliano molto ed è esattamente
+     ciò che i sette angoli devono produrre. Il confronto resta dentro il foglio. */
+  function _potaDoppioni(raw, etichetta) {
+    try {
+      const PCv = PC();
+      if (!PCv || !PCv.deduplicaDomande) return raw;
+      const r = PCv.deduplicaDomande(raw);
+      if (r.scartati.length) {
+        console.warn('[Materiali] ' + etichetta + ': ' + r.scartati.length +
+          ' domande doppie tolte dal foglio');
+        r.scartati.forEach(x => console.warn('   · «' + String(x.q).slice(0, 70) + '»'));
+      }
+      return r.items;
+    } catch (e) { return raw; }
+  }
+
+  /* Che cosa si chiede in «criteri»: elementi SPUNTABILI, non una risposta. */
+  function _bloccoCriteri() {
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    return en
+        ? 'MARKING CRITERIA (mandatory): besides "traccia", fill "criteri" with 2 or 3 SEPARATE elements, each one checkable on its own — «mentions X», «links X to Y», «gives an example from the source». They are what lets a teacher give partial credit to an answer that is half right. Never write the whole expected answer as a single criterion.'
+        : 'CRITERI DI CORREZIONE (obbligatori): oltre alla «traccia», riempi «criteri» con 2 o 3 elementi SEPARATI, ognuno verificabile da solo — «nomina X», «collega X a Y», «porta un esempio preso dalla fonte». Sono ciò che permette al docente di dare un punteggio parziale a una risposta giusta a metà. Non scrivere mai l\'intera risposta attesa come criterio unico.';
+  }
+
+  /* Le etichette dei nodi che stanno nel materiale: servono a CONTARE quante
+     cose distinte una domanda chiama davvero in causa, invece di credere
+     all'etichetta che il modello si è dato. Il materiale è fatto di righe
+     «Etichetta: descrizione» (vedi `_branchMaterial`). */
+  function _etichetteDaMateriale(material) {
+    var out = [];
+    String(material || '').split('\n').forEach(function (r) {
+      var i = r.indexOf(':');
+      if (i < 3 || i > 70) return;
+      var et = r.slice(0, i).trim();
+      if (et && et.length >= 4 && out.indexOf(et) < 0) out.push(et);
+    });
+    return out;
+  }
+
   async function _genOpenQuestions(material, nodeLabel, quantity, apiKey, opts) {
     opts = opts || {};
     const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
@@ -391,6 +439,10 @@
     catch (e) { prompt = ''; }
     /* il blocco precede SEMPRE, anche il prompt di ripiego qui sotto */
     if (prompt.trim() && blocco) prompt = blocco + '\n\n' + prompt;
+    /* I CRITERI si chiedono FUORI dal template, come l'angolo: chi ha un
+       `prompts_config.json` personale non ha la chiave nuova e la lascerebbe
+       cadere in silenzio. */
+    if (prompt.trim()) prompt += '\n\n' + _bloccoCriteri();
     if (!prompt.trim()) {
       prompt = (blocco ? blocco + '\n\n' : '') +
         'Genera ' + quantity + ' DOMANDE APERTE di verifica basate ESCLUSIVAMENTE su questo materiale.\n' +
@@ -412,6 +464,13 @@
         properties: {
           domanda: { type: 'STRING' }, traccia: { type: 'STRING' }, righe: { type: 'INTEGER' },
           aree: { type: 'ARRAY', items: { type: 'STRING' } },
+          /* I CRITERI (11/9). La «traccia» è un blocco unico: o la risposta le
+             assomiglia o no, e un allievo che ha capito metà non prende metà.
+             Due o tre elementi separati, ognuno verificabile da solo, danno al
+             docente il credito parziale senza inventare una rubrica — e gli
+             permettono di distinguere un errore di storia da una difficoltà a
+             scrivere, che per chi fatica a esprimersi è tutto. */
+          criteri: { type: 'ARRAY', items: { type: 'STRING' } },
           /* `enum` invece di una stringa libera: senza, arrivano «facile»,
              «medio», «base/ponte» — e chi conta non riconosce più niente. */
           livello: { type: 'STRING', enum: ['base', 'ponte'] }
@@ -440,6 +499,7 @@
        kicker che nella mappa non esiste. Quel che resta dopo il filtro è la
        verità; se non resta niente, l'area è quella per cui stiamo generando. */
     const ammesse = [nodeLabel].concat(areaB ? [areaB] : []);
+    const etichette = _etichetteDaMateriale(material).concat(ammesse);
     const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
     return arr.filter(x => x && x.domanda).map(x => {
       let aree = Array.isArray(x.aree) ? x.aree : [];
@@ -451,10 +511,21 @@
       /* Il livello si NORMALIZZA a due valori: qualunque altra cosa il modello
          scriva («facile», «medio») vale ponte — cioè il caso prudente, quello
          che non promette all'allievo una domanda d'avvio che non lo è. */
-      const liv = String(x.livello || '').trim().toLowerCase() === 'base' ? 'base' : 'ponte';
+      let liv = String(x.livello || '').trim().toLowerCase() === 'base' ? 'base' : 'ponte';
+      /* ⚠️ POI SI CONTA (11/9). L'etichetta la dichiarava il modello e nessuno
+         la verificava: nei fogli veri una «avvio» chiedeva di distinguere i
+         principi storici della neutralità dalla dichiarazione formale — due
+         concetti, non uno. Qui si conta quante etichette del materiale la
+         domanda nomina davvero, e la conta scavalca la dichiarazione. Se non
+         ne nomina nessuna la conta non decide e resta quella del modello. */
+      try {
+        const PCv = PC();
+        if (PCv && PCv.livelloVerificato) liv = PCv.livelloVerificato(x, etichette, liv);
+      } catch (e) { /* resta la dichiarazione */ }
       return {
         question: String(x.domanda),
         guide: String(x.traccia || ''),
+        criteri: (PC() && PC().criteriDaItem) ? PC().criteriDaItem({ criteri: x.criteri, guide: x.traccia }) : [],
         lines: x.righe,
         areas: aree,
         livello: liv
@@ -559,6 +630,7 @@
               (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             }
           }
+          raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '')));
           if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
           const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
@@ -2042,6 +2114,7 @@
           (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
         }
       }
+      raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nome ? ' · ' + nome : '')));
       if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
       /* Le domande d'avvio in testa al loro ramo: un foglio si comincia da ciò
          che si sa. L'ordine si rimescola solo DENTRO il ramo (il foglio resta
