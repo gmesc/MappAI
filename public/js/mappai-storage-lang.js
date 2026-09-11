@@ -979,7 +979,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Aggiorna dinamicamente l'etichetta del percorso cartella dei vault
     const labelEl = document.getElementById('vault-manager-folder-path-label');
     if (labelEl) {
-        labelEl.textContent = isCapacitor ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
+        /* `isCapacitor` non è mai stato definito in questo file: era un
+           ReferenceError a OGNI avvio, l'ultima riga del gestore. Registrato nel
+           diario degli errori di Giacomo tre volte l'11 settembre. */
+        var _cap = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        labelEl.textContent = _cap ? "Cartella: MappAI - Vault" : "Cartella: Documents/Salvataggi MappAI";
     }
 });
 

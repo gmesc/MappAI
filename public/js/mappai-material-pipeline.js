@@ -144,6 +144,39 @@
     return (items || []).map(it => ({ question: it.front || it.q || '', answer: it.back || it.correct || '', explanation: '' }));
   }
 
+  /* ── LA CARTELLA SI ADOTTA, NON SI SCRIVE E BASTA (11/9/26) ──────────────
+     Qui c'era `_state().activeVaultPath = vaultPath;` e nient'altro, in due
+     punti. Il percorso veniva scritto, ma NON `activeVaultClassDir` /
+     `activeVaultDiscDir` né l'identità del progetto — e `StorageManager
+     .adottaVault` esiste dal 15 agosto proprio per questo: il suo commento dice
+     «erano il residuo della mappa precedente, e l'autosave li congelava nella
+     voce sbagliata».
+
+     CHE COSA È COSTATO (mappa «SVIZZERA e 2a GM», 11 settembre, misurato sui
+     file). La generazione aveva prodotto sei macro-aree. Nel vault, alla fine,
+     c'erano 14 nodi — ed erano quelli di UN'ALTRA MAPPA, del 9 settembre: i
+     `set-*.json` salvati alle 09:40 portano dentro le date del 9/9 21:22-21:28.
+     Due progetti si contendevano la stessa cartella e ha vinto il vecchio,
+     perché `progettoDelVault` (mappai-teach-core.js) sceglie per POSIZIONE
+     (vault + classe + disciplina) e poi per data: un progetto la cui posizione
+     non è mai stata registrata perde contro uno che ce l'ha.
+
+     La stessa mancanza spiega il secondo sintomo, il messaggio rosso «la mappa è
+     cambiata mentre la pipeline lavorava»: l'identità si fotografa poco più
+     sotto (`Pipeline._identita = _identita()`), e fotografare un id di progetto
+     che non è ancora stato deciso significa vederlo cambiare al passo dopo.
+     Una causa sola, due guasti.
+
+     ⚠️ `adottaVault` è asincrona e va attesa PRIMA della fotografia. */
+  async function _adottaLaCartella(vaultPath) {
+    _state().activeVaultPath = vaultPath;
+    try {
+      if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+        await StorageManager.adottaVault(vaultPath, _state());
+      }
+    } catch (e) { console.warn('[Pipeline] adozione della cartella non riuscita:', e && e.message); }
+  }
+
   // ── IPC helpers ─────────────────────────────────────────────────────────
   // le due basi (Mappe e Allievi) arrivano insieme: quale delle due si usa lo
   // decide il contesto attivo, non il chiamante
@@ -1112,7 +1145,7 @@
         vaultPath = await _resolveFolderPath(cls);
         const srD = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
         if (!srD || !srD.success) throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
-        _state().activeVaultPath = vaultPath;
+        await _adottaLaCartella(vaultPath);
         manifest = PC().createManifest(config, { now: _now(), vaultPath });
         manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
         await _writeManifest(vaultPath, manifest);
@@ -1201,7 +1234,7 @@
         vaultPath = await _resolveFolderPath(cls);
         const sr = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
         if (!sr || !sr.success) throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
-        _state().activeVaultPath = vaultPath;
+        await _adottaLaCartella(vaultPath);
         manifest = PC().createManifest(config, { now: _now(), vaultPath });
         manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
         await _writeManifest(vaultPath, manifest);

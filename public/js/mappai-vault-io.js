@@ -96,6 +96,16 @@ window.saveMapVault = async function () {
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             appState.activeVaultPath = result.folderPath;
+            /* Adottare la cartella, non solo scriverne il percorso (11/9): senza,
+               `activeVaultClassDir`/`activeVaultDiscDir` restano quelli della
+               mappa di prima e il progetto si registra in una posizione che non
+               è la sua. Da lì un'altra mappa può rivendicare la stessa cartella
+               e sovrascriverla — è successo davvero. */
+            try {
+                if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+                    await StorageManager.adottaVault(result.folderPath, appState);
+                }
+            } catch (e) { console.warn('[Vault] adozione non riuscita:', e && e.message); }
             /* il disco è cambiato: chi mostra elenchi rilegge (9/8) */
             try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-salvata', { vaultPath: result.folderPath }); } catch (e) { }
 
