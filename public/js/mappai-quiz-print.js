@@ -516,17 +516,36 @@ window.buildOpenQuestionsHtml = function (set, opts) {
        un giudizio, non un aiuto — e in una classe di recupero è il modo più
        rapido per far smettere di provare. Al docente serve invece sapere da
        dove si comincia, per capire chi si è fermato al primo scalino. */
+    /* ⚠️ I CRITERI SPUNTABILI (11/9). La traccia era un blocco unico: o la
+       risposta le assomiglia o no, e chi ha capito metà non prendeva metà. Con
+       due o tre elementi separati il docente spunta quelli presenti, e il
+       credito parziale viene da sé. Serve soprattutto a distinguere un errore di
+       STORIA da una difficoltà a SCRIVERE, che per un allievo con difficoltà
+       espressive è la differenza fra un voto e un giudizio sulla persona.
+       La casella è disegnata col bordo, non con un carattere: ☐ non esiste in
+       tutti e quattro i caratteri dell'app e sarebbe uscito un rettangolo vuoto.
+       Con meno di due criteri si stampa la traccia come prima: un criterio solo
+       non è una griglia, e fingere che lo sia non aiuterebbe nessuno. */
+    const _casella = 'display:inline-block; width:9px; height:9px; border:1.2px solid #94a3b8;' +
+        ' border-radius:2px; margin-right:7px; vertical-align:middle;';
     let answerKeyHtml = '';
     items.forEach((item, idx) => {
         const g = item.guide || item.answer || '—';
         const avvio = String(item.livello || '').toLowerCase() === 'base';
+        const crit = (window.MappAIPipelineCore && window.MappAIPipelineCore.criteriDaItem)
+            ? window.MappAIPipelineCore.criteriDaItem(item) : [];
+        const corpo = (crit.length >= 2)
+            ? `<div style="color:#1e293b; font-size:12.5px; margin-top:4px;">` +
+              crit.map(c => `<div style="margin:2px 0;"><span style="${_casella}"></span>${escHtmlQP(c)}</div>`).join('') +
+              `</div>`
+            : `<div style="color:#1e293b; font-size:13px; margin-top:3px;">${escHtmlQP(g)}</div>`;
         answerKeyHtml += `
         <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
             <div style="font-weight:900; color:${accentColor}; font-size:12px;">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
                 margin-left:7px; font-size:9px; font-weight:700; letter-spacing:0.06em;
                 color:#475569; background:#f1f5f9; border-radius:999px; padding:2px 7px;
                 text-transform:uppercase;">avvio</span>` : ''}</div>
-            <div style="color:#1e293b; font-size:13px; margin-top:3px;">${escHtmlQP(g)}</div>
+            ${corpo}
         </div>`;
     });
     /* Il conto in testa al foglio soluzioni: dice com'è fatta la verifica —
@@ -586,7 +605,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         </div>` : ''}
         <div class="oq-section-title">Tracce di correzione</div>
         ${_grad.base ? `<div style="font-size:11px; color:#475569; margin:-6px 0 14px;">
-            ${_grad.base} domande di avvio (si rispondono con un concetto solo) · ${_grad.ponte} di ponte (ne collegano due o più).
+            ${_grad.base} ${_grad.base === 1 ? 'domanda di avvio (si risponde' : 'domande di avvio (si rispondono'} con un concetto solo) · ${_grad.ponte} di ponte (${_grad.ponte === 1 ? 'ne collega' : 'ne collegano'} due o più).
         </div>` : ''}
         ${answerKeyHtml}
     </div>` : ''}
