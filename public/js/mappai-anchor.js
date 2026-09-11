@@ -191,6 +191,24 @@
                 .join(' · '));
         }
         if (r.metaRipulite) out.push('Descrizioni ripulite dal metatesto: ' + r.metaRipulite);
+        /* Il verdetto del giudice entra nelle stesse righe: per il docente è una
+           cosa sola — che cosa sa il programma di questa mappa prima che la
+           stampi. Le misure qui sopra restano quelle di PRIMA del giudice, ed è
+           voluto: sono i numeri su cui il giudice ha lavorato. */
+        try {
+            const g = (_state() || {})._giudiceReport;
+            if (g && g.rami) {
+                if (g.correzioni.length) {
+                    out.push(g.applicaAcceso
+                        ? ('Errori di senso corretti dal controllo: ' + g.applicate + ' — ' +
+                           g.correzioni.slice(0, 3).map(c => '«' + c.label + '» ' + c.tipo).join(', '))
+                        : ('Errori di senso trovati dal controllo (non corretti, le scritture sono spente): ' +
+                           g.correzioni.length + ' — ' + g.correzioni.slice(0, 3).map(c => '«' + c.label + '» ' + c.tipo).join(', ')));
+                }
+                if (g.segnalati.length) out.push('Descrizioni da rileggere secondo il controllo: ' + g.segnalati.length);
+                if (g.linkTolti.length) out.push('Nessi non sostenuti dalla fonte: ' + g.linkTolti.length);
+            }
+        } catch (e) { /* il rapporto del giudice è un di più */ }
         return out;
     };
 

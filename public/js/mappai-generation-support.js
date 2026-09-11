@@ -2250,3 +2250,220 @@ window.executeCoveragePass = async function (apiKey) {
         return null;
     }
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// IL GIUDICE — rilegge ogni ramo con davanti le frasi della fonte
+// ══════════════════════════════════════════════════════════════════════════
+//
+// PERCHÉ ESISTE (12 settembre 2026). L'àncora misura la fedeltà LESSICALE e non
+// vede l'errore che conta: sulla generazione vera esce 0,78-0,82 con ZERO nodi
+// sotto soglia mentre la fonte dice che era LA GERMANIA ad avere bisogno di
+// franchi svizzeri e la desc dice che era la Svizzera a ottenere valuta. Le
+// parole vengono tutte dalla fonte: è il senso a essere girato, e per quello
+// serve un lettore.
+//
+// ⚠️ CHE COSA È AUTORIZZATO A FARE, e perché così poco. Il progetto è passato da
+// cinque proposte con altrettanti avversari incaricati di demolirle. Quattro su
+// cinque hanno concluso che la riscrittura in prosa non è difendibile, e uno
+// l'ha MISURATO: facendo girare le guardie sul caso vero, correggere «la
+// Svizzera aveva bisogno di franchi» in «la Germania…» e fare lo scambio
+// INVERSO danno numeri identici. Quindi il giudice:
+//   · NON riscrive una desc in prosa, mai;
+//   · può proporre una FORBICE — la porzione esatta sbagliata e che cosa
+//     metterci — che il codice verifica con due confronti di stringa;
+//   · non promuove mai un arco a un verbo causale: può solo togliere un verbo
+//     che non regge;
+//   · non tocca label, padri e livelli: quello sarebbe un secondo generatore.
+//
+// ⚠️ RICEVE ANCHE LE FRASI CHE L'ÀNCORA HA SCARTATO dalle stesse pagine. Senza,
+// la prova che SMENTISCE un nodo non gli arriva: l'àncora dà a ogni nodo le
+// frasi più vicine alla sua desc, cioè quelle che gli assomigliano — e una desc
+// sbagliata assomiglia alla frase sbagliata. È il caso della commissione
+// «formata nel 2002»: la frase che lo smentisce non era fra le sue citazioni.
+//
+// Due interruttori, entrambi SPENTI di partenza (a differenza dell'àncora e
+// della copertura, che sono deterministiche e non riscrivono contenuto):
+//   `mappai_giudice_enabled` = '1' → il giudice gira e scrive il rapporto;
+//   `mappai_giudice_applica` = '1' → le forbici verificate si applicano davvero.
+// Acceso solo il primo si ottiene il «segnala e basta», che è la modalità con
+// cui vanno raccolti i numeri prima di lasciarlo scrivere.
+window.isJudgeEnabled = function () {
+    try { return localStorage.getItem('mappai_giudice_enabled') === '1'; } catch (e) { return false; }
+};
+window.isJudgeApplyEnabled = function () {
+    try { return localStorage.getItem('mappai_giudice_applica') === '1'; } catch (e) { return false; }
+};
+
+window.executeJudgePass = async function (apiKey) {
+    const J = window.MappAIJudgeCore, A = window.MappAIAnchorCore;
+    if (!J || !A || !apiKey || !window.isJudgeEnabled()) return null;
+
+    const nodi = appState.db.nodes || [];
+    const rami = nodi.filter(n => (n.level || 0) === 1);
+    if (!rami.length) return null;
+
+    /* Tutte le frasi della fonte, con la loro pagina: servono a dare al giudice
+       anche ciò che l'àncora NON ha scelto per quel nodo. */
+    let tutte = [];
+    try {
+        const pag = [];
+        (appState._pdfPagine || []).forEach(f => (f.pages || []).forEach(p => pag.push({ n: p.n, text: p.text })));
+        tutte = A.frasiDaPagine(pag.length ? pag : A.paginePiatte((appState.sources || []).map(s => s && s.content).filter(Boolean)));
+    } catch (e) { tutte = []; }
+    if (!tutte.length) return null;
+
+    const applica = window.isJudgeApplyEnabled();
+    /* `correzioni` = le forbici VERIFICATE. Sono applicate davvero solo se
+       `applica` è acceso; il campo `applicate` lo dice senza ambiguità, perché un
+       array chiamato «applicati» pieno di cose non applicate è un rapporto che
+       mente a chi lo rilegge fra sei mesi. */
+    const esito = { rami: 0, correzioni: [], applicate: 0, segnalati: [], scartati: [], linkTolti: [], applicaAcceso: applica };
+
+    for (const ramo of rami) {
+        const figli = (window.getDescendants ? window.getDescendants(ramo.id) : []) || [];
+        const dentro = [ramo].concat(figli).filter(n => (n.desc || '').trim().split(/\s+/).length >= 12);
+        if (dentro.length < 2) continue;
+
+        // per ogni nodo: le SUE citazioni, più altre frasi delle stesse pagine
+        const frammenti = {};
+        dentro.forEach(n => {
+            const cit = ((appState.db.sourcesDict || {})[n.id] || []).filter(e => e && e.verbatim && e.text);
+            if (!cit.length) return;                       // niente citazioni = niente da giudicare
+            const pagine = {};
+            cit.forEach(e => { const m = String(e.source || '').match(/(\d+)/); if (m) pagine[m[1]] = 1; });
+            const proprie = cit.map(e => e.text);
+            const vicine = tutte
+                .filter(f => pagine[String(f.page)] && proprie.indexOf(f.text) < 0)
+                .slice(0, 3).map(f => f.text);
+            frammenti[n.id] = proprie.concat(vicine);
+        });
+        const giudicabili = dentro.filter(n => frammenti[n.id]);
+        if (giudicabili.length < 2) continue;
+
+        const blocchi = giudicabili.map(n =>
+            '### ' + n.id + ' — "' + (window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '"\n' +
+            'DESCRIZIONE: ' + n.desc + '\n' +
+            'FRASI DELLA FONTE:\n' + frammenti[n.id].map(t => '  · ' + t).join('\n')
+        ).join('\n\n');
+
+        const idDentro = {}; giudicabili.forEach(n => { idDentro[n.id] = 1; });
+        const eid = x => (x && typeof x === 'object') ? x.id : x;
+        const archi = (appState.db.links || []).filter(l =>
+            idDentro[eid(l.source)] && idDentro[eid(l.target)] &&
+            !/^(include|includes|correlato a|related to|dettagli|approfondisce)$/i.test(String(l.rel || '')));
+        const bloccoArchi = archi.length
+            ? '\n\nNESSI DICHIARATI FRA QUESTI NODI:\n' + archi.map(l =>
+                '· ' + eid(l.source) + ' → ' + l.rel + ' → ' + eid(l.target)).join('\n')
+            : '';
+
+        const tetto = Math.max(1, Math.min(4, Math.ceil(giudicabili.length / 3)));
+        const schema = {
+            type: 'OBJECT',
+            properties: {
+                nodi: {
+                    type: 'ARRAY', maxItems: tetto,
+                    items: {
+                        type: 'OBJECT',
+                        properties: {
+                            id: { type: 'STRING', enum: giudicabili.map(n => n.id) },
+                            tipo: { type: 'STRING', enum: J.TIPI },
+                            problema: { type: 'STRING', maxLength: 220 },
+                            prova: { type: 'STRING', maxLength: 300 },
+                            brano_errato: { type: 'STRING', maxLength: 120 },
+                            con: { type: 'STRING', maxLength: 160 }
+                        },
+                        required: ['id', 'tipo', 'problema', 'prova']
+                    }
+                },
+                link: {
+                    type: 'ARRAY', maxItems: 5,
+                    items: {
+                        type: 'OBJECT',
+                        properties: {
+                            source: { type: 'STRING' }, target: { type: 'STRING' },
+                            valido: { type: 'BOOLEAN' }, problema: { type: 'STRING', maxLength: 180 }
+                        },
+                        required: ['source', 'target', 'valido']
+                    }
+                }
+            },
+            required: ['nodi']
+        };
+
+        const prompt =
+`Ogni nodo qui sotto ha una DESCRIZIONE scritta da un'AI e le FRASI DELLA FONTE da cui dovrebbe venire. Cerca i punti in cui la descrizione dice una cosa diversa da quella che la fonte dice.
+
+${blocchi}${bloccoArchi}
+
+CHE COSA CERCARE — sono errori di SENSO, non di parole. Le parole vengono quasi sempre dalla fonte: è il ruolo o il riferimento a essere girato.
+· soggetto-invertito → chi fa l'azione è scambiato. Esempio reale: la fonte dice che la GERMANIA aveva bisogno di franchi svizzeri per comprare merci; la descrizione dice che era la Svizzera a ottenere valuta.
+· data-attribuita-male → la data è giusta ma appiccicata alla cosa sbagliata. Esempio reale: «la commissione formata nel 2002», quando il 2002 è l'anno del suo rapporto.
+· termine-sostituito → una parola tecnica rimpiazzata da una che significa un'altra cosa. Esempio reale: «militari internati» diventa «soldati prigionieri».
+· fatto-non-nella-fonte → la descrizione afferma qualcosa che in quelle frasi non c'è.
+· nesso-non-nella-fonte → la descrizione lega due cose che la fonte non lega.
+
+CHE COSA NON È UN ERRORE, e non va segnalato: una semplificazione, una parola più facile, una frase più corta, un termine spiegato fra virgole. Queste descrizioni sono scritte apposta per una quarta media. Se una descrizione è fedele, non dire niente di quel nodo: si segnalano SOLO le eccezioni, e una lista vuota è una risposta giusta e frequente.
+
+PER OGNI SEGNALAZIONE:
+· "prova": copia il pezzo di frase della fonte che dimostra l'errore, parola per parola, da una delle frasi qui sopra. Deve contenere qualcosa che la descrizione NON dice: se la tua prova è già tutta dentro la descrizione, non stai dimostrando niente.
+· "brano_errato" e "con": SOLO per soggetto-invertito, data-attribuita-male e termine-sostituito, e solo se bastano poche parole. "brano_errato" è la porzione ESATTA della descrizione da cambiare, copiata parola per parola; "con" è che cosa metterci. Non riscrivere la frase: cambia il pezzo sbagliato e basta. Se servono più di una decina di parole, lascia i due campi vuoti e segnala soltanto.
+
+NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido": false solo se quelle frasi NON dicono quel legame. Non proporre verbi nuovi.`;
+
+        try {
+            if (window.MappAIUsage) window.MappAIUsage.setContext('generation', 'giudice');
+            const resp = await window.fetchModelAPI({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un revisore che confronta un testo con la sua fonte. Segnali solo le differenze di SENSO, mai di stile. Rispondi solo JSON conforme allo schema.') }] },
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: window.getMaxOutputTokens(2000),
+                    responseMimeType: 'application/json',
+                    responseSchema: schema
+                }
+            }, apiKey);
+            const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+            esito.rami++;
+
+            const v = J.validaVerdetti((data && data.nodi) || [], { nodi: giudicabili, frammenti: frammenti });
+            const vl = J.validaLink((data && data.link) || [], { links: archi });
+
+            v.applicati.forEach(r => {
+                r.ramo = ramo.label;
+                if (applica) {
+                    const n = nodi.find(x => x.id === r.id);
+                    /* ⚠️ `aiDesc` NON si tocca: resta il testo PRE-giudice, che è
+                       l'unico che l'editor sa già mostrare sotto la desc e da cui
+                       «ripristina versione AI» fa tornare indietro. */
+                    if (n) { n.desc = r.dopo; n._giudicato = true; esito.applicate++; }
+                } else { r.soloSegnalato = true; }
+                esito.correzioni.push(r);
+            });
+            v.segnalati.forEach(r => { r.ramo = ramo.label; esito.segnalati.push(r); });
+            v.scartati.forEach(r => esito.scartati.push(r));
+
+            vl.tolti.forEach(t => {
+                if (applica) {
+                    (appState.db.links || []).forEach(l => {
+                        if (eid(l.source) === t.source && eid(l.target) === t.target && l.rel === t.rel) {
+                            l._relOriginale = l.rel;
+                            l.rel = l.isCross ? 'correlato a' : 'include';
+                        }
+                    });
+                }
+                esito.linkTolti.push(t);
+            });
+        } catch (e) {
+            console.warn('[Giudice] ramo «' + ramo.label + '» saltato:', e.message);
+        }
+    }
+
+    appState._giudiceReport = esito;
+    const verbo = applica ? 'corrette' : 'da correggere (solo segnalate)';
+    console.info('[Giudice] ' + esito.rami + ' rami riletti · ' + esito.correzioni.length + ' descrizioni ' + verbo +
+        ' · ' + esito.segnalati.length + ' segnalazioni · ' + esito.linkTolti.length + ' nessi non sostenuti' +
+        (esito.scartati.length ? ' · ' + esito.scartati.length + ' verdetti scartati' : ''));
+    esito.correzioni.forEach(r => console.info('   [' + r.tipo + '] «' + r.label + '»: «' + r.brano + '» → «' + r.con + '»'));
+    return esito;
+};
