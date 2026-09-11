@@ -58,6 +58,13 @@ window.buildVaultMapData = function () {
         nodes: appState.db.nodes,
         links: appState.db.links,
         studySets: appState.db.studySets || [],
+        /* LE CITAZIONI NEL VAULT (11/9). Viaggiano nei `chunks` dei nodi, che
+           `save-vault` scrive nella sezione «## Fonti» del markdown come
+           `- [titolo | pagina N]: testo` e che il caricatore ricostruisce in
+           `sourcesDict`. Prima erano SEMPRE vuoti (su Gemini `schemaBranch` non
+           dichiara i chunks), quindi la mappa riaperta perdeva ogni fonte; ora
+           li riempie l'àncora. `sourcesDict` NON si passa qui: `save-vault`
+           scrive campi scelti e lo scarterebbe — sarebbe una promessa falsa. */
         userProfile: appState.userProfile,
         tutorState: serializeTutorState(tutorState),
         aiProvider: appState.aiProvider,
@@ -392,7 +399,16 @@ window.loadMapVault = async function () {
 
             if (window.renderStudySets) window.renderStudySets();
 
+            /* Un dizionario già in `mapData` (non lo scrive `save-vault`, ma può
+               arrivare da un demo o da un import) ha la precedenza; per tutto il
+               resto si ricostruisce dai chunks del markdown, che dall'11/9
+               portano anche la pagina. */
+            const _sdSalvato = loadRes.data.sourcesDict;
+            if (_sdSalvato && typeof _sdSalvato === 'object') {
+                Object.keys(_sdSalvato).forEach(k => { appState.db.sourcesDict[k] = _sdSalvato[k]; });
+            }
             appState.db.nodes.forEach(n => {
+                if (appState.db.sourcesDict[n.id]) return;
                 if (n.chunks && n.chunks.length > 0) {
                     appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
                         title: c.title || "Fonte",

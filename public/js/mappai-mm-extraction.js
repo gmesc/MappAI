@@ -56,7 +56,14 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                 rootNodeLabel: appState.rootNodeLabel,
                 optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
                 focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
-                textParts: textParts.join('\\n')
+                /* L'INDICE DEL DOCUMENTO in coda alle fonti (11/9): i titoli veri
+                   del PDF, che `extractPdfPages` riconosce dall'altezza del testo.
+                   Prima la Fase 1 riceveva un blocco piatto e sceglieva le
+                   macro-aree senza sapere di quante sezioni fosse fatto il
+                   documento — misurato: la pagina economica di un dossier di sei
+                   pagine sparita da due mappe su due. Vuoto se le fonti non sono
+                   PDF o se i titoli non si distinguono. */
+                textParts: textParts.join('\\n') + (appState._docOutline || '')
             });
 
             const schemaL1 = {
@@ -505,6 +512,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
         }
 
+        /* ── L'ÀNCORA (11/9) ──────────────────────────────────────────────────
+           Ultimo passaggio deterministico, zero chiamate: dà a ogni nodo le frasi
+           VERE della fonte, misura fedeltà e copertura, declassa i nessi causali
+           impossibili e toglie il metatesto dalle desc. Va QUI, dopo il tetto di
+           profondità e l'ultimo sanitizer, perché è l'unico punto in cui l'albero
+           è quello definitivo — i nodi di approfondimento compresi.
+           Kill-switch: `mappai_anchor_enabled` = '0'. */
+        try { if (window.applyAnchor) window.applyAnchor(); }
+        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
+
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         try {
             await window.enrichThinDescs(textParts, apiKey);
@@ -573,7 +590,14 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
                 rootNodeLabel: appState.rootNodeLabel,
                 optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
                 focusTopic: appState.focusTopic ? '\n\nISTRUZIONI AGGIUNTIVE (leggere prima di generare il JSON):\n' + appState.focusTopic.replace(/[`"{}[\]\\]/g, ' ').replace(/⚡|📅|👤|📍|🔑|❓|🗂️|📊|🧮|⚗️|📐|🔄|💬/g, '').replace(/\[([A-Z\s]+)\]:/g, '$1:').replace(/:{2,}/g, ':').trim() + '\n' : '',
-                textParts: textParts.join('\\n')
+                /* L'INDICE DEL DOCUMENTO in coda alle fonti (11/9): i titoli veri
+                   del PDF, che `extractPdfPages` riconosce dall'altezza del testo.
+                   Prima la Fase 1 riceveva un blocco piatto e sceglieva le
+                   macro-aree senza sapere di quante sezioni fosse fatto il
+                   documento — misurato: la pagina economica di un dossier di sei
+                   pagine sparita da due mappe su due. Vuoto se le fonti non sono
+                   PDF o se i titoli non si distinguono. */
+                textParts: textParts.join('\\n') + (appState._docOutline || '')
             });
 
             const schemaL1 = {
@@ -1208,6 +1232,16 @@ ${textParts.join('\n\n')}`;
             window.applyDepthCeiling(maxMapLevel);
             if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
         }
+
+        /* ── L'ÀNCORA (11/9) ──────────────────────────────────────────────────
+           Ultimo passaggio deterministico, zero chiamate: dà a ogni nodo le frasi
+           VERE della fonte, misura fedeltà e copertura, declassa i nessi causali
+           impossibili e toglie il metatesto dalle desc. Va QUI, dopo il tetto di
+           profondità e l'ultimo sanitizer, perché è l'unico punto in cui l'albero
+           è quello definitivo — i nodi di approfondimento compresi.
+           Kill-switch: `mappai_anchor_enabled` = '0'. */
+        try { if (window.applyAnchor) window.applyAnchor(); }
+        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
 
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).

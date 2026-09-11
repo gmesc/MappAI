@@ -490,7 +490,10 @@ window.sendNodeTutorMessage = async function (presetText) {
 
     let contextStr = `CONTESTO NODO [${editTarget.label}]: ${stripHTML(editTarget.desc || '')}\n`;
     if (editTarget.chunks && editTarget.chunks.length > 0) {
-        contextStr += `FONTI/ESTRATTI DISPONIBILI:\n${editTarget.chunks.map((c, i) => `[Fonte ${i + 1}]: ${c}`).join('\n')}\n`;
+        /* i chunk possono essere stringhe (generazione) o oggetti {title,source,text}
+           (dopo una riapertura del vault, e dall'11/9 anche appena generati): senza
+           questa riga il tutor riceveva «[object Object]» come fonte */
+        contextStr += `FONTI/ESTRATTI DISPONIBILI:\n${editTarget.chunks.map((c, i) => `[Fonte ${i + 1}]: ${(c && typeof c === 'object') ? (c.text || '') : c}`).join('\n')}\n`;
     }
 
     const isKG = appState.extractionMode !== 'mindmap';

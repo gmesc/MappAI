@@ -548,16 +548,75 @@ if (typeof pdfjsLib !== 'undefined') {
     console.warn("pdfjsLib non caricato correttamente. L'estrazione da PDF potrebbe non funzionare.");
 }
 
-window.extractTextFromPDF = async function (file) {
+/* ── LE PAGINE E I TITOLI DEL PDF (11/9/26) ───────────────────────────────────
+   Prima di oggi tutto il PDF veniva unito in una stringa sola con degli spazi:
+   sparivano il numero di pagina (quindi nessuna citazione poteva dire «a pagina
+   4») e i TITOLI delle sezioni — che pdf.js conosce benissimo, perché ogni pezzo
+   di testo porta la sua altezza, e che l'app buttava via. Un docente vede a colpo
+   d'occhio che il dossier ha una sezione economica; il modello no, e infatti la
+   pagina economica è sparita da due mappe su due.
+   `extractTextFromPDF` continua a restituire la stessa stringa di sempre (sei
+   chiamanti, invariati); chi vuole di più chiama `extractPdfPages`. */
+window.extractPdfPages = async function (file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = "";
+    const pages = [];
+    const altezze = [];
+    const grezzi = [];
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        fullText += content.items.map(item => item.str).join(" ") + "\n";
+        pages.push({ n: i, text: content.items.map(item => item.str).join(" ") });
+        // altezza del glifo: `height`, o la scala verticale della matrice
+        content.items.forEach(it => {
+            const h = it.height || (it.transform && Math.abs(it.transform[3])) || 0;
+            const s = String(it.str || '').trim();
+            if (h > 0 && s) { altezze.push(h); grezzi.push({ h, s, n: i }); }
+        });
     }
-    return fullText;
+    /* ── COME SI RICONOSCE UN TITOLO ──────────────────────────────────────────
+       Due criteri, in OR, perché da soli non bastano:
+       (a) testo BREVE scritto più in grande della mediana (soglia +15%). Funziona
+           sui documenti impaginati con una gerarchia tipografica;
+       (b) testo che comincia con «1.» / «2)» — la numerazione delle sezioni.
+
+       ⚠️ Il criterio (b) non è un di più: misurato sul dossier di Storia della
+       4a Media, TUTTI i 381 pezzi di testo hanno la STESSA altezza (11,49) —
+       titoli compresi. Col solo criterio (a) l'indice usciva vuoto. Con (b) escono
+       esattamente le quattro sezioni vere, fra cui «2. L'economia svizzera», che è
+       proprio la parte sparita dalle mappe.
+
+       ⚠️ Il FONT non si usa come criterio, benché lì i titoli siano in un font
+       diverso: provato, dà 121 candidati su quel PDF, quasi tutti grassetti in
+       mezzo ai paragrafi («piano Wahlen», «razionamento»). Un indice di rumore è
+       peggio di nessun indice. */
+    let titoli = [];
+    const ord = altezze.slice().sort((a, b) => a - b);
+    const mediana = ord.length ? ord[Math.floor(ord.length / 2)] : 0;
+    const soglia = mediana * 1.15;
+    /* ⚠️ dopo il numero basta UN carattere non-spazio, non tre: misurato sul
+       dossier vero, tre titoli su quattro cominciano con «La» — con `\S{3,}`
+       ne usciva uno solo. A tenere fuori le briciole ci pensa la lunghezza
+       minima qui sotto. */
+    const numerato = /^\d{1,2}[.)]\s+\S/;
+    const visti = new Set();
+    grezzi.forEach(g => {
+        const grande = (altezze.length > 20 && mediana > 0 && g.h >= soglia);
+        if (!grande && !numerato.test(g.s)) return;
+        if (g.s.length < 8 || g.s.length > 90) return;
+        if (/^[\d\s.,;:–—-]+$/.test(g.s)) return;                 // numeri di pagina
+        const k = g.s.toLowerCase();
+        if (visti.has(k)) return;                                  // intestazione ripetuta
+        visti.add(k);
+        titoli.push({ page: g.n, text: g.s });
+    });
+    if (titoli.length > 24) titoli = titoli.slice(0, 24);          // un indice, non un secondo documento
+    return { text: pages.map(p => p.text).join('\n'), pages, titoli };
+};
+
+window.extractTextFromPDF = async function (file) {
+    const r = await window.extractPdfPages(file);
+    return r.text;
 };
 
 
@@ -1322,6 +1381,9 @@ window.startGeneration = async function () {
         (document.getElementById('focus-input') ? document.getElementById('focus-input').value.trim() : '') || '';
 
     var textParts = [];
+    /* pagine + titoli dei PDF di QUESTA generazione: alimentano l'àncora e
+       l'indice del documento in Fase 1. Vuoto se le fonti non sono PDF. */
+    var _pdfPagine = [];
     var fileParts = [];
     var hasSources = false;
 
@@ -1361,9 +1423,14 @@ window.startGeneration = async function () {
         } else if (src.type === 'pdf' && src.file) {
             window.showLoadingOverlay(true, window.t('lo_pdf_local', "Estrazione testo dal PDF locale..."));
             try {
-                let pdfText = await window.extractTextFromPDF(src.file);
+                let _pdf = await window.extractPdfPages(src.file);
+                let pdfText = _pdf.text;
                 if (pdfText.trim()) {
                     textParts.push("[FONTE PDF " + src.file.name + "]:\n" + pdfText);
+                    /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
+                       citazioni sanno da che pagina vengono) e alla Fase 1 (i
+                       titoli del dossier come indice). Il prompt non cambia. */
+                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli });
                     hasSources = true;
                 }
             } catch (err) {
@@ -1375,9 +1442,14 @@ window.startGeneration = async function () {
             // Caso PDF caricato tramite bottone Documenti
             window.showLoadingOverlay(true, window.t('lo_pdf', "Estrazione testo dal PDF..."));
             try {
-                let pdfText = await window.extractTextFromPDF(src.file);
+                let _pdf = await window.extractPdfPages(src.file);
+                let pdfText = _pdf.text;
                 if (pdfText.trim()) {
                     textParts.push("[FONTE PDF " + src.file.name + "]:\n" + pdfText);
+                    /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
+                       citazioni sanno da che pagina vengono) e alla Fase 1 (i
+                       titoli del dossier come indice). Il prompt non cambia. */
+                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli });
                     hasSources = true;
                 }
             } catch (err) {
@@ -1511,6 +1583,26 @@ window.startGeneration = async function () {
             if (_stTot) console.log('[Boilerplate] rimosse ' + _stTot + ' righe strutturali (domande/titoli/vuote) dal corpus di generazione');
         }
     } catch (e) { /* best-effort: se fallisce, corpus invariato */ }
+
+    /* ── PAGINE E INDICE DEL DOCUMENTO (11/9) ─────────────────────────────────
+       Restano su appState per tutta la generazione: le pagine servono all'ANCORA
+       (che gira a valle della Fase 3, dove `textParts` non arriva piu') e i titoli
+       alla Fase 1. `_docOutline` e' testo gia' pronto da appendere a un prompt:
+       chi lo usa non deve sapere com'e' fatto un PDF. */
+    appState._pdfPagine = _pdfPagine;
+    appState._docOutline = '';
+    try {
+        var _tt = [];
+        _pdfPagine.forEach(function (f) {
+            (f.titoli || []).forEach(function (t) { _tt.push('p.' + t.page + ' \u2014 ' + t.text); });
+        });
+        if (_tt.length >= 3) {
+            appState._docOutline = '\n\nINDICE DEL DOCUMENTO (i titoli come compaiono nella fonte, in ordine). '
+                + 'Dicono di quali parti e' + "'" + ' fatto il documento: copri TUTTE le sezioni, non solo le prime. '
+                + 'NON copiarli come etichette se non sono adatti.\n' + _tt.join('\n') + '\n';
+            console.log('[Outline] ' + _tt.length + ' titoli riconosciuti nella fonte');
+        }
+    } catch (e) { appState._docOutline = ''; }
 
     // Nuova mappa = chat nuove: mai ereditare il tutorState della mappa precedente
     if (window.setTutorState) window.setTutorState(null);
@@ -1895,6 +1987,34 @@ window.showGenerationReport = function () {
     const tokens = appState.generationUsage.totalTokens.toLocaleString();
 
     window.showToast(`${window.t('tst_gen_done', "Generazione completata!")} Token: ${tokens} | ${window.t('ui_cost', "Costo")}: ${costText}`, "success");
+    /* ── QUELLO CHE IL DOCENTE DEVE SAPERE PRIMA DI STAMPARE (11/9) ────────────
+       L'àncora ha misurato copertura, fedeltà e nessi impossibili. Prima queste
+       cose non esistevano: una pagina intera della fonte poteva non entrare in
+       mappa senza che comparisse un avviso da nessuna parte. Le righe si mostrano
+       solo quando c'è qualcosa da dire — un secondo avviso a ogni generazione
+       smetterebbe di essere letto. */
+    try {
+        var _q = appState._qualityReport;
+        if (_q && window.anchorReportLines) {
+            var _righe = window.anchorReportLines();
+            console.log('%c[Qualità della mappa]', 'font-weight:bold', '\n · ' + _righe.join('\n · '));
+            var _allarmi = [];
+            var _scoperte = _q.copertura.pagine.filter(function (p) { return p.pct < 40 && p.tot >= 3; });
+            if (_scoperte.length) {
+                _allarmi.push(window.t('gen_rep_cov', 'Parti della fonte quasi assenti dalla mappa: ')
+                    + _scoperte.map(function (p) { return (p.page ? 'pagina ' + p.page : 'fonte') + ' (' + p.pct + '%)'; }).join(', '));
+            }
+            if (_q.nessiDeclassati.length) {
+                _allarmi.push(window.t('gen_rep_nessi', 'Nessi causali impossibili, corretti: ') + _q.nessiDeclassati.length);
+            }
+            if (_q.fedelta && _q.fedelta.sotto.length) {
+                _allarmi.push(window.t('gen_rep_fid', 'Descrizioni poco ancorate alla fonte, da rileggere: ') + _q.fedelta.sotto.length);
+            }
+            if (_allarmi.length) {
+                setTimeout(function () { window.showToast(_allarmi.join(' · '), 'warning'); }, 2600);
+            }
+        }
+    } catch (e) { /* il rapporto è un di più: la mappa c'è comunque */ }
 
     // Riordino su disco (22/7): a fine generazione crea/aggiorna in automatico la
     // cartella vault della mappa in «Mappe» (nome = ROOT; annidata nella classe

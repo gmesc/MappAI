@@ -134,7 +134,11 @@
         ((state && state.sources) || []).forEach(s => { if (s && s.content) parts.push(s.content); });
         const sd = (state && state.db && state.db.sourcesDict) || {};
         Object.keys(sd).forEach(k => (sd[k] || []).forEach(e => { if (e && e.text) parts.push(e.text); }));
-        (((state && state.db) || {}).nodes || []).forEach(n => (n.chunks || []).forEach(c => { if (c) parts.push(c); }));
+        // i chunk sono stringhe o oggetti {title,source,text}: si prende il testo
+        (((state && state.db) || {}).nodes || []).forEach(n => (n.chunks || []).forEach(c => {
+            const t = (c && typeof c === 'object') ? c.text : c;
+            if (t) parts.push(t);
+        }));
         return parts.join('\n');
     }
 
