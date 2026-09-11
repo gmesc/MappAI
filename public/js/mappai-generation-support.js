@@ -2332,9 +2332,16 @@ window.executeJudgePass = async function (apiKey) {
             const pagine = {};
             cit.forEach(e => { const m = String(e.source || '').match(/(\d+)/); if (m) pagine[m[1]] = 1; });
             const proprie = cit.map(e => e.text);
+            /* ⚠️ LA FINESTRA ERA TROPPO STRETTA (12/9). Con tre frasi in più, su
+               venti segnalazioni di due generazioni vere venti dicevano «non si
+               menziona X» mentre X stava nel documento, in una frase che al
+               giudice non era stata mostrata. Ora arrivano tutte le frasi delle
+               pagine da cui vengono le citazioni del nodo: una pagina ne ha
+               otto-dieci, quindi il prompt cresce di poco e il giudice giudica
+               su un contesto che può reggere un verdetto. */
             const vicine = tutte
                 .filter(f => pagine[String(f.page)] && proprie.indexOf(f.text) < 0)
-                .slice(0, 3).map(f => f.text);
+                .slice(0, 10).map(f => f.text);
             frammenti[n.id] = proprie.concat(vicine);
         });
         const giudicabili = dentro.filter(n => frammenti[n.id]);
@@ -2399,10 +2406,12 @@ CHE COSA CERCARE — sono errori di SENSO, non di parole. Le parole vengono quas
 · soggetto-invertito → chi fa l'azione è scambiato. Esempio reale: la fonte dice che la GERMANIA aveva bisogno di franchi svizzeri per comprare merci; la descrizione dice che era la Svizzera a ottenere valuta.
 · data-attribuita-male → la data è giusta ma appiccicata alla cosa sbagliata. Esempio reale: «la commissione formata nel 2002», quando il 2002 è l'anno del suo rapporto.
 · termine-sostituito → una parola tecnica rimpiazzata da una che significa un'altra cosa. Esempio reale: «militari internati» diventa «soldati prigionieri».
-· fatto-non-nella-fonte → la descrizione afferma qualcosa che in quelle frasi non c'è.
-· nesso-non-nella-fonte → la descrizione lega due cose che la fonte non lega.
+· fatto-contraddetto → le frasi qui sopra dicono un'altra cosa da quella che la descrizione afferma.
+· nesso-non-nella-fonte → le frasi legano due cose diversamente da come le lega la descrizione.
 
-CHE COSA NON È UN ERRORE, e non va segnalato: una semplificazione, una parola più facile, una frase più corta, un termine spiegato fra virgole. Queste descrizioni sono scritte apposta per una quarta media. Se una descrizione è fedele, non dire niente di quel nodo: si segnalano SOLO le eccezioni, e una lista vuota è una risposta giusta e frequente.
+⚠️ VEDI SOLO UNA PARTE DEL DOCUMENTO — le frasi di alcune pagine, non tutte. Perciò NON segnalare MAI che una cosa «non è nella fonte» o «non è menzionata»: da qui non lo puoi sapere, e il fatto quasi sempre sta in un'altra pagina. Segnala solo ciò che le frasi che hai davanti CONTRADDICONO.
+
+CHE COSA NON È UN ERRORE, e non va segnalato: una semplificazione, una parola più facile, una frase più corta, un termine spiegato fra virgole, un dettaglio che qui non compare. Queste descrizioni sono scritte apposta per una quarta media. Se una descrizione non è contraddetta da queste frasi, non dire niente di quel nodo: si segnalano SOLO le eccezioni, e una lista vuota è una risposta giusta e frequente.
 
 PER OGNI SEGNALAZIONE:
 · "prova": copia il pezzo di frase della fonte che dimostra l'errore, parola per parola, da una delle frasi qui sopra. Deve contenere qualcosa che la descrizione NON dice: se la tua prova è già tutta dentro la descrizione, non stai dimostrando niente.

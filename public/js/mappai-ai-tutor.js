@@ -647,7 +647,7 @@ window.generateAIQuiz = async function () {
             type: "OBJECT",
             properties: {
                 question: { type: "STRING" },
-                options: { type: "ARRAY", items: { type: "STRING" } },
+                options: { type: "ARRAY", maxItems: 4, items: { type: "STRING" } },
                 correctIndex: { type: "INTEGER" },
                 explanation: { type: "STRING" }
             },

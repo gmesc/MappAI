@@ -275,7 +275,9 @@ window.generateDynamicQuiz = async function (opts) {
             type: "OBJECT",
             properties: {
                 q: { type: "STRING" },
-                options: { type: "ARRAY", items: { type: "STRING" } },
+                /* tre opzioni, quattro al massimo: un elenco aperto è la stessa
+                   trappola dei `criteri` (vedi mappai-material-pipeline.js) */
+                options: { type: "ARRAY", maxItems: 4, items: { type: "STRING" } },
                 correct: { type: "STRING" },
                 explanation: { type: "STRING" },
                 evidenza: { type: "STRING" }
@@ -393,6 +395,7 @@ window.startStudySession = async function () {
             }) + _regolaFc;
             const schema = {
                 type: "ARRAY",
+                maxItems: Math.max(1, parseInt(window.studyConfig.quantity, 10) || 10),
                 items: {
                     type: "OBJECT",
                     properties: { front: { type: "STRING" }, back: { type: "STRING" } },
