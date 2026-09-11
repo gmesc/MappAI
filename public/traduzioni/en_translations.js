@@ -1312,6 +1312,12 @@ const en_translations = {
     lo_web_download: "Downloading Web content...",
     lo_pdf_local: "Extracting text from local PDF...",
     lo_pdf: "Extracting text from PDF...",
+    /* Ancora, copertura e rapporto di qualita (11-12/9/26). Il fallback inline
+       nei moduli JS e il testo italiano; qui sta solo l'inglese (regola 13). */
+    lo_copertura: "Recovering the parts of the source left out\u2026",
+    gen_rep_cov: "Parts of the source almost missing from the map: ",
+    gen_rep_nessi: "Impossible causal links, corrected: ",
+    gen_rep_fid: "Descriptions weakly anchored to the source, worth re-reading: ",
     lo_docx: "Extracting text from Word document...",
     lo_cloud_upload: "Uploading",
     lo_cloud_upload2: "to the AI Cloud...",

@@ -78,6 +78,23 @@ test('frasiDaPagine: via le consegne dell\'esercizio e le righe strutturali', ()
   assert.ok(testi.some(t => /Banca Nazionale/.test(t)), 'il fatto resta');
 });
 
+test('frasiDaPagine: via anche le consegne IMPERATIVE, che non hanno il punto di domanda', () => {
+  /* nella generazione vera una di queste era fra le sette frasi che il passaggio
+     di copertura avrebbe rimandato al modello come contenuto da recuperare */
+  const pag = [{ n: 4, text:
+    'Attività 15 Esamina la seguente tabella e confronta i dati riportati. ' +
+    'La Germania era da tempo un importante partner commerciale della Svizzera. ' +
+    'Leggi il seguente documento scritto e rispondi alle domande che seguono.' }];
+  const testi = A.frasiDaPagine(pag).map(x => x.text);
+  assert.strictEqual(testi.length, 1);
+  assert.ok(/partner commerciale/.test(testi[0]));
+});
+
+test('frasiDaPagine: un imperativo IN MEZZO alla frase non è una consegna', () => {
+  const pag = [{ n: 1, text: 'Il rapporto esamina la condotta svizzera durante il conflitto mondiale.' }];
+  assert.strictEqual(A.frasiDaPagine(pag).length, 1, 'qui «esamina» è un verbo come un altro');
+});
+
 test('frasiDaPagine: una frase ripetuta su DUE sole pagine resta (non è un piè di pagina)', () => {
   const R = 'La neutralità armata significa restare fuori dal conflitto ma essere pronti a difendersi.';
   const f = A.frasiDaPagine([{ n: 1, text: R }, { n: 2, text: R }]);
@@ -231,4 +248,91 @@ test('togliMeta: testo vuoto o assente non rompe', () => {
 test('anni: prende gli anni a quattro cifre, non i numeri qualunque', () => {
   assert.deepStrictEqual(A.anni('Nel 1939 e nel 1945, con 300000 profughi e il 45 per cento.'), [1939, 1945]);
   assert.deepStrictEqual(A.anni('Nessuna data qui.'), []);
+});
+
+// ══ IL PASSAGGIO DI COPERTURA (12/9/26) ═════════════════════════════════
+// La copertura dice che una parte della fonte non è in mappa; qui si decide
+// che cosa rimandare al modello e che cosa accettare di ciò che propone.
+
+const COP = {
+  pct: 55,
+  pagine: [
+    { page: 1, tot: 10, coperte: 8, pct: 80, orfane: ['Frase orfana della pagina uno con parole a sufficienza.'] },
+    { page: 4, tot: 11, coperte: 1, pct: 9, orfane: [
+      'La Germania aveva bisogno di franchi svizzeri per comprare merci dalle altre nazioni.',
+      'Le esportazioni verso le potenze dell Asse raggiunsero il quarantacinque per cento del totale.',
+      'La Svizzera continuo a commerciare anche con gli Alleati e in particolare con gli Stati Uniti.'
+    ] },
+    { page: 5, tot: 12, coperte: 4, pct: 33, orfane: ['Il commercio dell oro presentava gravi problemi morali riconosciuti dopo la guerra.'] },
+    { page: 9, tot: 2, coperte: 0, pct: 0, orfane: ['Copertina.', 'Indice.'] }
+  ]
+};
+
+test('orfanePerPassaggio: prende le pagine scoperte, dalla peggiore, e salta quelle corte', () => {
+  const r = A.orfanePerPassaggio(COP);
+  assert.deepStrictEqual(r.pagine, [4, 5], 'la 1 è già coperta, la 9 è troppo corta per contare');
+  assert.strictEqual(r.frasi[0].page, 4, 'si comincia dalla più scoperta');
+  assert.strictEqual(r.frasi.length, 4);
+});
+
+test('orfanePerPassaggio: rispetta il tetto di caratteri', () => {
+  const r = A.orfanePerPassaggio(COP, { maxCaratteri: 90 });
+  assert.ok(r.frasi.length >= 1 && r.frasi.length < 4);
+  assert.ok(r.frasi.reduce((a, f) => a + f.text.length, 0) <= 90);
+});
+
+test('orfanePerPassaggio: fonte tutta coperta → niente da rimandare', () => {
+  const piena = { pagine: [{ page: 1, tot: 10, coperte: 10, pct: 100, orfane: [] }] };
+  assert.strictEqual(A.orfanePerPassaggio(piena).frasi.length, 0);
+  assert.strictEqual(A.orfanePerPassaggio(null).frasi.length, 0);
+});
+
+const CTX = {
+  genitori: ['L1_0', 'L1_1'],
+  etichette: ['Economia di Guerra', 'Difesa Militare'],
+  frasi: COP.pagine[1].orfane
+};
+
+test('validaProposte: passa la proposta ancorata al residuo', () => {
+  const r = A.validaProposte([{
+    parent: 'L1_0', label: 'Bisogno tedesco di valuta',
+    desc: 'La Germania aveva bisogno di franchi svizzeri per comprare merci dalle altre nazioni neutrali.',
+    evidenza: 'La Germania aveva bisogno di franchi svizzeri per comprare merci'
+  }], CTX);
+  assert.strictEqual(r.proposte.length, 1);
+  assert.strictEqual(r.scartate.length, 0);
+});
+
+test('validaProposte: rifiuta genitore inventato, nodo già presente, prova esterna, desc mozza', () => {
+  const r = A.validaProposte([
+    { parent: 'L1_9', label: 'Nodo orfano', desc: 'Una descrizione abbastanza lunga da superare il minimo di parole.', evidenza: 'La Germania aveva bisogno di franchi svizzeri' },
+    { parent: 'L1_0', label: 'economia di guerra', desc: 'Una descrizione abbastanza lunga da superare il minimo di parole.', evidenza: 'La Germania aveva bisogno di franchi svizzeri' },
+    { parent: 'L1_0', label: 'Conferenza di Yalta', desc: 'Gli Alleati si divisero le zone di influenza in Europa dopo la fine del conflitto.', evidenza: 'A Yalta nel 1945 Churchill Roosevelt e Stalin si accordarono sulle sfere di influenza' },
+    { parent: 'L1_0', label: 'Nodo corto', desc: 'Troppo poco.', evidenza: 'La Germania aveva bisogno di franchi svizzeri' }
+  ], CTX);
+  assert.strictEqual(r.proposte.length, 0);
+  assert.deepStrictEqual(r.scartate.map(x => x.perche),
+    ['genitore inesistente', 'nodo già presente', 'prova fuori dal residuo', 'desc troppo corta']);
+});
+
+test('validaProposte: due proposte con la stessa etichetta → ne resta una', () => {
+  const uguale = {
+    parent: 'L1_0', label: 'Bisogno di valuta',
+    desc: 'La Germania aveva bisogno di franchi svizzeri per comprare merci dalle altre nazioni.',
+    evidenza: 'La Germania aveva bisogno di franchi svizzeri per comprare merci'
+  };
+  const r = A.validaProposte([uguale, Object.assign({}, uguale)], CTX);
+  assert.strictEqual(r.proposte.length, 1);
+  assert.strictEqual(r.scartate[0].perche, 'nodo già presente');
+});
+
+test('validaProposte: il tetto ferma la crescita della mappa', () => {
+  const molte = [1, 2, 3].map(i => ({
+    parent: 'L1_0', label: 'Concetto numero ' + i,
+    desc: 'La Germania aveva bisogno di franchi svizzeri per comprare merci dalle altre nazioni.',
+    evidenza: 'La Germania aveva bisogno di franchi svizzeri per comprare merci'
+  }));
+  const r = A.validaProposte(molte, Object.assign({ max: 2 }, CTX));
+  assert.strictEqual(r.proposte.length, 2);
+  assert.strictEqual(r.scartate[0].perche, 'oltre il tetto');
 });
