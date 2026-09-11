@@ -57,6 +57,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // ⌘Q salva prima di uscire (15/8): il main trattiene l'uscita e chiede;
     // il renderer salva e risponde. Il tetto di 3s sta nel main.
     onSalvaPrimaDiUscire: (cb) => ipcRenderer.on('salva-prima-di-uscire', cb),
+    /* La rete di sicurezza del vault parla da sé (12/9): l'avviso NON può
+       dipendere da quale dei nove punti ha chiamato `saveVault` — il salvataggio
+       che l'11 settembre ha fatto il danno era un autosalvataggio, non un gesto
+       del docente. Il main lo manda, il renderer lo mostra e basta. */
+    onIstantaneaVault: (cb) => ipcRenderer.on('istantanea-vault', (_e, d) => cb(d)),
     salvataggioUscitaFatto: () => ipcRenderer.send('salvataggio-uscita-fatto'),
     studyReportOpen: (filePath) => ipcRenderer.invoke('study-report-open', filePath),
     uploadFileGemini: (data) => ipcRenderer.invoke('upload-file-gemini', data),

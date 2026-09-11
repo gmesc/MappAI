@@ -531,3 +531,42 @@ test('nomeDiceLaMappa: i numeri di capitolo non contano come nome', () => {
     assert.strictEqual(FC.nomeDiceLaMappa('Foglio-nodi-card -VERDE.pdf', '5-6 Morfologia & Demografia'), false);
     assert.strictEqual(FC.nomeDiceLaMappa('Quiz-MC-Morfologia & Demografia -VERDE.pdf', '5-6 Morfologia & Demografia'), true);
 });
+
+// ══ LA RETE DI SICUREZZA DEL VAULT (12/9/26) ════════════════════════════
+// L'11 settembre una cartella con 42 nodi si è ritrovata con 14 e nessuno se
+// n'è accorto. La soglia va tarata su quel caso e su ciò che NON deve scattare.
+
+test('serveIstantanea: il caso vero (42 → 14) fa scattare la copia', () => {
+  const r = FC.serveIstantanea(42, 14);
+  assert.strictEqual(r.serve, true);
+  assert.strictEqual(r.persi, 28);
+  assert.match(r.perche, /da 42 a 14/);
+});
+
+test('serveIstantanea: un ritocco normale non fa scattare niente', () => {
+  assert.strictEqual(FC.serveIstantanea(40, 39).serve, false, 'un nodo tolto a mano');
+  assert.strictEqual(FC.serveIstantanea(40, 30).serve, false, 'un quarto in meno: ancora una potatura');
+  assert.strictEqual(FC.serveIstantanea(42, 42).serve, false, 'nessun cambiamento');
+  assert.strictEqual(FC.serveIstantanea(14, 42).serve, false, 'la mappa cresce');
+});
+
+test('serveIstantanea: servono ENTRAMBE le condizioni, quota e differenza', () => {
+  /* con la sola quota, una mappa di tre nodi che ne perde uno (67%) farebbe una
+     copia a ogni ritocco; con la sola differenza, duecento nodi che ne perdono
+     otto verrebbero copiati per un'inezia */
+  assert.strictEqual(FC.serveIstantanea(3, 2).serve, false, 'quota bassa ma differenza minima');
+  assert.strictEqual(FC.serveIstantanea(200, 192).serve, false, 'differenza grande ma quota alta');
+  assert.strictEqual(FC.serveIstantanea(20, 12).serve, true, 'entrambe: 60% e otto in meno');
+});
+
+test('serveIstantanea: una cartella vuota è una mappa nuova, non un restringimento', () => {
+  assert.strictEqual(FC.serveIstantanea(0, 14).serve, false);
+  assert.strictEqual(FC.serveIstantanea(null, 14).serve, false);
+});
+
+test('istantaneeDaPotare: tiene le ultime tre e ignora ciò che non è una data', () => {
+  const nomi = ['20260901-101010', '20260902-101010', '20260903-101010', '20260904-101010', 'appunti', '.DS_Store'];
+  assert.deepStrictEqual(FC.istantaneeDaPotare(nomi), ['20260901-101010'], 'via la più vecchia');
+  assert.deepStrictEqual(FC.istantaneeDaPotare(nomi, 10), [], 'sotto il tetto non si pota');
+  assert.deepStrictEqual(FC.istantaneeDaPotare([]), []);
+});

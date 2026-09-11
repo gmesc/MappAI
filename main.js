@@ -1398,12 +1398,90 @@ function _vaultPruneEmptyDirs(dir) {
     }
 }
 
+/* ── LA RETE DI SICUREZZA (12/9/26) ──────────────────────────────────────────
+   L'11 settembre una cartella con 42 nodi si è ritrovata con 14, e nessuno se
+   n'è accorto finché il docente non ha riaperto il progetto: il lavoro era già
+   sul disco (cronaca in docs/INCIDENTE-11-9-nodi-spariti.md). La causa è stata
+   corretta, ma una causa corretta protegge da QUELLA causa: questa rete protegge
+   da tutte le prossime.
+
+   PRIMA di scrivere si contano i nodi già in cartella. Se la mappa nuova è molto
+   più piccola (la regola sta in FilesCore, pura e provata), l'intera cartella dei
+   nodi più `links.json` e `index.yaml` finiscono in `.versioni/<data-ora>/`.
+   ⚠️ Non si BLOCCA e non si CHIEDE. Bloccare un salvataggio è il modo più sicuro
+   per perdere il lavoro in un altro modo — l'utente ha appena premuto salva, e un
+   rifiuto lo lascia con le modifiche solo in memoria. Si mette al riparo e lo si
+   dice a chi ha chiamato, che lo dirà al docente.
+   ⚠️ Cartella nascosta: gli elenchi del vault non la leggono. Se ne tengono tre. */
+function _contaNodiInCartella(folderPath) {
+    const dir = path.join(folderPath, 'Nodi');
+    let n = 0;
+    const giro = (d) => {
+        let voci = [];
+        try { voci = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+        for (const v of voci) {
+            if (v.name.charAt(0) === '.' || v.name === '_ponti') continue;
+            if (v.isDirectory()) giro(path.join(d, v.name));
+            else if (/\.md$/i.test(v.name)) n++;
+        }
+    };
+    giro(dir);
+    return n;
+}
+
+function _istantaneaVault(folderPath, quanti) {
+    /* ⚠️ `slice(0, 14)`, non 15: `2026-09-11T10:20:42.123Z` senza separatori è
+       `20260911102042.123Z`, e prendendone quindici si porta dietro il punto dei
+       millisecondi. Con quel punto in coda il nome non è più una data e
+       `istantaneeDaPotare` (che pretende `AAAAMMGG-HHMMSS`) non lo riconosce:
+       le copie si accumulerebbero per sempre. Misurato alla prima prova. */
+    const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14).replace(/(\d{8})(\d{6})/, '$1-$2');
+    const base = path.join(folderPath, '.versioni');
+    const dest = path.join(base, stamp);
+    try {
+        fs.mkdirSync(dest, { recursive: true });
+        const nodi = path.join(folderPath, 'Nodi');
+        if (fs.existsSync(nodi)) fs.cpSync(nodi, path.join(dest, 'Nodi'), { recursive: true });
+        for (const f of ['links.json', 'index.yaml', 'vista.json']) {
+            const src = path.join(folderPath, f);
+            if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dest, f));
+        }
+        // si tengono le ultime N: una cartella di versioni senza limite è un
+        // altro modo di perdere i dati, per esaurimento
+        try {
+            const via = FilesCore.istantaneeDaPotare(fs.readdirSync(base), quanti);
+            for (const v of via) fs.rmSync(path.join(base, v), { recursive: true, force: true });
+        } catch (e) { /* la potatura è un di più */ }
+        return { ok: true, dove: path.join('.versioni', stamp) };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
 ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
     try {
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
         }
-        
+
+        /* La rete di sicurezza, prima di qualunque scrittura: index.yaml si
+           scrive qui sotto, e una copia presa dopo sarebbe già la copia nuova. */
+        let istantanea = null;
+        try {
+            const prima = _contaNodiInCartella(folderPath);
+            const dopo = ((mapData && mapData.nodes) || []).length;
+            const v = FilesCore.serveIstantanea(prima, dopo);
+            if (v.serve) {
+                const r = _istantaneaVault(folderPath);
+                istantanea = Object.assign({}, v, r);
+                console.warn('[Vault] ' + v.perche + ': copia messa da parte in ' + (r.dove || '—'));
+                /* si avvisa da qui, non dal chiamante: `saveVault` ha nove punti
+                   di chiamata e quello che ha fatto il danno era un
+                   autosalvataggio, che nessuno guarda. */
+                try { if (event && event.sender) event.sender.send('istantanea-vault', istantanea); } catch (e) { }
+            }
+        } catch (e) { console.warn('[Vault] rete di sicurezza non applicata:', e.message); }
+
         // 1. Save index.yaml (Global Map Config) — serializzato con js-yaml
         const indexData = {
             extractionMode: mapData.extractionMode,
@@ -1704,7 +1782,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             return { id: node.id, images: absoluteVaultPaths };
         });
 
-        return { success: true, path: folderPath, upgrades: upgrades };
+        return { success: true, path: folderPath, upgrades: upgrades, istantanea: istantanea };
     } catch (err) {
         return { success: false, error: err.message };
     }

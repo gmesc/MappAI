@@ -603,7 +603,52 @@
       .filter(function (p) { return p.length >= 4; });
   }
 
+  /* ══ LA RETE DI SICUREZZA DEL VAULT (12/9/26) ═══════════════════════════════
+     L'11 settembre una cartella con 42 nodi si è ritrovata con 14: non erano i
+     resti di quella mappa, era UN'ALTRA mappa che rivendicava la stessa cartella
+     (cronaca in docs/INCIDENTE-11-9-nodi-spariti.md). La causa è stata corretta,
+     ma nessuno si era accorto di niente finché il docente non ha riaperto il
+     progetto — e il lavoro era già sul disco.
+
+     Questa funzione decide se, PRIMA di scrivere, va messa da parte una copia.
+     Non blocca e non chiede: bloccare un salvataggio è il modo più sicuro per
+     perdere il lavoro in un altro modo. Mette al riparo e lo dice.
+
+     ⚠️ DUE CONDIZIONI INSIEME, e servono entrambe:
+       · la quota — la mappa nuova è molto più piccola (sotto il 70%);
+       · la differenza — mancano almeno otto nodi.
+     Con la sola quota, una mappa di tre nodi che ne perde uno (67%) farebbe
+     scattare la copia a ogni ritocco; con la sola differenza, una mappa di
+     duecento nodi che ne perde otto verrebbe copiata per un'inezia. Misurate sul
+     caso vero: 42 → 14 fa il 33% e −28, e passa da tutte e due le porte.
+
+     ⚠️ Una cartella VUOTA non è un restringimento: è una mappa nuova. */
+  function serveIstantanea(esistenti, nuovi, opts) {
+    var o = Object.assign({ quota: 0.7, differenza: 8 }, opts || {});
+    var e = parseInt(esistenti, 10) || 0;
+    var n = parseInt(nuovi, 10) || 0;
+    if (e <= 0) return { serve: false, perche: 'cartella nuova' };
+    if (n >= e) return { serve: false, perche: 'la mappa non si restringe' };
+    if (n >= e * o.quota) return { serve: false, perche: 'restringimento piccolo' };
+    if (e - n < o.differenza) return { serve: false, perche: 'pochi nodi in meno' };
+    return {
+      serve: true, esistenti: e, nuovi: n, persi: e - n,
+      perche: 'la mappa passa da ' + e + ' a ' + n + ' nodi'
+    };
+  }
+
+  /* Quante istantanee si tengono: le ultime tre. Una cartella di versioni che
+     cresce senza limite è un altro modo di perdere i dati — per esaurimento. */
+  function istantaneeDaPotare(nomi, tieni) {
+    var k = (typeof tieni === 'number') ? tieni : 3;
+    var validi = (nomi || []).filter(function (x) { return /^\d{8}-\d{6}$/.test(String(x)); });
+    validi.sort();                                   // il nome è la data: ordina da sé
+    return validi.slice(0, Math.max(0, validi.length - k));
+  }
+
   var CORE = {
+    serveIstantanea: serveIstantanea,
+    istantaneeDaPotare: istantaneeDaPotare,
     materialeEstraneo: materialeEstraneo,
     nomeDiceLaMappa: nomeDiceLaMappa,
     ROOT_FOLDER: ROOT_FOLDER,
