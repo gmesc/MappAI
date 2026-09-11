@@ -1320,6 +1320,8 @@ const en_translations = {
     gen_rep_cov: "Parts of the source almost missing from the map: ",
     gen_rep_nessi: "Impossible causal links, corrected: ",
     gen_rep_fid: "Descriptions weakly anchored to the source, worth re-reading: ",
+    gen_rep_giu_on: "Meaning errors corrected by the check: ",
+    gen_rep_giu_off: "Meaning errors FOUND by the check (not corrected: writing is off): ",
     lo_docx: "Extracting text from Word document...",
     lo_cloud_upload: "Uploading",
     lo_cloud_upload2: "to the AI Cloud...",
