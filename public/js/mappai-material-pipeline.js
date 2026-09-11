@@ -282,8 +282,16 @@
     const blocco = (opts.angolo && window.flashcardAngleBlock) ? window.flashcardAngleBlock(opts.angolo) : '';
     const prompt = (blocco ? blocco + '\n\n' : '') +
       window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola;
-    const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
-    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
+    /* ⚠️ `maxItems` E budget di uscita, tutti e due (regola 05). Uno schema array
+       senza tetto fa riempire l'array fino al budget, e senza `maxOutputTokens`
+       il budget è il massimo del modello. Misurato l'11/9 sul registro consumi di
+       Giacomo: due chiamate delle domande aperte con **63.437 e 63.493 token di
+       uscita** contro i 400-700 normali — il modello ha scritto fino a esaurire
+       i 65.536 di gemini-2.5-flash, e quella risposta è poi arrivata troncata.
+       Le stesse due righe mancavano anche qui. */
+    const quante = Math.max(1, parseInt(quantity, 10) || 5);
+    const schema = { type: 'ARRAY', maxItems: quante, items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
+    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quante * 90 + 400), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);
     const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
@@ -478,8 +486,13 @@
         'Usa l\'italiano. Il tema del ramo è: \'' + nodeLabel + '\'.' +
         (areaB ? ('\nLa seconda area è \'' + areaB + '\': almeno una domanda deve collegarle.') : '');
     }
+    /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
+       modello riempie fino al massimo suo. È QUI che è successo per davvero —
+       63.437 token in una chiamata sola. Una domanda aperta costa più di una
+       carta (porta traccia, criteri, aree), quindi il budget per item è più largo. */
+    const quanteOq = Math.max(1, parseInt(quantity, 10) || 5);
     const schema = {
-      type: 'ARRAY', items: {
+      type: 'ARRAY', maxItems: quanteOq, items: {
         type: 'OBJECT',
         properties: {
           domanda: { type: 'STRING' }, traccia: { type: 'STRING' }, righe: { type: 'INTEGER' },
@@ -505,7 +518,7 @@
     };
     let payload = {
       contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }],
-      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
+      generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quanteOq * 280 + 600), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true }
     };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);
