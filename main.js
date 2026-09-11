@@ -830,10 +830,23 @@ ipcMain.handle('html-to-pdf', async (event, { html, options } = {}) => {
             ']).then(function(){ return true; })'
         ).catch(() => { });
         await new Promise(r => setTimeout(r, 150));   // settle del layout (immagini inline)
+        /* ── PDF ACCESSIBILE (11/9/26) ────────────────────────────────────────
+           Tutti i 32 PDF di una cartella vera erano privi di albero dei tag e di
+           lingua dichiarata: il testo si seleziona, ma un lettore di schermo non
+           sa che cosa è un titolo, che cosa una domanda e in che ordine leggere,
+           e una voce sintetica può leggere l'italiano con la pronuncia inglese.
+           `generateTaggedPDF` fa scrivere a Chromium la struttura ricavandola
+           dall'HTML — ed è la ragione per cui i titoli dei documenti stampabili
+           devono essere h1/h2/h3 veri e non tutti allo stesso livello.
+           `generateDocumentOutline` aggiunge i segnalibri, cioè la navigazione
+           per sezioni. Entrambe sono opzioni di Electron (qui la 41): su una
+           versione che non le conosce vengono ignorate, non falliscono. */
         const pdf = await win.webContents.printToPDF({
             pageSize: opts.pageSize || 'A4',
             printBackground: true,
-            landscape: !!opts.landscape
+            landscape: !!opts.landscape,
+            generateTaggedPDF: true,
+            generateDocumentOutline: true
         });
         return { ok: true, base64: pdf.toString('base64') };
     } catch (err) {
@@ -875,6 +888,55 @@ async function potaVariantiCarattere(vaultPath, safe) {
     return via;
 }
 
+/* ── I GEMELLI ORFANI (11/9/26) ───────────────────────────────────────────────
+   Ogni materiale stampabile lascia in `Materiale Studio/Sorgenti/` un gemello
+   `.html`: è la sorgente da cui INSEGNA ristampa il foglio senza le tracce di
+   correzione. Il PDF viene potato quando se ne scrive una versione nuova; il
+   gemello no, e restava lì per sempre.
+   Misurato su una cartella vera: accanto ai sette fogli esportati ce n'erano
+   altri sette con 237 domande DIVERSE, rimaste da un giro precedente con un
+   altro schema di nomi. Chi apriva la cartella non aveva modo di sapere quali
+   fossero quelle buone, e le vecchie contenevano errori gravi (la nomina di
+   Guisan spostata al marzo 1939, una risposta modello che contraddiceva la
+   fonte).
+   La regola è quella che si può verificare: un gemello il cui materiale non
+   esiste più è orfano. Il confronto è sul nome senza estensione — è la stessa
+   corrispondenza che usa `_relSorgente` per scriverlo.
+   ⚠️ Mai `unlink`: Cestino, e se il sistema lo nega la cartella nascosta. */
+async function potaSorgentiOrfane(vaultPath) {
+    const base = path.join(vaultPath, 'Materiale Studio');
+    const dirS = path.join(base, 'Sorgenti');
+    let gemelli = [], materiali = [];
+    try { gemelli = fs.readdirSync(dirS).filter(n => n.charAt(0) !== '.' && /\.html?$/i.test(n)); } catch (e) { return []; }
+    if (!gemelli.length) return [];
+    try { materiali = fs.readdirSync(base).filter(n => n.charAt(0) !== '.'); } catch (e) { return []; }
+    const senzaExt = n => n.replace(/\.[^.]+$/, '').trim().toLowerCase();
+    const vivi = new Set(materiali.map(senzaExt));
+    /* ⚠️ MAI toccare un gemello appena scritto. `scriviSorgente` può correre
+       PRIMA che il PDF sia sul disco (in ELABORA il gemello si scrive con
+       `ifAbsent`): senza questa guardia la potatura cestinerebbe il file nato
+       due secondi fa, che è orfano solo perché il suo materiale deve ancora
+       arrivare. Due minuti coprono con abbondanza una generazione. */
+    const ADESSO = Date.now(), GRAZIA = 120000;
+    const recente = (n) => {
+        try { return (ADESSO - fs.statSync(path.join(dirS, n)).mtimeMs) < GRAZIA; }
+        catch (e) { return true; }        // non leggibile: nel dubbio si tiene
+    };
+    const orfani = gemelli.filter(g => !vivi.has(senzaExt(g)) && !recente(g));
+    for (const n of orfani) {
+        const abs = path.join(dirS, n);
+        try { await shell.trashItem(abs); continue; } catch (e) { console.warn('[sorgenti] Cestino negato per', n, '—', e.message); }
+        try {
+            const vec = path.join(dirS, '.vecchi'); fs.mkdirSync(vec, { recursive: true });
+            let dest = path.join(vec, n), k = 2;
+            while (fs.existsSync(dest)) { dest = path.join(vec, n.replace(/(\.[^.]+)$/, ' (' + k + ')$1')); k++; }
+            fs.renameSync(abs, dest);
+        } catch (e) { console.warn('[sorgenti] non spostato', n, e.message); }
+    }
+    if (orfani.length) console.log('[sorgenti] gemelli orfani tolti:', orfani.join(' · '));
+    return orfani;
+}
+
 ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent, potaVarianti } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
@@ -892,7 +954,12 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
             fs.writeFileSync(dest, String(text), 'utf-8');
         }
         const potate = potaVarianti === true ? await potaVariantiCarattere(vaultPath, safe) : [];
-        return { ok: true, path: dest, potate };
+        /* Con la stessa autorizzazione si tolgono i gemelli rimasti senza il loro
+           materiale. Si fa DOPO la scrittura, così il gemello appena scritto (o
+           il PDF appena scritto) è già sul disco e non si autopota. */
+        let orfani = [];
+        if (potaVarianti === true) { try { orfani = await potaSorgentiOrfane(vaultPath); } catch (e) { /* la cartella resta com'è */ } }
+        return { ok: true, path: dest, potate, orfani };
     } catch (err) {
         return { ok: false, error: err.message };
     }

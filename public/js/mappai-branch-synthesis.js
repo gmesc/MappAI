@@ -138,6 +138,15 @@
             if (Array.isArray(chunks)) {
                 chunks.forEach(c => {
                     if (!c || !c.text) return;
+                    /* ⚠️ MAI numerare una PARAFRASI come fonte (11/9). Quando la
+                       Fase 3 non produce citazioni, `sourcesDict` riceve come
+                       ripiego la desc del nodo: stamparla nel blocco «Fonti»
+                       significa mostrare allo studente la stessa frase due volte
+                       spacciandola per la prova. Misurato su una sintesi vera:
+                       1.215 parole di «citazioni» che ripetevano il testo.
+                       L'àncora marca `verbatim` ciò che viene davvero dalla fonte
+                       e `parafrasi` il ripiego; qui passa solo il primo. */
+                    if (c.parafrasi) return;
                     const key = (c.title || '') + '|' + (c.source || '');
                     let idx = sourceKeyToIdx[key];
                     if (idx === undefined) {
@@ -425,8 +434,23 @@
         if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
         if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se MappAITune non armato
         const response = await window.fetchModelAPI(payload, apiKey);
-        const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        let rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (!rawText.trim()) throw new Error('Risposta AI vuota');
+        /* IL METATESTO NON VA ALLO STUDENTE (11/9). Nelle sintesi vere: «Ciao!
+           Oggi parliamo…», «Ecco una panoramica scritta per i tuoi studenti»,
+           «questa categoria è separata dalle altre» — frasi che parlano della
+           MAPPA, non della storia, e che l'allievo deve scavalcare per arrivare
+           al contenuto. L'elenco delle forme è chiuso (anchor-core): «ramo» e
+           «categoria» usati per il loro significato non vengono toccati. */
+        try {
+            if (window.MappAIAnchorCore) {
+                const _m = window.MappAIAnchorCore.togliMeta(rawText);
+                if (_m.tolte.length && _m.text.trim().length > 40) {
+                    rawText = _m.text;
+                    console.log('[Sintesi] tolte ' + _m.tolte.length + ' frasi di metatesto');
+                }
+            }
+        } catch (e) { /* ripiego: si stampa il testo come è arrivato */ }
         return { rawText, sourcesArr, causalTriples };
     }
 
@@ -578,9 +602,16 @@
     // Corpo HTML della sintesi intera: panoramica + una sezione per ramo,
     // ciascuna con le SUE citazioni (numerazione per-sezione).
     function _wholeBodyHtml(data, variant) {
+        /* h2, non h3 (11/9): il titolo del documento è l'h1 (mm-dh__t) e queste
+           sono le sue sezioni. Prima erano tutte h3 senza nulla sopra — la
+           gerarchia si vedeva con gli occhi ma non esisteva per chi naviga
+           saltando da un'intestazione all'altra, né nell'albero dei tag del PDF.
+           Nel modale la classe porta tutto lo stile, quindi l'aspetto non cambia;
+           nella stampa si ridichiara la misura per non ereditare l'h2 grande del
+           browser. */
         const H = variant === 'modal'
-            ? (txt) => '<h3 class="text-sm font-extrabold text-indigo-700 mt-5 mb-2 pb-1 border-b border-slate-100">' + _escBS(txt) + '</h3>'
-            : (txt) => '<h3>' + _escBS(txt) + '</h3>';
+            ? (txt) => '<h2 class="text-sm font-extrabold text-indigo-700 mt-5 mb-2 pb-1 border-b border-slate-100">' + _escBS(txt) + '</h2>'
+            : (txt) => '<h2 style="font-size:1.05em; margin:1.1em 0 .4em;">' + _escBS(txt) + '</h2>';
         let html = '';
         if (data.intro) {
             html += H(window.t('bs_overview', 'Panoramica'));
@@ -831,7 +862,7 @@
         const hlLabelsJson = JSON.stringify(hlLabels).replace(/</g, '\\u003c');
 
         return `<!DOCTYPE html>
-<html lang="it">
+<html lang="${(window.MappAIDocHead && window.MappAIDocHead.lingua) ? window.MappAIDocHead.lingua() : 'it'}">
 <head>
     <meta charset="UTF-8">
     <!-- Senza questa riga un tablet dichiara una finestra finta di 980px e poi

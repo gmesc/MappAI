@@ -169,6 +169,164 @@
     return { ok: true, count: items.length };
   }
 
+  /* ══ LA POSIZIONE DELLA RISPOSTA GIUSTA (11/9/26) ══════════════════════════
+     Misurato su una cartella vera: nel foglio «applicazione» tutte e DODICI le
+     risposte esatte erano la seconda opzione; su 84 domande, 56. E in 54 su 84
+     la risposta esatta era anche la più lunga delle tre. Uno studente impara la
+     regolarità in due minuti e risponde senza sapere la storia: la verifica
+     smette di misurare ciò che dice di misurare.
+
+     Il difetto non è del modello — che ha una sua inclinazione e la avrà sempre
+     — ma del fatto che fra la sua risposta e il PDF stampato NON C'È NIENTE.
+     Qui si mette quel niente.
+
+     ⚠️ Il seme viene dall'id del set, non da Math.random: la stessa verifica
+     ristampata deve dare lo STESSO foglio, altrimenti il docente che ristampa
+     dopo aver fotocopiato si ritrova due versioni in classe. */
+  function semeDa(str) {
+    var h = 2166136261;                       // FNV-1a: corto, stabile, senza dipendenze
+    var s = String(str == null ? '' : str);
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  function _rng(seed) {
+    var x = (seed >>> 0) || 1;
+    return function () {                      // xorshift32: deterministico e sufficiente
+      x ^= x << 13; x >>>= 0;
+      x ^= x >>> 17;
+      x ^= x << 5; x >>>= 0;
+      return x / 4294967296;
+    };
+  }
+
+  /* Rimescola le opzioni di ogni item e RISCRIVE `correct` di conseguenza.
+     Accetta le due forme che convivono nell'app: `{options:[], correct}` dei
+     quiz dinamici e `{a1,a2,a3, correct:<indice 1-based>}` del quiz per nodo.
+     Un item la cui risposta esatta non si riconosce fra le opzioni NON viene
+     toccato: mescolarlo lo renderebbe irrecuperabile. */
+  function mescolaOpzioni(items, seme) {
+    var rnd = _rng(semeDa(seme));
+    return (items || []).map(function (it, n) {
+      if (!it) return it;
+      var tri = (it.a1 != null && it.a2 != null && it.a3 != null);
+      var opts = tri ? [it.a1, it.a2, it.a3] : (Array.isArray(it.options) ? it.options.slice() : null);
+      if (!opts || opts.length < 2) return it;
+
+      var ci = _indiceCorretta(it, opts);
+      if (ci < 0) return it;                  // chiave non riconosciuta: si lascia com'è
+
+      var ord = opts.map(function (t, i) { return { t: t, i: i, k: rnd() }; });
+      ord.sort(function (a, b) { return (a.k - b.k) || (a.i - b.i); });
+      var nuovo = ord.map(function (o) { return o.t; });
+      var ni = ord.findIndex(function (o) { return o.i === ci; });
+
+      var out = Object.assign({}, it);
+      if (tri) { out.a1 = nuovo[0]; out.a2 = nuovo[1]; out.a3 = nuovo[2]; out.correct = ni + 1; }
+      else { out.options = nuovo; out.correct = nuovo[ni]; out.correctIndex = ni; }
+      out._mescolato = true;
+      return out;
+    });
+  }
+
+  // Dov'è la risposta esatta fra le opzioni: per testo, per indice 1-based, per
+  // lettera («B»). Sono le tre convenzioni che i modelli usano davvero.
+  function _indiceCorretta(it, opts) {
+    var c = it.correct;
+    if (typeof it.correctIndex === 'number' && it.correctIndex >= 0 && it.correctIndex < opts.length) return it.correctIndex;
+    if (c == null) return -1;
+    var s = String(c).trim();
+    for (var i = 0; i < opts.length; i++) {
+      if (String(opts[i]).trim().toLowerCase() === s.toLowerCase()) return i;
+    }
+    var n = parseInt(s, 10);
+    if (!isNaN(n) && n >= 1 && n <= opts.length) return n - 1;
+    if (/^[A-Za-z]$/.test(s)) {
+      var k = s.toUpperCase().charCodeAt(0) - 65;
+      if (k >= 0 && k < opts.length) return k;
+    }
+    return -1;
+  }
+
+  // Distribuzione delle posizioni: serve al rapporto, non alla correzione.
+  function posizioniCorrette(items) {
+    var pos = {}, tot = 0, ignoti = 0;
+    (items || []).forEach(function (it) {
+      var opts = (it && it.a1 != null) ? [it.a1, it.a2, it.a3] : (it && Array.isArray(it.options) ? it.options : null);
+      if (!opts) { ignoti++; return; }
+      var i = _indiceCorretta(it, opts);
+      if (i < 0) { ignoti++; return; }
+      pos[i] = (pos[i] || 0) + 1; tot++;
+    });
+    var max = 0;
+    Object.keys(pos).forEach(function (k) { if (pos[k] > max) max = pos[k]; });
+    return { pos: pos, tot: tot, ignoti: ignoti, maxQuota: tot ? max / tot : 0 };
+  }
+
+  // Quante volte la risposta esatta è anche la più lunga: l'altro indizio che si
+  // legge senza sapere la storia. Si SEGNALA, non si accorcia da soli — tagliare
+  // la risposta giusta a macchina la renderebbe sbagliata.
+  function corretteTroppoLunghe(items) {
+    var n = 0, tot = 0;
+    (items || []).forEach(function (it) {
+      var opts = (it && it.a1 != null) ? [it.a1, it.a2, it.a3] : (it && Array.isArray(it.options) ? it.options : null);
+      if (!opts || opts.length < 2) return;
+      var i = _indiceCorretta(it, opts);
+      if (i < 0) return;
+      tot++;
+      var len = function (x) { return String(x || '').trim().length; };
+      var mia = len(opts[i]);
+      var altre = opts.filter(function (_, k) { return k !== i; }).map(len);
+      if (mia > Math.max.apply(null, altre)) n++;
+    });
+    return { n: n, tot: tot, quota: tot ? n / tot : 0 };
+  }
+
+  /* ══ LA PROVA (11/9/26) ═════════════════════════════════════════════════════
+     Al modello si chiede, per ogni domanda, anche la FRASE del materiale che
+     rende vera la risposta. Qui si controlla che quella frase esista davvero nel
+     materiale: se non c'è, la domanda è costruita su qualcosa che il modello ha
+     aggiunto di suo e viene scartata.
+
+     Esempi che questo filtro ferma, presi da una cartella vera: «La Commissione
+     Bergier è stata formata nel 2002» (la fonte data al 2002 il RAPPORTO), e una
+     domanda la cui risposta segnata descriveva il comportamento degli altri
+     paesi invece di quello della Svizzera.
+
+     ⚠️ Il confronto è LESSICALE e generoso (parole in comune, non la stringa
+     identica): il modello riformula sempre un po', e pretendere la citazione
+     esatta scarterebbe anche le domande buone. Serve a fermare l'invenzione, non
+     a certificare la verità. */
+  function verificaEvidenza(items, materiale, opts) {
+    var o = Object.assign({ soglia: 0.6, minParole: 3 }, opts || {});
+    var idx = _indiceParole(materiale);
+    var tenuti = [], scartati = [];
+    (items || []).forEach(function (it) {
+      var ev = it && (it.evidenza || it.evidence);
+      if (!ev) { tenuti.push(it); return; }        // senza campo: comportamento di prima
+      var w = _parole(ev);
+      if (w.length < o.minParole) { tenuti.push(it); return; }
+      var hit = 0;
+      for (var i = 0; i < w.length; i++) if (idx[w[i]]) hit++;
+      var q = hit / w.length;
+      if (q >= o.soglia) tenuti.push(it);
+      else scartati.push({ q: it.q || it.question || it.domanda || '', evidenza: ev, quota: Number(q.toFixed(2)) });
+    });
+    return { items: tenuti, scartati: scartati };
+  }
+
+  function _parole(t) {
+    return String(t == null ? '' : t).toLowerCase().match(/[a-zàèéìòóùü0-9]{4,}/g) || [];
+  }
+  function _indiceParole(t) {
+    var idx = {};
+    _parole(t).forEach(function (w) { idx[w] = 1; });
+    return idx;
+  }
+
   /* ══ LA GRADUAZIONE DI UN FOGLIO DI DOMANDE (13/8 sera) ═══════════════════
      Un foglio in cui OGNI domanda richiede tutta la scheda è un foglio su cui
      l'allievo che ne sa metà scrive zero righe — e da un foglio bianco non si
@@ -646,6 +804,8 @@
     contaGraduazione: contaGraduazione,
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
+    semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, posizioniCorrette: posizioniCorrette,
+    corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza,
     angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     angoliPerTipo: angoliPerTipo, quantiPerTipo: quantiPerTipo, categoriePerTipo: categoriePerTipo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,
