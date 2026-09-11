@@ -90,6 +90,16 @@
            Guerra Mondiale pag.» su una, senza trattini sulle altre). Con la
            punteggiatura dentro la chiave quella copia restava, e da sola si è
            presa 16 citazioni su 72. */
+        /* Non tutte le consegne finiscono con un punto di domanda. In una scheda
+           scolastica ce ne sono di imperative — «Attività 15 Esamina la seguente
+           tabella», «Leggi il documento e rispondi» — e nella generazione vera
+           una di queste era fra le sette frasi che il passaggio di copertura
+           avrebbe rimandato al modello come contenuto da recuperare.
+           ⚠️ L'imperativo deve stare in TESTA alla frase (o subito dopo un
+           «Attività N»): «esamina» in mezzo a un periodo è un verbo come un
+           altro, e una regola larga mangerebbe del contenuto vero. */
+        var ESERCIZIO = /(^|\bAttivit[àa]\s*\d{1,2}\s+)(esamina|osserva|completa|rispondi|leggi|indica|elenca|sottolinea|ricopia|collega|inserisci|scrivi|calcola|descrivi)\b/i;
+
         var _chiave = function (t) {
             return String(t).toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').replace(/\s+/g, ' ').trim();
         };
@@ -104,6 +114,7 @@
             var k = _chiave(f.text);
             if (Object.keys(perTesto[k]).length >= 3) return;          // intestazione ricorrente
             if (/\?\s*$/.test(f.text)) return;                         // consegna dell'esercizio
+            if (ESERCIZIO.test(f.text)) return;                        // consegna senza punto di domanda
             if (BP && typeof BP.isStructuralLine === 'function' && BP.isStructuralLine(f.text)) return;
             f.idx = out.length;
             out.push(f);
@@ -185,6 +196,87 @@
         var tot = 0, cop = 0;
         pagine.forEach(function (p) { tot += p.tot; cop += p.coperte; });
         return { pagine: pagine, tot: tot, coperte: cop, pct: tot ? Math.round((cop / tot) * 100) : 0 };
+    }
+
+    /* ── IL PASSAGGIO DI COPERTURA (12/9) ─────────────────────────────────────
+       La copertura dice che una parte della fonte non è entrata in mappa; questo
+       decide CHE COSA rimandare al modello perché la recuperi. Misurato: nella
+       generazione vera la pagina economica stava al 13%, e il meccanismo per cui
+       la Germania aveva bisogno di valuta svizzera — il cuore di quella pagina —
+       non c'era in nessun nodo.
+
+       Si prendono le pagine sotto soglia, dalla PIÙ scoperta in giù, e si manda
+       solo il loro residuo. Non tutto il corpus: rimandare la fonte intera
+       significherebbe rifare la Fase 3, e il modello riprodurrebbe i concetti
+       che ha già estratto invece di cercare quelli che ha saltato.
+
+       ⚠️ Una pagina con poche frasi in tutto non si conta: su tre frasi, una
+       coperta fa il 33% e sembra un buco quando è solo una pagina corta (una
+       copertina, un indice). */
+    function orfanePerPassaggio(cop, opts) {
+        var o = Object.assign({ soglia: 45, minFrasi: 4, maxCaratteri: 4000, maxFrasi: 30 }, opts || {});
+        if (!cop || !cop.pagine) return { frasi: [], pagine: [] };
+        var scelte = cop.pagine.filter(function (p) {
+            return p.tot >= o.minFrasi && p.pct < o.soglia && p.orfane.length;
+        }).sort(function (a, b) { return a.pct - b.pct; });
+        var frasi = [], pagine = [], car = 0;
+        scelte.forEach(function (p) {
+            var prese = 0;
+            p.orfane.forEach(function (t) {
+                if (frasi.length >= o.maxFrasi || car + t.length > o.maxCaratteri) return;
+                frasi.push({ text: t, page: p.page });
+                car += t.length; prese++;
+            });
+            if (prese) pagine.push(p.page);
+        });
+        return { frasi: frasi, pagine: pagine };
+    }
+
+    /* Che cosa si accetta di ciò che il modello propone. Quattro rifiuti, tutti
+       verificabili senza chiedere niente a nessuno:
+         · un GENITORE che non è una delle macro-aree vere (lo schema lo vincola
+           già con un enum, ma un enum su Gemini è una richiesta, non una legge);
+         · un'ETICHETTA che nella mappa c'è già — il passaggio serve a recuperare
+           ciò che manca, non a rifare ciò che c'è;
+         · una PROVA che non sta fra le frasi che gli abbiamo mandato: vuol dire
+           che il concetto se l'è portato da fuori, ed è esattamente ciò che
+           questo passaggio non deve fare;
+         · una desc troppo corta per essere un nodo.
+       ⚠️ Il confronto della prova è lessicale e generoso (il modello riformula
+       sempre un po'): ferma il concetto inventato, non certifica la verità. */
+    function validaProposte(proposte, ctx) {
+        var c = ctx || {};
+        var idsOk = {}; (c.genitori || []).forEach(function (id) { idsOk[id] = 1; });
+        var esistenti = {};
+        (c.etichette || []).forEach(function (e) {
+            var k = _chiaveEtichetta(e); if (k) esistenti[k] = 1;
+        });
+        var indice = {};
+        (c.frasi || []).forEach(function (f) {
+            _words(typeof f === 'string' ? f : f.text).forEach(function (w) { indice[w] = 1; });
+        });
+        var max = c.max || 8, soglia = (typeof c.soglia === 'number') ? c.soglia : 0.6;
+        var ok = [], scartate = [];
+        (proposte || []).forEach(function (pz) {
+            if (ok.length >= max) { scartate.push({ label: pz && pz.label, perche: 'oltre il tetto' }); return; }
+            if (!pz || !pz.label || !pz.desc) { scartate.push({ label: pz && pz.label, perche: 'incompleta' }); return; }
+            if (!idsOk[pz.parent]) { scartate.push({ label: pz.label, perche: 'genitore inesistente' }); return; }
+            if (String(pz.desc).trim().split(/\s+/).length < 8) { scartate.push({ label: pz.label, perche: 'desc troppo corta' }); return; }
+            var k = _chiaveEtichetta(pz.label);
+            if (esistenti[k]) { scartate.push({ label: pz.label, perche: 'nodo già presente' }); return; }
+            var w = _words(pz.evidenza || '');
+            if (w.length < 3) { scartate.push({ label: pz.label, perche: 'senza prova' }); return; }
+            var hit = 0;
+            for (var i = 0; i < w.length; i++) if (indice[w[i]]) hit++;
+            if (hit / w.length < soglia) { scartate.push({ label: pz.label, perche: 'prova fuori dal residuo' }); return; }
+            esistenti[k] = 1;                       // niente due proposte uguali fra loro
+            ok.push(pz);
+        });
+        return { proposte: ok, scartate: scartate };
+    }
+
+    function _chiaveEtichetta(t) {
+        return String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
     /* ── LA FEDELTÀ, MISURATA BENE ────────────────────────────────────────────
@@ -307,6 +399,8 @@
         paginePiatte: paginePiatte,
         ancoraNodi: ancoraNodi,
         copertura: copertura,
+        orfanePerPassaggio: orfanePerPassaggio,
+        validaProposte: validaProposte,
         fedelta: fedelta,
         anni: anni,
         nessiImpossibili: nessiImpossibili,

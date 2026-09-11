@@ -522,6 +522,24 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         try { if (window.applyAnchor) window.applyAnchor(); }
         catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
 
+        /* ── PASSAGGIO DI COPERTURA (12/9) ────────────────────────────────────
+           L'àncora ha appena misurato quali parti della fonte non sono entrate
+           in mappa. Se il buco è vero (non il residuo fisiologico di qualunque
+           estrazione) una chiamata sola rimanda al modello QUEL residuo e basta.
+           Va QUI perché ha bisogno del verdetto dell'àncora, e l'àncora si
+           rifà subito dopo: i nodi nuovi devono prendere le loro citazioni e la
+           copertura va ricalcolata, altrimenti il rapporto al docente
+           racconterebbe la mappa di prima. */
+        try {
+            if (window.executeCoveragePass) {
+                const _cop = await window.executeCoveragePass(apiKey);
+                if (_cop && _cop.aggiunti) {
+                    if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+                    if (window.applyAnchor) window.applyAnchor();
+                }
+            }
+        } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
+
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         try {
             await window.enrichThinDescs(textParts, apiKey);
@@ -1242,6 +1260,24 @@ ${textParts.join('\n\n')}`;
            Kill-switch: `mappai_anchor_enabled` = '0'. */
         try { if (window.applyAnchor) window.applyAnchor(); }
         catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
+
+        /* ── PASSAGGIO DI COPERTURA (12/9) ────────────────────────────────────
+           L'àncora ha appena misurato quali parti della fonte non sono entrate
+           in mappa. Se il buco è vero (non il residuo fisiologico di qualunque
+           estrazione) una chiamata sola rimanda al modello QUEL residuo e basta.
+           Va QUI perché ha bisogno del verdetto dell'àncora, e l'àncora si
+           rifà subito dopo: i nodi nuovi devono prendere le loro citazioni e la
+           copertura va ricalcolata, altrimenti il rapporto al docente
+           racconterebbe la mappa di prima. */
+        try {
+            if (window.executeCoveragePass) {
+                const _cop = await window.executeCoveragePass(apiKey);
+                if (_cop && _cop.aggiunti) {
+                    if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+                    if (window.applyAnchor) window.applyAnchor();
+                }
+            }
+        } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
 
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).

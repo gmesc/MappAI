@@ -2109,3 +2109,144 @@ window.applyDepthCeiling = function (maxMapLevel) {
         console.warn('[Tetto profondità] errore non bloccante:', e.message);
     }
 };
+
+// ══════════════════════════════════════════════════════════════════════════
+// PASSAGGIO DI COPERTURA — recupera ciò che la fonte diceva e la mappa non ha
+// ══════════════════════════════════════════════════════════════════════════
+//
+// PERCHÉ ESISTE (12 settembre 2026). L'àncora sa dire quali frasi della fonte
+// non sono finite in nessun nodo. Nella prima generazione vera la pagina
+// economica del dossier stava al 13%: il meccanismo per cui la Germania aveva
+// bisogno di valuta svizzera — il cuore di quella pagina — non era in mappa, e
+// prima dell'àncora non c'era modo di accorgersene senza rileggere il PDF.
+// Misurarlo non basta: qui si rimanda al modello SOLO quel residuo e gli si
+// chiede di recuperarlo.
+//
+// UNA chiamata, e solo quando serve davvero: se la fonte è coperta il passaggio
+// non parte e non costa niente.
+//
+// ⚠️ Si manda il RESIDUO, non il corpus: rimandare la fonte intera vorrebbe dire
+// rifare la Fase 3, e il modello riprodurrebbe i concetti che ha già estratto
+// invece di cercare quelli che ha saltato.
+//
+// ⚠️ Il genitore è vincolato da un `enum` sulle macro-aree vere, e poi RICONTROLLATO:
+// un enum su Gemini è una richiesta, non una legge. Le proposte passano da
+// `validaProposte` (genitore vero, nodo non già presente, prova dentro il residuo,
+// desc non mozza) e sono capate a otto: questo passaggio recupera un buco, non
+// raddoppia la mappa.
+//
+// Kill-switch: localStorage `mappai_copertura_enabled` = '0'.
+window.isCoveragePassEnabled = function () {
+    try { return localStorage.getItem('mappai_copertura_enabled') !== '0'; } catch (e) { return true; }
+};
+
+window.executeCoveragePass = async function (apiKey) {
+    const A = window.MappAIAnchorCore;
+    const rep = appState._qualityReport;
+    if (!A || !rep || !rep.copertura || !apiKey) return null;
+    if (!window.isCoveragePassEnabled()) { console.log('[Copertura] spento dal kill-switch'); return null; }
+
+    const sel = A.orfanePerPassaggio(rep.copertura);
+    /* Sotto le quattro frasi non è un buco, è il residuo fisiologico di
+       qualunque estrazione: una chiamata lì costerebbe più di quanto rende. */
+    if (sel.frasi.length < 4) {
+        console.log('[Copertura] la fonte è coperta abbastanza: nessun recupero necessario');
+        return null;
+    }
+
+    // Il catalogo delle macro-aree: è fra queste che il modello deve scegliere.
+    const rami = (appState.db.nodes || []).filter(n => (n.level || 0) === 1);
+    if (!rami.length) return null;
+    const catalogo = rami.map(r => {
+        const guida = (r.ambito && r.ambito.trim()) || String(r.desc || '').slice(0, 120);
+        return '- ' + r.id + ' — "' + (window.cleanLabel ? window.cleanLabel(r.label) : r.label) + '"' +
+            (guida ? ' (' + guida + ')' : '');
+    }).join('\n');
+
+    const residuo = sel.frasi.map(f => '· ' + f.text).join('\n');
+    const en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+
+    const prompt = en
+        ? `A mind map on "${appState.rootNodeLabel}" was built from a source document. These sentences of the source did NOT end up in any node:\n\n${residuo}\n\nThe map's macro-areas are:\n${catalogo}\n\nFor each distinct concept that lives ONLY in the sentences above, produce one node and attach it to the macro-area it belongs to.\n⚓ RULES — BINDING:\n- Use ONLY the sentences above. NO outside knowledge, no inference.\n- "evidenza": copy the sentence above that the node comes from. If a concept has no sentence, do not write that node.\n- Do not restate a macro-area: propose the SPECIFIC thing the source says and the map lost.\n- "desc": 30-60 words, textbook tone, only facts from those sentences.\n- "label": max 4 words.\n- If those sentences add nothing worth a node, return an empty list. Empty is better than invented.`
+        : `Una mappa mentale su "${appState.rootNodeLabel}" è stata costruita da un documento. Queste frasi della fonte NON sono finite in nessun nodo:\n\n${residuo}\n\nLe macro-aree della mappa sono:\n${catalogo}\n\nPer ogni concetto distinto che vive SOLO nelle frasi qui sopra, scrivi un nodo e attaccalo alla macro-area a cui appartiene.\n⚓ REGOLE — VINCOLANTI:\n- Usa SOLO le frasi qui sopra. NIENTE conoscenza esterna, niente inferenze.\n- "evidenza": copia la frase qui sopra da cui il nodo nasce. Se un concetto non ha una frase, non scrivere quel nodo.\n- Non riformulare una macro-area: proponi la cosa SPECIFICA che la fonte dice e che la mappa ha perso.\n- "desc": 30-60 parole, tono da manuale, solo fatti presenti in quelle frasi.\n- "label": massimo 4 parole.\n- Se quelle frasi non aggiungono niente che meriti un nodo, restituisci una lista vuota. Meglio vuota che inventata.`;
+
+    const schema = {
+        type: 'OBJECT',
+        properties: {
+            nodi: {
+                type: 'ARRAY',
+                maxItems: 8,
+                items: {
+                    type: 'OBJECT',
+                    properties: {
+                        parent: { type: 'STRING', enum: rami.map(r => r.id) },
+                        label: { type: 'STRING' },
+                        desc: { type: 'STRING' },
+                        evidenza: { type: 'STRING' }
+                    },
+                    required: ['parent', 'label', 'desc', 'evidenza']
+                }
+            }
+        },
+        required: ['nodi']
+    };
+
+    try {
+        if (window.MappAIUsage) window.MappAIUsage.setContext('generation', 'copertura');
+        if (window.showLoadingOverlay) {
+            window.showLoadingOverlay(true, window.t('lo_copertura', 'Recupero le parti della fonte rimaste fuori…'));
+        }
+        const payload = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un recuperatore di concetti fedele alla fonte. Rispondi solo JSON conforme allo schema.') }] },
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: window.getMaxOutputTokens(2500),
+                responseMimeType: 'application/json',
+                responseSchema: schema
+            }
+        };
+        const resp = await window.fetchModelAPI(payload, apiKey);
+        const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+        const proposte = (data && Array.isArray(data.nodi)) ? data.nodi : [];
+        if (!proposte.length) { console.log('[Copertura] il modello non ha trovato niente da recuperare'); return { aggiunti: 0, scartate: [] }; }
+
+        const v = A.validaProposte(proposte, {
+            genitori: rami.map(r => r.id),
+            etichette: (appState.db.nodes || []).map(n => n.label),
+            frasi: sel.frasi,
+            max: 8
+        });
+        if (v.scartate.length) {
+            console.warn('[Copertura] ' + v.scartate.length + ' proposte scartate: ' +
+                v.scartate.map(x => '«' + x.label + '» (' + x.perche + ')').join(' · '));
+        }
+
+        let n = 0;
+        v.proposte.forEach(pz => {
+            const padre = rami.find(r => r.id === pz.parent);
+            if (!padre) return;
+            n++;
+            const id = padre.id + '_C' + n;
+            appState.db.nodes.push({
+                id: id,
+                label: String(pz.label).trim(),
+                content: '',
+                desc: String(pz.desc).trim(),
+                aiDesc: String(pz.desc).trim(),
+                level: (padre.level || 1) + 1,
+                group: padre.group,
+                chunks: [],
+                studyStatus: 'none',
+                _copertura: true          // da dove viene questo nodo, se un giorno serve saperlo
+            });
+            appState.db.links.push({ source: padre.id, target: id, rel: 'include' });
+        });
+        if (n) console.info('[Copertura] ' + n + ' nodi recuperati dalle pagine ' + sel.pagine.join(', '));
+        return { aggiunti: n, scartate: v.scartate, pagine: sel.pagine };
+    } catch (e) {
+        console.warn('[Copertura] errore non bloccante:', e.message);
+        return null;
+    }
+};
