@@ -540,6 +540,19 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             }
         } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
 
+        /* ── IL GIUDICE (12/9) ────────────────────────────────────────────────
+           Rilegge ogni ramo con davanti le frasi della fonte e cerca gli errori
+           di SENSO, che la fedeltà lessicale non vede. Va DOPO la copertura, così
+           rilegge anche i nodi appena recuperati.
+           ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
+           frase della fonte da cui quel nodo viene, quindi le citazioni restano
+           valide; e rimisurare qui darebbe al docente numeri diversi da quelli
+           su cui il giudice ha lavorato.
+           Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
+        try {
+            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
+        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
+
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         try {
             await window.enrichThinDescs(textParts, apiKey);
@@ -1278,6 +1291,19 @@ ${textParts.join('\n\n')}`;
                 }
             }
         } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
+
+        /* ── IL GIUDICE (12/9) ────────────────────────────────────────────────
+           Rilegge ogni ramo con davanti le frasi della fonte e cerca gli errori
+           di SENSO, che la fedeltà lessicale non vede. Va DOPO la copertura, così
+           rilegge anche i nodi appena recuperati.
+           ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
+           frase della fonte da cui quel nodo viene, quindi le citazioni restano
+           valide; e rimisurare qui darebbe al docente numeri diversi da quelli
+           su cui il giudice ha lavorato.
+           Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
+        try {
+            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
+        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
 
         // 3b — Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Va in fondo: agisce sul set di nodi finale (dopo Phase 4/5 e sanitizer).
