@@ -543,14 +543,21 @@
         type: 'OBJECT',
         properties: {
           domanda: { type: 'STRING' }, traccia: { type: 'STRING' }, righe: { type: 'INTEGER' },
-          aree: { type: 'ARRAY', items: { type: 'STRING' } },
+          /* ⚠️ ANCHE GLI ARRAY ANNIDATI VOGLIONO IL TETTO (12/9). Il tetto
+             sull'array esterno non protegge quelli dentro: il modello può
+             scrivere TRE domande e riempire i loro `criteri` fino a esaurire il
+             budget. Misurato: col budget a 2.880 hanno troncato 16 chiamate su
+             49; portandolo a 8.400 ne troncavano ancora 8 — alzare il tetto
+             spostava il muro invece di togliere la causa. I numeri sono quelli
+             che il prompt già dichiara: mai più di due aree, due o tre criteri. */
+          aree: { type: 'ARRAY', maxItems: 2, items: { type: 'STRING' } },
           /* I CRITERI (11/9). La «traccia» è un blocco unico: o la risposta le
              assomiglia o no, e un allievo che ha capito metà non prende metà.
              Due o tre elementi separati, ognuno verificabile da solo, danno al
              docente il credito parziale senza inventare una rubrica — e gli
              permettono di distinguere un errore di storia da una difficoltà a
              scrivere, che per chi fatica a esprimersi è tutto. */
-          criteri: { type: 'ARRAY', items: { type: 'STRING' } },
+          criteri: { type: 'ARRAY', maxItems: 3, items: { type: 'STRING' } },
           /* `enum` invece di una stringa libera: senza, arrivano «facile»,
              «medio», «base/ponte» — e chi conta non riconosce più niente. */
           livello: { type: 'STRING', enum: ['base', 'ponte'] }

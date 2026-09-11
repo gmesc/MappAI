@@ -84,9 +84,20 @@ test('validaVerdetti: il caso vero — soggetto ribaltato, corretto con la forbi
   assert.ok(r.applicati[0].prima !== r.applicati[0].dopo);
 });
 
+/* ⚠️ «fatto-non-nella-fonte» non esiste più: il giudice vede una finestra e da
+   una finestra non si dimostra un'assenza. Vedi mappai-judge-core.js. */
+test('validaVerdetti: il tipo ritirato viene scartato come qualunque tipo inventato', () => {
+  const r = J.validaVerdetti([{
+    id: 'N1', tipo: 'fatto-non-nella-fonte', problema: 'x',
+    prova: 'la Germania aveva assolutamente bisogno di divise privilegiate'
+  }], CTX);
+  assert.strictEqual(r.scartati.length, 1);
+  assert.strictEqual(r.scartati[0].perche, 'tipo di difetto non previsto');
+});
+
 test('validaVerdetti: un difetto NON locale si segnala e non si tocca', () => {
   const r = J.validaVerdetti([{
-    id: 'N1', tipo: 'fatto-non-nella-fonte', problema: 'la cessione di oro non è in queste frasi',
+    id: 'N1', tipo: 'fatto-contraddetto', problema: 'le frasi dicono un\'altra cosa',
     prova: 'Tramite la sua Banca Nazionale, la Svizzera avviò il commercio di oro',
     brano_errato: 'cedendo oro', con: 'in cambio di merci'
   }], CTX);

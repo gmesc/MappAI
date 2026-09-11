@@ -43,7 +43,18 @@
        non sta nella fonte» non si corregge cambiando tre parole, si toglie o si
        riscrive il nodo, e quella è una decisione del docente. */
     var TIPI_APPLICABILI = ['soggetto-invertito', 'data-attribuita-male', 'termine-sostituito'];
-    var TIPI_SEGNALA = ['fatto-non-nella-fonte', 'nesso-non-nella-fonte'];
+    /* ⚠️ «fatto-non-nella-fonte» È STATO TOLTO (12/9), e la ragione sta in due
+       generazioni vere: su VENTI segnalazioni, VENTI erano di quel tipo, e quasi
+       tutte dicevano «nelle frasi fornite per questo nodo non si menziona X»
+       mentre X stava nel documento, in un'altra frase. Esempio: «non si fa
+       menzione dell'annessione dell'Austria nel 1938», che nella fonte c'è.
+       Il giudice vede una FINESTRA — le citazioni del nodo più altre frasi delle
+       stesse pagine — e da una finestra si può dire «questo testo dice il
+       contrario», mai «questa cosa non esiste». Chiedergli un'assenza era
+       chiedergli l'unica cosa che non può sapere, e produceva solo falsi
+       allarmi che consumano l'attenzione del docente.
+       Resta `fatto-contraddetto`: le frasi mostrate dicono un'altra cosa. */
+    var TIPI_SEGNALA = ['fatto-contraddetto', 'nesso-non-nella-fonte'];
     var TIPI = TIPI_APPLICABILI.concat(TIPI_SEGNALA);
 
     var DEFAULTS = {
