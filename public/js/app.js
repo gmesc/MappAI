@@ -2010,6 +2010,16 @@ window.showGenerationReport = function () {
             if (_q.fedelta && _q.fedelta.sotto.length) {
                 _allarmi.push(window.t('gen_rep_fid', 'Descrizioni poco ancorate alla fonte, da rileggere: ') + _q.fedelta.sotto.length);
             }
+            /* ⚠️ IL VERDETTO DEL GIUDICE VA VISTO (12/9). In sola segnalazione —
+               che è il modo in cui va acceso la prima volta — il giudice non
+               tocca niente: se il suo verdetto restasse in console, accenderlo
+               non servirebbe a raccogliere i numeri per cui lo si accende. */
+            var _g = appState._giudiceReport;
+            if (_g && _g.correzioni && _g.correzioni.length) {
+                _allarmi.push(_g.applicaAcceso
+                    ? (window.t('gen_rep_giu_on', 'Errori di senso corretti dal controllo: ') + _g.applicate)
+                    : (window.t('gen_rep_giu_off', 'Errori di senso TROVATI dal controllo (non corretti: le scritture sono spente): ') + _g.correzioni.length));
+            }
             if (_allarmi.length) {
                 setTimeout(function () { window.showToast(_allarmi.join(' · '), 'warning'); }, 2600);
             }
