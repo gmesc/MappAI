@@ -8,6 +8,16 @@ const R = require('../public/js/mappai-review-core.js');
 const BEFORE = 'La Svizzera scambia oro con la Germania per ottenere franchi.';
 const AFTER = 'La Germania scambia oro con la Svizzera per ottenere franchi.';
 const SOURCES = [{ id: 'pdf-1', title: 'Svizzera', pages: [{ n: 4, text: AFTER }] }];
+test('decision outcomes distinguish corrections, exclusions and unchanged text', () => {
+  const issue = { target: { kind: 'item', id: 'text', field: 'text' }, before: 'Prima.', after: 'Dopo.', hasProposal: true };
+  assert.equal(R.decisionOutcome(issue), 'pending');
+  assert.equal(R.decisionOutcome(issue, { choice: 'accept' }), 'applied');
+  assert.equal(R.decisionOutcome(issue, { choice: 'reject' }), 'kept');
+  assert.equal(R.decisionOutcome(issue, { choice: 'manual', text: 'Prima.' }), 'kept');
+  assert.equal(R.decisionOutcome(issue, { choice: 'manual', text: 'Altro.' }), 'edited');
+  assert.equal(R.decisionOutcome({ ...issue, hasProposal: false }, { choice: 'accept' }), 'pending');
+  assert.equal(R.decisionOutcome({ ...issue, target: { ...issue.target, field: '$item' }, after: null }, { choice: 'accept' }), 'excluded');
+});
 function db() {
   return {
     nodes: [

@@ -96,8 +96,10 @@ function runtime(opts = {}) {
         },
         MappAIMaterialReview: {
             validate: MR.validate,
-            check: async items => {
+            check: async (items, checkOpts) => {
                 log.calls.judge++;
+                assert.deepEqual(copy(checkOpts.aiContext), copy(state._reviewAIContext));
+                assert.equal(checkOpts.material.sourceCoverage.fullPagesIncluded, state.sources[0].pages.length);
                 const selected = [items.find(i => i.kind === 'mc'), items.find(i => i.kind === 'flashcard'), items.find(i => i.id === 'synthesis-intro')].filter(Boolean);
                 return { checkStatus: opts.judgeStatus || 'completed', coverage: { checkedIds: items.map(i => i.id) }, issues: selected.map(it => {
                     const field = it.kind === 'mc' ? 'correctIndex' : it.kind === 'flashcard' ? 'answer' : 'text';

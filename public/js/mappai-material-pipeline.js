@@ -1189,7 +1189,7 @@
     if (!MR || !RC || !MD) throw new Error('Controllo finale non caricato');
     if (!PC().STEPS.filter(s => s !== 'A').every(s => ['done', 'skipped'].includes(manifest.steps[s].status))) { _overlay(false); _openSummary(vaultPath, manifest, config); return null; }
     const review = manifest.review;
-    const material = window.MappAIGroundingCore.buildInput(_state().db, _state().db.nodes, review.sources, review);
+    const material = window.MappAIGroundingCore.buildInput(_state().db, _state().db.nodes, review.sources, review, { includeOriginalPages: true });
     if (!review.final) {
       review.final = { stage: 'checking', items: MD.flatten(review.drafts), revision: review.approvedRevision };
       await _writeManifest(vaultPath, manifest);
@@ -1198,7 +1198,7 @@
     if (final.stage === 'done') return manifest;
     if (final.stage === 'checking') {
       _overlay(_t('rv_check_final', 'Controllo i materiali prima della consegna…'));
-      const report = await MR.check(final.items, { review, apiKey, material,
+      const report = await MR.check(final.items, { review, apiKey, material, aiContext: config.aiContext,
         onProgress: progress => _overlay(_t('rv_check_final', 'Controllo i materiali prima della consegna…') + (typeof progress === 'string' ? ' ' + progress : '')) });
       final.review = RC.createReview({ db: { items: final.items }, sources: review.sources, report,
         generationId: review.generationId + '-materials', vaultPath, config });

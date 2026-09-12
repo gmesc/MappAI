@@ -1,8 +1,8 @@
 /* One normalized representation for the final judge, editor and exporters. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./mappai-pipeline-core'));
-  else root.MappAIMaterialDrafts = factory(root.MappAIPipelineCore);
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (PC) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./mappai-pipeline-core'), require('./mappai-grounding-core'));
+  else root.MappAIMaterialDrafts = factory(root.MappAIPipelineCore, root.MappAIGroundingCore);
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (PC, G) {
   'use strict';
   const clone = x => JSON.parse(JSON.stringify(x));
   function correctIndex(it) {
@@ -69,9 +69,11 @@
     const data = drafts.D && drafts.D.data;
     if (data) {
       if (data.whole) {
-        // The overview is generated without numbered citations and has no
-        // local registry. Never borrow another section's numbers for it.
-        if (data.intro) out.push({ id: 'synthesis-intro', kind: 'synthesis', text: data.intro, citations: [], step: 'D', part: 'intro', title: 'Panoramica' });
+        // Project legacy raw IDs into a local registry without mutating drafts
+        // or borrowing the meaning of another section's numbered references.
+        const introSources = Array.isArray(data.introSources) ? data.introSources
+          : G.citationRegistry(data.intro, (data.sections || []).flatMap(s => s.sourcesArr || []));
+        if (data.intro) out.push({ id: 'synthesis-intro', kind: 'synthesis', text: data.intro, citations: clone(introSources), step: 'D', part: 'intro', title: 'Panoramica' });
         (data.sections || []).forEach((s, i) => {
           out.push({ id: 'synthesis-' + i, kind: 'synthesis', text: s.rawText || '', citations: clone(s.sourcesArr || []), step: 'D', part: i, title: s.branchLabel });
           out.push(...synthesisTriples(s, i));

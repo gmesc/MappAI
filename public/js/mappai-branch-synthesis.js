@@ -151,8 +151,20 @@
     }
 
     // ── Markdown → HTML (sottoinsieme: ##/###, **bold**, *italic*, liste, [n]) ─
-    function _mdToHtml(md, variant) {
-        const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+    function _referenceLabels() {
+        return { sourceLabel: _isEnglish() ? 'Source' : 'Fonte', unknownLabel: _isEnglish() ? 'Source to verify' : 'Fonte da verificare' };
+    }
+    function _referenceView(value, entries) {
+        const G = window.MappAIGroundingCore;
+        return G && G.referenceView ? G.referenceView(value, entries || [], _referenceLabels())
+            : { text: String(value || '').replace(/\[\[src-[\w-]+\]\]/g, '[' + _referenceLabels().unknownLabel + ']'), mapping: [] };
+    }
+    function _citationId(scope, n) { return 'bs-cite-' + (scope || 'whole') + '-' + n; }
+    function _mdToHtml(md, variant, sourcesArr, scope) {
+        const G = window.MappAIGroundingCore;
+        const resolved = G && G.resolveCitations ? G.resolveCitations(md, sourcesArr || []).text : md;
+        const refs = _referenceView(resolved, sourcesArr);
+        const lines = refs.text.replace(/\r\n/g, '\n').split('\n');
         let html = '';
         let inList = false;
 
@@ -166,9 +178,14 @@
                 ? '<strong class="font-bold text-slate-800">$1</strong>'
                 : '<strong>$1</strong>');
             s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
-            s = s.replace(/\[(\d+)\]/g, (m, n) => variant === 'modal'
-                ? `<sup class="text-indigo-600 font-bold cursor-pointer" onclick="window._scrollToBranchCitation(${n})">[${n}]</sup>`
-                : `<sup>[${n}]</sup>`);
+            s = s.replace(/\[(\d+)\]/g, (m, n) => {
+                const linked = (sourcesArr || []).some(source => Number(source.idx) === Number(n));
+                const reference = linked ? '<a href="#' + _citationId(scope, n) + '" aria-label="' + _referenceLabels().sourceLabel + ' ' + n + '">[' + n + ']</a>' : '[' + n + ']';
+                return '<sup' + (variant === 'modal' ? ' class="text-indigo-600 font-bold"' : '') + '>' + reference + '</sup>';
+            });
+            refs.mapping.forEach(ref => {
+                s = s.split(_escBS(ref.label)).join('<span data-ap-skip class="bs-reference-unverified">' + _escBS(ref.label) + '</span>');
+            });
             return s;
         }
 
@@ -202,14 +219,14 @@
     }
 
     // ── Blocco citazioni (modale o stampa) ────────────────────────────────
-    function _buildCitationsHtml(sourcesArr, variant) {
+    function _buildCitationsHtml(sourcesArr, variant, scope) {
         if (!sourcesArr.length) return '';
         const titleLabel = _isEnglish() ? 'Sources' : 'Fonti';
 
         if (variant === 'modal') {
             const rows = sourcesArr.map(s => {
                 const snippet = s.text;
-                return `<div id="bs-cite-${s.idx}" class="flex gap-2 py-2 border-b border-slate-100 last:border-0 transition-colors rounded">
+                return `<div id="${_citationId(scope, s.idx)}" tabindex="-1" class="flex gap-2 py-2 border-b border-slate-100 last:border-0 transition-colors rounded">
                     <span class="text-[11px] font-bold text-indigo-600 flex-shrink-0">[${s.idx}]</span>
                     <div class="text-[11px] text-slate-500 leading-relaxed">
                         <span class="font-bold text-slate-600">${_escBS(s.title)}${s.source ? ' — ' + _escBS(s.source) : ''}</span>
@@ -226,7 +243,7 @@
         // print
         const rows = sourcesArr.map(s => {
             const snippet = s.text;
-            return `<div class="bs-cite-row">
+            return `<div id="${_citationId(scope, s.idx)}" tabindex="-1" class="bs-cite-row" style="scroll-margin-top:calc(var(--ap-hdr-h, 52px) + 12px)">
                 <div class="bs-cite-num">[${s.idx}]</div>
                 <div class="bs-cite-text"><strong>${_escBS(s.title)}${s.source ? ' — ' + _escBS(s.source) : ''}</strong><blockquote style="white-space:pre-wrap; margin:.3em 0;">${_escBS(snippet)}</blockquote></div>
             </div>`;
@@ -237,8 +254,8 @@
         </div>`;
     }
 
-    window._scrollToBranchCitation = function (n) {
-        const el = document.getElementById('bs-cite-' + n);
+    window._scrollToBranchCitation = function (n, scope) {
+        const el = document.getElementById(_citationId(scope, n)) || document.getElementById('bs-cite-' + n);
         if (!el) return;
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('bg-indigo-50');
@@ -548,15 +565,16 @@
             }
 
             // Panoramica introduttiva (best-effort: se fallisce, il documento esce senza)
-            let intro = '';
+            let intro = '', introSources = [], introGrounding = { unknownCitationIds: [] };
             try {
                 _ovl(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
                 const input = _buildSourcesAndContent(allNodes);
                 const langNote = window.mapLangNote ? window.mapLangNote() : '';
                 const prompt = 'Questi sono i contenuti approvati e le fonti originali della mappa "' + mapName + '".\n' +
                     'Scrivi una PANORAMICA introduttiva (150-220 parole) che colleghi i temi dei rami ' +
-                    'in un discorso unico: niente elenchi, niente citazioni numerate, tono da introduzione di dispensa.\n' +
-                    'Conserva gli stessi fatti e rettifiche del docente, senza introdurre nuove cause o generalizzazioni. Non trascrivere citazioni.\n' +
+                    'in un discorso unico: niente elenchi, tono da introduzione di dispensa.\n' +
+                    'Conserva soggetti, fatti documentati e rettifiche esplicite, senza introdurre nuove cause o generalizzazioni. ' +
+                    'Per i riferimenti usa soltanto gli ID [[src-...]] forniti, senza numerarli o trascrivere le citazioni.\n' +
                     langNote + '\n\n' + input.material;
                 const payload = {
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -570,6 +588,8 @@
                 const resp = await window.fetchModelAPI(payload, apiKey);
                 _requireSameVersion(version);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                introSources = _sourcesForMarkers(intro, input.sourcesArr);
+                introGrounding = { unknownCitationIds: window.MappAIGroundingCore.resolveCitations(intro, introSources).unknownIds };
             } catch (e) {
                 if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                 console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);
@@ -577,7 +597,7 @@
 
             _requireSameVersion(version);
             _ovl(false);
-            _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
+            _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, introSources, introGrounding, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
             _maybeResultModal(_lastSynthesis);
             return _lastSynthesis;
         } catch (err) {
@@ -587,6 +607,28 @@
             window.showToast('Errore generazione sintesi: ' + (err.message || err), 'error');
             return null;
         }
+    }
+
+    // Intro numbers are local. A legacy intro may resolve stable IDs from the
+    // branch registries, but must never borrow the meaning of their [1].
+    function _sourcesForMarkers(value, entries) {
+        return window.MappAIGroundingCore?.citationRegistry(value, entries) || [];
+    }
+    function _introSources(data) {
+        return Array.isArray(data.introSources) ? data.introSources : _sourcesForMarkers(data.intro,
+            (data.sections || []).flatMap(s => s.sourcesArr || []));
+    }
+    function _editedHtml(data) {
+        const html = window.MappAIDocEdit.blocksToHtml(data.editedBlocks);
+        const entries = data.whole ? _introSources(data).concat((data.sections || []).flatMap(s => s.sourcesArr || [])) : data.sourcesArr || [];
+        const refs = _referenceView(html, entries);
+        let result = refs.text;
+        refs.mapping.forEach(ref => {
+            const source = ref.source;
+            const label = source ? _referenceLabels().sourceLabel + ': ' + (source.title || source.docId || '') + (source.page ? ' — ' + (_isEnglish() ? 'page ' : 'pagina ') + source.page : source.source ? ' — ' + source.source : '') : ref.label;
+            result = result.split(ref.label).join('<sup data-ap-skip>' + _escBS(label) + '</sup>');
+        });
+        return result;
     }
 
     // Corpo HTML della sintesi intera: panoramica + una sezione per ramo,
@@ -604,10 +646,11 @@
             : (txt) => '<h2 style="font-size:1.05em; margin:1.1em 0 .4em;">' + _escBS(txt) + '</h2>';
         let html = '';
         if (data.intro) {
+            const introSources = _introSources(data);
             html += H(window.t('bs_overview', 'Panoramica'));
-            html += _mdToHtml(data.intro, variant);
+            html += _mdToHtml(data.intro, variant, introSources, 'intro') + _buildCitationsHtml(introSources, variant, 'intro');
         }
-        (data.sections || []).forEach(sec => {
+        (data.sections || []).forEach((sec, index) => {
             html += H(sec.branchLabel);
             if (sec.failed) {
                 const msg = _escBS(window.t('bs_branch_failed', 'Sintesi di questo ramo non riuscita — riprova sul ramo singolo.'));
@@ -616,9 +659,9 @@
                     : '<p style="color:#b45309">' + msg + '</p>';
                 return;
             }
-            html += _mdToHtml(sec.rawText, variant)
+            html += _mdToHtml(sec.rawText, variant, sec.sourcesArr, 'section-' + index)
                 + (variant === 'print' ? _causalBoxHtml(sec.causalTriples) : '')
-                + _buildCitationsHtml(sec.sourcesArr, variant);
+                + _buildCitationsHtml(sec.sourcesArr, variant, 'section-' + index);
         });
         return html;
     }
@@ -645,7 +688,7 @@
 
         const contentHtml = data.whole
             ? _wholeBodyHtml(data, 'modal')
-            : _mdToHtml(data.rawText, 'modal') + _buildCitationsHtml(data.sourcesArr, 'modal');
+            : _mdToHtml(data.rawText, 'modal', data.sourcesArr) + _buildCitationsHtml(data.sourcesArr, 'modal');
         const titlePrefix = data.whole
             ? _escBS(window.t('bs_whole_title', 'Sintesi della mappa')) + ': '
             : 'Sintesi: ';
@@ -756,7 +799,7 @@
         // TTS e i cue dell'audio continuano a trovarli. Citazioni e box causale
         // restano quelli generati (non editabili).
         const editedHtml = (data.editedBlocks && data.editedBlocks.length && window.MappAIDocEdit)
-            ? window.MappAIDocEdit.blocksToHtml(data.editedBlocks)
+            ? _editedHtml(data)
             : null;
         // Con i blocchi editati: nella sintesi di RAMO citazioni e box causale si
         // riappendono in coda (vivono fuori dal corpo); in quella di TUTTA LA MAPPA
@@ -788,7 +831,7 @@
                 : _senzaRichiami(editedHtml) + _coda())
             : (data.whole
                 ? _wholeBodyHtml(data, 'print')
-                : _senzaRichiami(_mdToHtml(data.rawText, 'print')) + _coda());
+                : _senzaRichiami(_mdToHtml(data.rawText, 'print', data.sourcesArr)) + _coda());
         /* ── L'IMMAGINE DI RIFERIMENTO (dossier di fonte, 21/8) ─────────────
            Una sintesi che nasce da una fonte iconografica si apre con la FOTO:
            il testo parla di ciò che si vede, e senza l'immagine accanto va
@@ -2059,9 +2102,9 @@ ${_bsPie(data.mapName)}
             const d = data || _lastSynthesis;
             if (!d) return '';
             if (d.editedBlocks && d.editedBlocks.length && window.MappAIDocEdit) {
-                return window.MappAIDocEdit.blocksToHtml(d.editedBlocks);
+                return _editedHtml(d);
             }
-            return d.whole ? _wholeBodyHtml(d, 'print') : _mdToHtml(d.rawText, 'print');
+            return d.whole ? _wholeBodyHtml(d, 'print') : _mdToHtml(d.rawText, 'print', d.sourcesArr);
         }
     };
 

@@ -20,6 +20,9 @@ const open = id => ({ id, kind: 'open', question: 'Nomina il generale svizzero.'
 const flash = id => ({ id, kind: 'flashcard', question: 'Chi riceve valuta?', answer: GOLD });
 const response = (value, reason = 'STOP') => ({ candidates: [{ content: { parts: [{ text: typeof value === 'string' ? value : JSON.stringify(value) }] }, finishReason: reason }] });
 const clean = batch => ({ checkedIds: batch.map(i => i.id), mcOptions: batch.filter(i => i.kind === 'mc').map(i => ({ id: i.id, indices: i.options.map((_, n) => n) })), issues: [] });
+const recoveryRows = payload => JSON.parse(payload.contents[0].parts[0].text.split('SEGNALAZIONI DA COMPLETARE (dati)\n')[1].split('\n\nPASSAGGI ORIGINALI')[0]);
+const recoveryChoice = (payload, index, extra = {}) => ({ issueId: recoveryRows(payload)[index].issueId,
+    action: 'needs_teacher', reason: 'Le prove non permettono una riparazione certa.', ...extra });
 function runtime(answer) {
     const context = vm.createContext({ console, MappAIGroundingCore: G, salvageTruncatedJSON: salvage, getMaxOutputTokens: n => n });
     context.window = context;
@@ -517,4 +520,465 @@ test('whitespace-insensitive evidence matching returns the exact archived substr
     const report = await r.check([{ ...open('q'), guide: WRONG }], { material: reference });
     assert.equal(report.issues[0].evidence[0].text, 'Germania vende\n oro\talla Svizzera');
     assert.ok(original.includes(report.issues[0].evidence[0].text));
+});
+
+test('raw source anchors require an existing registry, preserve exact text, and are never silently removed', async () => {
+    const source = { id: 'src-original', idx: 1, text: GOLD, page: 5 };
+    const item = { id: 'intro', kind: 'synthesis', text: 'Il commercio continuò [[src-original]].', citations: [source] };
+    const r = runtime();
+    assert.equal(r.w.MappAIMaterialReview.validate([item]).ok, true);
+    assert.equal((await r.check([item])).issues.length, 0);
+    const missing = { ...item, text: 'Il commercio continuò [[src-unknown]].' };
+    const report = await r.check([missing]);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].hasProposal, false);
+    assert.match(report.issues[0].problem, /src-unknown/);
+    assert.equal(missing.text, 'Il commercio continuò [[src-unknown]].');
+});
+
+test('legacy raw IDs resolve globally across item registries while numeric references remain strictly local', async () => {
+    const section = { id: 'section', kind: 'synthesis', text: 'Gli scambi continuarono [1].',
+        citations: [{ id: 'src-trade', idx: 1, text: GOLD }] };
+    const legacy = { id: 'intro', kind: 'synthesis', text: 'Gli scambi continuarono [[src-trade]].', citations: [] };
+    const r = runtime();
+    const before = plain([legacy, section]);
+    assert.equal(r.w.MappAIMaterialReview.validate([legacy, section]).ok, true);
+    assert.equal((await r.check([legacy, section])).issues.length, 0);
+    assert.deepEqual([legacy, section], before, 'legacy registries and revisions are not changed');
+    const numeric = { ...legacy, text: 'Gli scambi continuarono [1].' };
+    const invalid = r.w.MappAIMaterialReview.validate([numeric, section]);
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.issues.length, 1);
+    assert.equal(invalid.issues[0].target.id, 'intro');
+    assert.match(invalid.issues[0].problem, /\[1\]/);
+});
+
+test('processing metatext is a manual editorial finding even offline, not an unwaivable structural gate', async () => {
+    const item = { ...mc('meta'), explanation: 'La rettifica del docente e il testo definiscono i pieni poteri.' };
+    const r = runtime();
+    const before = plain(item);
+    const report = await r.check([item], { apiKey: '' });
+    assert.equal(report.issues.length, 1);
+    const finding = report.issues[0];
+    assert.equal(finding.check, 'processing-metatext');
+    assert.equal(finding.type, 'editorial');
+    assert.equal(finding.hasProposal, false);
+    assert.equal(finding.evidence[0].text, 'rettifica del docente');
+    assert.equal(finding.evidence[0].verifiedAgainst, 'item');
+    assert.equal(r.w.MappAIMaterialReview.validate([item]).ok, true);
+    assert.deepEqual(item, before);
+    assert.equal(r.calls.length, 0);
+
+    const kept = approvedDecision(finding.id, { kind: 'item', id: item.id, field: 'explanation' }, item.explanation, item.explanation, 'reject', finding.evidence);
+    const replay = await r.check([item], { review: kept });
+    assert.equal(replay.issues.length, 0);
+    assert.equal(replay.suppressed.length, 1);
+    assert.equal(r.calls.length, 1, 'keeping a flag does not trigger proposal recovery');
+    const ordinary = { ...mc('control'), explanation: 'Il docente insegna storia. Il giudice esaminò le accuse.' };
+    assert.equal((await r.check([ordinary])).issues.length, 0, 'ordinary words are not processing metatext');
+});
+
+for (const choice of ['reject', 'accept', 'manual', undefined]) {
+    test(`${choice}: a kept or unchanged decision cannot ground a new correction`, async () => {
+        const after = choice === 'reject' || choice === undefined ? GOLD : WRONG;
+        const review = approvedDecision('kept', { kind: 'node', id: 'node', field: 'desc' }, WRONG, after, choice);
+        if (choice === undefined) delete review.overrides[0].choice;
+        const r = runtime((batch, payload) => {
+            assert.match(payload.contents[0].parts[0].text, /"issueId":"kept"/, 'audit decisions remain in the prompt');
+            return response({ ...clean(batch), issues: [wrongGuide('new', {
+                evidenceKind: 'teacher', decisionId: 'kept', quote: after
+            })] });
+        });
+        const report = await r.check([{ ...open('new'), guide: WRONG }], { review });
+        assert.equal(report.issues.length, 0);
+        assert.equal(report.rejected.length, 1);
+        assert.equal(report.checkStatus, 'incomplete');
+        assert.equal(r.calls.length, 1, 'unverified teacher authority never reaches recovery');
+    });
+}
+
+test('a real teacher amendment containing a list supplies evidence without narrowing authority to strings', async () => {
+    const review = approvedDecision('list', { kind: 'item', id: 'old', field: 'criteria' }, ['Indica la Svizzera.'], [GOLD], 'accept');
+    const r = runtime(batch => response({ ...clean(batch), issues: [wrongGuide('new', {
+        evidenceKind: 'teacher', decisionId: 'list', quote: GOLD
+    })] }));
+    const report = await r.check([{ ...open('new'), guide: WRONG }], { review });
+    assert.equal(report.issues[0].evidence[0].verifiedAgainst, 'teacher-decision');
+    assert.equal(report.issues[0].after, GOLD);
+});
+
+test('source-backed manual findings obtain one optional patch through the same Gemini gateway', async () => {
+    const original = 'Il 30 agosto 1939 l’Assemblea Federale elesse Guisan e accordò pieni poteri al Consiglio Federale.';
+    const reference = G.buildInput({}, [], [{ title: 'Documento originale', pages: [{ n: 1, text: original }, { n: 6, text: ACCUSATION }] }]);
+    const item = { id: 'synthesis-intro', kind: 'synthesis', text: 'Il governo ricevette i pieni poteri e nominò Guisan generale.', citations: [] };
+    const finding = { id: item.id, field: 'text', problem: 'Il testo attribuisce al governo anche la nomina del generale.',
+        evidenceKind: 'source', sourceId: reference.sourcesArr[0].id, quote: original };
+    const r = throughGeminiGateway((batch, payload, call) => {
+        assertStructuredSubset(payload.generationConfig.responseSchema);
+        assert.doesNotMatch(JSON.stringify(payload.generationConfig.responseSchema), /maxItems/);
+        if (call === 1) return response({ ...clean(batch), issues: [finding] });
+        const prompt = payload.contents[0].parts[0].text;
+        assert.match(prompt, /RECUPERO DI PROPOSTE/);
+        assert.match(prompt, /NON certifica la correttezza semantica/);
+        assert.ok(prompt.includes(original));
+        assert.ok(!prompt.includes(ACCUSATION), 'an unrelated original passage is not sent to recovery');
+        assert.deepEqual(plain(payload.generationConfig.responseSchema.properties.decisions.items.required), ['issueId', 'action', 'reason']);
+        return response({ decisions: [recoveryChoice(payload, 0, { action: 'replace',
+            replacement: 'L’Assemblea Federale elesse Guisan generale e accordò pieni poteri al Consiglio Federale.' })] });
+    });
+    const before = plain(item);
+    const report = await r.check([item], { material: reference });
+    assert.equal(r.posts.length, 2);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].hasProposal, true);
+    assert.match(report.issues[0].after, /^L’Assemblea Federale/);
+    assert.equal(report.issues[0].proposalValidation, 'target-evidence-structure');
+    assert.equal(report.batches[0].proposalRecovery.semanticsVerified, false);
+    assert.deepEqual(plain(report.coverage.checkedIds), [item.id]);
+    assert.deepEqual(item, before, 'proposal recovery never edits a draft');
+});
+
+test('recovery may propose explicit causal exclusion but never fabricates one from a missing repair', async () => {
+    const item = { id: 'parallel', kind: 'causal', question: 'mancanza di cibo', text: 'quindi', answer: 'Tuttavia, per evitare conflitti con la Germania' };
+    const finding = { id: item.id, field: 'answer', problem: 'La prima e la seconda parte esprimono due motivi paralleli, non causa e conseguenza.',
+        evidenceKind: 'item', quote: item.answer };
+    for (const propose of [true, false]) {
+        const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [finding] } : {
+            decisions: [recoveryChoice(payload, 0, { action: propose ? 'exclude' : 'needs_teacher' })]
+        }));
+        const report = await r.check([item]);
+        assert.equal(r.calls.length, 2);
+        assert.equal(report.issues.length, 1);
+        assert.equal(report.issues[0].hasProposal, propose);
+        assert.equal(report.issues[0].target.field, propose ? '$item' : 'answer');
+        assert.equal(report.issues[0].after, null);
+        if (propose) assert.deepEqual(plain(report.issues[0].before), item);
+        else assert.equal(report.batches[0].proposalRecovery.unresolvedIds.length, 1);
+    }
+});
+
+for (const mode of ['failure', 'truncated', 'no-op', 'foreign-target', 'different-field', 'different-proof', 'different-problem', 'broken-text', 'coverage-inflation']) {
+    test(`recovery ${mode} keeps the manual finding and the original incomplete coverage`, async () => {
+        const finding = wrongGuide('q'); delete finding.replacement;
+        const r = runtime((batch, payload, call) => {
+            if (call === 1) return response({ checkedIds: ['q'], mcOptions: [], issues: [finding] });
+            if (mode === 'failure') throw new Error('Recupero offline');
+            const proposal = recoveryChoice(payload, 0, { action: 'replace', replacement: GOLD });
+            if (mode === 'no-op') proposal.replacement = WRONG;
+            if (mode === 'foreign-target') proposal.issueId = 'other';
+            if (mode === 'different-field') proposal.field = 'question';
+            if (mode === 'different-proof') proposal.quote = 'La Germania';
+            if (mode === 'different-problem') proposal.problem = 'Una nuova obiezione non richiesta.';
+            if (mode === 'broken-text') proposal.replacement = GOLD + '\uFFFD';
+            const answer = { decisions: [proposal], ...(mode === 'coverage-inflation' ? { checkedIds: ['q', 'unchecked'] } : {}) };
+            return response(answer, mode === 'truncated' ? 'MAX_TOKENS' : 'STOP');
+        });
+        const report = await r.check([{ ...open('q'), guide: WRONG }, flash('unchecked')]);
+        assert.equal(r.calls.length, 2, 'there is no retry of a recovery attempt');
+        assert.equal(report.issues.length, 1);
+        assert.equal(report.issues[0].hasProposal, false);
+        assert.equal(report.issues[0].after, null);
+        assert.equal(report.issues[0].problem, finding.problem);
+        assert.equal(report.issues[0].evidence[0].text, GOLD);
+        assert.equal(report.checkStatus, 'incomplete');
+        assert.deepEqual(plain(report.coverage.checkedIds), ['q']);
+        assert.deepEqual(plain(report.coverage.skipped.map(i => i.id)), ['unchecked']);
+        assert.equal(report.batches[0].proposalRecovery.unresolvedIds.length, 1);
+    });
+}
+
+test('one recovery request per original batch, even with twelve unresolved findings', async () => {
+    const r = runtime((batch, payload) => {
+        if (/^RECUPERO DI PROPOSTE/.test(payload.contents[0].parts[0].text)) return response({ decisions: recoveryRows(payload).map((_, n) => recoveryChoice(payload, n)) });
+        return response({ ...clean(batch), issues: batch.map(item => ({ id: item.id, field: 'answer',
+            problem: 'Il soggetto dell’azione è invertito.', evidenceKind: 'source', quote: GOLD })) });
+    });
+    const report = await r.check(Array.from({ length: 13 }, (_, n) => ({ ...flash('f' + n), answer: WRONG })));
+    assert.equal(r.calls.length, 4, 'two reviews plus two recovery calls, not a call for every issue');
+    assert.equal(report.issues.length, 13);
+    assert.equal(report.coverage.checkedIds.length, 13);
+    assert.deepEqual(plain(report.batches.map(b => b.proposalRecovery.requestedIds.length)), [12, 1]);
+    assert.ok(report.issues.every(i => !i.hasProposal));
+});
+
+test('duplicate recovery proposals cannot resolve one finding twice or erase another concern', async () => {
+    const first = wrongGuide('q'); delete first.replacement;
+    const second = { ...first, problem: 'La guida contiene inoltre una conclusione da verificare.' };
+    const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [first, second] } : {
+        decisions: [recoveryChoice(payload, 0, { action: 'replace', replacement: GOLD }), recoveryChoice(payload, 0, { action: 'replace', replacement: GOLD })]
+    }));
+    const report = await r.check([{ ...open('q'), guide: WRONG }]);
+    assert.equal(report.issues.length, 2);
+    assert.ok(report.issues.every(i => !i.hasProposal));
+    assert.equal(report.batches[0].proposalRecovery.proposedIds.length, 0);
+    assert.equal(report.batches[0].proposalRecovery.unresolvedIds.length, 2);
+    assert.equal(r.calls.length, 2);
+});
+
+test('recovery cannot introduce an unknown numbered citation while correcting a factual claim', async () => {
+    const item = { id: 'text', kind: 'synthesis', text: WRONG + ' [1]', citations: [{ id: material.sourcesArr[0].id, idx: 1, text: GOLD }] };
+    const finding = { ...wrongGuide(item.id), field: 'text' }; delete finding.replacement;
+    const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [finding] } : {
+        decisions: [recoveryChoice(payload, 0, { action: 'replace', replacement: GOLD + ' [2]' })]
+    }));
+    const report = await r.check([item]);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].hasProposal, false);
+    assert.equal(report.batches[0].proposalRecovery.rejected.length, 1);
+    assert.equal(report.checkStatus, 'completed', 'failed repair is distinct from coverage of the initial check');
+});
+
+test('documented factual contrasts and causal controls reach the model with general review instructions', async () => {
+    // The mocked reviewer tests the context/acceptance contract, not model
+    // recall or precision. Expected findings are never placed in its prompt.
+    const sourceTexts = [
+        'Il commercio con gli Alleati, in particolare con gli USA, continuò.',
+        'Queste accuse sono state esaminate dalla commissione Bergier. Il rapporto confermò che molte migliaia di ebrei si videro negare l’accesso in Svizzera.',
+        'Il piano Wahlen prevedeva l’estensione della campicoltura e un sistema di razionamento per assicurare sufficienti provvigioni di cibo.',
+        'Buona parte dell’oro tedesco era frutto di rapina, come quello sottratto alle vittime dei campi di concentramento.'
+    ];
+    const reference = G.buildInput({}, [], [{ title: 'Fonte didattica', pages: sourceTexts.map((text, n) => ({ n: n + 1, text })) }]);
+    const items = [
+        { id: 'absence', kind: 'synthesis', text: 'Il materiale non contiene informazioni su scambi commerciali con i Paesi Alleati.' },
+        { id: 'accusations', kind: 'synthesis', text: 'La commissione esaminò tutte le accuse e confermò i fatti.' },
+        { ...mc('meals'), explanation: 'Il razionamento serviva a garantire pasti equilibrati a tutti.' },
+        { id: 'gold-control', kind: 'causal', question: 'I nazisti avevano sottratto oro alle vittime', text: 'quindi', answer: 'Quell’oro era frutto di rapina' },
+        { id: 'source-control', kind: 'synthesis', text: sourceTexts[0] }, open('short-control')
+    ];
+    const findings = [
+        { id: 'absence', field: 'text', problem: 'La fonte descrive scambi che il testo dichiara assenti.', replacement: sourceTexts[0] },
+        { id: 'accusations', field: 'text', problem: 'Esaminare tutte le accuse non significa confermarle tutte.', replacement: sourceTexts[1] },
+        { id: 'meals', field: 'explanation', problem: 'Il testo aggiunge una garanzia universale non attestata dalla fonte.', replacement: sourceTexts[2] }
+    ].map((f, n) => ({ ...f, evidenceKind: 'source', sourceId: reference.sourcesArr[n].id, quote: sourceTexts[n] }));
+    const r = runtime((batch, payload) => {
+        const prompt = payload.contents[0].parts[0].text;
+        for (const text of sourceTexts) assert.ok(prompt.includes(text), 'all pertinent originals must be available, including the counterexample to absence');
+        for (const rule of [/NEGATIVE o di ASSENZA/, /non equivale a confermarle tutte/, /risultato sia stato garantito a tutti/,
+            /non chiamare "inversione causale"/, /due motivi paralleli/, /senza nomi di campi JSON/]) assert.match(prompt, rule);
+        assert.doesNotMatch(prompt, /expectedFindings/);
+        return response({ ...clean(batch), issues: findings });
+    });
+    const report = await r.check(items, { material: reference });
+    assert.equal(report.issues.length, 3);
+    assert.ok(report.issues.every(i => ['absence', 'accusations', 'meals'].includes(i.target.id)));
+    assert.equal(report.checkStatus, 'completed');
+    assert.equal(r.calls.length, 1, 'ready patches and controls need no recovery');
+});
+
+test('explicit Google Gemini 3.8 review context requests medium for both calls without changing other models or providers', async () => {
+    const contexts = [
+        { provider: 'google', model: 'gemini-3.8-flash', expected: 'medium' },
+        { provider: 'google', model: 'gemini-3.8-flash-preview', expected: 'medium' },
+        { provider: 'google', model: 'gemini-2.5-flash' },
+        { provider: 'infomaniak', model: 'gemini-3.8-flash' },
+        { provider: 'infomaniak', model: 'google/gemma-4-31B-it' }, undefined
+    ];
+    const finding = wrongGuide('q'); delete finding.replacement;
+    for (const context of contexts) {
+        const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [finding] } : {
+            decisions: [recoveryChoice(payload, 0)]
+        }));
+        r.w.appState = { _reviewAIContext: { provider: 'google', model: 'gemini-3.8-flash' } };
+        await r.check([{ ...open('q'), guide: WRONG }], { aiContext: context });
+        assert.equal(r.calls.length, 2);
+        for (const { payload } of r.calls) {
+            assert.equal(payload.generationConfig.thinkingConfig?.thinkingLevel, context?.expected);
+            assert.equal(payload.generationConfig.maxOutputTokens, context?.expected === 'medium' ? 24576 : 6000);
+            assertStructuredSubset(payload.generationConfig.responseSchema);
+            assert.doesNotMatch(JSON.stringify(payload.generationConfig.responseSchema), /maxItems/);
+        }
+    }
+    const gateway = throughGeminiGateway((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [finding] } : {
+        decisions: [recoveryChoice(payload, 0)]
+    }));
+    await gateway.check([{ ...open('q'), guide: WRONG }], { aiContext: { provider: 'google', model: 'gemini-3.8-flash' } });
+    assert.equal(gateway.posts.length, 2);
+    assert.ok(gateway.posts.every(p => p.payload.generationConfig.thinkingConfig.thinkingLevel === 'medium'), 'the actual gateway preserves explicit review thinking');
+    assert.ok(gateway.posts.every(p => p.payload.generationConfig.maxOutputTokens === 24576), 'thought tokens leave room for the review report');
+    const larger = runtime();
+    larger.w.getMaxOutputTokens = () => 32768;
+    await larger.check([flash('f')], { aiContext: { provider: 'google', model: 'gemini-3.8-flash' } });
+    assert.equal(larger.calls[0].payload.generationConfig.maxOutputTokens, 32768, 'do not reduce an existing larger budget');
+});
+
+test('captured medium-thinking truncation never certifies the ten declared IDs as checked', async () => {
+    const ids = ['synthesis-intro', 'synthesis-0', 'synthesis-3', 'synthesis-causal-3-0', 'synthesis-causal-3-1',
+        'set_1789245120871_heux1-10', 'set_1789245129036_raq3i-0', 'set_1789245147366_iz7hp-5',
+        'set_1789245120871_heux1-1', 'set_1789245147366_iz7hp-7'];
+    // The captured response declared all IDs, then ended inside its first
+    // quotation. 11,519 thought tokens consumed almost all of the 12k budget.
+    const raw = JSON.stringify({ checkedIds: ids, mcOptions: [], issues: [] }).replace(/\[\]\}$/, '[') +
+        '{"id":"synthesis-intro","field":"text","problem":"La prima parte del testo attribuisce erroneamente al governo la nomina del generale Guisan, mentre la fonte originale attesta che fu l’Assemblea Federale a eleggerlo.","evidenceKind":"source","quote":"Il 30 agosto 1939 l’Assemblea Federale elesse Guisan e accordò pieni pot';
+    const captured = { ...response(raw, 'MAX_TOKENS'), usageMetadata: {
+        promptTokenCount: 21930, candidatesTokenCount: 467, thoughtsTokenCount: 11519, totalTokenCount: 33916
+    } };
+    const r = runtime(() => captured);
+    const report = await r.check(ids.map(id => flash(id)), { aiContext: { provider: 'google', model: 'gemini-3.8-flash' } });
+    assert.equal(report.checkStatus, 'incomplete');
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.equal(report.coverage.skipped.length, 10);
+    assert.equal(report.issues.length, 0);
+    assert.equal(r.calls.length, 1, 'do not create a new review cycle to hide truncation');
+});
+
+test('captured live findings: repeated issues without actions stay manual; explicit choices recover without duplicate metatext', async () => {
+    // Verbatim problems/quotes from eval-response-1/2.json (13 September).
+    // Replay tests output handling; these are not expected findings sent to AI.
+    const restriction = 'Dopo il 1940 la  volontà di evitare conflitti con i nuovi padroni dell’Europa (..................... ............................), la  precaria situazione alimentare e l’isolamento spinsero le autorità della Confederazione  e dei Cantoni a porre   restrizioni all’afflusso di profughi .';
+    const gold = 'Buona parte dell’ oro tedesco,  infatti,   era   frutto   di   rapina,   come   quello   sottratto   alle   vittime   dei   campi   di  concentramento.';
+    const metaText = "La rettifica del docente e il testo definiscono i pieni poteri come il comando totale o l'autorizzazione speciale data al Consiglio Federale per agire rapidamente ed efficacemente durante la guerra.";
+    const items = [
+        { id: 'synthesis-causal-3-0', kind: 'causal', question: 'mancanza di cibo', text: 'quindi', answer: 'Tuttavia, per evitare conflitti con la Germania' },
+        { id: 'synthesis-causal-3-1', kind: 'causal', question: 'i nazisti lo avevano sottratto alle vittime dei campi di concentramento', text: 'quindi', answer: 'Buona parte di questo metallo prezioso tedesco era frutto di rapina' },
+        { ...mc('set_1789245120871_heux1-10'), explanation: metaText }
+    ];
+    const captured = [
+        { id: items[0].id, field: '$item', type: 'coherence', evidenceKind: 'source', sourceId: 'src-9tkozq', quote: restriction,
+            problem: "La relazione causale è priva di senso logico e storico: la mancanza di cibo non è causa dell'evitare conflitti con la Germania, che è invece una congiunzione coordinata di motivi concorrenti per le restrizioni." },
+        { id: items[1].id, field: '$item', type: 'semantic', evidenceKind: 'source', sourceId: 'src-1luewma', quote: gold,
+            problem: "La catena presenta una definizione o spiegazione ('frutto di rapina') come conseguenza di un'azione ('sottratto alle vittime'), frammentando lo stesso predicato esplicativo anziché esprimere un reale nesso causa-effetto." },
+        { id: items[2].id, field: 'explanation', type: 'editorial', evidenceKind: 'item', quote: metaText,
+            problem: "La spiegazione contiene un chiaro riferimento metatestuale alla lavorazione ('La rettifica del docente'), non idoneo al testo rivolto allo studente." }
+    ];
+    const reference = { material: restriction + '\n' + gold, sourcesArr: [
+        { id: 'src-9tkozq', title: 'Fonte', page: 6, text: restriction }, { id: 'src-1luewma', title: 'Fonte', page: 5, text: gold }
+    ] };
+    for (const explicit of [false, true]) {
+        const r = runtime((batch, payload, call) => {
+            if (call === 1) return response({ ...clean(batch), issues: captured });
+            if (!explicit) return response({ checkedIds: [], mcOptions: [], issues: captured.slice(0, 2) });
+            return response({ decisions: [
+                recoveryChoice(payload, 0, { action: 'exclude', reason: 'I due motivi paralleli non formano questa relazione causale.' }),
+                recoveryChoice(payload, 1, { action: 'needs_teacher', reason: 'La deduzione è coerente; la sua utilità didattica richiede una scelta del docente.' }),
+                recoveryChoice(payload, 2, { action: 'replace', reason: 'La spiegazione può iniziare direttamente dalla definizione.',
+                    replacement: metaText.replace('La rettifica del docente e il testo definiscono', 'Il testo definisce') })
+            ] });
+        });
+        const report = await r.check(items, { material: reference });
+        assert.equal(r.calls.length, 2);
+        assert.equal(report.issues.length, 3, 'the captured model metatext finding merges with the local one');
+        const meta = report.issues.find(i => i.check === 'processing-metatext');
+        assert.equal(meta.alsoReportedByModel, true);
+        assert.equal(meta.hasProposal, explicit);
+        assert.equal(report.issues.filter(i => i.hasProposal).length, explicit ? 2 : 0);
+        assert.equal(report.batches[0].proposalRecovery.requestedIds.length, 3, 'local and model metatext share a single recovery request');
+        assert.equal(report.checkStatus, 'completed');
+        assert.deepEqual(plain(report.coverage.checkedIds), items.map(i => i.id));
+        assert.equal(report.batches[0].proposalRecovery.semanticsVerified, false);
+        if (explicit) {
+            assert.equal(report.batches[0].proposalRecovery.decisions[1].action, 'needs_teacher');
+            assert.equal(report.issues.find(i => i.target.id === items[1].id).hasProposal, false);
+        } else assert.equal(report.batches[0].proposalRecovery.status, 'failed', 'the old repetition cannot masquerade as an explicit recovery decision');
+    }
+});
+
+test('metatext deduplication preserves a distinct factual finding on the same explanation', async () => {
+    const original = 'I pieni poteri permettevano al Consiglio Federale di agire rapidamente.';
+    const reference = G.buildInput({}, [], [{ title: 'Fonte didattica', text: original }]);
+    const item = { ...mc('meta'), question: 'Che cosa permettevano i pieni poteri?', options: ['Agire rapidamente', 'Un comando totale senza limiti'],
+        explanation: 'La rettifica del docente e il testo definiscono i pieni poteri come comando totale.' };
+    const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [
+        { id: item.id, field: 'explanation', type: 'editorial', evidenceKind: 'item', quote: item.explanation,
+            problem: 'La spiegazione contiene metatesto della lavorazione.' },
+        { id: item.id, field: 'explanation', type: 'semantic', evidenceKind: 'source', sourceId: reference.sourcesArr[0].id, quote: original,
+            problem: 'La spiegazione usa una definizione più ampia di quella richiesta.' }
+    ] } : { decisions: [
+        recoveryChoice(payload, 0, { action: 'replace', replacement: original, reason: 'La fonte sostiene questa definizione circoscritta.' }),
+        recoveryChoice(payload, 1, { action: 'needs_teacher', reason: 'Valuta il metatesto insieme alla correzione fattuale della stessa spiegazione.' })
+    ] }));
+    const report = await r.check([item], { material: reference });
+    assert.equal(report.issues.length, 2);
+    assert.equal(report.issues.filter(i => i.check === 'processing-metatext').length, 1);
+    assert.equal(report.issues.filter(i => i.type === 'semantic').length, 1);
+    assert.equal(report.issues.find(i => i.type === 'semantic').after, original);
+    assert.equal(report.issues.find(i => i.check === 'processing-metatext').hasProposal, false);
+    assert.equal(report.batches[0].proposalRecovery.requestedIds.length, 2);
+    assert.equal(r.calls.length, 2, 'a separate factual issue on the same field remains eligible for recovery');
+});
+
+test('a local metatext-only finding can receive an optional cleanup after a completed AI check and still be kept', async () => {
+    const item = { ...mc('meta'), explanation: 'La rettifica del docente e il testo definiscono i pieni poteri come un’autorizzazione speciale.' };
+    const cleaned = 'I pieni poteri sono un’autorizzazione speciale.';
+    const before = plain(item);
+    const r = runtime((batch, payload, call) => {
+        if (call === 1) return response(clean(batch));
+        assert.equal(recoveryRows(payload).length, 1);
+        assert.equal(recoveryRows(payload)[0].evidence[0].verifiedAgainst, 'item');
+        assert.match(payload.contents[0].parts[0].text, /pulizia locale basata sul testo dell'item/);
+        return response({ decisions: [recoveryChoice(payload, 0, { action: 'replace', replacement: cleaned,
+            reason: 'La definizione può essere presentata direttamente allo studente.' })] });
+    });
+    const report = await r.check([item]);
+    assert.equal(r.calls.length, 2);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].after, cleaned);
+    assert.equal(report.issues[0].hasProposal, true);
+    assert.equal(report.checkStatus, 'completed');
+    assert.deepEqual(item, before, 'cleanup is a proposal, never an automatic deletion');
+    const finding = report.issues[0];
+    const kept = approvedDecision(finding.id, finding.target, item.explanation, item.explanation, 'reject', finding.evidence);
+    const replay = runtime();
+    const keptReport = await replay.check([item], { review: kept });
+    assert.equal(keptReport.issues.length, 0);
+    assert.equal(keptReport.suppressed.length, 1);
+    assert.equal(replay.calls.length, 1, 'a conscious decision to keep the wording does not launch another recovery');
+});
+
+test('local metatext never starts recovery when the AI check is unavailable, truncated or incomplete', async () => {
+    const item = { ...mc('meta'), explanation: 'La rettifica del docente e il testo definiscono i pieni poteri.' };
+    for (const mode of ['offline', 'truncated', 'missing-id', 'partial-options']) {
+        const r = runtime(batch => {
+            const data = clean(batch);
+            if (mode === 'missing-id') data.checkedIds = [];
+            if (mode === 'partial-options') data.mcOptions[0].indices = [0];
+            return response(data, mode === 'truncated' ? 'MAX_TOKENS' : 'STOP');
+        });
+        const report = await r.check([item], mode === 'offline' ? { apiKey: '' } : {});
+        assert.equal(r.calls.length, mode === 'offline' ? 0 : 1, mode);
+        assert.equal(report.issues.length, 1);
+        assert.equal(report.issues[0].hasProposal, false);
+        assert.notEqual(report.checkStatus, 'completed');
+        assert.ok(report.batches.every(batch => !batch.proposalRecovery));
+    }
+});
+
+test('a valid cleanup already returned by the judge is kept on the single local finding without a redundant recovery call', async () => {
+    const item = { ...mc('meta'), explanation: 'La rettifica del docente e il testo definiscono i pieni poteri come un’autorizzazione speciale.' };
+    const cleaned = 'I pieni poteri sono un’autorizzazione speciale.';
+    const before = plain(item);
+    const r = runtime(batch => response({ ...clean(batch), issues: [{
+        id: item.id, field: 'explanation', type: 'editorial', evidenceKind: 'item', quote: item.explanation,
+        problem: 'La spiegazione contiene metatesto della lavorazione.', replacement: cleaned
+    }] }));
+    const report = await r.check([item]);
+    assert.equal(report.issues.length, 1);
+    const finding = report.issues[0];
+    assert.equal(finding.check, 'processing-metatext');
+    assert.equal(finding.alsoReportedByModel, true);
+    assert.equal(finding.hasProposal, true);
+    assert.equal(finding.after, cleaned);
+    assert.equal(finding.before, item.explanation);
+    assert.equal(finding.evidence[0].verifiedAgainst, 'item');
+    assert.equal(finding.evidence[0].field, finding.target.field);
+    assert.equal(finding.proposalOrigin, 'review');
+    assert.equal(report.batches[0].proposalRecovery, undefined);
+    assert.equal(r.calls.length, 1);
+    assert.deepEqual(item, before, 'the valid proposal is preserved but not applied');
+});
+
+test('invalid or identical cleanup from the judge never becomes a proposal on the local finding', async () => {
+    const item = { ...mc('meta'), explanation: 'La rettifica del docente e il testo definiscono i pieni poteri.' };
+    for (const invalid of ['', item.explanation, 'I pieni poteri sono un’autorizzazione speciale.\uFFFD']) {
+        const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [{
+            id: item.id, field: 'explanation', type: 'editorial', evidenceKind: 'item', quote: item.explanation,
+            problem: 'La spiegazione contiene metatesto della lavorazione.', replacement: invalid
+        }] } : { decisions: [recoveryChoice(payload, 0)] }));
+        const report = await r.check([item]);
+        assert.equal(report.issues.length, 1);
+        assert.equal(report.issues[0].hasProposal, false);
+        assert.equal(report.issues[0].after, null);
+        assert.equal(report.issues[0].before, item.explanation);
+        assert.equal(report.batches[0].proposalRecovery.proposedIds.length, 0);
+        assert.equal(r.calls.length, 2, 'at most the existing single recovery is attempted');
+    }
 });

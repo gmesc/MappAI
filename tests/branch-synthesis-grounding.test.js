@@ -6,7 +6,7 @@ const path = require('node:path');
 const G = require('../public/js/mappai-grounding-core.js');
 const { load } = require('cheerio');
 
-function fixture({ approved = true, large = false } = {}) {
+function fixture({ approved = true, large = false, overviewMarkers = false } = {}) {
     const original = ('La BNS acquistò oro dalla Germania. ' + 'Il rapporto menzionava accuse, senza trasformarle in fatti accertati. '.repeat(7)).trim();
     const nodes = [
         { id: 'root', level: 0, label: 'Svizzera', desc: 'Neutralità e guerra.' },
@@ -15,7 +15,7 @@ function fixture({ approved = true, large = false } = {}) {
     ];
     if (large) for (let i = 0; i < 30; i++) nodes.push({ id: 'n' + i, level: 2, label: 'Nodo ' + i, desc: 'Contenuto approvato ' + i });
     const sources = [{ id: 'manuale', nome: 'Manuale', pages: [{ n: 5, text: original }] }];
-    const review = { sources, overrides: [{ origin: 'teacher', target: { kind: 'node', id: 'economia', field: 'desc' },
+    const review = { sources, overrides: [{ origin: 'teacher', choice: 'manual', before: 'La BNS ricevette valuta dalla Germania.', target: { kind: 'node', id: 'economia', field: 'desc' },
         after: 'La Germania ricevette valuta dalla BNS.', reason: 'Preservare il soggetto che riceve valuta.' }] };
     const state = { db: { nodes, links: [], sourcesDict: { economia: [{ docId: 'manuale', page: 5, text: original }] } }, extractionMode: 'mindmap' };
     const prompts = [], requests = [];
@@ -32,7 +32,7 @@ function fixture({ approved = true, large = false } = {}) {
             requests.push(text);
             const id = /\[\[(src-[\w-]+)\]\]/.exec(text)?.[1];
             return { candidates: [{ content: { parts: [{ text: text.includes('PANORAMICA introduttiva')
-                ? 'Panoramica dai fatti approvati.' : 'DERIVATO_NON_FONTE [[' + id + ']] [[src-sconosciuto]]' }] } }] };
+                ? 'Panoramica dai fatti approvati.' + (overviewMarkers ? ' [[' + id + ']] [[src-sconosciuto]]' : '') : 'DERIVATO_NON_FONTE [[' + id + ']] [[src-sconosciuto]]' }] } }] };
         }
     };
     const sandbox = { window: win, appState: state, console: { log() {}, warn() {}, error() {} } };
@@ -53,12 +53,29 @@ test('sintesi: passa originali e rettifiche, risolve gli ID e stampa le citazion
     assert.ok(f.requests[0].includes(f.original));
     assert.ok(f.requests[0].includes('Rettifica del docente: economia'));
     assert.match(data.rawText, /DERIVATO_NON_FONTE \[1\]/);
-    assert.ok(!data.rawText.includes('src-sconosciuto'));
+    assert.ok(data.rawText.includes('[[src-sconosciuto]]'), 'unknown anchors stay diagnosable in the saved model');
     assert.equal(data.grounding.unknownCitationIds[0], 'src-sconosciuto');
     const html = f.win.MappAISynthesis.buildHtml(data);
     const $ = load(html);
     assert.equal($('.bs-citations blockquote').text(), f.original, 'nessun taglio a 280 caratteri o trascrizione AI');
     assert.equal($('.bs-citations strong').text(), 'Manuale — pagina 5');
+    assert.ok(!$('.bs-body').text().includes('src-'));
+    assert.equal($('.bs-reference-unverified').text(), '[Fonte da verificare 1]');
+    assert.equal($('.bs-reference-unverified').attr('data-ap-skip'), '', 'the TTS skips unresolved reference labels');
+});
+
+test('new overviews own their source registry while retaining raw anchors for review and later edits', async () => {
+    const f = fixture({ large: true, overviewMarkers: true });
+    const data = await f.win.MappAISynthesis.runWholeMap({ apiKey: 'fake', silent: true });
+    assert.equal(data.introSources.length, 1);
+    assert.equal(data.introSources[0].idx, 1);
+    assert.equal(data.introSources[0].text, f.original);
+    assert.ok(data.intro.includes('[[' + data.introSources[0].id + ']]'));
+    assert.deepEqual(Array.from(data.introGrounding.unknownCitationIds), ['src-sconosciuto']);
+    const before = JSON.stringify(data), $ = load(f.win.MappAISynthesis.buildHtml(data));
+    assert.ok(!$('.bs-body').text().includes('src-'));
+    assert.equal($('.bs-citations').length, 3, 'the overview has its own original quotation, alongside the two branches');
+    assert.equal(JSON.stringify(data), before, 'rendering cannot change an approved snapshot');
 });
 
 test('panoramica: usa fatti e originali approvati, mai le sintesi generate dei rami', async () => {

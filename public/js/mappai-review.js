@@ -249,8 +249,8 @@
       s._reviewAIContext = clone(manifest.config.aiContext || previousContext || { provider: s.aiProvider });
       const apiKey = window.getSystemKey && window.getSystemKey();
       if (!apiKey) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
-      const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review);
-      report = await judge.check(clone(final.items), { review, apiKey, material, onProgress: opts && opts.onProgress });
+      const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review, { includeOriginalPages: true });
+      report = await judge.check(clone(final.items), { review, apiKey, material, aiContext: clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
       assertCurrent();
     } finally { s._reviewAIContext = previousContext; }
     const next = core().createReview({ db: { items: final.items }, sources: old.sources, report,
@@ -326,7 +326,7 @@
     await R.checkpoint(s.activeVaultPath, manifest);
     if (manifest.review.initial.status === 'applying' || manifest.review.final?.review?.initial.status === 'applying') await R.restore(s.activeVaultPath, manifest);
     const final = manifest.review.final;
-    R.open(s.activeVaultPath, manifest, { final: !!(final && final.review && final.stage !== 'done') });
+    R.open(s.activeVaultPath, manifest, { final: !!(final && final.review) });
   };
   R.finishMapOnly = async function () {
     if (!R.enabled() || !state().db.nodes.length) return;
@@ -343,7 +343,9 @@
     guide: ['rv_guide', 'Traccia di risposta'], criteria: ['rv_criteria', 'Criteri di correzione'], criteri: ['rv_criteria', 'Criteri di correzione'],
     text: ['rv_text', 'Testo'], lines: ['rv_lines', 'Righe per rispondere'], label: ['rv_label', 'Titolo'], desc: ['rv_text', 'Testo'],
     rel: ['rv_relation', 'Relazione'], source: ['rv_link_from', 'Dal concetto'], target: ['rv_link_to', 'Al concetto'] };
-  const fieldName = f => fieldLabels[f] ? t(...fieldLabels[f]) : t('rv_other_field', 'Contenuto');
+  const fieldName = (f, item) => item && item.kind === 'causal' && ['question', 'text', 'answer'].includes(f)
+    ? ({ question: t('rv_relation_start', 'Prima parte'), text: t('rv_relation_connector', 'Collegamento'), answer: t('rv_relation_end', 'Seconda parte') })[f]
+    : fieldLabels[f] ? t(...fieldLabels[f]) : t('rv_other_field', 'Contenuto');
   const itemFields = ['question', 'answer', 'options', 'correctIndex', 'explanation', 'guide', 'criteria', 'criteri', 'text', 'lines'];
   const nodeLabel = id => { const n = (state().db.nodes || []).find(n => String(n.id) === String(id)); return n ? n.label : t('rv_missing_node', 'Concetto non disponibile'); };
   function itemFor(issue, review) { return (review.baseSnapshot.items || []).find(i => String(i.id) === String(issue.target.id)); }
@@ -358,7 +360,8 @@
         ? String.fromCharCode(65 + value) + '. ' + item.options[value] : t('rv_no_correct', 'Nessuna alternativa valida selezionata');
     }
     if (Array.isArray(value)) return value.map((v, i) => (i + 1) + '. ' + (typeof v === 'string' ? v : t('rv_unreadable_field', 'Contenuto da correggere'))).join('\n');
-    if (typeof value === 'object') return itemFields.filter(f => own(value, f)).map(f => fieldName(f) + ':\n' + readable(value[f], { field: f }, value)).join('\n\n');
+    if (typeof value === 'object' && value.kind === 'causal') return [value.question, value.text, value.answer].join(' → ');
+    if (typeof value === 'object') return itemFields.filter(f => own(value, f)).map(f => fieldName(f, value) + ':\n' + readable(value[f], { field: f }, value)).join('\n\n');
     return String(value);
   }
   R.describeValue = readable;
@@ -383,11 +386,11 @@
     if (typeof value.text === 'string') return [value];
     return Object.values(value).filter(v => v && typeof v === 'object').flatMap(evidenceRows);
   }
-  function evidenceHtml(issue, review) {
+  function evidenceHtml(issue, review, displayText) {
     const rows = evidenceRows(issue.evidence);
     return rows.length ? rows.map(e => {
       const source = [e.title || (typeof e.source === 'string' ? e.source : ''), e.page ? t('rv_page', 'Pagina') + ' ' + e.page : ''].filter(Boolean).join(' · ');
-      const quote = e.verifiedAgainst === 'item' ? readable(issue.before, issue.target, itemFor(issue, review)) : e.text;
+      const quote = e.verifiedAgainst === 'item' && !e.quotationMatched ? readable(issue.before, issue.target, itemFor(issue, review)) : e.text;
       const contexts = [];
       (review.sources || []).forEach(s => {
         const identityMatches = e.sourceId ? String(s.id) === String(e.sourceId) : !source || [s.title, s.name, s.nome].some(n => n && source.includes(n));
@@ -398,7 +401,7 @@
           }
         });
       });
-      return '<div class="my-3"><p class="font-bold">' + esc(source || t('rv_source', 'Fonte')) + '</p><p class="whitespace-pre-wrap">' + esc(quote) + '</p>' + contexts.join('') + '</div>';
+      return '<div class="my-3"><p class="font-bold">' + esc(source || t('rv_source', 'Fonte')) + '</p><p class="whitespace-pre-wrap">' + esc(e.verifiedAgainst === 'item' && displayText ? displayText(quote) : quote) + '</p>' + contexts.join('') + '</div>';
     }).join('') : '<p>' + esc(t('rv_no_evidence', 'La prova non è disponibile in questa segnalazione.')) + '</p>';
   }
   function pendingOutputs(manifest) {
@@ -412,6 +415,16 @@
     if (!getReview() || busy || committing) return;
     const old = document.getElementById('mappai-teacher-review'); if (old) old.remove();
     const previousFocus = document.activeElement;
+    const referenceOptions = { sourceLabel: t('rv_source', 'Fonte'), unknownLabel: t('rv_reference_unknown', 'Fonte da verificare') };
+    const registry = (getReview().baseSnapshot.items || []).flatMap(item => item.citations || []);
+    function referenceView(value) {
+      const grounding = window.MappAIGroundingCore;
+      return grounding && grounding.referenceView ? grounding.referenceView(String(value), registry, referenceOptions) : { text: String(value), mapping: [] };
+    }
+    function restoreReferences(value, view) {
+      return window.MappAIGroundingCore?.restoreReferenceIds ? window.MappAIGroundingCore.restoreReferenceIds(value, view.mapping) : value;
+    }
+    const displayValue = (value, target, item) => referenceView(readable(value, target, item)).text;
     const modal = document.createElement('div');
     modal.id = 'mappai-teacher-review';
     modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3400] flex items-center justify-center p-4';
@@ -439,7 +452,7 @@
       const attention = new Set(preview.conflicts.map(c => c.issueId).filter(Boolean));
       // A chosen action is still actionable when it cannot be applied or leaves
       // an invalid exercise. The filter must not hide these approval blockers.
-      if (isFinal && preview.ok && window.MappAIMaterialReview?.validate) {
+      if (isFinal && r.initial.status !== 'approved' && preview.ok && window.MappAIMaterialReview?.validate) {
         const invalid = window.MappAIMaterialReview.validate(preview.db.items).issues || [];
         const itemIds = new Set(invalid.map(i => String(i.target?.id)));
         issues.filter(i => i.target.kind === 'item' && itemIds.has(String(i.target.id))).forEach(i => attention.add(i.id));
@@ -485,7 +498,20 @@
       if (busy || getReview().initial.status !== 'awaiting_review') return;
       let r = getReview();
       group.forEach(issue => { r = core().setDecision(r, issue.id, choice, { text: value }); });
-      setReview(r); updateFilters(); return save();
+      setReview(r); updateFilters(); updateSummary(); return save();
+    }
+    function updateSummary() {
+      const r = getReview(), summary = modal.querySelector('#mrv-decision-summary');
+      if (!summary) return;
+      const counts = { applied: 0, edited: 0, kept: 0, excluded: 0, pending: 0 };
+      const rows = r.initial.issues.map(issue => ({ issue, outcome: core().decisionOutcome(issue, r.initial.decisions[issue.id]),
+        target: canonical([issue.target.kind, issue.target.id, issue.target.source, issue.target.target]) }));
+      const excluded = new Set(rows.filter(row => row.outcome === 'excluded').map(row => row.target));
+      rows.forEach(row => { if (!excluded.has(row.target)) counts[row.outcome]++; });
+      counts.excluded = excluded.size;
+      const labels = { applied: t('rv_summary_applied', 'Proposte scelte'), edited: t('rv_summary_edited', 'Modifiche manuali'),
+        kept: t('rv_summary_kept', 'Senza modifiche'), excluded: t('rv_summary_excluded', 'Elementi esclusi'), pending: t('rv_pending', 'Da decidere') };
+      summary.textContent = Object.keys(counts).map(key => labels[key] + ': ' + counts[key]).join(' · ');
     }
     function freeze(value) {
       busy = value; modal.setAttribute('aria-busy', String(value));
@@ -508,6 +534,10 @@
         groups.pending.length ? groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Controlla qui sotto se resta un passaggio per continuare.');
       content.appendChild(info);
+      if (r.initial.issues.length) {
+        const summary = document.createElement('p'); summary.id = 'mrv-decision-summary'; summary.className = 'text-sm font-bold';
+        summary.setAttribute('aria-live', 'polite'); content.appendChild(summary); updateSummary();
+      }
       if (!groups[activeFilter].length && r.initial.issues.length) {
         const empty = document.createElement('p'); empty.id = 'mrv-filter-empty';
         empty.textContent = activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
@@ -527,20 +557,27 @@
         const issue = group[0], item = itemFor(issue, r);
         const card = document.createElement('section'); card.className = 'pm-section';
         const title = issue.problem || fieldName(issue.target.field);
-        const targets = group.map(i => i.target.kind === 'item' ? (itemFor(i, r)?.question || itemFor(i, r)?.text || t('rv_material', 'Materiale')) :
+        const targets = group.map(i => i.target.kind === 'item' ? (itemFor(i, r)?.title || itemFor(i, r)?.question || itemFor(i, r)?.text || t('rv_material', 'Materiale')) :
           i.target.kind === 'link' ? readable(i.before, i.target) : nodeLabel(i.target.id));
-        const itemContext = item && item.question ? '<p class="mb-2"><strong>' + esc(t('rv_question', 'Domanda')) + ':</strong> ' + esc(item.question) + '</p>' +
-          (Array.isArray(item.options) ? '<ul class="mb-3">' + item.options.map((option, i) => '<li>' + esc(String.fromCharCode(65 + i) + '. ' + option) + '</li>').join('') + '</ul>' : '') : '';
-        card.innerHTML = itemContext + '<h3 class="font-bold mb-2">' + esc(title) + '</h3><details class="mb-2"><summary>' + esc(t('rv_where', 'Dove si applica')) + ' (' + group.length + ')</summary><ul>' + targets.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' +
-          '<p class="text-sm font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(readable(issue.before, issue.target, item)) + '</p>' +
-          (issue.hasProposal ? '<p class="text-sm font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(readable(issue.after, issue.target, item)) + '</p>' : '') +
-          '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r) + '</details>' +
+        const itemContext = item?.kind === 'causal' ? '<p class="mb-2" data-relation><strong>' + esc(t('rv_relation_review', 'Relazione da verificare')) + ':</strong> ' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' :
+          item && item.question ? '<p class="mb-2"><strong>' + esc(t('rv_question', 'Domanda')) + ':</strong> ' + esc(referenceView(item.question).text) + '</p>' +
+          (Array.isArray(item.options) ? '<ul class="mb-3">' + item.options.map((option, i) => '<li>' + esc(String.fromCharCode(65 + i) + '. ' + referenceView(option).text) + '</li>').join('') + '</ul>' : '') : '';
+        const references = referenceView(readable(issue.before, issue.target, item)).mapping;
+        const proposedItem = item?.kind === 'causal' && issue.hasProposal && issue.target.field !== '$item' ? Object.assign({}, item, { [issue.target.field]: issue.after }) : null;
+        card.innerHTML = itemContext + '<h3 class="font-bold mb-2">' + esc(title) + '</h3><details class="mb-2"><summary>' + esc(t('rv_where', 'Dove si applica')) + ' (' + group.length + ')</summary><ul>' + targets.map(x => '<li>' + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' +
+          '<p class="text-sm font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(issue.before, issue.target, item)) + '</p>' +
+          (issue.hasProposal ? '<p class="text-sm font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(proposedItem || issue.after, proposedItem ? { field: '$item' } : issue.target, item)) + '</p>' :
+            '<p class="mb-3" data-no-proposal>' + esc(t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
+          (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
+          '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>' +
           '<div class="flex gap-2 flex-wrap" data-actions></div><div data-editor></div><p data-choice class="text-sm mt-2" aria-live="polite"></p>';
         const actions = card.querySelector('[data-actions]'), editor = card.querySelector('[data-editor]'), choiceLabel = card.querySelector('[data-choice]');
-        const labels = { pending: t('rv_pending', 'Da decidere'), accept: t('rv_accept', 'Applica la proposta'), reject: t('rv_reject', 'Mantieni il mio testo'), manual: t('rv_edit', 'Modifica il testo') };
+        const labels = { pending: t('rv_pending', 'Da decidere'), accept: issue.after === null && ['$item', '$link'].includes(issue.target.field) ? t('rv_accept_exclusion', 'Escludi questo elemento') : t('rv_accept', 'Applica la proposta'), reject: t('rv_reject', 'Mantieni il testo senza modifiche'), manual: t('rv_edit', 'Modifica il testo') };
         function showChoice() {
-          const choices = new Set(group.map(i => (getReview().initial.decisions[i.id] || {}).choice || 'pending'));
-          choiceLabel.textContent = choices.size === 1 ? labels[Array.from(choices)[0]] : t('rv_mixed', 'Decisioni diverse: ogni destinatario mantiene la propria scelta.');
+          const choices = new Set(group.map(i => core().decisionOutcome(i, getReview().initial.decisions[i.id])));
+          const outcomes = { pending: t('rv_pending', 'Da decidere'), kept: t('rv_outcome_kept', 'Testo mantenuto senza modifiche'),
+            edited: t('rv_outcome_edited', 'Testo modificato da te'), applied: t('rv_outcome_applied', 'Proposta scelta'), excluded: t('rv_outcome_excluded', 'Esclusione scelta') };
+          choiceLabel.textContent = choices.size === 1 ? outcomes[Array.from(choices)[0]] : t('rv_mixed', 'Decisioni diverse: ogni destinatario mantiene la propria scelta.');
         }
         const allowed = issue.target.kind !== 'item' || issue.target.field === '$item' || itemFields.includes(issue.target.field);
         function editBox(focus) {
@@ -553,7 +590,7 @@
           }
           function control(parent, field, value, update, object) {
             const errorKey = issue.id + ':' + field;
-            const label = document.createElement('label'); label.className = 'block mt-3'; label.textContent = fieldName(field);
+            const label = document.createElement('label'); label.className = 'block mt-3'; label.textContent = fieldName(field, object);
             if (Array.isArray(value) || field === 'options' || field === 'criteria' || field === 'criteri') {
               const list = Array.isArray(value) ? value.slice() : [];
               const listBox = document.createElement('div'); label.appendChild(listBox);
@@ -562,8 +599,8 @@
                 list.forEach((entry, index) => {
                   const row = document.createElement('label'); row.className = 'block mt-2';
                   row.textContent = fieldName(field) + ' ' + (field === 'options' ? String.fromCharCode(65 + index) : index + 1);
-                  const input = document.createElement('textarea'); input.rows = 2; input.className = 'w-full border rounded p-2'; input.value = typeof entry === 'string' ? entry : '';
-                  input.oninput = () => { list[index] = input.value; update(list.slice()); };
+                  const input = document.createElement('textarea'), refs = referenceView(typeof entry === 'string' ? entry : ''); input.rows = 2; input.className = 'w-full border rounded p-2'; input.value = refs.text;
+                  input.oninput = () => { list[index] = restoreReferences(input.value, refs); update(list.slice()); };
                   row.appendChild(input); listBox.appendChild(row);
                   const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'pm-btn-cancel'; remove.textContent = t('rv_remove_entry', 'Rimuovi questa voce');
                   remove.onclick = () => { list.splice(index, 1); update(list.slice()); drawList(); listBox.querySelector('textarea')?.focus(); };
@@ -575,16 +612,18 @@
               }
               drawList(); parent.appendChild(label); return;
             }
-            let input;
+            let input, refs;
             if (field === 'correctIndex') {
               input = document.createElement('select');
-              input.innerHTML = '<option value="">' + esc(t('rv_choose_correct', 'Scegli la risposta corretta')) + '</option>' + (object?.options || item?.options || []).map((x, i) => '<option value="' + i + '">' + esc(String.fromCharCode(65 + i) + '. ' + x) + '</option>').join('');
+              input.innerHTML = '<option value="">' + esc(t('rv_choose_correct', 'Scegli la risposta corretta')) + '</option>' + (object?.options || item?.options || []).map((x, i) => '<option value="' + i + '">' + esc(String.fromCharCode(65 + i) + '. ' + referenceView(x).text) + '</option>').join('');
               input.value = Number.isInteger(value) ? String(value) : '';
             } else if (field === 'source' || field === 'target') {
               input = document.createElement('select'); input.innerHTML = (state().db.nodes || []).map(n => '<option value="' + esc(n.id) + '">' + esc(n.label) + '</option>').join(''); input.value = value;
             } else if (field === 'lines') {
               input = document.createElement('input'); input.type = 'number'; input.min = '3'; input.max = '12'; input.step = '1'; input.value = value;
-            } else { input = document.createElement('textarea'); input.rows = 4; input.value = typeof value === 'string' ? value : ''; }
+            } else { input = document.createElement('textarea'); input.rows = 4; refs = referenceView(typeof value === 'string' ? value : ''); input.value = refs.text;
+              if (refs.mapping.length) { const hint = document.createElement('p'); hint.className = 'text-sm'; hint.textContent = t('rv_reference_edit_help', 'I richiami alle fonti restano collegati quando modifichi il testo.'); label.appendChild(hint); }
+            }
             input.className = 'w-full border rounded p-3 font-sans';
             input.oninput = input.onchange = () => {
               const number = field === 'correctIndex' || field === 'lines';
@@ -592,7 +631,7 @@
                 invalidEditors.add(errorKey); proceed.disabled = true; status.textContent = t('rv_invalid_edit', 'Completa il campo della modifica prima di continuare.'); return;
               }
               invalidEditors.delete(errorKey);
-              update(number ? Number(input.value) : input.value);
+              update(number ? Number(input.value) : refs ? restoreReferences(input.value, refs) : input.value);
             };
             label.appendChild(input); parent.appendChild(label);
           }
@@ -619,7 +658,7 @@
           };
           actions.appendChild(button);
         }
-        if (isFinal && issue.target.kind === 'item' && editable && !(issue.origin === 'teacher' && issue.target.field === '$item' && issue.after === null)) {
+        if (isFinal && issue.target.kind === 'item' && editable && !(issue.hasProposal && issue.target.field === '$item' && issue.after === null)) {
           const exclude = document.createElement('button'); exclude.type = 'button'; exclude.className = 'pm-btn-cancel'; exclude.textContent = t('rv_exclude_material', 'Escludi dagli esercizi');
           exclude.onclick = () => {
             let next = getReview();

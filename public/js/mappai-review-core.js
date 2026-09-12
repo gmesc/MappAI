@@ -227,6 +227,16 @@
     r.updatedAt = opts.now || r.updatedAt;
     return r;
   }
+  function decisionOutcome(issue, decision) {
+    var d = decision || {}, value;
+    if (!issue || ['accept', 'reject', 'manual'].indexOf(d.choice) < 0) return 'pending';
+    if (d.choice === 'reject') return 'kept';
+    if (d.choice === 'accept' && !issue.hasProposal || d.choice === 'manual' && !own(d, 'text')) return 'pending';
+    value = d.choice === 'manual' ? d.text : issue.after;
+    if (value === null && ['$item', '$link'].indexOf(issue.target.field) >= 0) return 'excluded';
+    if (stable(value) === stable(issue.before)) return 'kept';
+    return d.choice === 'manual' ? 'edited' : 'applied';
+  }
   function matchesSnapshot(db, sources, snapshot, expected, expectedSources) {
     return revision(db, sources) === expected && stable(semanticSnapshot(db)) === stable(snapshot) &&
       stable(sourceSnapshot(sources)) === stable(expectedSources);
@@ -333,6 +343,6 @@
   }
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
-    revision: revision, createReview: createReview, addIssue: addIssue, setDecision: setDecision,
+    revision: revision, createReview: createReview, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome,
     preview: preview, beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
 }));

@@ -6,16 +6,30 @@ const { load } = require('cheerio');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const G = require('../public/js/mappai-grounding-core');
 
 function renderer() {
-  const window = { t: (_, fallback) => fallback, MappAIDocEdit: require('../public/js/mappai-docedit-core') };
-  const sandbox = { window, appState: { db: { nodes: [], links: [] } }, console: { log() {}, warn() {}, error() {} } };
+  const window = { t: (_, fallback) => fallback, MappAIGroundingCore: G, MappAIDocEdit: require('../public/js/mappai-docedit-core') };
+  // Minimal DOM adapter for the actual audio block collector, with no browser,
+  // provider, filesystem output or duplicated citation-removal implementation.
+  class DOMParser {
+    parseFromString(html) {
+      const $ = load(html);
+      const wrap = el => el ? { get textContent() { return $(el).text(); }, remove: () => $(el).remove(),
+        querySelector: selector => wrap($(el).find(selector)[0]),
+        querySelectorAll: selector => $(el).find(selector).toArray().map(wrap) } : null;
+      return { querySelector: selector => wrap($(selector)[0]) };
+    }
+  }
+  const sandbox = { window, DOMParser, appState: { db: { nodes: [], links: [] } }, console: { log() {}, warn() {}, error() {} } };
   vm.createContext(sandbox);
   for (const file of ['mappai-causal-chains.js', 'mappai-branch-synthesis.js']) {
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/js/', file), 'utf8'), sandbox);
+    let code = fs.readFileSync(path.join(__dirname, '../public/js/', file), 'utf8');
+    if (file === 'mappai-branch-synthesis.js') code = code.replace('window.MappAISynthesis = {', 'window.__audioBlocks = _blocksForAudio; window.__modalBody = data => _wholeBodyHtml(data, "modal"); window.MappAISynthesis = {');
+    vm.runInContext(code, sandbox);
   }
   window.MappAICausal.triplesFor = () => { throw new Error('A renderer must not regenerate reviewed triples'); };
-  return window.MappAISynthesis.buildHtml;
+  return Object.assign(window.MappAISynthesis.buildHtml, { audioBlocks: window.__audioBlocks, modalBody: window.__modalBody });
 }
 test('review corrections reach the same MC key, flash answer, rubric and synthesis that exporters consume', () => {
   const drafts = { B: {
@@ -146,4 +160,77 @@ test('each synthesis section owns its citation numbers and original metadata thr
   const report = MR.validate(items);
   assert.equal(report.ok, false);
   assert.equal(report.issues[0].target.id, 'synthesis-intro', 'overview cannot borrow a branch citation');
+});
+
+test('new and legacy overview anchors keep their own registry through pure projection, editing and export', () => {
+  const a = { id: 'src-a', idx: 1, title: 'Fonte A', page: 2, source: 'pagina 2', text: 'Primo originale.', verbatim: true };
+  const b = { id: 'src-b', idx: 1, title: 'Fonte B', page: 5, source: 'pagina 5', text: 'Secondo originale.', verbatim: true };
+  for (const legacy of [false, true]) {
+    const data = { whole: true, intro: 'Panoramica [[src-b]] e [[src-a]].', sections: [
+      { branchLabel: 'Area A', rawText: 'Primo fatto [1].', sourcesArr: [a] },
+      { branchLabel: 'Area B', rawText: 'Secondo fatto [1].', sourcesArr: [b] }
+    ] };
+    if (!legacy) data.introSources = [{ ...b, idx: 1 }, { ...a, idx: 2 }];
+    const drafts = { D: { data } }, before = JSON.stringify(drafts);
+    const items = D.flatten(drafts), intro = items.find(it => it.id === 'synthesis-intro');
+    assert.deepEqual(intro.citations.map(s => [s.id, s.idx]), [['src-b', 1], ['src-a', 2]]);
+    assert.equal(MR.validate(items).ok, true, 'resolvable raw IDs are not an invalid numerical citation');
+    intro.text = intro.text.replace('Panoramica', 'Panoramica corretta');
+    const out = D.apply(drafts, items), build = renderer(), $ = load(build(out.D.data));
+    assert.equal(JSON.stringify(drafts), before);
+    assert.equal(out.D.data.intro, 'Panoramica corretta [[src-b]] e [[src-a]].');
+    assert.deepEqual(out.D.data.introSources, data.introSources, 'legacy projection does not retrofit approved data');
+    assert.ok(!$('.bs-body').text().includes('src-'));
+    assert.deepEqual($('.bs-citations blockquote').map((_, el) => $(el).text()).get(), [b.text, a.text, a.text, b.text]);
+    assert.deepEqual(Array.from(build.audioBlocks(out.D.data)), ['Panoramica corretta e .', 'Primo fatto .', 'Secondo fatto .']);
+  }
+});
+
+test('legacy rendering never gives an existing numbered reference a borrowed meaning and keeps unknown anchors diagnosable', () => {
+  const data = { whole: true, intro: 'Numero precedente [1]. Riferimento [[src-a]]. Ignoto [[src-missing]].', sections: [
+    { branchLabel: 'Area A', rawText: 'Ramo [1].', sourcesArr: [{ id: 'src-a', idx: 1, title: 'Manuale', page: 2, text: 'Originale.' }] }
+  ] };
+  const before = JSON.stringify(data), build = renderer(), $ = load(build(data));
+  assert.equal($('.bs-citations').first().find('.bs-cite-num').text(), '[2]', 'existing [1] remains unresolved rather than changing meaning');
+  assert.ok($('.bs-body').text().includes('[Fonte da verificare 1]'));
+  assert.ok(!$('.bs-body').text().includes('src-'));
+  assert.ok(!build.audioBlocks(data).join(' ').includes('Fonte da verificare'));
+  assert.equal(JSON.stringify(data), before);
+});
+
+test('legacy formatted blocks retain teacher prose and readable references in export, without speaking IDs or changing blocks', () => {
+  const data = { whole: true, intro: 'Introduzione [[src-a]].', sections: [
+    { branchLabel: 'Area A', rawText: 'Ramo [1].', sourcesArr: [{ id: 'src-a', idx: 1, title: 'Manuale', page: 2, text: 'Originale.' }] }
+  ], editedBlocks: [{ tag: 'p', html: 'Testo <em>modificato dal docente</em> [[src-a]] e [[src-missing]].' }] };
+  const before = JSON.stringify(data), build = renderer(), $ = load(build(data));
+  assert.ok($('.bs-body').text().includes('Fonte: Manuale — pagina 2'));
+  assert.ok($('.bs-body').text().includes('[Fonte da verificare 2]'));
+  assert.ok(!$('.bs-body').text().includes('src-'));
+  assert.equal($('.bs-body i').text(), 'modificato dal docente', 'DocEdit preserves italic formatting using its canonical tag');
+  assert.deepEqual(Array.from(build.audioBlocks(data)), ['Testo modificato dal docente e .']);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test('overview and section references are native keyboard links to their own distinct sources in modal and exported HTML', () => {
+  const a = { id: 'src-a', idx: 1, title: 'Fonte A', text: 'Primo originale.' };
+  const b = { id: 'src-b', idx: 1, title: 'Fonte B', text: 'Secondo originale.' };
+  const data = { whole: true, intro: 'Panoramica [[src-b]].', introSources: [b], sections: [
+    { branchLabel: 'Area A', rawText: 'Primo fatto [1].', sourcesArr: [a] },
+    { branchLabel: 'Area B', rawText: 'Secondo fatto [1].', sourcesArr: [b] }
+  ] };
+  const before = JSON.stringify(data), build = renderer();
+  for (const html of [build(data), build.modalBody(data)]) {
+    const $ = load(html), links = $('sup a');
+    assert.deepEqual(links.map((_, el) => $(el).attr('href')).get(), ['#bs-cite-intro-1', '#bs-cite-section-0-1', '#bs-cite-section-1-1']);
+    assert.deepEqual(links.map((_, el) => $($(el).attr('href')).find('blockquote').text()).get(), [b.text, a.text, b.text]);
+    const ids = $('[id^="bs-cite-"]').map((_, el) => $(el).attr('id')).get();
+    assert.equal(new Set(ids).size, ids.length);
+    links.each((_, el) => {
+      assert.equal($(el).attr('aria-label'), 'Fonte 1');
+      assert.equal($($(el).attr('href')).attr('tabindex'), '-1', 'native fragment target can receive focus');
+      if ($($(el).attr('href')).hasClass('bs-cite-row')) assert.match($($(el).attr('href')).attr('style'), /scroll-margin-top:calc\(var\(--ap-hdr-h, 52px\) \+ 12px\)/, 'exported targets remain below the measured fixed toolbar');
+      assert.equal($(el).attr('onclick'), undefined, 'keyboard activation does not depend on a pointer handler');
+    });
+  }
+  assert.equal(JSON.stringify(data), before);
 });

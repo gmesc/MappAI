@@ -64,6 +64,7 @@ function runtime(opts = {}) {
   const d = dom(), calls = { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 }, saved = { manifest: null, map: clone(DB), version: 0 };
   const st = { activeVaultPath: '/vault', db: clone(DB), sources: [], _pdfPagine: [], _reviewRevision: null };
   const window = { MappAIReviewCore: Core, MappAIMaterialReview: Material, MappAIPipelineCore: Pipeline,
+    MappAIGroundingCore: require('../public/js/mappai-grounding-core.js'),
     t: (_key, fallback) => fallback, renderGraph() {}, getSystemKey: () => 'mock-key',
     MappAIPipeline: { run: async () => { calls.pipeline++; } },
     buildVaultMapData: () => ({ ...st.db, reviewRevision: st._reviewRevision, reviewCommit: st._reviewCommit }),
@@ -253,14 +254,54 @@ test('save failure keeps dialog open, enables retry and freezes every action dur
   assert.equal(h.dom.document.activeElement.id, 'previous');
 });
 
-test('openCurrent chooses pending G2; completed G1 closes without regenerating materials', async () => {
+test('openCurrent chooses G2, including completed delivery history, without regenerating materials', async () => {
   const h = runtime(), m = finalManifest([{ id: 'f', kind: 'flashcard', question: 'Chi?', answer: 'Germania.' }]);
   h.st._pipelineManifest = m;
   await h.R.openCurrent(); assert.equal(h.dom.document.getElementById('mrv-title').textContent, 'Rivedi i materiali');
-  const done = runtime(); m.review.final.stage = 'done'; done.st._pipelineManifest = m;
+  const done = runtime(), approved = Core.beginApproval(m.review.final.review, { items: m.review.final.items }, { sources: SOURCES });
+  m.review.final.review = Core.completeApproval(approved.review, approved.revision);
+  m.review.final.stage = 'done'; done.st._pipelineManifest = m;
   await done.R.openCurrent();
+  assert.equal(done.dom.document.getElementById('mrv-title').textContent, 'Rivedi i materiali');
   const button = done.dom.document.getElementById('mrv-continue'); assert.equal(button.textContent, 'Chiudi');
   await button.click(); assert.equal(done.calls.pipeline, 0); assert.equal(done.calls.map, 0);
+});
+
+test('causal cards show the complete relationship and a no-proposal warning; keeping it reports no text correction', async () => {
+  const item = { id: 'relation', kind: 'causal', question: 'Il metallo era stato sottratto', text: 'quindi', answer: 'era frutto di rapina' };
+  const m = finalManifest([item], [{ id: 'causal-issue', target: { kind: 'item', id: item.id, field: 'answer' },
+    problem: 'La relazione ripete il significato della premessa.' }]);
+  const h = runtime(), before = clone(m), modal = h.R.open('/vault', m, { final: true });
+  assert.match(modal.querySelector('[data-relation]').textContent, /Il metallo era stato sottratto → quindi → era frutto di rapina/);
+  assert.doesNotMatch(h.dom.text(), /Domanda:/);
+  assert.match(modal.querySelector('[data-no-proposal]').textContent, /non propone una correzione pronta/);
+  assert.ok(!modal.querySelectorAll('[data-actions] button').some(b => /Applica/.test(b.textContent)));
+  assert.deepEqual(m, before, 'rendering is read-only');
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Mantieni il testo senza modifiche').click();
+  assert.match(modal.querySelector('#mrv-decision-summary').textContent, /Modifiche manuali: 0 · Senza modifiche: 1/);
+  assert.equal(m.review.final.review.initial.decisions['causal-issue'].choice, 'reject');
+  assert.deepEqual(m.review.final.items, [item]);
+  await modal.querySelector('[data-review-filter="decided"]').click();
+  assert.match(modal.querySelector('[data-choice]').textContent, /Testo mantenuto senza modifiche/);
+});
+
+test('review references and editor use reversible source labels, leaving original IDs and decisions intact', async () => {
+  const item = { id: 'intro', kind: 'synthesis', text: 'Il governo agì [[src-one]]. Un altro fatto [[src-missing]].',
+    citations: [{ id: 'src-one', idx: 1, title: 'Libro.pdf', page: 4, text: 'Fonte originale.' }] };
+  const m = finalManifest([item], [{ id: 'intro-issue', target: { kind: 'item', id: item.id, field: 'text' }, problem: 'Soggetto da correggere.' }]);
+  const h = runtime(), before = clone(m), modal = h.R.open('/vault', m, { final: true });
+  assert.doesNotMatch(h.dom.text(), /\[\[src-/);
+  assert.match(h.dom.text(), /Fonte 1/); assert.match(h.dom.text(), /Fonte da verificare/);
+  assert.match(modal.querySelector('[data-references]').textContent, /Pagina 4/);
+  assert.deepEqual(m, before); assert.equal(h.calls.manifest, 0);
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Modifica il testo').click();
+  const input = modal.querySelector('[data-editor] textarea');
+  assert.doesNotMatch(input.value, /src-/);
+  input.value = input.value.replace('Il governo', 'L’Assemblea'); input.oninput(); await tick();
+  assert.equal(m.review.final.review.initial.decisions['intro-issue'].text,
+    'L’Assemblea agì [[src-one]]. Un altro fatto [[src-missing]].');
+  assert.deepEqual(m.review.final.items, [item], 'drafts change only on final approval');
+  assert.match(modal.querySelector('#mrv-decision-summary').textContent, /Modifiche manuali: 1 · Senza modifiche: 0/);
 });
 
 test('manual review requires an explicit checkbox and keyboard navigation stays in the dialog', async () => {
@@ -440,15 +481,17 @@ function materialRetryFixture(opts = {}) {
   ['generateDynamicQuiz', 'generateBranchSynthesisWithAI', 'executeJudgePass', 'fetchModelAPI'].forEach(name => { h.window[name] = forbidden(name); });
   h.window.MappAIMaterialDrafts = { flatten: forbidden('flatten') };
   h.window.electronAPI.htmlToPdf = async () => { h.calls.export++; throw new Error('Export inatteso'); };
-  h.window.MappAIGroundingCore = { buildInput: (db, nodes, sources, review) => {
+  h.window.MappAIGroundingCore = { buildInput: (db, nodes, sources, review, options) => {
     h.calls.grounding++;
     assert.deepEqual(clone(db), h.st.db); assert.deepEqual(clone(nodes), h.st.db.nodes);
     assert.equal(review, m.review); assert.deepEqual(clone(sources), SOURCES);
+    assert.equal(options.includeOriginalPages, true);
     return { material: 'Riferimento approvato e passaggi originali.', sourcesArr: [{ id: 'src-book', title: 'Libro.pdf', page: 4, text: 'dopo.' }] };
   } };
   h.materialCheck = async (checked, checkOpts) => {
     assert.deepEqual(clone(checked), items);
     assert.deepEqual(clone(h.st._reviewAIContext), m.config.aiContext);
+    assert.deepEqual(clone(checkOpts.aiContext), m.config.aiContext);
     assert.equal(checkOpts.apiKey, 'mock-key'); assert.equal(checkOpts.review, m.review);
     assert.equal(checkOpts.material.sourcesArr[0].title, 'Libro.pdf');
     return { checkStatus: 'completed', coverage: { expectedIds: items.map(i => i.id), checkedIds: items.map(i => i.id), skipped: [] }, issues: [

@@ -7,6 +7,13 @@
     'use strict';
     const text = value => String(value == null ? '' : value);
     const flat = value => text(value).replace(/\s+/g, ' ').trim();
+    const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
+    const canonical = value => Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
+        : value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}' : JSON.stringify(value);
+    function isTeacherAmendment(value) {
+        return !!value && value.origin === 'teacher' && ['accept', 'manual'].includes(value.choice) &&
+            own(value, 'before') && own(value, 'after') && value.after != null && canonical(value.before) !== canonical(value.after);
+    }
     function hash(value) {
         let n = 2166136261;
         for (const c of text(value)) n = Math.imul(n ^ c.codePointAt(0), 16777619);
@@ -45,7 +52,7 @@
         return out;
     }
 
-    function buildInput(db, nodes, sources, approvedReview) {
+    function buildInput(db, nodes, sources, approvedReview, options) {
         db = db || {};
         const review = approvedReview || {};
         const originals = sourcePages(Array.isArray(review.sources) && review.sources.length ? review.sources : sources);
@@ -92,10 +99,12 @@
 
         // No matched node excerpts: provide the available original pages as context,
         // without pretending that the node's own paraphrase is a quotation.
-        if (!sourcesArr.length) originals.forEach(p => add(p, p.text));
+        if (!sourcesArr.length || options && options.includeOriginalPages) originals.forEach(p => add(p, p.text));
+        const sourceCoverage = { originalPagesAvailable: originals.length,
+            fullPagesIncluded: originals.filter(p => sourcesArr.some(s => s.docId === p.docId && s.page === p.page && s.text === p.text)).length };
         const overrides = (review.overrides || []).filter(o => {
             const target = o.target || {};
-            return o.origin === 'teacher' && (target.kind === 'node' ? ids.has(target.id)
+            return isTeacherAmendment(o) && (target.kind === 'node' ? ids.has(target.id)
                 : target.kind === 'link' ? ids.has(target.source) || ids.has(target.target) : false);
         });
         const overrideText = overrides.map(o => {
@@ -108,14 +117,14 @@
         const nodesListText = nodeBlocks.join('\n\n');
         const sourcesListText = sourcesArr.map(s => '[[' + s.id + ']] ' + s.title +
             (s.page ? ' — pagina ' + s.page : '') + '\n' + s.text).join('\n\n');
-        const instructions = 'I contenuti approvati e le rettifiche esplicite del docente definiscono i fatti da conservare. ' +
-            'La fonte originale offre contesto e prove; una rettifica del docente può correggerla e non va presentata come citazione. ' +
+        const instructions = 'I contenuti approvati organizzano la lezione; verifica le loro affermazioni con le fonti originali. ' +
+            'Le fonti originali sono il riferimento fattuale. Soltanto le rettifiche esplicite qui riportate possono correggerle e non vanno presentate come citazioni. ' +
             'Conserva soggetti, negazioni, quantità, tempi e la distinzione tra fatti, accuse e ipotesi. ' +
             'Non usare altre sintesi generate come fonte. Per citare proponi soltanto gli ID [[src-...]] disponibili: il programma inserisce il testo archiviato.';
         const material = instructions + '\n\nCONTENUTI APPROVATI\n' + nodesListText +
             '\n\nPASSAGGI ORIGINALI\n' + (sourcesListText || '(Testo originale non disponibile: non inventare citazioni.)') +
             (overrideText ? '\n\nRETTIFICHE DEL DOCENTE — prevalgono sul testo della fonte\n' + overrideText : '');
-        return { material, nodesListText, sourcesListText, sourcesArr, overrides, unverified };
+        return { material, nodesListText, sourcesListText, sourcesArr, overrides, unverified, sourceCoverage };
     }
 
     function resolveCitations(value, sourcesArr) {
@@ -123,13 +132,55 @@
         const unknownIds = [];
         const resolved = text(value).replace(/\[\[(src-[\w-]+)\]\]/g, (all, id) => {
             const entry = entries.get(id);
-            if (entry) return '[' + entry.idx + ']';
+            if (entry && Number.isInteger(entry.idx) && entry.idx > 0) return '[' + entry.idx + ']';
             if (!unknownIds.includes(id)) unknownIds.push(id);
-            return '';
+            return all; // Keep unresolved anchors in the model; renderers show a warning.
         });
         return { text: resolved, unknownIds };
     }
 
-    return { sourcePages, originalExcerpt, buildInput, resolveCitations,
+    // A reversible view for plain-text editors. Existing numbered references
+    // belong to their section and are deliberately not interpreted here.
+    function referenceView(value, sourcesArr, options) {
+        options = options || {};
+        const original = text(value), entries = new Map((sourcesArr || []).filter(Boolean).map(s => [s.id, s]));
+        const mapping = [], unknownIds = [], labels = new Map();
+        let next = 1;
+        const result = original.replace(/\[\[(src-[\w-]+)\]\]/g, (_, id) => {
+            if (labels.has(id)) return labels.get(id);
+            const source = entries.get(id), prefix = source ? options.sourceLabel || 'Fonte' : options.unknownLabel || 'Fonte da verificare';
+            let label;
+            do { label = '[' + prefix + ' ' + next++ + ']'; } while (original.includes(label));
+            labels.set(id, label);
+            mapping.push({ label, id, source: source ? JSON.parse(JSON.stringify(source)) : null });
+            if (!source) unknownIds.push(id);
+            return label;
+        });
+        return { text: result, mapping, unknownIds };
+    }
+    function restoreReferenceIds(value, mapping) {
+        let result = text(value);
+        (mapping || []).forEach(entry => {
+            if (entry && entry.label && /^src-[\w-]+$/.test(entry.id)) result = result.split(entry.label).join('[[' + entry.id + ']]');
+        });
+        return result;
+    }
+
+    // A local registry for raw anchors, independent of other sections' numbers.
+    // Existing [n] references reserve their number but never acquire a new meaning.
+    function citationRegistry(value, sourcesArr) {
+        const byId = new Map((sourcesArr || []).filter(Boolean).map(s => [s.id, s]));
+        const used = new Set(), occupied = new Set(Array.from(text(value).matchAll(/\[(\d+)\]/g), m => Number(m[1])));
+        const out = []; let idx = 1;
+        for (const match of text(value).matchAll(/\[\[(src-[\w-]+)\]\]/g)) {
+            const source = byId.get(match[1]);
+            if (!source || used.has(source.id)) continue;
+            while (occupied.has(idx)) idx++;
+            out.push(Object.assign({}, source, { idx: idx++ })); used.add(source.id);
+        }
+        return out;
+    }
+
+    return { sourcePages, originalExcerpt, buildInput, resolveCitations, referenceView, restoreReferenceIds, citationRegistry, isTeacherAmendment,
         materialForNodes: (db, nodes, sources, approvedReview) => buildInput(db, nodes, sources, approvedReview).material };
 }));
