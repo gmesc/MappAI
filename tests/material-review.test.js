@@ -60,7 +60,7 @@ function throughGeminiGateway(answer) {
 // https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
 function assertStructuredSubset(schema) {
     const allowed = {
-        OBJECT: ['type', 'properties', 'required'], ARRAY: ['type', 'items', 'maxItems'],
+        OBJECT: ['type', 'properties', 'required'], ARRAY: ['type', 'items'],
         STRING: ['type', 'enum'], INTEGER: ['type'], BOOLEAN: ['type']
     };
     assert.ok(allowed[schema.type], 'a single supported responseSchema type is required');
@@ -70,7 +70,6 @@ function assertStructuredSubset(schema) {
         schema.required.forEach(k => assert.ok(Object.hasOwn(schema.properties, k)));
     }
     if (schema.type === 'ARRAY') {
-        assert.ok(Number.isInteger(schema.maxItems) && schema.maxItems > 0);
         assertStructuredSubset(schema.items);
     }
     if (schema.enum) assert.ok(schema.enum.length && schema.enum.every(v => typeof v === 'string'));
@@ -110,6 +109,7 @@ test('actual renderer → Gemini IPC → HTTP payload uses the compact documente
         for (const field of ['temperature', 'topP', 'topK', 'candidateCount']) assert.equal(config[field], undefined);
         assert.equal(config.responseJsonSchema, undefined, 'do not mix incompatible schema fields');
         assertStructuredSubset(config.responseSchema);
+        assert.doesNotMatch(JSON.stringify(config.responseSchema), /"maxItems"/);
         assert.equal(config.responseSchema.properties.checkedIds.items.enum, undefined);
         assert.equal(config.responseSchema.properties.mcOptions.items.properties.id.enum, undefined);
         assert.equal(config.responseSchema.properties.issues.items.properties.id.enum, undefined);
@@ -224,6 +224,36 @@ test('IDs and text limits omitted from the wire schema are still checked locally
     assert.ok(report.issues.every(i => i.hasProposal === false));
 });
 
+test('array counts formerly constrained by maxItems are rejected locally without certifying a completed check', async () => {
+    const cases = [
+        { name: 'checkedIds', change: answer => { answer.checkedIds.push('q'); } },
+        { name: 'mcOptions', change: answer => { answer.mcOptions.push({ id: 'q', indices: [0, 1, 2, 3] }); } },
+        { name: 'issues', change: answer => { answer.issues = Array.from({ length: 4 }, () => ({
+            id: 'q', field: 'explanation', problem: 'Controlla questo fatto.', evidenceKind: 'source', quote: GOLD
+        })); } },
+        { name: 'indices', change: answer => { answer.mcOptions[0].indices = Array.from({ length: 21 }, (_, n) => n % 4); } },
+        { name: 'replacementList', change: answer => { answer.issues = [{
+            id: 'q', field: 'options', problem: 'Controlla queste alternative.', evidenceKind: 'source', quote: GOLD,
+            replacementList: Array.from({ length: 21 }, (_, n) => 'Alternativa ' + n)
+        }]; } }
+    ];
+    for (const c of cases) {
+        const r = runtime((batch, payload) => {
+            assert.doesNotMatch(JSON.stringify(payload.generationConfig.responseSchema), /"maxItems"/);
+            assert.match(payload.contents[0].parts[0].text, /checkedIds e mcOptions massimo 1 elementi ciascuno; issues massimo 3/);
+            const answer = clean(batch); c.change(answer); return response(answer);
+        });
+        const item = mc('q'), before = plain(item), report = await r.check([item]);
+        assert.equal(report.checkStatus, 'incomplete', c.name);
+        assert.match(report.batches[0].reason, /superano i limiti/, c.name);
+        assert.equal(report.coverage.checkedIds.length, 0, c.name);
+        assert.equal(report.coverage.skipped.length, 1, c.name);
+        assert.equal(report.issues.length, 0, c.name);
+        assert.equal(r.calls.length, 1, c.name);
+        assert.deepEqual(item, before);
+    }
+});
+
 for (const provider of ['google', 'infomaniak', 'infomaniak-qwen']) {
     test(`${provider}: bounded batches require review of every MC alternative and retain factual proposals`, async () => {
         const items = Array.from({ length: 25 }, (_, n) => mc('mc-' + n));
@@ -232,7 +262,7 @@ for (const provider of ['google', 'infomaniak', 'infomaniak-qwen']) {
         const r = runtime((batch, payload, count, env) => {
             assert.ok(batch.length <= 12);
             assert.equal(payload.generationConfig.maxOutputTokens, 6000);
-            assert.ok(payload.generationConfig.responseSchema.properties.issues.maxItems <= 36);
+            assert.doesNotMatch(JSON.stringify(payload.generationConfig.responseSchema), /"maxItems"/);
             const prompt = payload.contents[0].parts[0].text;
             assert.match(prompt, /OGNI alternativa/);
             assert.match(prompt, /accuse e ipotesi/);

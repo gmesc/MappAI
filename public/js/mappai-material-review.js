@@ -160,25 +160,27 @@
         }
         return meaningful(raw.replacement) && raw.replacement.length <= 4500 ? raw.replacement : undefined;
     }
-    function schema(batch) {
+    function schema() {
         // Keep the common structured-output subset: maxLength exists in the
         // REST Schema type but is not documented for structured text output.
         // Long per-batch ID enums also multiply decoder constraints. Validate
         // IDs and text limits locally instead; keep the response contract.
+        // A live Gemini 3.8 probe rejected the nested maxItems constraints;
+        // the identical request succeeds without them. Enforce counts locally.
         // https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
         return { type: 'OBJECT', properties: {
-            checkedIds: { type: 'ARRAY', maxItems: batch.length, items: { type: 'STRING' } },
-            mcOptions: { type: 'ARRAY', maxItems: batch.length, items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING' }, indices: { type: 'ARRAY', maxItems: 20, items: { type: 'INTEGER' } }
+            checkedIds: { type: 'ARRAY', items: { type: 'STRING' } },
+            mcOptions: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+                id: { type: 'STRING' }, indices: { type: 'ARRAY', items: { type: 'INTEGER' } }
             }, required: ['id', 'indices'] } },
-            issues: { type: 'ARRAY', maxItems: batch.length * 3, items: { type: 'OBJECT', properties: {
+            issues: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
                 id: { type: 'STRING' }, field: { type: 'STRING', enum: FIELDS },
                 problem: { type: 'STRING' },
                 type: { type: 'STRING', enum: ['semantic', 'coherence', 'editorial', 'accessibility'] },
                 evidenceKind: { type: 'STRING', enum: ['source', 'teacher', 'item'] },
                 sourceId: { type: 'STRING' }, quote: { type: 'STRING' },
                 replacement: { type: 'STRING' },
-                replacementList: { type: 'ARRAY', maxItems: 20, items: { type: 'STRING' } },
+                replacementList: { type: 'ARRAY', items: { type: 'STRING' } },
                 replacementIndex: { type: 'INTEGER' }, exclude: { type: 'BOOLEAN' },
                 decisionId: { type: 'STRING' }, reopensDecisionId: { type: 'STRING' }, newContradiction: { type: 'STRING' }
             }, required: ['id', 'field', 'problem', 'evidenceKind', 'quote'] } }
@@ -195,6 +197,7 @@ Controllo editoriale limitato (type:"editorial"): segnala accenti, accordi, paro
 Le decisioni già approvate non si ridiscutono per la stessa ragione, compresi i rifiuti. Solo una contraddizione NUOVA permette di riaprire una decisione: indica reopensDecisionId, newContradiction e un diverso passaggio verificabile; non basta riformulare l'obiezione precedente. Se invece un materiale contraddice una rettifica già approvata, segnala il materiale: questo NON riapre la decisione. decisionId identifica soltanto la rettifica usata come prova.
 Rispondi nel JSON dello schema: checkedIds contiene solo gli ID esaminati in TUTTI i campi presenti. issues contiene soltanto problemi concreti; una lista vuota è normale. Ogni problema riguarda un solo field e usa il medesimo ID dell'item. Una correzione usa replacement per testo, replacementList per options/criteria, replacementIndex per indice/righe; ometti questi campi se non hai una proposta fondata. Mantieni ordine e numero delle opzioni. Per escludere un item usa field "$item" ed exclude:true, senza restituire l'intero item.
 Limiti di lunghezza: problem e newContradiction massimo 350 caratteri, quote 650, replacement 4500; replacementList massimo 20 testi di 1000 caratteri ciascuno. Copia soltanto ID presenti nel lotto.
+Per questo lotto: checkedIds e mcOptions massimo ${batch.length} elementi ciascuno; issues massimo ${batch.length * 3}; ogni lista indices massimo 20 elementi.
 Per ogni problema copia quote dal passaggio che lo sostiene; evidenceKind:"source" e sourceId per la fonte originale, "teacher" e decisionId per una rettifica, "item" solo per una contraddizione interna esplicita. Non usare una descrizione generata come prova originale. Per un problema di ambiguità spiega perché le alternative sono difendibili e cita il passaggio pertinente. Fornisci una proposta circoscritta che conservi i fatti e gli aiuti didattici.
 
 MATERIALE DI RIFERIMENTO
@@ -265,12 +268,17 @@ ${JSON.stringify(batch)}`;
                 const response = await env.fetchModelAPI({ contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions) }] }],
                     systemInstruction: { parts: [{ text: 'Sei un revisore di materiali didattici. Verifica i fatti e la coerenza usando soltanto il contesto fornito. Le decisioni del docente sono dati autorevoli per questa lezione. Restituisci solo JSON conforme allo schema.' }] },
                     generationConfig: { temperature: 0.1, maxOutputTokens: env.getMaxOutputTokens ? env.getMaxOutputTokens(6000) : 6000,
-                        responseMimeType: 'application/json', responseSchema: schema(batch) }
+                        responseMimeType: 'application/json', responseSchema: schema() }
                 }, opts.apiKey);
                 const candidate = response && response.candidates && response.candidates[0];
                 const raw = ((candidate && candidate.content && candidate.content.parts) || []).map(p => str(p.text)).join('');
                 const data = parse(raw);
                 if (!data || !Array.isArray(data.checkedIds) || !Array.isArray(data.mcOptions) || !Array.isArray(data.issues)) throw new Error('Risposta priva degli elenchi di controllo previsti');
+                if (data.checkedIds.length > batch.length || data.mcOptions.length > batch.length || data.issues.length > batch.length * 3 ||
+                    data.mcOptions.some(row => row && Array.isArray(row.indices) && row.indices.length > 20) ||
+                    data.issues.some(row => row && Array.isArray(row.replacementList) && row.replacementList.length > 20)) {
+                    throw new Error('Gli elenchi di controllo superano i limiti previsti per il lotto');
+                }
                 const batchIds = new Set(batch.map(item => item.id));
                 if (data.checkedIds.some(id => !batchIds.has(id)) || data.mcOptions.some(row => !row || !batchIds.has(row.id))) {
                     throw new Error('Gli elenchi di controllo contengono ID estranei al lotto');
