@@ -778,7 +778,23 @@ window.fetchModelAPI = async function (payload, apiKey) {
     // (===MERGES===, ===RECLASSIFY===, array JSON raw) → non hanno responseMimeType
     // ma subiscono comunque il problema thinking. La condizione li escludeva.
     const _gcfg = payload?.generationConfig || {};
-    if (provider === 'google' &&
+    if (provider === 'google' && /(?:^|\/)gemini-3\.8-flash(?:$|-)/i.test(model || '')) {
+        // 3.8 uses thinkingLevel and no sampling parameters. Normalize here
+        // before both Electron IPC and the browser adapter see the request.
+        // https://ai.google.dev/gemini-api/docs/generate-content/latest-model
+        const gc = { ..._gcfg }, thinking = { ...gc.thinkingConfig };
+        ['temperature', 'topP', 'topK', 'candidateCount'].forEach(key => { delete gc[key]; });
+        const small = gc.maxOutputTokens > 0 && gc.maxOutputTokens <= 12288;
+        const level = String(thinking.thinkingLevel || '').toLowerCase();
+        if (['low', 'medium', 'high'].includes(level)) thinking.thinkingLevel = level;
+        else if (level || thinking.thinkingBudget != null || small) {
+            thinking.thinkingLevel = level === 'minimal' || thinking.thinkingBudget === 0 || small ? 'low' : 'medium';
+        }
+        delete thinking.thinkingBudget;
+        if (Object.keys(thinking).length) gc.thinkingConfig = thinking;
+        else delete gc.thinkingConfig;
+        payload = { ...payload, generationConfig: gc };
+    } else if (provider === 'google' &&
         (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
         (_gcfg.maxOutputTokens || 0) > 0 &&
         (_gcfg.maxOutputTokens || 0) <= 12288) {

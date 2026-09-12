@@ -1,4 +1,11 @@
 const en_translations = {
+    rv_check_incomplete: "The automated check is incomplete. The content still needs to be checked.",
+    rv_request_rejected: "The AI service rejected the check request. Your drafts are preserved.",
+    rv_check_detail: "Check details",
+    rv_technical_detail: "Technical details",
+    rv_affected_items: "Content to check",
+    rv_retry_material_judge: "Retry the material check",
+    rv_checking: "Checking… Your drafts and decisions are preserved.",
     rv_add_node_review: "Add to review",
     rv_unchecked: "Items not examined by the automated check",
     rv_decisions_complete: "Every finding has a decision. Check below for any remaining step before continuing.",

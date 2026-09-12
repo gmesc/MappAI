@@ -402,3 +402,188 @@ test('reading an unreported node does not create a decision or write to the proj
   assert.equal(m.review.initial.issues.length, 1); assert.equal(m.review.initial.issues[0].target.field, 'label');
   assert.match(modal.querySelector('[data-review-filter="pending"]').textContent, /\(1\)/);
 });
+
+function materialRetryFixture(opts = {}) {
+  const h = runtime(opts), items = Array.from({ length: 105 }, (_, i) => ({ id: 'saved-' + i, kind: 'flashcard',
+    question: 'Domanda salvata ' + i + '?', answer: 'Risposta salvata ' + i + '.' }));
+  const issues = [0, 1, 2].map(i => ({ id: 'prior-' + i, target: { kind: 'item', id: items[i].id, field: 'answer' },
+    after: 'Proposta precedente ' + i + '.', problem: 'Segnalazione precedente ' + i + '.' }));
+  const m = finalManifest(items, issues);
+  m.config.aiContext = { provider: 'google', model: 'saved-model' };
+  m.review.final.review.initial.checkStatus = 'incomplete';
+  m.review.final.review.initial.report = { checkStatus: 'incomplete', issues, coverage: { expectedIds: items.map(i => i.id),
+    checkedIds: [], skipped: items.map(i => ({ id: i.id, reason: 'HTTP 400: schema non valido' })) },
+    batches: [{ ids: items.slice(0, 12).map(i => i.id), status: 'incomplete', error: 'HTTP 400: schema non valido' }] };
+  m.review.final.review = Core.setDecision(Core.setDecision(Core.setDecision(m.review.final.review,
+    'prior-0', 'reject'), 'prior-1', 'accept'), 'prior-2', 'manual', { text: 'Rettifica conservata del docente.' });
+  m.review.final.review.initial.previousReports = [{ checkStatus: 'unavailable', reason: 'Prima interruzione' }];
+  m.review.drafts = { B: { sets: [{ id: 'saved-set', items: clone(items) }] } };
+  h.st.db.studySets = [{ id: 'existing-set', items: [{ question: 'Attività precedente' }] }];
+  h.st._pipelineManifest = m;
+  h.st._reviewAIContext = { provider: 'infomaniak', model: 'caller-model' };
+  h.st._generationSources = [{ title: 'Fonte estranea corrente', content: 'Contenuto di un altro contesto.' }];
+  h.calls.material = 0; h.calls.generation = 0; h.calls.export = 0; h.calls.grounding = 0; h.calls.filePaths = [];
+  const save = h.window.electronAPI.saveVaultFile;
+  h.window.electronAPI.saveVaultFile = args => { h.calls.filePaths.push(args.relPath); return save(args); };
+  const forbidden = name => async () => { h.calls.generation++; throw new Error('Generatore inatteso: ' + name); };
+  ['generateDynamicQuiz', 'generateBranchSynthesisWithAI', 'executeJudgePass', 'fetchModelAPI'].forEach(name => { h.window[name] = forbidden(name); });
+  h.window.MappAIMaterialDrafts = { flatten: forbidden('flatten') };
+  h.window.electronAPI.htmlToPdf = async () => { h.calls.export++; throw new Error('Export inatteso'); };
+  h.window.MappAIGroundingCore = { buildInput: (db, nodes, sources, review) => {
+    h.calls.grounding++;
+    assert.deepEqual(clone(db), h.st.db); assert.deepEqual(clone(nodes), h.st.db.nodes);
+    assert.equal(review, m.review); assert.deepEqual(clone(sources), SOURCES);
+    return { material: 'Riferimento approvato e passaggi originali.', sourcesArr: [{ id: 'src-book', title: 'Libro.pdf', page: 4, text: 'dopo.' }] };
+  } };
+  h.materialCheck = async (checked, checkOpts) => {
+    assert.deepEqual(clone(checked), items);
+    assert.deepEqual(clone(h.st._reviewAIContext), m.config.aiContext);
+    assert.equal(checkOpts.apiKey, 'mock-key'); assert.equal(checkOpts.review, m.review);
+    assert.equal(checkOpts.material.sourcesArr[0].title, 'Libro.pdf');
+    return { checkStatus: 'completed', coverage: { expectedIds: items.map(i => i.id), checkedIds: items.map(i => i.id), skipped: [] }, issues: [
+      { id: 'fresh', target: { kind: 'item', id: items[3].id, field: 'answer' }, after: 'Nuova proposta.', problem: 'Da decidere dopo il nuovo controllo.' }
+    ] };
+  };
+  h.window.MappAIMaterialReview = { ...Material, check: async (...args) => { h.calls.material++; return h.materialCheck(...args); } };
+  return Object.assign(h, { m, items });
+}
+
+test('G2 retry checks the 105 saved items once, preserving decisions, original sources and frozen model without generating or exporting', async () => {
+  const h = materialRetryFixture(), old = h.m.review.final.review, beforeDb = clone(h.st.db), beforeItems = clone(h.m.review.final.items),
+    beforeDrafts = clone(h.m.review.drafts), priorContext = h.st._reviewAIContext, priorSources = h.st._generationSources;
+  await h.R.retryMaterialJudge('/vault', h.m);
+  const next = h.m.review.final.review;
+  assert.equal(h.calls.material, 1); assert.equal(h.calls.grounding, 1);
+  assert.deepEqual(clone(next.initial.decisions), old.initial.decisions);
+  old.initial.issues.forEach(issue => assert.deepEqual(clone(next.initial.issues.find(i => i.id === issue.id)), issue));
+  assert.ok(next.initial.issues.some(i => i.id === 'fresh'));
+  assert.deepEqual(clone(next.initial.previousReports), old.initial.previousReports.concat([old.initial.report]));
+  assert.equal(next.initial.checkStatus, 'completed'); assert.equal(next.initial.status, 'awaiting_review');
+  assert.equal(h.m.review.final.stage, 'awaiting_review');
+  assert.deepEqual(clone(h.st.db), beforeDb); assert.deepEqual(clone(h.m.review.final.items), beforeItems);
+  assert.deepEqual(clone(h.m.review.drafts), beforeDrafts);
+  assert.equal(h.st._reviewAIContext, priorContext); assert.equal(h.st._generationSources, priorSources);
+  assert.equal(h.calls.map, 0); assert.equal(h.calls.pipeline, 0); assert.equal(h.calls.generation, 0); assert.equal(h.calls.export, 0);
+  assert.deepEqual(h.calls.filePaths, ['pipeline.json']);
+  assert.equal(h.saved.manifest.review.final.review.initial.checkStatus, 'completed');
+});
+
+test('G2 retry refuses a different project, an edited approved map, altered saved items or a final stage already applying', async () => {
+  for (const fault of ['project', 'map', 'items', 'stage']) {
+    const h = materialRetryFixture(), old = h.m.review.final.review;
+    if (fault === 'project') h.st.activeVaultPath = '/other';
+    if (fault === 'map') h.st.db.nodes[0].desc = 'Modifica dopo approvazione';
+    if (fault === 'items') h.m.review.final.items[0].answer = 'Modifica non rivista';
+    if (fault === 'stage') h.m.review.final.stage = 'applying';
+    await assert.rejects(h.R.retryMaterialJudge('/vault', h.m), undefined, fault);
+    assert.equal(h.calls.material, 0, fault); assert.equal(h.calls.manifest, 0, fault);
+    assert.equal(h.m.review.final.review, old, fault);
+  }
+});
+
+test('G2 retry discards a late result after project, map or item mutation and always restores caller model context', async () => {
+  for (const fault of ['project', 'map', 'items', 'provider-error']) {
+    const h = materialRetryFixture(), old = h.m.review.final.review, context = h.st._reviewAIContext;
+    let resolveCheck, started;
+    const entered = new Promise(resolve => { started = resolve; });
+    h.materialCheck = async () => { started(); return new Promise((resolve, reject) => { resolveCheck = fault === 'provider-error' ? reject : resolve; }); };
+    const pending = h.R.retryMaterialJudge('/vault', h.m);
+    await entered;
+    if (fault === 'project') h.st.activeVaultPath = '/other';
+    if (fault === 'map') h.st.db.links[0].rel = 'Modificato durante il controllo';
+    if (fault === 'items') h.m.review.final.items[0].answer = 'Modificata durante il controllo';
+    resolveCheck(fault === 'provider-error' ? new Error('Provider HTTP 400') : { checkStatus: 'completed', issues: [] });
+    await assert.rejects(pending, undefined, fault);
+    assert.equal(h.calls.material, 1); assert.equal(h.calls.manifest, 0, fault);
+    assert.equal(h.m.review.final.review, old, fault); assert.equal(h.st._reviewAIContext, context, fault);
+  }
+});
+
+test('G2 retry rolls back a failed manifest write and remains retryable without losing decisions or duplicating report history', async () => {
+  const h = materialRetryFixture({ failSave: true }), old = h.m.review.final.review, context = h.st._reviewAIContext;
+  await assert.rejects(h.R.retryMaterialJudge('/vault', h.m), /Disco non disponibile/);
+  assert.equal(h.m.review.final.review, old); assert.equal(h.m.review.final.stage, 'awaiting_review');
+  assert.equal(old.initial.checkStatus, 'incomplete'); assert.equal(h.st._reviewAIContext, context);
+  h.opts.failSave = false;
+  await h.R.retryMaterialJudge('/vault', h.m);
+  assert.equal(h.calls.material, 2); assert.equal(h.calls.map, 0); assert.equal(h.calls.generation, 0);
+  assert.equal(h.m.review.final.review.initial.previousReports.length, 2);
+  assert.deepEqual(clone(h.m.review.final.review.initial.decisions), old.initial.decisions);
+  assert.equal(h.saved.manifest.review.final.review.initial.checkStatus, 'completed');
+});
+
+test('G2 incomplete review offers material retry, freezes controls and retains a retryable dialog after provider failure', async () => {
+  const h = materialRetryFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  const retry = modal.querySelector('#mrv-retry-judge');
+  assert.ok(retry); assert.equal(retry.textContent, 'Riprova il controllo dei materiali');
+  retry.focus();
+  assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  let failCheck, entered;
+  const ready = new Promise(resolve => { entered = resolve; });
+  h.materialCheck = async () => { entered(); return new Promise((_, reject) => { failCheck = reject; }); };
+  const pending = retry.click(); await ready;
+  assert.equal(modal.getAttribute('aria-busy'), 'true');
+  assert.ok(modal.querySelectorAll('button,input,textarea,select').every(el => el.disabled));
+  failCheck(new Error('HTTP 400: schema non valido')); await pending;
+  assert.ok(h.dom.document.getElementById('mappai-teacher-review'));
+  assert.match(modal.querySelector('#mrv-status').textContent, /HTTP 400/);
+  assert.equal(retry.disabled, false); assert.equal(modal.getAttribute('aria-busy'), 'false');
+  h.materialCheck = async () => ({ checkStatus: 'completed', issues: [] });
+  await retry.click();
+  assert.equal(h.m.review.final.review.initial.checkStatus, 'completed');
+  assert.equal(modal.querySelector('#mrv-retry-judge'), null);
+  assert.equal(modal.querySelector('#mrv-manual-confirm'), null);
+  assert.equal(h.dom.document.activeElement.id, 'mrv-title', 'retry rerender restores dialog focus instead of leaving it on a removed button');
+  assert.equal(h.calls.pipeline, 0); assert.equal(h.calls.map, 0); assert.equal(h.calls.export, 0);
+});
+
+test('G2 cannot spend another model call while a teacher decision has an unresolved save failure', async () => {
+  const h = materialRetryFixture({ failSave: true }), modal = h.R.open('/vault', h.m, { final: true });
+  await modal.querySelector('[data-review-filter="decided"]').click();
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Annulla decisione').click();
+  assert.equal(modal.querySelector('#mrv-save-retry').hidden, false);
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(h.calls.material, 0); assert.equal(h.m.review.final.review.initial.checkStatus, 'incomplete');
+  assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
+});
+
+test('G2 groups the 105 identical check failures once and never treats missing AI results as a clean review', () => {
+  const h = materialRetryFixture();
+  h.m.review.final.review.initial.issues = [];
+  h.m.review.final.review.initial.decisions = {};
+  const modal = h.R.open('/vault', h.m, { final: true });
+  const unchecked = modal.querySelector('#mrv-unchecked');
+  assert.ok(unchecked, 'skipped material checks remain visible even when no correction issue was returned');
+  assert.equal((unchecked.textContent.match(/HTTP 400: schema non valido/g) || []).length, 1);
+  assert.match(unchecked.textContent, /105/);
+  assert.match(unchecked.textContent, /Domanda salvata 0\?/);
+  assert.match(unchecked.textContent, /Domanda salvata 104\?/);
+  assert.ok(unchecked.querySelectorAll('details').some(el => /Dettaglio tecnico/.test(el.textContent)));
+  assert.doesNotMatch(h.dom.text(), /Nessuna proposta di correzione\. Puoi leggere i contenuti e continuare\./);
+  assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  assert.ok(modal.querySelector('#mrv-retry-judge'));
+});
+
+test('G2 retry preserves an unfinished invalid numeric edit and does not call the judge', async () => {
+  const h = runtime(), items = [{ id: 'open-1', kind: 'open', question: 'Perché?', guide: 'Spiega il rapporto causale.',
+    criteria: ['Indica una causa e la sua conseguenza.'], lines: 8 }];
+  const m = finalManifest(items, [{ id: 'line-count', target: { kind: 'item', id: 'open-1', field: 'lines' },
+    after: 10, problem: 'Spazio di risposta da rivedere.' }]);
+  m.review.final.review.initial.checkStatus = 'incomplete'; h.st._pipelineManifest = m;
+  let judgeCalls = 0;
+  h.window.MappAIGroundingCore = { buildInput: () => ({ material: 'Fonte della lezione.' }) };
+  h.window.MappAIMaterialReview = { ...Material, check: async () => { judgeCalls++; return { checkStatus: 'completed', issues: [] }; } };
+  const modal = h.R.open('/vault', m, { final: true });
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Modifica il testo').click(); await tick();
+  const input = modal.querySelector('[data-editor] input[type="number"]');
+  input.value = '4.5'; input.oninput();
+  const savedBeforeRetry = clone(h.saved.manifest), writesBeforeRetry = h.calls.manifest;
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(judgeCalls, 0); assert.equal(h.calls.manifest, writesBeforeRetry);
+  assert.equal(modal.querySelector('[data-editor] input[type="number"]'), input);
+  assert.equal(input.isConnected, true); assert.equal(input.value, '4.5');
+  assert.equal(modal.querySelector('#mrv-continue').disabled, true);
+  assert.match(modal.querySelector('#mrv-status').textContent, /Completa il campo/);
+  assert.deepEqual(clone(h.saved.manifest), savedBeforeRetry);
+  assert.equal(m.review.final.items[0].lines, 8);
+});

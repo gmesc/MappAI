@@ -228,6 +228,43 @@
     await R.persistQuality(vaultPath); await R.writeManifest(vaultPath, manifest); cache();
     return next;
   };
+  R.retryMaterialJudge = async function (vaultPath, manifest, opts) {
+    assertProject(vaultPath);
+    const s = state(), review = manifest.review, final = review && review.final, old = final && final.review;
+    function assertCurrent() {
+      assertProject(vaultPath);
+      if (!old || manifest.review !== review || review.final !== final || final.review !== old ||
+          final.stage !== 'awaiting_review' || old.initial.status !== 'awaiting_review' ||
+          !core().gate(review, s.db, review.sources).allowed ||
+          core().revision({ items: final.items }, old.sources) !== old.baseRevision) {
+        throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      }
+    }
+    assertCurrent();
+    const judge = window.MappAIMaterialReview, grounding = window.MappAIGroundingCore;
+    if (!judge || !judge.check || !grounding || !grounding.buildInput) throw new Error(t('rv_validator_missing', 'Il controllo dei campi non è disponibile. Le bozze sono conservate.'));
+    const previousContext = s._reviewAIContext;
+    let report;
+    try {
+      s._reviewAIContext = clone(manifest.config.aiContext || previousContext || { provider: s.aiProvider });
+      const apiKey = window.getSystemKey && window.getSystemKey();
+      if (!apiKey) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
+      const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review);
+      report = await judge.check(clone(final.items), { review, apiKey, material, onProgress: opts && opts.onProgress });
+      assertCurrent();
+    } finally { s._reviewAIContext = previousContext; }
+    const next = core().createReview({ db: { items: final.items }, sources: old.sources, report,
+      generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config });
+    old.initial.issues.forEach(issue => { if (!next.initial.issues.some(n => n.id === issue.id)) next.initial.issues.push(clone(issue)); });
+    next.initial.decisions = clone(old.initial.decisions);
+    next.initial.previousReports = (old.initial.previousReports || []).concat([old.initial.report]);
+    if (old.previous) next.previous = clone(old.previous);
+    final.review = next;
+    try { await R.writeManifest(vaultPath, manifest); }
+    catch (e) { final.review = old; throw e; }
+    cache();
+    return next;
+  };
   R.requireApproved = async function () {
     const s = state();
     if (s._reviewLoading || s._reviewRestoring || s._reviewRestoreError || busy || committing) return false;
@@ -465,7 +502,7 @@
       const info = document.createElement('p');
       const currentDb = isFinal ? { items: manifest.review.final.items } : state().db;
       info.textContent = approved ? (core().gate(r, currentDb, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
-        !r.initial.issues.length ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') :
+        !r.initial.issues.length ? (r.initial.checkStatus === 'completed' ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') : t('rv_check_incomplete', 'Il controllo automatico non è completo. I contenuti attendono ancora la verifica.')) :
         groups.pending.length ? groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Controlla qui sotto se resta un passaggio per continuare.');
       content.appendChild(info);
@@ -481,8 +518,13 @@
           .concat((report.coverage?.skipped || []).map(i => ({ label: (r.baseSnapshot.items || []).find(x => String(x.id) === String(i.id))?.question || String(i.id || ''), reason: i.reason })));
         if (unchecked.length) {
           const box = document.createElement('details'); box.id = 'mrv-unchecked';
-          box.innerHTML = '<summary>' + esc(t('rv_unchecked', 'Elementi non esaminati dal controllo automatico')) + ' (' + unchecked.length + ')</summary><ul class="mt-2 space-y-2">' +
-            unchecked.map(i => '<li><strong>' + esc(i.label) + '</strong>' + (i.reason ? ' — ' + esc(i.reason) : '') + '</li>').join('') + '</ul>';
+          const reasons = new Map();
+          unchecked.forEach(item => { const reason = String(item.reason || ''); if (!reasons.has(reason)) reasons.set(reason, []); reasons.get(reason).push(item.label); });
+          box.innerHTML = '<summary>' + esc(t('rv_unchecked', 'Elementi non esaminati dal controllo automatico')) + ' (' + unchecked.length + ')</summary>' +
+            Array.from(reasons, ([reason, labels]) => '<section class="mt-3">' +
+              (/INVALID_ARGUMENT|invalid argument/i.test(reason) ? '<p>' + esc(t('rv_request_rejected', 'Il servizio AI non ha accettato la richiesta di controllo. Le bozze sono conservate.')) + '</p>' : '') +
+              (reason ? '<details><summary>' + esc(/IPC|INVALID_ARGUMENT|invalid argument|API|HTTP/i.test(reason) ? t('rv_technical_detail', 'Dettaglio tecnico') : t('rv_check_detail', 'Dettaglio del controllo')) + '</summary><p class="whitespace-pre-wrap break-words">' + esc(reason) + '</p></details>' : '') +
+              '<details><summary>' + esc(t('rv_affected_items', 'Contenuti da verificare')) + ' (' + labels.length + ')</summary><ul class="mt-2 space-y-2">' + labels.map(label => '<li>' + esc(label) + '</li>').join('') + '</ul></details></section>').join('');
           content.appendChild(box);
         }
       }
@@ -638,11 +680,20 @@
         const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'mrv-manual-confirm'; input.checked = manualConfirmed;
         input.onchange = () => { manualConfirmed = input.checked; };
         label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Il controllo automatico non è completo. Ho rivisto io i contenuti e scelgo di continuare.'))); manual.appendChild(label);
-        if (!isFinal) {
-          const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'pm-btn-cancel'; retry.textContent = t('rv_retry_judge', 'Riprova il controllo automatico');
+        {
+          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-cancel'; retry.textContent = isFinal ? t('rv_retry_material_judge', 'Riprova il controllo dei materiali') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
+            if (busy || invalidEditors.size) return;
             freeze(true);
-            try { await pendingSave; if (saveError) throw saveError; await R.retryJudge(vaultPath, manifest); manualConfirmed = false; freeze(false); render(); }
+            status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.');
+            try {
+              await pendingSave; if (saveError) throw saveError;
+              if (isFinal) await R.retryMaterialJudge(vaultPath, manifest, { onProgress: p => {
+                status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')';
+              } });
+              else await R.retryJudge(vaultPath, manifest);
+              manualConfirmed = false; freeze(false); render(); modal.querySelector('#mrv-title').focus(); status.textContent = t('rv_saved', 'Decisioni salvate');
+            }
             catch (e) { status.textContent = errorText(e); }
             finally { if (busy) freeze(false); }
           };

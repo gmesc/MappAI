@@ -34,6 +34,47 @@ function runtime(answer) {
     };
     return { w: context, calls, check: (items, opts) => context.MappAIMaterialReview.check(items, { apiKey: 'mock-key', material, ...opts }) };
 }
+function throughGeminiGateway(answer) {
+    const r = runtime(), handlers = new Map(), posts = [];
+    Object.assign(r.w, {
+        appState: { aiProvider: 'google', _reviewAIContext: { provider: 'google', model: 'gemini-3.8-flash' } },
+        document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem() {} },
+        MappAITruncationTracker: { record() {} }, updateCostDisplay() {},
+        ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
+        fs: { writeFileSync() {} }, path, __dirname: '/mock-app',
+        axios: { post: async (url, payload) => {
+            posts.push({ url, payload: plain(payload) });
+            const batch = JSON.parse(payload.contents[0].parts[0].text.split('ITEM DA CONTROLLARE (dati)\n')[1]);
+            return { data: answer ? await answer(batch, payload, posts.length) : response(clean(batch)) };
+        } }
+    });
+    const main = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
+    vm.runInContext(main.slice(main.indexOf('async function callGemini('), main.indexOf('// Chiamata Infomaniak (stream')), r.w);
+    r.w.electronAPI = { generateGemini: args => handlers.get('generate-gemini')(null, args) };
+    const app = read('app.js');
+    vm.runInContext(app.slice(app.indexOf('function _detectTruncation('), app.indexOf('window.updateCostDisplay =')), r.w);
+    return { ...r, posts };
+}
+// Contract for the common documented subset, deliberately narrower than the
+// general REST Schema message. No network or provider acceptance is simulated.
+// https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
+function assertStructuredSubset(schema) {
+    const allowed = {
+        OBJECT: ['type', 'properties', 'required'], ARRAY: ['type', 'items', 'maxItems'],
+        STRING: ['type', 'enum'], INTEGER: ['type'], BOOLEAN: ['type']
+    };
+    assert.ok(allowed[schema.type], 'a single supported responseSchema type is required');
+    Object.keys(schema).forEach(k => assert.ok(allowed[schema.type].includes(k), k + ' is outside the common subset'));
+    if (schema.type === 'OBJECT') {
+        Object.values(schema.properties).forEach(assertStructuredSubset);
+        schema.required.forEach(k => assert.ok(Object.hasOwn(schema.properties, k)));
+    }
+    if (schema.type === 'ARRAY') {
+        assert.ok(Number.isInteger(schema.maxItems) && schema.maxItems > 0);
+        assertStructuredSubset(schema.items);
+    }
+    if (schema.enum) assert.ok(schema.enum.length && schema.enum.every(v => typeof v === 'string'));
+}
 function wrongGuide(itemId, extra = {}) {
     return { id: itemId, field: 'guide', problem: 'Il soggetto che riceve valuta è invertito.',
         evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD, replacement: GOLD, ...extra };
@@ -56,6 +97,131 @@ test('UMD exposes check in Node and browser; checks are read-only and ReviewCore
     const review = R.createReview({ db: { items }, report: plain(report) });
     assert.equal(review.initial.issues.length, 1);
     assert.equal(review.initial.issues[0].hasProposal, true);
+});
+
+test('actual renderer → Gemini IPC → HTTP payload uses the compact documented schema subset', async () => {
+    const items = Array.from({ length: 12 }, (_, n) => mc('draft-B-ramo-economia-e-neutralita-' + n + '-question-0123456789abcdef'));
+    const r = throughGeminiGateway((batch, payload) => {
+        const config = payload.generationConfig;
+        assert.equal(config.responseMimeType, 'application/json');
+        assert.equal(config.maxOutputTokens, 6000);
+        assert.equal(config.thinkingConfig.thinkingBudget, undefined, 'Gemini 3.8 uses a thinking level, not the legacy budget');
+        assert.equal(config.thinkingConfig.thinkingLevel.toLowerCase(), 'low');
+        for (const field of ['temperature', 'topP', 'topK', 'candidateCount']) assert.equal(config[field], undefined);
+        assert.equal(config.responseJsonSchema, undefined, 'do not mix incompatible schema fields');
+        assertStructuredSubset(config.responseSchema);
+        assert.equal(config.responseSchema.properties.checkedIds.items.enum, undefined);
+        assert.equal(config.responseSchema.properties.mcOptions.items.properties.id.enum, undefined);
+        assert.equal(config.responseSchema.properties.issues.items.properties.id.enum, undefined);
+        assert.match(payload.contents[0].parts[0].text, /problem e newContradiction massimo 350/);
+        return response(clean(batch));
+    });
+    const report = await r.check(items);
+    assert.equal(r.posts.length, 1);
+    assert.match(r.posts[0].url, /\/v1beta\/models\/gemini-3\.8-flash:generateContent\?/);
+    assert.equal(report.checkStatus, 'completed');
+    assert.equal(report.coverage.checkedIds.length, 12);
+});
+
+test('shared gateway adapts Gemini 3.8 thinking without changing callers, Gemini 2.5 or Infomaniak', async () => {
+    const r = throughGeminiGateway();
+    await r.check([flash('f')]);
+    const template = r.posts[0].payload;
+    const cases = [
+        { model: 'gemini-3.8-flash', tokens: 16000, thinking: { thinkingBudget: 0 }, level: 'low' },
+        { model: 'gemini-3.8-flash', tokens: 16000, thinking: { thinkingLevel: 'minimal' }, level: 'low' },
+        { model: 'gemini-3.8-flash', tokens: 6000, thinking: { thinkingLevel: 'HIGH' }, level: 'high' },
+        { model: 'gemini-3.8-flash', tokens: 16000, thinking: { thinkingBudget: 1024 }, level: 'medium' },
+        { model: 'gemini-3.8-flash', tokens: 16000, thinking: undefined, level: undefined },
+        { model: 'gemini-2.5-flash', tokens: 6000, thinking: undefined, legacy: true }
+    ];
+    for (const c of cases) {
+        r.w.appState._reviewAIContext.model = c.model;
+        const payload = { ...template, generationConfig: { maxOutputTokens: c.tokens, temperature: 0.4,
+            topP: 0.9, topK: 40, candidateCount: 1, ...(c.thinking ? { thinkingConfig: c.thinking } : {}) } };
+        const before = plain(payload);
+        await r.w.fetchModelAPI(payload, 'mock-key');
+        const config = r.posts.at(-1).payload.generationConfig;
+        if (c.legacy) {
+            assert.equal(config.thinkingConfig.thinkingBudget, 0);
+            assert.equal(config.temperature, 0.4);
+            assert.equal(config.topP, 0.9);
+        } else {
+            assert.equal(config.thinkingConfig?.thinkingLevel, c.level);
+            assert.equal(config.thinkingConfig?.thinkingBudget, undefined);
+            for (const field of ['temperature', 'topP', 'topK', 'candidateCount']) assert.equal(config[field], undefined);
+        }
+        assert.deepEqual(payload, before);
+    }
+    let bridgeInput, translated;
+    const translate = r.w.InfomaniakBridge.translatePayload;
+    r.w.InfomaniakBridge.translatePayload = (payload, model) => {
+        bridgeInput = plain(payload); return translate(payload, model);
+    };
+    r.w.appState._reviewAIContext = { provider: 'infomaniak', model: 'google/gemma-4-31B-it' };
+    r.w.appState.infomaniakProductId = 'mock-product';
+    r.w.electronAPI.generateInfomaniak = async ({ payload }) => {
+        translated = payload;
+        return { choices: [{ message: { content: JSON.stringify(clean([flash('f')])) }, finish_reason: 'stop' }] };
+    };
+    await r.w.fetchModelAPI({ ...template, generationConfig: { temperature: 0.7, _respectTemp: true, maxOutputTokens: 6000 } }, 'mock-key');
+    assert.equal(bridgeInput.generationConfig.temperature, 0.7);
+    assert.equal(bridgeInput.generationConfig.thinkingConfig, undefined);
+    assert.equal(translated.temperature, 0.7);
+});
+
+test('105 drafts: a wrapped Gemini 400 INVALID_ARGUMENT stops after one request, preserving every unchecked ID', async () => {
+    const r = throughGeminiGateway(() => {
+        const e = new Error('Request failed with status code 400');
+        e.response = { status: 400, data: { error: { code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT' } } };
+        throw e;
+    });
+    const items = Array.from({ length: 105 }, (_, n) => flash('draft-' + n)), before = plain(items);
+    const report = await r.check(items);
+    assert.equal(r.posts.length, 1);
+    assert.equal(report.batches.length, 1, 'unattempted lots are not represented as executed calls');
+    assert.equal(report.checkStatus, 'incomplete');
+    assert.equal(report.requestError.code, 'INVALID_ARGUMENT');
+    assert.match(report.reason, /Controllo interrotto/);
+    assert.equal(report.coverage.deterministicIds.length, 105);
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.equal(report.coverage.skipped.length, 105);
+    assert.equal(new Set(report.coverage.skipped.map(s => s.id)).size, 105);
+    assert.equal(new Set(report.coverage.skipped.map(s => s.reason)).size, 1);
+    assert.match(report.coverage.skipped[0].reason, /Errore Electron IPC API/);
+    assert.equal(report.issues.length, 0, 'failure does not invent a clean review or editorial issues');
+    assert.deepEqual(items, before);
+});
+
+test('invalid request after a successful lot retains its results and skips only the remainder', async () => {
+    const r = runtime((batch, _payload, call) => {
+        if (call === 2) throw Object.assign(new Error('INVALID_ARGUMENT'), { status: 400 });
+        return response(clean(batch));
+    });
+    const report = await r.check(Array.from({ length: 30 }, (_, n) => flash('f' + n)));
+    assert.equal(r.calls.length, 2);
+    assert.equal(report.coverage.checkedIds.length, 12);
+    assert.equal(report.coverage.skipped.length, 18);
+    assert.equal(report.checkStatus, 'incomplete');
+});
+
+test('IDs and text limits omitted from the wire schema are still checked locally', async () => {
+    for (const bad of [{ checkedIds: ['foreign'] }, { mcOptions: [{ id: 'foreign', indices: [] }] }]) {
+        const r = runtime(batch => response({ ...clean(batch), ...bad }));
+        const report = await r.check([flash('f')]);
+        assert.equal(report.checkStatus, 'incomplete');
+        assert.match(report.batches[0].reason, /ID estranei/);
+    }
+    const r = runtime(batch => response({ ...clean(batch), issues: [
+        wrongGuide('long-problem', { problem: 'x'.repeat(351) }),
+        wrongGuide('long-proposal', { replacement: 'x'.repeat(4501) }),
+        wrongGuide('long-criteria', { field: 'criteria', replacementList: ['x'.repeat(1001)] })
+    ] }));
+    const report = await r.check(['long-problem', 'long-proposal', 'long-criteria'].map(open));
+    assert.equal(report.checkStatus, 'incomplete');
+    assert.equal(report.rejected.length, 1);
+    assert.equal(report.issues.length, 2, 'useful concerns survive an invalid suggested replacement');
+    assert.ok(report.issues.every(i => i.hasProposal === false));
 });
 
 for (const provider of ['google', 'infomaniak', 'infomaniak-qwen']) {

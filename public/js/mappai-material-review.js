@@ -154,29 +154,33 @@
         if (raw.field === 'lines') return Number.isInteger(raw.replacementIndex) && raw.replacementIndex >= 3 && raw.replacementIndex <= 12 ? raw.replacementIndex : undefined;
         if (raw.field === 'options' || raw.field === 'criteria') {
             const a = raw.replacementList;
-            return Array.isArray(a) && a.length && a.every(meaningful) &&
+            return Array.isArray(a) && a.length && a.length <= 20 && a.every(v => meaningful(v) && v.length <= 1000) &&
                 (raw.field !== 'options' || Array.isArray(item.options) && a.length === item.options.length &&
                     new Set(a.map(v => flat(v).toLocaleLowerCase('it'))).size === a.length) ? copy(a) : undefined;
         }
-        return meaningful(raw.replacement) ? raw.replacement : undefined;
+        return meaningful(raw.replacement) && raw.replacement.length <= 4500 ? raw.replacement : undefined;
     }
     function schema(batch) {
-        const ids = batch.map(i => String(i.id));
+        // Keep the common structured-output subset: maxLength exists in the
+        // REST Schema type but is not documented for structured text output.
+        // Long per-batch ID enums also multiply decoder constraints. Validate
+        // IDs and text limits locally instead; keep the response contract.
+        // https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
         return { type: 'OBJECT', properties: {
-            checkedIds: { type: 'ARRAY', maxItems: ids.length, items: { type: 'STRING', enum: ids } },
-            mcOptions: { type: 'ARRAY', maxItems: ids.length, items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING', enum: ids }, indices: { type: 'ARRAY', maxItems: 20, items: { type: 'INTEGER' } }
+            checkedIds: { type: 'ARRAY', maxItems: batch.length, items: { type: 'STRING' } },
+            mcOptions: { type: 'ARRAY', maxItems: batch.length, items: { type: 'OBJECT', properties: {
+                id: { type: 'STRING' }, indices: { type: 'ARRAY', maxItems: 20, items: { type: 'INTEGER' } }
             }, required: ['id', 'indices'] } },
-            issues: { type: 'ARRAY', maxItems: ids.length * 3, items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING', enum: ids }, field: { type: 'STRING', enum: FIELDS },
-                problem: { type: 'STRING', maxLength: 350 },
+            issues: { type: 'ARRAY', maxItems: batch.length * 3, items: { type: 'OBJECT', properties: {
+                id: { type: 'STRING' }, field: { type: 'STRING', enum: FIELDS },
+                problem: { type: 'STRING' },
                 type: { type: 'STRING', enum: ['semantic', 'coherence', 'editorial', 'accessibility'] },
                 evidenceKind: { type: 'STRING', enum: ['source', 'teacher', 'item'] },
-                sourceId: { type: 'STRING' }, quote: { type: 'STRING', maxLength: 650 },
-                replacement: { type: 'STRING', maxLength: 4500 },
-                replacementList: { type: 'ARRAY', maxItems: 20, items: { type: 'STRING', maxLength: 1000 } },
+                sourceId: { type: 'STRING' }, quote: { type: 'STRING' },
+                replacement: { type: 'STRING' },
+                replacementList: { type: 'ARRAY', maxItems: 20, items: { type: 'STRING' } },
                 replacementIndex: { type: 'INTEGER' }, exclude: { type: 'BOOLEAN' },
-                decisionId: { type: 'STRING' }, reopensDecisionId: { type: 'STRING' }, newContradiction: { type: 'STRING', maxLength: 350 }
+                decisionId: { type: 'STRING' }, reopensDecisionId: { type: 'STRING' }, newContradiction: { type: 'STRING' }
             }, required: ['id', 'field', 'problem', 'evidenceKind', 'quote'] } }
         }, required: ['checkedIds', 'mcOptions', 'issues'] };
     }
@@ -190,6 +194,7 @@ Una scheda nodi con layout:"title" contiene intenzionalmente soltanto il titolo 
 Controllo editoriale limitato (type:"editorial"): segnala accenti, accordi, parole spezzate o frasi interrotte soltanto se il difetto è chiaro. Non correggere nomi propri, termini tecnici o parole inconsuete perché poco familiari; conserva il lessico della fonte e le citazioni testuali. Per questi difetti la prova è il testo dell'item stesso (evidenceKind:"item"), senza pretendere una prova storica. Proponi una correzione locale, mai un abbellimento o una riscrittura generale; se la ricostruzione è incerta, segnala senza replacement. Nessuna proposta editoriale viene applicata automaticamente.
 Le decisioni già approvate non si ridiscutono per la stessa ragione, compresi i rifiuti. Solo una contraddizione NUOVA permette di riaprire una decisione: indica reopensDecisionId, newContradiction e un diverso passaggio verificabile; non basta riformulare l'obiezione precedente. Se invece un materiale contraddice una rettifica già approvata, segnala il materiale: questo NON riapre la decisione. decisionId identifica soltanto la rettifica usata come prova.
 Rispondi nel JSON dello schema: checkedIds contiene solo gli ID esaminati in TUTTI i campi presenti. issues contiene soltanto problemi concreti; una lista vuota è normale. Ogni problema riguarda un solo field e usa il medesimo ID dell'item. Una correzione usa replacement per testo, replacementList per options/criteria, replacementIndex per indice/righe; ometti questi campi se non hai una proposta fondata. Mantieni ordine e numero delle opzioni. Per escludere un item usa field "$item" ed exclude:true, senza restituire l'intero item.
+Limiti di lunghezza: problem e newContradiction massimo 350 caratteri, quote 650, replacement 4500; replacementList massimo 20 testi di 1000 caratteri ciascuno. Copia soltanto ID presenti nel lotto.
 Per ogni problema copia quote dal passaggio che lo sostiene; evidenceKind:"source" e sourceId per la fonte originale, "teacher" e decisionId per una rettifica, "item" solo per una contraddizione interna esplicita. Non usare una descrizione generata come prova originale. Per un problema di ambiguità spiega perché le alternative sono difendibili e cita il passaggio pertinente. Fornisci una proposta circoscritta che conservi i fatti e gli aiuti didattici.
 
 MATERIALE DI RIFERIMENTO
@@ -266,6 +271,10 @@ ${JSON.stringify(batch)}`;
                 const raw = ((candidate && candidate.content && candidate.content.parts) || []).map(p => str(p.text)).join('');
                 const data = parse(raw);
                 if (!data || !Array.isArray(data.checkedIds) || !Array.isArray(data.mcOptions) || !Array.isArray(data.issues)) throw new Error('Risposta priva degli elenchi di controllo previsti');
+                const batchIds = new Set(batch.map(item => item.id));
+                if (data.checkedIds.some(id => !batchIds.has(id)) || data.mcOptions.some(row => !row || !batchIds.has(row.id))) {
+                    throw new Error('Gli elenchi di controllo contengono ID estranei al lotto');
+                }
                 const finish = candidate && candidate.finishReason;
                 const truncated = !balanced(raw) || finish && !/^(STOP|stop)$/i.test(finish);
                 const invalid = new Set();
@@ -275,6 +284,10 @@ ${JSON.stringify(batch)}`;
                         rawIssue.field !== '$item' && !own(item, rawIssue.field)) {
                         report.rejected.push({ id: rawIssue && rawIssue.id, reason: 'Destinatario/campo o descrizione del problema non valido' });
                         if (item) invalid.add(item.id); else batch.forEach(i => invalid.add(i.id)); return;
+                    }
+                    if (rawIssue.problem.length > 350 || str(rawIssue.quote).length > 650 || str(rawIssue.newContradiction).length > 350) {
+                        report.rejected.push({ id: item.id, reason: 'La segnalazione supera i limiti di lunghezza previsti' });
+                        invalid.add(item.id); return;
                     }
                     const evidence = verifiedEvidence(rawIssue, item, sources, decisions);
                     if (!evidence) { report.rejected.push({ id: item.id, reason: 'La prova non coincide con la fonte, la decisione o l’item dichiarati', problem: rawIssue.problem }); invalid.add(item.id); return; }
@@ -306,6 +319,14 @@ ${JSON.stringify(batch)}`;
             } catch (e) {
                 status.reason = e && e.message || 'Controllo non riuscito';
                 batch.forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
+                // IPC wraps the provider error and may drop its HTTP status.
+                // An explicit invalid request will not improve in later lots.
+                if ((Number(e && e.status) === 400 || /\b400\b/.test(status.reason)) && /\bINVALID_ARGUMENT\b/i.test(status.reason)) {
+                    report.reason = 'Il provider ha rifiutato la richiesta (400 INVALID_ARGUMENT). Controllo interrotto: i materiali non esaminati restano da verificare.';
+                    report.requestError = { status: 400, code: 'INVALID_ARGUMENT', message: status.reason };
+                    valid.slice(start + BATCH_SIZE).forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
+                    break;
+                }
             }
         }
         report.checkStatus = report.coverage.skipped.length ? 'incomplete' : 'completed';
