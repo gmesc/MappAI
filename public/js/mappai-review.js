@@ -382,7 +382,7 @@
     modal.innerHTML = '<div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] flex flex-col">' +
       '<header class="p-5 border-b"><h2 id="mrv-title" class="pm-title" tabindex="-1">' + esc(isFinal ? t('rv_final_title', 'Rivedi i materiali') : t('rv_title', 'Rivedi i contenuti prima di creare i materiali')) +
       '</h2><p class="pm-subtitle">' + esc(t('rv_subtitle', 'Le decisioni restano nel progetto. Il controllo automatico può non rilevare tutti gli errori.')) +
-      '</p><p id="mrv-status" role="status" aria-live="polite"></p><button type="button" id="mrv-save-retry" hidden class="pm-btn-cancel">' + esc(t('rv_save_retry', 'Riprova il salvataggio')) + '</button></header>' +
+      '</p><div id="mrv-filters" class="flex gap-2 flex-wrap mt-3" role="group" aria-label="' + esc(t('rv_filter_label', 'Mostra le decisioni')) + '"></div><p id="mrv-filter-count" class="text-sm mt-2" aria-live="polite"></p><p id="mrv-status" role="status" aria-live="polite"></p><button type="button" id="mrv-save-retry" hidden class="pm-btn-cancel">' + esc(t('rv_save_retry', 'Riprova il salvataggio')) + '</button></header>' +
       '<div class="overflow-y-auto p-5 space-y-4" id="mrv-content"></div><footer class="p-5 border-t space-y-3"><div id="mrv-manual"></div><div class="flex gap-3 flex-wrap">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
@@ -391,7 +391,46 @@
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
     const invalidEditors = new Set();
+    let activeFilter = 'pending';
+    const filters = modal.querySelector('#mrv-filters'), filterCount = modal.querySelector('#mrv-filter-count');
+    const filterLabels = { pending: t('rv_filter_pending', 'Da rivedere'), decided: t('rv_filter_decided', 'Già decise'), all: t('rv_filter_all', 'Tutte') };
     const setReview = r => { if (isFinal) manifest.review.final.review = r; else manifest.review = r; };
+    function decisionState() {
+      const r = getReview(), issues = r.initial.issues;
+      const db = isFinal ? { items: manifest.review.final.items } : state().db;
+      const preview = core().preview(r, db, { sources: r.sources });
+      const attention = new Set(preview.conflicts.map(c => c.issueId).filter(Boolean));
+      // A chosen action is still actionable when it cannot be applied or leaves
+      // an invalid exercise. The filter must not hide these approval blockers.
+      if (isFinal && preview.ok && window.MappAIMaterialReview?.validate) {
+        const invalid = window.MappAIMaterialReview.validate(preview.db.items).issues || [];
+        const itemIds = new Set(invalid.map(i => String(i.target?.id)));
+        issues.filter(i => i.target.kind === 'item' && itemIds.has(String(i.target.id))).forEach(i => attention.add(i.id));
+      }
+      const pending = issues.filter(i => attention.has(i.id) || !['accept', 'reject', 'manual'].includes(r.initial.decisions[i.id]?.choice));
+      const ids = new Set(pending.map(i => i.id));
+      return { pending, decided: issues.filter(i => !ids.has(i.id)), all: issues };
+    }
+    function updateFilters() {
+      const groups = decisionState();
+      filters.querySelectorAll('button').forEach(button => {
+        const key = button.getAttribute('data-review-filter');
+        button.textContent = filterLabels[key] + ' (' + groups[key].length + ')';
+        button.setAttribute('aria-pressed', String(activeFilter === key));
+        button.className = activeFilter === key ? 'pm-btn-primary' : 'pm-btn-cancel';
+      });
+      filterCount.textContent = groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') + ' · ' + groups.decided.length + ' ' + t('rv_count_decided', 'già decise');
+      return groups;
+    }
+    for (const key of Object.keys(filterLabels)) {
+      const button = document.createElement('button'); button.type = 'button'; button.setAttribute('data-review-filter', key);
+      button.onclick = async () => {
+        if (busy || invalidEditors.size) return;
+        await pendingSave; if (saveError || closed) return;
+        activeFilter = key; render(); button.focus();
+      };
+      filters.appendChild(button);
+    }
     function close() { closed = true; modal.remove(); if (previousFocus && previousFocus.isConnected) previousFocus.focus(); }
     function errorText(e) {
       return e && /^(persisted_revision_mismatch|applying_snapshot_mismatch)$/.test(e.code || e.message)
@@ -409,7 +448,7 @@
       if (busy || getReview().initial.status !== 'awaiting_review') return;
       let r = getReview();
       group.forEach(issue => { r = core().setDecision(r, issue.id, choice, { text: value }); });
-      setReview(r); save();
+      setReview(r); updateFilters(); return save();
     }
     function freeze(value) {
       busy = value; modal.setAttribute('aria-busy', String(value));
@@ -422,12 +461,32 @@
     function render() {
       const r = getReview(), approved = r.initial.status === 'approved', editable = r.initial.status === 'awaiting_review';
       content.replaceChildren(); invalidEditors.clear();
+      const groups = updateFilters();
       const info = document.createElement('p');
       const currentDb = isFinal ? { items: manifest.review.final.items } : state().db;
       info.textContent = approved ? (core().gate(r, currentDb, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
-        r.initial.issues.length ? R.groupIssues(r.initial.issues).length + ' ' + t('rv_issues', 'questioni da esaminare') : t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.');
+        !r.initial.issues.length ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') :
+        groups.pending.length ? groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') :
+        t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Controlla qui sotto se resta un passaggio per continuare.');
       content.appendChild(info);
-      for (const group of R.groupIssues(r.initial.issues)) {
+      if (!groups[activeFilter].length && r.initial.issues.length) {
+        const empty = document.createElement('p'); empty.id = 'mrv-filter-empty';
+        empty.textContent = activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
+        content.appendChild(empty);
+      }
+      if (r.initial.checkStatus !== 'completed') {
+        const report = r.initial.report || {}, coverage = report.copertura || {};
+        const unchecked = (coverage.nodiSaltati || []).map(n => ({ label: n.label || nodeLabel(n.id), reason: n.motivo }))
+          .concat((coverage.linkSaltati || []).map(l => ({ label: readable(l, { kind: 'link' }), reason: l.motivo })))
+          .concat((report.coverage?.skipped || []).map(i => ({ label: (r.baseSnapshot.items || []).find(x => String(x.id) === String(i.id))?.question || String(i.id || ''), reason: i.reason })));
+        if (unchecked.length) {
+          const box = document.createElement('details'); box.id = 'mrv-unchecked';
+          box.innerHTML = '<summary>' + esc(t('rv_unchecked', 'Elementi non esaminati dal controllo automatico')) + ' (' + unchecked.length + ')</summary><ul class="mt-2 space-y-2">' +
+            unchecked.map(i => '<li><strong>' + esc(i.label) + '</strong>' + (i.reason ? ' — ' + esc(i.reason) : '') + '</li>').join('') + '</ul>';
+          content.appendChild(box);
+        }
+      }
+      for (const group of R.groupIssues(groups[activeFilter])) {
         const issue = group[0], item = itemFor(issue, r);
         const card = document.createElement('section'); card.className = 'pm-section';
         const title = issue.problem || fieldName(issue.target.field);
@@ -512,10 +571,14 @@
           if (choice === 'accept' && (!issue.hasProposal || !allowed) || choice === 'manual' && !allowed) continue;
           const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel'; button.disabled = !editable;
           button.textContent = choice === 'pending' ? t('rv_undo', 'Annulla decisione') : labels[choice];
-          button.onclick = () => {
+          button.onclick = async () => {
             Array.from(invalidEditors).filter(k => k.startsWith(issue.id + ':')).forEach(k => invalidEditors.delete(k));
-            decide(group, choice, choice === 'manual' ? issue.before : undefined); showChoice();
-            if (choice === 'manual') editBox(true); else { editor.replaceChildren(); proceed.disabled = invalidEditors.size > 0; }
+            const saved = decide(group, choice, choice === 'manual' ? issue.before : undefined); showChoice();
+            if (choice === 'manual') editBox(true); else {
+              editor.replaceChildren(); proceed.disabled = invalidEditors.size > 0;
+              await saved;
+              if (!saveError && !closed) { render(); filters.querySelector('[data-review-filter="' + activeFilter + '"]').focus(); }
+            }
           };
           actions.appendChild(button);
         }
@@ -540,19 +603,27 @@
         content.appendChild(card);
       }
       if (!isFinal && editable) {
-        const box = document.createElement('div');
+        const box = document.createElement('details'); box.id = 'mrv-other-nodes';
+        const summary = document.createElement('summary'); summary.textContent = t('rv_other', 'Correggi anche un nodo non segnalato'); box.appendChild(summary);
         const label = document.createElement('label'); label.className = 'block font-bold'; label.textContent = t('rv_other', 'Correggi anche un nodo non segnalato');
         const select = document.createElement('select'); select.className = 'border rounded p-2 block w-full';
         select.innerHTML = '<option value="">' + esc(t('rv_choose_node', 'Scegli un nodo')) + '</option>' + (state().db.nodes || []).map(n => '<option value="' + esc(n.id) + '">' + esc(n.label) + '</option>').join('');
         const field = document.createElement('select'); field.setAttribute('aria-label', t('rv_choose_field', 'Campo da modificare')); field.innerHTML = ['desc', 'label'].map(f => '<option value="' + f + '">' + esc(fieldName(f)) + '</option>').join('');
-        select.onchange = () => {
+        const preview = document.createElement('p'); preview.className = 'whitespace-pre-wrap mt-3';
+        const add = document.createElement('button'); add.type = 'button'; add.className = 'pm-btn-cancel'; add.id = 'mrv-add-node'; add.disabled = true;
+        add.textContent = t('rv_add_node_review', 'Aggiungi alla revisione');
+        select.onchange = field.onchange = () => {
+          const n = state().db.nodes.find(n => String(n.id) === select.value);
+          preview.textContent = n ? String(n[field.value || 'desc'] || '') : ''; add.disabled = !n;
+        };
+        add.onclick = () => {
           if (!select.value) return;
           const n = state().db.nodes.find(n => String(n.id) === select.value);
           setReview(core().addIssue(getReview(), { target: { kind: 'node', id: n.id, field: field.value || 'desc' },
             problem: t('rv_teacher_edit', 'Modifica del docente') + ': ' + n.label, origin: 'teacher', blocking: true }, state().db));
-          save(); render(); modal.querySelector('#mrv-title').focus();
+          activeFilter = 'pending'; save(); render(); modal.querySelector('#mrv-title').focus();
         };
-        label.appendChild(select); box.appendChild(field); box.appendChild(label); content.appendChild(box);
+        label.appendChild(select); box.appendChild(field); box.appendChild(label); box.appendChild(preview); box.appendChild(add); content.appendChild(box);
       }
       if (!isFinal) ['Local', 'Disk'].forEach(kind => {
         const draft = state()['_review' + kind + 'Draft'];

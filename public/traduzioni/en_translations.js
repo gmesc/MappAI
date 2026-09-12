@@ -1,4 +1,15 @@
 const en_translations = {
+    rv_add_node_review: "Add to review",
+    rv_unchecked: "Items not examined by the automated check",
+    rv_decisions_complete: "Every finding has a decision. Check below for any remaining step before continuing.",
+    rv_filter_label: "Show decisions",
+    rv_filter_pending: "Needs review",
+    rv_filter_decided: "Decided",
+    rv_filter_all: "All",
+    rv_count_pending: "need review",
+    rv_count_decided: "decided",
+    rv_no_pending: "There are no decisions needing review. Use the Decided filter to see previous decisions.",
+    rv_no_decided: "No decisions have been made yet.",
     // Revisione docente e percorsi brevi da materiali approvati.
     rv_menu: "Review content",
     rv_path_menu: "Create a short practice path",

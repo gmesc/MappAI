@@ -307,3 +307,98 @@ test('double confirmation starts continuation only once', async () => {
   await Promise.all([first, second]); await next.onclick();
   assert.equal(continued, 1); assert.equal(h.calls.map, 1);
 });
+
+test('review defaults to actionable decisions, retains history and keeps incomplete-check confirmation visible', async () => {
+  const report = { checkStatus: 'incomplete', issues: [
+    { id: 'pending', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Ancora da decidere' },
+    { id: 'accepted', target: { kind: 'node', id: 'b', field: 'desc' }, after: 'Corretto.', problem: 'Proposta già accettata' },
+    { id: 'rejected', target: { kind: 'link', source: 'a', target: 'b', field: 'rel' }, after: 'include', problem: 'Proposta già respinta' }
+  ] };
+  const r = Core.setDecision(Core.setDecision(initial(report), 'accepted', 'accept'), 'rejected', 'reject');
+  const h = runtime(), m = manifest(r), modal = h.R.open('/vault', m), before = clone(m.review);
+  const filter = key => modal.querySelector('[data-review-filter="' + key + '"]');
+  assert.equal(filter('pending').getAttribute('aria-pressed'), 'true');
+  assert.equal(modal.querySelectorAll('.pm-section').length, 1);
+  assert.match(h.dom.text(), /Ancora da decidere/); assert.doesNotMatch(h.dom.text(), /Proposta già accettata|Proposta già respinta/);
+  assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  assert.equal(modal.querySelector('#mrv-other-nodes').getAttribute('open'), undefined, 'unreported nodes stay behind a closed disclosure');
+  await filter('decided').click();
+  assert.equal(modal.querySelectorAll('.pm-section').length, 2);
+  await filter('all').click();
+  assert.equal(modal.querySelectorAll('.pm-section').length, 3);
+  assert.deepEqual(clone(m.review), before); assert.equal(h.calls.manifest, 0, 'a view filter never changes or saves decisions');
+});
+
+test('saved decision leaves the actionable view; undo in history restores it and filtering never loses a manual draft', async () => {
+  const h = runtime(), m = manifest(), modal = h.R.open('/vault', m);
+  const filter = key => modal.querySelector('[data-review-filter="' + key + '"]');
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Applica la proposta').click();
+  assert.equal(modal.querySelectorAll('.pm-section').length, 0);
+  assert.match(filter('pending').textContent, /\(0\)/); assert.match(filter('decided').textContent, /\(1\)/);
+  assert.ok(modal.querySelector('#mrv-filter-empty'));
+  await filter('decided').click();
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Annulla decisione').click();
+  assert.equal(modal.querySelectorAll('.pm-section').length, 0);
+  await filter('pending').click();
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Modifica il testo').click();
+  const input = modal.querySelector('[data-editor] textarea');
+  input.value = 'Correzione del docente in corso.'; input.oninput(); await tick();
+  assert.equal(h.dom.document.activeElement, input, 'typing does not remove or remount the active editor');
+  await filter('decided').click();
+  assert.equal(modal.querySelector('[data-editor] textarea').value, 'Correzione del docente in corso.');
+  assert.equal(h.saved.manifest.review.initial.decisions.issue.text, 'Correzione del docente in corso.');
+});
+
+test('filtering precedes duplicate grouping so a new decision cannot overwrite a previously resolved twin', async () => {
+  const report = { checkStatus: 'completed', issues: ['first', 'second'].map(id => ({ id,
+    target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Stessa segnalazione' })) };
+  const m = manifest(Core.setDecision(initial(report), 'first', 'reject')), h = runtime();
+  const modal = h.R.open('/vault', m);
+  assert.equal(modal.querySelectorAll('.pm-section').length, 1);
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Applica la proposta').click();
+  assert.equal(m.review.initial.decisions.first.choice, 'reject');
+  assert.equal(m.review.initial.decisions.second.choice, 'accept');
+});
+
+test('already chosen actions remain actionable when structurally invalid or conflicting', async () => {
+  const items = [{ id: 'q', kind: 'mc', question: 'Chi?', options: ['Germania', 'Svizzera'], correctIndex: 9 }];
+  const issue = { id: 'key', target: { kind: 'item', id: 'q', field: 'correctIndex' }, after: 0, problem: 'Chiave non valida' };
+  const m = finalManifest(items, [issue]), h = runtime();
+  m.review.final.review = Core.setDecision(m.review.final.review, 'key', 'reject');
+  const modal = h.R.open('/vault', m, { final: true });
+  assert.equal(modal.querySelectorAll('.pm-section').length, 1, 'rejecting a broken key cannot hide the blocker');
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Applica la proposta').click();
+  assert.equal(modal.querySelectorAll('.pm-section').length, 0);
+  const conflict = runtime(), conflicting = manifest(Core.setDecision(initial(), 'issue', 'manual', { text: '' }));
+  const other = conflict.R.open('/vault', conflicting);
+  assert.equal(other.querySelectorAll('.pm-section').length, 1, 'an invalid manual replacement still needs attention');
+});
+
+test('all decisions made does not hide the remaining manual-check requirement or reopen resolved issues', () => {
+  const h = runtime(), m = manifest(Core.setDecision(initial({ checkStatus: 'incomplete', copertura: {
+    nodiSaltati: [{ id: 'a', label: 'Germania', motivo: 'Fuori dal controllo' }],
+    linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'Prova mancante' }]
+  }, issues: [
+    { id: 'done', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Già decisa' }
+  ] }), 'done', 'accept'));
+  const modal = h.R.open('/vault', m);
+  assert.equal(modal.querySelectorAll('.pm-section').length, 0);
+  assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  assert.match(h.dom.text(), /Tutte le segnalazioni hanno una decisione/);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /Germania → richiede → Svizzera/);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /\(2\)/);
+  assert.equal(m.review.initial.status, 'awaiting_review');
+});
+
+test('reading an unreported node does not create a decision or write to the project', async () => {
+  const h = runtime(), m = manifest(initial({ checkStatus: 'completed', issues: [] }));
+  const modal = h.R.open('/vault', m), box = modal.querySelector('#mrv-other-nodes');
+  const selects = box.querySelectorAll('select'), nodeSelect = selects[1], field = selects[0];
+  nodeSelect.value = 'b'; nodeSelect.onchange();
+  assert.match(box.textContent, /Altro testo\./);
+  field.value = 'label'; field.onchange();
+  assert.equal(m.review.initial.issues.length, 0); assert.equal(h.calls.manifest, 0);
+  await box.querySelector('#mrv-add-node').click(); await tick();
+  assert.equal(m.review.initial.issues.length, 1); assert.equal(m.review.initial.issues[0].target.field, 'label');
+  assert.match(modal.querySelector('[data-review-filter="pending"]').textContent, /\(1\)/);
+});

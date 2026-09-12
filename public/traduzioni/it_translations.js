@@ -1,4 +1,15 @@
 const it_translations = {
+    rv_add_node_review: "Aggiungi alla revisione",
+    rv_unchecked: "Elementi non esaminati dal controllo automatico",
+    rv_decisions_complete: "Tutte le segnalazioni hanno una decisione. Controlla qui sotto se resta un passaggio per continuare.",
+    rv_filter_label: "Mostra le decisioni",
+    rv_filter_pending: "Da rivedere",
+    rv_filter_decided: "Già decise",
+    rv_filter_all: "Tutte",
+    rv_count_pending: "da rivedere",
+    rv_count_decided: "già decise",
+    rv_no_pending: "Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.",
+    rv_no_decided: "Non ci sono ancora decisioni già prese.",
     // Revisione docente e percorsi brevi da materiali approvati.
     rv_menu: "Rivedi contenuti",
     rv_path_menu: "Crea un percorso breve",
