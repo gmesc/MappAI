@@ -265,12 +265,17 @@ test('openCurrent chooses pending G2; completed G1 closes without regenerating m
 
 test('manual review requires an explicit checkbox and keyboard navigation stays in the dialog', async () => {
   const h = runtime(), m = manifest(initial({ checkStatus: 'unavailable', issues: [] })), modal = h.R.open('/vault', m);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
   await modal.querySelector('#mrv-continue').click(); assert.equal(h.calls.map, 0);
   const confirmation = modal.querySelector('#mrv-manual-confirm'); assert.equal(confirmation.checked, false);
+  const manualOption = modal.querySelector('#mrv-manual-option');
+  assert.equal(manualOption.getAttribute('open'), undefined);
   let prevented = false;
   modal.listeners.keydown({ key: 'Tab', shiftKey: true, preventDefault: () => { prevented = true; } });
   assert.equal(prevented, true); assert.notEqual(h.dom.document.activeElement.id, 'previous');
-  confirmation.checked = true; confirmation.onchange(); await modal.querySelector('#mrv-continue').click();
+  manualOption.setAttribute('open', ''); confirmation.checked = true; confirmation.onchange();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  await modal.querySelector('#mrv-continue').click();
   assert.equal(m.review.initial.manualReview, true); assert.equal(m.review.initial.status, 'approved');
 });
 
@@ -308,7 +313,7 @@ test('double confirmation starts continuation only once', async () => {
   assert.equal(continued, 1); assert.equal(h.calls.map, 1);
 });
 
-test('review defaults to actionable decisions, retains history and keeps incomplete-check confirmation visible', async () => {
+test('review defaults to actionable decisions, retains history and keeps manual confirmation available as an optional disclosure', async () => {
   const report = { checkStatus: 'incomplete', issues: [
     { id: 'pending', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Ancora da decidere' },
     { id: 'accepted', target: { kind: 'node', id: 'b', field: 'desc' }, after: 'Corretto.', problem: 'Proposta già accettata' },
@@ -321,6 +326,7 @@ test('review defaults to actionable decisions, retains history and keeps incompl
   assert.equal(modal.querySelectorAll('.pm-section').length, 1);
   assert.match(h.dom.text(), /Ancora da decidere/); assert.doesNotMatch(h.dom.text(), /Proposta già accettata|Proposta già respinta/);
   assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  assert.equal(modal.querySelector('#mrv-manual-option').getAttribute('open'), undefined);
   assert.equal(modal.querySelector('#mrv-other-nodes').getAttribute('open'), undefined, 'unreported nodes stay behind a closed disclosure');
   await filter('decided').click();
   assert.equal(modal.querySelectorAll('.pm-section').length, 2);
@@ -374,20 +380,25 @@ test('already chosen actions remain actionable when structurally invalid or conf
   assert.equal(other.querySelectorAll('.pm-section').length, 1, 'an invalid manual replacement still needs attention');
 });
 
-test('all decisions made does not hide the remaining manual-check requirement or reopen resolved issues', () => {
+test('all decisions made retains a compact check warning and optional manual confirmation without reopening resolved issues', () => {
   const h = runtime(), m = manifest(Core.setDecision(initial({ checkStatus: 'incomplete', copertura: {
     nodiSaltati: [{ id: 'a', label: 'Germania', motivo: 'Fuori dal controllo' }],
     linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'Prova mancante' }]
   }, issues: [
     { id: 'done', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Già decisa' }
   ] }), 'done', 'accept'));
-  const modal = h.R.open('/vault', m);
+  const before = clone(m), modal = h.R.open('/vault', m);
   assert.equal(modal.querySelectorAll('.pm-section').length, 0);
   assert.ok(modal.querySelector('#mrv-manual-confirm'));
   assert.match(h.dom.text(), /Tutte le segnalazioni hanno una decisione/);
-  assert.match(modal.querySelector('#mrv-unchecked').textContent, /Germania → richiede → Svizzera/);
-  assert.match(modal.querySelector('#mrv-unchecked').textContent, /\(2\)/);
+  const unchecked = modal.querySelector('#mrv-unchecked');
+  assert.match(unchecked.textContent, /2/);
+  assert.doesNotMatch(unchecked.textContent, /Germania|Svizzera|Fuori dal controllo|Prova mancante/);
+  assert.equal(unchecked.querySelectorAll('li,details').length, 0);
+  assert.equal(modal.querySelector('#mrv-manual-option').getAttribute('open'), undefined);
+  assert.equal(modal.querySelector('#mrv-filters').hidden, false, 'existing resolved decisions remain accessible through the filters');
   assert.equal(m.review.initial.status, 'awaiting_review');
+  assert.deepEqual(clone(m), before); assert.equal(h.calls.manifest, 0);
 });
 
 test('reading an unreported node does not create a decision or write to the project', async () => {
@@ -517,7 +528,13 @@ test('G2 incomplete review offers material retry, freezes controls and retains a
   const retry = modal.querySelector('#mrv-retry-judge');
   assert.ok(retry); assert.equal(retry.textContent, 'Riprova il controllo dei materiali');
   retry.focus();
-  assert.ok(modal.querySelector('#mrv-manual-confirm'));
+  const confirmation = modal.querySelector('#mrv-manual-confirm');
+  assert.ok(confirmation); assert.equal(modal.querySelector('#mrv-continue').hidden, true);
+  modal.querySelector('#mrv-manual-option').setAttribute('open', '');
+  confirmation.checked = true; confirmation.onchange();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  confirmation.checked = false; confirmation.onchange();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
   let failCheck, entered;
   const ready = new Promise(resolve => { entered = resolve; });
   h.materialCheck = async () => { entered(); return new Promise((_, reject) => { failCheck = reject; }); };
@@ -533,6 +550,7 @@ test('G2 incomplete review offers material retry, freezes controls and retains a
   assert.equal(h.m.review.final.review.initial.checkStatus, 'completed');
   assert.equal(modal.querySelector('#mrv-retry-judge'), null);
   assert.equal(modal.querySelector('#mrv-manual-confirm'), null);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
   assert.equal(h.dom.document.activeElement.id, 'mrv-title', 'retry rerender restores dialog focus instead of leaving it on a removed button');
   assert.equal(h.calls.pipeline, 0); assert.equal(h.calls.map, 0); assert.equal(h.calls.export, 0);
 });
@@ -547,21 +565,28 @@ test('G2 cannot spend another model call while a teacher decision has an unresol
   assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
 });
 
-test('G2 groups the 105 identical check failures once and never treats missing AI results as a clean review', () => {
+test('G2 shows only a compact unchecked count and keeps the full 105-item diagnostics in the unchanged manifest', () => {
   const h = materialRetryFixture();
   h.m.review.final.review.initial.issues = [];
   h.m.review.final.review.initial.decisions = {};
-  const modal = h.R.open('/vault', h.m, { final: true });
+  const before = clone(h.m), modal = h.R.open('/vault', h.m, { final: true });
   const unchecked = modal.querySelector('#mrv-unchecked');
   assert.ok(unchecked, 'skipped material checks remain visible even when no correction issue was returned');
-  assert.equal((unchecked.textContent.match(/HTTP 400: schema non valido/g) || []).length, 1);
   assert.match(unchecked.textContent, /105/);
-  assert.match(unchecked.textContent, /Domanda salvata 0\?/);
-  assert.match(unchecked.textContent, /Domanda salvata 104\?/);
-  assert.ok(unchecked.querySelectorAll('details').some(el => /Dettaglio tecnico/.test(el.textContent)));
+  assert.equal(unchecked.querySelectorAll('li,details').length, 0);
+  assert.doesNotMatch(h.dom.html(), /HTTP 400|schema non valido|Domanda salvata|saved-\d+|Dettaglio tecnico/);
   assert.doesNotMatch(h.dom.text(), /Nessuna proposta di correzione\. Puoi leggere i contenuti e continuare\./);
+  assert.equal(modal.querySelector('#mrv-filters').hidden, true);
+  assert.equal(modal.querySelector('#mrv-filter-count').hidden, true);
   assert.ok(modal.querySelector('#mrv-manual-confirm'));
   assert.ok(modal.querySelector('#mrv-retry-judge'));
+  const manualOption = modal.querySelector('#mrv-manual-option');
+  assert.equal(manualOption.getAttribute('open'), undefined);
+  assert.equal(manualOption.querySelector('#mrv-retry-judge'), null, 'retry is immediately available outside the optional manual path');
+  assert.ok(h.dom.html().indexOf('id="mrv-retry-judge"') < h.dom.html().indexOf('id="mrv-manual-option"'));
+  assert.deepEqual(clone(h.m), before); assert.equal(h.calls.manifest, 0);
+  assert.equal(h.m.review.final.review.initial.report.coverage.skipped.length, 105);
+  assert.equal(h.m.review.final.review.initial.report.coverage.skipped[104].reason, 'HTTP 400: schema non valido');
 });
 
 test('G2 retry preserves an unfinished invalid numeric edit and does not call the judge', async () => {

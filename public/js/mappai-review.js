@@ -499,6 +499,8 @@
       const r = getReview(), approved = r.initial.status === 'approved', editable = r.initial.status === 'awaiting_review';
       content.replaceChildren(); invalidEditors.clear();
       const groups = updateFilters();
+      filters.hidden = filterCount.hidden = !r.initial.issues.length;
+      filters.className = r.initial.issues.length ? 'flex gap-2 flex-wrap mt-3' : '';
       const info = document.createElement('p');
       const currentDb = isFinal ? { items: manifest.review.final.items } : state().db;
       info.textContent = approved ? (core().gate(r, currentDb, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
@@ -513,20 +515,13 @@
       }
       if (r.initial.checkStatus !== 'completed') {
         const report = r.initial.report || {}, coverage = report.copertura || {};
-        const unchecked = (coverage.nodiSaltati || []).map(n => ({ label: n.label || nodeLabel(n.id), reason: n.motivo }))
-          .concat((coverage.linkSaltati || []).map(l => ({ label: readable(l, { kind: 'link' }), reason: l.motivo })))
-          .concat((report.coverage?.skipped || []).map(i => ({ label: (r.baseSnapshot.items || []).find(x => String(x.id) === String(i.id))?.question || String(i.id || ''), reason: i.reason })));
-        if (unchecked.length) {
-          const box = document.createElement('details'); box.id = 'mrv-unchecked';
-          const reasons = new Map();
-          unchecked.forEach(item => { const reason = String(item.reason || ''); if (!reasons.has(reason)) reasons.set(reason, []); reasons.get(reason).push(item.label); });
-          box.innerHTML = '<summary>' + esc(t('rv_unchecked', 'Elementi non esaminati dal controllo automatico')) + ' (' + unchecked.length + ')</summary>' +
-            Array.from(reasons, ([reason, labels]) => '<section class="mt-3">' +
-              (/INVALID_ARGUMENT|invalid argument/i.test(reason) ? '<p>' + esc(t('rv_request_rejected', 'Il servizio AI non ha accettato la richiesta di controllo. Le bozze sono conservate.')) + '</p>' : '') +
-              (reason ? '<details><summary>' + esc(/IPC|INVALID_ARGUMENT|invalid argument|API|HTTP/i.test(reason) ? t('rv_technical_detail', 'Dettaglio tecnico') : t('rv_check_detail', 'Dettaglio del controllo')) + '</summary><p class="whitespace-pre-wrap break-words">' + esc(reason) + '</p></details>' : '') +
-              '<details><summary>' + esc(t('rv_affected_items', 'Contenuti da verificare')) + ' (' + labels.length + ')</summary><ul class="mt-2 space-y-2">' + labels.map(label => '<li>' + esc(label) + '</li>').join('') + '</ul></details></section>').join('');
-          content.appendChild(box);
-        }
+        const unchecked = (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length + (report.coverage?.skipped || []).length;
+        // Coverage belongs to diagnostics, not to the teacher's correction list.
+        // Keep the full report in the manifest; only actual findings get cards.
+        const box = document.createElement('div'); box.id = 'mrv-unchecked';
+        box.innerHTML = (unchecked ? '<p>' + esc(t('rv_remaining_checks', 'Parti ancora da controllare:')) + ' ' + unchecked + '.</p>' : '') +
+          '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
+        content.appendChild(box);
       }
       for (const group of R.groupIssues(groups[activeFilter])) {
         const issue = group[0], item = itemFor(issue, r);
@@ -676,12 +671,16 @@
         content.appendChild(recover);
       });
       const manual = modal.querySelector('#mrv-manual'); manual.replaceChildren();
+      proceed.hidden = editable && r.initial.checkStatus !== 'completed' && !manualConfirmed;
       if (r.initial.checkStatus !== 'completed' && editable) {
+        const manualOption = document.createElement('details'); manualOption.id = 'mrv-manual-option'; manualOption.className = 'mt-3 text-sm';
+        manualOption.innerHTML = '<summary>' + esc(t('rv_manual_option', 'Scelgo di completare io il controllo')) + '</summary>';
         const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'mrv-manual-confirm'; input.checked = manualConfirmed;
-        input.onchange = () => { manualConfirmed = input.checked; };
-        label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Il controllo automatico non è completo. Ho rivisto io i contenuti e scelgo di continuare.'))); manual.appendChild(label);
+        label.className = 'block mt-2';
+        input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed; };
+        label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Il controllo automatico non è completo. Ho rivisto io i contenuti e scelgo di continuare.'))); manualOption.appendChild(label);
         {
-          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-cancel'; retry.textContent = isFinal ? t('rv_retry_material_judge', 'Riprova il controllo dei materiali') : t('rv_retry_judge', 'Riprova il controllo automatico');
+          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary'; retry.textContent = isFinal ? t('rv_retry_material_judge', 'Riprova il controllo dei materiali') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
             if (busy || invalidEditors.size) return;
             freeze(true);
@@ -699,6 +698,7 @@
           };
           manual.appendChild(retry);
         }
+        manual.appendChild(manualOption);
       }
       const resume = !!options.onContinue || pendingOutputs(manifest);
       proceed.textContent = approved && !resume ? t('rv_close', 'Chiudi') : approved ? t('rv_resume', 'Continua dai contenuti approvati') :
@@ -707,7 +707,7 @@
     render();
     modal.querySelector('#mrv-later').onclick = async () => { if (busy) return; await pendingSave; if (!saveError && !busy) close(); };
     proceed.onclick = async () => {
-      if (closed || busy || committing || invalidEditors.size) return;
+      if (closed || busy || committing || invalidEditors.size || proceed.hidden) return;
       freeze(true);
       try {
         await pendingSave; if (saveError) throw saveError;
