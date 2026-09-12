@@ -102,7 +102,7 @@
         const o = r || {};
         const cat = (o.cat && CATS[o.cat]) ? o.cat : 'other';
         const subs = CATS[cat].subs;
-        return {
+        const rec = {
             ts: typeof o.ts === 'string' ? o.ts : '',
             provider: o.provider === 'infomaniak' ? 'infomaniak' : 'google',
             model: String(o.model || '?'),
@@ -113,6 +113,19 @@
             project: String(o.project || '').trim() || 'Senza titolo',
             projectId: o.projectId != null ? o.projectId : null
         };
+        /* I QUATTRO CAMPI DIAGNOSTICI (12/9) PASSANO DI QUI, se ci sono.
+           ⚠️ Questa funzione RICOSTRUISCE l'oggetto invece di copiarlo, quindi
+           tutto ciò che non è elencato sopra sparisce in silenzio: senza queste
+           righe una futura diagnostica in-app leggerebbe zero troncamenti e
+           sembrerebbe che il registro non li abbia mai scritti, mentre sul file
+           grezzo ci sono. Restano OPZIONALI: 4581 righe di registro sono più
+           vecchie del 12/9 e non ne hanno nessuno, e chi legge deve poterle
+           distinguere da una riga nuova con pensiero a zero. */
+        if (Number(o.n) > 0) rec.n = Number(o.n);
+        if (Number(o.thoughts) > 0) rec.thoughts = Number(o.thoughts);
+        if (o.stop) rec.stop = String(o.stop);
+        if (Number(o.tetto) > 0) rec.tetto = Number(o.tetto);
+        return rec;
     }
 
     // ── Costo di un record in CHF ────────────────────────────────────────────
