@@ -396,6 +396,28 @@ test('GroundingCore text form accepts only archived source excerpts, never node 
     assert.equal(valid.issues[0].evidence[0].page, 5);
 });
 
+test('causal evidence must come from one exact field, not a reconstructed relation', async () => {
+    const item = { id: 'causal', kind: 'causal', question: 'mancanza di cibo', text: 'quindi',
+        answer: 'Tuttavia, per evitare conflitti con la Germania' };
+    for (const quote of [[item.question, item.text, item.answer].join(' '), item.answer]) {
+        const r = runtime(batch => response({ ...clean(batch), issues: [{ id: item.id, field: '$item',
+            problem: 'Due motivi paralleli sono presentati come causa e conseguenza.',
+            evidenceKind: 'item', quote, exclude: true }] }));
+        const report = await r.check([item]);
+        if (quote === item.answer) {
+            assert.equal(report.checkStatus, 'completed');
+            assert.equal(report.issues[0].evidence[0].text, item.answer);
+            assert.equal(report.issues[0].evidence[0].field, 'answer');
+            assert.equal(report.issues[0].after, null);
+        } else {
+            assert.equal(report.checkStatus, 'incomplete');
+            assert.equal(report.issues.length, 0);
+            assert.equal(report.coverage.checkedIds.length, 0);
+            assert.equal(report.rejected.length, 1);
+        }
+    }
+});
+
 test('teacher amendments can ground correction of a derivative, without reopening their decision', async () => {
     const correction = 'Il piano Wahlen venne avviato nel 1940.';
     const review = approvedDecision('teacher-date', { kind: 'node', id: 'n', field: 'desc' }, 'Il piano iniziò nel 1939.', correction);
