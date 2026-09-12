@@ -5,7 +5,8 @@
  *   - setContext(cat, sub): tagga il flusso corrente (chiamato dai moduli
  *     PRIMA di ogni fetchModelAPI; sticky finché non cambia)
  *   - current(): snapshot del contesto (fetchModelAPI lo cattura all'entrata)
- *   - record({provider, model, inTok, outTok, ctx?, cat?, sub?, project?}):
+ *   - record({provider, model, inTok, outTok, ctx?, cat?, sub?, project?,
+ *             n?, stop?, tetto?, thoughts?}):
  *     scrive una riga nel registro su disco (IPC usage-log-append);
  *     fallback localStorage in browser (test/harness)
  *   - readAll(): tutti i record (disco o fallback)
@@ -61,6 +62,22 @@
                 project: e.project || p.project,
                 projectId: e.projectId != null ? e.projectId : p.projectId
             };
+            /* I QUATTRO CAMPI DIAGNOSTICI (12/9) — vedi il commento in
+               `fetchModelAPI`. Si scrivono solo quando dicono qualcosa:
+               `n` e `thoughts` mancano dove non esistono (una chiamata senza
+               array non chiede un numero di cose; senza pensiero i token di
+               pensiero sono zero), e la loro ASSENZA è quindi un'informazione,
+               non un buco. `stop` e `tetto` valgono per ogni chiamata vera.
+               ⚠️ Chi legge il registro deve reggere le righe VECCHIE, che non
+               hanno nessuno dei quattro: il file è append-only dal 24 luglio. */
+            const stop = e.stop != null ? String(e.stop) : null;
+            const tetto = Number(e.tetto) || 0;
+            const thoughts = Number(e.thoughts) || 0;
+            const n = Number(e.n) || 0;
+            if (n) rec.n = n;
+            if (thoughts) rec.thoughts = thoughts;
+            if (stop) rec.stop = stop;
+            if (tetto) rec.tetto = tetto;
             if (window.electronAPI && window.electronAPI.usageLogAppend) {
                 window.electronAPI.usageLogAppend(rec); // fire-and-forget
                 return;

@@ -250,3 +250,33 @@ test('stimaTts: valori assenti o sporchi non producono NaN', () => {
     assert.strictEqual(s.chiamate, 0);
     assert.ok(Number.isFinite(s.secondi) && Number.isFinite(s.minuti));
 });
+
+// ══ I QUATTRO CAMPI DIAGNOSTICI (12/9) ═══════════════════════════════════════
+// `normalizeRecord` RICOSTRUISCE l'oggetto invece di copiarlo: senza un
+// passaggio esplicito i campi nuovi sparirebbero qui, e una diagnostica in-app
+// leggerebbe zero troncamenti mentre sul file grezzo ci sono.
+
+test('normalizeRecord: i quattro campi diagnostici sopravvivono', () => {
+    const r = U.normalizeRecord({
+        ts: '2026-09-12T01:00:00Z', provider: 'google', model: 'gemini-3.8-flash',
+        inTok: 4321, outTok: 8385, cat: 'pipeline', sub: 'quiz_open',
+        n: 3, thoughts: 137, stop: 'MAX_TOKENS', tetto: 8400
+    });
+    assert.strictEqual(r.n, 3);
+    assert.strictEqual(r.thoughts, 137);
+    assert.strictEqual(r.stop, 'MAX_TOKENS');
+    assert.strictEqual(r.tetto, 8400);
+});
+
+test('normalizeRecord: una riga vecchia non se li inventa a zero', () => {
+    // 4581 righe di registro sono anteriori al 12/9 e non hanno nessuno dei quattro:
+    // devono restare distinguibili da una riga nuova col pensiero spento.
+    const r = U.normalizeRecord({
+        ts: '2026-08-01T10:00:00Z', provider: 'google', model: 'gemini-2.5-flash',
+        inTok: 1000, outTok: 500, cat: 'pipeline', sub: 'quiz_open'
+    });
+    ['n', 'thoughts', 'stop', 'tetto'].forEach(k =>
+        assert.ok(!(k in r), k + ' non deve comparire su una riga vecchia'));
+    assert.strictEqual(r.inTok, 1000);
+    assert.strictEqual(r.sub, 'quiz_open');
+});

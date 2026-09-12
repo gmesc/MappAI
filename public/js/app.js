@@ -789,6 +789,15 @@ window.fetchModelAPI = async function (payload, apiKey) {
     // Budget tokens richiesto (per diagnosticare se siamo vicini al cap)
     const requestedMax = payload?.generationConfig?.maxOutputTokens || null;
 
+    /* QUANTI ITEM SONO STATI CHIESTI (12/9). Non serve farlo viaggiare dai
+       moduli: ogni generatore di materiali mette il numero nello schema come
+       `maxItems` dell'array esterno — flashcard, quiz a scelta, vero/falso,
+       domande aperte. Leggerlo qui vale per tutti e non tocca un solo chiamante.
+       Dove non c'è un array (fasi della mappa, sintesi, tutor) resta null, che
+       è la verità: quella chiamata non chiede un numero di cose. */
+    const _schema = payload?.generationConfig?.responseSchema;
+    const chiesti = (_schema && _schema.type === 'ARRAY' && _schema.maxItems) || null;
+
     // Registro consumi: snapshot del contesto ALL'ENTRATA (non dopo l'await:
     // un altro flusso potrebbe cambiare il contesto mentre la risposta arriva)
     const _usageCtx = (window.MappAIUsage && window.MappAIUsage.current()) || null;
@@ -824,6 +833,14 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 response = await window.electronAPI.generateGemini({ apiKey, payload: gPayload, model });
             }
 
+            /* ⚠️ LA RILEVAZIONE DEL TRONCAMENTO SALE QUI (12/9), sopra il registro
+               consumi: prima stava sotto, e la riga del registro partiva senza
+               sapere perché la chiamata si fosse fermata. Quel verdetto finiva
+               solo in `MappAITruncationTracker`, che vive in RAM e muore a fine
+               sessione — così sul disco restava un numero di token e nessun
+               modo di sapere se era una risposta finita o una tagliata. */
+            const { finishReason, truncated } = _detectTruncation(response);
+
             // Tracking Usage
             if (response && response.usageMetadata) {
                 if (!appState.generationUsage) appState.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0 };
@@ -832,17 +849,32 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 appState.generationUsage.totalTokens += (response.usageMetadata.totalTokenCount || 0);
                 window.updateCostDisplay();
                 // Registro consumi AI (riga JSONL su disco, categoria dal contesto)
+                /* I QUATTRO CAMPI DEL 12/9. Il registro sapeva quanti token erano
+                   usciti e nient'altro, e per questo la domanda «abbassare il
+                   numero di domande riduce i troncamenti?» non aveva risposta:
+                   mancava il denominatore (`n`), mancava il motivo dello stop, e
+                   `outTok` conta solo la risposta mentre il tetto lo riempiono
+                   anche i token di PENSIERO — sopra le 8 domande per ramo il
+                   pensiero si riaccende (getMaxOutputTokens > 12288, vedi la
+                   soglia qui sopra) e una chiamata svuotata da lui si scriveva
+                   come una chiamata piccola e tranquilla.
+                   Sono tutti già calcolati poche righe più su: costano quattro
+                   chiavi in più per riga e rendono ogni generazione leggibile
+                   da sola, senza indovinare il troncamento dai valori ripetuti. */
                 if (window.MappAIUsage) window.MappAIUsage.record({
                     provider: appState.aiProvider,
                     model,
                     inTok: response.usageMetadata.promptTokenCount || 0,
                     outTok: response.usageMetadata.candidatesTokenCount || 0,
+                    thoughts: response.usageMetadata.thoughtsTokenCount || 0,
+                    n: chiesti,
+                    stop: finishReason,
+                    tetto: requestedMax,
                     ctx: _usageCtx
                 });
             }
 
-            // Strategia 0 — rilevamento troncamento finishReason
-            const { finishReason, truncated } = _detectTruncation(response);
+            // Strategia 0 — troncamento (il verdetto è calcolato sopra)
             window.MappAITruncationTracker.record({
                 model,
                 provider: appState.aiProvider,
