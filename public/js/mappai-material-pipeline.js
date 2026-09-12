@@ -124,7 +124,8 @@
     if (branch && typeof branch._materiale === 'string') return branch._materiale.slice(0, 12000);
     const kids = (window.getDescendants ? window.getDescendants(branch.id) : []) || [];
     const all = [branch].concat(kids);
-    return all.map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n').slice(0, 12000);
+    if (window.MappAIGroundingCore) return window.MappAIGroundingCore.materialForNodes(_state().db, all, window.MappAIReview ? window.MappAIReview.sources() : _state().sources, window.MappAIReview && window.MappAIReview.current());
+    return all.map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n');
   }
 
   // ── Conversione item quiz → forma stampabile (question/correctIndex) ────
@@ -137,11 +138,11 @@
       const corr = String(it.correct == null ? '' : it.correct).trim().toLowerCase();
       for (let i = 0; i < opts.length; i++) { if (String(opts[i]).trim().toLowerCase() === corr) { ci = i; break; } }
       if (ci < 0) { const nn = parseInt(it.correct, 10); if (!isNaN(nn) && nn >= 1 && nn <= opts.length) ci = nn - 1; }
-      return { question: it.q || it.question || '', options: opts, correctIndex: ci, explanation: it.explanation || '', answer: it.correct };
+      return Object.assign({}, it, { question: it.q || it.question || '', options: opts, correctIndex: ci, explanation: it.explanation || '', answer: it.correct });
     });
   }
   function _flashToPrintItems(items) {
-    return (items || []).map(it => ({ question: it.front || it.q || '', answer: it.back || it.correct || '', explanation: '' }));
+    return (items || []).map(it => Object.assign({}, it, { question: it.front || it.q || '', answer: it.back || it.correct || '', explanation: it.explanation || '' }));
   }
 
   /* ── LA CARTELLA SI ADOTTA, NON SI SCRIVE E BASTA (11/9/26) ──────────────
@@ -174,7 +175,7 @@
       if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
         await StorageManager.adottaVault(vaultPath, _state());
       }
-    } catch (e) { console.warn('[Pipeline] adozione della cartella non riuscita:', e && e.message); }
+    } catch (e) { if (_state()._reviewRequested || _state()._pipelineManifest?.review) throw e; console.warn('[Pipeline] adozione della cartella non riuscita:', e && e.message); }
   }
 
   // ── IPC helpers ─────────────────────────────────────────────────────────
@@ -183,7 +184,12 @@
   let _basi = null;
   async function _mapsBase() { _basi = await window.electronAPI.filesRootGet(); return _basi.mapsBaseDir; }
   async function _writeManifest(vaultPath, manifest) {
-    const r = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text: JSON.stringify(manifest, null, 2) });
+    let r;
+    try { r = window.MappAIReview ? await window.MappAIReview.writeManifest(vaultPath, manifest)
+      : await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text: JSON.stringify(manifest, null, 2), expectedVersion: manifest._storageVersion || 0 });
+      if (!r || !r.ok) throw new Error((r && r.error) || 'Salvataggio pipeline non riuscito');
+    } catch (error) { error.code = 'REVIEW_PERSISTENCE_FAILED'; throw error; }
+    if (r.version != null) manifest._storageVersion = r.version;
     /* Il manifest si riscrive a OGNI transizione di step: è il punto che sa
        sempre che sul disco è comparso qualcosa di nuovo, quindi è da qui che si
        avvisa chi mostra elenchi (9/8). Le notifiche si raggruppano nel canale,
@@ -654,7 +660,8 @@
   };
 
   async function _stepB(vaultPath, manifest, config, apiKey, counter) {
-    manifest = PC().stepTransition(manifest, 'B', 'running', { now: _now() });
+    const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
+    if (!finalizing) manifest = PC().stepTransition(manifest, 'B', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest);
     try {
       const branches = _branchNodes();
@@ -691,8 +698,12 @@
           try {
           _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel +
             (nomeVar ? ' · ' + nomeVar + ' ' + (ai + 1) + '/' + angoli.length : '') + ')');
-          const raw = [];
-          for (let bi = 0; bi < ramiT.length; bi++) {
+          const draftKey = t + '-' + ang;
+          const cached = manifest.review && manifest.review.drafts.B[draftKey];
+          if (finalizing && cached && cached.published) continue;
+          if (finalizing && !cached) throw new Error('Bozza mancante: ' + draftKey);
+          const raw = cached ? JSON.parse(JSON.stringify(cached.items)) : [];
+          for (let bi = 0; bi < (cached ? 0 : ramiT.length); bi++) {
             const b = ramiT[bi];
             const material = _branchMaterial(b);
             if (!material.trim()) continue;
@@ -722,22 +733,28 @@
               items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
             } else if (t === 'flashcards') {
               const items = await _genFlashcards(material, _clean(b.label), quanti, apiKey, { angolo: ang });
-              items.forEach(it => raw.push(it));
+              items.forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             } else {
               const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: quanti, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
               (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             }
           }
-          raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '')));
+          if (!cached) raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '')));
           if (spec.mode === 'quiz') _guardaLunghezze(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : ''));
           if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
-          const setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+          const setId = cached ? cached.id : 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
           /* Il DOCUMENTO segue la convenzione dei cloni («Domande Aperte -
              causa»), la stessa del gesto singolo: è da lì che ELABORA ricava il
              nome della variante. Con la forma della pipeline le sette varianti
              si leggevano tutte «Domande Aperte». */
           const titoloDoc = _titoloDoc(spec, nomeVar, mapName);
+          raw.forEach((it, i) => { if (!it.id) it.id = setId + '-' + i; });
+          if (manifest.review && !finalizing) {
+            manifest.review.drafts.B[draftKey] = { id: setId, type: t, angle: ang, title: titoloDoc, items: raw, revision: manifest.review.approvedRevision };
+            await _writeManifest(vaultPath, manifest);
+            continue;
+          }
 
           /* ── I materiali-DOCUMENTO escono qui: PDF e basta ────────────────────
              Le domande aperte non sono un set giocabile (vedi `_QT.open`), quindi
@@ -777,6 +794,7 @@
             try {
               if (window.MappAIQuizPrint && window.MappAIQuizPrint.scriviSorgente) await window.MappAIQuizPrint.scriviSorgente(vaultPath, nomeOq, htmlOq);
             } catch (e) { console.warn('[Pipeline] sorgente domande aperte:', e && e.message); }
+          if (manifest.review) { manifest.review.drafts.B[draftKey].published = true; await _writeManifest(vaultPath, manifest); }
           continue;
         }
 
@@ -786,7 +804,9 @@
            chiamavano tutti «Scelta Multipla». */
         const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: nomeVar, _pipeline: true };
         _state().db.studySets = _state().db.studySets || [];
-        _state().db.studySets.push(set);
+        set.reviewRevision = manifest.review && manifest.review.approvedRevision;
+        const existingSet = _state().db.studySets.findIndex(x => x.id === set.id);
+        if (existingSet >= 0) _state().db.studySets[existingSet] = set; else _state().db.studySets.push(set);
         // PDF (forma stampabile)
         const printItems = (t === 'flashcards') ? _flashToPrintItems(raw) : _toPrintItems(raw);
         // SOGLIA CARATTERI (solo flashcard). Le carte oltre soglia si stampano
@@ -817,7 +837,7 @@
             }
           } catch (e) { /* soglia non applicabile: si stampa tutto, come prima */ }
         }
-        const printSet = { title: setTitle, items: printItems };
+        const printSet = Object.assign({}, set, { title: setTitle, items: printItems });
         const html = (t === 'flashcards')
           ? window.buildFlashcardSetHtml(printSet, { mapName, includeBar: false })
           : window.buildQuizSetHtml(printSet, { mapName, includeBar: false });
@@ -840,13 +860,18 @@
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
         if (!w || !w.ok) throw new Error('Scrittura quiz fallita: ' + ((w && w.error) || '?'));
         manifest = _recordFile(manifest, 'B', rel);
+        if (manifest.review) {
+          const savedSet = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
+          if (!savedSet || !savedSet.success) throw new Error((savedSet && savedSet.error) || 'Set non salvato');
+          manifest.review.drafts.B[draftKey].published = true;
+        }
         await _writeManifest(vaultPath, manifest);
           } catch (e) {
             /* Un angolo che fallisce NON porta via gli altri sei: si segna e si
                continua (è la stessa forma delle varianti del gesto singolo).
                Con un angolo solo non c'è niente da salvare: l'errore risale e
                fa fallire lo step, come prima. */
-            if (angoli.length === 1) throw e;
+            if (manifest.review || angoli.length === 1) throw e;
             saltati.push(spec.typeLabel + ' · ' + nomeVar + ': ' + (e && e.message ? e.message : String(e)));
           }
         }
@@ -857,10 +882,14 @@
           .replace('{n}', saltati.length), 'warning');
       }
       // Ri-salva il vault: i set persistono nel mapData.studySets
-      try { await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { /* best-effort */ }
+      if (!manifest.review || finalizing) {
+        const saved = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
+        if (!saved || !saved.success) throw new Error((saved && saved.error) || 'Set non salvati');
+      }
       if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) {} }
-      manifest = PC().stepTransition(manifest, 'B', 'done', { now: _now(), calls: counter.calls });
+      if (!finalizing) manifest = PC().stepTransition(manifest, 'B', 'done', { now: _now(), calls: counter.calls });
     } catch (e) {
+      if (finalizing || e.code === 'REVIEW_PERSISTENCE_FAILED') throw e;
       manifest = PC().stepTransition(manifest, 'B', 'failed', { now: _now(), error: e.message || String(e) });
     }
     await _writeManifest(vaultPath, manifest);
@@ -871,7 +900,8 @@
   // STEP C — fogli nodi, un PDF per modo selezionato
   // ══════════════════════════════════════════════════════════════════════
   async function _stepC(vaultPath, manifest, config) {
-    manifest = PC().stepTransition(manifest, 'C', 'running', { now: _now() });
+    const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
+    if (!finalizing) manifest = PC().stepTransition(manifest, 'C', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest);
     try {
       const ns = config.nodesheet;
@@ -883,8 +913,13 @@
       _setContext('nodesheet');
       for (let i = 0; i < modes.length; i++) {
         const layout = modes[i];
+        const cached = manifest.review && manifest.review.drafts.C[layout];
+        if (finalizing && cached && cached.published) continue;
+        if (finalizing && (!cached || !cached.cards.length)) continue;
         _overlay(_t('mp_step_c', 'Preparo i fogli nodi…') + ' (' + layout + ')');
         const res = await window.printAllNodeLabels({
+          draftOnly: !!manifest.review && !finalizing,
+          cards: finalizing ? cached.cards : undefined,
           depth: ns.maxLevel || 'all',
           fmt: ns.fmt || '2x2',
           layout,
@@ -899,6 +934,9 @@
           toDisk: { vaultPath }
         });
         if (!res || !res.ok) throw new Error('Foglio nodi (' + layout + ') non generato');
+        if (manifest.review && !finalizing) {
+          manifest.review.drafts.C[layout] = { cards: res.cards }; await _writeManifest(vaultPath, manifest); continue;
+        }
         const v = PC().validatePdfB64(res.base64);
         if (!v.ok) throw new Error('Foglio nodi (' + layout + '): ' + v.error);
         /* Il layout scende da `label` a `opts.dettaglio`: resta ciò che
@@ -910,10 +948,12 @@
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: res.base64 });
         if (!w || !w.ok) throw new Error('Scrittura foglio nodi fallita: ' + ((w && w.error) || '?'));
         manifest = _recordFile(manifest, 'C', rel);
+        if (manifest.review) manifest.review.drafts.C[layout].published = true;
         await _writeManifest(vaultPath, manifest);
       }
-      manifest = PC().stepTransition(manifest, 'C', 'done', { now: _now() });
+      if (!finalizing) manifest = PC().stepTransition(manifest, 'C', 'done', { now: _now() });
     } catch (e) {
+      if (finalizing || e.code === 'REVIEW_PERSISTENCE_FAILED') throw e;
       manifest = PC().stepTransition(manifest, 'C', 'failed', { now: _now(), error: e.message || String(e) });
     }
     await _writeManifest(vaultPath, manifest);
@@ -924,13 +964,15 @@
   // STEP D — sintesi mappa intera (HTML) + voce naturale (MP3, degradabile)
   // ══════════════════════════════════════════════════════════════════════
   async function _stepD(vaultPath, manifest, config, apiKey) {
-    manifest = PC().stepTransition(manifest, 'D', 'running', { now: _now() });
+    const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
+    if (finalizing && (!manifest.review.drafts.D || manifest.review.drafts.D.published)) return manifest;
+    if (!finalizing) manifest = PC().stepTransition(manifest, 'D', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest);
     try {
       _setContext('synthesis');
       _overlay(_t('mp_step_d', 'Scrivo la sintesi…'));
       const mapName = _mapName();
-      const data = await window.MappAISynthesis.runWholeMap({ apiKey, tuned: !!config.tuned, silent: true });
+      const data = manifest.review && manifest.review.drafts.D ? manifest.review.drafts.D.data : await window.MappAISynthesis.runWholeMap({ apiKey, tuned: !!config.tuned, silent: true });
       /* DOSSIER: la sintesi si apre con la FOTO della fonte (21/8). L'immagine
          viaggia nei DATI e non negli opts del chiamante, o sparirebbe al primo
          salvataggio dall'editor (inv. 18). */
@@ -943,6 +985,11 @@
       }
       const v = PC().validateSynthesis(data);
       if (!v.ok) throw new Error('Sintesi: ' + v.error);
+      if (manifest.review && !finalizing) {
+        manifest.review.drafts.D = { data };
+        manifest = PC().stepTransition(manifest, 'D', 'done', { now: _now() });
+        await _writeManifest(vaultPath, manifest); return manifest;
+      }
       const htmlName = PC().buildFileName('synthesis', null, config.tuned, { mappa: mapName });
       const relHtml = 'Materiale Studio/' + htmlName;
       /* ══ DUE FILE, NON DUE STATI DELLO STESSO (10/8/26) ═══════════════════
@@ -1013,15 +1060,19 @@
             manifest = _recordFile(manifest, 'D', relVoce);
             await _writeManifest(vaultPath, manifest);
           } catch (he) {
+            if (he.code === 'REVIEW_PERSISTENCE_FAILED') throw he;
             manifest.steps.D.audioNote = _t('mp_audio_unlinked', 'voce generata, ma la copia parlante non è stata scritta: ') + (he.message || he);
           }
         } catch (ae) {
+          if (ae.code === 'REVIEW_PERSISTENCE_FAILED') throw ae;
           manifest.steps.D.audioNote = 'voce non generata: ' + (ae.message || ae);
           _toast(_t('mp_audio_degraded', 'Sintesi salvata; voce non generata (' + (ae.message || ae) + ')'), 'warning');
         }
       }
-      manifest = PC().stepTransition(manifest, 'D', 'done', { now: _now() });
+      if (finalizing) manifest.review.drafts.D.published = true;
+      if (!finalizing) manifest = PC().stepTransition(manifest, 'D', 'done', { now: _now() });
     } catch (e) {
+      if (finalizing || e.code === 'REVIEW_PERSISTENCE_FAILED') throw e;
       manifest = PC().stepTransition(manifest, 'D', 'failed', { now: _now(), error: e.message || String(e) });
     }
     await _writeManifest(vaultPath, manifest);
@@ -1040,6 +1091,8 @@
      in ELABORA vale la SUA versione — la stessa funzione che usano il documento
      a schermo e l'editor, così le tre rese non possono divergere. */
   async function _stepE(vaultPath, manifest, config) {
+    const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
+    if (finalizing && (!manifest.review.drafts.E || manifest.review.drafts.E.published)) return manifest;
     const CC = window.MappAICausal;
     if (!CC || !CC.chainsForOutput || !CC.buildDocHtml) {
       manifest = PC().stepTransition(manifest, 'E', 'skipped', { now: _now() });
@@ -1051,18 +1104,24 @@
        e si va avanti — pending→skipped è una transizione lecita, running→skipped
        no, quindi il controllo va fatto PRIMA di mettere lo step in corso. */
     let chains = null;
-    try { chains = CC.chainsForOutput(); } catch (e) { chains = null; }
+    try { chains = manifest.review && manifest.review.drafts.E ? manifest.review.drafts.E.chains : CC.chainsForOutput(); } catch (e) { chains = null; }
     if (!chains || !chains.total) {
+      if (finalizing) return manifest;
       manifest = PC().stepTransition(manifest, 'E', 'skipped', { now: _now() });
       manifest.steps.E.note = _t('mp_causal_empty', 'nessun nesso causa-effetto nella mappa: catena non generata');
       await _writeManifest(vaultPath, manifest);
       _toast(_t('mp_causal_empty_toast', 'Catena dei perché non generata: la mappa non ha nessi causa-effetto riconoscibili'), 'warning');
       return manifest;
     }
-    manifest = PC().stepTransition(manifest, 'E', 'running', { now: _now() });
+    if (!finalizing) manifest = PC().stepTransition(manifest, 'E', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest);
     try {
       _overlay(_t('mp_step_e', 'Preparo la catena dei perché…'));
+      if (manifest.review && !finalizing) {
+        manifest.review.drafts.E = { chains };
+        manifest = PC().stepTransition(manifest, 'E', 'done', { now: _now() });
+        await _writeManifest(vaultPath, manifest); return manifest;
+      }
       const html = CC.buildDocHtml(chains, CC.mapName ? CC.mapName() : '');
       if (!html || html.length < 200) throw new Error('documento vuoto');
       /* PDF dallo STESSO html del documento stampabile (via la finestra
@@ -1083,8 +1142,10 @@
       if (!w || !w.ok) throw new Error('Scrittura catena fallita: ' + ((w && w.error) || '?'));
       manifest = _recordFile(manifest, 'E', rel);
       await _writeManifest(vaultPath, manifest);
-      manifest = PC().stepTransition(manifest, 'E', 'done', { now: _now() });
+      if (finalizing) manifest.review.drafts.E.published = true;
+      if (!finalizing) manifest = PC().stepTransition(manifest, 'E', 'done', { now: _now() });
     } catch (e) {
+      if (finalizing || e.code === 'REVIEW_PERSISTENCE_FAILED') throw e;
       manifest = PC().stepTransition(manifest, 'E', 'failed', { now: _now(), error: e.message || String(e) });
     }
     await _writeManifest(vaultPath, manifest);
@@ -1110,6 +1171,7 @@
     /* La sentinella sta QUI, non ai quattro punti di chiamata: un passo nuovo
        la eredita senza che nessuno debba ricordarsene. */
     _controllaIdentita();
+    if (manifest.review && window.MappAIReviewCore && !window.MappAIReviewCore.gate(manifest.review, _state().db, manifest.review.sources).allowed) throw new Error('I contenuti sono cambiati dopo la revisione');
     const prima = ((manifest.steps[step] || {}).files || []).slice();
     const m = await esegui();
     const dopo = ((m.steps[step] || {}).files || []);
@@ -1122,11 +1184,70 @@
   }
 
   // opts: { only?: ['B','C','D','E'] per Riprova; vaultPath?, manifest? per ripresa }
+  async function _finishReviewed(vaultPath, manifest, config, apiKey, counter) {
+    const MR = window.MappAIMaterialReview, RC = window.MappAIReviewCore, MD = window.MappAIMaterialDrafts;
+    if (!MR || !RC || !MD) throw new Error('Controllo finale non caricato');
+    if (!PC().STEPS.filter(s => s !== 'A').every(s => ['done', 'skipped'].includes(manifest.steps[s].status))) { _overlay(false); _openSummary(vaultPath, manifest, config); return null; }
+    const review = manifest.review;
+    const material = window.MappAIGroundingCore.buildInput(_state().db, _state().db.nodes, review.sources, review);
+    if (!review.final) {
+      review.final = { stage: 'checking', items: MD.flatten(review.drafts), revision: review.approvedRevision };
+      await _writeManifest(vaultPath, manifest);
+    }
+    let final = review.final;
+    if (final.stage === 'done') return manifest;
+    if (final.stage === 'checking') {
+      _overlay(_t('rv_check_final', 'Controllo i materiali prima della consegna…'));
+      const report = await MR.check(final.items, { review, apiKey, material,
+        onProgress: progress => _overlay(_t('rv_check_final', 'Controllo i materiali prima della consegna…') + (typeof progress === 'string' ? ' ' + progress : '')) });
+      final.review = RC.createReview({ db: { items: final.items }, sources: review.sources, report,
+        generationId: review.generationId + '-materials', vaultPath, config });
+      final.stage = 'awaiting_review';
+      if (!final.review.initial.issues.length && final.review.initial.checkStatus === 'completed') {
+        const approved = RC.beginApproval(final.review, { items: final.items }, { sources: review.sources });
+        if (!approved.ok) throw new Error('Il controllo finale non consente la prosecuzione');
+        final.review = approved.review;
+        await _writeManifest(vaultPath, manifest);
+        final.review = RC.completeApproval(approved.review, approved.review.approvedRevision);
+        final.stage = 'approved';
+      }
+      await _writeManifest(vaultPath, manifest);
+    }
+    if (final.stage === 'awaiting_review') {
+      _overlay(false);
+      window.MappAIReview.open(vaultPath, manifest, { final: true, onContinue: m => Pipeline.run(m.config, { only: ['B', 'C', 'D', 'E'], vaultPath, manifest: m }) });
+      return null;
+    }
+    if (final.stage === 'approved') {
+      const valid = MR.validate ? MR.validate(final.items) : { ok: true };
+      if (!valid.ok) throw new Error('Restano materiali incompleti: correggili o escludili prima della consegna');
+      manifest.review.drafts = MD.apply(review.drafts, final.items);
+      final.stage = 'finalizing';
+      await _writeManifest(vaultPath, manifest);
+    }
+    // Same builders as the legacy pipeline; every input is now a persisted,
+    // approved draft. Per-document publication flags make retries idempotent.
+    if (config.quiz) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter));
+    if (config.nodesheet) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config));
+    if (config.synthesis) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey));
+    if (config.causal && manifest.steps.E.status !== 'skipped') manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
+    manifest.review.final.stage = 'done';
+    manifest.review.final.completedAt = _now();
+    await _writeManifest(vaultPath, manifest);
+    return manifest;
+  }
+
   Pipeline.run = async function (config, opts) {
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
     opts = opts || {};
+    config = JSON.parse(JSON.stringify(config || {}));
+    if (opts.manifest && opts.manifest.review && window.MappAIReview) {
+      _state()._pipelineManifest = opts.manifest;
+      if (!await window.MappAIReview.requireApproved()) return;
+    }
     Pipeline._running = true;
     const counter = { calls: 0 };
+    const previousAIContext = _state()._reviewAIContext;
     /* Su un DOSSIER i fogli dei nodi e la catena dei perché non hanno senso
        (i «nodi» sono i blocchi della scheda): si forzano spenti QUI, non solo
        nella UI — una config arrivata da un'altra strada non deve produrre
@@ -1138,11 +1259,20 @@
        metà dei materiali su un altro pubblico. */
     try {
       const cls = config.classId ? (window.MappAIClasses && window.MappAIClasses.get(config.classId)) : null;
-      config.className = cls ? cls.name : (config.className || '');
-      config.sede = cls ? (cls.sede || '') : '';
-      if (window.MappAITune && window.MappAITune.congela) window.MappAITune.congela();
+      if (!opts.manifest) {
+        config.className = cls ? cls.name : (config.className || '');
+        config.sede = cls ? (cls.sede || '') : '';
+      }
+      if (window.MappAITune && window.MappAITune.congela) config.tuningContext = window.MappAITune.congela(config.tuningContext);
+      if (!config.aiContext) {
+        const provider = _state().aiProvider || 'google';
+        const modelElement = document.getElementById('model-select');
+        config.aiContext = { provider, model: (modelElement && modelElement.value) || localStorage.getItem(provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model') || '' };
+      }
+      _state()._reviewAIContext = config.aiContext;
       const apiKey = window.getSystemKey ? window.getSystemKey() : '';
-      if (!apiKey) throw new Error(_t('tst_need_key', "Inserisci un'API Key per continuare"));
+      const finalReady = opts.manifest && opts.manifest.review && opts.manifest.review.final && ['approved', 'finalizing', 'done'].includes(opts.manifest.review.final.stage);
+      if (!apiKey && !finalReady) throw new Error(_t('tst_need_key', "Inserisci un'API Key per continuare"));
 
       let vaultPath = opts.vaultPath || null;
       let manifest = opts.manifest || null;
@@ -1280,6 +1410,18 @@
         await _writeManifest(vaultPath, manifest);
       }
       if (!vaultPath || !manifest) throw new Error('Stato pipeline incompleto');
+      if (window.MappAITune && window.MappAITune.congela && config.tuningContext) window.MappAITune.congela(config.tuningContext);
+      manifest.config = config;
+      if (window.MappAIReview) {
+        manifest = await window.MappAIReview.checkpoint(vaultPath, manifest);
+        if (manifest.review && !window.MappAIReviewCore.gate(manifest.review, _state().db, manifest.review.sources).allowed) {
+          _overlay(false); window.MappAIReview.open(vaultPath, manifest); return;
+        }
+        if (manifest.review && !manifest.review.drafts) {
+          manifest.review.drafts = { B: {}, C: {} };
+          await _writeManifest(vaultPath, manifest);
+        }
+      }
 
       /* Da qui in poi i passi leggono `appState`: si fotografa l'identità della
          mappa e la si ricontrolla prima di ognuno. */
@@ -1287,15 +1429,21 @@
 
       const wants = function (s) { return !opts.only || opts.only.indexOf(s) >= 0; };
       // Un tentativo su uno step failed → resettalo a running via failed→running dentro _stepX.
-      if (config.quiz && wants('B') && manifest.steps.B.status !== 'done') manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter));
-      if (config.nodesheet && wants('C') && manifest.steps.C.status !== 'done') manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config));
-      if (config.synthesis && wants('D') && manifest.steps.D.status !== 'done') manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey));
-      if (config.causal && wants('E') && manifest.steps.E && manifest.steps.E.status !== 'done') manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
+      if (config.quiz && wants('B') && !['done', 'skipped'].includes(manifest.steps.B.status)) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter));
+      if (config.nodesheet && wants('C') && !['done', 'skipped'].includes(manifest.steps.C.status)) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config));
+      if (config.synthesis && wants('D') && !['done', 'skipped'].includes(manifest.steps.D.status)) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey));
+      if (config.causal && wants('E') && manifest.steps.E && !['done', 'skipped'].includes(manifest.steps.E.status)) manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
+
+      if (manifest.review) {
+        const completed = await _finishReviewed(vaultPath, manifest, config, apiKey, counter);
+        if (!completed) return;
+        manifest = completed;
+      }
 
       // Rendi i set quiz/flashcard accessibili SUBITO dalla pagina Insegna
       // (indice mappai_studysets_index + progetto) senza attendere un autosave:
       // il docente li trova pronti sia a mappa aperta sia in Insegna (openSet).
-      try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { /* best-effort */ }
+      try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { /* best-effort */ }
       if (window.MappAITeach && window.MappAITeach.refresh) { try { window.MappAITeach.refresh(); } catch (e) {} }
 
       _overlay(false);
@@ -1305,6 +1453,7 @@
       _toast(_t('mp_error', 'Pipeline interrotta: ') + (err.message || err), 'error');
       console.error('[MappAIPipeline]', err);
     } finally {
+      _state()._reviewAIContext = previousAIContext;
       Pipeline._running = false;
       Pipeline._interno = false;
       Pipeline._identita = null;
@@ -1583,9 +1732,10 @@
     _toast(_t('mp_preset_deleted', 'Preset eliminato'), 'info');
   };
 
-  Pipeline.openModal = function () {
+  Pipeline.openModal = function (options) {
+    Pipeline._reviewTarget = options && options.fromApproved && _state()._pipelineManifest?.review ? { vaultPath: _state().activeVaultPath, revision: _state()._pipelineManifest.review.approvedRevision } : null;
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
-    if (!_state().sources || !_state().sources.length) {
+    if (!Pipeline._reviewTarget && (!_state().sources || !_state().sources.length)) {
       _toast(_t('mp_need_source', 'Carica almeno una fonte prima di generare i materiali'), 'warning');
       return;
     }
@@ -1801,7 +1951,29 @@
     if (!_hasOutput(cfg)) { el.innerHTML = _esc(_t('mp_pick_one', 'Attiva almeno una sezione di output.')); return; }
     const est = PC().estimateCalls(cfg, _mapStats());
     el.innerHTML = _esc(_t('mp_estimate', 'Stima chiamate AI') + ': ~' + est.total) +
-      ' <span style="opacity:.6">(A ' + est.perStep.A + ' · B ' + est.perStep.B + ' · C ' + est.perStep.C + ' · D ' + est.perStep.D + ')</span>';
+      ' <span style="opacity:.6">(A ' + est.perStep.A + ' · B ' + est.perStep.B + ' · C ' + est.perStep.C + ' · D ' + est.perStep.D + ')</span>' + (window.MappAIReview && window.MappAIReview.enabled() ? ' <span>' + _esc(_t('rv_estimate_checks', '+ controlli sui contenuti')) + '</span>' : '');
+  };
+
+  // A new material job keeps the approved map and the previous delivery.
+  Pipeline.runApprovedMaterials = async function (config, target) {
+    const st = _state(), old = st._pipelineManifest;
+    if (Pipeline._running || !old?.review || !await window.MappAIReview.requireApproved()) return;
+    if (target && (target.vaultPath !== st.activeVaultPath || target.revision !== old.review.approvedRevision)) {
+      _toast(_t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'), 'warning'); return;
+    }
+    if (old.review.final && old.review.final.stage !== 'done') { window.MappAIReview.openCurrent(); return; }
+    const manifest = PC().createManifest(config, { now: _now(), vaultPath: st.activeVaultPath });
+    manifest.steps.A = JSON.parse(JSON.stringify(old.steps.A));
+    manifest._storageVersion = old._storageVersion;
+    manifest.review = JSON.parse(JSON.stringify(old.review));
+    if (manifest.review.final) {
+      manifest.review.deliveries = (manifest.review.deliveries || []).concat([{
+        config: old.config, steps: old.steps, final: manifest.review.final
+      }]);
+    }
+    delete manifest.review.final;
+    manifest.review.drafts = { B: {}, C: {} };
+    await Pipeline.run(config, { only: ['B', 'C', 'D', 'E'], vaultPath: st.activeVaultPath, manifest });
   };
 
   // Pre-flight + avvio dal modale.
@@ -1810,7 +1982,7 @@
     if (!cfg) return;
     /* Con una FOTO fra le fonti gli output sono fissi (vedi sotto): la guardia
        «attiva almeno una sezione» vale solo per la generazione dalla mappa. */
-    const schedeFoto = _schedeImmagini();
+    const schedeFoto = Pipeline._reviewTarget ? [] : _schedeImmagini();
     if (!schedeFoto.length && !_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
     const apiKey = window.getSystemKey ? window.getSystemKey() : '';
     if (!apiKey) { _toast(_t('tst_need_key', "Inserisci un'API Key per continuare"), 'error'); return; }
@@ -1829,6 +2001,10 @@
        un bottone deve fare una cosa prevedibile, e quale delle due «vince»
        sarebbe un mistero. Se ci sono fonti di testo, lo si dice. */
     const schede = schedeFoto;
+    if (Pipeline._reviewTarget) {
+      const target = Pipeline._reviewTarget; Pipeline._reviewTarget = null;
+      Pipeline.runApprovedMaterials(cfg, target); return;
+    }
     if (!schede.length) { Pipeline.run(cfg); return; }
     (async () => {
       if (_haAltreFonti()) {
@@ -1977,6 +2153,10 @@
       if (!res || !res.ok || !res.manifest) return;
       let manifest = res.manifest;
       if (!PC() || manifest.schema !== PC().SCHEMA) return;
+      if (window.MappAIReview && manifest.review) {
+        await window.MappAIReview.restore(vaultPath, manifest);
+        if (manifest.review.initial.status !== 'approved') { window.MappAIReview.open(vaultPath, manifest); return; }
+      }
       if (PC().isComplete(manifest)) return;   // niente da riprendere
       manifest = PC().normalizeOnLoad(manifest);   // running (crash) → failed
       _confirmResume(vaultPath, manifest);
@@ -2128,6 +2308,8 @@
 
   Pipeline.generaSet = async function (opts) {
     opts = opts || {};
+    const explicitSource = !!(opts.sorgente && String(opts.sorgente.materiale || '').trim());
+    if (!explicitSource && window.MappAIReview && !await (window.MappAIReview.requireStandalone ? window.MappAIReview.requireStandalone() : window.MappAIReview.requireApproved())) return { ok: false, errore: 'revisione-pendente' };
     const spec = _QT[opts.tipo];
     if (!spec) return { ok: false, errore: 'tipo sconosciuto: ' + opts.tipo };
     if (window.mappaiOccupato && window.mappaiOccupato()) return { ok: false, errore: 'occupata' };
@@ -2333,7 +2515,7 @@
           if (!pdfOk) pdfErrore = 'scrittura fallita' + ((w && w.error) ? ': ' + w.error : '');
         }
       } catch (e) { pdfErrore = e.message || String(e); }
-      try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+      try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
       try { if (vaultPath) await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); } catch (e) { }
       /* Detto agli elenchi già aperti: senza, il materiale nuovo compare al
          giro dopo e sembra che «ci metta molto». */
@@ -2429,6 +2611,13 @@
     manifest = PC().stepTransition(manifest, 'A', 'done', { now: _now() });
     try { if (vecchio && vecchio.steps && vecchio.steps.A && vecchio.steps.A.files) manifest.steps.A.files = vecchio.steps.A.files.slice(); } catch (e) { }
 
+    if (vecchio && vecchio.review) {
+      manifest._storageVersion = vecchio._storageVersion;
+      manifest.review = JSON.parse(JSON.stringify(vecchio.review));
+      manifest.review.previousFinal = manifest.review.final;
+      delete manifest.review.final;
+      manifest.review.drafts = { B: {}, C: {} };
+    }
     Pipeline._veloLibero = true;
     try {
       await Pipeline.run(config, { only: ['B', 'D'], vaultPath, manifest });
@@ -2439,7 +2628,8 @@
     /* titolo cambiato = file nuovi con nome nuovo: i VECCHI di B e D si
        portano nel Cestino (deleteVaultFile passa da shell.trashItem), o
        resterebbero accanto ai nuovi come materiali fantasma. */
-    if (vecchio && vecchiaMappa && vecchiaMappa !== st.rootNodeLabel &&
+    const currentFinal = st._pipelineManifest && st._pipelineManifest.review && st._pipelineManifest.review.final;
+    if ((!manifest.review || (currentFinal && currentFinal.stage === 'done')) && vecchio && vecchiaMappa && vecchiaMappa !== st.rootNodeLabel &&
         window.electronAPI.deleteVaultFile) {
       const vecchiFile = ['B', 'D'].reduce(function (a, k) {
         const f = vecchio.steps && vecchio.steps[k] && vecchio.steps[k].files;

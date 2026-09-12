@@ -32,6 +32,11 @@ function escHtmlQP(s) {
         .replace(/"/g, '&quot;');
 }
 
+function _qpText(key, it, en) {
+    const english = _DH()?.lingua?.().indexOf('en') === 0;
+    return window.t ? window.t(key, english ? en : it) : (english ? en : it);
+}
+
 // ── CSS comuni quiz e flashcard ──────────────────────────
 //
 // Il blocco è SPEZZATO IN DUE (11/8/26) perché i tre fogli che escono da questo
@@ -113,7 +118,7 @@ function _DH() {
    attivo; il resto è ciò che i fogli già mostravano. */
 function _qpTestata(o) {
     const DH = _DH();
-    if (!DH) return '';
+    if (!DH) return '<header><h1>' + escHtmlQP(o.titolo || '') + '</h1></header>';
     return DH.testata(DH.conContesto(o));
 }
 /* La data del foglio: GG/MM/AAAA, SENZA ora (decisione di Giacomo, 11/8/26).
@@ -252,7 +257,7 @@ function _qpPrintItems(set) {
     const D = window.MappAIDocEdit;
     const items = (set && set.items) || [];
     if (!D) return items;                       // core assente → comportamento storico
-    return D.normItems(items);
+    return D.normItems(items).map((item, i) => Object.assign({}, items[i], item));
 }
 
 // Builder PURO: ritorna la stringa HTML del quiz (domande + foglio soluzioni).
@@ -276,26 +281,26 @@ window.buildQuizSetHtml = function (set, opts) {
     let questionsHtml = '';
     set.items.forEach((item, idx) => {
         questionsHtml += `
-        <div class="quiz-item" style="
+        <section class="quiz-item" aria-labelledby="qp-question-${idx + 1}" style="
             background:white; border-radius:12px;
             padding:18px 22px; margin-bottom:16px;
             border-left:4px solid ${accentColor};
             page-break-inside:avoid;">
-            <div style="
-                font-size:11px; font-weight:700;
+            <p style="
+                font-size:12px; font-weight:700;
                 text-transform:uppercase; letter-spacing:0.06em;
                 color:${accentColor}; margin-bottom:8px;">
-                Domanda ${idx + 1}
-            </div>
-            <div style="
-                font-size:15px; font-weight:bold;
+                ${escHtmlQP(_qpText('qp_question', 'Domanda', 'Question'))} ${idx + 1}
+            </p>
+            <h3 id="qp-question-${idx + 1}" style="
+                font-size:13pt; font-weight:bold; margin-top:0;
                 color:#1e293b; margin-bottom:14px;
                 line-height:1.55;">
                 ${escHtmlQP(item.question)}
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
+            </h3>
+            <ol type="A" role="list" class="quiz-options" aria-labelledby="qp-question-${idx + 1}" style="display:flex; flex-direction:column; gap:8px; list-style:none; padding:0; margin:0;">
                 ${(item.options || []).map((opt, oi) => `
-                <div style="
+                <li style="
                     display:flex; align-items:flex-start;
                     gap:10px; padding:9px 12px;
                     border-radius:8px;
@@ -307,16 +312,16 @@ window.buildQuizSetHtml = function (set, opts) {
                         display:flex; align-items:center; justify-content:center;">
                         ${letters[oi] || (oi + 1)}
                     </span>
-                    <span style="font-size:13px; color:#1e293b; line-height:1.5; padding-top:2px;">
+                    <span style="font-size:12pt; color:#1e293b; line-height:1.5; padding-top:2px;">
                         ${escHtmlQP(opt)}
                     </span>
-                </div>`).join('')}
-            </div>
-        </div>`;
+                </li>`).join('')}
+            </ol>
+        </section>`;
     });
 
-    // FOGLIO SOLUZIONI — in coda, su pagina NUOVA (page-break-before) e compatto in 2
-    // colonne così sta su un solo A4: non finisce fotocopiato sulle schede degli allievi.
+    // Le spiegazioni appartengono al foglio soluzioni: una colonna leggibile,
+    // senza imporre che tutte le risposte stiano su una sola pagina.
     let answerKeyHtml = '';
     set.items.forEach((item, idx) => {
         const ci = item.correctIndex;
@@ -324,10 +329,11 @@ window.buildQuizSetHtml = function (set, opts) {
         const corrText = (ci >= 0 && opts[ci] != null) ? opts[ci] : (item.answer != null ? item.answer : '—');
         const corrLetter = (ci >= 0 && ci < letters.length) ? letters[ci] + ') ' : '';
         answerKeyHtml += `
-        <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:8px; line-height:1.4;">
-            <span style="font-weight:900; color:${accentColor};">${idx + 1}.</span>
+        <li value="${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:14px; line-height:1.5;">
+            <span aria-hidden="true" style="font-weight:900; color:${accentColor};">${idx + 1}.</span>
             <span style="font-weight:800; color:#0f172a;">${corrLetter}</span><span style="color:#1e293b;">${escHtmlQP(corrText)}</span>
-        </div>`;
+            ${item.explanation ? `<p class="quiz-explanation" style="margin:5px 0 0;"><strong>${escHtmlQP(_qpText('qp_explanation', 'Spiegazione', 'Explanation'))}:</strong> ${escHtmlQP(item.explanation)}</p>` : ''}
+        </li>`;
     });
 
     const fullHtml = `<!DOCTYPE html>
@@ -339,7 +345,7 @@ window.buildQuizSetHtml = function (set, opts) {
         ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
-        body { font-size: 13px; }
+        body { font-size: 12pt; }
         .quiz-section-title {
             font-size:15px; font-weight:900;
             color:#4f46e5; margin:20px 0 14px;
@@ -347,7 +353,7 @@ window.buildQuizSetHtml = function (set, opts) {
             border-bottom:2px solid #e2e8f0;
             page-break-after:avoid;
         }
-        .answer-key-grid { column-count:2; column-gap:30px; font-size:13px; }
+        .answer-key-grid { list-style:none; padding:0; font-size:12pt; }
     </style>
 </head>
 <body>
@@ -359,23 +365,24 @@ window.buildQuizSetHtml = function (set, opts) {
         badge: set.items.length + ' domande'
     })}
 
-    <div class="quiz-section-title">Domande</div>
+    <main>
+    <h2 class="quiz-section-title">${escHtmlQP(_qpText('qp_questions', 'Domande', 'Questions'))}</h2>
     ${questionsHtml}
 
-    ${includeAnswers ? `<div class="answer-key" style="page-break-before:always; page-break-inside:avoid;">
-        <div class="quiz-section-title">Soluzioni</div>
-        <div class="answer-key-grid">${answerKeyHtml}</div>
-    </div>` : ''}
+    ${includeAnswers ? `<section class="answer-key" aria-labelledby="qp-solutions" style="page-break-before:always;">
+        <h2 id="qp-solutions" class="quiz-section-title">${escHtmlQP(_qpText('qp_solutions', 'Soluzioni', 'Solutions'))}</h2>
+        <ol role="list" class="answer-key-grid">${answerKeyHtml}</ol>
+    </section>` : ''}
+    </main>
 
     <!-- Sorgente del quiz, incorporata nel foglio: permette di ristampare lo
          stesso documento con o senza soluzioni (INSEGNA → Quiz cartacei) senza
          ricorrere alla mappa che l'ha generato. Non viene mai renderizzata.
          SOLO nella copia del docente: nella copia per gli allievi — che viaggia
          via QR — le risposte non devono esistere nemmeno nel sorgente HTML. -->
-    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify({
-        id: set.id || '', title: set.title || '', type: set.type || '', mode: set.mode || 'quiz',
-        items: set.items
-    }).replace(/<\//g, '<\\/')}<\/script>` : ''}
+    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify(Object.assign({}, set, {
+        id: set.id || '', title: set.title || '', type: set.type || '', mode: set.mode || 'quiz', items: set.items
+    })).replace(/<\//g, '<\\/')}<\/script>` : ''}
 
     ${_qpPie({ mappa: mapName, data: now })}
 </body>
@@ -470,7 +477,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
     items.forEach((item, idx) => {
         const aree = areeDi(item);
         questionsHtml += `
-        <div class="oq-item" style="
+        <section class="oq-item" aria-labelledby="oq-question-${idx + 1}" style="
             background:white; border-radius:12px;
             padding:18px 22px; margin-bottom:16px;
             border-left:4px solid ${accentColor};
@@ -487,12 +494,12 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                     border-radius:999px; padding:2px 9px;
                     text-transform:none;">${escHtmlQP(a)}</span>`).join('')}
             </div>
-            <div style="
-                font-size:15px; font-weight:bold;
+            <h3 id="oq-question-${idx + 1}" style="
+                font-size:13pt; font-weight:bold; margin-top:0;
                 color:#1e293b; margin-bottom:14px;
                 line-height:1.55;">
                 ${escHtmlQP(item.question)}
-            </div>
+            </h3>
             <div style="display:flex; flex-direction:column; gap:0;">
                 ${(item.risposta != null && String(item.risposta).trim())
                     /* IL FOGLIO COMPILATO (6/9): quando l'item porta `risposta`,
@@ -504,7 +511,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                         background:#f0fdfa; padding:8px 12px; font-size:13px; line-height:1.6; color:#1e293b;">${escHtmlQP(item.risposta)}</div>`
                     : new Array(_righe(item.lines)).fill(rigaVuota).join('')}
             </div>
-        </div>`;
+        </section>`;
     });
 
     // FOGLIO SOLUZIONI: qui la «traccia» non è la risposta da copiare, è che
@@ -524,8 +531,8 @@ window.buildOpenQuestionsHtml = function (set, opts) {
        espressive è la differenza fra un voto e un giudizio sulla persona.
        La casella è disegnata col bordo, non con un carattere: ☐ non esiste in
        tutti e quattro i caratteri dell'app e sarebbe uscito un rettangolo vuoto.
-       Con meno di due criteri si stampa la traccia come prima: un criterio solo
-       non è una griglia, e fingere che lo sia non aiuterebbe nessuno. */
+       Anche un criterio breve o unico resta visibile: la sua lunghezza non
+       determina se descrive una prestazione osservabile. */
     const _casella = 'display:inline-block; width:9px; height:9px; border:1.2px solid #94a3b8;' +
         ' border-radius:2px; margin-right:7px; vertical-align:middle;';
     let answerKeyHtml = '';
@@ -534,19 +541,19 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         const avvio = String(item.livello || '').toLowerCase() === 'base';
         const crit = (window.MappAIPipelineCore && window.MappAIPipelineCore.criteriDaItem)
             ? window.MappAIPipelineCore.criteriDaItem(item) : [];
-        const corpo = (crit.length >= 2)
-            ? `<div style="color:#1e293b; font-size:12.5px; margin-top:4px;">` +
-              crit.map(c => `<div style="margin:2px 0;"><span style="${_casella}"></span>${escHtmlQP(c)}</div>`).join('') +
-              `</div>`
-            : `<div style="color:#1e293b; font-size:13px; margin-top:3px;">${escHtmlQP(g)}</div>`;
+        const corpo = crit.length
+            ? `<ul role="list" class="oq-criteria" style="list-style:none; padding:0; color:#1e293b; font-size:12pt; margin-top:4px;">` +
+              crit.map(c => `<li style="margin:4px 0;"><span aria-hidden="true" style="${_casella}"></span>${escHtmlQP(c)}</li>`).join('') +
+              `</ul>`
+            : `<p style="color:#1e293b; font-size:12pt; margin-top:3px;">${escHtmlQP(g)}</p>`;
         answerKeyHtml += `
-        <div style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
-            <div style="font-weight:900; color:${accentColor}; font-size:12px;">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
+        <section aria-labelledby="oq-solution-${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
+            <h3 id="oq-solution-${idx + 1}" style="font-weight:900; color:${accentColor}; font-size:12pt;">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
                 margin-left:7px; font-size:9px; font-weight:700; letter-spacing:0.06em;
                 color:#475569; background:#f1f5f9; border-radius:999px; padding:2px 7px;
-                text-transform:uppercase;">avvio</span>` : ''}</div>
+                text-transform:uppercase;">avvio</span>` : ''}</h3>
             ${corpo}
-        </div>`;
+        </section>`;
     });
     /* Il conto in testa al foglio soluzioni: dice com'è fatta la verifica —
        quante domande si possono affrontare sapendo una parte della scheda. */
@@ -564,7 +571,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
-        body { font-size: 13px; }
+        body { font-size: 12pt; }
         /* Il badge di QUESTO foglio è teal come il resto. La testata prende
            l'accento da sola (è un parametro della cornice): la deroga che c'era
            qui — «gli stili condivisi fissano la testata in indigo, si allinea
@@ -590,12 +597,13 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         badge: items.length + ' domande'
     })}
 
+    <main>
     ${introHtml}
 
-    <div class="oq-section-title">Domande</div>
+    <h2 class="oq-section-title">${escHtmlQP(_qpText('qp_questions', 'Domande', 'Questions'))}</h2>
     ${questionsHtml}
 
-    ${includeAnswers ? `<div class="answer-key" style="page-break-before:always;">
+    ${includeAnswers ? `<section class="answer-key" aria-labelledby="oq-solutions" style="page-break-before:always;">
         ${(intro && intro.descrizione) ? `<div style="
             background:#f8fafc; border-radius:10px; padding:14px 18px; margin-bottom:16px;
             font-size:12px; color:#334155; line-height:1.6;">
@@ -603,14 +611,15 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                 text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px;">Che cosa mostra la fonte</div>
             ${escHtmlQP(intro.descrizione)}
         </div>` : ''}
-        <div class="oq-section-title">Tracce di correzione</div>
+        <h2 id="oq-solutions" class="oq-section-title">${escHtmlQP(_qpText('qp_guides', 'Tracce di correzione', 'Marking guidance'))}</h2>
         ${_grad.base ? `<div style="font-size:11px; color:#475569; margin:-6px 0 14px;">
             ${_grad.base} ${_grad.base === 1 ? 'domanda di avvio (si risponde' : 'domande di avvio (si rispondono'} con un concetto solo) · ${_grad.ponte} di ponte (${_grad.ponte === 1 ? 'ne collega' : 'ne collegano'} due o più).
         </div>` : ''}
         ${answerKeyHtml}
-    </div>` : ''}
+    </section>` : ''}
+    </main>
 
-    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify({
+    ${includeAnswers ? `<script type="application/json" id="qp-set">${JSON.stringify(Object.assign({}, set, {
         id: set.id || '', title: set.title || '', type: set.type || 'Domande aperte', mode: 'open',
         /* L'ANGOLO viaggia con la sorgente, non solo nel nome del file: chi
            riapre il foglio (l'editor, le attività di studio) deve sapere con
@@ -623,7 +632,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
            saprebbe perché. */
         intro: set.intro || null,
         items: items
-    }).replace(/<\//g, '<\\/')}<\/script>` : ''}
+    })).replace(/<\//g, '<\\/')}<\/script>` : ''}
 
     ${_qpPie({ mappa: mapName, data: now })}
 </body>
@@ -821,17 +830,17 @@ window.buildFlashcardSetHtml = function (set, opts) {
         const bStyle = pc ? ` style="--fs:${pc.a}pt"` : '';
         const eStyle = pc ? ` style="font-size:${pc.e}pt"` : '';
         cardsHtml += `
-        <div class="fc-card">
+        <article class="fc-card" aria-labelledby="fc-question-${i + 1}">
             <div class="fc-front"${fStyle}>
                 ${headHtml}
-                <div class="fc-qbox"><div class="fc-q">${escHtmlQP(item.question)}</div></div>
+                <div class="fc-qbox"><h2 id="fc-question-${i + 1}" class="fc-q">${escHtmlQP(item.question)}</h2></div>
             </div>
             <div class="fc-back"${bStyle}>
                 ${answerLabel ? `<div class="fc-lbl">${escHtmlQP(answerLabel)}</div>` : ''}
-                <div class="fc-a">${escHtmlQP(item.answer)}</div>
-                ${item.explanation ? `<div class="fc-e"${eStyle}>${escHtmlQP(item.explanation)}</div>` : ''}
+                <p class="fc-a">${escHtmlQP(item.answer)}</p>
+                ${item.explanation ? `<p class="fc-e"${eStyle}>${escHtmlQP(item.explanation)}</p>` : ''}
             </div>
-        </div>`;
+        </article>`;
     });
 
     const fullHtml = `<!DOCTYPE html>
@@ -904,9 +913,9 @@ window.buildFlashcardSetHtml = function (set, opts) {
         .fc-lbl { margin-bottom:${G.card.lblGap}mm; }
         /* Testo a bandiera: spaziature regolari (leggibilità DSA) e resa
            identica nel PDF jsPDF, che non sa giustificare. */
-        .fc-q { font-size:var(--fs); font-weight:bold; color:${G.colors.ink}; line-height:${G.lineH}; }
-        .fc-a { font-size:var(--fs); color:${G.colors.ink}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
-        .fc-e { margin-top:${G.card.explGap}mm; font-size:${fit.e}pt; font-style:italic; color:${G.colors.expl}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-q { margin:0; font-size:var(--fs); font-weight:bold; color:${G.colors.ink}; line-height:${G.lineH}; }
+        .fc-a { margin:0; font-size:var(--fs); color:${G.colors.ink}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-e { margin:${G.card.explGap}mm 0 0; font-size:${fit.e}pt; font-style:italic; color:${G.colors.expl}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
         .fc-instructions { background:${G.colors.back}; border-radius:10px; padding:12px 16px;
                 margin:0 auto 16px; max-width:${G.gridW}mm; font-size:10px; color:#374151;
                 border-left:3px solid ${accentColor}; }
@@ -932,7 +941,7 @@ window.buildFlashcardSetHtml = function (set, opts) {
          è la sola griglia di carte, come il foglio dei nodi. -->
     <div class="no-print">
         <div class="fc-screen-head">
-            <div class="fc-screen-title">${escHtmlQP(set.title)}</div>
+            <h1 class="fc-screen-title">${escHtmlQP(set.title)}</h1>
             <div class="fc-screen-sub">
                 ${escHtmlQP(mapName)} · Flashcard · ${now}
             </div>
@@ -952,11 +961,13 @@ window.buildFlashcardSetHtml = function (set, opts) {
 
     <div class="fc-screen-foot no-print">MappAI by insegnai.ch · ${now}</div>
 
-    <div class="fc-sheet">
+    <main class="fc-sheet">
         <div class="fc-grid">
             ${cardsHtml}
         </div>
-    </div>
+    </main>
+
+    <script type="application/json" id="qp-set">${JSON.stringify(set).replace(/<\//g, '<\\/')}<\/script>
 
     <!-- Nessuno script: i corpi del testo sono già decisi (vedi fitFlash).
          Un foglio che dipendesse da JavaScript uscirebbe tagliato ovunque lo

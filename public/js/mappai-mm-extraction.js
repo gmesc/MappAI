@@ -512,68 +512,9 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
         }
 
-        /* ── L'ÀNCORA (11/9) ──────────────────────────────────────────────────
-           Ultimo passaggio deterministico, zero chiamate: dà a ogni nodo le frasi
-           VERE della fonte, misura fedeltà e copertura, declassa i nessi causali
-           impossibili e toglie il metatesto dalle desc. Va QUI, dopo il tetto di
-           profondità e l'ultimo sanitizer, perché è l'unico punto in cui l'albero
-           è quello definitivo — i nodi di approfondimento compresi.
-           Kill-switch: `mappai_anchor_enabled` = '0'. */
-        try { if (window.applyAnchor) window.applyAnchor(); }
-        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
-
-        /* ── PASSAGGIO DI COPERTURA (12/9) ────────────────────────────────────
-           L'àncora ha appena misurato quali parti della fonte non sono entrate
-           in mappa. Se il buco è vero (non il residuo fisiologico di qualunque
-           estrazione) una chiamata sola rimanda al modello QUEL residuo e basta.
-           Va QUI perché ha bisogno del verdetto dell'àncora, e l'àncora si
-           rifà subito dopo: i nodi nuovi devono prendere le loro citazioni e la
-           copertura va ricalcolata, altrimenti il rapporto al docente
-           racconterebbe la mappa di prima. */
         try {
-            if (window.executeCoveragePass) {
-                const _cop = await window.executeCoveragePass(apiKey);
-                if (_cop && _cop.aggiunti) {
-                    if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
-                    if (window.applyAnchor) window.applyAnchor();
-                }
-            }
-        } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
-
-        /* ── IL GIUDICE (12/9) ────────────────────────────────────────────────
-           Rilegge ogni ramo con davanti le frasi della fonte e cerca gli errori
-           di SENSO, che la fedeltà lessicale non vede. Va DOPO la copertura, così
-           rilegge anche i nodi appena recuperati.
-           ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
-           frase della fonte da cui quel nodo viene, quindi le citazioni restano
-           valide.
-           Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
-        /* ── 3b — ARRICCHIMENTO, POI SI RIMISURA (12/9) ───────────────────────
-           Va PRIMA del giudice e prima dell'ultima misura, non dopo. Nella
-           generazione del 12 settembre `enrichThinDescs` ha riscritto 16 desc su
-           16 DOPO che l'àncora aveva misurato e il giudice aveva giudicato: il
-           rapporto consegnato al docente (fedeltà 0,604, sei nodi sotto soglia) e
-           le dieci segnalazioni del giudice descrivevano un testo che a quel punto
-           non esisteva più.
-           Qui invece arricchisce usando le citazioni che l'àncora ha già messo in
-           `sourcesDict` — che è il materiale giusto per riscrivere una desc — e
-           poi si rimisura tutto sul testo definitivo. */
-        try {
-            await window.enrichThinDescs(textParts, apiKey);
-        } catch (e) {
-            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
-        }
-
-        /* Seconda passata dell'àncora: le desc riscritte hanno citazioni e
-           fedeltà nuove. È deterministica e non costa niente; senza di lei il
-           rapporto racconterebbe la mappa di prima. */
-        try { if (window.applyAnchor) window.applyAnchor(); }
-        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
-
-        /* Il giudice per ULTIMO: legge il testo che il docente leggerà. */
-        try {
-            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
-        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
+            await window.finalizeMindMapQuality(textParts, apiKey);
+        } catch (e) { console.warn('[Qualità] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -1279,68 +1220,9 @@ ${textParts.join('\n\n')}`;
             if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
         }
 
-        /* ── L'ÀNCORA (11/9) ──────────────────────────────────────────────────
-           Ultimo passaggio deterministico, zero chiamate: dà a ogni nodo le frasi
-           VERE della fonte, misura fedeltà e copertura, declassa i nessi causali
-           impossibili e toglie il metatesto dalle desc. Va QUI, dopo il tetto di
-           profondità e l'ultimo sanitizer, perché è l'unico punto in cui l'albero
-           è quello definitivo — i nodi di approfondimento compresi.
-           Kill-switch: `mappai_anchor_enabled` = '0'. */
-        try { if (window.applyAnchor) window.applyAnchor(); }
-        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
-
-        /* ── PASSAGGIO DI COPERTURA (12/9) ────────────────────────────────────
-           L'àncora ha appena misurato quali parti della fonte non sono entrate
-           in mappa. Se il buco è vero (non il residuo fisiologico di qualunque
-           estrazione) una chiamata sola rimanda al modello QUEL residuo e basta.
-           Va QUI perché ha bisogno del verdetto dell'àncora, e l'àncora si
-           rifà subito dopo: i nodi nuovi devono prendere le loro citazioni e la
-           copertura va ricalcolata, altrimenti il rapporto al docente
-           racconterebbe la mappa di prima. */
         try {
-            if (window.executeCoveragePass) {
-                const _cop = await window.executeCoveragePass(apiKey);
-                if (_cop && _cop.aggiunti) {
-                    if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
-                    if (window.applyAnchor) window.applyAnchor();
-                }
-            }
-        } catch (e) { console.warn('[Copertura] errore non bloccante:', e.message); }
-
-        /* ── IL GIUDICE (12/9) ────────────────────────────────────────────────
-           Rilegge ogni ramo con davanti le frasi della fonte e cerca gli errori
-           di SENSO, che la fedeltà lessicale non vede. Va DOPO la copertura, così
-           rilegge anche i nodi appena recuperati.
-           ⚠️ NON si richiama l'àncora dopo: una forbice su una desc non cambia la
-           frase della fonte da cui quel nodo viene, quindi le citazioni restano
-           valide.
-           Spento di partenza: `mappai_giudice_enabled` = '1' per accenderlo. */
-        /* ── 3b — ARRICCHIMENTO, POI SI RIMISURA (12/9) ───────────────────────
-           Va PRIMA del giudice e prima dell'ultima misura, non dopo. Nella
-           generazione del 12 settembre `enrichThinDescs` ha riscritto 16 desc su
-           16 DOPO che l'àncora aveva misurato e il giudice aveva giudicato: il
-           rapporto consegnato al docente (fedeltà 0,604, sei nodi sotto soglia) e
-           le dieci segnalazioni del giudice descrivevano un testo che a quel punto
-           non esisteva più.
-           Qui invece arricchisce usando le citazioni che l'àncora ha già messo in
-           `sourcesDict` — che è il materiale giusto per riscrivere una desc — e
-           poi si rimisura tutto sul testo definitivo. */
-        try {
-            await window.enrichThinDescs(textParts, apiKey);
-        } catch (e) {
-            console.warn('[enrichThinDescs] errore non bloccante:', e.message);
-        }
-
-        /* Seconda passata dell'àncora: le desc riscritte hanno citazioni e
-           fedeltà nuove. È deterministica e non costa niente; senza di lei il
-           rapporto racconterebbe la mappa di prima. */
-        try { if (window.applyAnchor) window.applyAnchor(); }
-        catch (e) { console.warn('[Anchor] errore non bloccante:', e.message); }
-
-        /* Il giudice per ULTIMO: legge il testo che il docente leggerà. */
-        try {
-            if (window.executeJudgePass) await window.executeJudgePass(apiKey);
-        } catch (e) { console.warn('[Giudice] errore non bloccante:', e.message); }
+            await window.finalizeMindMapQuality(textParts, apiKey);
+        } catch (e) { console.warn('[Qualità] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));

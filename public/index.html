@@ -1383,6 +1383,8 @@
                         title="Sincronizza modifiche nel Vault" data-i18n-title="tt_sync_vault">
                         <i data-lucide="refresh-cw"></i> <span data-i18n="ui_sync_vault">Sincronizza Vault</span>
                     </button>
+                    <button type="button" onclick="window.MappAIReview &amp;&amp; window.MappAIReview.openCurrent()"><i data-lucide="clipboard-check"></i> <span data-i18n="rv_menu">Rivedi contenuti</span></button>
+                    <button type="button" onclick="window.MappAILearningPath &amp;&amp; window.MappAILearningPath.open()"><i data-lucide="route"></i> <span data-i18n="rv_path_menu">Crea un percorso breve</span></button>
                     <!-- Sotto Sincronizza Vault (22/7/26): Revisione (correzioni annotate) + Co-docente -->
                     <button data-beta-nascosto onclick="window.MappAICorrection && (window.MappAICorrection.isActive() ? window.MappAICorrection.review() : window.MappAICorrection.start())" title="Revisione mappa: raccogli correzioni annotate come ground-truth" data-i18n-title="tt_revisione_hub">
                         <i data-lucide="clipboard-pen"></i> <span data-i18n="ui_revisione_hub">Revisione</span>
@@ -3113,8 +3115,8 @@
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
-    <script src="traduzioni/it_translations.js?v=sblocco"></script>
-    <script src="traduzioni/en_translations.js?v=sblocco"></script>
+    <script src="traduzioni/it_translations.js?v=review-20260912-2"></script>
+    <script src="traduzioni/en_translations.js?v=review-20260912-2"></script>
     <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/infomaniak_bridge.js"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
@@ -3130,7 +3132,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=dos3"></script>
+    <script src="js/app.js?v=review-20260912-2"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3151,7 +3153,7 @@
     <script src="js/mappai-console-bento.js?v=dh13"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=sf1"></script>
+    <script src="js/mappai-storage-lang.js?v=review-20260912-2"></script>
     <script src="js/mappai-d3-render.js?v=font1"></script>
     <script src="js/mappai-ui-canvas.js?v=sf1"></script>
     <!-- Moduli MappAI estesi -->
@@ -3188,7 +3190,7 @@
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js?v=kw1"></script>
-    <script src="js/mappai-quiz-print.js?v=srg1"></script>
+    <script src="js/mappai-quiz-print.js?v=review-20260912-2"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
@@ -3201,7 +3203,8 @@
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
     <script src="js/mappai-causal-chains.js?v=font1"></script>
-    <script src="js/mappai-branch-synthesis.js?v=rig4"></script>
+    <script src="js/mappai-grounding-core.js?v=review-20260912-2"></script>
+    <script src="js/mappai-branch-synthesis.js?v=review-20260912-2"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
@@ -3222,7 +3225,7 @@
     <script src="js/mappai-anchor-core.js"></script>
     <!-- Il giudice: che cosa si accetta di un verdetto. Puro e testato in Node;
          dipende da desc-fidelity per le parole-contenuto. -->
-    <script src="js/mappai-judge-core.js"></script>
+    <script src="js/mappai-judge-core.js?v=review-20260912-2"></script>
     <script src="js/mappai-anchor.js"></script>
     <!-- #1: rilevamento intestazioni/piè ricorrenti (ELABORA + corpus generazione) -->
     <script src="js/mappai-boilerplate-core.js"></script>
@@ -3274,7 +3277,7 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=dos3"></script>
+    <script src="js/mappai-pipeline-core.js?v=review-20260912-2"></script>
     <script src="js/mappai-landing-teach.js?v=dos5"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
@@ -3297,7 +3300,12 @@
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
     <script src="js/mappai-elabora-console.js?v=rig2"></script>
-    <script src="js/mappai-material-pipeline.js?v=srg1"></script>
+    <script src="js/mappai-review-core.js?v=review-20260912-2"></script>
+    <script src="js/mappai-material-drafts.js?v=review-20260912-2"></script>
+    <script src="js/mappai-material-review.js?v=review-20260912-2"></script>
+    <script src="js/mappai-review.js?v=review-20260912-2"></script>
+    <script src="js/mappai-learning-path.js?v=review-20260912-2"></script>
+    <script src="js/mappai-material-pipeline.js?v=review-20260912-2"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>
@@ -3330,19 +3338,19 @@
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
     <script src="js/mappai-cabina.js?v=dos1"></script>
     <script src="js/mappai-search-finder.js"></script>
-    <script src="js/mappai-vault-manager.js?v=sf1"></script>
+    <script src="js/mappai-vault-manager.js?v=review-20260912-2"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>
-    <script src="js/mappai-generation-support.js?v=dh27"></script>
+    <script src="js/mappai-generation-support.js?v=review-20260912-2"></script>
     <script src="js/mappai-kg-extraction.js"></script>
-    <script src="js/mappai-mm-extraction.js"></script>
-    <script src="js/mappai-vault-io.js?v=srg1"></script>
+    <script src="js/mappai-mm-extraction.js?v=review-20260912-2"></script>
+    <script src="js/mappai-vault-io.js?v=review-20260912-2"></script>
     <script src="js/mappai-merge-validate.js?v=dh15"></script>
-    <script src="js/mappai-print-dossier.js?v=font1"></script>
+    <script src="js/mappai-print-dossier.js?v=review-20260912-2"></script>
     <script src="js/mappai-context-menu.js?v=dh26"></script>
     <script src="js/mappai-edit-modal.js"></script>
-    <script src="js/mappai-flashcards-sr.js?v=dh15"></script>
+    <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
     <script src="js/mappai-ai-tutor.js?v=dh15"></script>
-    <script src="js/mappai-study-session.js?v=dos3"></script>
+    <script src="js/mappai-study-session.js?v=review-20260912-2"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-tts-reader.js"></script>
     <script src="js/mappai-dev-selftest.js?v=sf1"></script>

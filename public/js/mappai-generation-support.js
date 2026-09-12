@@ -319,7 +319,9 @@ window.parseJSONLResponse = function (text) {
 
     // Trova i marker di sezione (tollerante a varianti: ===NODES=== / ## NODES ## / [NODES])
     // Riconosce: NODES, LINKS, EDGES, RELATIONS, MERGES, CROSSLINKS (alias CROSS_LINKS, CROSS-LINKS).
-    const sectionRegex = /(?:^|\n)\s*(?:===+|##+|\[)\s*(NODES?|LINKS?|EDGES?|RELATIONS?|MERGES?|CROSS[-_ ]?LINKS?)\s*(?:===+|##+|\])\s*(?:\n|$)/gi;
+    // Non consumare il newline: dopo una sezione vuota è anche l'inizio
+    // dell'header successivo (MERGES vuoto seguito da CROSSLINKS).
+    const sectionRegex = /^[ \t]*(?:===+|##+|\[)[ \t]*(NODES?|LINKS?|EDGES?|RELATIONS?|MERGES?|CROSS[-_ ]?LINKS?)[ \t]*(?:===+|##+|\])[ \t]*\r?$/gim;
     const markers = [];
     let m;
     const classifyKind = (label) => {
@@ -427,6 +429,7 @@ window.parseJSONLResponse = function (text) {
         for (const line of lines) {
             const r = parseLine(line);
             if (r === null) continue;            // riga vuota/commento → ignora
+            if (Array.isArray(r) && r.length === 0) continue; // sezione esplicitamente vuota
             const trimmed = line.trim();
             if (r === undefined) {
                 // riga JSON malformato → sample per debug
@@ -2140,23 +2143,31 @@ window.isCoveragePassEnabled = function () {
     try { return localStorage.getItem('mappai_copertura_enabled') !== '0'; } catch (e) { return true; }
 };
 
-window.executeCoveragePass = async function (apiKey) {
+window.executeCoveragePass = async function (apiKey, opts) {
+    const o = opts || {};
     const A = window.MappAIAnchorCore;
     const rep = appState._qualityReport;
-    if (!A || !rep || !rep.copertura || !apiKey) return null;
-    if (!window.isCoveragePassEnabled()) { console.log('[Copertura] spento dal kill-switch'); return null; }
-
+    const esito = { fase: o.phase || 'iniziale', stato: 'saltato', motivoSkip: '', aggiunti: 0, idsAggiunti: [],
+        scartate: [], pagine: [], frasiSelezionate: [], prima: rep && rep.copertura ? JSON.parse(JSON.stringify(rep.copertura)) : null, dopo: null };
+    const salta = motivo => { esito.motivoSkip = motivo; return esito; };
+    if (!A || !rep || !rep.copertura) return salta('misura della copertura non disponibile');
+    if (!window.isCoveragePassEnabled()) return salta('recupero disattivato');
+    if (!apiKey) return salta('chiave del provider non disponibile');
     const sel = A.orfanePerPassaggio(rep.copertura);
-    /* Sotto le quattro frasi non è un buco, è il residuo fisiologico di
-       qualunque estrazione: una chiamata lì costerebbe più di quanto rende. */
-    if (sel.frasi.length < 4) {
-        console.log('[Copertura] la fonte è coperta abbastanza: nessun recupero necessario');
-        return null;
+    esito.frasiSelezionate = sel.frasi;
+    esito.pagine = sel.pagine;
+    if (sel.frasi.length < 4) return salta(sel.pagine.length ? 'meno di quattro frasi residue selezionate' : 'nessuna pagina sotto la soglia di recupero');
+    if (o.previous) {
+        const precedenti = new Set((o.previous.frasiSelezionate || []).map(f => f.page + ':' + f.text));
+        const nuove = sel.frasi.filter(f => !precedenti.has(f.page + ':' + f.text));
+        const nuovaPagina = sel.pagine.some(p => !(o.previous.pagine || []).includes(p));
+        esito.nuoveFrasi = nuove.length;
+        // ponytail: una sola seconda chiamata, solo per un residuo cambiato
+        // (almeno quattro frasi nuove o una pagina appena scesa sotto soglia).
+        if (nuove.length < 4 && !(nuove.length && nuovaPagina)) return salta('residuo invariato o non significativo dopo arricchimento');
     }
-
-    // Il catalogo delle macro-aree: è fra queste che il modello deve scegliere.
     const rami = (appState.db.nodes || []).filter(n => (n.level || 0) === 1);
-    if (!rami.length) return null;
+    if (!rami.length) return salta('nessuna macro-area disponibile');
     const catalogo = rami.map(r => {
         const guida = (r.ambito && r.ambito.trim()) || String(r.desc || '').slice(0, 120);
         return '- ' + r.id + ' — "' + (window.cleanLabel ? window.cleanLabel(r.label) : r.label) + '"' +
@@ -2210,7 +2221,9 @@ window.executeCoveragePass = async function (apiKey) {
         const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
         const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
         const proposte = (data && Array.isArray(data.nodi)) ? data.nodi : [];
-        if (!proposte.length) { console.log('[Copertura] il modello non ha trovato niente da recuperare'); return { aggiunti: 0, scartate: [] }; }
+        if (!data || !Array.isArray(data.nodi)) throw new Error('risposta di copertura priva dell’elenco nodi');
+        esito.stato = 'completato';
+        if (!proposte.length) { esito.motivoSkip = 'nessuna proposta restituita'; return esito; }
 
         const v = A.validaProposte(proposte, {
             genitori: rami.map(r => r.id),
@@ -2224,11 +2237,16 @@ window.executeCoveragePass = async function (apiKey) {
         }
 
         let n = 0;
+        const ids = new Set(appState.db.nodes.map(n => n.id));
         v.proposte.forEach(pz => {
             const padre = rami.find(r => r.id === pz.parent);
             if (!padre) return;
             n++;
-            const id = padre.id + '_C' + n;
+            let indice = n;
+            while (ids.has(padre.id + '_C' + indice)) indice++;
+            const id = padre.id + '_C' + indice;
+            ids.add(id);
+            esito.idsAggiunti.push(id);
             appState.db.nodes.push({
                 id: id,
                 label: String(pz.label).trim(),
@@ -2244,10 +2262,15 @@ window.executeCoveragePass = async function (apiKey) {
             appState.db.links.push({ source: padre.id, target: id, rel: 'include' });
         });
         if (n) console.info('[Copertura] ' + n + ' nodi recuperati dalle pagine ' + sel.pagine.join(', '));
-        return { aggiunti: n, scartate: v.scartate, pagine: sel.pagine };
+        esito.aggiunti = n;
+        esito.scartate = v.scartate;
+        if (!n) esito.motivoSkip = 'nessuna proposta accettata dai controlli';
+        return esito;
     } catch (e) {
         console.warn('[Copertura] errore non bloccante:', e.message);
-        return null;
+        esito.stato = 'errore';
+        esito.motivoSkip = e.message;
+        return esito;
     }
 };
 
@@ -2294,72 +2317,107 @@ window.isJudgeApplyEnabled = function () {
     try { return localStorage.getItem('mappai_giudice_applica') === '1'; } catch (e) { return false; }
 };
 
-window.executeJudgePass = async function (apiKey) {
+window.executeJudgePass = async function (apiKey, opts) {
+    const o = opts || {};
     const J = window.MappAIJudgeCore, A = window.MappAIAnchorCore;
-    if (!J || !A || !apiKey || !window.isJudgeEnabled()) return null;
-
-    const nodi = appState.db.nodes || [];
+    const revisione = !!appState._reviewRequested;
+    const abilitato = typeof o.enabled === 'boolean' ? o.enabled : (revisione || window.isJudgeEnabled());
+    const applica = !revisione && (typeof o.apply === 'boolean' ? o.apply : window.isJudgeApplyEnabled());
+    const nodi = (appState.db && appState.db.nodes) || [];
     const rami = nodi.filter(n => (n.level || 0) === 1);
-    if (!rami.length) return null;
+    const esito = { quando: new Date().toISOString(), stato: 'in-corso', motivoSkip: '',
+        rami: 0, ramiPrevisti: rami.length, correzioni: [], applicate: 0, segnalati: [], scartati: [],
+        linkTolti: [], applicaAcceso: applica, esitiRami: [],
+        copertura: { nodiTotali: nodi.length, nodiEsaminati: [], nodiSaltati: [], linkEsaminati: [], linkSaltati: [] } };
+    // Alias unico: il rapporto esiste anche se il passaggio non può partire.
+    appState._giudiceReport = appState._judgeReport = esito;
+    const salta = motivo => { esito.stato = 'saltato'; esito.motivoSkip = motivo; return esito; };
+    if (!abilitato) return salta('giudice non richiesto');
+    if (!J || !A) return salta('modulo del giudice o della fonte non disponibile');
+    if (!apiKey) return salta('chiave del provider non disponibile');
+    if (!rami.length) return salta('nessun ramo da esaminare');
 
     /* Tutte le frasi della fonte, con la loro pagina: servono a dare al giudice
        anche ciò che l'àncora NON ha scelto per quel nodo. */
     let tutte = [];
+    const documenti = [];
     try {
-        const pag = [];
-        (appState._pdfPagine || []).forEach(f => (f.pages || []).forEach(p => pag.push({ n: p.n, text: p.text })));
-        tutte = A.frasiDaPagine(pag.length ? pag : A.paginePiatte((appState.sources || []).map(s => s && s.content).filter(Boolean)));
-    } catch (e) { tutte = []; }
-    if (!tutte.length) return null;
-
-    const applica = window.isJudgeApplyEnabled();
-    /* `correzioni` = le forbici VERIFICATE. Sono applicate davvero solo se
-       `applica` è acceso; il campo `applicate` lo dice senza ambiguità, perché un
-       array chiamato «applicati» pieno di cose non applicate è un rapporto che
-       mente a chi lo rilegge fra sei mesi. */
-    const esito = { rami: 0, correzioni: [], applicate: 0, segnalati: [], scartati: [], linkTolti: [], applicaAcceso: applica };
-
-    for (const ramo of rami) {
-        const figli = (window.getDescendants ? window.getDescendants(ramo.id) : []) || [];
-        const dentro = [ramo].concat(figli).filter(n => (n.desc || '').trim().split(/\s+/).length >= 12);
-        if (dentro.length < 2) continue;
-
-        // per ogni nodo: le SUE citazioni, più altre frasi delle stesse pagine
-        const frammenti = {};
-        dentro.forEach(n => {
-            const cit = ((appState.db.sourcesDict || {})[n.id] || []).filter(e => e && e.verbatim && e.text);
-            if (!cit.length) return;                       // niente citazioni = niente da giudicare
-            const pagine = {};
-            cit.forEach(e => { const m = String(e.source || '').match(/(\d+)/); if (m) pagine[m[1]] = 1; });
-            const proprie = cit.map(e => e.text);
-            /* ⚠️ LA FINESTRA ERA TROPPO STRETTA (12/9). Con tre frasi in più, su
-               venti segnalazioni di due generazioni vere venti dicevano «non si
-               menziona X» mentre X stava nel documento, in una frase che al
-               giudice non era stata mostrata. Ora arrivano tutte le frasi delle
-               pagine da cui vengono le citazioni del nodo: una pagina ne ha
-               otto-dieci, quindi il prompt cresce di poco e il giudice giudica
-               su un contesto che può reggere un verdetto. */
-            const vicine = tutte
-                .filter(f => pagine[String(f.page)] && proprie.indexOf(f.text) < 0)
-                .slice(0, 10).map(f => f.text);
-            frammenti[n.id] = proprie.concat(vicine);
+        const registrate = Array.isArray(appState._generationSources);
+        let fonti = registrate ? appState._generationSources : (appState._pdfPagine || []);
+        if (!registrate && !fonti.some(f => Array.isArray(f && f.pages) && f.pages.length)) fonti = appState.sources || [];
+        fonti.forEach((f, i) => {
+            if (!f) return;
+            const pages = Array.isArray(f.pages) && f.pages.length ? f.pages.map(p => ({ n: p.n || p.page || 0, text: p.text || p.content || '' }))
+                : A.paginePiatte([typeof f === 'string' ? f : f.text || f.content || '']);
+            const doc = { docId: String(f.documentId || f.docId || f.id || 'fonte-' + (i + 1)),
+                title: f.title || f.nome || f.name || f.fileName || 'Fonte ' + (i + 1), pages };
+            documenti.push(doc);
+            A.frasiDaPagine(pages).forEach(frase => tutte.push(Object.assign({}, frase, { docId: doc.docId, title: doc.title })));
         });
-        const giudicabili = dentro.filter(n => frammenti[n.id]);
-        if (giudicabili.length < 2) continue;
+    } catch (e) { tutte = []; }
+    if (!tutte.length) return salta('testo della fonte non disponibile');
 
-        const blocchi = giudicabili.map(n =>
+    const eid = x => (x && typeof x === 'object') ? x.id : x;
+    const perId = new Map(nodi.map(n => [n.id, n]));
+    const proprietario = new Map();
+    const perRamo = new Map();
+    rami.forEach(ramo => {
+        const figli = (window.getDescendants ? window.getDescendants(ramo.id) : nodi.filter(n => n.level > 1 && n.group === ramo.group)) || [];
+        const ids = [ramo.id].concat(figli.map(eid));
+        perRamo.set(ramo.id, ids);
+        ids.forEach(id => { if (!proprietario.has(id)) proprietario.set(id, ramo.id); });
+    });
+    const frammenti = {}, evidenze = {};
+    nodi.forEach(n => {
+        if (!String(n.desc || '').trim()) return;
+        const cit = ((appState.db.sourcesDict || {})[n.id] || []).filter(e => e && e.verbatim && e.text);
+        if (!cit.length) return;
+        const contesto = new Set(), norm = text => String(text || '').replace(/\s+/g, ' ').trim();
+        cit.forEach(c => {
+            const id = c.docId || c.documentId;
+            let pool = id ? documenti.filter(d => d.docId === String(id)) : documenti;
+            const named = pool.filter(d => d.title === c.title);
+            if (!id && named.length) pool = named;
+            const page = Number(c.page || (String(c.source || '').match(/(?:pag(?:ina|e)?\.?|p\.)\s*(\d+)/i) || [])[1] || 0);
+            pool.forEach(d => d.pages.filter(p => !page || Number(p.n) === page).forEach(p => {
+                if (norm(c.text) && norm(p.text).includes(norm(c.text))) contesto.add(d.docId + '|' + p.n);
+            }));
+        });
+        evidenze[n.id] = cit.map(e => ({ title: e.title || '', source: e.source || '', page: e.page || 0,
+            docId: e.docId || e.documentId || '', text: e.text, verbatim: true }));
+        tutte.filter(f => contesto.has(f.docId + '|' + f.page) && !cit.some(e => norm(e.text) === norm(f.text))).slice(0, 10)
+            .forEach(f => evidenze[n.id].push({ docId: f.docId, title: f.title, page: f.page,
+                source: f.page ? 'pagina ' + f.page : 'fonte senza pagine', text: f.text, verbatim: true }));
+        frammenti[n.id] = evidenze[n.id].map(e => e.text);
+    });
+    const archiPerRamo = new Map(rami.map(r => [r.id, []]));
+    (appState.db.links || []).forEach(l => {
+        if (/^(include|includes|correlato a|related to|dettagli|approfondisce)$/i.test(String(l.rel || ''))) return;
+        const source = eid(l.source), target = eid(l.target), owner = proprietario.get(source);
+        if (!owner || !frammenti[source] || !frammenti[target]) {
+            esito.copertura.linkSaltati.push({ source, target, rel: l.rel, motivo: 'ramo o evidenze degli estremi mancanti' });
+            return;
+        }
+        // Anche i cross-group: il ramo della sorgente li esamina una sola volta.
+        archiPerRamo.get(owner).push(l);
+    });
+    const letti = new Set();
+    for (const ramo of rami) {
+        const giudicabili = (perRamo.get(ramo.id) || []).map(id => perId.get(id))
+            .filter(n => n && proprietario.get(n.id) === ramo.id && frammenti[n.id]).map(n => Object.assign({}, n));
+        const archi = archiPerRamo.get(ramo.id) || [];
+        const statoRamo = { id: ramo.id, label: ramo.label, stato: 'saltato', nodi: giudicabili.map(n => n.id), link: archi.length };
+        esito.esitiRami.push(statoRamo);
+        if (!giudicabili.length) { statoRamo.motivo = 'nessun nodo con descrizione e citazione'; continue; }
+        const contesto = new Map(giudicabili.map(n => [n.id, n]));
+        archi.forEach(l => [eid(l.source), eid(l.target)].forEach(id => contesto.set(id, perId.get(id))));
+        const blocchi = Array.from(contesto.values()).map(n =>
             '### ' + n.id + ' — "' + (window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '"\n' +
             'DESCRIZIONE: ' + n.desc + '\n' +
-            'FRASI DELLA FONTE:\n' + frammenti[n.id].map(t => '  · ' + t).join('\n')
+            'FRASI DELLA FONTE:\n' + evidenze[n.id].map(e => '  · [' + [e.title, e.source].filter(Boolean).join(' — ') + '] ' + e.text).join('\n')
         ).join('\n\n');
-
-        const idDentro = {}; giudicabili.forEach(n => { idDentro[n.id] = 1; });
-        const eid = x => (x && typeof x === 'object') ? x.id : x;
-        const archi = (appState.db.links || []).filter(l =>
-            idDentro[eid(l.source)] && idDentro[eid(l.target)] &&
-            !/^(include|includes|correlato a|related to|dettagli|approfondisce)$/i.test(String(l.rel || '')));
         const bloccoArchi = archi.length
-            ? '\n\nNESSI DICHIARATI FRA QUESTI NODI:\n' + archi.map(l =>
+            ? '\n\nNESSI DICHIARATI (anche FRA RAMI DIVERSI):\n' + archi.map(l =>
                 '· ' + eid(l.source) + ' → ' + l.rel + ' → ' + eid(l.target)).join('\n')
             : '';
 
@@ -2388,9 +2446,10 @@ window.executeJudgePass = async function (apiKey) {
                         type: 'OBJECT',
                         properties: {
                             source: { type: 'STRING' }, target: { type: 'STRING' },
-                            valido: { type: 'BOOLEAN' }, problema: { type: 'STRING', maxLength: 180 }
+                            valido: { type: 'BOOLEAN' }, problema: { type: 'STRING', maxLength: 180 },
+                            prova_source: { type: 'STRING', maxLength: 300 }, prova_target: { type: 'STRING', maxLength: 300 }
                         },
-                        required: ['source', 'target', 'valido']
+                        required: ['source', 'target', 'valido', 'prova_source', 'prova_target']
                     }
                 }
             },
@@ -2414,10 +2473,10 @@ CHE COSA CERCARE — sono errori di SENSO, non di parole. Le parole vengono quas
 CHE COSA NON È UN ERRORE, e non va segnalato: una semplificazione, una parola più facile, una frase più corta, un termine spiegato fra virgole, un dettaglio che qui non compare. Queste descrizioni sono scritte apposta per una quarta media. Se una descrizione non è contraddetta da queste frasi, non dire niente di quel nodo: si segnalano SOLO le eccezioni, e una lista vuota è una risposta giusta e frequente.
 
 PER OGNI SEGNALAZIONE:
-· "prova": copia il pezzo di frase della fonte che dimostra l'errore, parola per parola, da una delle frasi qui sopra. Deve contenere qualcosa che la descrizione NON dice: se la tua prova è già tutta dentro la descrizione, non stai dimostrando niente.
+· "prova": copia il pezzo di frase della fonte che dimostra l'errore, parola per parola, da una delle frasi qui sopra. Può usare le stesse parole della descrizione: confronta chi compie l’azione, su chi, quando e con quale grado di certezza. La somiglianza lessicale non prova né esclude un errore.
 · "brano_errato" e "con": SOLO per soggetto-invertito, data-attribuita-male e termine-sostituito, e solo se bastano poche parole. "brano_errato" è la porzione ESATTA della descrizione da cambiare, copiata parola per parola; "con" è che cosa metterci. Non riscrivere la frase: cambia il pezzo sbagliato e basta. Se servono più di una decina di parole, lascia i due campi vuoti e segnala soltanto.
 
-NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido": false solo se quelle frasi NON dicono quel legame. Non proporre verbi nuovi.`;
+NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido": false solo se quelle frasi NON dicono quel legame. Non proporre verbi nuovi. Copia in "prova_source" e "prova_target" un estratto delle FRASI DELLA FONTE mostrate per ciascun estremo. I nodi esterni al ramo sono contesto per questi nessi: non segnalare correzioni ai nodi fuori dagli ID ammessi dallo schema.`;
 
         try {
             if (window.MappAIUsage) window.MappAIUsage.setContext('generation', 'giudice');
@@ -2433,46 +2492,116 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
             }, apiKey);
             const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+            if (!data || !Array.isArray(data.nodi) || (data.link !== undefined && !Array.isArray(data.link))) throw new Error('risposta del giudice priva degli elenchi previsti');
             esito.rami++;
+            statoRamo.stato = 'completato';
+            giudicabili.forEach(n => letti.add(n.id));
+            archi.forEach(l => {
+                const source = eid(l.source), target = eid(l.target);
+                const ricevuto = (data.link || []).some(v => v && v.source === source && v.target === target && typeof v.valido === 'boolean');
+                if (ricevuto) esito.copertura.linkEsaminati.push({ source, target, rel: l.rel });
+                else {
+                    esito.copertura.linkSaltati.push({ source, target, rel: l.rel, motivo: 'nessun verdetto ricevuto per il nesso' });
+                    statoRamo.stato = 'parziale';
+                    statoRamo.motivo = 'risposta senza verdetto per alcuni nessi';
+                }
+            });
 
-            const v = J.validaVerdetti((data && data.nodi) || [], { nodi: giudicabili, frammenti: frammenti });
-            const vl = J.validaLink((data && data.link) || [], { links: archi });
+            const v = J.validaVerdetti((data && data.nodi) || [], { nodi: giudicabili, frammenti: frammenti, opts: { proposalOnly: !applica } });
+            const vl = J.validaLink((data && data.link) || [], { links: archi, frammenti: frammenti });
 
             v.applicati.forEach(r => {
                 r.ramo = ramo.label;
-                if (applica) {
+                r.evidenze = evidenze[r.id] || [];
+                if (applica && !r.soloProposta) {
                     const n = nodi.find(x => x.id === r.id);
                     /* ⚠️ `aiDesc` NON si tocca: resta il testo PRE-giudice, che è
                        l'unico che l'editor sa già mostrare sotto la desc e da cui
                        «ripristina versione AI» fa tornare indietro. */
-                    if (n) { n.desc = r.dopo; n._giudicato = true; esito.applicate++; }
+                    if (n && String(n.desc || '').replace(/\s+/g, ' ').trim() === r.prima) {
+                        n.desc = r.dopo; n._giudicato = true; esito.applicate++;
+                    } else { r.soloSegnalato = true; r.perche = 'descrizione cambiata dopo la richiesta al giudice'; }
                 } else { r.soloSegnalato = true; }
                 esito.correzioni.push(r);
             });
-            v.segnalati.forEach(r => { r.ramo = ramo.label; esito.segnalati.push(r); });
-            v.scartati.forEach(r => esito.scartati.push(r));
+            v.segnalati.forEach(r => { r.ramo = ramo.label; r.evidenze = evidenze[r.id] || []; esito.segnalati.push(r); });
+            v.scartati.forEach(r => esito.scartati.push(Object.assign({ ramo: ramo.label }, r)));
+            vl.scartati.forEach(r => esito.scartati.push(Object.assign({ ramo: ramo.label, tipo: 'link' }, r)));
 
             vl.tolti.forEach(t => {
+                t.ramo = ramo.label;
+                t.evidenze = { source: evidenze[t.source] || [], target: evidenze[t.target] || [] };
+                t.soloSegnalato = !applica;
+                t.applicato = false;
                 if (applica) {
                     (appState.db.links || []).forEach(l => {
                         if (eid(l.source) === t.source && eid(l.target) === t.target && l.rel === t.rel) {
                             l._relOriginale = l.rel;
                             l.rel = l.isCross ? 'correlato a' : 'include';
+                            t.applicato = true;
                         }
                     });
                 }
                 esito.linkTolti.push(t);
             });
         } catch (e) {
+            statoRamo.stato = 'errore';
+            statoRamo.motivo = e.message;
             console.warn('[Giudice] ramo «' + ramo.label + '» saltato:', e.message);
         }
     }
 
-    appState._giudiceReport = esito;
-    const verbo = applica ? 'corrette' : 'da correggere (solo segnalate)';
-    console.info('[Giudice] ' + esito.rami + ' rami riletti · ' + esito.correzioni.length + ' descrizioni ' + verbo +
+    esito.copertura.nodiEsaminati = Array.from(letti);
+    esito.copertura.nodiSaltati = nodi.filter(n => !letti.has(n.id)).map(n => ({ id: n.id, label: n.label,
+        motivo: !proprietario.has(n.id) ? 'nodo fuori dai rami esaminati' : (!frammenti[n.id] ? 'descrizione o citazione mancante' : 'ramo non completato') }));
+    esito.stato = esito.esitiRami.every(r => r.stato === 'completato') && !esito.copertura.linkSaltati.length &&
+        !esito.copertura.nodiSaltati.some(n => (perId.get(n.id).level || 0) > 0) ? 'completato' : 'parziale';
+    console.info('[Giudice] ' + esito.rami + ' rami riletti · ' + esito.correzioni.length + ' proposte (' + esito.applicate + ' applicate)' +
         ' · ' + esito.segnalati.length + ' segnalazioni · ' + esito.linkTolti.length + ' nessi non sostenuti' +
         (esito.scartati.length ? ' · ' + esito.scartati.length + ' verdetti scartati' : ''));
     esito.correzioni.forEach(r => console.info('   [' + r.tipo + '] «' + r.label + '»: «' + r.brano + '» → «' + r.con + '»'));
     return esito;
+};
+
+
+// Fine comune dei due estrattori MM: le misure descrivono il testo finale,
+// con al massimo due recuperi di fonte e un solo passaggio del giudice.
+window.finalizeMindMapQuality = async function (textParts, apiKey) {
+    const report = { passaggi: [], arricchimento: { stato: 'in-corso' }, prima: null, dopoArricchimento: null, dopo: null };
+    appState._coverageReport = report;
+    appState._qualityReport = null;
+    const misura = () => {
+        try {
+            if (window.applyAnchor) window.applyAnchor();
+        } catch (e) { report.erroreMisura = e.message; }
+        return appState._qualityReport && appState._qualityReport.copertura
+            ? JSON.parse(JSON.stringify(appState._qualityReport.copertura)) : null;
+    };
+    const recupera = async opts => {
+        let r;
+        try { r = await window.executeCoveragePass(apiKey, opts); }
+        catch (e) { r = { fase: opts.phase, stato: 'errore', motivoSkip: e.message, aggiunti: 0 }; }
+        if (r.aggiunti) {
+            if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
+            r.conservati = (r.idsAggiunti || []).filter(id => appState.db.nodes.some(n => n.id === id));
+            r.dopo = misura();
+        } else r.dopo = r.prima || null;
+        report.passaggi.push(r);
+        return r;
+    };
+    report.prima = misura();
+    const iniziale = await recupera({ phase: 'iniziale' });
+    const descPrima = new Map(appState.db.nodes.map(n => [n.id, n.desc]));
+    try {
+        await window.enrichThinDescs(textParts, apiKey);
+        report.arricchimento.stato = 'completato';
+    } catch (e) { report.arricchimento = { stato: 'errore', motivo: e.message }; }
+    report.arricchimento.nodiCambiati = appState.db.nodes.filter(n => descPrima.get(n.id) !== n.desc).map(n => n.id);
+    report.dopoArricchimento = misura();
+    await recupera({ phase: 'dopo-arricchimento', previous: iniziale });
+    report.dopo = appState._qualityReport && appState._qualityReport.copertura
+        ? JSON.parse(JSON.stringify(appState._qualityReport.copertura)) : null;
+    if (appState._qualityReport) appState._qualityReport.recuperoCopertura = report;
+    await window.executeJudgePass(apiKey, appState._reviewRequested ? { enabled: true, apply: false } : undefined);
+    return report;
 };

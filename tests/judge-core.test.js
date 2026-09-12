@@ -29,13 +29,12 @@ test('provaContraria: una prova inventata non passa, per quanto plausibile', () 
   assert.match(r.perche, /non è fra le frasi/);
 });
 
-test('provaContraria: citare il nodo a sé stesso NON è una prova', () => {
-  /* il modo più naturale in cui un modello compiacente produce un verdetto che
-     sembra fondato: cita una frase le cui parole stanno già tutte nella desc */
+test('provaContraria: stesso lessico resta consultabile ma non autorizza auto-correzione', () => {
+  // La provenienza della citazione è verificabile; il suo senso richiede il docente.
   const desc = 'Tramite la sua Banca Nazionale la Svizzera avviò il commercio di oro con la Germania nazista.';
   const r = J.provaContraria('la Svizzera avviò il commercio di oro con la Germania', FRASI, desc);
-  assert.strictEqual(r.ok, false);
-  assert.match(r.perche, /non dice niente/);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.soloProposta, true);
 });
 
 test('provaContraria: prove CORTE come quelle vere dell\'audit devono passare', () => {

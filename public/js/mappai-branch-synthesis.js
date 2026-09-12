@@ -124,55 +124,30 @@
 
     // ── Elenco fonti deduplicato + blocco contenuti per il prompt ─────────
     function _buildSourcesAndContent(nodes) {
-        const sourcesDict = appState.db.sourcesDict || {};
-        const sourcesArr = [];
-        const sourceKeyToIdx = {};
-        const nodeBlocks = [];
+        const reviewApi = window.MappAIReview;
+        const review = reviewApi && reviewApi.current ? reviewApi.current() : appState._pipelineManifest?.review;
+        const sources = reviewApi && reviewApi.sources ? reviewApi.sources()
+            : (appState._pdfPagine?.length ? appState._pdfPagine : appState.sources || []);
+        if (!window.MappAIGroundingCore) throw new Error('Grounding module not loaded');
+        return window.MappAIGroundingCore.buildInput(appState.db, nodes, sources, review);
+    }
 
-        nodes.forEach(node => {
-            const text = (node.desc || node.content || '').trim();
-            if (!text) return;
-
-            const refs = [];
-            const chunks = sourcesDict[node.id];
-            if (Array.isArray(chunks)) {
-                chunks.forEach(c => {
-                    if (!c || !c.text) return;
-                    /* ⚠️ MAI numerare una PARAFRASI come fonte (11/9). Quando la
-                       Fase 3 non produce citazioni, `sourcesDict` riceve come
-                       ripiego la desc del nodo: stamparla nel blocco «Fonti»
-                       significa mostrare allo studente la stessa frase due volte
-                       spacciandola per la prova. Misurato su una sintesi vera:
-                       1.215 parole di «citazioni» che ripetevano il testo.
-                       L'àncora marca `verbatim` ciò che viene davvero dalla fonte
-                       e `parafrasi` il ripiego; qui passa solo il primo. */
-                    if (c.parafrasi) return;
-                    const key = (c.title || '') + '|' + (c.source || '');
-                    let idx = sourceKeyToIdx[key];
-                    if (idx === undefined) {
-                        idx = sourcesArr.length + 1;
-                        sourceKeyToIdx[key] = idx;
-                        sourcesArr.push({ idx, title: c.title || 'Documento', source: c.source || '', text: c.text });
-                    }
-                    if (!refs.includes(idx)) refs.push(idx);
-                });
-            }
-
-            const label = window.cleanLabel ? window.cleanLabel(node.label) : node.label;
-            let block = `## ${label} (Livello ${node.level || 0})\n${text}`;
-            if (refs.length) block += `\n(Fonti per questo concetto: ${refs.map(i => `[${i}]`).join('')})`;
-            nodeBlocks.push(block);
-        });
-
-        const sourcesListText = sourcesArr.length
-            ? sourcesArr.map(s => {
-                const flat = s.text.replace(/\s+/g, ' ').trim();
-                const snippet = flat.length > 150 ? flat.slice(0, 150) + '…' : flat;
-                return `${s.idx}. ${s.title}${s.source ? ' — ' + s.source : ''}: "${snippet}"`;
-            }).join('\n')
-            : (_isEnglish() ? '(no specific sources available)' : '(nessuna fonte specifica disponibile)');
-
-        return { nodesListText: nodeBlocks.join('\n\n'), sourcesListText, sourcesArr };
+    function _sourceVersion() {
+        const core = window.MappAIReviewCore;
+        if (!core) return null;
+        const review = window.MappAIReview?.current ? window.MappAIReview.current() : appState._pipelineManifest?.review;
+        const sources = window.MappAIReview?.sources ? window.MappAIReview.sources()
+            : (review?.sources?.length ? review.sources : appState._pdfPagine?.length ? appState._pdfPagine : appState.sources || []);
+        return { revision: core.revision(appState.db, sources), project: appState.activeVaultPath };
+    }
+    function _requireSameVersion(before) {
+        if (!before) return;
+        const after = _sourceVersion();
+        if (!after || before.revision !== after.revision || before.project !== after.project) {
+            const error = new Error(window.t('bs_revision_changed', 'I contenuti sono cambiati durante la generazione. Rivedili prima di creare una nuova sintesi.'));
+            error.code = 'STALE_SYNTHESIS_SOURCE';
+            throw error;
+        }
     }
 
     // ── Markdown → HTML (sottoinsieme: ##/###, **bold**, *italic*, liste, [n]) ─
@@ -233,12 +208,12 @@
 
         if (variant === 'modal') {
             const rows = sourcesArr.map(s => {
-                const snippet = s.text.length > 280 ? s.text.slice(0, 280).trim() + '…' : s.text;
+                const snippet = s.text;
                 return `<div id="bs-cite-${s.idx}" class="flex gap-2 py-2 border-b border-slate-100 last:border-0 transition-colors rounded">
                     <span class="text-[11px] font-bold text-indigo-600 flex-shrink-0">[${s.idx}]</span>
                     <div class="text-[11px] text-slate-500 leading-relaxed">
                         <span class="font-bold text-slate-600">${_escBS(s.title)}${s.source ? ' — ' + _escBS(s.source) : ''}</span>
-                        <p class="italic mt-0.5">&ldquo;${_escBS(snippet)}&rdquo;</p>
+                        <blockquote class="italic mt-0.5" style="white-space:pre-wrap;">${_escBS(snippet)}</blockquote>
                     </div>
                 </div>`;
             }).join('');
@@ -250,10 +225,10 @@
 
         // print
         const rows = sourcesArr.map(s => {
-            const snippet = s.text.length > 280 ? s.text.slice(0, 280).trim() + '…' : s.text;
+            const snippet = s.text;
             return `<div class="bs-cite-row">
                 <div class="bs-cite-num">[${s.idx}]</div>
-                <div class="bs-cite-text"><strong>${_escBS(s.title)}${s.source ? ' — ' + _escBS(s.source) : ''}</strong><br>&ldquo;${_escBS(snippet)}&rdquo;</div>
+                <div class="bs-cite-text"><strong>${_escBS(s.title)}${s.source ? ' — ' + _escBS(s.source) : ''}</strong><blockquote style="white-space:pre-wrap; margin:.3em 0;">${_escBS(snippet)}</blockquote></div>
             </div>`;
         }).join('');
         return `<div class="bs-citations">
@@ -403,7 +378,9 @@
     // Una passata di sintesi su un insieme di nodi (un ramo, o l'intera mappa
     // se piccola). Ritorna { rawText, sourcesArr } o null se niente contenuti.
     async function _synthesizeOnce(nodes, label, apiKey) {
-        const { nodesListText, sourcesListText, sourcesArr } = _buildSourcesAndContent(nodes);
+        const version = _sourceVersion();
+        const input = _buildSourcesAndContent(nodes);
+        const { nodesListText, sourcesArr } = input;
         if (!nodesListText) return null;
 
         // «Catena dei perché» (19/7/26): nessi causa-effetto DETERMINISTICI del ramo
@@ -419,9 +396,9 @@
 
         const promptText = window.fillPromptTemplate('BRANCH_SYNTHESIS', {
             branchLabel: label,
-            sourcesList: sourcesListText,
-            nodesList: nodesListText
-        }) + causalScaffold;
+            sourcesList: _isEnglish() ? 'Original passages and IDs are included below.' : 'Gli estratti originali e i loro ID sono nel materiale seguente.',
+            nodesList: input.material
+        }) + causalScaffold + '\nUse only the supplied [[src-...]] passage IDs for references. Do not compose or transcribe quotations; the application inserts archived source text.';
 
         const payload = {
             contents: [{ role: 'user', parts: [{ text: promptText }] }],
@@ -434,6 +411,7 @@
         if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
         if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se MappAITune non armato
         const response = await window.fetchModelAPI(payload, apiKey);
+        _requireSameVersion(version);
         let rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (!rawText.trim()) throw new Error('Risposta AI vuota');
         /* IL METATESTO NON VA ALLO STUDENTE (11/9). Nelle sintesi vere: «Ciao!
@@ -451,10 +429,15 @@
                 }
             }
         } catch (e) { /* ripiego: si stampa il testo come è arrivato */ }
-        return { rawText, sourcesArr, causalTriples };
+        const citations = window.MappAIGroundingCore.resolveCitations(rawText, sourcesArr);
+        return { rawText: citations.text, sourcesArr, causalTriples,
+            grounding: { unverified: input.unverified, unknownCitationIds: citations.unknownIds,
+                nodeIds: nodes.map(n => n.id) } };
     }
 
     window.generateBranchSynthesisWithAI = async function () {
+        const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
+        if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
         const configModal = document.getElementById('branch-synthesis-config-modal');
         const selectedId = document.getElementById('branch-synthesis-select')?.value;
         const tuneOn = !!(document.getElementById('bs-tune-toggle') && document.getElementById('bs-tune-toggle').checked);
@@ -493,6 +476,7 @@
                 mapName: window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI',
                 rawText: out.rawText,
                 sourcesArr: out.sourcesArr,
+                grounding: out.grounding,
                 causalTriples: out.causalTriples || [],
                 tuned: tuneOn
             };
@@ -508,13 +492,14 @@
 
     // ── Sintesi dell'INTERA mappa ──────────────────────────────────────────
     // Mappe piccole (≤ WHOLE_SINGLE_MAX nodi): una chiamata sola. Mappe grandi:
-    // map-reduce — una sintesi per ramo (budget token invariato per chiamata),
-    // poi UNA chiamata di panoramica sulle sintesi accorciate. Le citazioni
+    // Una sintesi per ramo, poi una panoramica dagli stessi fatti approvati
+    // e passaggi originali: mai dalle sintesi appena parafrasate. Le citazioni
     // restano numerate PER SEZIONE: rinumerarle globalmente è fragile e non
     // aggiunge nulla per lo studente. Un ramo fallito non azzera gli altri.
     const WHOLE_SINGLE_MAX = 30;
 
     async function _generateWholeMapSynthesis(apiKey) {
+        const version = _sourceVersion();
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
         const allNodes = appState.db.nodes || [];
 
@@ -523,12 +508,13 @@
                 _ovl(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
                 const out = await _synthesizeOnce(
                     [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey);
+                _requireSameVersion(version);
                 _ovl(false);
                 if (!out) {
                     if (!_silent) window.showToast('La mappa non ha contenuti (descrizioni) da sintetizzare', 'warning');
                     return null;
                 }
-                _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr, causalTriples: out.causalTriples || [], tuned: !!(window.MappAITune && window.MappAITune.armed) };
+                _lastSynthesis = { branchLabel: mapName, mapName, rawText: out.rawText, sourcesArr: out.sourcesArr, grounding: out.grounding, causalTriples: out.causalTriples || [], tuned: !!(window.MappAITune && window.MappAITune.armed) };
                 _maybeResultModal(_lastSynthesis);
                 return _lastSynthesis;
             }
@@ -547,8 +533,9 @@
                     window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
                 try {
                     const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey);
-                    if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr, causalTriples: out.causalTriples || [] });
+                    if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr, grounding: out.grounding, causalTriples: out.causalTriples || [] });
                 } catch (e) {
+                    if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                     console.warn('[BranchSynthesis] Ramo fallito:', label, e);
                     sections.push({ branchLabel: label, failed: true });
                 }
@@ -564,13 +551,13 @@
             let intro = '';
             try {
                 _ovl(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
-                const digest = sections.filter(s => !s.failed)
-                    .map(s => '## ' + s.branchLabel + '\n' + s.rawText.slice(0, 900)).join('\n\n');
+                const input = _buildSourcesAndContent(allNodes);
                 const langNote = window.mapLangNote ? window.mapLangNote() : '';
-                const prompt = 'Queste sono le sintesi dei rami della mappa mentale "' + mapName + '".\n' +
+                const prompt = 'Questi sono i contenuti approvati e le fonti originali della mappa "' + mapName + '".\n' +
                     'Scrivi una PANORAMICA introduttiva (150-220 parole) che colleghi i temi dei rami ' +
                     'in un discorso unico: niente elenchi, niente citazioni numerate, tono da introduzione di dispensa.\n' +
-                    langNote + '\n\n' + digest;
+                    'Conserva gli stessi fatti e rettifiche del docente, senza introdurre nuove cause o generalizzazioni. Non trascrivere citazioni.\n' +
+                    langNote + '\n\n' + input.material;
                 const payload = {
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     generationConfig: {
@@ -581,11 +568,14 @@
                 if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
                 if (window.injectClassTuning) window.injectClassTuning(payload);
                 const resp = await window.fetchModelAPI(payload, apiKey);
+                _requireSameVersion(version);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
             } catch (e) {
+                if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                 console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);
             }
 
+            _requireSameVersion(version);
             _ovl(false);
             _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
             _maybeResultModal(_lastSynthesis);
@@ -2083,6 +2073,7 @@ ${_bsPie(data.mapName)}
     window.MappAISynthesis = {
         runWholeMap: async function (opts) {
             opts = opts || {};
+            if (window.MappAIReview?.requireApproved && !await window.MappAIReview.requireApproved()) return null;
             const apiKey = opts.apiKey || (window.getSystemKey ? window.getSystemKey() : '');
             if (!apiKey) throw new Error(window.t('tst_need_key', "Inserisci un'API Key per continuare"));
             const _prevArmed = window.MappAITune ? window.MappAITune.armed : false;

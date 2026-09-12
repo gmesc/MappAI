@@ -937,13 +937,21 @@ async function potaSorgentiOrfane(vaultPath) {
     return orfani;
 }
 
-ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent, potaVarianti } = {}) => {
+const ReviewStore = require('./public/js/mappai-review-store.js');
+
+ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent, potaVarianti, expectedVersion } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         if (base64 == null && text == null) return { ok: false, error: 'nessun contenuto' };
         const dest = path.join(vaultPath, safe);
+        if (safe === 'pipeline.json') {
+            if (ifAbsent && fs.existsSync(dest)) return { ok: false, error: 'exists', exists: true };
+            const manifestText = text != null ? String(text) : Buffer.from(String(base64).replace(/^data:[^,]*,/, ''), 'base64').toString('utf8');
+            const version = ReviewStore.saveManifest(vaultPath, JSON.parse(manifestText), expectedVersion);
+            return { ok: true, path: dest, version };
+        }
         // ifAbsent: non sovrascrivere (Fonti/ — il chiamante ritenta con suffisso)
         if (ifAbsent && fs.existsSync(dest)) return { ok: false, error: 'exists', exists: true };
         fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -1460,6 +1468,7 @@ function _istantaneaVault(folderPath, quanti) {
 
 ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
     try {
+        ReviewStore.checkMapWrite(folderPath, mapData);
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
         }
@@ -1523,6 +1532,8 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
 
         // 2. Save Links (Relationship index) — i PONTI JIGSAW vanno isolati in Nodi/_ponti/_bridges.json
         const _mapLink = l => ({
+            ...(l.id != null ? { id: l.id } : {}),
+            ...(l.bidirectional != null ? { bidirectional: l.bidirectional } : {}),
             source: typeof l.source === 'object' ? l.source.id : l.source,
             target: typeof l.target === 'object' ? l.target.id : l.target,
             rel: l.rel || "",
@@ -1557,6 +1568,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         // === Sottocartelle per ramo (gated): mappa id→nodo + helper layout ===
         const _nodesById = {};
         (mapData.nodes || []).forEach(n => { _nodesById[n.id] = n; });
+        const _authoredMetadata = new Map((mapData.nodes || []).map(n => [n.id, ReviewStore.nodeMetadata(n, mapData.sourcesDict || mapData.fontiDict || {})]));
         // Deriva parent dai link quando assente: le mappe appena generate non settano
         // node.parent, e senza parent _vaultBranchFolder manda tutti gli L2+ in _root/
         // (layout per-ramo JIGSAW rotto). Il parent derivato viene poi persistito nel
@@ -1600,11 +1612,12 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             if (branchFolder && !fs.existsSync(nodeTargetDir)) fs.mkdirSync(nodeTargetDir, { recursive: true });
 
             let frontmatter = '---\n';
-            frontmatter += `id: "${node.id}"\n`;
-            frontmatter += `label: "${node.label}"\n`;
+            frontmatter += `id: ${JSON.stringify(String(node.id))}\n`;
+            frontmatter += `label: ${JSON.stringify(node.label)}\n`;
             frontmatter += `level: ${node.level}\n`;
             frontmatter += `group: ${node.group || 0}\n`;
             if (node.parent) frontmatter += `parent: "${node.parent}"\n`;
+            frontmatter += `reviewMeta: ${JSON.stringify(_authoredMetadata.get(node.id))}\n`;
             if (node.iconVisibility) frontmatter += `iconVisibility: ${JSON.stringify(node.iconVisibility)}\n`;
             if (node.hasCustomText) frontmatter += `hasCustomText: true\n`;
             if (node.hasCustomImage) frontmatter += `hasCustomImage: true\n`;
@@ -1683,7 +1696,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                 content += `![[${ref}]]\n\n`;
             });
 
-            content += node.desc || "";
+            content += node.desc || node.content || "";
             
             if (node.chunks && node.chunks.length > 0) {
                 content += "\n\n## Fonti\n";
@@ -1820,6 +1833,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         const mapData = {
             nodes: [],
             links: [],
+            sourcesDict: {},
             extractionMode: 'mindmap',
             rootNodeLabel: ''
         };
@@ -1859,6 +1873,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         if (fs.existsSync(linksPath)) {
             const rawLinks = JSON.parse(fs.readFileSync(linksPath, 'utf-8'));
             mapData.links = rawLinks.map(l => ({
+                ...(l.id != null ? { id: l.id } : {}),
+                ...(l.bidirectional != null ? { bidirectional: l.bidirectional } : {}),
                 source: l.source,
                 target: l.target,
                 rel: l.rel || "include",
@@ -1871,10 +1887,13 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         if (fs.existsSync(nodesDir)) {
             _vaultWalkMd(nodesDir).forEach(absPath => {
                 const content = fs.readFileSync(absPath, 'utf-8');
-                const parts = content.split('---');
+                const fmMatch = content.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
+                const parts = fmMatch ? ['', fmMatch[1], fmMatch[2]] : content.split('---');
                 if (parts.length >= 3) {
                     const fmLines = parts[1].trim().split('\n');
                     const node = { chunks: [] };
+                    let parsedFm = null;
+                    try { parsedFm = yaml.load(parts[1]); } catch (e) { /* vecchio YAML non escapato: rimane il parser legacy */ }
                     fmLines.forEach(l => {
                         const colonIdx = l.indexOf(':');
                         if (colonIdx === -1) return;
@@ -1902,12 +1921,22 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                         if (k === 'nextReview') node.nextReview = parseInt(cleanV);
                         if (k === 'lastReviewed') node.lastReviewed = parseInt(cleanV);
                     });
+                    if (parsedFm && typeof parsedFm === 'object') {
+                        // JSON quoting in new frontmatter preserves quotes and Unicode;
+                        // legacy fallback above remains available for malformed old files.
+                        ['id', 'label', 'level', 'group', 'parent', 'images', 'urls', 'iconVisibility', 'hasCustomText', 'hasCustomImage'].forEach(k => {
+                            if (Object.prototype.hasOwnProperty.call(parsedFm, k)) node[k] = parsedFm[k];
+                        });
+                        node.id = String(node.id);
+                    }
 
                     // Remove embedded images from description text since they are in node.images
                     let body = parts.slice(2).join('---').trim();
                     body = body.replace(/!\[\[.*?\]\]\n\n/g, '');
                     
-                    const fontiPart = body.split('## Fonti');
+                    const hasMetadata = parsedFm && parsedFm.reviewMeta && parsedFm.reviewMeta.schema === 'mappai-node-meta@1';
+                    const fontiAt = hasMetadata ? ((parsedFm.reviewMeta.chunks || []).length ? body.lastIndexOf('\n\n## Fonti\n') : -1) : body.indexOf('## Fonti');
+                    const fontiPart = fontiAt < 0 ? [body] : [body.slice(0, fontiAt), body.slice(fontiAt).replace(/^\s*## Fonti\s*\n?/, '')];
                     if (fontiPart.length > 1) {
                         node.desc = fontiPart[0].replace(/^# .*\n\n/, '').trim();
                         const fontiLines = fontiPart[1].trim().split('\n- ');
@@ -1928,6 +1957,9 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                     } else {
                         node.desc = body.replace(/^# .*\n\n/, '').trim();
                     }
+                    node.content = node.desc;
+                    const metadataRestored = ReviewStore.restoreNodeMetadata(node, parsedFm && parsedFm.reviewMeta, mapData);
+                    if (!metadataRestored && node.chunks.length) mapData.sourcesDict[node.id] = node.chunks.map(c => Object.assign({}, c));
                     mapData.nodes.push(node);
                 }
             });
@@ -1981,6 +2013,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
             if (fs.existsSync(vp)) mapData.vista = JSON.parse(fs.readFileSync(vp, 'utf-8'));
         } catch (e) { /* vista corrotta: la mappa si apre lo stesso, senza */ }
 
+        const reviewManifest = ReviewStore.readManifest(folderPath);
+        mapData._pipelineManifest = reviewManifest || null;
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };

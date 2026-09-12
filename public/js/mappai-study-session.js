@@ -332,6 +332,8 @@ window.generateDynamicQuiz = async function (opts) {
 
 window.startStudySession = async function () {
     if (window.mappaiOccupato && window.mappaiOccupato()) return;
+    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
+    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
     window.closeStudyConfigModal();
     window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;
     if (window.studyConfig.mode === 'quiz') {

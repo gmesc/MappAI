@@ -22,11 +22,10 @@
 //     sostituzione di stringa sola, verificabile con due confronti;
 //   · tutto il resto diventa una riga di rapporto per il docente.
 //
-// L'altra guardia che regge da sola è la PROVA CONTRARIA: il frammento che il
-// giudice cita deve stare davvero fra le frasi che gli abbiamo mostrato e deve
-// contenere almeno una parola-contenuto che nella desc NON c'è. Un giudice che
-// cita una frase già interamente contenuta nella desc non sta dimostrando un
-// errore: sta ripetendo il nodo.
+// La citazione deve stare nelle frasi mostrate. La novità lessicale NON prova
+// una contraddizione: uno scambio di soggetti conserva tutte le parole. Le
+// proposte restano consultabili anche senza parole nuove; in quel caso non
+// sono ammesse alle correzioni automatiche del percorso legacy.
 //
 // UMD puro → testabile in Node: tests/judge-core.test.js
 (function (root, factory) {
@@ -76,14 +75,8 @@
         return String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
-    /* LA PROVA CONTRARIA. Il frammento deve (a) stare fra le frasi mostrate al
-       giudice e (b) dire qualcosa che la desc non dice. Senza (b) il giudice può
-       «dimostrare» qualunque cosa citando il nodo stesso: è il modo più naturale
-       in cui un modello compiacente produce un verdetto che sembra fondato.
-       ⚠️ Niente pavimento sul numero di parole: le prove vere dei casi
-       dell'audit sono cortissime — «militari internati» sono due parole, «La
-       Germania aveva bisogno» sono due. Un minimo di quattro le avrebbe
-       censurate tutte. */
+    /* Verifica la provenienza della citazione, NON la correttezza semantica
+       del verdetto. Una proposta con lo stesso lessico richiede il docente. */
     function provaContraria(prova, frammenti, desc) {
         var p = _piatto(prova);
         if (!p || p.length < 8) return { ok: false, perche: 'prova troppo corta' };
@@ -94,8 +87,7 @@
         var nellaDesc = {};
         _parole(desc).forEach(function (w) { nellaDesc[w] = 1; });
         var nuove = _parole(prova).filter(function (w) { return !nellaDesc[w]; });
-        if (!nuove.length) return { ok: false, perche: 'la prova non dice niente che la desc non dica' };
-        return { ok: true, nuove: nuove };
+        return { ok: true, nuove: nuove, soloProposta: !nuove.length };
     }
 
     /* LA CHIRURGIA. `brano` deve comparire nella desc com'è, e `con` deve essere
@@ -140,7 +132,7 @@
         var applicati = [], segnalati = [], scartati = [];
 
         (verdetti || []).forEach(function (v) {
-            var scarta = function (perche) { scartati.push({ id: v && v.id, perche: perche }); };
+            var scarta = function (perche) { scartati.push(Object.assign({}, v, { id: v && v.id, perche: perche })); };
             if (!v || !v.id || !perId[v.id]) return scarta('nodo inesistente');
             if (TIPI.indexOf(v.tipo) < 0) return scarta('tipo di difetto non previsto');
             var n = perId[v.id];
@@ -150,20 +142,21 @@
             var pc = provaContraria(v.prova, frammenti, n.desc || '');
             if (!pc.ok) return scarta(pc.perche);
 
-            var riga = { id: v.id, label: n.label, tipo: v.tipo, problema: v.problema || '', prova: _norm(v.prova) };
+            var riga = { id: v.id, label: n.label, tipo: v.tipo, problema: v.problema || '', prova: _norm(v.prova),
+                prima: _norm(n.desc), brano: _norm(v.brano_errato), con: _norm(v.con), soloProposta: pc.soloProposta };
 
             if (TIPI_APPLICABILI.indexOf(v.tipo) < 0) { segnalati.push(riga); return; }
             if (!v.brano_errato || !v.con) { segnalati.push(riga); return; }
-            if (applicati.length >= o.maxPerRamo) {
-                riga.perche = 'oltre il tetto di correzioni per ramo';
-                segnalati.push(riga); return;
-            }
             var ch = chirurgia(n.desc, v.brano_errato, v.con, o);
             if (!ch.ok) { riga.perche = ch.perche; segnalati.push(riga); return; }
             riga.brano = _norm(v.brano_errato);
             riga.con = _norm(v.con);
             riga.prima = _norm(n.desc);
             riga.dopo = ch.nuova;
+            if (!o.proposalOnly && applicati.length >= o.maxPerRamo) {
+                riga.perche = 'oltre il tetto di correzioni per ramo';
+                segnalati.push(riga); return;
+            }
             applicati.push(riga);
         });
 
@@ -194,7 +187,16 @@
             if (NEUTRI[String(l.rel || '').toLowerCase()]) {
                 scartati.push({ k: k, perche: 'arco già neutro: niente da togliere' }); return;
             }
-            tolti.push({ source: v.source, target: v.target, rel: l.rel, problema: v.problema || '', isCross: !!l.isCross });
+            if (c.frammenti) {
+                var ps = provaContraria(v.prova_source, c.frammenti[v.source], '');
+                var pt = provaContraria(v.prova_target, c.frammenti[v.target], '');
+                if (!ps.ok || !pt.ok) {
+                    scartati.push(Object.assign({}, v, { k: k, perche: 'prova degli estremi mancante o non presente nelle frasi mostrate' }));
+                    return;
+                }
+            }
+            tolti.push({ source: v.source, target: v.target, rel: l.rel, problema: v.problema || '', isCross: !!l.isCross,
+                prova_source: _norm(v.prova_source), prova_target: _norm(v.prova_target) });
         });
         return { tolti: tolti, scartati: scartati };
     }

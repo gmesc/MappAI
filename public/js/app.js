@@ -622,7 +622,7 @@ window.extractTextFromPDF = async function (file) {
 
 
 window.getSystemKey = function () {
-    const isInfomaniak = (appState.aiProvider === 'infomaniak');
+    const isInfomaniak = ((appState._reviewAIContext?.provider || appState.aiProvider) === 'infomaniak');
     const inputId = isInfomaniak ? 'infomaniak-api-key-input' : 'gemini-api-key-input';
     const storageKey = isInfomaniak ? 'infomaniak_api_key' : 'gemini_api_key';
 
@@ -666,14 +666,15 @@ window.getMaxOutputTokens = function (baseTokens) {
     // Guard: baseTokens undefined/NaN → NaN si serializza come null nel payload
     // → null = nessun limite → thinking illimitato su gemini-2.5. Default: 4096.
     if (!baseTokens || typeof baseTokens !== 'number' || isNaN(baseTokens)) baseTokens = 4096;
+    const provider = appState._reviewAIContext?.provider || appState.aiProvider;
     const modelEl = document.getElementById('model-select');
     // Fallback a localStorage: il DOM può essere null durante le fasi async
     // del multi-pass (loop rami, Phase4, Phase5) → il modello non viene rilevato
     // → moltiplicatori ignorati → budget troppo piccolo → troncamenti.
     // Stesso pattern già usato in fetchModelAPI.
-    const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const model = ((modelEl ? modelEl.value : '') || localStorage.getItem(storageKey) || '').toLowerCase();
-    if (appState.aiProvider === 'infomaniak') {
+    const storageKey = (provider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+    const model = (appState._reviewAIContext?.model || (modelEl ? modelEl.value : '') || localStorage.getItem(storageKey) || '').toLowerCase();
+    if (provider === 'infomaniak') {
         if (model.includes('qwen') || model.includes('kimi') || model.includes('moonshot')) {
             return Math.max(baseTokens, 16384);
         }
@@ -751,14 +752,15 @@ function _detectTruncation(response) {
 }
 
 window.fetchModelAPI = async function (payload, apiKey) {
+    const provider = appState._reviewAIContext?.provider || appState.aiProvider;
     const modelEl = document.getElementById('model-select');
-    let model = modelEl ? modelEl.value : null;
+    let model = appState._reviewAIContext?.model || (modelEl ? modelEl.value : null);
     if (!model) {
-        const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+        const storageKey = (provider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
         model = localStorage.getItem(storageKey);
     }
     if (!model) {
-        model = (appState.aiProvider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
+        model = (provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
     }
 
     // ── Gemini 2.5+: disabilita il thinking per fasi con budget ridotto ─────────
@@ -776,7 +778,7 @@ window.fetchModelAPI = async function (payload, apiKey) {
     // (===MERGES===, ===RECLASSIFY===, array JSON raw) → non hanno responseMimeType
     // ma subiscono comunque il problema thinking. La condizione li escludeva.
     const _gcfg = payload?.generationConfig || {};
-    if (appState.aiProvider === 'google' &&
+    if (provider === 'google' &&
         (model || '').toLowerCase().match(/gemini-2\.5|gemini-3/) &&
         (_gcfg.maxOutputTokens || 0) > 0 &&
         (_gcfg.maxOutputTokens || 0) <= 12288) {
@@ -805,7 +807,7 @@ window.fetchModelAPI = async function (payload, apiKey) {
     if (window.electronAPI) {
         try {
             let response;
-            if (appState.aiProvider === 'infomaniak') {
+            if (provider === 'infomaniak') {
                 const productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
                 if (!productId) throw new Error("Inserisci il Product ID di Infomaniak nel Setup.");
 
@@ -862,7 +864,7 @@ window.fetchModelAPI = async function (payload, apiKey) {
                    chiavi in più per riga e rendono ogni generazione leggibile
                    da sola, senza indovinare il troncamento dai valori ripetuti. */
                 if (window.MappAIUsage) window.MappAIUsage.record({
-                    provider: appState.aiProvider,
+                    provider: provider,
                     model,
                     inTok: response.usageMetadata.promptTokenCount || 0,
                     outTok: response.usageMetadata.candidatesTokenCount || 0,
@@ -877,7 +879,7 @@ window.fetchModelAPI = async function (payload, apiKey) {
             // Strategia 0 — troncamento (il verdetto è calcolato sopra)
             window.MappAITruncationTracker.record({
                 model,
-                provider: appState.aiProvider,
+                provider: provider,
                 finishReason,
                 truncated,
                 requestedMax,
@@ -1594,6 +1596,19 @@ window.startGeneration = async function () {
         return;
     }
 
+    // Archive original text before cleaning it for generation. Text/URL/DOCX
+    // inputs may live only in textParts, while the source UI stores just an ID.
+    var _reviewSourceSnapshot = _pdfPagine.map(function (doc) {
+        return { nome: doc.nome, pages: doc.pages.map(p => ({ n: p.n, text: p.text })) };
+    });
+    textParts.forEach(function (part, index) {
+        if (/^\[FONTE (?:PDF|YOUTUBE)\b/.test(part)) return;
+        var header = /^\[FONTE ([^\]]+)\]:\s*\n/.exec(part);
+        var content = header ? part.slice(header[0].length) : part;
+        if (content.trim()) _reviewSourceSnapshot.push({ id: 'text-' + index,
+            title: header ? header[1] : 'Fonte ' + (index + 1), type: 'text', content: content });
+    });
+
     // #1 (22/7): rimuove intestazioni/piè di pagina ricorrenti dal corpus di
     // generazione (es. "Storia IV Media · La Guerra Fredda · pag. 3") → la mappa
     // non ingerisce il boilerplate come contenuto. Per-fonte (i repeat sono
@@ -1649,6 +1664,12 @@ window.startGeneration = async function () {
        la generazione in silenzio, coi token già spesi.
        Qui si alza attorno all'estrazione e si abbassa SEMPRE, anche se lancia:
        un lucchetto che resta su dopo un errore blocca l'app per sempre. */
+    appState._pipelineManifest = null;
+    appState._generationSources = _reviewSourceSnapshot;
+    appState._reviewRevision = undefined;
+    appState._reviewRequested = !!(window.MappAIReview && window.MappAIReview.enabled());
+    appState._judgeReport = appState._giudiceReport = null;
+    appState._generationId = (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'gen-' + Date.now();
     window.MappAIGen.inizia(appState.rootNodeLabel, appState.extractionMode);
     /* Il contesto si congela anche qui, e per la stessa ragione: una MindMap
        multi-pass fa decine di chiamate su parecchi minuti, e la taratura si
@@ -1685,6 +1706,7 @@ window.startGeneration = async function () {
             await extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey);
         }
     }
+    if (window.MappAIReview && appState._reviewRequested && !(window.MappAIPipeline && window.MappAIPipeline._running)) await window.MappAIReview.finishMapOnly();
     } finally {
         window.MappAIGen.fine();
         if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela();
@@ -1817,7 +1839,10 @@ window.MappAITune = {
        `classTuningPrompt`; `contesto()` dà le due etichette che vanno scritte
        nell'archivio — la voce d'archivio senza `cls`/`disc` li prende dal
        contesto ATTIVO, cioè da quello che c'è alla FINE. */
-    congela: function () {
+    congela: function (snapshot) {
+        if (snapshot && ['pieno', 'livello', 'nome', 'disc'].every(k => typeof snapshot[k] === 'string')) {
+            this._gelo = Object.assign({}, snapshot); return this._gelo;
+        }
         var c = null, nome = '', disc = '';
         try {
             var CL = window.MappAIClasses;
@@ -2002,6 +2027,9 @@ window.accessibleDescRules = function () {
 // KG EXTRACTION (extractResponseText, _kgGenerationConfig, extractKnowledgeGraph{SinglePass,Community,MultiPass})
 // → estratto in js/mappai-kg-extraction.js (caricato dopo app.js)
 window.showGenerationReport = function () {
+    // Assisted runs persist synchronously at the checkpoint; this delayed legacy
+    // callback must neither resave the vault nor read a different open project.
+    if (appState._reviewRequested && window.MappAIReview) return;
     if (!appState.generationUsage) return;
 
     const modelEl = document.getElementById('model-select');

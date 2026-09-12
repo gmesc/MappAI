@@ -105,6 +105,11 @@ window.directLoadVault = async function (folderPath) {
         const loadRes = await window.electronAPI.loadVault(folderPath);
         window.showLoadingOverlay(false);
         if (loadRes.success) {
+            appState._reviewRestoring = true;
+            delete appState._reviewRestoreError;
+            delete appState._reviewCommit;
+            delete appState._reviewRevision;
+            appState._pipelineManifest = loadRes.data._pipelineManifest || null;
             appState.activeVaultPath = folderPath;
             /* Aprire dal disco DICHIARA CHI È (15/8): senza, l'identità restava
                quella della mappa precedente e il prossimo salvataggio scriveva
@@ -134,10 +139,11 @@ window.directLoadVault = async function (folderPath) {
             let linksList = loadRes.data.links || [];
 
             const rootNode = nodesList.find(n => n.level === 0);
-            if (rootNode) {
+            if (rootNode && !loadRes.data._pipelineManifest?.review) {
                 rootNode.label = appState.rootNodeLabel;
             }
             if (nodesList.length === 0) {
+                if (loadRes.data._pipelineManifest?.review) throw new Error('Mappa revisionata senza nodi: ripristino interrotto');
                 const rootId = "node_" + Math.random().toString(36).substr(2, 9);
                 nodesList = [{
                     id: rootId,
@@ -167,7 +173,7 @@ window.directLoadVault = async function (folderPath) {
                 nodes: nodesList,
                 links: linksList,
                 studySets: loadRes.data.studySets || [],
-                sourcesDict: {}
+                sourcesDict: loadRes.data.sourcesDict || {}
             };
 
             /* vista.json (15/8): Vista studio · focus · timeline · foglio nodi
@@ -193,8 +199,6 @@ window.directLoadVault = async function (folderPath) {
                 window.MappAIJigsaw.syncModeToVault(loadRes.data.branchLocks);
                 window.MappAIJigsaw.applyLocks(appState.db.nodes, loadRes.data.branchLocks);
             }
-
-            if (window.renderStudySets) window.renderStudySets();
 
             if (loadRes.data.userProfile) {
                 appState.userProfile = loadRes.data.userProfile;
@@ -222,8 +226,9 @@ window.directLoadVault = async function (folderPath) {
 
             // Ricostruisci sourcesDict
             appState.db.nodes.forEach(n => {
+                if (loadRes.data.sourcesDict) return;
                 if (n.chunks && n.chunks.length > 0) {
-                    appState.db.sourcesDict[n.id] = n.chunks.map(c => ({
+                    appState.db.sourcesDict[n.id] = n.chunks.map(c => Object.assign({}, typeof c === 'object' ? c : {}, {
                         title: c.title || "Fonte",
                         source: c.source || "Documento",
                         text: c.text || c
@@ -234,6 +239,11 @@ window.directLoadVault = async function (folderPath) {
             if (loadRes.data.customColors) {
                 appState.db.customColors = loadRes.data.customColors;
             }
+            if (window.MappAIReview && window.MappAIReview.restore) {
+                await window.MappAIReview.restore(folderPath, loadRes.data._pipelineManifest || null, { fromCache: false });
+            } else if (loadRes.data._pipelineManifest?.review) throw new Error('Revisione non disponibile: caricamento interrotto');
+            appState._reviewRestoring = false;
+            if (window.renderStudySets) window.renderStudySets();
 
             /* LE FONTI TORNANO DAL VAULT (9/8) — questa è la strada delle mappe
                aperte da INSEGNA e dalla briciola dei progetti (`directLoadVault`),
@@ -263,12 +273,18 @@ window.directLoadVault = async function (folderPath) {
             window.showAlert("Errore Caricamento", loadRes.error);
         }
     } catch (e) {
+        if (appState._reviewRestoring) { appState._reviewRestoring = false; appState._reviewRestoreError = e.message; }
         window.showLoadingOverlay(false);
         window.showAlert("Errore", e.message);
     }
 };
 
 window.resetVaultState = function () {
+    appState._pipelineManifest = null;
+    delete appState._reviewRevision;
+    delete appState._reviewCommit;
+    delete appState._reviewRestoring;
+    delete appState._reviewRestoreError;
     appState.activeVaultPath = null;
     appState.activeVaultClassDir = null;   // 22/7: nesting classe del vault auto-creato
     const syncBtn = document.getElementById('sync-vault-btn');

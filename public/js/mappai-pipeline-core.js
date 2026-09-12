@@ -143,6 +143,10 @@
   // Tutti i passi non-skipped sono done? → pipeline completa.
   function isComplete(manifest) {
     if (!manifest || !manifest.steps) return false;
+    if (manifest.review && manifest.review.initial) {
+      if (manifest.review.initial.status !== 'approved') return false;
+      if (hasOutput(manifest.config) && (!manifest.review.final || manifest.review.final.stage !== 'done')) return false;
+    }
     return STEPS.every(function (k) {
       var st = manifest.steps[k] && manifest.steps[k].status;
       return st === 'done' || st === 'skipped';
@@ -478,7 +482,7 @@
     var g = String(item.guide || item.traccia || '').trim();
     if (!g) return [];
     return g.split(/(?<=[.;])\s+/).map(function (x) { return x.trim(); })
-      .filter(function (x) { return x.length > 12; }).slice(0, 4);
+      .filter(function (x) { return /[\p{L}\p{N}]/u.test(x); }).slice(0, 4);
   }
 
   function _parole(t) {

@@ -10,6 +10,8 @@ let currentQuizNode = null;
 
 window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
     if (window.mappaiOccupato && window.mappaiOccupato()) return;
+    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
+    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
     const apiKey = window.getSystemKey();
     if (!apiKey) {
         if (!silent) window.showToast(window.t('tst_fc_no_key', "Nessuna API Key presente per generare le flashcard."), "error"); return;
@@ -196,6 +198,8 @@ window.deleteStudySet = function (setId) {
 // (salvato alla creazione); i set storici senza material non sono rigenerabili.
 window.regenerateStudySet = async function (setId) {
     if (window.mappaiOccupato && window.mappaiOccupato()) return;
+    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
+    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
     const set = appState.db.studySets.find(s => s.id === setId);
     if (!set) return;
     if (!set.material) {
@@ -275,6 +279,8 @@ window.getDescendants = function (nodeId) {
 };
 
 window.generateBranchFlashcards = async function (node) {
+    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
+    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
     const apiKey = window.getSystemKey();
     if (!apiKey) { window.showToast(window.t('tst_enter_key', "Inserisci API Key."), "error"); return; }
 

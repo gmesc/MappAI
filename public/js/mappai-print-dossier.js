@@ -348,6 +348,34 @@ window.printAllNodeLabels = async function (opts) {
         });
     }
 
+    // Una VOCE per card stampata: dal foglio rivisto (ogni card col suo tipo di
+    // contenuto) oppure dai nodi con il tipo scelto una volta per tutte nel modale.
+    const nodeById = {};
+    allNodes.forEach(function (n) { nodeById[n.id] = n; });
+    const entries = editedCards
+        ? editedCards.map(function (c) {
+            const n = nodeById[c.id] || { id: c.id, label: c.label, desc: c.desc || '' };
+            const lay = (fmt === '3x4') ? 'title' : String(c.layout || 'title');
+            return {
+                node: n,
+                label: String(c.label != null ? c.label : cleanLabel(n.label)).trim(),
+                layout: lay,
+                keywords: Array.isArray(c.keywords) ? c.keywords : [],
+                desc: String(c.desc || '')
+            };
+        })
+        : nodes.map(function (n) {
+            return {
+                node: n,
+                label: cleanLabel(n.label),
+                layout: layout,
+                keywords: keywordsMap[n.id] || [],
+                desc: String(n.desc || n.content || '').trim()
+            };
+        });
+
+    if (opts.draftOnly) return { ok: true, cards: entries.map(e => ({ id: e.node.id, label: e.label, desc: e.desc, layout: e.layout, keywords: e.keywords })) };
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
         orientation: 'landscape',
@@ -421,32 +449,6 @@ window.printAllNodeLabels = async function (opts) {
         for (let gy = 0; gy <= pageHeight + 0.01; gy += step) doc.line(0, gy, pageWidth, gy);
         if (useG) { try { doc.setGState(new doc.GState({ 'stroke-opacity': 1 })); } catch (e) {} }
     }
-
-    // Una VOCE per card stampata: dal foglio rivisto (ogni card col suo tipo di
-    // contenuto) oppure dai nodi con il tipo scelto una volta per tutte nel modale.
-    const nodeById = {};
-    allNodes.forEach(function (n) { nodeById[n.id] = n; });
-    const entries = editedCards
-        ? editedCards.map(function (c) {
-            const n = nodeById[c.id] || { id: c.id, label: c.label, desc: c.desc || '' };
-            const lay = (fmt === '3x4') ? 'title' : String(c.layout || 'title');
-            return {
-                node: n,
-                label: String(c.label != null ? c.label : cleanLabel(n.label)).trim(),
-                layout: lay,
-                keywords: Array.isArray(c.keywords) ? c.keywords : [],
-                desc: String(c.desc || '')
-            };
-        })
-        : nodes.map(function (n) {
-            return {
-                node: n,
-                label: cleanLabel(n.label),
-                layout: layout,
-                keywords: keywordsMap[n.id] || [],
-                desc: String(n.desc || n.content || '').trim()
-            };
-        });
 
     let currentNodeIndex = 0;
 

@@ -260,3 +260,64 @@ test('buildOpenQuestionsHtml: con `risposta` il foglio è COMPILATO e senza solu
     const doc = W.buildOpenQuestionsHtml({ title: 'T', items: [{ question: 'Q?' }] }, { mapName: 'M', now: '01/01/2026' });
     assert.ok(!/oq-risposta/.test(doc), 'senza `risposta` il foglio è quello di sempre');
 });
+
+test('quiz: spiegazioni visibili nelle soluzioni e struttura navigabile per titoli e liste', () => {
+    const { load } = require('cheerio');
+    const $ = load(W.buildQuizSetHtml(RAW, { includeBar: false }));
+    assert.strictEqual($('main').length, 1);
+    assert.strictEqual($('h1').length, 1);
+    assert.strictEqual($('main > h2').text(), 'Domande');
+    assert.strictEqual($('.quiz-item h3').length, 2);
+    assert.strictEqual($('.quiz-options[role="list"] > li').length, 4);
+    assert.strictEqual($('.quiz-options > li').first().find('[aria-hidden="true"]').length, 0, 'la lettera della scelta deve poter essere letta');
+    assert.strictEqual($('.answer-key .quiz-explanation').text(), 'Spiegazione: Sta nel testo.');
+    assert.strictEqual($('.quiz-item .quiz-explanation').length, 0);
+    $('section[aria-labelledby], ol[aria-labelledby]').each((_, el) => {
+        assert.strictEqual($('#' + $(el).attr('aria-labelledby')).length, 1, 'ogni riferimento punta a un titolo esistente');
+    });
+    assert.ok($.html().includes('font-size:12pt'), 'testo delle opzioni in punti leggibili');
+});
+
+test('quiz e flashcard: il round-trip conserva identità, evidenze, revisioni e altri metadati', () => {
+    const set = { ...RAW, angle: 'confronto', sourceRevision: 'rev-2', review: { status: 'approved' },
+        items: [{ ...RAW.items[0], id: 'item-uno', nodeIds: ['economia'], evidenza: [{ sourceId: 'src-uno', page: 5, text: 'Fonte esatta.' }],
+            g2: { status: 'teacher-override', issueId: 'issue-7' } }] };
+    for (const builder of [W.buildQuizSetHtml, W.buildFlashcardSetHtml]) {
+        const back = W.MappAIQuizPrint.setFromHtml(builder(set, { includeBar: false }));
+        assert.strictEqual(back.angle, set.angle);
+        assert.strictEqual(back.sourceRevision, set.sourceRevision);
+        assert.deepStrictEqual(back.review, set.review);
+        assert.strictEqual(back.items[0].id, 'item-uno');
+        assert.deepStrictEqual(back.items[0].nodeIds, ['economia']);
+        assert.deepStrictEqual(back.items[0].evidenza, set.items[0].evidenza);
+        assert.deepStrictEqual(back.items[0].g2, set.items[0].g2);
+    }
+});
+
+test('aperte: anche un unico criterio breve resta visibile e semantico, senza perdere i metadati', () => {
+    const { load } = require('cheerio');
+    const X = loadQuizPrint();
+    X.MappAIPipelineCore = require('../public/js/mappai-pipeline-core.js');
+    const set = { id: 'aperte', angle: 'definizione', sourceRevision: 'rev-3',
+        items: [{ id: 'guisan', question: 'Chi fu eletto generale?', criteri: ['Cita Guisan.'], guide: 'Cita Guisan.', evidenza: { page: 2 } }] };
+    const html = X.buildOpenQuestionsHtml(set, { includeBar: false });
+    const $ = load(html);
+    assert.strictEqual($('.oq-criteria[role="list"] > li').text(), 'Cita Guisan.');
+    assert.strictEqual($('.oq-item h3').text().trim(), set.items[0].question);
+    assert.strictEqual($('main').length, 1);
+    const back = X.MappAIQuizPrint.setFromHtml(html);
+    assert.strictEqual(back.sourceRevision, 'rev-3');
+    assert.strictEqual(back.items[0].id, 'guisan');
+    assert.deepStrictEqual(back.items[0].evidenza, { page: 2 });
+});
+
+test('flashcard: ogni carta è un articolo con titolo e testo del retro accessibili', () => {
+    const { load } = require('cheerio');
+    const $ = load(W.buildFlashcardSetHtml({ id: 'flash', title: 'Economia', mode: 'flashcard',
+        items: [{ front: 'Chi ricevette valuta?', back: 'La Germania.', explanation: 'La BNS acquistò oro dalla Germania.' }] }, {}));
+    assert.strictEqual($('main article.fc-card').length, 1);
+    assert.strictEqual($('article h2').text(), 'Chi ricevette valuta?');
+    assert.strictEqual($('article .fc-a').text(), 'La Germania.');
+    assert.strictEqual($('article .fc-e').text(), 'La BNS acquistò oro dalla Germania.');
+    assert.strictEqual($('#' + $('article').attr('aria-labelledby')).length, 1);
+});
