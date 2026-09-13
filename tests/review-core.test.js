@@ -8,6 +8,50 @@ const R = require('../public/js/mappai-review-core.js');
 const BEFORE = 'La Svizzera scambia oro con la Germania per ottenere franchi.';
 const AFTER = 'La Germania scambia oro con la Svizzera per ottenere franchi.';
 const SOURCES = [{ id: 'pdf-1', title: 'Svizzera', pages: [{ n: 4, text: AFTER }] }];
+test('retry preserves legacy decisions when only the explanation changes, while retaining new evidence', () => {
+  const report = { stato: 'parziale', segnalati: [{ id: 'N1', tipo: 'fatto-contraddetto', problema: 'Soggetto invertito.',
+    prova: 'La Germania', evidenze: [{ text: AFTER, page: 4 }] }] };
+  let previous = R.createReview({ db: db(), sources: SOURCES, report });
+  const issueId = previous.initial.issues[0].id;
+  previous = R.setDecision(previous, issueId, 'manual', { text: AFTER });
+  delete previous.initial.issues[0].quote; // Saved before the quote was retained on the issue.
+  const saved = JSON.stringify(previous);
+  const reworded = { ...report.segnalati[0], problema: 'Il soggetto della frase non coincide con quello nella fonte.' };
+  const next = R.createReview({ db: db(), sources: SOURCES, report: { stato: 'completato', segnalati: [reworded] } });
+  assert.notEqual(next.initial.issues[0].id, issueId);
+  const merged = R.mergeRetry(previous, next);
+  assert.equal(merged.initial.issues.length, 1);
+  assert.deepEqual(merged.initial.decisions, previous.initial.decisions);
+  assert.equal(R.beginApproval(merged, db()).db.nodes[0].desc, AFTER);
+  assert.equal(JSON.stringify(previous), saved);
+  assert.deepEqual(merged.initial.previousReports, [report]);
+  const differentQuote = R.createReview({ db: db(), sources: SOURCES, report: { stato: 'completato',
+    segnalati: [{ ...reworded, prova: 'ottenere franchi' }] } });
+  const reopened = R.mergeRetry(previous, differentQuote);
+  assert.equal(reopened.initial.issues.length, 2, 'a different selected quote stays pending even with the same surrounding context and ID');
+  const added = reopened.initial.issues[1];
+  assert.equal(reopened.initial.decisions[added.id], undefined);
+  assert.equal(R.beginApproval(reopened, db()).ok, false);
+});
+
+test('retry never carries approval to a changed material proposal or another target, even if IDs are reused', () => {
+  const data = { items: [{ id: 'q1', kind: 'open', answer: BEFORE }, { id: 'q2', kind: 'open', answer: BEFORE }] };
+  const issue = { id: 'fixed', target: { kind: 'item', id: 'q1', field: 'answer' }, after: AFTER,
+    problem: 'Prima formulazione.', evidence: [{ text: AFTER }] };
+  const make = issues => R.createReview({ db: data, sources: SOURCES, report: { checkStatus: 'completed', issues } });
+  const previous = R.setDecision(make([issue]), 'fixed', 'accept');
+  for (const changed of [{ ...issue, after: 'Una proposta diversa.' },
+    { ...issue, target: { ...issue.target, id: 'q2' } }, { ...issue, evidence: [{ text: 'Una nuova prova.' }] }]) {
+    const merged = R.mergeRetry(previous, make([changed]));
+    assert.equal(merged.initial.issues.length, 2);
+    assert.equal(merged.initial.decisions.fixed.choice, 'accept');
+    assert.equal(merged.initial.decisions[merged.initial.issues[1].id], undefined);
+    assert.equal(R.beginApproval(merged, data).ok, false);
+  }
+  const altered = R.createReview({ db: { items: [{ ...data.items[0], answer: 'Testo modificato.' }] }, sources: SOURCES,
+    report: { checkStatus: 'completed', issues: [] } });
+  assert.throws(() => R.mergeRetry(previous, altered), /stale_revision/);
+});
 test('independent corrections in one text compose, survive reload and preserve overlapping-change conflicts', () => {
   const item = { id: 'intro', kind: 'synthesis', text: 'Il governo nominò Guisan. Una frase che resta. Bergier confermò tutte le accuse.' };
   const make = (id, before, after) => ({ id, target: { kind: 'item', id: item.id, field: 'text' }, before: item.text, after: item.text.replace(before, after) });

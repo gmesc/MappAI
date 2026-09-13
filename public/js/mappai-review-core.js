@@ -139,6 +139,9 @@
     if (raw.type || raw.tipo) issue.type = raw.type || raw.tipo;
     if (own(raw, 'citationAdditions')) issue.citationAdditions = clone(raw.citationAdditions);
     issue.id = String(raw.id || 'issue-' + hash(issue));
+    // Keep legacy IDs so saved decisions still resolve. The selected quote
+    // distinguishes new evidence from the surrounding source context.
+    if (typeof raw.quote === 'string' && raw.quote.trim()) issue.quote = raw.quote;
     return issue;
   }
   function reportIssues(report, db) {
@@ -148,7 +151,7 @@
       var n = (db.nodes || []).find(function (n) { return eid(n.id) === eid(r.id); });
       var before = own(r, 'prima') ? r.prima : n && String(n.desc || n.content || '');
       var row = { target: { kind: 'node', id: eid(r.id), field: 'desc' }, before: before,
-        problem: r.problema, evidence: r.evidenze || r.prova, type: r.tipo };
+        problem: r.problema, evidence: r.evidenze || r.prova, quote: r.prova, type: r.tipo };
       if (own(r, 'dopo')) row.after = r.dopo;
       else {
         var from = r.brano || r.brano_errato;
@@ -208,6 +211,43 @@
   function editable(review) {
     if (!review || review.schema !== SCHEMA || !review.initial) fail('invalid_review');
     if (review.initial.status !== 'awaiting_review') fail('review_not_editable');
+  }
+  function mergeRetry(previous, next) {
+    editable(previous); editable(next);
+    if (previous.baseRevision !== next.baseRevision || stable(previous.baseSnapshot) !== stable(next.baseSnapshot) ||
+        stable(previous.sources) !== stable(next.sources)) fail('stale_revision');
+    // Older saved issues did not retain the selected quote. Recover it from
+    // the original reports without changing their IDs or the teacher's choices.
+    var archived = new Map();
+    (previous.initial.previousReports || []).concat([previous.initial.report]).forEach(function (report) {
+      reportIssues(report, previous.baseSnapshot).forEach(function (i) { archived.set(i.id, i); });
+    });
+    function identity(issue) {
+      var data = pick(issue, ['target', 'before', 'after', 'hasProposal', 'evidence', 'type', 'blocking', 'origin', 'citationAdditions']);
+      data.quote = issue.quote || (archived.get(issue.id) || {}).quote || '';
+      // A reworded explanation is not new evidence. Retain it in the full
+      // report, while preserving the original issue and its decision.
+      if (!issue.hasProposal && !data.quote && (!data.evidence || !Object.keys(data.evidence).length)) data.problem = issue.problem;
+      return stable(data);
+    }
+    var r = clone(next), issues = clone(previous.initial.issues), known = new Set(issues.map(identity));
+    r.initial.decisions = clone(previous.initial.decisions);
+    next.initial.issues.forEach(function (issue) {
+      var key = identity(issue);
+      if (known.has(key)) return;
+      var added = clone(issue);
+      // Even an explicit/reused model ID cannot transfer approval to a
+      // different proposal or different evidence.
+      if (issues.some(function (i) { return i.id === added.id; })) {
+        added.id = 'issue-' + hash({ originalId: issue.id, identity: key });
+        while (issues.some(function (i) { return i.id === added.id; })) added.id += '-new';
+      }
+      issues.push(added); known.add(key);
+    });
+    r.initial.issues = issues;
+    r.initial.previousReports = clone((previous.initial.previousReports || []).concat([previous.initial.report]));
+    if (previous.previous) r.previous = clone(previous.previous);
+    return r;
   }
   function addIssue(review, issue, db) {
     editable(review);
@@ -373,6 +413,6 @@
   }
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
-    revision: revision, createReview: createReview, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome, textChange: textChange,
+    revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome, textChange: textChange,
     preview: preview, beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
 }));

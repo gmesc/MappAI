@@ -150,10 +150,12 @@ test('retry rechecks sources in proposal mode, keeps existing decisions and rest
   h.window.executeJudgePass = async (_key, opts) => {
     assert.equal(opts.apply, false); assert.equal(opts.enabled, true);
     assert.equal(h.st._pdfPagine[0].nome, 'Libro.pdf');
-    return { checkStatus: 'completed', issues: [] };
+    return { checkStatus: 'completed', issues: [{ id: 'reworded', target: { kind: 'node', id: 'a' }, after: 'Dopo.', problem: 'La stessa proposta, spiegata diversamente.' }] };
   };
   await h.R.retryJudge('/vault', m);
   assert.equal(m.review.initial.decisions.existing.choice, 'reject');
+  assert.equal(m.review.initial.issues.length, 1);
+  assert.equal(m.review.initial.issues[0].id, 'existing');
   assert.equal(m.review.initial.checkStatus, 'completed'); assert.equal(h.st._pdfPagine, pages);
   assert.equal(h.st.db.nodes[0].desc, 'Prima.');
 });
@@ -173,6 +175,35 @@ test('text-only and mixed generation archives survive checkpoint and retry witho
     await h.R.retryJudge('/vault', m); assert.equal(h.st._generationSources, currentSources);
     await h.R.restore('/vault', null); assert.equal(h.st._generationSources, undefined);
   }
+});
+
+test('retry without new findings explains partial coverage; only a complete check removes manual confirmation', async () => {
+  const h = runtime(), partial = { stato: 'parziale', copertura: {
+    nodiEsaminati: ['b'], linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'evidenze mancanti' }]
+  }, issues: [] };
+  const m = manifest(Core.setDecision(initial({ ...partial, issues: [
+    { id: 'existing', target: { kind: 'node', id: 'b', field: 'desc' }, after: 'Correzione.' }
+  ] }), 'existing', 'reject'));
+  const modal = h.R.open('/vault', m), proceed = modal.querySelector('#mrv-continue');
+  assert.equal(proceed.hidden, true);
+  assert.match(modal.querySelector('#mrv-manual').textContent, /Controllo automatico eseguito: alcune parti restano da verificare/);
+  h.window.executeJudgePass = async () => clone(partial);
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(m.review.initial.checkStatus, 'incomplete');
+  assert.equal(m.review.initial.issues.length, 1, 'a partial check without findings does not invent correction cards');
+  assert.equal(m.review.initial.decisions.existing.choice, 'reject');
+  assert.match(modal.querySelector('#mrv-status').textContent, /Controllo automatico eseguito: alcune parti restano da verificare/);
+  assert.match(modal.querySelector('#mrv-manual').textContent, /Anche senza nuove segnalazioni/);
+  assert.match(modal.querySelector('#mrv-manual-option').textContent, /Ho verificato personalmente anche le parti non coperte/);
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  assert.equal(proceed.hidden, true);
+  h.window.executeJudgePass = async () => ({ stato: 'completato', issues: [] });
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(m.review.initial.checkStatus, 'completed');
+  assert.equal(m.review.initial.decisions.existing.choice, 'reject');
+  assert.match(modal.querySelector('#mrv-status').textContent, /Controllo automatico completato/);
+  assert.equal(modal.querySelector('#mrv-manual-confirm'), null);
+  assert.equal(proceed.hidden, false);
 });
 
 function finalManifest(items, issues) {
@@ -529,12 +560,19 @@ function materialRetryFixture(opts = {}) {
 test('G2 retry checks the 105 saved items once, preserving decisions, original sources and frozen model without generating or exporting', async () => {
   const h = materialRetryFixture(), old = h.m.review.final.review, beforeDb = clone(h.st.db), beforeItems = clone(h.m.review.final.items),
     beforeDrafts = clone(h.m.review.drafts), priorContext = h.st._reviewAIContext, priorSources = h.st._generationSources;
+  const check = h.materialCheck;
+  h.materialCheck = async (...args) => {
+    const report = await check(...args);
+    report.issues.push(...old.initial.issues.map(i => ({ ...clone(i), id: i.id + '-again', problem: 'Stessa proposta riformulata.' })));
+    return report;
+  };
   await h.R.retryMaterialJudge('/vault', h.m);
   const next = h.m.review.final.review;
   assert.equal(h.calls.material, 1); assert.equal(h.calls.grounding, 1);
   assert.deepEqual(clone(next.initial.decisions), old.initial.decisions);
   old.initial.issues.forEach(issue => assert.deepEqual(clone(next.initial.issues.find(i => i.id === issue.id)), issue));
   assert.ok(next.initial.issues.some(i => i.id === 'fresh'));
+  assert.equal(next.initial.issues.length, old.initial.issues.length + 1, 'only the genuinely new finding needs a decision');
   assert.deepEqual(clone(next.initial.previousReports), old.initial.previousReports.concat([old.initial.report]));
   assert.equal(next.initial.checkStatus, 'completed'); assert.equal(next.initial.status, 'awaiting_review');
   assert.equal(h.m.review.final.stage, 'awaiting_review');

@@ -218,12 +218,8 @@
       assertProject(vaultPath);
       if (core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
     } finally { s._pdfPagine = pages; s.sources = sources; s._generationSources = generationSources; }
-    const next = core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
-      projectId: old.projectId, vaultPath, config: old.config });
-    old.initial.issues.forEach(issue => { if (!next.initial.issues.some(n => n.id === issue.id)) next.initial.issues.push(clone(issue)); });
-    next.initial.decisions = clone(old.initial.decisions);
-    next.initial.previousReports = (old.initial.previousReports || []).concat([old.initial.report]);
-    if (old.previous) next.previous = clone(old.previous);
+    const next = core().mergeRetry(old, core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
+      projectId: old.projectId, vaultPath, config: old.config }));
     manifest.review = next;
     await R.persistQuality(vaultPath); await R.writeManifest(vaultPath, manifest); cache();
     return next;
@@ -253,12 +249,8 @@
       report = await judge.check(clone(final.items), { review, apiKey, material, aiContext: clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
       assertCurrent();
     } finally { s._reviewAIContext = previousContext; }
-    const next = core().createReview({ db: { items: final.items }, sources: old.sources, report,
-      generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config });
-    old.initial.issues.forEach(issue => { if (!next.initial.issues.some(n => n.id === issue.id)) next.initial.issues.push(clone(issue)); });
-    next.initial.decisions = clone(old.initial.decisions);
-    next.initial.previousReports = (old.initial.previousReports || []).concat([old.initial.report]);
-    if (old.previous) next.previous = clone(old.previous);
+    const next = core().mergeRetry(old, core().createReview({ db: { items: final.items }, sources: old.sources, report,
+      generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config }));
     final.review = next;
     try { await R.writeManifest(vaultPath, manifest); }
     catch (e) { final.review = old; throw e; }
@@ -413,6 +405,13 @@
     const isFinal = !!options.final;
     const getReview = () => isFinal ? manifest.review.final.review : manifest.review;
     if (!getReview() || busy || committing) return;
+    function checkMessage() {
+      const initial = getReview().initial, report = initial.report || {};
+      if (initial.checkStatus === 'completed') return t('rv_check_completed', 'Controllo automatico completato.');
+      const checked = report.copertura?.nodiEsaminati?.length || report.copertura?.linkEsaminati?.length || report.coverage?.checkedIds?.length;
+      return checked ? t('rv_check_partial', 'Controllo automatico eseguito: alcune parti restano da verificare.') :
+        t('rv_check_incomplete', 'Il controllo automatico non ha potuto confermare la verifica di tutti i contenuti.');
+    }
     const old = document.getElementById('mappai-teacher-review'); if (old) old.remove();
     const previousFocus = document.activeElement;
     const referenceOptions = { sourceLabel: t('rv_source', 'Fonte'), unknownLabel: t('rv_reference_unknown', 'Fonte da verificare') };
@@ -531,7 +530,7 @@
       const info = document.createElement('p');
       const currentDb = isFinal ? { items: manifest.review.final.items } : state().db;
       info.textContent = approved ? (core().gate(r, currentDb, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
-        !r.initial.issues.length ? (r.initial.checkStatus === 'completed' ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') : t('rv_check_incomplete', 'Il controllo automatico non è completo. I contenuti attendono ancora la verifica.')) :
+        !r.initial.issues.length ? (r.initial.checkStatus === 'completed' ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') : checkMessage()) :
         groups.pending.length ? groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Controlla qui sotto se resta un passaggio per continuare.');
       content.appendChild(info);
@@ -727,12 +726,17 @@
       const manual = modal.querySelector('#mrv-manual'); manual.replaceChildren();
       proceed.hidden = editable && r.initial.checkStatus !== 'completed' && !manualConfirmed;
       if (r.initial.checkStatus !== 'completed' && editable) {
+        const outcome = document.createElement('p'); outcome.id = 'mrv-check-result'; outcome.className = 'text-sm font-bold';
+        outcome.textContent = checkMessage(); manual.appendChild(outcome);
+        const help = document.createElement('p'); help.className = 'text-sm';
+        help.textContent = t('rv_check_continue_help', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare serve un controllo completo oppure la tua conferma di aver verificato anche le parti rimaste scoperte.');
+        manual.appendChild(help);
         const manualOption = document.createElement('details'); manualOption.id = 'mrv-manual-option'; manualOption.className = 'mt-3 text-sm';
         manualOption.innerHTML = '<summary>' + esc(t('rv_manual_option', 'Scelgo di completare io il controllo')) + '</summary>';
         const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'mrv-manual-confirm'; input.checked = manualConfirmed;
         label.className = 'block mt-2';
         input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed; };
-        label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Il controllo automatico non è completo. Ho rivisto io i contenuti e scelgo di continuare.'))); manualOption.appendChild(label);
+        label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.'))); manualOption.appendChild(label);
         {
           const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary'; retry.textContent = isFinal ? t('rv_retry_material_judge', 'Riprova il controllo dei materiali') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
@@ -745,7 +749,8 @@
                 status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')';
               } });
               else await R.retryJudge(vaultPath, manifest);
-              manualConfirmed = false; freeze(false); render(); modal.querySelector('#mrv-title').focus(); status.textContent = t('rv_saved', 'Decisioni salvate');
+              manualConfirmed = false; freeze(false); render(); modal.querySelector('#mrv-title').focus();
+              status.textContent = checkMessage() + ' ' + t('rv_saved', 'Decisioni salvate');
             }
             catch (e) { status.textContent = errorText(e); }
             finally { if (busy) freeze(false); }
