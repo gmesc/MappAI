@@ -116,3 +116,19 @@ html.ui[data-theme="light"], .ui[data-theme="light"] {
 /* Fuoco visibile e movimento ridotto: obbligatori, non opzionali */
 .ui :is(button, a, [tabindex]):focus-visible { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ui * { transition: none !important; animation: none !important; } }
+
+/* ── Rail laterale: elenco impilato di voci con titolo e riga di spiegazione ──
+   Per le pagine che ospitano molte viste (atlante, raccolte): la colonna a sinistra
+   regge meglio di una riga di chip quando le voci sono più di sei o hanno una descrizione. */
+.ui-rail { display: flex; flex-direction: column; gap: 4px; padding: 20px 14px; border-right: 1px solid var(--ui-bordo); overflow-y: auto; background: var(--ui-fondo); }
+.ui-rail .ui-eyebrow { margin: 14px 4px 6px; }
+.ui-rail .ui-eyebrow:first-of-type { margin-top: 0; }
+.ui-rail-titolo { font-size: 18px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.01em; }
+.ui-rail-sotto { font-size: 13px; line-height: 1.45; color: var(--ui-testo-2); margin: 0 0 16px; }
+.ui-voce { display: grid; grid-template-columns: 26px 1fr; column-gap: 8px; align-items: start; padding: 9px 10px; border: 1px solid transparent; border-radius: var(--ui-r); background: transparent; color: var(--ui-testo); font-family: var(--ui-font); text-align: left; cursor: pointer; }
+.ui-voce:hover { background: var(--ui-pannello); }
+.ui-voce[aria-selected="true"] { background: var(--ui-pannello-attivo); border-color: var(--ui-accento); }
+.ui-voce .n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--ui-accento); color: var(--ui-accento); font-size: 11px; font-weight: 700; }
+.ui-voce b { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.ui-voce small { grid-column: 2; font-size: 12px; line-height: 1.4; color: var(--ui-testo-2); }
+.ui-rail-piede { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--ui-bordo); display: grid; gap: 8px; font-size: 11px; line-height: 1.5; color: var(--ui-testo-2); }

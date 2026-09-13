@@ -8,63 +8,46 @@
 <!-- Regola 10: il sistema unico della UI. Si importa, non si copia. -->
 <link rel="stylesheet" href="../../public/css/mappai-ui.css">
 <style>
-  /* Solo layout di pagina, tutto dai token: la pagina è una colonna, il pannello prende il resto. */
+  /* Solo layout di pagina, dai token: rail a sinistra, mappa a destra. */
   html, body { margin: 0; height: 100%; }
-  body { display: flex; flex-direction: column; background: var(--ui-fondo); color: var(--ui-testo); font-family: var(--ui-font); }
-  .ui-testata, .ui-barra, .ui-capitoli-riga { width: 100%; }
-  .ui-capitoli-riga { max-width: var(--ui-tetto); margin: 0 auto; padding: var(--ui-gap) 24px 0; display: flex; flex-wrap: wrap; gap: var(--ui-gap); }
-  .ui-capitolo[hidden] { display: none; }
-  .ui-pannello { flex: 1; width: calc(100% - 48px); display: flex; min-height: 0; }
-  iframe { flex: 1; width: 100%; border: 0; background: var(--ui-pannello); border-radius: var(--ui-r-riquadro); }
+  body { display: grid; grid-template-columns: 300px 1fr; background: var(--ui-fondo); color: var(--ui-testo); font-family: var(--ui-font); }
+  main { display: flex; min-width: 0; }
+  iframe { flex: 1; width: 100%; border: 0; background: var(--ui-pannello); }
+  @media (max-width: 760px) {
+    body { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
+    .ui-rail { border-right: 0; border-bottom: 1px solid var(--ui-bordo); }
+    iframe { min-height: 80vh; }
+  }
 </style>
 </head>
 <body>
-<header class="ui-testata">
-  <div>
-    <p class="ui-eyebrow">Atlante · mappe generate dal codice · commit 2bc219a</p>
-    <h1 class="ui-titolo">Atlante MappAI</h1>
-    <p class="ui-sotto">Ogni mappa è validata contro il codice e ha temi, ricerca, capitoli guidati ed Export. Sorgenti e ricevute in docs/archify/.</p>
-  </div>
-  <div class="ui-chip-fila">
-    <div class="ui-chip ok"><b>8</b><small>mappe</small></div>
-    <div class="ui-chip mossa"><b>3</b><small>gruppi</small></div>
-    <div class="ui-chip"><b>9</b><small>controlli l'una</small></div>
-  </div>
-</header>
+<aside class="ui-rail" role="tablist" aria-label="Mappe">
+  <h1 class="ui-rail-titolo">Atlante MappAI</h1>
+  <p class="ui-rail-sotto">Otto mappe generate dal codice. Ogni voce apre una sezione del progetto.</p>
 
-<div class="ui-barra">
-  <div class="ui-segmenti" role="tablist" aria-label="Gruppo">
-    <button type="button" data-gruppo="tutti" aria-selected="true">Tutte</button>
-    <button type="button" data-gruppo="struttura">Struttura</button>
-    <button type="button" data-gruppo="flussi">Flussi</button>
-    <button type="button" data-gruppo="progettazione">Progettazione</button>
-  </div>
-  <div class="ui-legenda">
-    <span class="ok"><i></i>validata</span>
-    <span class="mossa"><i></i>confronto</span>
-  </div>
-  <div class="ui-azioni">
-    <button type="button" class="ui-btn" id="apri">Apri a schermo intero</button>
-    <button type="button" class="ui-btn" id="tema">Tema</button>
-  </div>
-</div>
+  <p class="ui-eyebrow">Struttura</p>
+  <button type="button" class="ui-voce" data-src="mappai.architecture.html"><span class="n">01</span><b>Architettura</b><small>Renderer, preload, main, Gemini, vault, server LAN.</small></button>
+  <button type="button" class="ui-voce" data-src="chiamata-llm.sequence.html"><span class="n">02</span><b>Una chiamata al LLM</b><small>Da fetchModelAPI al POST e ritorno, con salvataggio JSON.</small></button>
 
-<div class="ui-capitoli-riga" role="tablist" aria-label="Mappe">
-  <button type="button" class="ui-capitolo" data-gruppo="struttura" data-src="mappai.architecture.html"><span class="n">01</span>Architettura</button>
-  <button type="button" class="ui-capitolo" data-gruppo="struttura" data-src="chiamata-llm.sequence.html"><span class="n">02</span>Una chiamata al LLM</button>
-  <button type="button" class="ui-capitolo" data-gruppo="flussi" data-src="pdf-a-json.workflow.html"><span class="n">03</span>Dal PDF al JSON</button>
-  <button type="button" class="ui-capitolo" data-gruppo="flussi" data-src="json-a-domanda.workflow.html"><span class="n">04</span>Dal JSON alla domanda aperta</button>
-  <button type="button" class="ui-capitolo" data-gruppo="flussi" data-src="nodo.lifecycle.html"><span class="n">05</span>Vita di un nodo</button>
-  <button type="button" class="ui-capitolo" data-gruppo="progettazione" data-src="costi.workflow.html"><span class="n">06</span>Dove vanno i token</button>
-  <button type="button" class="ui-capitolo" data-gruppo="progettazione" data-src="confronto-infomaniak.compare.html"><span class="n">07</span>Prima / dopo<span class="conta"><span class="no">−4</span> ~1</span></button>
-  <button type="button" class="ui-capitolo" data-gruppo="progettazione" data-src="fragilita.workflow.html"><span class="n">08</span>Fragilità</button>
-</div>
+  <p class="ui-eyebrow">Flussi</p>
+  <button type="button" class="ui-voce" data-src="pdf-a-json.workflow.html"><span class="n">03</span><b>Dal PDF al JSON</b><small>Triage, Fase 1, Fase 3, deepening, àncora, copertura, vault.</small></button>
+  <button type="button" class="ui-voce" data-src="json-a-domanda.workflow.html"><span class="n">04</span><b>Dal JSON alla domanda aperta</b><small>Ramo L1 → materiale con fonti → una chiamata → foglio PDF.</small></button>
+  <button type="button" class="ui-voce" data-src="nodo.lifecycle.html"><span class="n">05</span><b>Vita di un nodo</b><small>Generato, ancorato, giudicato, nel vault, studiato: chi lo cambia e quando.</small></button>
 
-<div class="ui-pannello"><iframe id="frame" title="Mappa"></iframe></div>
+  <p class="ui-eyebrow">Progettazione</p>
+  <button type="button" class="ui-voce" data-src="costi.workflow.html"><span class="n">06</span><b>Dove vanno i token</b><small>4 929 chiamate reali: quiz 53 %, Fase 3 10,7 %, giudice 9,7 %.</small></button>
+  <button type="button" class="ui-voce" data-src="confronto-infomaniak.compare.html"><span class="n">07</span><b>Prima / dopo</b><small>Architettura con e senza Infomaniak: 4 rimossi, 1 confine cambiato.</small></button>
+  <button type="button" class="ui-voce" data-src="fragilita.workflow.html"><span class="n">08</span><b>Fragilità</b><small>Dieci punti deboli con file e riga, e le decisioni da prendere.</small></button>
+
+  <div class="ui-rail-piede">
+    <div class="ui-azioni"><button type="button" class="ui-btn" id="apri">Schermo intero</button><button type="button" class="ui-btn" id="tema">Tema</button></div>
+    <span>Ogni mappa ha temi, ricerca, capitoli guidati ed Export. Sorgenti e ricevute in docs/archify/.</span>
+  </div>
+</aside>
+<main><iframe id="frame" title="Mappa"></iframe></main>
 
 <script>
-  const mappe = [...document.querySelectorAll('.ui-capitolo')];
-  const gruppi = [...document.querySelectorAll('.ui-segmenti button')];
+  const mappe = [...document.querySelectorAll('.ui-voce')];
   const frame = document.getElementById('frame');
   const radice = document.documentElement;
 
@@ -73,12 +56,7 @@
     frame.src = mappe[i].dataset.src;
     try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) {}
   }
-  function filtra(g) {
-    gruppi.forEach(b => b.setAttribute('aria-selected', String(b.dataset.gruppo === g)));
-    mappe.forEach(m => { m.hidden = g !== 'tutti' && m.dataset.gruppo !== g; });
-  }
   mappe.forEach((m, i) => m.addEventListener('click', () => mostra(i)));
-  gruppi.forEach(b => b.addEventListener('click', () => filtra(b.dataset.gruppo)));
   document.getElementById('apri').addEventListener('click', () => window.open(frame.src, '_blank'));
   document.getElementById('tema').addEventListener('click', () => {
     const chiaro = radice.dataset.theme === 'light';
@@ -97,10 +75,10 @@
     .toolbar #btn-preset, .toolbar #btn-motion { min-width: 0 !important; }
     .toolbar .toolbar-icon { width: .85rem !important; height: .85rem !important; }
   `;
-  frame.addEventListener("load", () => {
+  frame.addEventListener('load', () => {
     try {
       const d = frame.contentDocument; if (!d || !d.head) return;
-      const s = d.createElement("style"); s.textContent = RITOCCHI; d.head.appendChild(s);
+      const s = d.createElement('style'); s.textContent = RITOCCHI; d.head.appendChild(s);
     } catch (e) { /* origine diversa (file://): il viewer resta com’è */ }
   });
 
