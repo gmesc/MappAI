@@ -87,6 +87,23 @@
   });
   try { if (localStorage.getItem('atlante_tema') === 'light') radice.dataset.theme = 'light'; } catch (e) {}
 
+  // Dentro ogni viewer (stessa origine): testata con più aria, bottoni della barra più piccoli.
+  // Non tocca i file consegnati da Archify (le ricevute restano valide): è un foglio iniettato a caricamento.
+  const RITOCCHI = `
+    h1 { font-size: 1.3rem !important; line-height: 1.2 !important; }
+    .header-row { gap: 1rem !important; row-gap: .6rem !important; align-items: flex-start !important; padding-right: .5rem !important; }
+    .toolbar { gap: .35rem !important; flex-wrap: wrap !important; }
+    .toolbar button { padding: .3rem .55rem !important; font-size: .78rem !important; min-height: 1.9rem !important; }
+    .toolbar #btn-preset, .toolbar #btn-motion { min-width: 0 !important; }
+    .toolbar .toolbar-icon { width: .85rem !important; height: .85rem !important; }
+  `;
+  frame.addEventListener("load", () => {
+    try {
+      const d = frame.contentDocument; if (!d || !d.head) return;
+      const s = d.createElement("style"); s.textContent = RITOCCHI; d.head.appendChild(s);
+    } catch (e) { /* origine diversa (file://): il viewer resta com’è */ }
+  });
+
   const avvio = parseInt(location.hash.slice(1), 10);
   mostra(avvio >= 1 && avvio <= mappe.length ? avvio - 1 : 0);
 </script>
