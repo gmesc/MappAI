@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "MappAI — lineage del vault",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "mappa",
+        "label": "La mappa",
+        "focus": [
+          "gen",
+          "obsidian",
+          "mappa",
+          "nodi",
+          "app",
+          "landing"
+        ],
+        "note": "save-vault scrive index.yaml, links.json e un .md per nodo; app e landing li rileggono. Obsidian tocca gli stessi .md."
+      },
+      {
+        "id": "materiali",
+        "label": "I materiali",
+        "focus": [
+          "pipeline",
+          "materiali",
+          "live"
+        ],
+        "note": "Quiz e sintesi diventano PDF in Materiale Studio/ col gemello HTML in Sorgenti/; il live-server serve solo i file elencati."
+      },
+      {
+        "id": "tracce",
+        "label": "Le tracce della classe",
+        "focus": [
+          "revisione",
+          "tracce",
+          "live"
+        ],
+        "note": "Studio Attivo/, Consegne/<studente>/ e pipeline.json: ciò che classe e docente lasciano nel vault dopo la generazione."
+      }
+    ],
+    "viewBox": [
+      1080,
+      556
+    ]
+  },
+  "stages": [
+    {
+      "label": "Chi scrive"
+    },
+    {
+      "label": "scrittura"
+    },
+    {
+      "label": "Il vault"
+    },
+    {
+      "label": "lettura"
+    },
+    {
+      "label": "Chi legge"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "gen",
+      "type": "frontend",
+      "label": "Generazione",
+      "sublabel": "save-vault",
+      "stage": 0,
+      "row": 0,
+      "tag": "main.js:1469",
+      "width": 150,
+      "yOffset": 0
+    },
+    {
+      "id": "pipeline",
+      "type": "backend",
+      "label": "Pipeline materiali",
+      "sublabel": "save-vault-file · PDF",
+      "stage": 0,
+      "row": 2,
+      "tag": "main.js:942, 784",
+      "width": 150,
+      "yOffset": -40
+    },
+    {
+      "id": "revisione",
+      "type": "security",
+      "label": "Revisione e studio",
+      "sublabel": "pipeline.json · record di studio",
+      "stage": 0,
+      "row": 3,
+      "tag": "review-store · main.js:1333",
+      "width": 150,
+      "yOffset": -60
+    },
+    {
+      "id": "obsidian",
+      "type": "external",
+      "label": "Obsidian / iCloud",
+      "sublabel": "edit manuali dei .md",
+      "stage": 0,
+      "row": 1,
+      "width": 150,
+      "yOffset": -20
+    },
+    {
+      "id": "mappa",
+      "type": "database",
+      "label": "index.yaml · links.json",
+      "sublabel": "struttura e archi",
+      "stage": 2,
+      "row": 0,
+      "tag": "DAL Protocol",
+      "width": 150,
+      "yOffset": 0
+    },
+    {
+      "id": "nodi",
+      "type": "database",
+      "label": "Nodi/*.md",
+      "sublabel": "frontmatter + desc + fonti",
+      "stage": 2,
+      "row": 1,
+      "width": 150,
+      "yOffset": -20
+    },
+    {
+      "id": "materiali",
+      "type": "database",
+      "label": "Materiale Studio/ · Sorgenti",
+      "sublabel": "PDF e gemelli HTML",
+      "stage": 2,
+      "row": 2,
+      "width": 180,
+      "yOffset": -40
+    },
+    {
+      "id": "tracce",
+      "type": "database",
+      "label": "Studio Attivo/ · Consegne/",
+      "sublabel": "tracce della classe",
+      "stage": 2,
+      "row": 3,
+      "width": 170,
+      "yOffset": -60
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "App (load-vault)",
+      "sublabel": "ricostruisce appState.db",
+      "stage": 4,
+      "row": 1,
+      "tag": "main.js:1827",
+      "width": 150,
+      "yOffset": -20
+    },
+    {
+      "id": "landing",
+      "type": "frontend",
+      "label": "Landing Insegna",
+      "sublabel": "get-all-vaults · consegne",
+      "stage": 4,
+      "row": 0,
+      "tag": "legge solo index.yaml",
+      "width": 150,
+      "yOffset": 0
+    },
+    {
+      "id": "live",
+      "type": "backend",
+      "label": "live-server → studente",
+      "sublabel": "/api/vault · /vault/<rel>",
+      "stage": 4,
+      "row": 2,
+      "tag": "solo i file elencati",
+      "width": 150,
+      "yOffset": -40
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-mappa",
+      "from": "gen",
+      "to": "mappa",
+      "label": "index.yaml + links.json",
+      "classification": "struttura",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelAt": [
+        350,
+        157
+      ]
+    },
+    {
+      "id": "f-nodi",
+      "from": "gen",
+      "to": "nodi",
+      "label": "un .md per nodo",
+      "classification": "contenuto",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          230,
+          157
+        ],
+        [
+          230,
+          203
+        ],
+        [
+          530,
+          203
+        ]
+      ],
+      "labelAt": [
+        380,
+        203
+      ]
+    },
+    {
+      "id": "f-obs",
+      "from": "obsidian",
+      "to": "nodi",
+      "label": "edit manuali",
+      "classification": "esterno",
+      "variant": "dashed",
+      "route": "straight",
+      "labelAt": [
+        350,
+        251
+      ]
+    },
+    {
+      "id": "f-mat",
+      "from": "pipeline",
+      "to": "materiali",
+      "label": "PDF + HTML gemello",
+      "classification": "materiali",
+      "variant": "default",
+      "route": "straight",
+      "labelAt": [
+        340,
+        345
+      ]
+    },
+    {
+      "id": "f-rev",
+      "from": "revisione",
+      "to": "tracce",
+      "label": "decisioni + record di studio",
+      "classification": "decisioni",
+      "variant": "security",
+      "route": "straight",
+      "labelAt": [
+        340,
+        439
+      ]
+    },
+    {
+      "id": "f-landing",
+      "from": "mappa",
+      "to": "landing",
+      "label": "elenco mappe",
+      "classification": "lettura",
+      "variant": "default",
+      "route": "straight",
+      "labelAt": [
+        745,
+        157
+      ]
+    },
+    {
+      "id": "f-load-m",
+      "from": "mappa",
+      "to": "app",
+      "label": "struttura",
+      "classification": "lettura",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          530,
+          205
+        ],
+        [
+          960,
+          205
+        ]
+      ],
+      "labelAt": [
+        745,
+        205
+      ]
+    },
+    {
+      "id": "f-load-n",
+      "from": "nodi",
+      "to": "app",
+      "label": "desc, fonti, stato di studio",
+      "classification": "lettura",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelAt": [
+        745,
+        251
+      ]
+    },
+    {
+      "id": "f-live",
+      "from": "materiali",
+      "to": "live",
+      "label": "file elencati",
+      "classification": "rete locale",
+      "variant": "default",
+      "route": "straight",
+      "labelAt": [
+        745,
+        345
+      ]
+    },
+    {
+      "id": "f-back",
+      "from": "live",
+      "to": "tracce",
+      "label": "Consegne/<studente>/",
+      "classification": "scrittura",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          960,
+          392
+        ],
+        [
+          530,
+          392
+        ]
+      ],
+      "labelAt": [
+        745,
+        392
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Chi dipende da che cosa",
+      "items": [
+        "index.yaml: app, landing e zip lo leggono — è il file da non rompere",
+        "Nodi/*.md: generazione, Obsidian e revisione (reviewMeta) scrivono lo stesso file"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Invarianti (DAL Protocol)",
+      "items": [
+        "links.json senza rel → rel = include; fonti vecchie → source = Originale",
+        "Mai percorsi assoluti negli .md: sempre ../Allegati/…"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Da decidere",
+      "items": [
+        "studyStatus e reviewMeta nello stesso frontmatter: due scrittori, un file",
+        "Consegne/: il live-server scrive nel vault del docente; la landing le elenca (vault-consegne-list)"
+      ]
+    }
+  ]
+}
