@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "MappAI — vita di un nodo",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "nascita",
+        "label": "Nascita e verifica",
+        "focus": [
+          "gen",
+          "anc",
+          "giud"
+        ],
+        "note": "Il nodo nasce da una chiamata AI, poi l'àncora gli aggancia le frasi vere della fonte e il giudice, se acceso, cerca errori di senso."
+      },
+      {
+        "id": "docente",
+        "label": "Il docente decide",
+        "focus": [
+          "giud",
+          "rev",
+          "vault"
+        ],
+        "note": "Le segnalazioni passano dalla revisione: in attesa, approvata, applicata. Solo allora il nodo corretto torna nel vault."
+      },
+      {
+        "id": "studio",
+        "label": "Lo studio",
+        "focus": [
+          "vault",
+          "todo",
+          "review",
+          "done"
+        ],
+        "note": "Ogni quiz sposta lo stato: difficile → da studiare, buono → da ripassare, facile → consolidato con una data di ritorno."
+      }
+    ],
+    "viewBox": [
+      1080,
+      566
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Fasi del nodo"
+    },
+    {
+      "id": "waiting",
+      "label": "Attese: docente e studente"
+    }
+  ],
+  "states": [
+    {
+      "id": "gen",
+      "type": "start",
+      "label": "Generato",
+      "sublabel": "Fase 3 / 3.7",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "label · desc · level"
+    },
+    {
+      "id": "anc",
+      "type": "active",
+      "label": "Ancorato",
+      "sublabel": "chunks dalla fonte",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "copertura · fedeltà"
+    },
+    {
+      "id": "giud",
+      "type": "decision",
+      "label": "Giudicato",
+      "sublabel": "errori di senso",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "se acceso: segnala/applica"
+    },
+    {
+      "id": "vault",
+      "type": "active",
+      "label": "Nel vault",
+      "sublabel": "Nodi/<id>.md",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "studyStatus none"
+    },
+    {
+      "id": "done",
+      "type": "success",
+      "label": "Consolidato",
+      "sublabel": "studyStatus done",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "nextReview"
+    },
+    {
+      "id": "rev",
+      "type": "waiting",
+      "label": "Revisione docente",
+      "sublabel": "awaiting → approved",
+      "lane": "waiting",
+      "col": 0,
+      "tag": "pipeline.json → applying"
+    },
+    {
+      "id": "todo",
+      "type": "waiting",
+      "label": "Da studiare",
+      "sublabel": "studyStatus todo",
+      "lane": "waiting",
+      "col": 1,
+      "tag": "quiz: difficile"
+    },
+    {
+      "id": "review",
+      "type": "waiting",
+      "label": "Da ripassare",
+      "sublabel": "studyStatus review",
+      "lane": "waiting",
+      "col": 2,
+      "tag": "quiz: buono"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-anc",
+      "from": "gen",
+      "to": "anc",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t-giud",
+      "from": "anc",
+      "to": "giud",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t-vault",
+      "from": "giud",
+      "to": "vault",
+      "label": "nessuna segnalazione",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight",
+      "labelAt": [
+        479,
+        122
+      ]
+    },
+    {
+      "id": "t-rev",
+      "from": "giud",
+      "to": "rev",
+      "label": "segnalazione",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelDy": 24
+    },
+    {
+      "id": "t-applied",
+      "from": "rev",
+      "to": "vault",
+      "label": "applying",
+      "variant": "default",
+      "labelDx": -30
+    },
+    {
+      "id": "t-todo",
+      "from": "vault",
+      "to": "todo",
+      "label": "quiz",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelDy": 24
+    },
+    {
+      "id": "t-review",
+      "from": "todo",
+      "to": "review",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "route": "bottom-channel"
+    },
+    {
+      "id": "t-done",
+      "from": "review",
+      "to": "done",
+      "label": "facile",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t-back",
+      "from": "done",
+      "to": "review",
+      "label": "nextReview scaduto",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "right-channel"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Che cosa porta con sé",
+      "items": [
+        "label, desc, level, group, chunks (frasi vere della fonte)",
+        "studyStatus none/todo/review/done · nextReview · lastReviewed"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Chi può cambiarlo",
+      "items": [
+        "L'AI solo in generazione; il giudice applica solo sostituzioni a forbice",
+        "Il docente in revisione; lo studente solo lo stato di studio"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Intervalli di ripasso",
+      "items": [
+        "Base per autovalutazione, moltiplicata 0,5–1,5× dalla padronanza EWMA",
+        "Un concetto storicamente fragile torna prima"
+      ]
+    }
+  ]
+}
