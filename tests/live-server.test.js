@@ -221,7 +221,7 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
 });
 
 // ── Scambio con MappAI studente (7/9): manifest del vault, file per rel, consegna ──
-test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> serve solo l\'elencato', async () => {
+test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> serve solo l\'elencato', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scambio-'));
   const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
   fs.writeFileSync(path.join(vdir, 'index.yaml'), 'rootNodeLabel: Il Clima\n');
@@ -232,13 +232,14 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   fs.writeFileSync(path.join(vdir, 'Materiale Studio', 'Sorgenti', 'Domande-aperte-Clima-causa.html'), '<html>');
   fs.mkdirSync(path.join(vdir, 'Studio Attivo')); fs.writeFileSync(path.join(vdir, 'Studio Attivo', 'sessioni.jsonl'), '{}');
   const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  t.after(() => srv.stop());
   const port = await srv.listen(0, '127.0.0.1');
   const tok = srv.state().session.token;
   const base = 'http://127.0.0.1:' + port;
 
   assert.strictEqual((await fetch(base + '/api/vault?s=' + tok)).status, 404, 'senza esponiVault: nessun-vault');
   const man = srv.esponiVault({ nome: 'Il Clima', dir: vdir, classe: '4R', materia: 'Geografia', rootNodeLabel: 'Il Clima' });
-  assert.deepStrictEqual(man.files.map(f => f.rel).sort(), ['Materiale Studio/Quiz-MC-Clima.pdf', 'Materiale Studio/Sorgenti/Domande-aperte-Clima-causa.html', 'Nodi/Clima.md', 'index.yaml']);
+  assert.deepStrictEqual(man.files.map(f => f.rel).sort(), ['Materiale Studio/Sorgenti/Domande-aperte-Clima-causa.html', 'Nodi/Clima.md', 'index.yaml']);
   assert.ok(!('dir' in man), 'la cartella del Mac non viaggia');
   const r = await fetch(base + '/api/vault?s=' + tok);
   assert.strictEqual(r.headers.get('access-control-allow-origin'), '*');
@@ -251,6 +252,7 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   assert.strictEqual(await fetch(base + '/vault/index.yaml?s=' + tok).then(x => x.text()), 'rootNodeLabel: Il Clima\n');
   assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Nodi/Clima.md') + '?s=' + tok)).status, 200);
   assert.strictEqual((await fetch(base + '/vault/vista.json?s=' + tok)).status, 404, 'non elencato');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Materiale Studio/Quiz-MC-Clima.pdf') + '?s=' + tok)).status, 404, 'il PDF generato non va allo studente');
   assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('../session.json') + '?s=' + tok)).status, 404);
   assert.strictEqual((await fetch(base + '/vault/index.yaml?s=nope')).status, 403);
   assert.strictEqual((await fetch(base + '/api/vault', { method: 'OPTIONS' })).status, 204);
@@ -258,12 +260,14 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
 
   // ripresa dal disco: stesso dir → il manifest torna
   const srv2 = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  t.after(() => srv2.stop());
   const port2 = await srv2.listen(0, '127.0.0.1');
   assert.strictEqual((await fetch('http://127.0.0.1:' + port2 + '/api/vault?s=' + tok)).status, 200);
   await srv2.stop();
 
   // scambio spento
   const srv3 = createMaterialsServer({ repoRoot, dir: fs.mkdtempSync(path.join(os.tmpdir(), 'live-off-')), session: { name: 'x' }, scambio: false });
+  t.after(() => srv3.stop());
   const port3 = await srv3.listen(0, '127.0.0.1');
   assert.strictEqual(srv3.esponiVault({ nome: 'x', dir: vdir }), null);
   assert.strictEqual((await fetch('http://127.0.0.1:' + port3 + '/api/vault?s=' + srv3.state().session.token)).status, 404);
