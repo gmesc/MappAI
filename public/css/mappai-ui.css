@@ -1,0 +1,118 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   MappAI — IL SISTEMA UNICO DELLA UI (regola docs/rules/10-ui-sistema-unico.md)
+   Un solo registro di token per OGNI pagina nuova. Scuro di nascita, chiaro
+   derivato dagli stessi token. Modello: i viewer Archify (docs/archify), 13/9/26.
+   Si attiva con `html.ui` (pagina intera) o `.ui` (radice di una superficie).
+   Regola: un valore nuovo = un token nuovo QUI, con un commento sul perché.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+html.ui, .ui {
+    /* Fondi e filetti — misurati dalle due schermate-modello */
+    --ui-fondo: #0B1220;
+    --ui-pannello: #111A28;
+    --ui-pannello-attivo: #18243A;   /* il segmento scelto, il chip in evidenza */
+    --ui-bordo: #1F2B3C;
+    --ui-velo: rgba(2, 6, 23, .6);
+
+    /* Testo */
+    --ui-testo: #E6EDF5;
+    --ui-testo-2: #94A3B8;           /* sottotitoli, etichette maiuscole, contatori spenti */
+
+    /* UN accento: sta su eyebrow, link di storia, bordo del chip attivo. Mai su uno stato. */
+    --ui-accento: #38BDF8;
+
+    /* Colore semantico: dice uno stato, MAI «clicca qui» */
+    --ui-ok: #34D399;                /* aggiunto · buono · acceso */
+    --ui-no: #FB7185;                /* tolto · errore · spento */
+    --ui-mod: #FBBF24;               /* cambiato · avviso */
+    --ui-mossa: #60A5FA;             /* spostato · informazione */
+
+    /* UN carattere: quello dell'app (Space Mono di default, Cabina › Aspetto) */
+    --ui-font: var(--app-font, 'Space Mono', 'Noto Color Emoji', monospace);
+
+    /* Forma */
+    --ui-r: 10px;                    /* chip, bottoni, segmenti */
+    --ui-r-riquadro: 14px;           /* pannelli e card */
+    --ui-pad: 14px 20px;
+    --ui-gap: 12px;
+    --ui-tetto: 1240px;              /* stessa larghezza delle console (regola 09, --mnc-*) */
+
+    /* Scala tipografica: sei gradini, non se ne inventano altri */
+    --ui-fs-eyebrow: 12px;   --ui-ls-eyebrow: .14em;
+    --ui-fs-titolo: 44px;    --ui-lh-titolo: 1.05;
+    --ui-fs-sotto: 16px;
+    --ui-fs-chip: 28px;      --ui-fs-chip-eti: 11px;  --ui-ls-eti: .12em;
+    --ui-fs-btn: 16px;       /* ≥16: style.css:87 scarta ogni corpo minore sui bottoni */
+    --ui-fs-corpo: 14px;     --ui-lh-corpo: 1.5;
+
+    color-scheme: dark;
+    background: var(--ui-fondo);
+    color: var(--ui-testo);
+    font-family: var(--ui-font);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Tema chiaro: si ridefiniscono SOLO i token. Non è l'inverso ingenuo: il fondo è un
+   grigio con bias blu, l'accento scende di luminosità per reggere il contrasto. */
+html.ui[data-theme="light"], .ui[data-theme="light"] {
+    --ui-fondo: #F3F5F9;
+    --ui-pannello: #FFFFFF;
+    --ui-pannello-attivo: #E8EEF7;
+    --ui-bordo: #D5DCE6;
+    --ui-velo: rgba(15, 23, 42, .45);
+    --ui-testo: #0F172A;
+    --ui-testo-2: #5B6779;
+    --ui-accento: #0284C7;
+    --ui-ok: #059669;
+    --ui-no: #E11D48;
+    --ui-mod: #B45309;
+    --ui-mossa: #2563EB;
+    color-scheme: light;
+}
+
+/* ── Testata: eyebrow · titolo · sottotitolo, chip a destra ───────────────── */
+.ui-testata { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ui-gap); max-width: var(--ui-tetto); margin: 0 auto; padding: 32px 24px 24px; border-bottom: 1px solid var(--ui-bordo); }
+.ui-eyebrow { font-size: var(--ui-fs-eyebrow); font-weight: 700; letter-spacing: var(--ui-ls-eyebrow); text-transform: uppercase; color: var(--ui-accento); margin: 0 0 10px; }
+.ui-titolo { font-size: var(--ui-fs-titolo); line-height: var(--ui-lh-titolo); font-weight: 700; margin: 0; text-wrap: balance; max-width: 22ch; }
+.ui-sotto { font-size: var(--ui-fs-sotto); color: var(--ui-testo-2); margin: 12px 0 0; max-width: 65ch; }
+
+/* ── Chip dei numeri: valore grande sopra, etichetta maiuscola sotto ───────── */
+.ui-chip-fila { display: flex; gap: var(--ui-gap); flex: 0 0 auto; }
+.ui-chip { display: grid; gap: 4px; min-width: 132px; padding: var(--ui-pad); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); background: var(--ui-pannello); text-align: center; }
+.ui-chip b { font-size: var(--ui-fs-chip); font-weight: 700; line-height: 1; color: var(--ui-testo); }
+.ui-chip small { font-size: var(--ui-fs-chip-eti); font-weight: 700; letter-spacing: var(--ui-ls-eti); text-transform: uppercase; color: var(--ui-testo-2); }
+.ui-chip.ok b { color: var(--ui-ok); }  .ui-chip.no b { color: var(--ui-no); }
+.ui-chip.mod b { color: var(--ui-mod); } .ui-chip.mossa b { color: var(--ui-mossa); }
+.ui-chip.attivo { border-color: var(--ui-accento); }
+
+/* ── Barra dei controlli: segmentato a sinistra, legenda al centro, azioni a destra ── */
+.ui-barra { display: flex; align-items: center; justify-content: space-between; gap: var(--ui-gap); max-width: var(--ui-tetto); margin: 0 auto; padding: 16px 24px; border-bottom: 1px solid var(--ui-bordo); flex-wrap: wrap; }
+.ui-segmenti { display: inline-flex; padding: 4px; gap: 2px; border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); background: var(--ui-pannello); }
+.ui-segmenti button { font: 700 var(--ui-fs-btn) var(--ui-font); color: var(--ui-testo-2); background: transparent; border: 0; border-radius: calc(var(--ui-r) - 3px); padding: 8px 18px; cursor: pointer; }
+.ui-segmenti button[aria-selected="true"] { background: var(--ui-pannello-attivo); color: var(--ui-testo); }
+.ui-legenda { display: flex; gap: 20px; font-size: var(--ui-fs-corpo); font-weight: 700; }
+.ui-legenda i { display: inline-block; width: 36px; border-top: 3px solid currentColor; vertical-align: middle; margin-right: 8px; }
+.ui-legenda .ok { color: var(--ui-ok); } .ui-legenda .no { color: var(--ui-no); } .ui-legenda .mod { color: var(--ui-mod); } .ui-legenda .mossa { color: var(--ui-mossa); }
+.ui-legenda .no i { border-top-style: dashed; } .ui-legenda .mod i { border-top-style: dotted; } .ui-legenda .mossa i { border-top-style: double; }
+.ui-azioni { display: flex; gap: var(--ui-gap); }
+.ui-btn { font: 700 var(--ui-fs-btn) var(--ui-font); color: var(--ui-testo); background: var(--ui-pannello); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); padding: 10px 22px; cursor: pointer; }
+.ui-btn:hover { background: var(--ui-pannello-attivo); }
+.ui-btn:disabled { color: var(--ui-testo-2); cursor: default; }
+.ui-btn.quadrato { padding: 10px 14px; }   /* le frecce dello stepper */
+
+/* ── Stepper e capitoli guidati ─────────────────────────────────────────── */
+.ui-stepper { display: flex; align-items: center; gap: 8px; max-width: var(--ui-tetto); margin: 0 auto; padding: 12px 24px; font-size: var(--ui-fs-corpo); color: var(--ui-testo-2); }
+.ui-capitoli { display: flex; gap: var(--ui-gap); }
+.ui-capitolo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); background: var(--ui-pannello); font-size: var(--ui-fs-corpo); font-weight: 700; cursor: pointer; }
+.ui-capitolo .n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--ui-accento); color: var(--ui-accento); font-size: 11px; }
+.ui-capitolo .conta { margin-left: auto; font-size: 11px; color: var(--ui-testo-2); }
+.ui-capitolo .conta .ok { color: var(--ui-ok); } .ui-capitolo .conta .no { color: var(--ui-no); }
+.ui-capitolo[aria-selected="true"] { border-color: var(--ui-accento); }
+
+/* ── Pannello di contenuto e corpo ─────────────────────────────────────── */
+.ui-pannello { max-width: var(--ui-tetto); margin: 20px auto; border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); background: var(--ui-pannello); overflow-x: auto; }
+.ui-corpo { font-size: var(--ui-fs-corpo); line-height: var(--ui-lh-corpo); max-width: 65ch; }
+
+/* Fuoco visibile e movimento ridotto: obbligatori, non opzionali */
+.ui :is(button, a, [tabindex]):focus-visible { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ui * { transition: none !important; animation: none !important; } }
