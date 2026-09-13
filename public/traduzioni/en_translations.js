@@ -82,6 +82,8 @@ const en_translations = {
     rv_text_references: "Sources cited in the text",
     rv_reference_edit_help: "Source references stay linked when you edit the text.",
     rv_no_proposal: "The judge flags a problem but has no ready correction. You can edit the content or keep it unchanged.",
+    rv_full_change: "Read the full text before and after",
+    rv_added_sources: "The proposal also links the original sources for the new references.",
     rv_accept_exclusion: "Exclude this item",
     rv_summary_applied: "Proposals selected",
     rv_summary_edited: "Manual edits",

@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const G = require('../public/js/mappai-grounding-core.js');
 const R = require('../public/js/mappai-review-core.js');
+const MR = require('../public/js/mappai-material-review.js');
 const salvage = require('../public/js/mappai-json-salvage.js').salvage;
 const read = name => fs.readFileSync(path.join(__dirname, '../public/js', name), 'utf8');
 const plain = x => JSON.parse(JSON.stringify(x));
@@ -19,7 +20,8 @@ const mc = id => ({ id, kind: 'mc', question: 'Chi riceve valuta vendendo oro?',
 const open = id => ({ id, kind: 'open', question: 'Nomina il generale svizzero.', guide: 'Il generale è Guisan.', criteria: ['Cita Guisan.'], lines: 3 });
 const flash = id => ({ id, kind: 'flashcard', question: 'Chi riceve valuta?', answer: GOLD });
 const response = (value, reason = 'STOP') => ({ candidates: [{ content: { parts: [{ text: typeof value === 'string' ? value : JSON.stringify(value) }] }, finishReason: reason }] });
-const clean = batch => ({ checkedIds: batch.map(i => i.id), mcOptions: batch.filter(i => i.kind === 'mc').map(i => ({ id: i.id, indices: i.options.map((_, n) => n) })), issues: [] });
+const clean = (batch, reference = material) => ({ checkedIds: batch.map(i => i.id), checkedClaims: MR.claimUnits(batch).map(c => ({ id: c.id, status: 'supported', sourceIds: [reference.sourcesArr[0].id] })),
+    mcOptions: batch.filter(i => i.kind === 'mc').map(i => ({ id: i.id, indices: i.options.map((_, n) => n) })), issues: [] });
 const recoveryRows = payload => JSON.parse(payload.contents[0].parts[0].text.split('SEGNALAZIONI DA COMPLETARE (dati)\n')[1].split('\n\nPASSAGGI ORIGINALI')[0]);
 const recoveryChoice = (payload, index, extra = {}) => ({ issueId: recoveryRows(payload)[index].issueId,
     action: 'needs_teacher', reason: 'Le prove non permettono una riparazione certa.', ...extra });
@@ -58,6 +60,124 @@ function throughGeminiGateway(answer) {
     vm.runInContext(app.slice(app.indexOf('function _detectTruncation('), app.indexOf('window.updateCostDisplay =')), r.w);
     return { ...r, posts };
 }
+
+test('a verified source missing from a synthesis registry travels with the proposal through approval and export', async () => {
+    const sources = [{ docId: 'book', title: 'Fonte', pages: [
+        { n: 1, text: 'La Svizzera era neutrale.' },
+        { n: 4, text: 'Il commercio con gli Alleati continuò, in particolare con gli USA.' }
+    ] }];
+    const reference = G.buildInput({}, [], sources, {}, { includeOriginalPages: true });
+    const old = { ...reference.sourcesArr[0], idx: 1 }, added = reference.sourcesArr[1];
+    const item = { id: 'synthesis-0', kind: 'synthesis', text: 'La Svizzera era neutrale [1]. Non ci furono scambi con gli Alleati.', citations: [old] };
+    const corrected = 'La Svizzera era neutrale [1]. Il commercio con gli Alleati continuò [[' + added.id + ']].';
+    const r = throughGeminiGateway((batch, payload, call) => {
+        if (call === 1) return response({ ...clean(batch, reference), issues: [{ id: item.id, field: 'text',
+            problem: 'La fonte documenta scambi che la sintesi nega.', evidenceKind: 'source', sourceId: added.id, quote: added.text }] });
+        assert.match(payload.contents[0].parts[0].text, /programma aggiunge la fonte verificata/);
+        return response({ decisions: [recoveryChoice(payload, 0, { action: 'replace', replacement: corrected })] });
+    });
+    const report = await r.check([item], { material: reference });
+    assert.equal(report.checkStatus, 'completed'); assert.equal(r.posts.length, 2);
+    const finding = report.issues[0];
+    assert.equal(finding.hasProposal, true); assert.equal(finding.citationAdditions[0].text, added.text);
+    assert.equal(finding.citationAdditions[0].idx, 2); assert.deepEqual(item.citations, [old]);
+    let review = R.createReview({ db: { items: [item] }, sources, report });
+    const kept = R.preview(R.setDecision(review, finding.id, 'reject'), { items: [item] });
+    assert.deepEqual(kept.db.items, [item], 'rejection changes neither the text nor the source registry');
+    review = R.setDecision(review, finding.id, 'accept');
+    review = JSON.parse(JSON.stringify(review)); // the actual manifest contract
+    const approved = R.beginApproval(review, { items: [item] });
+    assert.equal(approved.ok, true); assert.equal(approved.db.items[0].text, corrected);
+    assert.deepEqual(approved.db.items[0].citations[0], old);
+    assert.equal(approved.db.items[0].citations[1].text, added.text);
+    const completed = R.completeApproval(approved.review, approved.revision);
+    assert.equal(R.gate(completed, approved.db, sources).allowed, true);
+    const D = require('../public/js/mappai-material-drafts');
+    const drafts = { D: { data: { whole: true, sections: [{ rawText: item.text, sourcesArr: [old] }] } } };
+    const out = D.apply(drafts, approved.db.items);
+    assert.equal(out.D.data.sections[0].rawText, corrected);
+    assert.equal(out.D.data.sections[0].sourcesArr[1].text, added.text);
+    assert.equal(drafts.D.data.sections[0].sourcesArr.length, 1);
+    for (const mutation of ['text', 'page']) {
+        const tampered = plain(review);
+        tampered.initial.issues[0].citationAdditions[0][mutation] = mutation === 'page' ? 999 : 'Testo inventato.';
+        const result = R.preview(tampered, { items: [item] });
+        assert.equal(result.ok, false); assert.deepEqual(result.db.items, [item]);
+    }
+    const manual = R.preview(R.setDecision(review, finding.id, 'manual', { text: 'Il commercio con gli Alleati continuò.' }), { items: [item] });
+    assert.equal(manual.ok, true); assert.deepEqual(manual.db.items[0].citations, [old], 'unused proposed references are not attached');
+});
+
+test('claim checks use literal fragments and original pages, without generated-node paraphrases or duplicate source text', async () => {
+    const pages = [
+        'La commissione esaminò le accuse e confermò il respingimento di molti ebrei.',
+        'Il razionamento serviva all’approvvigionamento alimentare della popolazione.',
+        'Furono accolti rifugiati politici, militari internati e disertori.'
+    ];
+    const original = G.buildInput({ nodes: [{ id: 'n', label: 'Sintesi generata', desc: 'PARAFRASI_DA_NON_USARE_COME_PROVA' }] }, [{ id: 'n' }],
+        [{ title: 'Fonte', pages: pages.map((text, n) => ({ n: n + 1, text })) }], {}, { includeOriginalPages: true });
+    const items = [{ id: 'bergier', kind: 'synthesis', text: '## Conclusioni\nLa commissione confermò tutte le accuse. Questi fatti erano accertati.' },
+        { ...flash('food'), answer: 'Il razionamento garantiva pasti equilibrati a tutti.' },
+        { ...open('asylum'), guide: 'Accoglieva solo disertori e rifugiati politici.', criteria: ['Cita solo disertori e rifugiati politici.'] }];
+    const units = MR.claimUnits(items);
+    for (const unit of units) {
+        const item = items.find(i => i.id === unit.itemId);
+        const value = unit.index === undefined ? item[unit.field] : item[unit.field][unit.index];
+        assert.ok(value.includes(unit.text));
+    }
+    assert.ok(units.some(c => c.text.includes('tutte le accuse')));
+    assert.ok(units.some(c => c.text.includes('pasti equilibrati a tutti')));
+    assert.equal(units.filter(c => /solo disertori/.test(c.text)).length, 2);
+    assert.equal(MR.claimUnits([{ id: 'refs', kind: 'synthesis', text: '[[src-only]].\n[1]' }]).length, 0, 'reference codes are not factual assertions');
+    const r = runtime((batch, payload) => {
+        const prompt = payload.contents[0].parts[0].text;
+        assert.doesNotMatch(prompt, /PARAFRASI_DA_NON_USARE_COME_PROVA/);
+        assert.match(prompt, /grado di certezza/); assert.match(prompt, /riferimenti alle frasi vicine/);
+        assert.deepEqual(JSON.parse(prompt.split('AFFERMAZIONI DA VERIFICARE (dati)\n')[1].split('\n\nITEM')[0]), units);
+        return response(clean(batch, original));
+    });
+    const report = await r.check(items, { material: original });
+    assert.equal(report.checkStatus, 'completed'); assert.equal(report.coverage.claims.length, units.length);
+    assert.equal(r.calls.length, 1, 'the per-claim protocol uses the existing review call');
+});
+
+test('a generic item verdict cannot hide missing, duplicate, uncertain or unsupported claim verdicts', async () => {
+    const items = [{ id: 'summary', kind: 'synthesis', text: 'Prima affermazione. Seconda affermazione.' }];
+    for (const mode of ['absent', 'missing', 'duplicate', 'unknown-source', 'uncertain', 'false-instruction', 'problem-without-proof', 'foreign-id']) {
+        const r = runtime(batch => {
+            const data = clean(batch);
+            if (mode === 'absent') delete data.checkedClaims;
+            if (mode === 'missing') data.checkedClaims.pop();
+            if (mode === 'duplicate') data.checkedClaims[1] = data.checkedClaims[0];
+            if (mode === 'unknown-source') data.checkedClaims[0].sourceIds = ['src-invented'];
+            if (mode === 'uncertain') data.checkedClaims[0].status = 'uncertain';
+            if (mode === 'false-instruction') { data.checkedClaims[0].status = 'instruction'; data.checkedClaims[0].sourceIds = []; }
+            if (mode === 'problem-without-proof') data.checkedClaims[0].status = 'problem';
+            if (mode === 'foreign-id') data.checkedClaims[0].id = 'claim-foreign';
+            return response(data);
+        });
+        const report = await r.check(items);
+        assert.equal(report.checkStatus, 'incomplete', mode);
+        assert.equal(report.coverage.checkedIds.length, 0, mode);
+        assert.equal(r.calls.length, 1, mode);
+    }
+});
+
+test('claim problem acknowledgement requires a verified finding on the same item and field', async () => {
+    const items = [{ ...flash('f'), answer: WRONG }];
+    for (const field of ['answer', 'question']) {
+        const r = runtime(batch => {
+            const data = clean(batch), id = data.checkedClaims[0].id;
+            data.checkedClaims[0].status = 'problem';
+            data.issues = [{ id: 'f', field, claimIds: [id], problem: 'Il soggetto dello scambio è invertito.',
+                evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD, replacement: GOLD }];
+            return response(data);
+        });
+        const report = await r.check(items);
+        assert.equal(report.checkStatus, field === 'answer' ? 'completed' : 'incomplete');
+        assert.equal(report.issues.length, field === 'answer' ? 1 : 0);
+    }
+});
 // Contract for the common documented subset, deliberately narrower than the
 // general REST Schema message. No network or provider acceptance is simulated.
 // https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
@@ -351,7 +471,7 @@ test('missing, duplicate or unsupported IDs are reported and never offered ambig
 });
 
 test('MC key-only checking and missing item verdicts never report completed', async () => {
-    const r = runtime(() => response({ checkedIds: ['mc'], mcOptions: [{ id: 'mc', indices: [0] }], issues: [] }));
+    const r = runtime(batch => response({ ...clean(batch), checkedIds: ['mc'], mcOptions: [{ id: 'mc', indices: [0] }], issues: [] }));
     const report = await r.check([mc('mc'), flash('f')]);
     assert.equal(report.checkStatus, 'incomplete');
     assert.equal(report.coverage.checkedIds.length, 0);
@@ -388,12 +508,12 @@ test('GroundingCore text form accepts only archived source excerpts, never node 
     const onlyNode = 'Questa frase appartiene soltanto alla descrizione generata.';
     const input = G.buildInput({ nodes: [{ id: 'n', label: 'Nodo', desc: onlyNode }] }, [{ id: 'n' }],
         [{ id: 'pdf', title: 'PDF', pages: [{ n: 5, text: GOLD }] }]);
-    const r = runtime(batch => response({ ...clean(batch), issues: [wrongGuide('q', { quote: onlyNode, sourceId: input.sourcesArr[0].id })] }));
+    const r = runtime(batch => response({ ...clean(batch, input), issues: [wrongGuide('q', { quote: onlyNode, sourceId: input.sourcesArr[0].id })] }));
     const invalid = await r.check([{ ...open('q'), guide: WRONG }], { material: input.material });
     assert.equal(invalid.issues.length, 0);
     assert.equal(invalid.rejected.length, 1);
     assert.equal(invalid.checkStatus, 'incomplete');
-    const good = runtime(batch => response({ ...clean(batch), issues: [wrongGuide('q', { sourceId: input.sourcesArr[0].id })] }));
+    const good = runtime(batch => response({ ...clean(batch, input), issues: [wrongGuide('q', { sourceId: input.sourcesArr[0].id })] }));
     const valid = await good.check([{ ...open('q'), guide: WRONG }], { material: input.material });
     assert.equal(valid.checkStatus, 'completed');
     assert.equal(valid.issues[0].evidence[0].page, 5);
@@ -514,7 +634,7 @@ test('no original excerpts means explicitly incomplete source fidelity, even if 
 test('whitespace-insensitive evidence matching returns the exact archived substring', async () => {
     const original = 'La Germania vende\n oro\talla Svizzera e riceve valuta.';
     const reference = G.buildInput({}, [], [{ title: 'PDF', text: original }]);
-    const r = runtime(batch => response({ ...clean(batch), issues: [wrongGuide('q', {
+    const r = runtime(batch => response({ ...clean(batch, reference), issues: [wrongGuide('q', {
         sourceId: reference.sourcesArr[0].id, quote: 'Germania vende oro alla Svizzera'
     })] }));
     const report = await r.check([{ ...open('q'), guide: WRONG }], { material: reference });
@@ -616,7 +736,7 @@ test('source-backed manual findings obtain one optional patch through the same G
     const r = throughGeminiGateway((batch, payload, call) => {
         assertStructuredSubset(payload.generationConfig.responseSchema);
         assert.doesNotMatch(JSON.stringify(payload.generationConfig.responseSchema), /maxItems/);
-        if (call === 1) return response({ ...clean(batch), issues: [finding] });
+        if (call === 1) return response({ ...clean(batch, reference), issues: [finding] });
         const prompt = payload.contents[0].parts[0].text;
         assert.match(prompt, /RECUPERO DI PROPOSTE/);
         assert.match(prompt, /NON certifica la correttezza semantica/);
@@ -661,7 +781,7 @@ for (const mode of ['failure', 'truncated', 'no-op', 'foreign-target', 'differen
     test(`recovery ${mode} keeps the manual finding and the original incomplete coverage`, async () => {
         const finding = wrongGuide('q'); delete finding.replacement;
         const r = runtime((batch, payload, call) => {
-            if (call === 1) return response({ checkedIds: ['q'], mcOptions: [], issues: [finding] });
+            if (call === 1) return response({ ...clean(batch), checkedIds: ['q'], mcOptions: [], issues: [finding] });
             if (mode === 'failure') throw new Error('Recupero offline');
             const proposal = recoveryChoice(payload, 0, { action: 'replace', replacement: GOLD });
             if (mode === 'no-op') proposal.replacement = WRONG;
@@ -756,7 +876,7 @@ test('documented factual contrasts and causal controls reach the model with gene
         for (const rule of [/NEGATIVE o di ASSENZA/, /non equivale a confermarle tutte/, /risultato sia stato garantito a tutti/,
             /non chiamare "inversione causale"/, /due motivi paralleli/, /senza nomi di campi JSON/]) assert.match(prompt, rule);
         assert.doesNotMatch(prompt, /expectedFindings/);
-        return response({ ...clean(batch), issues: findings });
+        return response({ ...clean(batch, reference), issues: findings });
     });
     const report = await r.check(items, { material: reference });
     assert.equal(report.issues.length, 3);
@@ -845,7 +965,7 @@ test('captured live findings: repeated issues without actions stay manual; expli
     ] };
     for (const explicit of [false, true]) {
         const r = runtime((batch, payload, call) => {
-            if (call === 1) return response({ ...clean(batch), issues: captured });
+            if (call === 1) return response({ ...clean(batch, reference), issues: captured });
             if (!explicit) return response({ checkedIds: [], mcOptions: [], issues: captured.slice(0, 2) });
             return response({ decisions: [
                 recoveryChoice(payload, 0, { action: 'exclude', reason: 'I due motivi paralleli non formano questa relazione causale.' }),
@@ -877,7 +997,7 @@ test('metatext deduplication preserves a distinct factual finding on the same ex
     const reference = G.buildInput({}, [], [{ title: 'Fonte didattica', text: original }]);
     const item = { ...mc('meta'), question: 'Che cosa permettevano i pieni poteri?', options: ['Agire rapidamente', 'Un comando totale senza limiti'],
         explanation: 'La rettifica del docente e il testo definiscono i pieni poteri come comando totale.' };
-    const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch), issues: [
+    const r = runtime((batch, payload, call) => response(call === 1 ? { ...clean(batch, reference), issues: [
         { id: item.id, field: 'explanation', type: 'editorial', evidenceKind: 'item', quote: item.explanation,
             problem: 'La spiegazione contiene metatesto della lavorazione.' },
         { id: item.id, field: 'explanation', type: 'semantic', evidenceKind: 'source', sourceId: reference.sourcesArr[0].id, quote: original,

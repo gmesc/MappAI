@@ -373,7 +373,7 @@
   R.groupIssues = function (issues) {
     const groups = new Map();
     for (const issue of issues) {
-      const key = canonical([issue.target.kind, issue.target.field, issue.before, issue.after, issue.hasProposal, issue.problem, issue.evidence]);
+      const key = canonical([issue.target.kind, issue.target.field, issue.before, issue.after, issue.hasProposal, issue.problem, issue.evidence, issue.citationAdditions]);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(issue);
     }
@@ -416,7 +416,8 @@
     const old = document.getElementById('mappai-teacher-review'); if (old) old.remove();
     const previousFocus = document.activeElement;
     const referenceOptions = { sourceLabel: t('rv_source', 'Fonte'), unknownLabel: t('rv_reference_unknown', 'Fonte da verificare') };
-    const registry = (getReview().baseSnapshot.items || []).flatMap(item => item.citations || []);
+    const registry = (getReview().baseSnapshot.items || []).flatMap(item => item.citations || [])
+      .concat(getReview().initial.issues.flatMap(issue => issue.citationAdditions || []));
     function referenceView(value) {
       const grounding = window.MappAIGroundingCore;
       return grounding && grounding.referenceView ? grounding.referenceView(String(value), registry, referenceOptions) : { text: String(value), mapping: [] };
@@ -562,11 +563,25 @@
         const itemContext = item?.kind === 'causal' ? '<p class="mb-2" data-relation><strong>' + esc(t('rv_relation_review', 'Relazione da verificare')) + ':</strong> ' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' :
           item && item.question ? '<p class="mb-2"><strong>' + esc(t('rv_question', 'Domanda')) + ':</strong> ' + esc(referenceView(item.question).text) + '</p>' +
           (Array.isArray(item.options) ? '<ul class="mb-3">' + item.options.map((option, i) => '<li>' + esc(String.fromCharCode(65 + i) + '. ' + referenceView(option).text) + '</li>').join('') + '</ul>' : '') : '';
-        const references = referenceView(readable(issue.before, issue.target, item)).mapping;
+        const references = referenceView(readable(issue.before, issue.target, item) + '\n' + (issue.hasProposal ? readable(issue.after, issue.target, item) : '')).mapping;
         const proposedItem = item?.kind === 'causal' && issue.hasProposal && issue.target.field !== '$item' ? Object.assign({}, item, { [issue.target.field]: issue.after }) : null;
+        const change = issue.hasProposal && !proposedItem ? core().textChange(issue.before, issue.after) : null;
+        const compact = change && issue.before.length > 500 && change.end - change.start < issue.before.length / 2;
+        let left = compact ? Math.max(0, issue.before.lastIndexOf('\n', change.start - 1) + 1, change.start - 100) : 0;
+        const nextLine = compact ? issue.before.indexOf('\n', change.end) : -1;
+        let right = compact ? Math.min(nextLine < 0 ? issue.before.length : nextLine, change.end + 100) : 0;
+        // Keep words and source markers whole so a cropped reference can still be rendered.
+        if (compact) {
+          while (left > 0 && /\S/.test(issue.before[left - 1])) left--;
+          while (right < issue.before.length && /\S/.test(issue.before[right])) right++;
+        }
+        const before = compact ? (left ? '…' : '') + issue.before.slice(left, right) + (right < issue.before.length ? '…' : '') : issue.before;
+        const after = compact ? (left ? '…' : '') + issue.before.slice(left, change.start) + change.after + issue.before.slice(change.end, right) + (right < issue.before.length ? '…' : '') : proposedItem || issue.after;
         card.innerHTML = itemContext + '<h3 class="font-bold mb-2">' + esc(title) + '</h3><details class="mb-2"><summary>' + esc(t('rv_where', 'Dove si applica')) + ' (' + group.length + ')</summary><ul>' + targets.map(x => '<li>' + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' +
-          '<p class="text-sm font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(issue.before, issue.target, item)) + '</p>' +
-          (issue.hasProposal ? '<p class="text-sm font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(proposedItem || issue.after, proposedItem ? { field: '$item' } : issue.target, item)) + '</p>' :
+          '<p class="text-sm font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(before, issue.target, item)) + '</p>' +
+          (issue.hasProposal ? '<p class="text-sm font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(after, proposedItem ? { field: '$item' } : issue.target, item)) + '</p>' +
+            (compact ? '<details data-full-change class="mb-3"><summary>' + esc(t('rv_full_change', 'Leggi il testo completo prima e dopo')) + '</summary><p class="font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.before, issue.target, item)) + '</p><p class="font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.after, issue.target, item)) + '</p></details>' : '') +
+            (issue.citationAdditions?.length ? '<p data-added-sources class="mb-3">' + esc(t('rv_added_sources', 'La proposta collega anche le fonti originali dei nuovi richiami.')) + '</p>' : '') :
             '<p class="mb-3" data-no-proposal>' + esc(t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
           (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
           '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>' +

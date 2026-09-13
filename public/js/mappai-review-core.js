@@ -6,9 +6,9 @@
  */
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.MappAIReviewCore = factory();
-}(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./mappai-grounding-core'));
+  else root.MappAIReviewCore = factory(root.MappAIGroundingCore);
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (Grounding) {
   'use strict';
 
   var SCHEMA = 'mappai-review@1';
@@ -48,7 +48,7 @@
   function sourceSnapshot(sources) {
     return sorted((Array.isArray(sources) ? sources : []).map(function (s) {
       if (typeof s === 'string') return { text: s };
-      var r = pick(s, ['id', 'sourceId', 'title', 'name', 'nome', 'type', 'url', 'source', 'page', 'n', 'content', 'text', 'hash', 'verbatim']);
+      var r = pick(s, ['id', 'docId', 'documentId', 'sourceId', 'title', 'name', 'nome', 'type', 'url', 'source', 'page', 'n', 'content', 'text', 'hash', 'verbatim']);
       if (Array.isArray(s && s.pages)) r.pages = s.pages.map(function (p) { return pick(p, ['id', 'n', 'page', 'text']); });
       return r;
     }));
@@ -137,6 +137,7 @@
       blocking: raw.blocking !== false, origin: raw.origin === 'teacher' ? 'teacher' : 'judge'
     };
     if (raw.type || raw.tipo) issue.type = raw.type || raw.tipo;
+    if (own(raw, 'citationAdditions')) issue.citationAdditions = clone(raw.citationAdditions);
     issue.id = String(raw.id || 'issue-' + hash(issue));
     return issue;
   }
@@ -247,6 +248,13 @@
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     return t.kind === 'item' ? eid(value.id) === eid(found.row.id) : !!(eid(value.source) && eid(value.target));
   }
+  function textChange(before, after) {
+    if (typeof before !== 'string' || typeof after !== 'string' || before === after) return null;
+    var start = 0, end = before.length, tail = after.length;
+    while (start < end && start < tail && before[start] === after[start]) start++;
+    while (end > start && tail > start && before[end - 1] === after[tail - 1]) { end--; tail--; }
+    return { start: start, end: end, before: before.slice(start, end), after: after.slice(start, tail) };
+  }
   function preview(review, db, opts) {
     opts = opts || {};
     if (!review || review.schema !== SCHEMA || !review.initial) fail('invalid_review');
@@ -277,14 +285,26 @@
       overrides.push({ issueId: i.id, target: clone(i.target), before: clone(i.before), after: clone(value),
         choice: d.choice, reason: d.reason || '', evidence: clone(i.evidence), baseRevision: review.baseRevision, origin: 'teacher' });
       // Un rifiuto conserva il contenuto; non è una patch e non impedisce una
-      // modifica indipendente. Due patch diverse dello stesso campo confliggono.
+      // modifica indipendente. Modifiche testuali disgiunte si possono comporre.
       if (d.choice === 'reject') return;
+      if (stable(value) === stable(i.before)) return;
+      var additions = i.citationAdditions || [];
+      if (!Array.isArray(additions)) return conflict(i.id, 'invalid_citations');
+      if (additions.length && (i.target.kind !== 'item' || i.target.field !== 'text' || found.row.kind !== 'synthesis')) return conflict(i.id, 'invalid_citations');
+      if (additions.length && (!Grounding || !Grounding.extendCitations(found.row, value, additions, sources))) return conflict(i.id, 'invalid_citations');
       var other = patches.find(function (p) { return p.row === found.row && (p.whole || found.whole || p.target.field === i.target.field); });
       if (other) {
-        if (stable(other.value) !== stable(value) || other.target.field !== i.target.field) conflict(i.id, 'conflicting_decisions');
+        if (stable(other.value) === stable(value) && other.target.field === i.target.field) return;
+        var change = textChange(i.before, value);
+        if (!other.whole && !found.whole && other.target.field === i.target.field && change && other.edits &&
+            other.edits.every(function (e) { return change.start > e.end || change.end < e.start; })) {
+          other.edits.push(change); other.additions = other.additions.concat(additions);
+        } else conflict(i.id, 'conflicting_decisions');
         return;
       }
-      patches.push({ row: found.row, target: i.target, value: value, whole: found.whole, issueId: i.id });
+      var edit = textChange(i.before, value);
+      patches.push({ row: found.row, target: i.target, value: value, whole: found.whole, issueId: i.id,
+        edits: edit ? [edit] : null, additions: additions });
     });
     if (!conflicts.length && !unresolved.length) patches.forEach(function (p) {
       var f = locate(work, p.target);
@@ -293,13 +313,23 @@
         if (p.value === null) work[f.key].splice(index, 1);
         else work[f.key][index] = clone(p.value);
       } else {
-        f.row[p.target.field] = clone(p.value);
+        var value = p.edits ? p.edits.slice().sort(function (a, b) { return b.start - a.start; }).reduce(function (text, e) {
+          return text.slice(0, e.start) + e.after + text.slice(e.end);
+        }, f.value) : clone(p.value);
+        if (p.additions.length) {
+          var unique = p.additions.filter(function (s, n, all) { return all.findIndex(function (x) { return x.id === s.id; }) === n; });
+          var extended = Grounding.extendCitations(f.row, value, unique, sources);
+          if (!extended) { conflict(p.issueId, 'invalid_citations'); return; }
+          f.row.citations = extended.citations;
+        }
+        f.row[p.target.field] = value;
         if (p.target.kind === 'node') {
           f.row.hasCustomText = true;
-          if (p.target.field === 'desc') { f.row.content = p.value; if (!own(f.row, 'aiDesc')) f.row.aiDesc = p.row.desc || p.row.content || ''; }
+          if (p.target.field === 'desc') { f.row.content = value; if (!own(f.row, 'aiDesc')) f.row.aiDesc = p.row.desc || p.row.content || ''; }
         }
       }
     });
+    if (conflicts.length) work = copyDb(db);
     return { ok: !conflicts.length && !unresolved.length, db: work, conflicts: conflicts,
       unresolved: unresolved, revision: revision(work, sources), overrides: overrides, alreadyApplied: false };
   }
@@ -343,6 +373,6 @@
   }
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
-    revision: revision, createReview: createReview, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome,
+    revision: revision, createReview: createReview, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome, textChange: textChange,
     preview: preview, beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
 }));

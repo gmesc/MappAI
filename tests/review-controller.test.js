@@ -304,6 +304,30 @@ test('review references and editor use reversible source labels, leaving origina
   assert.match(modal.querySelector('#mrv-decision-summary').textContent, /Modifiche manuali: 1 · Senza modifiche: 0/);
 });
 
+test('a long-text correction shows a compact passage and its added source, while approval saves the full text and registry', async () => {
+  const filler = 'Questo paragrafo rimane invariato e dà contesto al tema. '.repeat(12);
+  const item = { id: 'synthesis-0', kind: 'synthesis', text: filler + '\nLa fonte non dice nulla.\n' + 'a'.repeat(92) + ' [[src-marker-at-cut]] ' + filler,
+    citations: [{ id: 'src-marker-at-cut', idx: 1, title: 'Libro.pdf', page: 1, text: 'prima' }] };
+  const G = require('../public/js/mappai-grounding-core');
+  const entry = G.buildInput({}, [], SOURCES).sourcesArr[0];
+  const after = item.text.replace('La fonte non dice nulla.', 'La fonte dice: dopo. [[' + entry.id + ']]');
+  const m = finalManifest([item], [{ id: 'with-source', target: { kind: 'item', id: item.id, field: 'text' }, before: item.text,
+    after, hasProposal: true, citationAdditions: [entry], problem: 'La fonte contiene il passaggio.' }]);
+  const h = runtime(), modal = h.R.open('/vault', m, { final: true });
+  assert.ok(modal.querySelector('[data-full-change]'));
+  assert.equal(modal.querySelector('[data-full-change]').getAttribute('open'), undefined);
+  assert.ok(modal.querySelector('[data-added-sources]'));
+  assert.match(modal.querySelector('[data-references]').textContent, /Libro.pdf/);
+  assert.doesNotMatch(h.dom.text(), /\[\[src-/);
+  assert.deepEqual(m.review.final.items, [item]);
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Applica la proposta').click(); await tick();
+  await modal.querySelector('#mrv-continue').click();
+  assert.equal(m.review.final.stage, 'approved');
+  assert.equal(m.review.final.items[0].text, after);
+  assert.equal(m.review.final.items[0].citations.find(s => s.id === entry.id).text, entry.text);
+  assert.ok(h.saved.manifest.review.final.items[0].citations.some(s => s.id === entry.id));
+});
+
 test('manual review requires an explicit checkbox and keyboard navigation stays in the dialog', async () => {
   const h = runtime(), m = manifest(initial({ checkStatus: 'unavailable', issues: [] })), modal = h.R.open('/vault', m);
   assert.equal(modal.querySelector('#mrv-continue').hidden, true);

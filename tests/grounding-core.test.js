@@ -1,6 +1,19 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const G = require('../public/js/mappai-grounding-core.js');
+test('a teacher correction only authorizes the changed sentences, not unchanged claims in the same field', () => {
+    const retained = 'La commissione confermò tutte le accuse.';
+    const correction = { origin: 'teacher', choice: 'manual', target: { kind: 'node', id: 'n', field: 'desc' },
+        before: 'Il governo nominò il generale. ' + retained,
+        after: 'L’Assemblea elesse il generale. ' + retained };
+    assert.deepEqual(G.amendmentText(correction), ['L’Assemblea elesse il generale.']);
+    const input = G.buildInput({ nodes: [{ id: 'n', desc: correction.after }] }, [{ id: 'n' }], [], { overrides: [correction] });
+    const authority = input.material.split('RETTIFICHE DEL DOCENTE')[1];
+    assert.ok(authority.includes('L’Assemblea elesse il generale.'));
+    assert.ok(!authority.includes(retained));
+    assert.deepEqual(G.amendmentText({ ...correction, choice: 'reject' }), []);
+    assert.deepEqual(G.amendmentText({ ...correction, before: ['Prima.', retained], after: ['Dopo.', retained] }), ['Dopo.']);
+});
 
 const originals = [{ id: 'manuale', nome: 'Manuale', pages: [
     { n: 3, text: 'La BNS acquistò oro.\n\nLa Germania ricevette valuta. Il rapporto riportava accuse.' }

@@ -19,6 +19,17 @@
         for (const c of text(value)) n = Math.imul(n ^ c.codePointAt(0), 16777619);
         return (n >>> 0).toString(36);
     }
+    function amendmentText(value) {
+        if (!isTeacherAmendment(value)) return [];
+        const parts = input => {
+            if (Array.isArray(input)) return input.flatMap(parts);
+            if (input && typeof input === 'object') return Object.values(input).flatMap(parts);
+            if (typeof input !== 'string') return [];
+            return typeof Intl.Segmenter === 'function' ? Array.from(new Intl.Segmenter('it', { granularity: 'sentence' }).segment(input), s => s.segment.trim()).filter(Boolean) : [input];
+        };
+        const before = new Set(parts(value.before).map(flat));
+        return parts(value.after).filter(part => !before.has(flat(part)));
+    }
 
     // Keep offsets into the original: matching ignores whitespace; display does not.
     function originalExcerpt(original, candidate) {
@@ -109,8 +120,7 @@
         });
         const overrideText = overrides.map(o => {
             const target = o.target || {};
-            const after = o.after === null ? '(Elemento escluso dal docente.)'
-                : typeof o.after === 'object' ? JSON.stringify(o.after) : text(o.after);
+            const after = amendmentText(o).join('\n');
             return '[Rettifica del docente: ' + text(target.id || target.source + ' → ' + target.target) +
                 ', ' + text(target.field || 'testo') + ']\n' + after + (o.reason ? '\nNota: ' + text(o.reason) : '');
         }).join('\n\n');
@@ -181,6 +191,35 @@
         return out;
     }
 
-    return { sourcePages, originalExcerpt, buildInput, resolveCitations, referenceView, restoreReferenceIds, citationRegistry, isTeacherAmendment,
+    // Append only referenced entries; old numbers and archived wording never change.
+    // At approval originals are required to recheck the persisted proposal.
+    function extendCitations(item, value, candidates, originals) {
+        if (item.kind !== 'synthesis' || typeof value !== 'string' || item.citations != null && !Array.isArray(item.citations)) return null;
+        const registry = JSON.parse(JSON.stringify(item.citations || [])), additions = [];
+        const pages = originals === undefined ? null : sourcePages(originals);
+        const occupied = new Set(registry.map(s => Number(s.idx)));
+        for (const m of value.matchAll(/\[(\d+)\]/g)) occupied.add(Number(m[1]));
+        for (const m of value.matchAll(/\[\[(src-[\w-]+)\]\]/g)) {
+            if (registry.some(s => s.id === m[1])) continue;
+            const matches = (candidates || []).filter(s => s && s.id === m[1]);
+            if (matches.length !== 1 || !flat(matches[0].text)) return null;
+            const entry = matches[0];
+            if (pages) {
+                const matches = pages.filter(p => (entry.docId ? p.docId === entry.docId : p.title === entry.title) &&
+                    p.page === Number(entry.page || 0) && originalExcerpt(p.text, entry.text) === entry.text);
+                if (matches.length !== 1) return null;
+            }
+            let idx = 1; while (occupied.has(idx)) idx++;
+            occupied.add(idx);
+            const added = { id: entry.id, idx, title: entry.title, page: Number(entry.page || 0),
+                source: entry.page ? 'pagina ' + entry.page : 'fonte', text: entry.text,
+                verbatim: true, verifiedAgainst: 'archived-source-text' };
+            if (entry.docId) added.docId = entry.docId;
+            registry.push(added); additions.push(added);
+        }
+        return { citations: registry, additions };
+    }
+
+    return { sourcePages, originalExcerpt, buildInput, resolveCitations, referenceView, restoreReferenceIds, citationRegistry, isTeacherAmendment, amendmentText, extendCitations,
         materialForNodes: (db, nodes, sources, approvedReview) => buildInput(db, nodes, sources, approvedReview).material };
 }));

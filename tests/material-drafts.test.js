@@ -179,7 +179,7 @@ test('new and legacy overview anchors keep their own registry through pure proje
     const out = D.apply(drafts, items), build = renderer(), $ = load(build(out.D.data));
     assert.equal(JSON.stringify(drafts), before);
     assert.equal(out.D.data.intro, 'Panoramica corretta [[src-b]] e [[src-a]].');
-    assert.deepEqual(out.D.data.introSources, data.introSources, 'legacy projection does not retrofit approved data');
+    assert.deepEqual(out.D.data.introSources, intro.citations, 'the export copy retains the approved local registry');
     assert.ok(!$('.bs-body').text().includes('src-'));
     assert.deepEqual($('.bs-citations blockquote').map((_, el) => $(el).text()).get(), [b.text, a.text, a.text, b.text]);
     assert.deepEqual(Array.from(build.audioBlocks(out.D.data)), ['Panoramica corretta e .', 'Primo fatto .', 'Secondo fatto .']);

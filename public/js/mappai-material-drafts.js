@@ -112,14 +112,16 @@
       const before = synthesisContent(data);
       if (data.whole) {
         data.intro = byId.has('synthesis-intro') ? byId.get('synthesis-intro').text : '';
+        if (byId.get('synthesis-intro')?.citations) data.introSources = clone(byId.get('synthesis-intro').citations);
         data.sections = (data.sections || []).map((s, i) => {
           const it = byId.get('synthesis-' + i);
           if (!it) return null;
           applySynthesisTriples(s, i, byId);
-          return Object.assign({}, s, { rawText: it.text, failed: false });
+          return Object.assign({}, s, { rawText: it.text, sourcesArr: clone(it.citations || s.sourcesArr || []), failed: false });
         }).filter(Boolean);
       } else if (byId.has('synthesis-whole')) {
         data.rawText = byId.get('synthesis-whole').text;
+        if (byId.get('synthesis-whole').citations) data.sourcesArr = clone(byId.get('synthesis-whole').citations);
         applySynthesisTriples(data, 'whole', byId);
       }
       else { delete out.D; }

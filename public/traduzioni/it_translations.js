@@ -82,6 +82,8 @@ const it_translations = {
     rv_text_references: "Fonti richiamate nel testo",
     rv_reference_edit_help: "I richiami alle fonti restano collegati quando modifichi il testo.",
     rv_no_proposal: "Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.",
+    rv_full_change: "Leggi il testo completo prima e dopo",
+    rv_added_sources: "La proposta collega anche le fonti originali dei nuovi richiami.",
     rv_accept_exclusion: "Escludi questo elemento",
     rv_summary_applied: "Proposte scelte",
     rv_summary_edited: "Modifiche manuali",
