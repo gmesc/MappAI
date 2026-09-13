@@ -23,7 +23,7 @@
 <body>
 <aside class="ui-rail" role="tablist" aria-label="Mappe">
   <h1 class="ui-rail-titolo">Atlante MappAI</h1>
-  <p class="ui-rail-sotto">Otto mappe generate dal codice. Ogni voce apre una sezione del progetto.</p>
+  <p class="ui-rail-sotto">Nove mappe generate dal codice. Ogni voce apre una sezione del progetto.</p>
 
   <p class="ui-eyebrow">Struttura</p>
   <button type="button" class="ui-voce" data-src="mappai.architecture.html"><span class="n">01</span><b>Architettura</b><small>Renderer, preload, main, Gemini, vault, server LAN.</small></button>
@@ -33,11 +33,12 @@
   <button type="button" class="ui-voce" data-src="pdf-a-json.workflow.html"><span class="n">03</span><b>Dal PDF al JSON</b><small>Triage, Fase 1, Fase 3, deepening, àncora, copertura, vault.</small></button>
   <button type="button" class="ui-voce" data-src="json-a-domanda.workflow.html"><span class="n">04</span><b>Dal JSON alla domanda aperta</b><small>Ramo L1 → materiale con fonti → una chiamata → foglio PDF.</small></button>
   <button type="button" class="ui-voce" data-src="nodo.lifecycle.html"><span class="n">05</span><b>Vita di un nodo</b><small>Generato, ancorato, giudicato, nel vault, studiato: chi lo cambia e quando.</small></button>
+  <button type="button" class="ui-voce" data-src="quiz-qr.sequence.html"><span class="n">06</span><b>Quiz via QR</b><small>Telefono → live-server → gradeAnswer → verdetto; i report a chiusura.</small></button>
 
   <p class="ui-eyebrow">Progettazione</p>
-  <button type="button" class="ui-voce" data-src="costi.workflow.html"><span class="n">06</span><b>Dove vanno i token</b><small>4 929 chiamate reali: quiz 53 %, Fase 3 10,7 %, giudice 9,7 %.</small></button>
-  <button type="button" class="ui-voce" data-src="confronto-infomaniak.compare.html"><span class="n">07</span><b>Prima / dopo</b><small>Architettura con e senza Infomaniak: 4 rimossi, 1 confine cambiato.</small></button>
-  <button type="button" class="ui-voce" data-src="fragilita.workflow.html"><span class="n">08</span><b>Fragilità</b><small>Dieci punti deboli con file e riga, e le decisioni da prendere.</small></button>
+  <button type="button" class="ui-voce" data-src="costi.workflow.html"><span class="n">07</span><b>Dove vanno i token</b><small>4 929 chiamate reali: quiz 53 %, Fase 3 10,7 %, giudice 9,7 %.</small></button>
+  <button type="button" class="ui-voce" data-src="confronto-infomaniak.compare.html"><span class="n">08</span><b>Prima / dopo</b><small>Architettura con e senza Infomaniak: 4 rimossi, 1 confine cambiato.</small></button>
+  <button type="button" class="ui-voce" data-src="fragilita.workflow.html"><span class="n">09</span><b>Fragilità</b><small>Dieci punti deboli con file e riga, e le decisioni da prendere.</small></button>
 
   <div class="ui-rail-piede">
     <div class="ui-azioni"><button type="button" class="ui-btn" id="apri">Schermo intero</button><button type="button" class="ui-btn" id="tema">Tema</button></div>
@@ -68,9 +69,10 @@
   // Dentro ogni viewer (stessa origine): testata con più aria, bottoni della barra più piccoli.
   // Non tocca i file consegnati da Archify (le ricevute restano valide): è un foglio iniettato a caricamento.
   const RITOCCHI = `
-    h1 { font-size: 1.3rem !important; line-height: 1.2 !important; }
-    .header-row { gap: 1rem !important; row-gap: .6rem !important; align-items: flex-start !important; padding-right: .5rem !important; }
-    .toolbar { gap: .35rem !important; flex-wrap: wrap !important; }
+    header { padding-right: 0 !important; margin-bottom: 1.6rem !important; }
+    h1 { font-size: 1.3rem !important; line-height: 1.2 !important; margin: 0 0 .4rem !important; }
+    .header-row { gap: 1rem !important; row-gap: .6rem !important; align-items: flex-start !important; }
+    .toolbar { position: static !important; display: flex !important; justify-content: flex-end !important; flex-wrap: wrap !important; gap: .35rem !important; margin: .5rem 0 .9rem !important; }
     .toolbar button { padding: .3rem .55rem !important; font-size: .78rem !important; min-height: 1.9rem !important; }
     .toolbar #btn-preset, .toolbar #btn-motion { min-width: 0 !important; }
     .toolbar .toolbar-icon { width: .85rem !important; height: .85rem !important; }

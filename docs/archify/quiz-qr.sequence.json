@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "MappAI — quiz via QR",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1080,
+      652
+    ],
+    "views": [
+      {
+        "id": "avvio",
+        "label": "Avvio e ingresso",
+        "focus": [
+          "docente",
+          "teacher",
+          "main",
+          "live",
+          "telefono"
+        ],
+        "note": "Il main accende live-server.js su una porta 8767-8777 aperta alla rete locale; il QR porta URL e token di sessione."
+      },
+      {
+        "id": "risposta",
+        "label": "Una risposta",
+        "focus": [
+          "telefono",
+          "live",
+          "core"
+        ],
+        "note": "gradeAnswer è deterministico: giusto, sbagliato, vuoto o manuale. Il verdetto torna solo col feedback immediato, mai su una domanda aperta."
+      },
+      {
+        "id": "chiusura",
+        "label": "Chiusura e report",
+        "focus": [
+          "teacher",
+          "live",
+          "disco"
+        ],
+        "note": "A chiusura il server scrive results.json e i due report HTML: heatmap delle domande e schede per studente."
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "docente",
+      "type": "external",
+      "label": "Docente",
+      "sublabel": "in classe"
+    },
+    {
+      "id": "teacher",
+      "type": "frontend",
+      "label": "Hub QR",
+      "sublabel": "mappai-live-teacher.js"
+    },
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main.js",
+      "sublabel": "live-start-session"
+    },
+    {
+      "id": "live",
+      "type": "backend",
+      "label": "live-server.js",
+      "sublabel": "HTTP su rete locale"
+    },
+    {
+      "id": "core",
+      "type": "security",
+      "label": "live-core",
+      "sublabel": "gradeAnswer"
+    },
+    {
+      "id": "telefono",
+      "type": "external",
+      "label": "Studente",
+      "sublabel": "student.html"
+    },
+    {
+      "id": "disco",
+      "type": "database",
+      "label": "Sessione",
+      "sublabel": "cartella su disco"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 262,
+      "label": "Avvio"
+    },
+    {
+      "from": 285,
+      "to": 455,
+      "label": "Domande e risposte"
+    },
+    {
+      "from": 475,
+      "to": 560,
+      "label": "Chiusura"
+    }
+  ],
+  "messages": [
+    {
+      "id": "a-avvia",
+      "from": "docente",
+      "to": "teacher",
+      "y": 165,
+      "label": "Avvia quiz",
+      "variant": "emphasis"
+    },
+    {
+      "id": "a-ipc",
+      "from": "teacher",
+      "to": "main",
+      "y": 193,
+      "label": "liveStartSession(opts)",
+      "variant": "security"
+    },
+    {
+      "id": "a-listen",
+      "from": "main",
+      "to": "live",
+      "y": 221,
+      "label": "listen 8767-8777 su 0.0.0.0",
+      "variant": "emphasis"
+    },
+    {
+      "id": "a-urls",
+      "from": "main",
+      "to": "teacher",
+      "y": 249,
+      "label": "{port, urls, token} → QR sul proiettore",
+      "variant": "return"
+    },
+    {
+      "id": "r-join",
+      "from": "telefono",
+      "to": "live",
+      "y": 300,
+      "label": "POST /api/join {token, deviceId, nome}",
+      "variant": "emphasis"
+    },
+    {
+      "id": "r-phase",
+      "from": "teacher",
+      "to": "live",
+      "y": 328,
+      "label": "POST /api/phase: avvia domande",
+      "variant": "default"
+    },
+    {
+      "id": "r-answer",
+      "from": "telefono",
+      "to": "live",
+      "y": 356,
+      "label": "POST /api/answer {qid, choice | testo}",
+      "variant": "emphasis"
+    },
+    {
+      "id": "r-grade",
+      "from": "live",
+      "to": "core",
+      "y": 384,
+      "label": "gradeAnswer(q, a)",
+      "variant": "security"
+    },
+    {
+      "id": "r-outcome",
+      "from": "core",
+      "to": "live",
+      "y": 412,
+      "label": "right · wrong · blank · manual",
+      "variant": "return"
+    },
+    {
+      "id": "r-verdict",
+      "from": "live",
+      "to": "telefono",
+      "y": 440,
+      "label": "verdetto: solo con feedback immediato, mai su «manual»",
+      "variant": "return"
+    },
+    {
+      "id": "c-close",
+      "from": "teacher",
+      "to": "live",
+      "y": 490,
+      "label": "POST /api/close",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c-write",
+      "from": "live",
+      "to": "disco",
+      "y": 518,
+      "label": "results.json · report-domande.html · report-studenti.html",
+      "variant": "default"
+    },
+    {
+      "id": "c-open",
+      "from": "disco",
+      "to": "docente",
+      "y": 546,
+      "label": "i due report da aprire",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "teacher",
+      "from": 170,
+      "to": 255,
+      "type": "frontend"
+    },
+    {
+      "participant": "main",
+      "from": 188,
+      "to": 255,
+      "type": "backend"
+    },
+    {
+      "participant": "live",
+      "from": 216,
+      "to": 552,
+      "type": "backend"
+    },
+    {
+      "participant": "core",
+      "from": 379,
+      "to": 418,
+      "type": "security"
+    },
+    {
+      "participant": "telefono",
+      "from": 295,
+      "to": 446,
+      "type": "external"
+    },
+    {
+      "participant": "disco",
+      "from": 513,
+      "to": 552,
+      "type": "database"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Automatico",
+      "items": [
+        "Scelta multipla e vero/falso: confronto esatto, 0/1",
+        "Roster: l’hub interroga /api/status ogni 3 s"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Resta al docente",
+      "items": [
+        "Domanda aperta: outcome «manual», nessun verdetto",
+        "Soluzioni nel report solo se revealAnswers"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Sicurezza minima",
+      "items": [
+        "token nel QR; adminToken solo su 127.0.0.1",
+        "deviceId lega la risposta all’identità del join"
+      ]
+    }
+  ]
+}
