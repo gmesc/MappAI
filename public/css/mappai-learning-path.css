@@ -1,0 +1,155 @@
+/* The path builder uses the app's modal tokens and native dialog/fields. */
+#mappai-learning-path-dialog {
+  box-sizing: border-box;
+  width: min(var(--mm-xl, 1160px), 96vw);
+  height: min(880px, 94vh);
+  height: min(880px, 94dvh);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--mm-bordo, #e2e8f0);
+  border-radius: var(--mm-r-box, 16px);
+  background: var(--mm-fondo, #fff);
+  color: var(--mm-testo, #404040);
+  box-shadow: var(--mm-ombra);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+#mappai-learning-path-dialog[open] { display: flex; flex-direction: column; }
+#mappai-learning-path-dialog::backdrop { background: var(--mm-velo, rgb(15 23 42 / 45%)); backdrop-filter: blur(3px); }
+#mappai-learning-path-dialog * { box-sizing: border-box; }
+#mappai-learning-path-dialog [hidden] { display: none !important; }
+#mappai-learning-path-dialog h2,
+#mappai-learning-path-dialog h3,
+#mappai-learning-path-dialog h4,
+#mappai-learning-path-dialog p { margin: 0; }
+#mappai-learning-path-dialog button,
+#mappai-learning-path-dialog textarea,
+#mappai-learning-path-dialog input,
+#mappai-learning-path-dialog select { font: inherit; color: inherit; }
+#mappai-learning-path-dialog button { cursor: pointer; border: 1px solid var(--mm-bordo); border-radius: var(--mm-r-btn, 10px); padding: 9px 14px; background: var(--mm-fondo); font-weight: 700; line-height: 1.35; }
+#mappai-learning-path-dialog button:hover { background: var(--mm-neutro, #f1f4f8); }
+#mappai-learning-path-dialog button:disabled,
+#mappai-learning-path-dialog input:disabled { opacity: .48; cursor: default; }
+#mappai-learning-path-dialog :focus-visible { outline: 3px solid var(--mm-accent); outline-offset: 3px; }
+#mappai-learning-path-dialog input[type="checkbox"],
+#mappai-learning-path-dialog input[type="radio"] { width: 18px; height: 18px; accent-color: var(--mm-accent); flex: 0 0 auto; margin: 2px 0 0; }
+#mappai-learning-path-dialog textarea,
+#mappai-learning-path-dialog input:not([type="checkbox"]):not([type="radio"]),
+#mappai-learning-path-dialog select { display: block; width: 100%; padding: 11px 12px; border: 1px solid var(--mm-bordo); border-radius: var(--mm-r-campo, 10px); background: var(--mm-fondo); }
+#mappai-learning-path-dialog textarea { resize: vertical; min-height: 108px; line-height: 1.55; }
+#mappai-learning-path-dialog label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 7px; }
+#mappai-learning-path-dialog .sp-header { display: flex; flex: 0 0 auto; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 24px 28px 19px; }
+#mappai-learning-path-dialog .sp-header h2 { font-size: 26px; font-weight: 800; line-height: 1.2; margin: 5px 0 8px; letter-spacing: -.025em; }
+#mappai-learning-path-dialog .sp-header p:not(.sp-eyebrow) { color: var(--mm-testo-2); }
+#mappai-learning-path-dialog .sp-eyebrow { color: var(--mm-testo-3); text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+#mappai-learning-path-dialog .sp-close { padding: 0; font-size: 26px; border: 0; border-radius: 50%; width: 42px; height: 42px; flex: 0 0 auto; background: var(--mm-neutro, #f1f4f8); }
+#mappai-learning-path-dialog .sp-steps { flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 28px 18px; border-bottom: 1px solid var(--mm-bordo); }
+#mappai-learning-path-dialog .sp-steps button { display: flex; align-items: center; text-align: left; gap: 10px; padding: 10px 12px; border-color: transparent; background: var(--mm-neutro, #f1f4f8); color: var(--mm-testo-2); }
+#mappai-learning-path-dialog .sp-step-number { display: grid; place-items: center; width: 27px; height: 27px; flex: 0 0 27px; background: var(--mm-fondo); border-radius: 50%; font-size: 12px; }
+#mappai-learning-path-dialog .sp-steps button[aria-current="step"] { color: var(--mm-accent); border-color: var(--mm-accent); background: var(--mm-accent-soft); }
+#mappai-learning-path-dialog .sp-steps button[aria-current="step"] .sp-step-number { color: white; background: var(--mm-accent); }
+#mappai-learning-path-dialog .sp-workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; overflow: hidden; }
+#mappai-learning-path-dialog .sp-main { min-width: 0; overflow-y: auto; padding: 26px 28px; scroll-behavior: smooth; }
+#mappai-learning-path-dialog .sp-main h3 { font-size: 22px; line-height: 1.3; font-weight: 800; margin: 6px 0 9px; letter-spacing: -.015em; }
+#mappai-learning-path-dialog .sp-main h4 { font-size: 16px; font-weight: 750; }
+#mappai-learning-path-dialog .sp-description { color: var(--mm-testo-2); font-size: 13px; line-height: 1.55; }
+#mappai-learning-path-dialog .sp-main section > .sp-description { margin-bottom: 22px; }
+#mappai-learning-path-dialog #sp-objective { font-size: 17px; min-height: 130px; }
+#mappai-learning-path-dialog .sp-length { display: flex; align-items: center; gap: 20px; padding: 24px 0; margin-top: 12px; }
+#mappai-learning-path-dialog #sp-max { flex: 0 0 82px; width: 82px; font-size: 20px; font-weight: 750; }
+#mappai-learning-path-dialog .sp-length label { margin-bottom: 4px; }
+#mappai-learning-path-dialog .sp-availability { padding: 14px 16px; border: 1px solid var(--mm-bordo); border-radius: var(--mm-r-campo); background: var(--mm-fondo-sez); font-size: 13px; }
+#mappai-learning-path-dialog .sp-availability span { color: var(--mm-ok); font-weight: 800; margin-right: 5px; }
+#mappai-learning-path-dialog .sp-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#mappai-learning-path-dialog .sp-search { grid-column: 1 / -1; }
+#mappai-learning-path-dialog .sp-filters select { text-overflow: ellipsis; }
+#mappai-learning-path-dialog .sp-results-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 15px 0 7px; color: var(--mm-testo-3); font-size: 12px; }
+#mappai-learning-path-dialog .sp-text-button { border-color: transparent; padding: 7px 8px; color: var(--mm-accent); font-size: 12px; }
+#mappai-learning-path-dialog .sp-catalog-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; margin-top: 7px; border: 1px solid var(--mm-bordo); border-radius: var(--mm-r-campo); }
+#mappai-learning-path-dialog .sp-catalog-item.is-selected { border-color: var(--mm-accent); background: var(--mm-accent-soft); }
+#mappai-learning-path-dialog .sp-catalog-item label { display: flex; align-items: flex-start; gap: 11px; margin: 0; flex: 1; min-width: 0; cursor: pointer; }
+#mappai-learning-path-dialog .sp-catalog-item label > span { min-width: 0; }
+#mappai-learning-path-dialog .sp-item-meta { display: block; color: var(--mm-testo-3); font-size: 11px; font-weight: 600; margin-bottom: 3px; }
+#mappai-learning-path-dialog .sp-item-question { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.4; font-size: 13px; font-weight: 650; }
+#mappai-learning-path-dialog .sp-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding-top: 16px; font-size: 12px; }
+#mappai-learning-path-dialog .sp-pagination button { min-width: 38px; padding: 8px; }
+#mappai-learning-path-dialog .sp-summary { padding: 25px 21px; background: var(--mm-fondo-sez, #f8fafc); border-left: 1px solid var(--mm-bordo); min-width: 0; overflow-y: auto; }
+#mappai-learning-path-dialog .sp-summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#mappai-learning-path-dialog .sp-summary-heading h3 { font-size: 17px; font-weight: 800; }
+#mappai-learning-path-dialog #sp-count { color: var(--mm-accent); background: var(--mm-accent-soft); border-radius: var(--mm-r-pill); padding: 4px 9px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+#mappai-learning-path-dialog .sp-summary-label { font-size: 11px; color: var(--mm-testo-3); font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin: 22px 0 7px; }
+#mappai-learning-path-dialog #sp-summary-objective { font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
+#mappai-learning-path-dialog #sp-selected { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
+#mappai-learning-path-dialog #sp-selected li { display: flex; align-items: flex-start; gap: 5px; margin-top: 5px; }
+#mappai-learning-path-dialog .sp-selection-number { min-width: 23px; padding-top: 7px; color: var(--mm-testo-3); font-size: 12px; }
+#mappai-learning-path-dialog .sp-selected-question { border: 0; background: transparent; text-align: left; padding: 6px 2px; font-size: 12px; font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#mappai-learning-path-dialog .sp-selected-question[aria-current="true"] { color: var(--mm-accent); }
+#mappai-learning-path-dialog .sp-remove { border: 0; background: transparent; padding: 2px; font-size: 21px; width: 28px; height: 32px; flex: 0 0 auto; color: var(--mm-testo-3); }
+#mappai-learning-path-dialog .sp-summary-mode { display: inline-block; margin-top: 18px; font-size: 12px; font-weight: 750; border-radius: var(--mm-r-pill); background: var(--mm-neutro, #f1f4f8); padding: 5px 9px; }
+#mappai-learning-path-dialog .sp-notice { margin-top: 12px; padding: 10px 12px; border-radius: var(--mm-r-campo); border-left: 3px solid var(--mm-accent); background: var(--mm-accent-soft); color: var(--mm-testo-2); font-size: 12px; }
+#mappai-learning-path-dialog .sp-output { border-top: 1px solid var(--mm-bordo); padding-top: 17px; margin-top: 22px; font-size: 12px; color: var(--mm-testo-3); }
+#mappai-learning-path-dialog .sp-preview-title { font-size: 14px; font-weight: 800; margin: 24px 0 12px; }
+#mappai-learning-path-dialog .sp-item-detail h4 { font-size: 16px; line-height: 1.45; margin-bottom: 12px; overflow-wrap: anywhere; }
+#mappai-learning-path-dialog .sp-options { list-style: upper-alpha; margin: 10px 0 18px; padding-left: 24px; font-size: 13px; }
+#mappai-learning-path-dialog .sp-options li { margin: 5px 0; }
+#mappai-learning-path-dialog .sp-solution { font-size: 12px; padding: 12px 0; border-top: 1px solid var(--mm-bordo); border-bottom: 1px solid var(--mm-bordo); margin-bottom: 20px; }
+#mappai-learning-path-dialog .sp-solution summary { font-weight: 700; color: var(--mm-testo-2); cursor: pointer; }
+#mappai-learning-path-dialog .sp-solution p { margin-top: 10px; }
+#mappai-learning-path-dialog .sp-help-origin { font-size: 11px; color: var(--mm-testo-3); margin: 5px 0 9px; overflow-wrap: anywhere; }
+#mappai-learning-path-dialog .sp-hint-preview { font-size: 12px; white-space: pre-wrap; line-height: 1.55; overflow-wrap: anywhere; }
+#mappai-learning-path-dialog .sp-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 0; padding: 0; margin: 0 0 26px; gap: 8px; }
+#mappai-learning-path-dialog .sp-mode-card { display: flex; align-items: flex-start; gap: 8px; padding: 13px 11px; border: 1px solid var(--mm-bordo); border-radius: var(--mm-r-campo); cursor: pointer; margin: 0; }
+#mappai-learning-path-dialog .sp-mode-card:has(input:checked) { background: var(--mm-accent-soft); border-color: var(--mm-accent); }
+#mappai-learning-path-dialog .sp-mode-card strong { display: block; font-size: 13px; font-weight: 750; margin-bottom: 6px; }
+#mappai-learning-path-dialog .sp-mode-card span span { display: block; font-size: 11px; line-height: 1.5; font-weight: 400; color: var(--mm-testo-2); }
+#mappai-learning-path-dialog .sp-mode-card input[type="radio"] { width: 15px; height: 15px; }
+#mappai-learning-path-dialog .sp-editor-heading { padding-bottom: 15px; border-bottom: 1px solid var(--mm-bordo); }
+#mappai-learning-path-dialog .sp-editor-heading h4 { margin-bottom: 4px; }
+#mappai-learning-path-dialog .sp-editor-navigation { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 17px 0; }
+#mappai-learning-path-dialog .sp-editor-navigation p { font-size: 12px; font-weight: 750; color: var(--mm-testo-3); }
+#mappai-learning-path-dialog .sp-editor-navigation button { padding: 6px 12px; }
+#mappai-learning-path-dialog #sp-help-note { font-size: 11px; margin-top: 7px; }
+#mappai-learning-path-dialog .sp-empty { padding: 28px 15px; background: var(--mm-fondo-sez); border-radius: var(--mm-r-campo); color: var(--mm-testo-3); font-size: 13px; }
+#mappai-learning-path-dialog .sp-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 15px; border-top: 1px solid var(--mm-bordo); padding: 17px 28px; background: var(--mm-fondo); }
+#mappai-learning-path-dialog .sp-footer-actions { display: flex; gap: 9px; flex: 0 0 auto; }
+#mappai-learning-path-dialog .sp-footer button { font-size: 13px; min-height: 42px; }
+#mappai-learning-path-dialog .sp-primary { background: var(--mm-accent); color: white; border-color: var(--mm-accent); }
+#mappai-learning-path-dialog .sp-primary:hover { background: var(--mm-accent-hover); }
+#mappai-learning-path-dialog #sp-footer-progress { font-size: 12px; color: var(--mm-testo-3); }
+#mappai-learning-path-dialog #sp-status { font-size: 12px; color: var(--mm-testo); }
+#mappai-learning-path-dialog #sp-status:not(:empty) { margin-bottom: 4px; }
+#mappai-learning-path-dialog .sp-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 850px) {
+  #mappai-learning-path-dialog .sp-workspace { grid-template-columns: minmax(0, 1fr) 255px; }
+  #mappai-learning-path-dialog .sp-main { padding: 20px; }
+  #mappai-learning-path-dialog .sp-summary { padding: 20px 16px; }
+  #mappai-learning-path-dialog .sp-modes { grid-template-columns: 1fr; }
+  #mappai-learning-path-dialog .sp-mode-card { padding: 10px 12px; }
+  #mappai-learning-path-dialog .sp-mode-card strong { margin-bottom: 3px; }
+  #mappai-learning-path-dialog .sp-catalog-item { flex-wrap: wrap; gap: 4px; }
+  #mappai-learning-path-dialog .sp-catalog-item .sp-text-button { margin-left: 21px; }
+}
+@media (max-width: 650px) {
+  #mappai-learning-path-dialog { width: 100vw; height: 100dvh; border-radius: 0; border: 0; }
+  #mappai-learning-path-dialog .sp-header { padding: 18px 16px 14px; }
+  #mappai-learning-path-dialog .sp-header h2 { font-size: 22px; }
+  #mappai-learning-path-dialog .sp-header p:not(.sp-eyebrow) { font-size: 12px; }
+  #mappai-learning-path-dialog .sp-steps { padding: 0 12px 12px; gap: 5px; }
+  #mappai-learning-path-dialog .sp-steps button { padding: 9px 6px; font-size: 11px; gap: 6px; }
+  #mappai-learning-path-dialog .sp-step-number { width: 22px; height: 22px; flex-basis: 22px; }
+  #mappai-learning-path-dialog .sp-workspace { display: block; overflow-y: auto; }
+  #mappai-learning-path-dialog .sp-main { overflow: visible; padding: 20px 16px; }
+  #mappai-learning-path-dialog .sp-main h3 { font-size: 20px; }
+  #mappai-learning-path-dialog .sp-summary { overflow: visible; border-left: 0; border-top: 1px solid var(--mm-bordo); }
+  #mappai-learning-path-dialog .sp-footer { padding: 12px; gap: 8px; flex-wrap: wrap; }
+  #mappai-learning-path-dialog .sp-footer > div:first-child { flex: 1 0 100%; }
+  #mappai-learning-path-dialog .sp-footer-actions { width: 100%; justify-content: flex-end; }
+  #mappai-learning-path-dialog .sp-footer-actions button { padding: 9px 10px; }
+  #mappai-learning-path-dialog .sp-filters { gap: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mappai-learning-path-dialog .sp-main { scroll-behavior: auto; }
+}

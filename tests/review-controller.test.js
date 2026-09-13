@@ -34,7 +34,7 @@ function dom() {
       remove() { $(n).remove(); },
       querySelector(s) { return wrap($(n).find(s).get(0)); },
       querySelectorAll(s) { return $(n).find(s).toArray().map(wrap); },
-      focus() { active = this; }, getClientRects() { return this.hidden ? [] : [{}]; },
+      focus() { active = this; }, getClientRects() { return this.hidden || $(n).parents('[hidden]').length ? [] : [{}]; },
       addEventListener(k, fn) { this.listeners[k] = fn; },
       async click() { if (!this.disabled && this.onclick) return this.onclick(); }
     };
@@ -716,4 +716,135 @@ test('G2 retry preserves an unfinished invalid numeric edit and does not call th
   assert.match(modal.querySelector('#mrv-status').textContent, /Completa il campo/);
   assert.deepEqual(clone(h.saved.manifest), savedBeforeRetry);
   assert.equal(m.review.final.items[0].lines, 8);
+});
+
+function dashboardReview(count = 3, incomplete = false) {
+  const h = runtime();
+  h.st.db = { nodes: Array.from({ length: count }, (_, i) => ({ id: 'n' + i, label: 'Concetto ' + (i + 1), desc: 'Testo originale ' + i })), links: [], sourcesDict: {} };
+  const r = Core.createReview({ db: h.st.db, sources: SOURCES, report: {
+    checkStatus: incomplete ? 'incomplete' : 'completed',
+    issues: h.st.db.nodes.map((n, i) => ({ id: 'd' + i, target: { kind: 'node', id: n.id, field: 'desc' },
+      after: 'Testo corretto ' + i, problem: 'Verifica del concetto ' + (i + 1) }))
+  } });
+  const m = manifest(r), modal = h.R.open('/vault', m);
+  return { ...h, m, modal };
+}
+const currentCard = modal => modal.querySelector('[data-review-card]:not([hidden])');
+
+test('dashboard keeps fifty findings in a navigable queue, displays one card and advances only after saving', async () => {
+  const h = dashboardReview(50), { modal } = h;
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 50);
+  assert.equal(modal.querySelectorAll('[data-review-card]:not([hidden])').length, 1);
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd0');
+  assert.equal(modal.querySelector('#mrv-prev').disabled, true);
+  await currentCard(modal).querySelector('[data-review-choice=accept]').click();
+  assert.equal(h.saved.manifest.review.initial.decisions.d0.choice, 'accept');
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd1');
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 49);
+  assert.equal(modal.querySelector('#mrv-progress-label').textContent, '1 / 50 segnalazioni decise');
+  assert.equal(modal.querySelector('#mrv-progress').getAttribute('value'), '2');
+  assert.equal(h.dom.document.activeElement.id, 'mrv-current-title');
+  await modal.querySelector('#mrv-next').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd2');
+  await modal.querySelector('#mrv-prev').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd1');
+  const before = h.calls.manifest;
+  await modal.querySelector('[data-review-issue=d40]').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd40');
+  assert.equal(h.calls.manifest, before, 'navigation is read-only');
+});
+
+test('dashboard search spans concept and content, restores the queue and never changes decisions', async () => {
+  const h = dashboardReview(), { modal } = h, search = modal.querySelector('#mrv-search');
+  search.value = 'concetto 3'; await search.oninput();
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 1);
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd2');
+  search.value = 'originale 0'; await search.oninput();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd0');
+  search.value = 'nessun risultato'; await search.oninput();
+  assert.equal(currentCard(modal), null);
+  assert.match(modal.querySelector('#mrv-filter-empty').textContent, /Nessuna segnalazione/);
+  search.value = ''; await search.oninput();
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 3);
+  assert.equal(h.calls.manifest, 0);
+  assert.deepEqual(h.m.review.initial.decisions, {});
+});
+
+test('dashboard preserves a manual draft while switching cards and exposes the saved outcome in its queue', async () => {
+  const h = dashboardReview(), { modal } = h;
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(modal).querySelector('textarea');
+  input.value = 'Una spiegazione scritta dal docente.'; input.oninput(); await tick();
+  assert.match(modal.querySelector('[data-review-issue=d0] .mrv-queue-state').textContent, /modificato da te/);
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  assert.equal(currentCard(modal).querySelector('textarea').value, input.value, 'reopening the editor does not reset the draft');
+  await modal.querySelector('#mrv-next').click();
+  await modal.querySelector('[data-review-filter=decided]').click();
+  assert.equal(currentCard(modal).querySelector('textarea').value, input.value);
+  assert.equal(h.saved.manifest.review.initial.decisions.d0.text, input.value);
+  await currentCard(modal).querySelector('[data-review-choice=pending]').click();
+  await modal.querySelector('[data-review-filter=pending]').click();
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 3);
+});
+
+test('dashboard does not navigate away from failed saves or invalid numeric edits', async () => {
+  const h = dashboardReview(), { modal } = h;
+  h.opts.failSave = true;
+  await currentCard(modal).querySelector('[data-review-choice=accept]').click();
+  await modal.querySelector('#mrv-next').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd0');
+  h.opts.failSave = false;
+  await modal.querySelector('#mrv-save-retry').click(); await tick();
+  await modal.querySelector('#mrv-next').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd1');
+
+  const j = runtime(), items = [{ id: 'q1', kind: 'open', question: 'Perché?', lines: 4 }, { id: 'q2', kind: 'open', question: 'Come?', lines: 6 }];
+  const m = finalManifest(items, items.map((item, i) => ({ id: 'lines' + i, target: { kind: 'item', id: item.id, field: 'lines' }, after: 8, problem: 'Spazio per la risposta ' + i })));
+  const other = j.R.open('/vault', m, { final: true });
+  await currentCard(other).querySelector('[data-review-choice=manual]').click();
+  const number = currentCard(other).querySelector('input[type=number]'); number.value = ''; number.oninput();
+  await other.querySelector('#mrv-next').click();
+  const search = other.querySelector('#mrv-search'); search.value = 'Come'; await search.oninput();
+  assert.equal(currentCard(other).getAttribute('data-review-card'), 'lines0');
+  assert.equal(number.value, ''); assert.equal(search.value, '');
+  assert.equal(other.querySelector('#mrv-continue').disabled, true);
+});
+
+test('dashboard separates complete decisions from incomplete AI coverage and reveals the remaining step', async () => {
+  const h = dashboardReview(1, true), { modal } = h;
+  assert.equal(modal.querySelector('#mrv-coverage-options').getAttribute('open'), undefined);
+  await currentCard(modal).querySelector('[data-review-choice=reject]').click();
+  assert.equal(modal.querySelector('#mrv-progress').getAttribute('value'), '100');
+  assert.equal(modal.querySelector('#mrv-coverage-label').textContent, 'Parziale');
+  assert.notEqual(modal.querySelector('#mrv-coverage-options').getAttribute('open'), undefined);
+  assert.match(modal.querySelector('#mrv-next-step').textContent, /Resta da completare il controllo/);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
+  const confirm = modal.querySelector('#mrv-manual-confirm'); confirm.checked = true; confirm.onchange();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  assert.match(modal.querySelector('#mrv-next-step').textContent, /creare i materiali/);
+});
+
+test('adding an unreported node clears search and opens the newly added decision', async () => {
+  const h = runtime(), m = manifest(), modal = h.R.open('/vault', m);
+  const search = modal.querySelector('#mrv-search'); search.value = 'Germania'; await search.oninput();
+  const select = modal.querySelector('#mrv-other-nodes label select'); select.value = 'b'; select.onchange();
+  await modal.querySelector('#mrv-add-node').click();
+  assert.equal(search.value, '');
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 2);
+  const teacher = m.review.initial.issues.find(i => i.origin === 'teacher');
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), teacher.id);
+  assert.equal(h.saved.manifest.review.initial.issues.length, 2);
+  assert.equal(h.dom.document.activeElement.id, 'mrv-current-title');
+});
+
+test('reopening a manually approved dashboard describes approval without requesting unavailable check actions', () => {
+  const h = runtime();
+  let r = initial({ checkStatus: 'incomplete', issues: [] });
+  const result = Core.beginApproval(r, DB, { manualReview: true });
+  r = Core.completeApproval(result.review, result.revision);
+  const modal = h.R.open('/vault', manifest(r));
+  assert.match(modal.querySelector('#mrv-next-step').textContent, /revisione è approvata/);
+  assert.match(modal.querySelector('#mrv-coverage-status').textContent, /completata dal docente/);
+  assert.equal(modal.querySelector('#mrv-manual-confirm'), null);
+  assert.equal(modal.querySelector('#mrv-continue').textContent, 'Chiudi');
 });
