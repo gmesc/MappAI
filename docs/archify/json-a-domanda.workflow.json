@@ -1,0 +1,260 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI — JSON → domanda aperta",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "grounding",
+        "label": "Materiale con fonti",
+        "focus": [
+          "db",
+          "ramo",
+          "materiale"
+        ],
+        "note": "Per ogni ramo L1 il prompt riceve le desc dei nodi e i passaggi originali della fonte, con id di sorgente."
+      },
+      {
+        "id": "chiamata",
+        "label": "Chiamata e JSON",
+        "focus": [
+          "prompt",
+          "llm",
+          "json"
+        ],
+        "note": "Una chiamata per ramo; torna un array di domande con traccia di correzione in 2-3 frasi verificabili."
+      },
+      {
+        "id": "consegna",
+        "label": "Al docente",
+        "focus": [
+          "json",
+          "foglio",
+          "docente",
+          "quiz"
+        ],
+        "note": "Le domande aperte diventano foglio PDF; non entrano in studySets né nel quiz via QR: corregge il docente."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "mappa",
+      "label": "Mappa (appState.db)"
+    },
+    {
+      "id": "ai",
+      "label": "Generazione (mappai-material-pipeline.js)"
+    },
+    {
+      "id": "out",
+      "label": "Consegna"
+    },
+    {
+      "id": "no",
+      "label": "Dove NON vanno",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p-src",
+      "label": "Materiale",
+      "fromCol": 0,
+      "toCol": 2
+    },
+    {
+      "id": "p-ai",
+      "label": "Chiamata AI",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p-out",
+      "label": "Consegna",
+      "fromCol": 5,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "db",
+    "ramo",
+    "materiale",
+    "prompt",
+    "llm",
+    "json",
+    "foglio"
+  ],
+  "nodes": [
+    {
+      "id": "db",
+      "lane": "mappa",
+      "col": 0,
+      "type": "database",
+      "label": "appState.db",
+      "sublabel": "nodes · links · fonti",
+      "width": 130
+    },
+    {
+      "id": "ramo",
+      "lane": "mappa",
+      "col": 1,
+      "type": "backend",
+      "label": "Ramo L1",
+      "sublabel": "label + discendenti",
+      "width": 120
+    },
+    {
+      "id": "materiale",
+      "lane": "ai",
+      "col": 2,
+      "type": "backend",
+      "label": "materialForNodes",
+      "sublabel": "desc + passaggi fonte",
+      "tag": "MappAIGroundingCore",
+      "width": 150
+    },
+    {
+      "id": "prompt",
+      "lane": "ai",
+      "col": 3,
+      "type": "backend",
+      "label": "OPEN_QUESTIONS_GENERATOR",
+      "sublabel": "template + traccia",
+      "width": 175
+    },
+    {
+      "id": "llm",
+      "lane": "ai",
+      "col": 4,
+      "type": "external",
+      "label": "LLM",
+      "sublabel": "1 chiamata per ramo L1",
+      "width": 120
+    },
+    {
+      "id": "json",
+      "lane": "ai",
+      "col": 5,
+      "type": "backend",
+      "label": "Array di domande",
+      "sublabel": "domanda · traccia · livello",
+      "width": 170
+    },
+    {
+      "id": "foglio",
+      "lane": "out",
+      "col": 5,
+      "type": "frontend",
+      "label": "Foglio quiz PDF",
+      "sublabel": "quizpaper → Materiale Studio/",
+      "width": 160
+    },
+    {
+      "id": "docente",
+      "lane": "out",
+      "col": 3,
+      "type": "external",
+      "label": "Docente",
+      "sublabel": "corregge con la traccia",
+      "width": 140
+    },
+    {
+      "id": "quiz",
+      "lane": "no",
+      "col": 5,
+      "type": "security",
+      "label": "quiz via QR",
+      "sublabel": "studySets · solo scelta multipla",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-ramo",
+      "from": "db",
+      "to": "ramo",
+      "label": "per L1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-mat",
+      "from": "ramo",
+      "to": "materiale",
+      "label": "materiale",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-prompt",
+      "from": "materiale",
+      "to": "prompt",
+      "label": "template",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-llm",
+      "from": "prompt",
+      "to": "llm",
+      "label": "chiama",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-json",
+      "from": "llm",
+      "to": "json",
+      "label": "JSON",
+      "variant": "default"
+    },
+    {
+      "id": "e-foglio",
+      "from": "json",
+      "to": "foglio",
+      "label": "render",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-docente",
+      "from": "foglio",
+      "to": "docente",
+      "label": "corregge",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "id": "e-no",
+      "from": "json",
+      "to": "quiz",
+      "label": "escluse",
+      "variant": "security",
+      "role": "error"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Che cosa entra",
+      "items": [
+        "Per ogni nodo del ramo: «## label [nodo ID]» + desc",
+        "Passaggi originali dalla fonte, solo frammenti verbatim"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Che cosa esce",
+      "items": [
+        "domanda, traccia (2-3 frasi verificabili), righe, aree, livello base/ponte",
+        "Nessun campo criteri: tolto il 12/9 per output fuori controllo"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Correzione",
+      "items": [
+        "Nessuna AI valuta la risposta aperta: la legge il docente",
+        "Il quiz via QR corregge da solo solo scelta multipla e vero/falso"
+      ]
+    }
+  ]
+}

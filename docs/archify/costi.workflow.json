@@ -1,0 +1,298 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI — dove vanno i token",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "mappa",
+        "label": "Generare la mappa",
+        "focus": [
+          "fase1",
+          "fase3",
+          "deepen",
+          "flag",
+          "enrich"
+        ],
+        "note": "Circa 12 chiamate per generazione: la Fase 3 costa il doppio di tutto il resto della mappa messo insieme."
+      },
+      {
+        "id": "materiali",
+        "label": "I materiali",
+        "focus": [
+          "qopen",
+          "qmc",
+          "flash",
+          "synth",
+          "sheet"
+        ],
+        "note": "Domande aperte e scelta multipla: 45 chiamate per batch e il 53 % di tutti i token dell’app."
+      },
+      {
+        "id": "revisione",
+        "label": "La revisione",
+        "focus": [
+          "gmat",
+          "giud"
+        ],
+        "note": "Il giudice dei materiali legge 16 k token per chiamata e ne pensa 350 k in totale: 4 troncamenti su 40."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "mappa",
+      "label": "Mappa (cat map) · 22 % dei token"
+    },
+    {
+      "id": "mat",
+      "label": "Materiali (cat pipeline, materials) · 66 %"
+    },
+    {
+      "id": "rev",
+      "label": "Revisione (cat generation) · 11 %",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p1",
+      "label": "Per ramo L1",
+      "fromCol": 0,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p2",
+      "label": "Per mappa",
+      "fromCol": 3,
+      "toCol": 4
+    }
+  ],
+  "mainPath": [
+    "fase1",
+    "fase3",
+    "deepen",
+    "flag",
+    "enrich"
+  ],
+  "nodes": [
+    {
+      "id": "fase1",
+      "lane": "mappa",
+      "col": 0,
+      "type": "backend",
+      "label": "Fase 1 · L1",
+      "sublabel": "2,7 % · 2 chiamate/gen",
+      "tag": "2,7 % dei token",
+      "width": 150
+    },
+    {
+      "id": "fase3",
+      "lane": "mappa",
+      "col": 1,
+      "type": "backend",
+      "label": "Fase 3 · rami",
+      "sublabel": "10,7 % · 5 chiamate/gen",
+      "tag": "10,7 % · 1 troncamento",
+      "width": 150
+    },
+    {
+      "id": "deepen",
+      "lane": "mappa",
+      "col": 2,
+      "type": "backend",
+      "label": "Fase 3.7 · deepening",
+      "sublabel": "1,4 % · 3,5 chiamate/gen",
+      "tag": "1,4 %",
+      "width": 160
+    },
+    {
+      "id": "flag",
+      "lane": "mappa",
+      "col": 3,
+      "type": "backend",
+      "label": "Fasi 4 · 5 · validazione",
+      "sublabel": "2,1 % · 1 chiamata/gen l’una",
+      "tag": "2,1 % (accese nei test)",
+      "width": 170
+    },
+    {
+      "id": "enrich",
+      "lane": "mappa",
+      "col": 4,
+      "type": "backend",
+      "label": "Arricchimento desc",
+      "sublabel": "5,1 % · 3,8 chiamate/gen",
+      "tag": "5,1 %",
+      "width": 160
+    },
+    {
+      "id": "qopen",
+      "lane": "mat",
+      "col": 0,
+      "type": "backend",
+      "label": "Domande aperte",
+      "sublabel": "31 % · 25 chiamate/batch",
+      "tag": "31 % · 2 troncamenti",
+      "width": 160
+    },
+    {
+      "id": "qmc",
+      "lane": "mat",
+      "col": 1,
+      "type": "backend",
+      "label": "Scelta multipla",
+      "sublabel": "21,6 % · 20 chiamate/batch",
+      "tag": "21,6 %",
+      "width": 150
+    },
+    {
+      "id": "flash",
+      "lane": "mat",
+      "col": 2,
+      "type": "backend",
+      "label": "Flashcard + V/F",
+      "sublabel": "5,1 % · 10 chiamate/batch",
+      "tag": "5,1 %",
+      "width": 150
+    },
+    {
+      "id": "synth",
+      "lane": "mat",
+      "col": 3,
+      "type": "backend",
+      "label": "Sintesi di ramo",
+      "sublabel": "4,4 % · 4,6 chiamate/batch",
+      "tag": "4,4 %",
+      "width": 160
+    },
+    {
+      "id": "sheet",
+      "lane": "mat",
+      "col": 4,
+      "type": "backend",
+      "label": "Schede nodo + TTS",
+      "sublabel": "3,4 % · 24 chiamate/batch",
+      "tag": "3,4 %",
+      "width": 150
+    },
+    {
+      "id": "gmat",
+      "lane": "rev",
+      "col": 3,
+      "type": "security",
+      "label": "Giudice dei materiali",
+      "sublabel": "9,7 % · 40 chiamate",
+      "tag": "9,7 % · 4 troncamenti",
+      "width": 190
+    },
+    {
+      "id": "giud",
+      "lane": "rev",
+      "col": 4,
+      "type": "security",
+      "label": "Giudice mappa + copertura",
+      "sublabel": "1,4 % · 7 chiamate/gen",
+      "tag": "1,4 %",
+      "width": 180
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "fase1",
+      "to": "fase3",
+      "label": "per L1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "fase3",
+      "to": "deepen",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "deepen",
+      "to": "flag",
+      "label": "se accese",
+      "variant": "dashed"
+    },
+    {
+      "id": "e4",
+      "from": "flag",
+      "to": "enrich",
+      "label": "ELABORA",
+      "variant": "dashed"
+    },
+    {
+      "id": "e6",
+      "from": "qopen",
+      "to": "qmc",
+      "label": "stesso batch",
+      "variant": "dashed"
+    },
+    {
+      "id": "e7",
+      "from": "qmc",
+      "to": "flash",
+      "variant": "dashed"
+    },
+    {
+      "id": "e8",
+      "from": "flash",
+      "to": "synth",
+      "variant": "dashed"
+    },
+    {
+      "id": "e9",
+      "from": "synth",
+      "to": "sheet",
+      "variant": "dashed"
+    },
+    {
+      "id": "e10",
+      "from": "synth",
+      "to": "gmat",
+      "label": "rilegge",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "e11",
+      "from": "enrich",
+      "to": "giud",
+      "label": "se acceso",
+      "variant": "security",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "I numeri (registro consumi, 24/7 → 13/9)",
+      "items": [
+        "4 929 chiamate · 9,0 M token in · 3,2 M out · 3,50 $ a tariffa flash",
+        "Costo non è il problema: il volume sì (latenza, troncamenti, quota)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Dove guardare",
+      "items": [
+        "Domande aperte: 25 chiamate per batch, 1 per ramo per genere",
+        "Giudice dei materiali: 16 k token in per chiamata, 10 % dei token in 40 chiamate"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Come rigenerarlo",
+      "items": [
+        "node docs/archify/tools/costi.mjs → costi.json",
+        "Le % sono quote di spesa stimata; «gen» = progetto + ora"
+      ]
+    }
+  ]
+}

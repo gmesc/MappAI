@@ -1,0 +1,422 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MappAI — architettura (con Infomaniak)",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/gmesc/MappAI",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "4432a4eeb9f35451a116650eef50602ff059fe5e"
+    },
+    "views": [
+      {
+        "id": "generazione",
+        "label": "Generazione mappa",
+        "focus": [
+          "utente",
+          "renderer",
+          "preload",
+          "main",
+          "gemini"
+        ],
+        "note": "Dalle fonti caricate alla chiamata AI: tutto passa dal ponte IPC, mai dal renderer."
+      },
+      {
+        "id": "persistenza",
+        "label": "Dove vivono i dati",
+        "focus": [
+          "renderer",
+          "localstorage",
+          "main",
+          "vault",
+          "prompts"
+        ],
+        "note": "Chiavi e flag nel localStorage; mappe e allegati nel vault Obsidian-compatibile."
+      },
+      {
+        "id": "classe",
+        "label": "In classe via QR",
+        "focus": [
+          "main",
+          "live",
+          "studente"
+        ],
+        "note": "Il main avvia un server sulla rete locale; gli studenti entrano col telefono."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "utente",
+      "type": "external",
+      "label": "Docente / OPI",
+      "sublabel": "PDF · URL · DOCX",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "renderer",
+      "type": "frontend",
+      "label": "Renderer",
+      "sublabel": "index.html · app.js · moduli",
+      "pos": [
+        270,
+        300
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "Vanilla JS · D3 · Tailwind",
+      "sources": [
+        {
+          "path": "public/js/app.js",
+          "label": "app.js"
+        },
+        {
+          "path": "public/index.html",
+          "label": "index.html"
+        }
+      ]
+    },
+    {
+      "id": "localstorage",
+      "type": "database",
+      "label": "localStorage",
+      "sublabel": "chiavi API · flag · profili",
+      "pos": [
+        270,
+        440
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "preload",
+      "type": "security",
+      "label": "preload.js",
+      "sublabel": "contextBridge → electronAPI",
+      "pos": [
+        560,
+        300
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "public/js/preload.js",
+          "line": 23,
+          "label": "electronAPI"
+        }
+      ]
+    },
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main.js",
+      "sublabel": "Electron main · Node.js",
+      "pos": [
+        830,
+        300
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "~110 handler IPC",
+      "sources": [
+        {
+          "path": "main.js",
+          "label": "main.js"
+        }
+      ]
+    },
+    {
+      "id": "prompts",
+      "type": "database",
+      "label": "prompts_config.json",
+      "sublabel": "template AI attivi",
+      "pos": [
+        830,
+        170
+      ],
+      "size": [
+        160,
+        60
+      ],
+      "sources": [
+        {
+          "path": "prompts_config.json"
+        }
+      ]
+    },
+    {
+      "id": "vault",
+      "type": "database",
+      "label": "Vault",
+      "sublabel": "Documents/MappAI - Vault",
+      "pos": [
+        830,
+        440
+      ],
+      "size": [
+        160,
+        60
+      ],
+      "tag": "Obsidian-compatibile"
+    },
+    {
+      "id": "gemini",
+      "type": "external",
+      "label": "Google Gemini",
+      "sublabel": "API generateContent",
+      "pos": [
+        1120,
+        300
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "live",
+      "type": "backend",
+      "label": "Server LAN",
+      "sublabel": "live · collab · tutor",
+      "pos": [
+        830,
+        570
+      ],
+      "size": [
+        160,
+        60
+      ],
+      "sources": [
+        {
+          "path": "live-server.js"
+        },
+        {
+          "path": "collab-server.js"
+        },
+        {
+          "path": "tutor-server.js"
+        }
+      ]
+    },
+    {
+      "id": "studente",
+      "type": "external",
+      "label": "Studente",
+      "sublabel": "telefono via QR",
+      "pos": [
+        1120,
+        570
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "infomaniak",
+      "type": "external",
+      "label": "Infomaniak AI",
+      "sublabel": "Apertus · Gemma · Kimi",
+      "pos": [
+        1120,
+        440
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "tag": "🇨🇭 GDPR"
+    },
+    {
+      "id": "bridge",
+      "type": "backend",
+      "label": "InfomaniakBridge",
+      "sublabel": "Gemini ⇄ OpenAI",
+      "pos": [
+        480,
+        140
+      ],
+      "size": [
+        150,
+        60
+      ],
+      "sources": [
+        {
+          "path": "public/js/infomaniak_bridge.js"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Processo renderer (Chromium, sandbox)",
+      "wraps": [
+        "renderer",
+        "localstorage",
+        "bridge"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Processo main (Node.js)",
+      "wraps": [
+        "main",
+        "prompts",
+        "vault",
+        "live"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "contextIsolation",
+      "wraps": [
+        "preload"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "fonti",
+      "from": "utente",
+      "to": "renderer",
+      "label": "carica fonti",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-bridge",
+      "from": "renderer",
+      "to": "preload",
+      "label": "window.electronAPI",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ipc",
+      "from": "preload",
+      "to": "main",
+      "label": "ipcRenderer.invoke",
+      "variant": "security"
+    },
+    {
+      "id": "ls",
+      "from": "renderer",
+      "to": "localstorage",
+      "label": "get/set",
+      "variant": "dashed",
+      "labelDy": 40
+    },
+    {
+      "id": "prompts-load",
+      "from": "main",
+      "to": "prompts",
+      "label": "load-prompts",
+      "variant": "dashed",
+      "labelDy": -40
+    },
+    {
+      "id": "vault-io",
+      "from": "main",
+      "to": "vault",
+      "label": "save-vault / load-vault",
+      "labelDy": 40,
+      "labelDx": 70
+    },
+    {
+      "id": "to-gemini",
+      "from": "main",
+      "to": "gemini",
+      "label": "generate-gemini (HTTPS)"
+    },
+    {
+      "id": "live-start",
+      "from": "main",
+      "to": "live",
+      "label": "live-start-session",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          910,
+          402
+        ],
+        [
+          790,
+          402
+        ],
+        [
+          790,
+          600
+        ]
+      ]
+    },
+    {
+      "id": "qr",
+      "from": "live",
+      "to": "studente",
+      "label": "HTTP LAN"
+    },
+    {
+      "id": "to-infomaniak",
+      "from": "main",
+      "to": "infomaniak",
+      "label": "generate-infomaniak (SSE)"
+    },
+    {
+      "id": "bridge-translate",
+      "from": "renderer",
+      "to": "bridge",
+      "label": "translatePayload",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Renderer",
+      "items": [
+        "Vanilla JS, nessun bundler: script globali caricati dopo app.js",
+        "Grafo D3 v7, stato in appState.db.nodes",
+        "fetchModelAPI: unico punto in cui il renderer chiede al modello"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Main",
+      "items": [
+        "Unico punto di uscita verso la rete (axios)",
+        "Legge e scrive il vault, Obsidian-compatibile",
+        "Avvia i server LAN per quiz, collaborazione e tutor"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Confini",
+      "items": [
+        "contextIsolation: il renderer non tocca Node",
+        "Chiave API solo nel localStorage dell’utente",
+        "Infomaniak: provider svizzero, in pausa dal 10/6"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MappAI — mappe Archify</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; height: 100%; font-family: ui-monospace, "Space Mono", Menlo, monospace; }
+  body { display: flex; flex-direction: column; background: #f4f5f7; color: #111; }
+  nav { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid #d5d8de; background: #fff; flex: 0 0 auto; }
+  nav button { font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid #c9ccd3; border-radius: 6px; background: #f4f5f7; cursor: pointer; }
+  nav button[aria-selected="true"] { background: #111; color: #fff; border-color: #111; }
+  iframe { flex: 1 1 auto; width: 100%; border: 0; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0f1115; color: #eee; }
+    nav { background: #161922; border-color: #2a2e3a; }
+    nav button { background: #1e222c; color: #ddd; border-color: #2a2e3a; }
+    nav button[aria-selected="true"] { background: #fff; color: #111; border-color: #fff; }
+  }
+</style>
+</head>
+<body>
+<nav role="tablist">
+  <button role="tab" data-src="mappai.architecture.html">1 · Architettura</button>
+  <button role="tab" data-src="chiamata-llm.sequence.html">2 · Una chiamata al LLM</button>
+  <button role="tab" data-src="pdf-a-json.workflow.html">3 · Dal PDF al JSON</button>
+  <button role="tab" data-src="json-a-domanda.workflow.html">4 · Dal JSON alla domanda aperta</button>
+  <button role="tab" data-src="costi.workflow.html">5 · Dove vanno i token</button>
+  <button role="tab" data-src="confronto-infomaniak.compare.html">6 · Prima/dopo: senza Infomaniak</button>
+  <button role="tab" data-src="fragilita.workflow.html">7 · Fragilità</button>
+</nav>
+<iframe id="frame" title="diagramma"></iframe>
+<script>
+  const tabs = [...document.querySelectorAll('[role=tab]')];
+  const frame = document.getElementById('frame');
+  function show(i) {
+    tabs.forEach((t, k) => t.setAttribute('aria-selected', String(k === i)));
+    frame.src = tabs[i].dataset.src;
+    location.hash = String(i + 1);
+  }
+  tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
+  show(Math.min(tabs.length, Math.max(1, parseInt(location.hash.slice(1), 10) || 1)) - 1);
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI — dal PDF al JSON strutturato",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "ingestione",
+        "label": "Ingestione",
+        "focus": [
+          "pdf",
+          "testo",
+          "triage"
+        ],
+        "note": "PDF.js estrae il testo pagina per pagina; il triage decide la profondità essenziale prima di generare."
+      },
+      {
+        "id": "fasi-ai",
+        "label": "Le chiamate AI",
+        "focus": [
+          "l1",
+          "rami",
+          "deepening",
+          "copertura"
+        ],
+        "note": "Una chiamata per le macro-aree, poi una per ramo L1 in Fase 3 e in Fase 3.7, infine una sola per il residuo."
+      },
+      {
+        "id": "zero-ai",
+        "label": "Zero AI e vault",
+        "focus": [
+          "ancora",
+          "vault"
+        ],
+        "note": "L'àncora riaggancia ogni nodo alle frasi vere della fonte, poi tutto finisce nel vault Obsidian-compatibile."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "ingest",
+      "label": "Ingestione (renderer)"
+    },
+    {
+      "id": "ai",
+      "label": "Chiamate AI (fetchModelAPI)"
+    },
+    {
+      "id": "det",
+      "label": "Deterministico (zero AI)"
+    },
+    {
+      "id": "off",
+      "label": "Interruttori spenti di default",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p-in",
+      "label": "Fonte",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "p-gen",
+      "label": "Generazione",
+      "fromCol": 2,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p-out",
+      "label": "Consolidamento",
+      "fromCol": 5,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "pdf",
+    "testo",
+    "triage",
+    "l1",
+    "rami",
+    "deepening",
+    "ancora",
+    "copertura",
+    "vault"
+  ],
+  "nodes": [
+    {
+      "id": "pdf",
+      "lane": "ingest",
+      "col": 0,
+      "type": "external",
+      "label": "PDF",
+      "sublabel": "PDF.js · extractPdfPages",
+      "width": 130
+    },
+    {
+      "id": "testo",
+      "lane": "ingest",
+      "col": 1,
+      "type": "frontend",
+      "label": "textParts",
+      "sublabel": "testo per pagina",
+      "width": 130
+    },
+    {
+      "id": "triage",
+      "lane": "ai",
+      "col": 1,
+      "type": "backend",
+      "label": "Triage adattivo",
+      "sublabel": "1 chiamata · profondità",
+      "width": 140
+    },
+    {
+      "id": "l1",
+      "lane": "ai",
+      "col": 2,
+      "type": "backend",
+      "label": "Fase 1 · L1",
+      "sublabel": "L1_MACRO_CATEGORIES",
+      "tag": "label · rel · ambito · confini",
+      "width": 150
+    },
+    {
+      "id": "rami",
+      "lane": "ai",
+      "col": 3,
+      "type": "backend",
+      "label": "Fase 3 · rami",
+      "sublabel": "1 chiamata per L1",
+      "tag": "nodes[] · links[]",
+      "width": 140
+    },
+    {
+      "id": "deepening",
+      "lane": "ai",
+      "col": 4,
+      "type": "backend",
+      "label": "Fase 3.7 · deepening",
+      "sublabel": "1 per L1 · nodi _D",
+      "tag": "residuo + verdetto",
+      "width": 150
+    },
+    {
+      "id": "copertura",
+      "lane": "ai",
+      "col": 5,
+      "type": "backend",
+      "label": "Copertura",
+      "sublabel": "1 chiamata sul residuo",
+      "tag": "≤8 nodi con prova",
+      "width": 150
+    },
+    {
+      "id": "ancora",
+      "lane": "det",
+      "col": 4,
+      "type": "security",
+      "label": "L'àncora",
+      "sublabel": "copertura · fedeltà",
+      "width": 160
+    },
+    {
+      "id": "vault",
+      "lane": "det",
+      "col": 5,
+      "type": "database",
+      "label": "Vault",
+      "sublabel": "appState.db → saveMapVault",
+      "width": 160,
+      "tag": "index.yaml · links.json · Nodi/"
+    },
+    {
+      "id": "spenti",
+      "lane": "off",
+      "col": 3,
+      "type": "backend",
+      "label": "Fasi spente",
+      "sublabel": "1.5 · 1.6 · 4 · 5 · Giudice",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-estrai",
+      "from": "pdf",
+      "to": "testo",
+      "label": "estrai",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-triage",
+      "from": "testo",
+      "to": "triage",
+      "label": "scheda",
+      "variant": "default"
+    },
+    {
+      "id": "e-l1",
+      "from": "triage",
+      "to": "l1",
+      "label": "profondità",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-rami",
+      "from": "l1",
+      "to": "rami",
+      "label": "per L1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-deep",
+      "from": "rami",
+      "to": "deepening",
+      "label": "foglie",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-ancora",
+      "from": "deepening",
+      "to": "ancora",
+      "label": "albero",
+      "variant": "default"
+    },
+    {
+      "id": "e-cop",
+      "from": "ancora",
+      "to": "copertura",
+      "label": "residuo",
+      "variant": "default"
+    },
+    {
+      "id": "e-vault",
+      "from": "copertura",
+      "to": "vault",
+      "label": "nodi validati",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e-off",
+      "from": "rami",
+      "to": "spenti",
+      "label": "con flag",
+      "variant": "dashed",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Quante chiamate",
+      "items": [
+        "1 triage + 1 macro-aree + 1 per ramo (Fase 3) + 1 per ramo (Fase 3.7) + 1 copertura",
+        "Ogni risposta passa da salvageTruncatedJSON, mai da JSON.parse"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Accesi di default",
+      "items": [
+        "Triage, deepening in modalità residuo, àncora, copertura, auto-vault",
+        "Il giudice segnala solo se acceso: due flag separati"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Che cosa esce",
+      "items": [
+        "Nodi con label, desc, level, group; link con rel",
+        "sourcesDict: frasi vere della fonte agganciate a ogni nodo"
+      ]
+    }
+  ]
+}

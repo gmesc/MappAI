@@ -55,3 +55,9 @@ prompts_config_backup_*.json
 # Test di tool di sviluppo (tools/demo-video, tools/banco-layout), non dell'app
 tests/demo-video-core.test.js
 tests/studio-layouts.test.js
+
+# Mappe Archify dell'architettura (sorgenti JSON + HTML consegnati + indice);
+# gli screenshot/ricevute del visual-check si rigenerano, restano fuori.
+!docs/
+!docs/archify/**
+docs/archify/*.visual-check.*

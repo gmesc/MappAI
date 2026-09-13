@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "compare",
+  "type": "architecture",
+  "comparatorVersion": 1,
+  "canonicalVersion": 1,
+  "completeness": "complete",
+  "proofLevel": "revision-pinned",
+  "base": {
+    "title": "MappAI — architettura (con Infomaniak)",
+    "rawSha256": "896cc54287fec6a1fe65e3363ca79d80d9b0158c967673029c860e7ce2bc26c4",
+    "semanticSha256": "d8904e3345082a5a45ab80787c04bc3f428cc3b90691885a14f5099c0b124750",
+    "bytes": 8283,
+    "revision": "4432a4eeb9f35451a116650eef50602ff059fe5e"
+  },
+  "head": {
+    "title": "MappAI — architettura",
+    "rawSha256": "030da822038bc6f4870eb06b88b6975316cae8e5f42a7e81069babf9caa92408",
+    "semanticSha256": "949cb497d23baf4bceba1cad468261062e0767c210c505f5e0bd3fc5e9e4659d",
+    "bytes": 7314,
+    "revision": "4432a4eeb9f35451a116650eef50602ff059fe5e"
+  },
+  "summary": {
+    "components": {
+      "added": 0,
+      "changed": 0,
+      "evidenceChanged": 0,
+      "removed": 2,
+      "moved": 0
+    },
+    "connections": {
+      "added": 0,
+      "changed": 0,
+      "removed": 2,
+      "rerouted": 0
+    },
+    "boundaries": {
+      "added": 0,
+      "changed": 1,
+      "removed": 0,
+      "geometryChanged": 0
+    },
+    "presentationChanged": true,
+    "provenanceChanged": false
+  },
+  "changes": {
+    "components": [
+      {
+        "id": "bridge",
+        "baseLabel": "InfomaniakBridge",
+        "status": "removed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "infomaniak",
+        "baseLabel": "Infomaniak AI",
+        "status": "removed",
+        "classifications": [
+          "semantic"
+        ],
+        "changedFields": []
+      }
+    ],
+    "connections": [
+      {
+        "id": "bridge-translate",
+        "base": {
+          "from": "renderer",
+          "to": "bridge",
+          "label": "translatePayload"
+        },
+        "status": "removed",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      },
+      {
+        "id": "to-infomaniak",
+        "base": {
+          "from": "main",
+          "to": "infomaniak",
+          "label": "generate-infomaniak (SSE)"
+        },
+        "status": "removed",
+        "classifications": [
+          "topology"
+        ],
+        "changedFields": []
+      }
+    ],
+    "boundaries": [
+      {
+        "key": "region:Processo renderer (Chromium, sandbox)",
+        "kind": "region",
+        "label": "Processo renderer (Chromium, sandbox)",
+        "status": "changed",
+        "classifications": [
+          "scope"
+        ],
+        "changedFields": [
+          "/wraps"
+        ]
+      }
+    ]
+  },
+  "identity": {
+    "components": "components[].id",
+    "connections": "connections[].id (required)",
+    "boundaries": "boundaries[].kind + boundaries[].label (derived)"
+  },
+  "view": {
+    "visualPreset": "classic"
+  },
+  "limitations": [
+    "Authored Architecture IR only; no runtime impact, causality, risk, or mergeability is inferred.",
+    "Boundary identity is conservatively derived from kind + label."
+  ],
+  "artifact": {
+    "sha256": "47757532b8b933890be57e874d4a6e25b124d6a2bd83e462276536063e14ea63",
+    "bytes": 2243871
+  },
+  "validation": {
+    "checksPassed": 28,
+    "checkCount": 28,
+    "baseComposition": "pass",
+    "headComposition": "pass"
+  }
+}

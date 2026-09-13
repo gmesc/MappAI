@@ -1,0 +1,261 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI — mappa delle fragilità",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "fonte",
+        "label": "Prima della chiamata",
+        "focus": [
+          "chunk",
+          "template",
+          "schema"
+        ],
+        "note": "Il testo entra intero, i template possono essere congelati da un override utente, lo schema L1 non ha più desc."
+      },
+      {
+        "id": "rete",
+        "label": "Durante la chiamata",
+        "focus": [
+          "retry",
+          "timeout",
+          "thinking"
+        ],
+        "note": "Un solo tentativo, un solo timeout, e il budget di pensiero deciso in silenzio dal tetto di output."
+      },
+      {
+        "id": "dopo",
+        "label": "Dopo la risposta",
+        "focus": [
+          "json",
+          "qopen",
+          "gmat"
+        ],
+        "note": "Il salvataggio JSON è a tentativi; i materiali sono dove si concentrano volume e troncamenti."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "in",
+      "label": "Fonte e prompt"
+    },
+    {
+      "id": "call",
+      "label": "Chiamata (main.js)"
+    },
+    {
+      "id": "out",
+      "label": "Risposta e dati"
+    },
+    {
+      "id": "cost",
+      "label": "Volume",
+      "variant": "exception"
+    }
+  ],
+  "mainPath": [
+    "chunk",
+    "template",
+    "retry",
+    "timeout",
+    "json",
+    "state"
+  ],
+  "nodes": [
+    {
+      "id": "chunk",
+      "lane": "in",
+      "col": 0,
+      "type": "frontend",
+      "label": "Nessun chunking",
+      "sublabel": "app.js:560",
+      "tag": "Fase 3: 5 k token in/chiamata",
+      "width": 140
+    },
+    {
+      "id": "template",
+      "lane": "in",
+      "col": 1,
+      "type": "database",
+      "label": "Template congelabili",
+      "sublabel": "main.js:3750",
+      "tag": "l’override batte il repo",
+      "width": 140
+    },
+    {
+      "id": "schema",
+      "lane": "in",
+      "col": 2,
+      "type": "backend",
+      "label": "Schema L1 senza desc",
+      "sublabel": "mm-extraction.js:590",
+      "tag": "desc L1 solo con enrich (flag OFF)",
+      "width": 150
+    },
+    {
+      "id": "retry",
+      "lane": "call",
+      "col": 2,
+      "type": "security",
+      "label": "Nessun retry",
+      "sublabel": "app.js:914 · fetchModelAPI",
+      "tag": "429/503 → toast, generazione persa",
+      "width": 140
+    },
+    {
+      "id": "timeout",
+      "lane": "call",
+      "col": 3,
+      "type": "security",
+      "label": "Timeout unico 10 min",
+      "sublabel": "main.js:343 · callGemini",
+      "tag": "nessuna cancellazione",
+      "width": 140
+    },
+    {
+      "id": "thinking",
+      "lane": "call",
+      "col": 4,
+      "type": "backend",
+      "label": "thinkingBudget a 0",
+      "sublabel": "app.js:803 · sotto 12 288 tok",
+      "tag": "qualità decisa in silenzio",
+      "width": 160
+    },
+    {
+      "id": "json",
+      "lane": "out",
+      "col": 3,
+      "type": "backend",
+      "label": "JSON a tentativi",
+      "sublabel": "json-salvage.js:94-181",
+      "tag": "7 MAX_TOKENS su 4 929",
+      "width": 150
+    },
+    {
+      "id": "state",
+      "lane": "out",
+      "col": 4,
+      "type": "frontend",
+      "label": "appState è let",
+      "sublabel": "_getAppState() nei moduli",
+      "tag": "689 !important in style.css",
+      "width": 150
+    },
+    {
+      "id": "qopen",
+      "lane": "cost",
+      "col": 4,
+      "type": "backend",
+      "label": "Quiz: 53 % dei token",
+      "sublabel": "1 chiamata/ramo/genere",
+      "tag": "25 + 20 chiamate per batch",
+      "width": 150
+    },
+    {
+      "id": "gmat",
+      "lane": "cost",
+      "col": 5,
+      "type": "security",
+      "label": "Giudice materiali",
+      "sublabel": "16 k in · 350 k pensiero",
+      "tag": "4 troncamenti su 40",
+      "width": 150
+    }
+  ],
+  "edges": [
+    {
+      "id": "f1",
+      "from": "chunk",
+      "to": "template",
+      "label": "prompt",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f2",
+      "from": "template",
+      "to": "schema",
+      "variant": "emphasis",
+      "label": "schema"
+    },
+    {
+      "id": "f3",
+      "from": "template",
+      "to": "retry",
+      "label": "chiamata",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f4",
+      "from": "retry",
+      "to": "timeout",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f5",
+      "from": "timeout",
+      "to": "thinking",
+      "label": "config",
+      "variant": "dashed"
+    },
+    {
+      "id": "f6",
+      "from": "timeout",
+      "to": "json",
+      "label": "risposta",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f7",
+      "from": "json",
+      "to": "state",
+      "label": "appState.db",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f8",
+      "from": "json",
+      "to": "qopen",
+      "label": "materiali",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "f9",
+      "from": "qopen",
+      "to": "gmat",
+      "label": "revisione",
+      "variant": "security",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Decisioni da prendere",
+      "items": [
+        "Chunking per PDF lunghi, oppure tetto esplicito al testo in Fase 3",
+        "Retry con attesa su 429/503 nel main, con annullamento dal renderer"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Da chiarire",
+      "items": [
+        "Il tetto 12 288 token che spegne il pensiero: scelta o caso?",
+        "Override in userData: avvisare quando diverge dal repo"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Debito noto",
+      "items": [
+        "appState fuori da window: ogni modulo replica _getAppState()",
+        "689 !important: guerra di specificità con Tailwind"
+      ]
+    }
+  ]
+}

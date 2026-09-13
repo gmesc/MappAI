@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "MappAI — una chiamata al LLM",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "views": [
+      {
+        "id": "prepara",
+        "label": "Prima di partire",
+        "focus": [
+          "app",
+          "preload"
+        ],
+        "note": "Chiave, modello e generationConfig vengono normalizzati nel renderer prima dell’invoke."
+      },
+      {
+        "id": "google",
+        "label": "Andata e ritorno",
+        "focus": [
+          "preload",
+          "main",
+          "gemini"
+        ],
+        "note": "Il main è l’unico a uscire in rete: POST HTTPS, timeout 10 minuti, risposta intera in una volta."
+      },
+      {
+        "id": "ritorno",
+        "label": "Dopo la risposta",
+        "focus": [
+          "app",
+          "usage",
+          "salvage"
+        ],
+        "note": "Troncamento rilevato, token e costo su disco, poi il testo passa dal salvataggio JSON."
+      }
+    ],
+    "viewBox": [
+      1000,
+      560
+    ]
+  },
+  "participants": [
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "app.js",
+      "sublabel": "fetchModelAPI"
+    },
+    {
+      "id": "preload",
+      "type": "security",
+      "label": "preload.js",
+      "sublabel": "ipcRenderer.invoke"
+    },
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main.js",
+      "sublabel": "callGemini · axios"
+    },
+    {
+      "id": "gemini",
+      "type": "external",
+      "label": "Google Gemini",
+      "sublabel": ":generateContent"
+    },
+    {
+      "id": "usage",
+      "type": "database",
+      "label": "usage log",
+      "sublabel": "JSONL su disco"
+    },
+    {
+      "id": "salvage",
+      "type": "backend",
+      "label": "Salvage",
+      "sublabel": "JSON tollerante"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 205,
+      "label": "Preparazione"
+    },
+    {
+      "from": 213,
+      "to": 355,
+      "label": "Andata e ritorno"
+    },
+    {
+      "from": 363,
+      "to": 465,
+      "label": "Dopo la risposta"
+    }
+  ],
+  "messages": [
+    {
+      "id": "p-invoke",
+      "from": "app",
+      "to": "preload",
+      "y": 175,
+      "label": "generateGemini({apiKey, payload, model})",
+      "variant": "emphasis",
+      "note": "prima, dentro app.js: getSystemKey(), modello da #model-select/localStorage, generationConfig normalizzata (chiavi _ tolte, thinkingBudget)"
+    },
+    {
+      "id": "g-ipc",
+      "from": "preload",
+      "to": "main",
+      "y": 225,
+      "label": "invoke ‘generate-gemini’",
+      "variant": "security"
+    },
+    {
+      "id": "g-post",
+      "from": "main",
+      "to": "gemini",
+      "y": 253,
+      "label": "POST models/{m}:generateContent · timeout 600 s",
+      "variant": "emphasis"
+    },
+    {
+      "id": "g-resp",
+      "from": "gemini",
+      "to": "main",
+      "y": 281,
+      "label": "candidates[0].content.parts[0].text · finishReason · usageMetadata",
+      "variant": "return"
+    },
+    {
+      "id": "g-err",
+      "from": "main",
+      "to": "preload",
+      "y": 309,
+      "label": "errore: err.status + body, nessun retry",
+      "variant": "security"
+    },
+    {
+      "id": "g-back",
+      "from": "main",
+      "to": "app",
+      "y": 337,
+      "label": "risposta Gemini (via IPC)",
+      "variant": "return",
+      "note": "poi, dentro app.js: _detectTruncation legge finishReason e marca _mappaiTruncated"
+    },
+    {
+      "id": "r-usage",
+      "from": "app",
+      "to": "usage",
+      "y": 385,
+      "label": "usage-log-append: token, costo, troncamento",
+      "variant": "dashed"
+    },
+    {
+      "id": "r-salvage",
+      "from": "app",
+      "to": "salvage",
+      "y": 413,
+      "label": "salvageTruncatedJSON(text)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "r-json",
+      "from": "salvage",
+      "to": "app",
+      "y": 441,
+      "label": "oggetto JSON ricostruito",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "app",
+      "from": 170,
+      "to": 447,
+      "type": "frontend"
+    },
+    {
+      "participant": "main",
+      "from": 220,
+      "to": 343,
+      "type": "backend"
+    },
+    {
+      "participant": "gemini",
+      "from": 248,
+      "to": 287,
+      "type": "external"
+    },
+    {
+      "participant": "usage",
+      "from": 380,
+      "to": 391,
+      "type": "database"
+    },
+    {
+      "participant": "salvage",
+      "from": 408,
+      "to": 447,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Che cosa esce",
+      "items": [
+        "contents + systemInstruction + generationConfig",
+        "Gemini 2.5+: thinkingBudget 0 sotto 12 288 token di output"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Che cosa torna",
+      "items": [
+        "Testo in candidates[0].content.parts[0].text",
+        "finishReason → _mappaiTruncated; usage → costo + JSONL"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Confini",
+      "items": [
+        "Nessun retry su 429/503: errore a toast",
+        "Mai JSON.parse diretto: salvageTruncatedJSON"
+      ]
+    }
+  ]
+}
