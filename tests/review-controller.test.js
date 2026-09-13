@@ -64,6 +64,7 @@ function runtime(opts = {}) {
   const d = dom(), calls = { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 }, saved = { manifest: null, map: clone(DB), version: 0 };
   const st = { activeVaultPath: '/vault', db: clone(DB), sources: [], _pdfPagine: [], _reviewRevision: null };
   const window = { MappAIReviewCore: Core, MappAIMaterialReview: Material, MappAIPipelineCore: Pipeline,
+    MappAIReviewContext: require('../public/js/mappai-review-context'),
     MappAIGroundingCore: require('../public/js/mappai-grounding-core.js'),
     t: (_key, fallback) => fallback, renderGraph() {}, getSystemKey: () => 'mock-key',
     MappAIPipeline: { run: async () => { calls.pipeline++; } },
@@ -553,7 +554,10 @@ function materialRetryFixture(opts = {}) {
       { id: 'fresh', target: { kind: 'item', id: items[3].id, field: 'answer' }, after: 'Nuova proposta.', problem: 'Da decidere dopo il nuovo controllo.' }
     ] };
   };
-  h.window.MappAIMaterialReview = { ...Material, check: async (...args) => { h.calls.material++; return h.materialCheck(...args); } };
+  h.window.MappAIMaterialReview = { ...Material, checkRemaining: async (...args) => {
+    assert.equal(args[1].previousReport, h.m?.review.final.review.initial.report || m.review.final.review.initial.report);
+    h.calls.material++; return h.materialCheck(...args);
+  } };
   return Object.assign(h, { m, items });
 }
 
@@ -631,7 +635,7 @@ test('G2 retry rolls back a failed manifest write and remains retryable without 
 test('G2 incomplete review offers material retry, freezes controls and retains a retryable dialog after provider failure', async () => {
   const h = materialRetryFixture(), modal = h.R.open('/vault', h.m, { final: true });
   const retry = modal.querySelector('#mrv-retry-judge');
-  assert.ok(retry); assert.equal(retry.textContent, 'Riprova il controllo dei materiali');
+  assert.ok(retry); assert.equal(retry.textContent, 'Completa i controlli mancanti');
   retry.focus();
   const confirmation = modal.querySelector('#mrv-manual-confirm');
   assert.ok(confirmation); assert.equal(modal.querySelector('#mrv-continue').hidden, true);
@@ -847,4 +851,144 @@ test('reopening a manually approved dashboard describes approval without request
   assert.match(modal.querySelector('#mrv-coverage-status').textContent, /completata dal docente/);
   assert.equal(modal.querySelector('#mrv-manual-confirm'), null);
   assert.equal(modal.querySelector('#mrv-continue').textContent, 'Chiudi');
+});
+
+function contextualDashboard() {
+  const h = runtime();
+  h.st.db = { ...clone(DB), customColors: { 1: '#ffe899', 2: 'rgb(0, 120, 90)' },
+    nodes: DB.nodes.map((node, i) => ({ ...node, level: 1, group: String(i + 1) })) };
+  const base = Core.createReview({ db: h.st.db, sources: SOURCES, report: { checkStatus: 'completed', issues: [] } });
+  const approved = Core.beginApproval(base, h.st.db), m = manifest(Core.completeApproval(approved.review, approved.revision));
+  const items = [
+    { id: 'mc', kind: 'mc', question: 'Domanda a scelta multipla', options: ['A', 'B'], correctIndex: 0, explanation: 'Prima del conflitto.', ramo: 'Germania' },
+    { id: 'open', kind: 'open', question: 'Domanda da sviluppare', guide: 'Spiega perché.', explanation: 'Prima del conflitto.', areas: ['Germania', 'Svizzera'], lines: 4 },
+    { id: 'card', kind: 'flashcard', question: 'Che cosa accadde?', answer: 'Accadde un evento.', ramo: 'Svizzera' }
+  ];
+  const evidence = [{ source: 'Libro.pdf', page: 4, text: 'La fonte dice: dopo.', quotationMatched: true, verifiedAgainst: 'archived-source-text' }];
+  const issues = items.map((item, i) => ({ id: 'context-' + item.id, target: { kind: 'item', id: item.id, field: i === 2 ? 'answer' : 'explanation' },
+    after: i === 2 ? 'Accadde questo evento.' : 'Dopo il conflitto.', problem: 'Motivo ' + i,
+    type: i === 2 ? 'editorial' : 'semantic', evidence: clone(evidence) }));
+  m.review.final = { stage: 'awaiting_review', items, review: Core.createReview({ db: { items }, sources: SOURCES, report: { checkStatus: 'completed', issues } }) };
+  const modal = h.R.open('/vault', m, { final: true });
+  return { ...h, m, modal };
+}
+
+test('context chips preserve map colors and group only the identical correction backed by the same verified source', async () => {
+  const h = contextualDashboard(), { modal } = h, before = clone(h.m);
+  const card = currentCard(modal);
+  assert.equal(modal.querySelectorAll('[data-review-card]').length, 2, 'same literal correction can group despite different explanations of the problem');
+  assert.match(card.querySelector('[data-area-chip="1"] .mrv-area-dot').getAttribute('style'), /#ffe899/);
+  assert.match(card.querySelector('[data-area-chip="2"] .mrv-area-dot').getAttribute('style'), /rgb\(0, 120, 90\)/);
+  assert.ok(card.querySelector('[data-material-chip=mc]'));
+  assert.ok(card.querySelector('[data-material-chip=open]'));
+  assert.equal(card.querySelectorAll('[data-review-targets] li').length, 2);
+  assert.equal(card.querySelector('[data-change=before]').textContent, 'Prima del');
+  assert.equal(card.querySelector('[data-change=after]').textContent, 'Dopo il');
+  assert.match(card.querySelector('[data-evidence-excerpt]').textContent, /La fonte dice: dopo\./);
+  assert.match(card.querySelector('[data-evidence-excerpt]').textContent, /Libro.pdf · Pagina 4/);
+  assert.deepEqual(clone(h.m), before, 'displaying context must not mutate revisions or drafts');
+  await card.querySelector('[data-review-choice=accept]').click();
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].choice, 'accept');
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-open'].choice, 'accept');
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-card'], undefined);
+});
+
+test('area, material and reason filters combine before grouping and an action affects only visible targets', async () => {
+  const h = contextualDashboard(), { modal } = h;
+  const area = modal.querySelector('#mrv-area'), kind = modal.querySelector('#mrv-kind'), reason = modal.querySelector('#mrv-reason');
+  area.value = '2'; await area.onchange();
+  assert.equal(h.dom.document.activeElement, area);
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 2);
+  kind.value = 'open'; await kind.onchange();
+  assert.equal(h.dom.document.activeElement, kind);
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 1);
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'context-open');
+  assert.match(reason.querySelector('option[value=semantic]').textContent, /\(1\)/);
+  reason.value = 'editorial'; await reason.onchange();
+  assert.equal(currentCard(modal), null);
+  assert.match(modal.querySelector('#mrv-filter-empty').textContent, /filtri/);
+  reason.value = ''; await reason.onchange();
+  await currentCard(modal).querySelector('[data-review-choice=reject]').click();
+  assert.equal(h.m.review.final.review.initial.decisions['context-open'].choice, 'reject');
+  assert.equal(h.m.review.final.review.initial.decisions['context-mc'], undefined);
+  await modal.querySelector('#mrv-clear-filters').click();
+  assert.equal(area.value, ''); assert.equal(kind.value, ''); assert.equal(reason.value, '');
+  assert.equal(modal.querySelectorAll('[data-review-issue]').length, 2);
+  assert.match(kind.querySelector('option[value=mc]').textContent, /\(1\)/);
+});
+
+test('changing facets preserves a saved manual draft and does not reset the current decision', async () => {
+  const h = contextualDashboard(), { modal } = h, kind = modal.querySelector('#mrv-kind');
+  kind.value = 'mc'; await kind.onchange();
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(modal).querySelector('textarea'); input.value = 'Rettifica scelta dal docente.'; input.oninput(); await tick();
+  kind.value = 'flashcard'; await kind.onchange();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'context-card');
+  await modal.querySelector('[data-review-filter=decided]').click();
+  kind.value = 'mc'; await kind.onchange();
+  assert.equal(currentCard(modal).querySelector('textarea').value, input.value);
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, input.value);
+});
+
+test('new retry findings and retained decisions are explained without counting paraphrased duplicates as new', async () => {
+  const h = materialRetryFixture(), old = h.m.review.final.review;
+  const check = h.materialCheck;
+  h.materialCheck = async (...args) => {
+    const report = await check(...args);
+    report.retrySummary = { targeted: 3, reused: 102, remaining: 0 };
+    report.issues.push(...old.initial.issues.map(i => ({ ...clone(i), id: i.id + '-copy', problem: 'Obiezione riformulata.' })));
+    return report;
+  };
+  const modal = h.R.open('/vault', h.m, { final: true });
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.deepEqual(clone(h.m.review.final.review.initial.retrySummary.newIssueIds), ['fresh']);
+  const summary = modal.querySelector('#mrv-retry-summary');
+  assert.match(summary.textContent, /1 nuove segnalazioni/);
+  assert.match(summary.textContent, /3 materiali ricontrollati/);
+  assert.match(summary.textContent, /102 controlli riutilizzati/);
+  assert.ok(modal.querySelector('[data-review-issue=fresh] .mrv-new-finding'));
+  assert.equal(h.saved.manifest.review.final.review.initial.retrySummary.newIssueIds.length, 1);
+});
+
+test('shared changes keep separate groups when evidence, changed field or proposal differs', () => {
+  const h = contextualDashboard(), issues = h.m.review.final.review.initial.issues;
+  const first = clone(issues[0]);
+  const changedEvidence = { ...clone(first), id: 'other-evidence', evidence: [{ ...first.evidence[0], text: 'Un passaggio diverso.' }] };
+  const changedProposal = { ...clone(first), id: 'other-proposal', after: 'Durante il conflitto.' };
+  const changedField = { ...clone(first), id: 'other-field', target: { ...first.target, field: 'question' } };
+  assert.equal(h.R.groupIssues([first, changedEvidence, changedProposal, changedField]).length, 4);
+});
+
+test('numeric MC keys remain separate even with identical indices, source evidence and problem text', () => {
+  const h = runtime();
+  const row = { before: 0, after: 1, hasProposal: true, type: 'semantic', problem: 'La chiave non corrisponde alla fonte.',
+    evidence: [{ text: 'Guisan guidò l’esercito, Wahlen l’agricoltura.', quotationMatched: true, verifiedAgainst: 'archived-source-text' }] };
+  assert.equal(h.R.groupIssues(['mc-a', 'mc-b'].map(id => ({ ...row, id, target: { kind: 'item', id, field: 'correctIndex' } }))).length, 2);
+});
+
+test('first phase reasons retain the actual judge categories and support filtering them', async () => {
+  const h = runtime(), types = ['termine-sostituito', 'nesso-non-nella-fonte', 'fatto-contraddetto', 'unsupported-link', 'soggetto-invertito', 'data-attribuita-male'];
+  const review = initial({ checkStatus: 'completed', issues: types.map((type, i) => ({ id: 'reason-' + i, type,
+    target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'Verifica ' + i })) });
+  const modal = h.R.open('/vault', manifest(review)), filter = modal.querySelector('#mrv-reason');
+  for (const type of types) {
+    assert.ok(filter.querySelector('option[value="' + type + '"]'));
+    filter.value = type; await filter.onchange();
+    assert.equal(modal.querySelectorAll('[data-review-issue]').length, 1);
+    assert.equal(currentCard(modal).querySelector('[data-review-reason]').getAttribute('data-review-reason'), type);
+  }
+});
+
+test('a link targeted by ID shows its real concept names, including D3 object endpoints', () => {
+  const h = runtime();
+  h.st.db.links[0].id = 'cross-link';
+  h.st.db.links[0].source = h.st.db.nodes[0];
+  h.st.db.links[0].target = h.st.db.nodes[1];
+  const review = Core.createReview({ db: h.st.db, sources: SOURCES, report: { checkStatus: 'completed', issues: [
+    { id: 'link-finding', target: { kind: 'link', id: 'cross-link', field: 'rel' }, after: 'condiziona', problem: 'Verifica il rapporto.' }
+  ] } });
+  const modal = h.R.open('/vault', manifest(review));
+  assert.match(currentCard(modal).textContent, /Germania → richiede → Svizzera/);
+  assert.match(currentCard(modal).textContent, /Germania → condiziona → Svizzera/);
+  assert.doesNotMatch(currentCard(modal).textContent, /Concetto non disponibile/);
 });

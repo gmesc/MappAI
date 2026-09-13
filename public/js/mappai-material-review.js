@@ -20,6 +20,72 @@
         for (const c of JSON.stringify(value)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
         return (h >>> 0).toString(36);
     }
+    // This version identifies the entire review contract, including its prompt
+    // and evidence checks. Bump it when their meaning changes.
+    const CHECKPOINT_VERSION = 'material-check@1';
+    function canonical(value) {
+        if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+        if (value && typeof value === 'object') return '{' + Object.keys(value).sort().filter(k => value[k] !== undefined)
+            .map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
+        return JSON.stringify(value === undefined ? null : value);
+    }
+    function fingerprint(value) {
+        const text = canonical(value); let a = 2166136261, b = 3339675911;
+        for (let i = 0; i < text.length; i++) {
+            a = Math.imul(a ^ text.charCodeAt(i), 16777619);
+            b = Math.imul(b ^ text.charCodeAt(i), 2246822519);
+        }
+        return (a >>> 0).toString(36) + '-' + (b >>> 0).toString(36) + '-' + text.length;
+    }
+    function retryPlan(input, previous, checkpoint, changedIds) {
+        const prior = previous && previous.checkpoint;
+        const valid = prior && prior.version === CHECKPOINT_VERSION && prior.context === checkpoint.context &&
+            prior.items && typeof prior.items === 'object' && previous.coverage &&
+            Array.isArray(previous.coverage.checkedIds) && Array.isArray(previous.coverage.skipped) &&
+            previous.coverage.skipped.every(row => row && typeof row === 'object') &&
+            Array.isArray(previous.coverage.claims) && previous.coverage.claims.every(row => row && typeof row === 'object') &&
+            Array.isArray(previous.coverage.mcOptions) && previous.coverage.mcOptions.every(row => row && typeof row === 'object') &&
+            Array.isArray(previous.issues) && previous.issues.every(row => row && row.target && row.target.kind === 'item');
+        const changed = new Set(Array.isArray(changedIds) ? changedIds.map(String) : []);
+        if (valid) Object.keys({ ...prior.items, ...checkpoint.items }).forEach(id => {
+            if (prior.items[id] !== checkpoint.items[id]) changed.add(id);
+        });
+        if (valid && prior.synthesis !== checkpoint.synthesis) input.filter(item => item && item.step === 'D')
+            .forEach(item => changed.add(String(item.id)));
+        // A synthesis and its embedded relations are one composed output.
+        // Other dependencies must be explicit; sharing a topic is not enough.
+        let added = true;
+        while (added) {
+            added = false;
+            input.forEach(item => {
+                if (!item || !item.id || changed.has(String(item.id))) return;
+                const dependencies = Array.isArray(item.dependsOnItemIds) ? item.dependsOnItemIds.map(String) : [];
+                const synthesisChanged = item.step === 'D' && input.some(other => other && other.step === 'D' && changed.has(String(other.id)));
+                if (dependencies.some(id => changed.has(id)) || synthesisChanged) { changed.add(String(item.id)); added = true; }
+            });
+        }
+        const skipped = new Set(valid ? previous.coverage.skipped.map(row => String(row.id)) : []);
+        const checked = new Set(valid ? previous.coverage.checkedIds.map(String) : []);
+        function completeItem(item) {
+            const id = String(item.id), coverage = previous.coverage;
+            if (coverage.checkedIds.filter(value => String(value) === id).length !== 1 ||
+                !Array.isArray(coverage.expectedIds) || coverage.expectedIds.filter(value => String(value) === id).length !== 1) return false;
+            const expected = claimUnits([item]), claims = coverage.claims.filter(row => String(row.itemId) === id);
+            // Claim IDs include their original batch position. Literal field
+            // fragments establish equivalence when a retry forms new batches.
+            const fragment = row => [row.field, row.index == null ? null : row.index, row.text];
+            if (claims.some(row => row.checked !== true) || canonical(claims.map(fragment)) !== canonical(expected.map(fragment))) return false;
+            if (item.kind !== 'mc') return true;
+            const rows = coverage.mcOptions.filter(row => String(row.id) === id), count = (item.options || []).length;
+            return rows.length === 1 && rows[0].total === count && Array.isArray(rows[0].checked) &&
+                rows[0].checked.length === count && new Set(rows[0].checked).size === count &&
+                rows[0].checked.every(index => Number.isInteger(index) && index >= 0 && index < count);
+        }
+        const reused = new Set(input.filter(item => item && valid && checked.has(String(item.id)) && !skipped.has(String(item.id)) &&
+            !changed.has(String(item.id)) && prior.items[String(item.id)] === checkpoint.items[String(item.id)] && completeItem(item)).map(item => String(item.id)));
+        return { reused, changed, mode: valid ? 'remaining' : 'full', reason: !prior ? 'missing-checkpoint' :
+            prior.version !== CHECKPOINT_VERSION ? 'review-contract-changed' : prior.context !== checkpoint.context ? 'reference-context-changed' : !valid ? 'invalid-checkpoint' : '' };
+    }
     function issue(item, field, problem, evidence, after, type) {
         const result = { target: { kind: 'item', id: String(item.id), field },
             before: copy(field === '$item' ? item : item[field]), hasProposal: after !== undefined,
@@ -435,6 +501,14 @@ ${JSON.stringify(targets)}`;
         const material = typeof opts.material === 'string' ? opts.material : str(opts.material && opts.material.material);
         const sources = sourceEntries(opts.material), decisions = teacherDecisions(opts.review);
         report.reference = { originalSourceCount: sources.length, teacherDecisionCount: decisions.length };
+        report.checkpoint = { version: CHECKPOINT_VERSION,
+            context: fingerprint({ material, sources, decisions, aiContext: opts.aiContext || null,
+                citationIds: Array.from(registeredIds(input)).sort() }),
+            items: Object.fromEntries(input.filter(item => item && item.id).map(item => [String(item.id), fingerprint(item)])),
+            synthesis: fingerprint(input.filter(item => item && item.step === 'D').sort((a, b) => String(a.id).localeCompare(String(b.id)))) };
+        const plan = retryPlan(input, opts.remainingOnly && opts.previousReport, report.checkpoint, opts.changedIds);
+        // A source-less run never established the source coverage to reuse.
+        if (!sources.length) plan.reused.clear();
         const counts = new Map(), citations = registeredIds(input);
         input.forEach(i => { const id = i && i.id == null ? '' : String(i && i.id || ''); counts.set(id, (counts.get(id) || 0) + 1); });
         const valid = [];
@@ -452,21 +526,51 @@ ${JSON.stringify(targets)}`;
                 else report.issues.push(row);
             });
         });
-        if (!input.length) { report.checkStatus = Array.isArray(items) ? 'completed' : 'incomplete'; return report; }
+        const targets = valid.filter(item => !plan.reused.has(item.id));
+        const reused = new Set(valid.filter(item => plan.reused.has(item.id)).map(item => item.id));
+        if (reused.size) {
+            const previous = opts.previousReport;
+            report.coverage.checkedIds = valid.filter(item => reused.has(item.id)).map(item => item.id);
+            report.coverage.claims = copy(previous.coverage.claims.filter(row => reused.has(String(row.itemId))));
+            report.coverage.mcOptions = copy(previous.coverage.mcOptions.filter(row => reused.has(String(row.id))));
+            // Replace the repeated local finding too, retaining any proposal
+            // recovered in the prior run and its verified citation metadata.
+            report.issues = report.issues.filter(row => !reused.has(String(row.target.id)))
+                .concat(copy(previous.issues.filter(row => row.target && reused.has(String(row.target.id)))));
+            ['rejected', 'suppressed'].forEach(key => {
+                report[key].push(...copy((previous[key] || []).filter(row => reused.has(String(row.id)))));
+            });
+        }
+        function summarize() {
+            if (opts.remainingOnly) report.retrySummary = { mode: plan.mode, reason: plan.reason, total: input.length,
+                targeted: targets.length, reused: reused.size,
+                checked: report.coverage.checkedIds.filter(id => !reused.has(id)).length,
+                totalChecked: report.coverage.checkedIds.length,
+                remaining: input.length - report.coverage.checkedIds.length,
+                changed: valid.filter(item => plan.changed.has(item.id)).length,
+                reusedIds: Array.from(reused), targetedIds: targets.map(item => item.id) };
+            return report;
+        }
+        if (!input.length) { report.checkStatus = Array.isArray(items) ? 'completed' : 'incomplete'; return summarize(); }
+        if (!targets.length && !report.coverage.skipped.length) {
+            report.checkStatus = 'completed';
+            if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: 0, total: 0, reused: reused.size, complete: true, checkStatus: report.checkStatus }); } catch (_) {} }
+            return summarize();
+        }
         const parse = env.salvageTruncatedJSON || env.MappAIJsonSalvage && env.MappAIJsonSalvage.salvage;
         const unavailable = !opts.apiKey ? 'Chiave API non disponibile' : !env.fetchModelAPI ? 'Provider non disponibile' :
             typeof parse !== 'function' ? 'Parser del giudice non disponibile' : !material.trim() ? 'Materiale di riferimento non disponibile' : '';
         if (unavailable) {
-            valid.forEach(i => report.coverage.skipped.push({ id: i.id, reason: unavailable }));
-            report.reason = unavailable; return report;
+            targets.forEach(i => report.coverage.skipped.push({ id: i.id, reason: unavailable }));
+            report.reason = unavailable; return summarize();
         }
-        for (let start = 0; start < valid.length; start += BATCH_SIZE) {
-            const batch = valid.slice(start, start + BATCH_SIZE);
+        for (let start = 0; start < targets.length; start += BATCH_SIZE) {
+            const batch = targets.slice(start, start + BATCH_SIZE);
             const claims = claimUnits(batch);
             const pending = [];
             const status = { ids: batch.map(i => i.id), status: 'incomplete', checkedIds: [] };
             report.batches.push(status);
-            if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: start, total: valid.length, batch: report.batches.length }); } catch (_) { /* Display does not own the check. */ } }
+            if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: start, total: targets.length, reused: reused.size, batch: report.batches.length }); } catch (_) { /* Display does not own the check. */ } }
             try {
                 if (env.MappAIUsage) env.MappAIUsage.setContext('generation', 'giudice-materiali');
                 const response = await env.fetchModelAPI({ contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions, sources, claims) }] }],
@@ -579,7 +683,7 @@ ${JSON.stringify(targets)}`;
                 if ((Number(e && e.status) === 400 || /\b400\b/.test(status.reason)) && /\bINVALID_ARGUMENT\b/i.test(status.reason)) {
                     report.reason = 'Il provider ha rifiutato la richiesta (400 INVALID_ARGUMENT). Controllo interrotto: i materiali non esaminati restano da verificare.';
                     report.requestError = { status: 400, code: 'INVALID_ARGUMENT', message: status.reason };
-                    valid.slice(start + BATCH_SIZE).forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
+                    targets.slice(start + BATCH_SIZE).forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
                     break;
                 }
             }
@@ -589,8 +693,9 @@ ${JSON.stringify(targets)}`;
             report.checkStatus = 'incomplete';
             report.reason = 'Passaggi originali non disponibili: controllati i materiali e le decisioni presenti, non la fedeltà alla fonte originale';
         }
-        if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: valid.length, total: valid.length, complete: true, checkStatus: report.checkStatus }); } catch (_) {} }
-        return report;
+        if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: targets.length, total: targets.length, reused: reused.size, complete: true, checkStatus: report.checkStatus }); } catch (_) {} }
+        return summarize();
     }
-    return { check, validate, claimUnits };
+    function checkRemaining(items, opts) { return check(items, { ...opts, remainingOnly: true }); }
+    return { check, checkRemaining, validate, claimUnits };
 }));

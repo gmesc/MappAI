@@ -37,7 +37,8 @@ function runtime(answer) {
         const batch = JSON.parse(prompt.split('ITEM DA CONTROLLARE (dati)\n')[1]);
         return answer ? answer(batch, payload, calls.length, context) : response(clean(batch));
     };
-    return { w: context, calls, check: (items, opts) => context.MappAIMaterialReview.check(items, { apiKey: 'mock-key', material, ...opts }) };
+    return { w: context, calls, check: (items, opts) => context.MappAIMaterialReview.check(items, { apiKey: 'mock-key', material, ...opts }),
+        checkRemaining: (items, opts) => context.MappAIMaterialReview.checkRemaining(items, { apiKey: 'mock-key', material, ...opts }) };
 }
 function throughGeminiGateway(answer) {
     const r = runtime(), handlers = new Map(), posts = [];
@@ -1101,4 +1102,148 @@ test('invalid or identical cleanup from the judge never becomes a proposal on th
         assert.equal(report.batches[0].proposalRecovery.proposedIds.length, 0);
         assert.equal(r.calls.length, 2, 'at most the existing single recovery is attempted');
     }
+});
+
+test('105 drafts: completion retries only the three missing items, retaining decisions and full coverage', async () => {
+    const items = Array.from({ length: 105 }, (_, n) => mc('mc-' + n));
+    const missing = new Set(['mc-0', 'mc-52', 'mc-104']);
+    const first = runtime(batch => {
+        const result = clean(batch);
+        result.checkedIds = result.checkedIds.filter(id => !missing.has(id));
+        if (batch.some(item => item.id === 'mc-1')) result.issues.push({ id: 'mc-1', field: 'explanation',
+            problem: 'Verifica il soggetto dello scambio.', evidenceKind: 'source', sourceId: material.sourcesArr[0].id,
+            quote: GOLD, replacement: 'La Germania vende oro e riceve valuta.' });
+        return response(result);
+    });
+    const original = plain(items), previousReport = plain(await first.check(items));
+    assert.equal(previousReport.coverage.checkedIds.length, 102);
+    let review = R.createReview({ db: { items }, report: previousReport });
+    review = R.setDecision(review, review.initial.issues[0].id, 'reject');
+    const saved = plain(review), savedReport = plain(previousReport), progress = [], second = runtime();
+    const report = plain(await second.checkRemaining(items, { previousReport, onProgress: p => progress.push(plain(p)) }));
+    assert.equal(second.calls.length, 1);
+    assert.deepEqual(report.retrySummary.targetedIds, Array.from(missing));
+    assert.equal(report.retrySummary.reused, 102);
+    assert.equal(report.retrySummary.checked, 3);
+    assert.equal(report.retrySummary.remaining, 0);
+    assert.equal(report.retrySummary.mode, 'remaining');
+    assert.equal(report.checkStatus, 'completed');
+    assert.equal(report.coverage.expectedIds.length, 105);
+    assert.equal(new Set(report.coverage.checkedIds).size, 105);
+    assert.equal(report.coverage.claims.length, 105);
+    assert.equal(report.coverage.mcOptions.length, 105);
+    assert.equal(progress[0].total, 3); assert.equal(progress[0].reused, 102);
+    const next = R.mergeRetry(review, R.createReview({ db: { items }, report }));
+    assert.deepEqual(next.initial.decisions, review.initial.decisions);
+    assert.equal(next.initial.issues.length, 1, 'a reused finding does not return as a new decision');
+    assert.deepEqual(next.initial.previousReports, [previousReport]);
+    assert.deepEqual(items, original); assert.deepEqual(review, saved); assert.deepEqual(previousReport, savedReport);
+    const third = runtime();
+    const complete = await third.checkRemaining(items, { previousReport: report, apiKey: '' });
+    assert.equal(third.calls.length, 0, 'an already completed report requires no provider or key');
+    assert.equal(complete.checkStatus, 'completed');
+    assert.equal(complete.retrySummary.reused, 105, 'claims survive changed batch positions on subsequent retries');
+});
+
+test('retry rechecks every field and MC alternative of a changed item, plus explicit transitive dependencies', async () => {
+    const items = [mc('a'), { ...flash('b'), dependsOnItemIds: ['a'] }, { ...flash('c'), dependsOnItemIds: ['b'] }, flash('other')];
+    const previousReport = plain(await runtime().check(items));
+    const changed = plain(items); changed[0].options[1] = 'La Spagna';
+    const r = runtime(batch => {
+        assert.deepEqual(batch.map(item => item.id), ['a', 'b', 'c']);
+        assert.equal(batch[0].question, items[0].question);
+        assert.equal(batch[0].options.length, 4);
+        return response(clean(batch));
+    });
+    const report = await r.checkRemaining(changed, { previousReport });
+    assert.equal(report.retrySummary.changed, 3); assert.equal(report.retrySummary.reused, 1);
+    assert.equal(report.checkStatus, 'completed');
+    const forced = await runtime().checkRemaining(items, { previousReport, changedIds: ['a'] });
+    assert.deepEqual(plain(forced.retrySummary.targetedIds), ['a', 'b', 'c']);
+    const removed = await runtime().checkRemaining(items.slice(1), { previousReport });
+    assert.deepEqual(plain(removed.retrySummary.targetedIds), ['b', 'c']);
+    assert.deepEqual(plain(removed.coverage.expectedIds), ['b', 'c', 'other']);
+    assert.equal(removed.retrySummary.remaining, 0);
+});
+
+test('changing a synthesis section rechecks its composed relations and overview, without unrelated exercises', async () => {
+    const items = [{ id: 'intro', kind: 'synthesis', text: GOLD, step: 'D', part: 'intro' },
+        { id: 'section', kind: 'synthesis', text: GOLD, step: 'D', part: 0 },
+        { id: 'relation', kind: 'causal', question: 'La Germania vende oro.', text: 'perciò', answer: 'Riceve valuta.', step: 'D', part: 0 }, mc('exercise')];
+    const previousReport = plain(await runtime().check(items)), changed = plain(items);
+    changed[1].text = 'La Germania vende oro alla Svizzera.';
+    const report = await runtime().checkRemaining(changed, { previousReport });
+    assert.deepEqual(plain(report.retrySummary.targetedIds), ['intro', 'section', 'relation']);
+    assert.equal(report.retrySummary.reused, 1); assert.equal(report.checkStatus, 'completed');
+    const removed = await runtime().checkRemaining(items.filter(item => item.id !== 'section'), { previousReport });
+    assert.deepEqual(plain(removed.retrySummary.targetedIds), ['intro', 'relation']);
+});
+
+test('source text, approved teacher context or model changes invalidate all cached coverage; legacy retries are full', async () => {
+    const items = [mc('a'), flash('b')], previousReport = plain(await runtime().check(items));
+    const changedSource = plain(material); changedSource.sourcesArr[0].text += ' La fonte è stata aggiornata.';
+    const reference = approvedDecision('map-fix', { kind: 'node', id: 'oro', field: 'desc' }, WRONG, GOLD);
+    for (const options of [{ material: changedSource }, { review: reference }, { aiContext: { provider: 'google', model: 'new-model' } }]) {
+        const r = runtime(), report = await r.checkRemaining(items, { previousReport, ...options });
+        assert.equal(report.retrySummary.mode, 'full'); assert.equal(report.retrySummary.reason, 'reference-context-changed');
+        assert.equal(report.retrySummary.reused, 0); assert.equal(r.calls.length, 1);
+    }
+    const legacy = plain(previousReport); delete legacy.checkpoint;
+    const r = runtime(), report = await r.checkRemaining(items, { previousReport: legacy });
+    assert.equal(report.retrySummary.mode, 'full'); assert.equal(report.retrySummary.reason, 'missing-checkpoint');
+    assert.equal(report.checkStatus, 'completed'); assert.equal(r.calls.length, 1);
+    assert.equal((await r.checkRemaining(items, { previousReport: plain(report) })).retrySummary.reused, 2);
+    assert.equal(r.calls.length, 1, 'the full legacy fallback runs only once');
+});
+
+test('retry does not trust incomplete claims, alternatives, duplicate IDs or a truncated checkpoint', async () => {
+    const items = [mc('a'), flash('b')], baseline = plain(await runtime().check(items));
+    for (const mode of ['claim-missing', 'claim-unchecked', 'mc-partial', 'duplicate-checked', 'skipped']) {
+        const previousReport = plain(baseline);
+        if (mode === 'claim-missing') previousReport.coverage.claims = previousReport.coverage.claims.filter(row => row.itemId !== 'a');
+        if (mode === 'claim-unchecked') previousReport.coverage.claims[0].checked = false;
+        if (mode === 'mc-partial') previousReport.coverage.mcOptions[0].checked.pop();
+        if (mode === 'duplicate-checked') previousReport.coverage.checkedIds.push('a');
+        if (mode === 'skipped') previousReport.coverage.skipped.push({ id: 'a', reason: 'Interrupted' });
+        const report = await runtime().checkRemaining(items, { previousReport });
+        assert.deepEqual(plain(report.retrySummary.targetedIds), ['a'], mode);
+        assert.equal(report.retrySummary.reused, 1, mode);
+    }
+    const invalid = plain(baseline); delete invalid.coverage.claims;
+    assert.equal((await runtime().checkRemaining(items, { previousReport: invalid })).retrySummary.reused, 0);
+    invalid.coverage.claims = [null];
+    assert.equal((await runtime().checkRemaining(items, { previousReport: invalid })).retrySummary.reused, 0);
+});
+
+test('a later retry failure keeps earlier coverage and only failed items remain retryable', async () => {
+    const items = Array.from({ length: 40 }, (_, n) => mc('q-' + n));
+    const first = runtime(batch => response({ ...clean(batch), checkedIds: batch.filter(item => Number(item.id.slice(2)) < 13).map(item => item.id) }));
+    const previousReport = plain(await first.check(items));
+    const second = runtime((batch, payload, call) => {
+        if (call === 2) throw new Error('Provider offline');
+        return response(clean(batch));
+    });
+    const failed = plain(await second.checkRemaining(items, { previousReport }));
+    assert.equal(failed.checkStatus, 'incomplete');
+    assert.equal(failed.retrySummary.reused, 13);
+    assert.equal(failed.retrySummary.checked, 15);
+    assert.equal(failed.retrySummary.remaining, 12);
+    assert.equal(failed.coverage.checkedIds.length, 28);
+    assert.equal(failed.coverage.skipped.length, 12);
+    const third = runtime(), completed = await third.checkRemaining(items, { previousReport: failed });
+    assert.equal(third.calls.length, 1);
+    assert.deepEqual(plain(completed.retrySummary.targetedIds), failed.coverage.skipped.map(row => row.id));
+    assert.equal(completed.retrySummary.reused, 28);
+    assert.equal(completed.checkStatus, 'completed');
+});
+
+test('empty retry needs no provider; absent original sources and invalid input never become completed coverage', async () => {
+    const r = runtime(), empty = await r.checkRemaining([], { apiKey: '' });
+    assert.equal(empty.checkStatus, 'completed'); assert.equal(empty.retrySummary.remaining, 0);
+    assert.equal(r.calls.length, 0);
+    const items = [mc('a')], reference = { material: 'Descrizione generata senza passaggi originali.', sourcesArr: [] };
+    const first = runtime(batch => response(clean(batch))), previousReport = plain(await first.check(items, { material: reference }));
+    const retry = await first.checkRemaining(items, { previousReport, material: reference });
+    assert.equal(retry.checkStatus, 'incomplete'); assert.equal(retry.retrySummary.reused, 0);
+    assert.notEqual((await r.checkRemaining(null)).checkStatus, 'completed');
 });

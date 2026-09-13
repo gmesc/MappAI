@@ -246,11 +246,18 @@
       const apiKey = window.getSystemKey && window.getSystemKey();
       if (!apiKey) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
       const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review, { includeOriginalPages: true });
-      report = await judge.check(clone(final.items), { review, apiKey, material, aiContext: clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
+      // Coverage describes the saved drafts. Teacher choices stay separate until
+      // approval, so a retry cannot silently replace or rebase those choices.
+      report = await (judge.checkRemaining || judge.check)(clone(final.items), { review, apiKey, material,
+        previousReport: old.initial.report, aiContext: clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
       assertCurrent();
     } finally { s._reviewAIContext = previousContext; }
     const next = core().mergeRetry(old, core().createReview({ db: { items: final.items }, sources: old.sources, report,
       generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config }));
+    const previousIds = new Set(old.initial.issues.map(i => i.id));
+    next.initial.retrySummary = { ...(report.retrySummary || {}),
+      newIssueIds: next.initial.issues.filter(i => !previousIds.has(i.id)).map(i => i.id),
+      decisionsPreserved: Object.values(old.initial.decisions).filter(d => ['accept', 'manual', 'reject'].includes(d.choice)).length };
     final.review = next;
     try { await R.writeManifest(vaultPath, manifest); }
     catch (e) { final.review = old; throw e; }
@@ -339,13 +346,15 @@
     ? ({ question: t('rv_relation_start', 'Prima parte'), text: t('rv_relation_connector', 'Collegamento'), answer: t('rv_relation_end', 'Seconda parte') })[f]
     : fieldLabels[f] ? t(...fieldLabels[f]) : t('rv_other_field', 'Contenuto');
   const itemFields = ['question', 'answer', 'options', 'correctIndex', 'explanation', 'guide', 'criteria', 'criteri', 'text', 'lines'];
-  const nodeLabel = id => { const n = (state().db.nodes || []).find(n => String(n.id) === String(id)); return n ? n.label : t('rv_missing_node', 'Concetto non disponibile'); };
+  const nodeLabel = id => { const key = id && typeof id === 'object' ? id.id : id; const n = (state().db.nodes || []).find(n => String(n.id) === String(key)); return n ? n.label : t('rv_missing_node', 'Concetto non disponibile'); };
   function itemFor(issue, review) { return (review.baseSnapshot.items || []).find(i => String(i.id) === String(issue.target.id)); }
   function readable(value, target, item) {
     if (value == null) return target && ['$item', '$link'].includes(target.field) ? t('rv_remove', 'Escludi questo elemento') : t('rv_empty_field', 'Campo vuoto');
     if (target && target.kind === 'link') {
       const l = typeof value === 'object' ? value : Object.assign({}, target, { rel: value });
-      return nodeLabel(l.source) + ' → ' + String(l.rel || '') + ' → ' + nodeLabel(l.target);
+      const matches = l.id != null ? (state().db.links || []).filter(link => String(link.id) === String(l.id)) : [];
+      const saved = matches.length === 1 ? matches[0] : {};
+      return nodeLabel(l.source ?? saved.source) + ' → ' + String(l.rel || '') + ' → ' + nodeLabel(l.target ?? saved.target);
     }
     if (target && target.field === 'correctIndex') {
       return item && Array.isArray(item.options) && Number.isInteger(value) && item.options[value] != null
@@ -365,7 +374,13 @@
   R.groupIssues = function (issues) {
     const groups = new Map();
     for (const issue of issues) {
-      const key = canonical([issue.target.kind, issue.target.field, issue.before, issue.after, issue.hasProposal, issue.problem, issue.evidence, issue.citationAdditions]);
+      // A common correction must have the same literal change and source proof.
+      // Similar wording alone never authorizes changing another material.
+      const sharedCorrection = issue.target.kind !== 'link' && issue.hasProposal && typeof issue.before === 'string' && typeof issue.after === 'string' &&
+        evidenceRows(issue.evidence).some(e => e.quotationMatched && e.verifiedAgainst === 'archived-source-text');
+      const independentTarget = ['correctIndex', 'options', '$item'].includes(issue.target.field) ? issue.target.id : null;
+      const key = canonical([issue.target.kind, issue.target.field, issue.before, issue.after, issue.hasProposal,
+        sharedCorrection ? null : issue.problem, issue.evidence, issue.quote, issue.type, issue.citationAdditions, independentTarget]);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(issue);
     }
@@ -396,6 +411,30 @@
       return '<div class="my-3"><p class="font-bold">' + esc(source || t('rv_source', 'Fonte')) + '</p><p class="whitespace-pre-wrap">' + esc(e.verifiedAgainst === 'item' && displayText ? displayText(quote) : quote) + '</p>' + contexts.join('') + '</div>';
     }).join('') : '<p>' + esc(t('rv_no_evidence', 'La prova non è disponibile in questa segnalazione.')) + '</p>';
   }
+  function evidencePreview(issue, review, displayText) {
+    const rows = evidenceRows(issue.evidence), selected = typeof issue.quote === 'string' ? issue.quote : '';
+    const row = rows.find(e => selected && e.text.includes(selected)) || rows[0];
+    if (!row) return '<p class="mrv-evidence-missing">' + esc(t('rv_no_evidence', 'La prova non è disponibile in questa segnalazione.')) + '</p>';
+    let quote = selected && row.text.includes(selected) ? selected : row.text;
+    if (row.verifiedAgainst === 'item' && !row.quotationMatched) quote = readable(issue.before, issue.target, itemFor(issue, review));
+    if (row.verifiedAgainst === 'item') quote = displayText(quote);
+    const text = quote.length > 320 ? quote.slice(0, 320).replace(/\s+\S*$/, '') + '…' : quote;
+    const source = [row.title || (typeof row.source === 'string' ? row.source : '') || t('rv_source', 'Fonte'), row.page ? t('rv_page', 'Pagina') + ' ' + row.page : ''].filter(Boolean).join(' · ');
+    return '<aside class="mrv-evidence-preview" data-evidence-excerpt><p class="mrv-field-label">' + esc(t('rv_context_evidence', 'Passaggio da confrontare')) + '</p><blockquote>' + esc(text) + '</blockquote><p class="mrv-evidence-source">' + esc(source) + '</p></aside>';
+  }
+  function highlightedValues(before, after) {
+    const change = core().textChange(before, after);
+    if (!change) return [esc(before), esc(after)];
+    const tail = after.length - (before.length - change.end);
+    function mark(text, end, side) {
+      let start = change.start;
+      while (start > 0 && /\S/.test(text[start - 1])) start--;
+      while (end < text.length && /\S/.test(text[end])) end++;
+      if (start === end) return esc(text);
+      return esc(text.slice(0, start)) + '<mark data-change="' + side + '">' + esc(text.slice(start, end)) + '</mark>' + esc(text.slice(end));
+    }
+    return [mark(before, change.end, 'before'), mark(after, tail, 'after')];
+  }
   function pendingOutputs(manifest) {
     if (manifest.review?.final && ['approved', 'finalizing'].includes(manifest.review.final.stage)) return true;
     return ['B', 'C', 'D', 'E'].some(k => ['pending', 'failed', 'running'].includes(manifest.steps?.[k]?.status));
@@ -425,6 +464,40 @@
       return window.MappAIGroundingCore?.restoreReferenceIds ? window.MappAIGroundingCore.restoreReferenceIds(value, view.mapping) : value;
     }
     const displayValue = (value, target, item) => referenceView(readable(value, target, item)).text;
+    const palette = typeof colorScale !== 'undefined' ? colorScale : window.colorScale || {};
+    const contextIndex = window.MappAIReviewContext?.createIndex(state().db, manifest.review?.drafts || {}, palette);
+    const contextFor = issue => contextIndex ? contextIndex.describe(issue, getReview()) :
+      { areas: [], materialKind: itemFor(issue, getReview())?.kind || '', scope: 'unknown' };
+    const kindLabels = { mc: t('rv_context_mc', 'Quiz MC'), open: t('rv_context_open', 'Domanda aperta'),
+      flashcard: t('rv_context_flashcard', 'Flashcard'), synthesis: t('rv_context_synthesis', 'Sintesi'),
+      nodesheet: t('rv_context_nodesheet', 'Scheda nodi'), causal: t('rv_context_causal', 'Relazione') };
+    const reasonLabels = { semantic: t('rv_context_semantic', 'Fatto da verificare'), coherence: t('rv_context_coherence', 'Coerenza dell’esercizio'),
+      accessibility: t('rv_context_accessibility', 'Chiarezza della consegna'), editorial: t('rv_context_editorial', 'Refuso o testo editoriale'),
+      structure: t('rv_context_structure', 'Struttura del contenuto'), teacher: t('rv_context_teacher', 'Intervento del docente'),
+      'termine-sostituito': t('rv_context_term', 'Termine da verificare'), 'nesso-non-nella-fonte': t('rv_context_relation', 'Nesso da verificare'),
+      'fatto-contraddetto': t('rv_context_fact', 'Fatto da confrontare con la fonte'), 'unsupported-link': t('rv_context_link', 'Collegamento da verificare'),
+      'soggetto-invertito': t('rv_context_subject', 'Soggetto da verificare'), 'data-attribuita-male': t('rv_context_date', 'Data o attribuzione da verificare') };
+    const reasonFor = issue => issue.origin === 'teacher' ? 'teacher' : own(reasonLabels, issue.type) ? issue.type : 'semantic';
+    function areaRows(context) {
+      return context.areas.length ? context.areas : [{ id: context.scope === 'overview' ? '_overview' : '_unknown',
+        label: context.scope === 'overview' ? t('rv_context_overview', 'Trasversale') : t('rv_context_unknown', 'Area non disponibile'), color: null }];
+    }
+    function chips(group, compact) {
+      const contexts = group.map(contextFor), areas = new Map(), kinds = new Map();
+      contexts.forEach(context => {
+        areaRows(context).forEach(area => areas.set(area.id, area));
+        if (context.materialKind) kinds.set(context.materialKind, kindLabels[context.materialKind] || t('rv_material', 'Materiale'));
+      });
+      const areaList = Array.from(areas.values());
+      return '<div class="mrv-chips">' + (compact ? areaList.slice(0, 2) : areaList).map(area => {
+        // The context helper validates palette values before returning them.
+        const color = area.color || '#64748b';
+        return '<span class="mrv-chip mrv-area-chip" data-area-chip="' + esc(area.id) + '">' +
+          (area.color ? '<span class="mrv-area-dot" aria-hidden="true" style="background:' + esc(color) + '"></span>' : '') + esc(area.label) + '</span>';
+      }).join('') + (compact && areaList.length > 2 ? '<span class="mrv-chip">+' + (areaList.length - 2) + '</span>' : '') +
+        Array.from(kinds).map(([key, label]) => '<span class="mrv-chip mrv-material-chip" data-material-chip="' + esc(key) + '">' + esc(label) +
+          (key === 'synthesis' && contexts.some(c => c.materialKind === 'synthesis' && c.relation) ? ' · ' + esc(kindLabels.causal) : '') + '</span>').join('') + '</div>';
+    }
     const modal = document.createElement('div');
     modal.id = 'mappai-teacher-review';
     modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3400] flex items-center justify-center p-4';
@@ -437,7 +510,10 @@
       [t('rv_dashboard_contents', 'Contenuti'), t('rv_dashboard_materials', 'Materiali'), t('rv_dashboard_ready', 'Pronti da usare')].map((label, i) => '<li' + (i === (isFinal ? 1 : 0) ? ' aria-current="step"' : '') + '><span>' + (i + 1) + '</span>' + esc(label) + '</li>').join('') + '</ol></header>' +
       '<div class="mrv-overview"><div><strong id="mrv-progress-label"></strong><p id="mrv-filter-count" aria-live="polite"></p></div><progress id="mrv-progress" max="100" value="0" aria-label="' + esc(t('rv_dashboard_progress', 'Avanzamento delle decisioni')) + '"></progress><p id="mrv-status" role="status" aria-live="polite"></p><button type="button" id="mrv-save-retry" hidden class="pm-btn-cancel">' + esc(t('rv_save_retry', 'Riprova il salvataggio')) + '</button></div>' +
       '<div class="mrv-workspace"><aside class="mrv-sidebar" data-expanded="false" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"><button type="button" id="mrv-toggle-list" class="pm-btn-cancel" aria-expanded="false" aria-controls="mrv-list">' + esc(t('rv_dashboard_show_list', 'Elenco e ricerca')) + '</button><div id="mrv-list"><div id="mrv-filters" role="group" aria-label="' + esc(t('rv_filter_label', 'Mostra le decisioni')) + '"></div>' +
-      '<label class="mrv-search-label" for="mrv-search">' + esc(t('rv_dashboard_search', 'Cerca nelle segnalazioni')) + '</label><input id="mrv-search" type="search" placeholder="' + esc(t('rv_dashboard_search_hint', 'Concetto, domanda o problema…')) + '"><p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
+      '<label class="mrv-search-label" for="mrv-search">' + esc(t('rv_dashboard_search', 'Cerca nelle segnalazioni')) + '</label><input id="mrv-search" type="search" placeholder="' + esc(t('rv_dashboard_search_hint', 'Concetto, domanda o problema…')) + '">' +
+      '<div class="mrv-facets"><label for="mrv-area">' + esc(t('rv_context_area', 'Macroarea')) + '<select id="mrv-area"></select></label><label for="mrv-kind"' + (isFinal ? '' : ' hidden') + '>' + esc(t('rv_context_kind', 'Materiale')) + '<select id="mrv-kind"></select></label>' +
+      '<label for="mrv-reason">' + esc(t('rv_context_reason', 'Motivo')) + '<select id="mrv-reason"></select></label></div><button type="button" class="pm-btn-cancel" id="mrv-clear-filters" hidden>' + esc(t('rv_context_clear', 'Azzera i filtri')) + '</button>' +
+      '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
       '<div class="mrv-detail"><nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
@@ -449,6 +525,7 @@
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
     const invalidEditors = new Set();
     let activeFilter = 'pending', activeIssueId = null, search = '', visibleGroups = [], coverageWasPending = true;
+    const facets = { area: '', kind: '', reason: '' };
     const filters = modal.querySelector('#mrv-filters'), filterCount = modal.querySelector('#mrv-filter-count');
     const filterLabels = { pending: t('rv_filter_pending', 'Da rivedere'), decided: t('rv_filter_decided', 'Già decise'), all: t('rv_filter_all', 'Tutte') };
     const setReview = r => { if (isFinal) manifest.review.final.review = r; else manifest.review = r; };
@@ -516,6 +593,22 @@
       await pendingSave; if (saveError || closed || query !== input.value) return;
       search = query; activeIssueId = null; render(); input.focus();
     };
+    for (const key of Object.keys(facets)) {
+      const input = modal.querySelector('#mrv-' + key);
+      input.onchange = async () => {
+        const value = input.value;
+        if (busy || invalidEditors.size) { input.value = facets[key]; return; }
+        await pendingSave; if (saveError || closed || busy) { input.value = facets[key]; return; }
+        facets[key] = value; activeIssueId = null; render(); input.focus();
+      };
+    }
+    modal.querySelector('#mrv-clear-filters').onclick = async () => {
+      if (busy || invalidEditors.size) return;
+      await pendingSave; if (saveError || closed || busy) return;
+      search = ''; modal.querySelector('#mrv-search').value = '';
+      Object.keys(facets).forEach(key => { facets[key] = ''; });
+      activeIssueId = null; render(); modal.querySelector('#mrv-search').focus();
+    };
     for (const key of Object.keys(filterLabels)) {
       const button = document.createElement('button'); button.type = 'button'; button.setAttribute('data-review-filter', key);
       button.onclick = async () => {
@@ -571,8 +664,30 @@
       const groups = updateFilters();
       filters.hidden = filterCount.hidden = !r.initial.issues.length;
       const query = search.trim().toLocaleLowerCase();
-      visibleGroups = R.groupIssues(groups[activeFilter]).filter(group => !query || group.some(issue =>
-        [issueTarget(issue), issue.problem, fieldName(issue.target.field), displayValue(issue.before, issue.target, itemFor(issue, r))].join(' ').toLocaleLowerCase().includes(query)));
+      function facetValues(issue, key) {
+        const context = contextFor(issue);
+        return key === 'area' ? areaRows(context).map(a => ({ id: a.id, label: a.label })) : key === 'kind' ?
+          context.materialKind ? [{ id: context.materialKind, label: kindLabels[context.materialKind] || t('rv_material', 'Materiale') }] : [] :
+          [{ id: reasonFor(issue), label: reasonLabels[reasonFor(issue)] }];
+      }
+      function matches(issue, except) {
+        if (Object.keys(facets).some(key => key !== except && facets[key] && !facetValues(issue, key).some(row => row.id === facets[key]))) return false;
+        return !query || [issueTarget(issue), issue.problem, fieldName(issue.target.field), displayValue(issue.before, issue.target, itemFor(issue, r)),
+          ...Object.keys(facets).flatMap(key => facetValues(issue, key).map(row => row.label))].join(' ').toLocaleLowerCase().includes(query);
+      }
+      const allLabels = { area: t('rv_context_all_areas', 'Tutte le macroaree'), kind: t('rv_context_all_kinds', 'Tutti i materiali'), reason: t('rv_context_all_reasons', 'Tutti i motivi') };
+      for (const key of Object.keys(facets)) {
+        const choices = new Map(), counts = new Map();
+        groups.all.forEach(issue => facetValues(issue, key).forEach(row => choices.set(row.id, row.label)));
+        groups[activeFilter].filter(issue => matches(issue, key)).forEach(issue => facetValues(issue, key).forEach(row => counts.set(row.id, (counts.get(row.id) || 0) + 1)));
+        const input = modal.querySelector('#mrv-' + key);
+        input.innerHTML = '<option value="">' + esc(allLabels[key]) + '</option>' + Array.from(choices).sort((a, b) => a[1].localeCompare(b[1])).map(([id, label]) =>
+          '<option value="' + esc(id) + '">' + esc(label) + ' (' + (counts.get(id) || 0) + ')</option>').join('');
+        input.value = facets[key];
+      }
+      const matchingIssues = groups[activeFilter].filter(issue => matches(issue));
+      visibleGroups = R.groupIssues(matchingIssues);
+      modal.querySelector('#mrv-clear-filters').hidden = !query && !Object.values(facets).some(Boolean);
       if (!visibleGroups.some(group => group.some(issue => issue.id === activeIssueId))) activeIssueId = visibleGroups[0]?.[0].id || null;
       const selectedIndex = visibleGroups.findIndex(group => group.some(issue => issue.id === activeIssueId));
       const queue = modal.querySelector('#mrv-queue'); queue.replaceChildren();
@@ -583,11 +698,14 @@
         const button = document.createElement('button'); button.type = 'button'; button.className = 'mrv-queue-item';
         button.setAttribute('data-review-issue', issue.id); button.setAttribute('aria-current', selected ? 'true' : 'false');
         const pending = group.some(i => groups.pending.some(p => p.id === i.id));
-        button.innerHTML = '<span class="mrv-queue-meta">' + (index + 1) + ' · ' + esc(fieldName(issue.target.field, itemFor(issue, r))) +
+        const isNew = group.some(i => (r.initial.retrySummary?.newIssueIds || []).includes(i.id));
+        button.innerHTML = chips(group, true) + (isNew ? '<span class="mrv-new-finding">' + esc(t('rv_context_new', 'Nuova segnalazione')) + '</span>' : '') + '<span class="mrv-queue-meta">' + (index + 1) + ' · ' + esc(fieldName(issue.target.field, itemFor(issue, r))) +
           (group.length > 1 ? ' · ' + group.length + ' ' + esc(t('rv_dashboard_targets', 'contenuti')) : '') + '</span><strong>' + esc(issueTarget(issue)) + '</strong><span class="mrv-queue-problem">' + esc(issue.problem || fieldName(issue.target.field)) + '</span><span class="mrv-queue-state" data-pending="' + pending + '">' + esc(pending ? outcomes.pending : outcomes[core().decisionOutcome(issue, r.initial.decisions[issue.id])]) + '</span>';
         button.onclick = () => navigate(issue.id); queue.appendChild(button);
       });
-      modal.querySelector('#mrv-queue-count').textContent = visibleGroups.length + ' ' + t('rv_dashboard_in_list', 'voci in elenco') + (query ? ' · ' + t('rv_dashboard_search_active', 'ricerca attiva') : '');
+      modal.querySelector('#mrv-queue-count').textContent = visibleGroups.length + ' ' + t('rv_dashboard_in_list', 'voci in elenco') +
+        (matchingIssues.length !== visibleGroups.length ? ' · ' + matchingIssues.length + ' ' + t('rv_context_findings', 'segnalazioni') : '') +
+        (query || Object.values(facets).some(Boolean) ? ' · ' + t('rv_context_filtered', 'filtri attivi') : '');
       modal.querySelector('#mrv-detail-nav').hidden = !visibleGroups.length;
       modal.querySelector('#mrv-position').textContent = selectedIndex >= 0 ? (selectedIndex + 1) + ' / ' + visibleGroups.length : '';
       modal.querySelector('#mrv-prev').disabled = selectedIndex <= 0;
@@ -603,6 +721,15 @@
         groups.pending.length ? t('rv_dashboard_decide_help', 'Confronta il testo e la proposta, poi scegli. Dopo una decisione passerai alla segnalazione successiva.') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Verifica la copertura del controllo prima di continuare.');
       content.appendChild(info);
+      if (r.initial.retrySummary) {
+        const retry = r.initial.retrySummary, summary = document.createElement('p');
+        summary.className = 'mrv-retry-summary'; summary.id = 'mrv-retry-summary'; summary.setAttribute('role', 'status');
+        summary.textContent = (retry.newIssueIds || []).length + ' ' + t('rv_context_new_findings', 'nuove segnalazioni') + ' · ' +
+          retry.decisionsPreserved + ' ' + t('rv_context_preserved', 'decisioni conservate') +
+          (typeof retry.targeted === 'number' ? ' · ' + retry.targeted + ' ' + t('rv_context_rechecked', 'materiali ricontrollati') : '') +
+          (typeof retry.reused === 'number' ? ' · ' + retry.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
+        content.appendChild(summary);
+      }
       if (r.initial.issues.length) {
         const history = document.createElement('details'); history.className = 'mrv-summary';
         history.innerHTML = '<summary>' + esc(t('rv_dashboard_summary', 'Riepilogo delle tue decisioni')) + '</summary>';
@@ -611,7 +738,7 @@
       }
       if (!visibleGroups.length && r.initial.issues.length) {
         const empty = document.createElement('p'); empty.id = 'mrv-filter-empty';
-        empty.textContent = query ? t('rv_dashboard_no_results', 'Nessuna segnalazione corrisponde alla ricerca. Prova un altro termine o svuota il campo.') : activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
+        empty.textContent = query || Object.values(facets).some(Boolean) ? t('rv_context_no_results', 'Nessuna segnalazione corrisponde ai filtri. Cambia la selezione o usa Azzera i filtri.') : activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
         content.appendChild(empty);
       }
       if (r.initial.checkStatus !== 'completed') {
@@ -649,16 +776,20 @@
         }
         const before = compact ? (left ? '…' : '') + issue.before.slice(left, right) + (right < issue.before.length ? '…' : '') : issue.before;
         const after = compact ? (left ? '…' : '') + issue.before.slice(left, change.start) + change.after + issue.before.slice(change.end, right) + (right < issue.before.length ? '…' : '') : proposedItem || issue.after;
-        card.innerHTML = '<p class="mrv-eyebrow">' + esc(fieldName(issue.target.field, item)) + ' · ' + esc(issueTarget(issue)) + '</p><h3' + (!card.hidden ? ' id="mrv-current-title"' : '') + ' tabindex="-1">' + esc(title) + '</h3>' +
+        const beforeText = displayValue(before, issue.target, item), afterText = issue.hasProposal ? displayValue(after, proposedItem ? { field: '$item' } : issue.target, item) : '';
+        const highlighted = issue.hasProposal && typeof before === 'string' && typeof after === 'string' ? highlightedValues(beforeText, afterText) : [esc(beforeText), esc(afterText)];
+        card.innerHTML = chips(group) + '<p class="mrv-eyebrow">' + esc(t('rv_context_editing', 'Stai correggendo:')) + ' ' + esc(fieldName(issue.target.field, item)) + ' · ' + esc(issueTarget(issue)) + '</p>' +
+          '<p class="mrv-reason" data-review-reason="' + esc(reasonFor(issue)) + '">' + esc(reasonLabels[reasonFor(issue)]) + '</p><h3' + (!card.hidden ? ' id="mrv-current-title"' : '') + ' tabindex="-1">' + esc(title) + '</h3>' +
           (itemContext ? '<details class="mrv-item-context"><summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary>' + itemContext + '</details>' : '') +
-          '<details class="mb-2"><summary>' + esc(t('rv_where', 'Dove si applica')) + ' (' + group.length + ')</summary><ul>' + targets.map(x => '<li>' + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' +
-          '<div class="mrv-comparison"><div class="mrv-before"><p class="mrv-field-label">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(before, issue.target, item)) + '</p></div>' +
-          (issue.hasProposal ? '<div class="mrv-proposal"><p class="mrv-field-label">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + esc(displayValue(after, proposedItem ? { field: '$item' } : issue.target, item)) + '</p></div></div>' +
+          (group.length > 1 ? '<details class="mb-2" data-review-targets open><summary>' + esc(t('rv_context_shared', 'La stessa decisione riguarda questi contenuti')) + ' (' + group.length + ')</summary><ul>' + targets.map((x, i) => '<li>' +
+            chips([group[i]]) + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' : '') +
+          '<div class="mrv-comparison"><div class="mrv-before"><p class="mrv-field-label">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[0] + '</p></div>' +
+          (issue.hasProposal ? '<div class="mrv-proposal"><p class="mrv-field-label">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[1] + '</p></div></div>' +
             (compact ? '<details data-full-change class="mb-3"><summary>' + esc(t('rv_full_change', 'Leggi il testo completo prima e dopo')) + '</summary><p class="font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.before, issue.target, item)) + '</p><p class="font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.after, issue.target, item)) + '</p></details>' : '') +
             (issue.citationAdditions?.length ? '<p data-added-sources class="mb-3">' + esc(t('rv_added_sources', 'La proposta collega anche le fonti originali dei nuovi richiami.')) + '</p>' : '') :
             '</div><p class="mb-3" data-no-proposal>' + esc(t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
           (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
-          '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>' +
+          evidencePreview(issue, r, value => referenceView(value).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>' +
           '<div data-editor></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
         const actions = card.querySelector('[data-actions]'), editor = card.querySelector('[data-editor]'), choiceLabel = card.querySelector('[data-choice]');
         const labels = { pending: t('rv_pending', 'Da decidere'), accept: issue.after === null && ['$item', '$link'].includes(issue.target.field) ? t('rv_accept_exclusion', 'Escludi questo elemento') : t('rv_accept', 'Applica la proposta'), reject: t('rv_reject', 'Mantieni il testo senza modifiche'), manual: t('rv_edit', 'Modifica il testo') };
@@ -808,6 +939,7 @@
           setReview(next);
           activeIssueId = next.initial.issues.find(i => i.origin === 'teacher' && i.target.kind === 'node' && String(i.target.id) === String(n.id) && i.target.field === (field.value || 'desc'))?.id || null;
           activeFilter = 'pending'; search = ''; modal.querySelector('#mrv-search').value = '';
+          Object.keys(facets).forEach(key => { facets[key] = ''; });
           await save(); if (!closed) { render(); modal.querySelector('#mrv-current-title')?.focus(); }
         };
         label.appendChild(select); box.appendChild(field); box.appendChild(label); box.appendChild(preview); box.appendChild(add); content.appendChild(box);
@@ -835,7 +967,8 @@
         input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed; updateFilters(); };
         label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.'))); manualOption.appendChild(label);
         {
-          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary'; retry.textContent = isFinal ? t('rv_retry_material_judge', 'Riprova il controllo dei materiali') : t('rv_retry_judge', 'Riprova il controllo automatico');
+          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary';
+          retry.textContent = isFinal ? t('rv_context_retry_missing', 'Completa i controlli mancanti') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
             if (busy || invalidEditors.size) return;
             freeze(true);
@@ -843,7 +976,8 @@
             try {
               await pendingSave; if (saveError) throw saveError;
               if (isFinal) await R.retryMaterialJudge(vaultPath, manifest, { onProgress: p => {
-                status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')';
+                status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')' +
+                  (p.reused ? ' · ' + p.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
               } });
               else await R.retryJudge(vaultPath, manifest);
               manualConfirmed = false; freeze(false); render(); modal.querySelector('#mrv-title').focus();
@@ -853,6 +987,12 @@
             finally { if (busy) freeze(false); }
           };
           manual.appendChild(retry);
+          if (isFinal) {
+            const scope = document.createElement('p'); scope.className = 'text-sm';
+            scope.textContent = r.initial.report?.checkpoint ? t('rv_context_retry_scope', 'Il ricontrollo riguarda le bozze salvate e riusa le verifiche complete ancora valide. Le tue correzioni restano decisioni del docente.') :
+              t('rv_context_retry_legacy', 'Questo progetto usa un controllo precedente: il primo ricontrollo riesamina le bozze per poter riutilizzare in seguito le verifiche complete. Le tue decisioni restano conservate.');
+            manual.appendChild(scope);
+          }
         }
         manual.appendChild(manualOption);
       }
