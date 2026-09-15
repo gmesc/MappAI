@@ -107,13 +107,13 @@ Il banco apre i **20 casi critici**; il selettore permette di passare a tutti i
 IT-018, negazioni, inversioni, condizioni omesse, formule e simboli. Le vecchie
 etichette e i ranghi dei modelli non sono mostrati al revisore.
 
-1. Indicare nome o sigla del **revisore**.
+1. Il nome o la sigla del **revisore** sono facoltativi.
 2. Leggere la domanda e consultare il PDF. **Mostra pagina** apre la pagina del
    candidato; il selettore permette di consultare il resto del dossier. Il PDF
    completo è anche scaricabile. Le copie mantengono tutti i difetti originali.
 3. Valutare ogni passaggio: **Pertinente**, **Parzialmente pertinente** o
-   **Non pertinente**. Per i primi due, il campo dell’estratto permette di
-   scegliere il testo essenziale: copiarlo esattamente, conservando negazioni,
+   **Non pertinente**. Per i primi due, selezionare il testo nel passaggio e premere **Usa selezione**,
+   oppure **Usa passaggio intero**. Conservare negazioni,
    soggetto e condizioni. Una sola parola generica non è di norma un riferimento
    sufficiente. I passaggi possono essere pertinenti anche se contraddicono la
    domanda; qui non si certifica la correttezza scientifica.
@@ -124,7 +124,7 @@ etichette e i ranghi dei modelli non sono mostrati al revisore.
 5. Confermare di avere consultato PDF e contesto. L’assenza di prova richiede
    una ricerca nel dossier, una motivazione e nessun passaggio pertinente o
    parziale. Una lista di candidati deludenti non dimostra l’assenza.
-6. **Completa revisione** include il caso nel confronto. **Lascia da chiarire**
+6. **Finalizza caso** include il caso nel confronto. **Lascia da chiarire**
    lo conserva ma lo esclude. Modificare un caso completato lo riapre come bozza.
 
 Le bozze si salvano automaticamente e sono riprese anche dopo il riavvio.
@@ -322,3 +322,41 @@ La build arm64 aggiornata è in `dist/banco-maniglia-20260915/mac-arm64/MappAI.a
 Verifiche: 40 test banco/font/PDF e 99 test console/modali superati; prova
 nel browser a 1707 e 700 px, apertura/chiusura e riapertura da tastiera;
 prova nella build arm64 con font Atkinson e riadattamento del PDF.
+
+## Avanzamento e citazioni (15 settembre 2026)
+
+La barra conta i **passaggi valutati**, anche nelle bozze. Il contatore dei
+**casi finalizzati** indica invece quelli inclusi nel confronto. I punti da
+completare sono cliccabili e portano al giudizio, alla citazione o alla conferma
+mancante. Nessuna bozza viene finalizzata automaticamente.
+
+La citazione è collegata al testo archiviato e non si riscrive a mano. Quando
+si sostituisce una vecchia citazione che differisce dalla fonte, il testo precedente
+viene conservato in **Formulazione o commento**, separato dal riferimento usato
+per le metriche. Le revisioni precedenti restano su disco. Selezionare una citazione
+troppo breve o il passaggio intero cambia ciò che si misura: mantenere il contesto
+necessario alla domanda. Il lavoro costruisce riferimenti per confronti e regressioni;
+non addestra automaticamente i modelli e non certifica la correttezza scientifica.
+
+### Verifica del nuovo flusso
+
+MappAI 1.0.0-beta.5, Electron 41.10.7, electron-builder 26.15.3;
+build locale `dist/banco-flusso-20260915/mac-arm64/MappAI.app`, arm64,
+non firmata e non notarizzata.
+
+- 41 test Node del banco, PDF, proiezione e font superati; 2 test Python delle metriche superati.
+- Copia temporanea delle 157 revisioni: apertura con 56/247 passaggi valutati
+  nel lotto critico e 0/20 casi finalizzati. Nessuna conversione automatica.
+- Prove UI sulla copia: IT-001 finalizzato senza nome, persistenza dopo ricarica;
+  IT-009 raggiunge direttamente il passaggio 15 mancante; selezione con trascinamento
+  in IT-002, rifiuto di una selezione ripetuta, conservazione della formulazione.
+- Build nativa: apertura da Cabina, PDF visibile, font dell’app ereditato,
+  finalizzazione sulla copia con aggiornamento a 2/20, esportazione dei due casi
+  accettata dal validatore Python senza nome. Sono prove funzionali sintetiche,
+  non nuove valutazioni del docente e non misure della qualità del recupero.
+- 537 file confrontati tramite SHA-256 invariati: 161 file del banco reale
+  e 376 file dei materiali originali. I test non hanno modificato questi dati.
+
+Il vincolo della citazione esatta controlla il collegamento al testo archiviato;
+non garantisce che il docente abbia selezionato un contesto sufficiente o un’affermazione
+scientificamente corretta. Non sono state misurate riduzioni dei tempi di revisione.

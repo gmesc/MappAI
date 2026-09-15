@@ -145,6 +145,7 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
   const store = createStore(directory), token = crypto.randomBytes(32).toString('hex');
   const assets = new Map([
     ['/', [path.join(__dirname, 'review.html'), 'text/html; charset=utf-8']],
+    ['/review-core.js', [path.join(__dirname, 'review-core.js'), 'text/javascript; charset=utf-8']],
     ['/review-ui.js', [path.join(__dirname, 'review-ui.js'), 'text/javascript; charset=utf-8']],
     ['/review-pdf.js', [path.join(__dirname, 'review-pdf.js'), 'text/javascript; charset=utf-8']],
     ['/public/css/mappai-modal-tokens.css', [path.join(ROOT, 'public/css/mappai-modal-tokens.css'), 'text/css; charset=utf-8']],

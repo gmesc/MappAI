@@ -10,7 +10,7 @@ window.addEventListener('hashchange', () => {
   }
 });
 let data, caseId, candidateIndex = 0, currentPage, pendingTimer, serial = Promise.resolve(), reportData;
-let changed = 0, saved = 0, pageRequest = 0;
+let changed = 0, saved = 0, pageRequest = 0, selectedQuote = '';
 const pdfs = new Map();
 const test = () => data.cases.find(c => c.id === caseId);
 const annotation = () => data.annotations[caseId];
@@ -33,14 +33,38 @@ function batch() { return data.cases.filter(c => $('batch').value === 'all' || c
 function updateProgress() {
   const list = batch(), completed = list.filter(c => data.annotations[c.id]?.status === 'reviewed').length;
   $('completed').textContent = completed + ' / ' + list.length;
-  $('bank-progress').max = list.length; $('bank-progress').value = completed;
+  const total = list.reduce((n, c) => n + c.candidates.length, 0);
+  const graded = list.reduce((n, c) => n + c.candidates.filter(item => data.annotations[c.id]?.judgments[item.id]?.grade).length, 0);
+  $('graded-total').textContent = graded + ' / ' + total + ' passaggi valutati';
+  $('bank-progress').max = total; $('bank-progress').value = graded;
   const uncertain = list.filter(c => data.annotations[c.id]?.status === 'uncertain').length;
   $('uncertain').textContent = uncertain; $('uncertain-summary').hidden = uncertain === 0;
   $('case-select').replaceChildren(...list.map(c => { const o = document.createElement('option'); o.value = c.id; const state = data.annotations[c.id]?.status; o.textContent = c.id + ' · ' + ({ reviewed: 'Completato', draft: 'Bozza', uncertain: 'Da chiarire' }[state] || 'Da rivedere') + ' · ' + c.query; return o; }));
   $('case-select').value = caseId;
+  updateReadiness();
+}
+function jumpToIssue(issue) {
+  if (issue.candidateId) {
+    candidateIndex = test().candidates.findIndex(c => c.id === issue.candidateId); renderCandidate();
+    const target = issue.kind === 'quote' ? $('use-full-passage') : document.querySelector('[data-grade]');
+    target.focus(); target.scrollIntoView({ block: 'nearest' });
+  } else if (issue.field) {
+    if (issue.field === 'manual-text') $('manual-details').open = true;
+    $(issue.field).focus(); $(issue.field).scrollIntoView({ block: 'nearest' });
+  }
+}
+function updateReadiness() {
+  const issues = BankReview.completionIssues(test(), data.pages, annotation());
+  $('completion-issues').replaceChildren(...issues.map(issue => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
+    button.textContent = issue.message; button.onclick = () => jumpToIssue(issue); return button;
+  }));
+  $('complete').disabled = issues.length > 0 || annotation().status === 'reviewed';
+  $('mrv-next-step').textContent = issues.length ? issues.length + (issues.length === 1 ? ' punto da completare' : ' punti da completare') : annotation().status === 'reviewed' ? 'Caso finalizzato' : 'Pronto da finalizzare';
+  $('mrv-next-step').disabled = !issues.length;
 }
 function dirty() {
-  annotation().status = 'draft'; changed++; message('Modifiche in attesa di salvataggio…');
+  annotation().status = 'draft'; changed++; updateProgress(); message('Modifiche in attesa di salvataggio…');
   clearTimeout(pendingTimer); pendingTimer = setTimeout(() => save().catch(e => message(e.message, true)), 700);
 }
 function save(status) {
@@ -77,13 +101,14 @@ async function selectCase(id) {
   sessionStorage.setItem('review-case-' + data.packetId, id);
 }
 function renderCandidate() {
+  selectedQuote = ''; $('use-selection').disabled = true;
   const item = candidate(), a = annotation(), page = data.pages.find(p => p.id === item.pageId), j = a.judgments[item.id] || {};
   $('candidate-count').textContent = (candidateIndex + 1) + '/' + test().candidates.length;
   $('candidate-count').setAttribute('aria-label', 'Passaggio ' + (candidateIndex + 1) + ' di ' + test().candidates.length);
   $('candidate-source').textContent = page.title + ' · pagina ' + page.page;
   $('candidate-text').textContent = item.text;
   document.querySelectorAll('[data-grade]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.grade === j.grade)));
-  $('quote-label').hidden = !['relevant', 'partial'].includes(j.grade); $('quote').value = j.quote || ''; $('passage-note').value = j.note || '';
+  $('quote-label').hidden = !['relevant', 'partial'].includes(j.grade); $('quote').value = j.quote || ''; $('formulation').value = j.formulation || ''; $('passage-note').value = j.note || '';
   $('prev-passage').disabled = candidateIndex === 0; $('next-passage').disabled = candidateIndex === test().candidates.length - 1;
   $('judged-count').textContent = Object.values(a.judgments).filter(j => j.grade).length + ' di ' + test().candidates.length + ' passaggi valutati in questo caso.';
 }
@@ -129,7 +154,23 @@ on('next-case', 'click', async () => { await flush(); const list = batch(); cons
 on('prev-passage', 'click', () => { candidateIndex--; renderCandidate(); }); on('next-passage', 'click', () => { candidateIndex++; renderCandidate(); });
 on('show-context', 'click', () => showPage(candidate().pageId)); on('page-select', 'change', () => showPage($('page-select').value));
 document.querySelectorAll('[data-grade]').forEach(button => button.onclick = () => { const item = candidate(); const j = annotation().judgments[item.id] ||= {}; j.grade = button.dataset.grade; if (j.grade !== 'irrelevant' && !j.quote) j.quote = item.text; dirty(); renderCandidate(); });
-on('quote', 'input', () => { annotation().judgments[candidate().id].quote = $('quote').value; dirty(); });
+document.addEventListener('selectionchange', () => {
+  const selection = window.getSelection(), element = $('candidate-text');
+  if (selection && element.contains(selection.anchorNode) && element.contains(selection.focusNode) && selection.toString().trim()) {
+    selectedQuote = selection.toString(); $('use-selection').disabled = false;
+  }
+});
+function useQuote(text) {
+  const item = candidate(), page = data.pages.find(p => p.id === item.pageId);
+  annotation().judgments[item.id] = BankReview.replaceQuote(page, item, annotation().judgments[item.id] || {}, text);
+  dirty(); renderCandidate();
+}
+on('use-selection', 'click', () => useQuote(selectedQuote));
+on('use-full-passage', 'click', () => useQuote(candidate().text));
+on('formulation', 'input', () => { annotation().judgments[candidate().id].formulation = $('formulation').value; dirty(); });
+on('mrv-next-step', 'click', () => {
+  const issue = BankReview.completionIssues(test(), data.pages, annotation())[0]; if (issue) jumpToIssue(issue);
+});
 on('passage-note', 'input', () => { (annotation().judgments[candidate().id] ||= {}).note = $('passage-note').value; dirty(); });
 for (const [id, field] of [['source-checked', 'sourceChecked'], ['no-evidence', 'noEvidence']]) on(id, 'change', () => { annotation()[field] = $(id).checked; dirty(); });
 on('notes', 'input', () => { annotation().notes = $('notes').value; dirty(); }); on('reviewer', 'input', () => { if (caseId) { annotation().reviewer = $('reviewer').value; dirty(); } });

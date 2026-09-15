@@ -16,6 +16,8 @@ class ReviewedBankTests(unittest.TestCase):
         raw = json.dumps(corpus).encode()
         bank = {'schema': 2, 'corpusSha256': hashlib.sha256(raw).hexdigest(), 'cases': [{'id': 'i', 'project': 'p', 'split': 'development', 'expected': [{'recordId': 'source:s:0', 'text': 'B', 'start': 4, 'end': 5}], 'humanReview': {'reviewer': 'QA', 'sourceChecked': True}}]}
         validate_reviewed_bank(bank, corpus, raw)
+        bank['cases'][0]['humanReview']['reviewer'] = ''
+        validate_reviewed_bank(bank, corpus, raw)
         with self.assertRaises(ValueError): validate_reviewed_bank(bank, corpus, raw + b' ')
         bank['cases'][0]['expected'][0]['start'] = 3
         with self.assertRaises(ValueError): validate_reviewed_bank(bank, corpus, raw)

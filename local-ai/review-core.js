@@ -23,18 +23,19 @@
     const state = ['draft', 'reviewed', 'uncertain'].includes(input.status) ? input.status : 'draft';
     const reviewer = clean(input.reviewer, 120), notes = clean(input.notes);
     const judgments = Object.create(null);
-    const expected = [], partial = [];
-    for (const candidate of test.candidates) {
+    const expected = [], partial = [], issues = [];
+    for (const [index, candidate] of test.candidates.entries()) {
       const value = input.judgments?.[candidate.id] || {};
       const grade = ['', 'relevant', 'partial', 'irrelevant'].includes(value.grade) ? value.grade : '';
       const quote = clean(value.quote, 500000);
-      judgments[candidate.id] = { grade, quote, note: clean(value.note, 1000) };
+      judgments[candidate.id] = { grade, quote, note: clean(value.note, 1000), formulation: clean(value.formulation, 500000) };
+      if (!grade) issues.push({ candidateId: candidate.id, kind: "grade", message: "Passaggio " + (index + 1) + ": manca la valutazione." });
       if (grade === 'relevant' || grade === 'partial') {
         // Drafts may retain an unfinished excerpt; completed annotations cannot.
         try {
           const found = locate(pages.find(p => p.id === candidate.pageId), quote, candidate);
           (grade === 'relevant' ? expected : partial).push(found);
-        } catch (error) { if (state === 'reviewed') throw error; }
+        } catch (error) { issues.push({ candidateId: candidate.id, kind: "quote", message: "Passaggio " + (index + 1) + ": collega una citazione esatta alla fonte." }); }
       }
     }
     if (!Array.isArray(input.additions || []) || (input.additions || []).length > 40) throw Error('Troppi passaggi aggiunti.');
@@ -47,18 +48,31 @@
       return { ...found, grade, note: clean(value.note, 1000) };
     });
     const sourceChecked = input.sourceChecked === true, noEvidence = input.noEvidence === true;
-    if (state === 'reviewed') {
-      if (!reviewer) throw Error('Indica chi ha svolto la revisione.');
-      if (!sourceChecked) throw Error('Conferma di avere consultato il PDF e il contesto necessario.');
-      if (Object.values(judgments).some(j => !j.grade)) throw Error('Valuta tutti i passaggi proposti prima di completare il caso.');
-      if (noEvidence && (expected.length || partial.length)) throw Error('Prova assente è incompatibile con passaggi pertinenti o parziali.');
-      if (noEvidence && !notes) throw Error('Descrivi il controllo svolto nel dossier per confermare l’assenza.');
-      if (!noEvidence && !expected.length) throw Error('Aggiungi un passaggio pertinente, oppure lascia il caso da chiarire.');
-    }
+    if (!sourceChecked) issues.push({ field: 'source-checked', message: 'Conferma di avere consultato il PDF e il contesto necessario.' });
+    if (noEvidence && (expected.length || partial.length)) issues.push({ field: 'no-evidence', message: 'Prova assente è incompatibile con passaggi pertinenti o parziali.' });
+    if (noEvidence && !notes) issues.push({ field: 'notes', message: 'Descrivi il controllo svolto nel dossier per confermare l’assenza.' });
+    if (!noEvidence && !expected.length && !issues.some(i => i.kind === 'quote')) issues.push({ field: 'manual-text', message: 'Aggiungi un passaggio pertinente, oppure lascia il caso da chiarire.' });
+    if (state === 'reviewed' && issues.length) throw Object.assign(Error(issues[0].message), { issues });
     const unique = items => [...new Map(items.map(x => [x.pageId + ':' + x.start + ':' + x.end, x])).values()];
     const manualDraft = input.manualDraft && pages.some(p => p.id === input.manualDraft.pageId && p.project === test.project)
       ? { pageId: input.manualDraft.pageId, text: clean(input.manualDraft.text, 500000) } : null;
     return { status: state, reviewer, notes, judgments, additions, sourceChecked, noEvidence, manualDraft, expected: unique(expected), partial: unique(partial) };
+  }
+  function completionIssues(test, pages, input) {
+    try { validate(test, pages, { ...input, status: 'reviewed' }); return []; }
+    catch (error) { return error.issues || [{ message: error.message }]; }
+  }
+  function replaceQuote(page, candidate, judgment, quote) {
+    const exact = locate(page, quote, candidate).text;
+    let formulation = judgment.formulation || '';
+    if (judgment.quote) {
+      try { locate(page, judgment.quote, candidate); }
+      catch (_) {
+        if (formulation !== judgment.quote) formulation = [formulation, judgment.quote].filter(Boolean).join('\n\n');
+      }
+    }
+    if (formulation.length > 500000) throw Error('Conserva la formulazione in una copia prima di sostituire la citazione: limite del campo raggiunto.');
+    return { ...judgment, quote: exact, formulation };
   }
   function position(expected, ranking) {
     const at = ranking.findIndex(row => expected.some(e => row.pageId === e.pageId && row.start <= e.start && row.end >= e.end && norm(row.text).includes(norm(e.text))));
@@ -104,5 +118,5 @@
     return { packetId: packet.id, annotationRevision: state.version, reviewed: cases.length, total: packet.cases.length,
       note: 'Hit@k = quota di domande con almeno un passaggio pertinente completo nei primi k. Casi parziali/da chiarire esclusi; assenza rendicontata separatamente. Non misura correttezza scientifica. Corpus piccolo e annotazioni non esaustive limitano il confronto.', summary, cases };
   }
-  return { validate, locate, position, exportBank, report };
+  return { validate, locate, completionIssues, replaceQuote, position, exportBank, report };
 }));

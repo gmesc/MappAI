@@ -18,7 +18,7 @@ function fixture(t) {
 test('gold uses exact Unicode offsets, all valid passages, and completion gates', t => {
   const { packet, annotation, page } = fixture(t); const c = packet.cases[0];
   assert.equal(Core.validate(c, packet.pages, annotation).expected[0].start, 4);
-  for (const bad of [{ reviewer: '' }, { sourceChecked: false }, { judgments: {} }, { noEvidence: true }, { judgments: { a: { grade: 'relevant', quote: 'inventato' } } }]) assert.throws(() => Core.validate(c, packet.pages, { ...annotation, ...bad }));
+  for (const bad of [{ sourceChecked: false }, { judgments: {} }, { noEvidence: true }, { judgments: { a: { grade: 'relevant', quote: 'inventato' } } }]) assert.throws(() => Core.validate(c, packet.pages, { ...annotation, ...bad }));
   assert.throws(() => Core.validate(c, packet.pages, { ...annotation, additions: [{ pageId: 'foreign', text: 'Il' }] }));
   const partial = Core.validate(c, packet.pages, { ...annotation, status: 'uncertain', judgments: { a: { grade: 'partial', quote: 'Il circuito' } } });
   assert.equal(partial.expected.length, 0); assert.equal(partial.partial.length, 1);
@@ -58,7 +58,7 @@ test('HTTP binds localhost, requires token and same origin, and rejects replaced
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
   t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
   const url = new URL(server.reviewUrl), origin = url.origin, headers = { 'X-Review-Token': url.hash.slice(1) };
-  for (const asset of ['/review-pdf.js', '/public/js/lucide.min.js', '/public/js/mappai-proiezione-core.js']) assert.equal((await fetch(origin + asset)).status, 200);
+  for (const asset of ['/review-core.js', '/review-pdf.js', '/public/js/lucide.min.js', '/public/js/mappai-proiezione-core.js']) assert.equal((await fetch(origin + asset)).status, 200);
   assert.equal((await fetch(origin + '/api/state')).status, 403);
   assert.equal((await fetch(origin + '/api/state', { headers: { ...headers, Origin: 'https://foreign.invalid' } })).status, 403);
   const wrongHost = await new Promise((resolve, reject) => require('node:http').get(origin + '/api/state', { headers: { ...headers, Host: 'evil.invalid' } }, response => { response.resume(); resolve(response.statusCode); }).on('error', reject));
@@ -142,4 +142,23 @@ test('Electron opens one native window, guards IPC, preserves revisions and wait
   app.emit('before-quit', { preventDefault() {} });
   await handlers.get('review-bank-close-failed')(event(windows[3]));
   assert.equal(app.quits, 1);
+});
+
+test('optional attribution, actionable blockers and explicit citation replacement preserve teacher wording', t => {
+  const { packet, page, item, annotation, store, directory } = fixture(t);
+  assert.equal(Core.validate(packet.cases[0], packet.pages, { ...annotation, reviewer: '' }).reviewer, '');
+  const c = { ...packet.cases[0], candidates: [item, { ...item, id: 'b' }] };
+  const edited = { grade: 'relevant', quote: 'Il circuito deve esser chiuso.', note: 'Decisione docente' };
+  const issues = Core.completionIssues(c, packet.pages, { ...annotation, sourceChecked: false, judgments: { a: edited } });
+  assert(issues.some(i => i.candidateId === 'a' && i.kind === 'quote'));
+  assert(issues.some(i => i.candidateId === 'b' && i.kind === 'grade'));
+  assert(issues.some(i => i.field === 'source-checked'));
+  const repaired = Core.replaceQuote(page, item, edited, item.text);
+  assert.equal(repaired.formulation, edited.quote); assert.equal(repaired.note, edited.note);
+  assert.equal(edited.quote, 'Il circuito deve esser chiuso.');
+  assert.throws(() => Core.replaceQuote(page, item, edited, 'Inventato'));
+  store.save('IT-001', 0, { ...annotation, reviewer: '', judgments: { a: repaired } });
+  const state = createStore(directory).load();
+  assert.equal(state.annotations['IT-001'].judgments.a.formulation, edited.quote);
+  assert.equal(Core.exportBank(packet, state).cases.length, 1);
 });

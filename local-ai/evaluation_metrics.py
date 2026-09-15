@@ -27,7 +27,7 @@ def validate_reviewed_bank(bank, corpus, corpus_bytes):
             raise ValueError('Duplicate reviewed case')
         ids.add(case['id'])
         review = case.get('humanReview', {})
-        if not review.get('reviewer') or review.get('sourceChecked') is not True:
+        if review.get('sourceChecked') is not True:
             raise ValueError('Human review is incomplete')
         if not case.get('expected') and (not review.get('noEvidence') or not review.get('notes')):
             raise ValueError('Missing absence assessment')

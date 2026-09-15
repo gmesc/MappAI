@@ -12,7 +12,7 @@
   <script src="../public/js/mappai-font.js" defer></script>
   <script src="../public/js/lucide.min.js" defer></script>
   <script src="../public/js/mappai-proiezione-core.js" defer></script>
-  <script src="../public/js/pdf.min.js" defer></script><script src="review-pdf.js" defer></script><script src="review-ui.js" defer></script>
+  <script src="../public/js/pdf.min.js" defer></script><script src="review-pdf.js" defer></script><script src="review-core.js" defer></script><script src="review-ui.js" defer></script>
 </head>
 <body id="mappai-teacher-review" class="bank-review">
 <main class="mrv-dashboard">
@@ -21,14 +21,14 @@
     <nav class="bank-row" aria-label="Vista del banco"><button type="button" class="pm-btn-cancel" id="close-bank" hidden>Torna a MappAI</button></nav>
   </header>
   <section class="mrv-overview" aria-label="Avanzamento">
-    <strong><span id="completed">0 / 20</span> casi completati</strong>
-    <progress id="bank-progress" max="20" value="0" aria-label="Avanzamento della revisione"></progress>
+    <strong><span id="completed">0 / 20</span> casi finalizzati</strong><span id="graded-total" class="bank-muted"></span>
+    <progress id="bank-progress" max="20" value="0" aria-label="Passaggi valutati nel lotto"></progress>
     <p id="message" role="status" aria-live="polite">Caricamento del banco locale…</p>
   </section>
   <div id="workspace" class="mrv-workspace bank-console" hidden>
     <aside id="bank-sidebar" class="mrv-sidebar bank-stack mm-console__side" aria-label="Selezione e strumenti del banco">
       <label>Lotto<select id="batch"><option value="critical">Primi 20 casi critici</option><option value="all">Tutti i 60 casi</option></select></label>
-      <label>Revisore<input id="reviewer" placeholder="Nome o sigla" autocomplete="name" maxlength="120"></label>
+      <label>Revisore (facoltativo)<input id="reviewer" placeholder="Nome o sigla, se utile" autocomplete="name" maxlength="120"></label>
       <div class="bank-stack"><label>Caso<select id="case-select"></select></label><p id="uncertain-summary" class="bank-muted" hidden><span id="uncertain">0</span> da chiarire nel lotto</p><button type="button" class="pm-btn-cancel" id="next-case">Prossimo da rivedere</button></div>
       <nav class="bank-stack bank-tools" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button></nav>
       <details class="mrv-coverage bank-help"><summary>Come si usa il banco</summary><p>Consulta la fonte e valuta ogni passaggio. Puoi aggiungere estratti mancanti dal testo archiviato.</p><p>Nel PDF usa la rotellina per ingrandire sul puntatore e trascina tenendo premuto il tasto sinistro. Da tastiera: + e − per lo zoom, frecce per spostare, 0 per adattare alla larghezza. Il pulsante con le frecce orizzontali ripristina la larghezza.</p><p>Aa cambia soltanto la dimensione del testo da valutare: x1, x1,5, x2. Ordine dei passaggi mescolato; modelli, posizioni e punteggi sono nascosti.</p><p>La pertinenza rispetto alla domanda e la correttezza scientifica richiedono giudizi separati.</p><p>Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire restano esclusi. Il conteggio «da chiarire» comprende soltanto i casi lasciati esplicitamente in dubbio, non tutti quelli ancora da rivedere.</p><p>Le revisioni precedenti sono conservate su disco.</p></details>
@@ -65,10 +65,15 @@
             <p id="candidate-source" class="mrv-evidence-source"></p>
             <div class="mrv-evidence-preview bank-evidence"><p id="candidate-text" class="bank-text" tabindex="0"></p></div>
             <div class="bank-grade" role="group" aria-label="Pertinenza del passaggio"><button type="button" class="pm-btn-cancel" data-grade="relevant" aria-pressed="false">Pertinente</button><button type="button" class="pm-btn-cancel" data-grade="partial" aria-pressed="false">Parzialmente pertinente</button><button type="button" class="pm-btn-cancel" data-grade="irrelevant" aria-pressed="false">Non pertinente</button></div>
-            <label id="quote-label" hidden>Passaggio essenziale da usare nel banco<textarea id="quote" rows="4"></textarea><span class="bank-muted">Puoi accorciarlo copiando un estratto esatto. Mantieni soggetto, negazioni e condizioni; più passaggi validi sono ammessi.</span></label>
+            <div id="quote-label" class="bank-stack" hidden>
+              <label>Citazione collegata alla fonte<textarea id="quote" rows="3" readonly></textarea></label>
+              <p class="bank-muted">Seleziona il testo nel passaggio sopra e premi «Usa selezione». Una formulazione già scritta che differisce dalla fonte viene conservata nel campo separato.</p>
+              <div class="bank-row"><button type="button" class="pm-btn-cancel" id="use-selection" disabled>Usa selezione</button><button type="button" class="pm-btn-cancel" id="use-full-passage">Usa passaggio intero</button></div>
+              <label>Formulazione o commento (facoltativo)<textarea id="formulation" rows="3" maxlength="500000" placeholder="Qui puoi riformulare o commentare, senza alterare la citazione."></textarea></label>
+            </div>
             <label>Nota sul passaggio<input id="passage-note" maxlength="1000" placeholder="Facoltativa"></label><p id="judged-count" class="bank-muted"></p>
             <section class="bank-conclusion bank-stack" aria-labelledby="conclusion-heading">
-              <h3 id="conclusion-heading">Conclusione del caso</h3>
+              <h3 id="conclusion-heading">Conclusione del caso</h3><div id="completion-issues" class="bank-stack" aria-label="Punti da completare"></div>
               <label class="bank-check"><input type="checkbox" id="source-checked">Ho consultato il PDF e il contesto necessario alla valutazione.</label>
               <label class="bank-check"><input type="checkbox" id="no-evidence">Non ho trovato alcuna prova nel dossier, dopo averlo controllato oltre i passaggi proposti.</label>
               <label>Note e dubbi<textarea id="notes" rows="3" placeholder="Motiva i casi dubbi e il controllo svolto quando la prova è assente."></textarea></label>
@@ -78,7 +83,7 @@
       </div>
     </section>
   </div>
-  <footer class="mrv-footer"><p id="mrv-next-step">Le annotazioni si salvano nel banco. I materiali originali restano invariati.</p><div class="mrv-footer-actions"><button type="button" class="pm-btn-cancel" id="save">Salva bozza</button><button type="button" class="pm-btn-cancel" id="mark-uncertain">Lascia da chiarire</button><button type="button" class="pm-btn-primary" id="complete">Completa revisione</button></div></footer>
+  <footer class="mrv-footer"><button type="button" class="pm-btn-cancel" id="mrv-next-step">Controlla i punti da completare</button><div class="mrv-footer-actions"><button type="button" class="pm-btn-cancel" id="save">Salva bozza</button><button type="button" class="pm-btn-cancel" id="mark-uncertain">Lascia da chiarire</button><button type="button" class="pm-btn-primary" id="complete">Finalizza caso</button></div></footer>
 </main>
 <dialog id="report" class="mrv-card bank-report"><div class="bank-row"><h2 class="grow">Confronto sui casi revisionati</h2><button type="button" class="pm-btn-cancel" id="close-report">Chiudi</button></div><p id="report-note" class="bank-muted"></p><div id="report-body"></div><button type="button" class="pm-btn-cancel" id="download-report">Scarica rapporto JSON</button></dialog>
 </body></html>

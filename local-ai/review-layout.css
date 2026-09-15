@@ -48,7 +48,8 @@ input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review #source-text{padding:var(--mm-gap);border-radius:var(--mm-r-campo);background:var(--mm-fondo-sez)}
 #mappai-teacher-review .bank-evidence{margin:0;padding:var(--mm-gap)}
 #mappai-teacher-review #candidate-text{max-height:40vh;overflow:auto;font-size:calc(1em * var(--bank-text-scale,1))}
-#mappai-teacher-review #quote{font-size:calc(.875rem * var(--bank-text-scale,1))}
+#mappai-teacher-review #quote,
+#mappai-teacher-review #formulation{font-size:calc(.875rem * var(--bank-text-scale,1))}
 #mappai-teacher-review .bank-grade{display:flex;gap:var(--mm-btn-gap);flex-wrap:wrap}
 #mappai-teacher-review .bank-grade button{flex:1}
 #mappai-teacher-review [data-grade][aria-pressed=true]{background:var(--mm-accent);border-color:var(--mm-accent);color:var(--mm-fondo)}
@@ -78,7 +79,6 @@ input,select,textarea,button{font-family:inherit}
   #mappai-teacher-review .bank-source-notes{max-height:none}
   #mappai-teacher-review .bank-source{border-right:0;border-bottom:1px solid var(--mm-bordo)}
   #mappai-teacher-review .mrv-footer{padding:12px 16px;gap:var(--mm-btn-gap)}
-  #mappai-teacher-review #mrv-next-step{display:none}
   #mappai-teacher-review .mrv-footer-actions{margin:0;width:100%}
   #mappai-teacher-review .mrv-footer-actions button{flex:1}
 }
