@@ -6,10 +6,29 @@
 <title>MappAI — Lavagna collaborativa</title>
 <!-- Stesso font della viewport mappa dell'app + emoji Android (Noto) come le altre pagine LAN
      (fallback monospace / emoji di sistema se la LAN è offline) -->
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<!-- SPACE MONO È LOCALE (15/9/2026), come in index.html dal 18/8: lo serve il
+     server LAN da public/fonts/ (allowlist `/public/fonts/`). Prima arrivava da
+     fonts.googleapis.com e in aula senza rete — o dietro il filtro della scuola —
+     il telefono dell'allievo cadeva sul monospace di sistema senza dire niente.
+     Noto Color Emoji RESTA dalla rete: il file è 25 MB, e senza rete il telefono
+     ha comunque le sue emoji (stessa scelta di index.html, commentata lì). -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  @font-face { font-family:'Space Mono'; font-style:normal; font-weight:400;
+    src:url('../fonts/SpaceMono-Regular.ttf') format('truetype'); font-display:swap; }
+  @font-face { font-family:'Space Mono'; font-style:normal; font-weight:700;
+    src:url('../fonts/SpaceMono-Bold.ttf') format('truetype'); font-display:swap; }
+  /* Le 27 emoji che NON sono decorazione — l'identità dell'allievo e i codici
+     d'accesso dei gruppi — da un font locale di 254 KB ritagliato da Noto
+     (tools/font/emoji-sottoinsieme.py). Sta PRIMA di Noto nello stack: quelle
+     si vedono anche senza rete e uguali su ogni telefono; le altre ripiegano
+     come prima. */
+  @font-face { font-family:'MappAI Emoji'; font-style:normal; font-weight:400;
+    src:url('../fonts/MappAIEmoji.ttf') format('truetype'); font-display:swap; }
+</style>
 <style>
   /* emoji Android (Noto) prima del fallback di sistema — regola globale MappAI */
-  :root { --emoji: 'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
+  :root { --emoji: 'MappAI Emoji','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
   * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
       font-family: 'Space Mono', var(--emoji), ui-monospace, monospace; }
   html, body { height: 100%; }
