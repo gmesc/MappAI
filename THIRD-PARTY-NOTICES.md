@@ -5,7 +5,7 @@ Questo vale per il codice scritto per MappAI. I componenti elencati qui sotto so
 terzi, vengono inclusi così come sono e **restano sotto la loro licenza**: la GPL non li
 copre e non li sostituisce (GPLv3 §5, «mere aggregation»).
 
-Ultimo controllo: 9 settembre 2026.
+Ultimo controllo generale: 9 settembre 2026. Sezione recupero locale e collegamenti documentali aggiornati il 15 settembre 2026.
 
 ## Font
 
@@ -102,3 +102,12 @@ Il worker PDF.js `public/js/pdf.worker.min.js` è quello di pdfjs-dist 3.4.120,
 Apache-2.0, stessa versione della libreria già presente. Provenienza: pacchetto
 npm ufficiale pdfjs-dist, SHA1 tarball `6f4222117157498f179c95dc4569fad6336a8fdd`.
 La copia locale elimina la dipendenza dalla CDN per l'estrazione PDF offline.
+
+
+Il Banco validazione integrato riusa PDF.js, Lucide e i font già distribuiti con
+l’app; il nuovo flusso non aggiunge dipendenze o modelli. I pacchetti privati del
+banco (PDF, corpus e annotazioni) restano fuori dalla build. Per le versioni
+verificate e il confine fra risorse incluse e runtime opzionale vedere il
+[rapporto Sentence Transformers](docs/VERIFICA-sentence-transformers-locale-2026-09-15.md),
+la [guida alla ricerca](docs/GUIDA-ricerca-locale.md) e la
+[guida del banco](docs/GUIDA-banco-validazione-locale.md).

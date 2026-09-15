@@ -1,4 +1,8 @@
-# Banco locale di revisione dei passaggi
+# Banco validazione — guida corrente
+
+Aggiornata al 15 settembre 2026, codice `c155242` sul branch `codex/sentence-transformers-locale`. Build corrente: `dist/banco-flusso-20260915/mac-arm64/MappAI.app`. I percorsi e i conteggi nelle sezioni di verifica storiche documentano passaggi precedenti, non la build corrente.
+
+Collegamenti: [piano S0–S5](PIANO-sentence-transformers-locale-2026-09-15.md), [rapporto del motore e del banco](VERIFICA-sentence-transformers-locale-2026-09-15.md), [uso della ricerca nei modali](GUIDA-ricerca-locale.md), [stato del repository](HANDOFF.md).
 
 ## Avvio sul Mac
 
@@ -96,9 +100,43 @@ verso i bordi. Il cambio pagina riparte dalla larghezza; il ridimensionamento
 della finestra mantiene l’adattamento se attivo e rispetta uno zoom manuale.
 
 **Aa x1 → Aa x1,5 → Aa x2 → Aa x1** cambia il testo del passaggio e del suo
-estratto essenziale. Conserva il carattere scelto nell’app e non ingrandisce
+estratto essenziale, oltre al campo **Formulazione o commento**. Conserva il
+carattere scelto nell’app e non ingrandisce
 bottoni e titoli. PDF, zoom e Aa cambiano soltanto la vista: non salvano
 revisioni, non modificano il testo annotato, il file PDF o la sua impaginazione.
+
+## Avanzamento e citazioni
+
+La barra conta i **passaggi valutati**, anche nelle bozze. Il contatore dei
+**casi finalizzati** indica invece quelli inclusi nel confronto. I punti da
+completare sono cliccabili e portano al giudizio, alla citazione o alla conferma
+mancante. Nessuna bozza viene finalizzata automaticamente.
+
+La citazione è collegata al testo archiviato e non si riscrive a mano. Quando
+si sostituisce una vecchia citazione che differisce dalla fonte, il testo precedente
+viene conservato in **Formulazione o commento**, separato dal riferimento usato
+per le metriche. Le revisioni precedenti restano su disco. Selezionare una citazione
+troppo breve o il passaggio intero cambia ciò che si misura: mantenere il contesto
+necessario alla domanda. Il lavoro costruisce riferimenti per confronti e regressioni;
+non addestra automaticamente i modelli e non certifica la correttezza scientifica.
+
+### Riprendere i casi già iniziati
+
+Il vecchio contatore mostrava solo i casi finalizzati: una bozza anche interamente
+valutata poteva lasciare il contatore a zero. Non significava perdita dei giudizi.
+
+1. Scegliere il caso già iniziato e controllare il numero di passaggi valutati.
+2. Premere **N punti da completare**, oppure il singolo punto nella conclusione:
+   il banco porta al passaggio o al campo interessato.
+3. Se una citazione era stata riformulata, selezionare il testo esatto e usare
+   **Usa selezione**; la formulazione precedente viene conservata separatamente.
+   **Usa passaggio intero** è una scelta esplicita, da fare se il contesto completo è utile.
+4. Quando compare **Pronto da finalizzare**, premere **Finalizza caso**. Se rimangono
+   dubbi sul riferimento o sull’estrazione, usare **Lascia da chiarire**.
+
+Alla rilevazione della revisione 157, IT-001, IT-002, IT-009 e IT-010 contenevano
+56 giudizi su 58 passaggi; in IT-009 mancavano il 15 e il 17. È uno snapshot storico,
+non una richiesta di rifare le valutazioni né un conteggio aggiornato dei tuoi dati.
 
 ## Il primo lotto
 
@@ -148,7 +186,9 @@ registrati: nessuna inferenza nuova. Taratura e verifica restano distinte.
   principali. Bozze e casi da chiarire non entrano nel denominatore.
 
 **Esporta revisioni** scarica `bank-reviewed-rN.json`, contenente soltanto casi
-completati, riferimenti esatti, revisore, note, revisione e identità del corpus.
+finalizzati, riferimenti esatti, nome facoltativo, note del caso, revisione e identità del corpus.
+Le formulazioni e le note dei singoli passaggi restano nelle annotazioni e in
+**Copia annotazioni**; non sono incluse nell’esportazione dei riferimenti per le metriche.
 **Scarica rapporto JSON** conserva anche i casi mancati e i ranghi per metodo.
 Per una nuova inferenza usando il banco esportato:
 
@@ -160,7 +200,7 @@ Per una nuova inferenza usando il banco esportato:
 
 L’evaluatore verifica hash del corpus, stato umano dichiarato e offset delle
 citazioni. Scrive un rapporto `*-reviewed-rN.json` separato dal banco iniziale.
-Il nome del revisore è un’attestazione inserita dall’utente, non una firma
+Il nome del revisore, se presente, è un’attestazione inserita dall’utente, non una firma
 crittografica né una prova automatica della competenza o indipendenza del giudizio.
 
 ## Dati, riproduzione e limiti
@@ -203,9 +243,15 @@ Il pool può mancare passaggi validi: aggiungerli dal dossier è essenziale. Res
 i limiti del corpus piccolo (29 frammenti elettrici, 9 storici), della separazione
 per soli due dossier e delle annotazioni non esaustive. Il prossimo ampliamento
 utile sarà una verifica su dossier nuovi e più grandi, mantenuti separati dalla
-taratura. Questo strumento rende possibile la revisione umana; non l’ha svolta.
+taratura. La revisione del docente è iniziata; la sua finalizzazione e una validazione
+indipendente più ampia restano aperte. I casi finalizzati dall’agente nelle copie QA
+non contribuiscono a questa validazione.
 
-## Verifiche del 15 settembre 2026
+## Cronologia delle verifiche del 15 settembre 2026
+
+Le suite riportate sono esecuzioni successive: non sommare i conteggi e non
+attribuire le suite complete storiche all’ultimo commit. L’ultima modifica del
+flusso ha superato 41 test Node mirati e 2 test Python, come documentato sotto.
 
 - **1.541 test Node superati, 0 fallimenti, 2 skipped**; escluso il già noto
   `live-server.test.js`. Cinque nuove prove coprono regole, persistenza,
@@ -322,21 +368,6 @@ La build arm64 aggiornata è in `dist/banco-maniglia-20260915/mac-arm64/MappAI.a
 Verifiche: 40 test banco/font/PDF e 99 test console/modali superati; prova
 nel browser a 1707 e 700 px, apertura/chiusura e riapertura da tastiera;
 prova nella build arm64 con font Atkinson e riadattamento del PDF.
-
-## Avanzamento e citazioni (15 settembre 2026)
-
-La barra conta i **passaggi valutati**, anche nelle bozze. Il contatore dei
-**casi finalizzati** indica invece quelli inclusi nel confronto. I punti da
-completare sono cliccabili e portano al giudizio, alla citazione o alla conferma
-mancante. Nessuna bozza viene finalizzata automaticamente.
-
-La citazione è collegata al testo archiviato e non si riscrive a mano. Quando
-si sostituisce una vecchia citazione che differisce dalla fonte, il testo precedente
-viene conservato in **Formulazione o commento**, separato dal riferimento usato
-per le metriche. Le revisioni precedenti restano su disco. Selezionare una citazione
-troppo breve o il passaggio intero cambia ciò che si misura: mantenere il contesto
-necessario alla domanda. Il lavoro costruisce riferimenti per confronti e regressioni;
-non addestra automaticamente i modelli e non certifica la correttezza scientifica.
 
 ### Verifica del nuovo flusso
 

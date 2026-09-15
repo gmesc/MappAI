@@ -1,5 +1,9 @@
 # Ricerca locale di passaggi e occorrenze
 
+Aggiornata al 15 settembre 2026, codice `c155242` sul branch `codex/sentence-transformers-locale`. S0–S4 e S5 tecnica consegnate; revisione umana del banco ancora aperta. Build corrente: `dist/banco-flusso-20260915/mac-arm64/MappAI.app` (locale, non firmata/notarizzata).
+
+Documenti collegati: [piano e stato S0–S5](PIANO-sentence-transformers-locale-2026-09-15.md), [misure e limiti](VERIFICA-sentence-transformers-locale-2026-09-15.md), [Banco validazione](GUIDA-banco-validazione-locale.md), [componenti distribuiti](../THIRD-PARTY-NOTICES.md).
+
 ## Installazione sul Mac
 
 Richiede macOS arm64 e un'installazione **Python 3.13 arm64** (per esempio Homebrew).
@@ -56,6 +60,16 @@ contrario alla domanda o privo di una condizione può essere pertinente. Nessun
 punteggio diventa percentuale di correttezza. Una lista vuota non significa falso;
 una lista piena non significa che esista una prova. Il giudice conserva le pagine
 intere e tutte le azioni Accetta/Mantieni/Modifica rimangono nel registro esistente.
+
+## Banco validazione: revisione del recupero
+
+**Cabina → Sviluppo → Banco di validazione** apre una finestra dell’app dedicata alla valutazione dei passaggi. È distinta dal modale che revisiona i materiali del progetto: non applica decisioni né correzioni al progetto.
+
+Il banco usa font, controlli e stile dell’app; offre PDF con zoom e trascinamento, testo ingrandibile con Aa e sidebar richiudibile. Conta separatamente **passaggi valutati** e **casi finalizzati**, mostra i punti mancanti e permette di selezionare citazioni esatte conservando le formulazioni del docente. Il nome è facoltativo.
+
+Per annotare il pacchetto già preparato non servono Python, modelli caricati o server. La prima apertura della build richiede la cartella del banco, poi la ricorda. Per preparare un nuovo pacchetto o ripetere l’inferenza si usano gli strumenti del repository descritti nella [guida del banco](GUIDA-banco-validazione-locale.md). Il confronto in finestra ricalcola le metriche sui risultati già registrati; non rilancia i modelli né li addestra.
+
+Le annotazioni sono dati del docente, non cache: conservare tutta la cartella scelta, incluso `annotations/`. Non cancellarla per ricostruire l’indice della ricerca. La build non incorpora corpus, PDF privati o annotazioni.
 
 ## Stato e riservatezza
 

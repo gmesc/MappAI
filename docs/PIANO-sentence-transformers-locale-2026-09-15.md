@@ -1,6 +1,30 @@
 # Sentence Transformers locale per MappAI — piano di implementazione
 
-Data: 15 settembre 2026. Stato: progetto operativo da implementare nella prossima chat; nessun runtime o modello installato durante la stesura.
+Data e aggiornamento: 15 settembre 2026. **S0–S4 implementate; S5 tecnica eseguita, revisione umana del banco ancora aperta.** Stato del codice: branch `codex/sentence-transformers-locale`, fino a `c155242`; non incorporato in `main`.
+
+Questo documento conserva requisiti e criteri del piano originale. Le formulazioni prescrittive nelle sezioni seguenti descrivono il contratto, non attività tutte ancora da iniziare. Durante la stesura iniziale non erano installati runtime e modelli; ora sono installati e verificati sul Mac.
+
+## Stato di attuazione e documenti collegati
+
+| Ambito | Stato al 15 settembre 2026 |
+|---|---|
+| S0–S1 | Baseline e copie protette; runtime Python 3.13 arm64, modelli BGE/E5 reali, MPS e CPU verificati. |
+| S2–S3 | Indice SQLite persistente e incrementale, dense/FTS5, RRF e reranking; processo persistente e IPC Electron. |
+| S4 | Prove e occorrenze nei modali, sincronizzazione di fonti e contenuti generati, decisioni conservate. |
+| S5 tecnica | Banco italiano da 60 casi, misure esplorative, regressioni e build arm64 verificati. |
+| S5 umana | Banco integrato in Cabina; revisione avviata dal docente, ancora da finalizzare e ampliare. Nessuna certificazione scientifica. |
+
+- [Rapporto di verifica](VERIFICA-sentence-transformers-locale-2026-09-15.md): versioni, misure storiche, verifiche successive e limiti.
+- [Guida alla ricerca locale](GUIDA-ricerca-locale.md): setup, uso, cache e rimozione.
+- [Guida al Banco validazione](GUIDA-banco-validazione-locale.md): flusso corrente, persistenza e valutazione umana.
+- [Punto di ripresa del repository](HANDOFF.md): collocazione del lavoro sul branch.
+- [Componenti e licenze](../THIRD-PARTY-NOTICES.md): runtime opzionale e risorse distribuite.
+
+Ultima build locale consegnata: `dist/banco-flusso-20260915/mac-arm64/MappAI.app` (MappAI 1.0.0-beta.5, Electron 41.10.7; non firmata/notarizzata). Il banco vive nella sua finestra Electron, segue il font dell’app e non richiede modelli caricati per annotare.
+
+Il contatore distingue passaggi valutati e casi finalizzati. I punti mancanti sono cliccabili, il nome è facoltativo e la citazione si seleziona dal testo archiviato; le formulazioni del docente vengono conservate separatamente quando si sostituisce un estratto non esatto. Nessuna finalizzazione automatica.
+
+**Prossimo passo:** completare esplicitamente le revisioni iniziate, controllare il sottoinsieme esportato e poi ampliare la verifica a dossier nuovi e più grandi, separati dalla taratura. Le prove funzionali su copie temporanee non valgono come annotazioni del docente; non sono stati rimisurati tempi o qualità dei modelli dopo i soli interventi al banco.
 
 Destinatario: agente incaricato di realizzare la funzionalità nel repository `/Users/giacomomeschini/Claude/MappAI re`.
 
@@ -190,7 +214,7 @@ Il lavoro locale non invia PDF a un servizio di embedding. L'eventuale uso succe
 
 Per consegna sul Mac verificare sia avvio da repository sia build Electron arm64, percorsi con spazi, risorse Python fuori dall'archivio ASAR ove necessario, disponibilità dei modelli e chiusura del worker. Prevedere notices delle dipendenze e dei modelli. Firma/notarizzazione e distribuzione pubblica multipiattaforma sono un rilascio successivo; sulle piattaforme non supportate la funzione deve degradare senza rompere MappAI.
 
-## 11. Sequenza di lavoro nella nuova chat
+## 11. Sequenza del piano originale e criteri di consegna
 
 | Fase | Lavoro | Uscita richiesta |
 |---|---|---|
@@ -239,6 +263,8 @@ Definition of done: S0–S5 consegnate, indice persistente e incrementale, citaz
 - fine-tuning soltanto con esempi affidabili e un banco di verifica separato; le decisioni del docente non sono automaticamente etichette scientifiche vere;
 - progettazione e revisione UDL descritta nella traccia collegata.
 
-## 14. Testo da usare nella nuova chat
+## 14. Richiesta originaria conservata per tracciabilità
+
+Non è il punto di ripartenza: usare lo stato di attuazione e i documenti collegati sopra, senza reinstallare o ricostruire il banco già annotato.
 
 > Implementa il piano `/Users/giacomomeschini/Claude/MappAI re/docs/PIANO-sentence-transformers-locale-2026-09-15.md` nel repository MappAI. L'obiettivo è completare S0–S5: Sentence Transformers locale sul mio MacBook Air M5 con 32 GB, indicizzazione persistente del PDF e dei contenuti generati, ricerca ibrida con reranking e integrazione delle prove/occorrenze nel modale. Leggi lo stato attuale e preserva le modifiche già presenti. Usa copie temporanee per i progetti di prova; non correggere i materiali originali, non modificare preset o impaginazione PDF e conserva le decisioni del docente. Esegui il banco italiano e verifica anche l'uso nella build locale arm64. Il documento UDL collegato serve solo come promemoria futuro: non implementarlo in questa fase. Documenta versioni, risultati misurati e limiti senza equiparare pertinenza e correttezza scientifica.

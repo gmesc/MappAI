@@ -4,6 +4,12 @@ Data: 15 settembre 2026. Stato: promemoria di progettazione; non incluso nel lav
 
 Documento tecnico collegato: [Piano Sentence Transformers locale](</Users/giacomomeschini/Claude/MappAI re/docs/PIANO-sentence-transformers-locale-2026-09-15.md>).
 
+## Collegamento allo stato implementato
+
+Aggiornamento documentale del 15 settembre 2026: il motore locale S0–S4 e la verifica tecnica S5 sono consegnati sul branch `codex/sentence-transformers-locale`; il Banco validazione è integrato nell’app e la revisione umana resta aperta. Vedere [rapporto di verifica](VERIFICA-sentence-transformers-locale-2026-09-15.md), [guida alla ricerca](GUIDA-ricerca-locale.md) e [guida del banco](GUIDA-banco-validazione-locale.md).
+
+**Questa traccia rimane futura e non implementata.** Citazioni, giudizi di pertinenza e formulazioni conservate dal banco non costituiscono etichette di accessibilità, correttezza scientifica o efficacia didattica. L’aggiornamento dei collegamenti non amplia il perimetro del lavoro.
+
 ## Intenzione da conservare
 
 Aiutare il docente a produrre materiali scientificamente precisi e a ridurre le barriere del curricolo. Offrire vie diverse per accedere ai contenuti, partecipare e dimostrare l'apprendimento, mantenendo riconoscibili gli obiettivi e l'azione richiesta allo studente.

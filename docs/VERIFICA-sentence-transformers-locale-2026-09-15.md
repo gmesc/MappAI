@@ -1,6 +1,16 @@
 # Sentence Transformers locale — verifica del 15 settembre 2026
 
-## Esito e perimetro
+## Aggiornamento corrente
+
+Codice verificato fino al commit `c155242` sul branch `codex/sentence-transformers-locale`; non incorporato in `main`. Il motore S0–S4 e la verifica tecnica S5 sono consegnati. La revisione umana è iniziata, ma la validazione indipendente del banco rimane aperta.
+
+Build corrente: `dist/banco-flusso-20260915/mac-arm64/MappAI.app`, MappAI 1.0.0-beta.5, Electron 41.10.7, electron-builder 26.15.3, arm64, non firmata/notarizzata. Sostituisce come consegna corrente i percorsi di build storici riportati sotto.
+
+Il Banco validazione è integrato in **Cabina → Sviluppo → Banco di validazione**, in una finestra dedicata con font e stile condivisi. Non è una nuova fase Crea/Elabora. PDF con zoom sul puntatore e trascinamento, Aa x1/x1,5/x2, barre compatte e maniglia della sidebar condivisa con Elabora/Insegna.
+
+Le misure di recupero nelle tabelle restano quelle dell’esperimento originale. Gli interventi successivi al banco non modificano i modelli e non dimostrano un miglioramento di qualità o velocità della revisione.
+
+## Esito e perimetro della prima consegna
 
 Branch `codex/sentence-transformers-locale`, base `d034020`, creato da `main` con copia di lavoro inizialmente pulita. Le modifiche preesistenti già nella base Git sono conservate. Nessun push.
 
@@ -121,7 +131,7 @@ Tre banchi ausiliari sono già rotti sulla base HEAD: `cornice-documenti` cerca 
 
 [Guida a installazione, uso, cache e rimozione](GUIDA-ricerca-locale.md). Licenze in `THIRD-PARTY-NOTICES.md`; fonti tecniche: [Sentence Transformers](https://www.sbert.net/docs/sentence_transformer/usage/efficiency.html), [BGE-M3](https://huggingface.co/BAAI/bge-m3), [reranker](https://huggingface.co/BAAI/bge-reranker-v2-m3), [E5](https://huggingface.co/intfloat/multilingual-e5-base).
 
-## Risultati conclusivi
+## Risultati della prima consegna tecnica
 
 - Regressione finale: **1.538 test Node, 1.536 superati, zero fallimenti, due skipped**; escluso `live-server.test.js` per il blocco preesistente. **9 test Python superati**.
 - Build definitiva Electron: **15/15 controlli di integrazione superati**, `isPackaged=true`, `arch=arm64`, inferenza MPS reale. Verificati interfaccia a 700/1200 px, filtri Prove/Occorrenze, riuso, modifica incrementale, invalidazione e isolamento. Dopo la chiusura anche il worker della build è terminato (`ESRCH`).
@@ -131,3 +141,21 @@ Tre banchi ausiliari sono già rotti sulla base HEAD: `cornice-documenti` cerca 
 - Copia locale avviabile: `dist-local-ai-arm64/MappAI.app` nel repository, circa 295 MB, esclusa da Git. Runtime e modelli già installati nell’area dell’app su questo Mac. Build locale senza firma/notarizzazione.
 
 Rimane da completare la **revisione indipendente delle annotazioni**, richiesta dal piano prima di considerare validato il banco. Il Recall@20 del 100% sui 27 casi positivi di verifica è un risultato esplorativo di pertinenza, non una certificazione scientifica; nei casi senza prova il sistema può comunque restituire passaggi.
+
+
+## Banco integrato e nuovo flusso: riscontri successivi
+
+[Guida completa e cronologia delle prove](GUIDA-banco-validazione-locale.md).
+
+- Avanzamento: passaggi con un giudizio distinti dai casi `reviewed`, inclusi nel confronto solo dopo **Finalizza caso**. `draft` e `uncertain` restano fuori dalle metriche.
+- Controlli condivisi fra UI, store ed export: giudizi mancanti, citazioni esatte, verifica del contesto e dichiarazione motivata di assenza. Nome facoltativo anche nel validatore Python.
+- Le citazioni si selezionano nel testo archiviato. Sostituire una citazione non esatta conserva il testo precedente nel campo `formulation`; note e revisioni immutabili restano disponibili. Nessuna correzione automatica degli originali.
+- Rilevazione storica prima dell’ultimo intervento: revisione 157, **56/247 passaggi** nel lotto critico, **0/20 casi finalizzati**. IT-001: 12/12; IT-002: 14/14; IT-009: 15/17; IT-010: 15/15. IT-009 mancava dei giudizi 15 e 17. Alcune citazioni modificate non coincidevano con la fonte; il precedente obbligo del nome aggiungeva un impedimento. I salvataggi non erano persi. Questi numeri sono uno snapshot, non un contatore aggiornato in tempo reale.
+- Ultimo controllo mirato: **41 test Node e 2 test Python superati**. Non è una nuova esecuzione della suite completa citata nelle sezioni storiche.
+- Browser, su copia: finalizzazione senza nome, persistenza dopo riapertura, collegamento diretto al passaggio 15 di IT-009, selezione con trascinamento e rifiuto di una selezione ripetuta. Nessun errore/avviso di console nella sessione.
+- Build arm64, su profilo e banco temporanei: apertura dalla Cabina, PDF visibile, font ereditato, salvataggio nativo e incremento del contatore. I due casi finalizzati nella QA sono sintetici: **non sono nuove revisioni del docente**. Export accettato dal validatore Python; questa ultima prova non ha rilanciato l’inferenza dei modelli.
+- **537 file invariati per SHA-256**: 161 file del banco reale e 376 file dei materiali originali. Nessuna modifica a preset, impaginazione, decisioni o UDL.
+
+Riferimenti di codice: `local-ai/review-core.js`, `review-ui.js`, `review-bank.cjs`, `review-electron.cjs`, `evaluation_metrics.py`; prove in `tests/local-review-bank.test.js` e `local-ai/test_evaluation_metrics.py`. Log dell’ultima QA in `/private/tmp/mappai-flow-tests.log` e `/private/tmp/mappai-bank-flow-build.log`; copia `/private/tmp/mappai-bank-flow-qa`. Questi file temporanei possono essere rimossi dal sistema.
+
+Il confronto interattivo usa **Hit@k** (almeno un riferimento pertinente completo recuperato per domanda), non la copertura esaustiva di tutte le prove. Le tabelle storiche conservano il nome Recall@k usato dall’esperimento iniziale. I giudizi servono a confrontare metodi e rilevare regressioni; non addestrano automaticamente i modelli. Rimangono aperti indipendenza e ampiezza delle annotazioni, dossier più grandi, assenza calibrata, sufficienza del contesto e verifica scientifica separata.
