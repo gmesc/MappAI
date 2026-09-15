@@ -3174,7 +3174,7 @@
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
     <script src="js/mappai-storage-lang.js?v=review-20260912-2"></script>
     <script src="js/mappai-d3-render.js?v=font1"></script>
-    <script src="js/mappai-ui-canvas.js?v=sf1"></script>
+    <script src="js/mappai-ui-canvas.js?v=bm25-20260915"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js?v=privacy-katex-20260915"></script>
     <script src="js/mappai-lenses.js"></script>
@@ -3241,7 +3241,7 @@
     <!-- L'àncora: dal nodo alla frase della fonte. Il core è puro (testato in
          Node) e DEVE stare dopo deepen-core, da cui prende la tokenizzazione;
          la cucitura con appState viene subito dopo. -->
-    <script src="js/mappai-anchor-core.js"></script>
+    <script src="js/mappai-anchor-core.js?v=bm25-20260915"></script>
     <!-- Il giudice: che cosa si accetta di un verdetto. Puro e testato in Node;
          dipende da desc-fidelity per le parole-contenuto. -->
     <script src="js/mappai-judge-core.js?v=review-20260912-2"></script>
@@ -3322,6 +3322,12 @@
     <script src="js/mappai-review-core.js?v=review-conflicts-20260914-1"></script>
     <script src="js/mappai-review-context.js?v=quality-lots-20260914-1"></script>
     <script src="js/mappai-material-drafts.js?v=review-teacher-20260913-4"></script>
+    <!-- Cercare nella fonte (15/9/2026). DOPO review-context e material-drafts:
+         il core li usa per costruire i record da cercare. Tutto nel renderer —
+         nessun processo esterno, nessun modello, nessuna chiamata di rete.
+         Interruttore: localStorage `mappai_local_search_enabled` = '0'. -->
+    <script src="js/mappai-local-search-core.js?v=bm25-20260915"></script>
+    <script src="js/mappai-local-search.js?v=bm25-20260915b"></script>
     <script src="js/mappai-material-review.js?v=review-context-20260914-1"></script>
     <script src="js/mappai-review.js?v=relation-preview-20260915-1"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>

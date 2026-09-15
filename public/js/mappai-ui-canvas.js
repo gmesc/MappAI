@@ -684,6 +684,20 @@ window.openSourceModal = function (nodeId) {
         }
 
         sourceModalBody.innerHTML = html;
+        /* «Passaggi pertinenti e occorrenze» (15/9/2026): da qui il docente cerca
+           NELLA FONTE il punto che sostiene questo nodo, invece di scorrere il PDF.
+           La domanda parte precompilata col testo del nodo e si può riscrivere.
+           Il pannello si monta da sé solo se l'interruttore è acceso. */
+        const localSearchHost = document.createElement('div');
+        sourceModalBody.appendChild(localSearchHost);
+        window.MappAILocalSearch?.mount(localSearchHost, {
+            query: [d.label, d.desc || d.content].filter(Boolean).join(' '),
+            onEdit: hit => {
+                const node = appState.db.nodes.find(n => String(n.id) === String(hit.nodeId));
+                if (node) window.openEditModal(node);
+                else window.MappAILocalSearch.openOccurrence(hit);
+            }
+        });
         window.safeCreateIcons();
 
         /* Gli strumenti di lettura nella scheda compaiono quando il carattere
