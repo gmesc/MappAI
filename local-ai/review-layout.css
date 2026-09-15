@@ -4,8 +4,8 @@ html,body{margin:0;height:100%;font-family:var(--app-font);color-scheme:light}
 input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review.bank-review{padding:0;background:var(--mm-fondo);display:block}
 #mappai-teacher-review.bank-review .mrv-dashboard{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none}
-#mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:var(--mm-console-side) minmax(0,1fr)}
-#mappai-teacher-review.bank-review .mrv-workspace:has(>#bank-sidebar[hidden]){grid-template-columns:minmax(0,1fr)}
+#mappai-teacher-review.bank-review .mrv-workspace{position:relative;display:flex;overflow:hidden}
+#mappai-teacher-review .mrv-detail{flex:1}
 /* 15/9: one title, one progress row; secondary tools use the existing sidebar. */
 #mappai-teacher-review .mrv-header{padding:var(--mm-btn-gap) var(--mm-pad);gap:var(--mm-gap);flex-shrink:0}
 #mappai-teacher-review .mrv-overview{padding:var(--mm-btn-gap) var(--mm-pad);gap:var(--mm-gap);flex-shrink:0;flex-wrap:wrap}
@@ -24,7 +24,7 @@ input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review .bank-muted{color:var(--mm-testo-2);font-size:.75rem;font-weight:400;line-height:1.5}
 #mappai-teacher-review .bank-error{color:var(--mm-danger);font-size:.75rem;line-height:1.5}
 #mappai-teacher-review #message{margin-left:auto;max-width:55%;overflow-wrap:anywhere;font-size:.75rem}
-#mappai-teacher-review .bank-question{padding:16px 24px;border-bottom:1px solid var(--mm-bordo);background:var(--mm-fondo);flex-shrink:0}
+#mappai-teacher-review .bank-question{padding:16px 24px;padding-left:calc(var(--mnc-man-size,34px) + var(--mm-gap));border-bottom:1px solid var(--mm-bordo);background:var(--mm-fondo);flex-shrink:0}
 #mappai-teacher-review .bank-question h2{font-size:1.12rem;line-height:1.4;margin:0;overflow-wrap:anywhere}
 #mappai-teacher-review .bank-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);flex:1;min-height:0}
 #mappai-teacher-review .bank-column{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--mm-fondo)}
@@ -64,25 +64,14 @@ input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review .bank-report th,#mappai-teacher-review .bank-report td{padding:var(--mm-gap);text-align:left;border-bottom:1px solid var(--mm-bordo)}
 #mappai-teacher-review .bank-report h3{margin-top:var(--mm-pad)}
 @media(max-width:1100px){
-  #mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:200px minmax(0,1fr)}
+  #mappai-teacher-review.bank-review .mrv-workspace{--mm-console-side:200px}
   #mappai-teacher-review .bank-column-body{padding:var(--mm-gap)}
-}
-@media(max-width:960px){
-  #mappai-teacher-review.bank-review .mrv-workspace{display:flex;flex-direction:column;overflow:hidden}
-  #mappai-teacher-review .mrv-sidebar.bank-stack{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:auto;max-height:180px;border-right:0;border-bottom:1px solid var(--mm-bordo);flex-shrink:0;padding:var(--mm-gap)}
-  #mappai-teacher-review .bank-help{grid-column:1/-1;margin:0;padding-top:8px}
-  #mappai-teacher-review .bank-tools{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:wrap;gap:var(--mm-btn-gap)}
-  #mappai-teacher-review .mrv-detail{flex:1;min-height:0}
-  #mappai-teacher-review .bank-question{padding:var(--mm-gap)}
-  #mappai-teacher-review .mrv-footer-actions{max-width:none;flex-wrap:wrap}
 }
 @media(max-width:760px){
   #mappai-teacher-review .mrv-header{flex-wrap:wrap}
   #mappai-teacher-review #message{max-width:100%;margin-left:0}
-  #mappai-teacher-review.bank-review .mrv-workspace{overflow:auto;display:block}
-  #mappai-teacher-review .mrv-sidebar.bank-stack{overflow:visible;max-height:none;grid-template-columns:1fr 1fr}
-  #mappai-teacher-review .mrv-sidebar>.bank-stack{grid-column:1/-1}
-  #mappai-teacher-review .mrv-detail{overflow:visible}
+  #mappai-teacher-review .mrv-detail{overflow:auto}
+  #mappai-teacher-review .bank-columns{flex:none}
   #mappai-teacher-review .bank-columns{grid-template-columns:1fr}
   #mappai-teacher-review .bank-column-body{overflow:visible}
   #mappai-teacher-review .bank-pdf{flex:none;height:65vh}

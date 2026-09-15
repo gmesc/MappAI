@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
   <link rel="stylesheet" href="../public/css/mappai-modal-tokens.css">
   <link rel="stylesheet" href="../public/css/mappai-review-dashboard.css">
+  <link rel="stylesheet" href="../public/css/mappai-console-manifesto.css">
   <link rel="stylesheet" href="review-layout.css">
   <script src="../public/js/mappai-font-core.js" defer></script>
   <script src="../public/js/mappai-font.js" defer></script>
@@ -17,21 +18,22 @@
 <main class="mrv-dashboard">
   <header class="mrv-header">
     <h1 id="mrv-title" class="grow">Banco validazione</h1>
-    <nav class="bank-row" aria-label="Vista del banco"><button type="button" class="pm-btn-cancel" id="toggle-sidebar" aria-controls="bank-sidebar" aria-expanded="true">Nascondi sidebar</button><button type="button" class="pm-btn-cancel" id="close-bank" hidden>Torna a MappAI</button></nav>
+    <nav class="bank-row" aria-label="Vista del banco"><button type="button" class="pm-btn-cancel" id="close-bank" hidden>Torna a MappAI</button></nav>
   </header>
   <section class="mrv-overview" aria-label="Avanzamento">
     <strong><span id="completed">0 / 20</span> casi completati</strong>
     <progress id="bank-progress" max="20" value="0" aria-label="Avanzamento della revisione"></progress>
     <p id="message" role="status" aria-live="polite">Caricamento del banco locale…</p>
   </section>
-  <div id="workspace" class="mrv-workspace" hidden>
-    <aside id="bank-sidebar" class="mrv-sidebar bank-stack" aria-label="Selezione e strumenti del banco">
+  <div id="workspace" class="mrv-workspace bank-console" hidden>
+    <aside id="bank-sidebar" class="mrv-sidebar bank-stack mm-console__side" aria-label="Selezione e strumenti del banco">
       <label>Lotto<select id="batch"><option value="critical">Primi 20 casi critici</option><option value="all">Tutti i 60 casi</option></select></label>
       <label>Revisore<input id="reviewer" placeholder="Nome o sigla" autocomplete="name" maxlength="120"></label>
       <div class="bank-stack"><label>Caso<select id="case-select"></select></label><p id="uncertain-summary" class="bank-muted" hidden><span id="uncertain">0</span> da chiarire nel lotto</p><button type="button" class="pm-btn-cancel" id="next-case">Prossimo da rivedere</button></div>
       <nav class="bank-stack bank-tools" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button></nav>
       <details class="mrv-coverage bank-help"><summary>Come si usa il banco</summary><p>Consulta la fonte e valuta ogni passaggio. Puoi aggiungere estratti mancanti dal testo archiviato.</p><p>Nel PDF usa la rotellina per ingrandire sul puntatore e trascina tenendo premuto il tasto sinistro. Da tastiera: + e − per lo zoom, frecce per spostare, 0 per adattare alla larghezza. Il pulsante con le frecce orizzontali ripristina la larghezza.</p><p>Aa cambia soltanto la dimensione del testo da valutare: x1, x1,5, x2. Ordine dei passaggi mescolato; modelli, posizioni e punteggi sono nascosti.</p><p>La pertinenza rispetto alla domanda e la correttezza scientifica richiedono giudizi separati.</p><p>Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire restano esclusi. Il conteggio «da chiarire» comprende soltanto i casi lasciati esplicitamente in dubbio, non tutti quelli ancora da rivedere.</p><p>Le revisioni precedenti sono conservate su disco.</p></details>
     </aside>
+    <button type="button" class="mm-console__man" id="toggle-sidebar" aria-controls="bank-sidebar" aria-expanded="true" aria-label="Mostra o nascondi la navigazione" title="Nascondi navigazione"><i data-lucide="panel-left-close" aria-hidden="true"></i></button>
     <section class="mrv-detail" aria-labelledby="question">
       <header class="bank-question"><p id="project" class="mrv-eyebrow"></p><h2 id="question"></h2></header>
       <div class="bank-columns">

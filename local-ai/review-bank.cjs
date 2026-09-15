@@ -149,6 +149,7 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
     ['/review-pdf.js', [path.join(__dirname, 'review-pdf.js'), 'text/javascript; charset=utf-8']],
     ['/public/css/mappai-modal-tokens.css', [path.join(ROOT, 'public/css/mappai-modal-tokens.css'), 'text/css; charset=utf-8']],
     ['/public/css/mappai-review-dashboard.css', [path.join(ROOT, 'public/css/mappai-review-dashboard.css'), 'text/css; charset=utf-8']],
+    ['/public/css/mappai-console-manifesto.css', [path.join(ROOT, 'public/css/mappai-console-manifesto.css'), 'text/css; charset=utf-8']],
     ['/review-layout.css', [path.join(__dirname, 'review-layout.css'), 'text/css; charset=utf-8']],
     ['/public/js/mappai-font-core.js', [path.join(ROOT, 'public/js/mappai-font-core.js'), 'text/javascript']],
     ['/public/js/mappai-font.js', [path.join(ROOT, 'public/js/mappai-font.js'), 'text/javascript']],

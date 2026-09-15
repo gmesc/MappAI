@@ -64,9 +64,13 @@ finestre strette i pannelli si dispongono in verticale.
 
 La testata mostra soltanto **Banco validazione** e i comandi della vista.
 **Confronta metodi**, **Esporta revisioni** e **Copia annotazioni** sono nella
-sidebar. **Nascondi sidebar** estende l’area di revisione a tutta la larghezza;
-**Mostra sidebar** ripristina selettori e strumenti senza cambiare il caso o
-le annotazioni. Per lo schermo intero si usa il controllo nativo di macOS.
+sidebar. La **maniglia nell’angolo sotto il contatore**, sul confine con la sidebar,
+estende l’area di revisione a tutta la larghezza e ripristina selettori e
+strumenti con un secondo clic, senza cambiare il caso o le annotazioni.
+Usa gli stessi stili di Elabora e Insegna: scorrimento di 280 ms, icona che
+cambia verso e ritorno al bordo sinistro quando la navigazione è chiusa.
+Rispetta la preferenza di movimento ridotto; la sidebar chiusa è esclusa
+dalla navigazione da tastiera. Non è più presente il bottone in testata. Per lo schermo intero si usa il controllo nativo di macOS.
 L’ingresso resta nella Cabina: questa finestra usa già tutta la superficie
 disponibile, quindi non è stata aggiunta una sezione alla navigazione Crea/Elabora.
 
@@ -305,3 +309,16 @@ annotazione di prova aggiunta. Il vecchio server browser è stato chiuso.
 Comandi: `node --test tests/local-review-bank.test.js` e
 `python3.13 local-ai/test_evaluation_metrics.py`. Evidenze tecniche temporanee
 in `/private/tmp/mappai-st-eval` e `/private/tmp/mappai-bank-review-qa`.
+
+### Maniglia condivisa — 15 settembre 2026
+
+Maniglia 34 × 34 px con la stessa forma, icona e colori delle console.
+Il bordo superiore coincide con il bordo inferiore dell’avanzamento; il bordo
+sinistro segue la sidebar (272 px, 200 px nelle finestre strette) e torna a
+zero quando chiusa. La sidebar resta laterale anche nella finestra minima,
+con scorrimento proprio; i documenti diventano verticali sotto 760 px.
+La build arm64 aggiornata è in `dist/banco-maniglia-20260915/mac-arm64/MappAI.app`.
+
+Verifiche: 40 test banco/font/PDF e 99 test console/modali superati; prova
+nel browser a 1707 e 700 px, apertura/chiusura e riapertura da tastiera;
+prova nella build arm64 con font Atkinson e riadattamento del PDF.

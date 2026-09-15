@@ -167,9 +167,12 @@ on('text-size', 'click', () => {
   $('text-size').setAttribute('aria-label', 'Testo x' + labels[textSizeIndex] + '. Passa a x' + labels[(textSizeIndex + 1) % scales.length]);
 });
 on('toggle-sidebar', 'click', () => {
-  const sidebar = $('bank-sidebar'); sidebar.hidden = !sidebar.hidden;
-  $('toggle-sidebar').setAttribute('aria-expanded', String(!sidebar.hidden));
-  $('toggle-sidebar').textContent = sidebar.hidden ? 'Mostra sidebar' : 'Nascondi sidebar';
+  const closed = $('workspace').classList.toggle('is-nav-chiusa');
+  $('bank-sidebar').inert = closed;
+  $('toggle-sidebar').setAttribute('aria-expanded', String(!closed));
+  $('toggle-sidebar').title = closed ? 'Mostra navigazione' : 'Nascondi navigazione';
+  $('toggle-sidebar').innerHTML = '<i data-lucide="' + (closed ? 'panel-left-open' : 'panel-left-close') + '" aria-hidden="true"></i>';
+  window.safeCreateIcons();
 });
 window.addEventListener('beforeunload', event => { if (changed !== saved) { event.preventDefault(); event.returnValue = ''; } });
 let closing = false;

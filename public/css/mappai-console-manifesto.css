@@ -284,7 +284,7 @@ html.manifesto .mm-box--console .mm-nav__v.is-attiva svg { color: inherit; }
 html.manifesto .mm-box--console .mm-nav__g { padding-left: 22px; }
 
 /* ── la maniglia: bottoncino a icona, non più linguetta sul confine ─────── */
-html.manifesto .mm-box--console .mm-console__man {
+:is(html.manifesto .mm-box--console, .bank-console) .mm-console__man {
     /* taglia · raggio · colori · posizione = leve dell'officina (gruppo «Maniglia»).
        I fallback tengono l'aspetto di oggi se nessuno le scrive. */
     width: var(--mnc-man-size, 34px);
@@ -298,7 +298,7 @@ html.manifesto .mm-box--console .mm-console__man {
     border: 0;
     box-shadow: none;
     opacity: 1;
-    color: var(--mnc-man-fg, var(--man-viola));
+    color: var(--mnc-man-fg, var(--man-viola, #ac72fe));
     /* ANGOLO IN ALTO A SINISTRA dell'area (Giacomo, 10/8): il bordo superiore e
        quello sinistro della maniglia coincidono con quelli dell'area, e l'unico
        angolo arrotondato — il basso-destra — guarda dentro l'area. Prima stava
@@ -313,9 +313,9 @@ html.manifesto .mm-box--console .mm-console__man {
        contenitore e IGNORA il suo padding: col posto lasciato al rail la
        maniglia finiva in mezzo alla colonna, sopra la prima voce (misurato:
        centro a 272 invece che a 354). Il rail va sommato a mano. */
-    left: calc(var(--mm-console-side) + var(--mnc-rail) + var(--mnc-man-x, 0px));
+    left: calc(var(--mm-console-side) + var(--mnc-rail, 0px) + var(--mnc-man-x, 0px));
 }
-html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man {
+:is(html.manifesto .mm-box--console, .bank-console).is-nav-chiusa .mm-console__man {
     /* col rail come colonna vera (che si nasconde con la navigazione) la maniglia
        chiusa torna al bordo sinistro, non al bordo del rail; e prende i colori del
        suo stato «nascondi» (che l'officina può dare diversi da «mostra»). */
@@ -326,15 +326,15 @@ html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man {
        nell'angolo, che a colonna chiusa è quello della console intera. */
     transform: none;
     background: var(--mnc-man-bg-chiusa, #fff);
-    color: var(--mnc-man-fg-chiusa, var(--man-viola));
+    color: var(--mnc-man-fg-chiusa, var(--man-viola, #ac72fe));
 }
-html.manifesto .mm-box--console .mm-console__man:hover { background: #ddd6fe; }
+:is(html.manifesto .mm-box--console, .bank-console) .mm-console__man:hover { background: #ddd6fe; }
 /* Il glifo dell'app è `panel-left-close` (divisorio a SINISTRA, freccia «‹»); il
    disegno di Giacomo (Inkscape/maniglia.svg, pagina 1) è `panel-right-close`
    (divisorio a DESTRA, freccia «›»). Ruotando 180° si ottiene esattamente la
    pagina 1 → è lo stato APERTO (il default, quello che si vede). Chiuso = pagina 2. */
-html.manifesto .mm-box--console .mm-console__man svg { width: 18px; height: 18px; transform: rotate(var(--mnc-man-rot, 180deg)); }
-html.manifesto .mm-box--console.is-nav-chiusa .mm-console__man svg { transform: rotate(var(--mnc-man-rot-chiusa, 0deg)); }
+:is(html.manifesto .mm-box--console, .bank-console) .mm-console__man svg { width: 18px; height: 18px; transform: rotate(var(--mnc-man-rot, 180deg)); }
+:is(html.manifesto .mm-box--console, .bank-console).is-nav-chiusa .mm-console__man svg { transform: rotate(var(--mnc-man-rot-chiusa, 0deg)); }
 
 /* La navigazione parte sotto la maniglia: il comando ha la sua riga, e la
    prima voce non gli finisce sotto. */

@@ -1860,7 +1860,7 @@ button.mm-ctx__p:focus-visible {
     /* la colonna sparisce e torna secca, senza viaggio — e senza il ritardo di
        `visibility`, che senza animazione sarebbe solo un ritardo */
     .mm-console__side,
-    .mm-box--console.is-nav-chiusa .mm-console__side { transition: none; }
+    :is(.mm-box--console, .bank-console).is-nav-chiusa .mm-console__side { transition: none; }
 }
 
 /* ⚠️ NON `display:none`: da lì non si torna con un'animazione, e la colonna
@@ -1870,7 +1870,7 @@ button.mm-ctx__p:focus-visible {
    scivola fuori con un margine negativo. `visibility` si spegne solo ALLA FINE
    del viaggio (ritardo pari alla durata) e si riaccende subito in apertura: così
    la colonna chiusa esce davvero dall'ordine di tabulazione, ma non lampeggia. */
-.mm-box--console.is-nav-chiusa .mm-console__side {
+:is(.mm-box--console, .bank-console).is-nav-chiusa .mm-console__side {
     margin-left: calc(-1 * var(--mm-console-side));
     opacity: 0;
     visibility: hidden;
