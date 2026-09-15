@@ -37,7 +37,7 @@ window.exportNotesMarkdown = function () {
 }
 
 // openTimelineView → mappai-timeline.js
-// openGlossaryView → mappai-glossary.js
+// openGlossaryView → non esiste più (mappai-glossary.js cancellato il 4/9/2026)
 
 window.openNodeLabelsPrintModal = function () {
     const allNodes = appState.db.nodes || [];

@@ -190,11 +190,20 @@ test('mergeGroupLinks: conserva i link dal root anche dopo rimerge', () => {
 });
 
 // ── Identità a gruppi via emoji (3 set × 4) ──────────────────────────────────
-test('GROUP_EMOJI: 3 set × 4 emoji, chiavi uniche', () => {
+test('GROUP_EMOJI: 3 set (4 animali + 6 cibi + 6 mezzi), chiavi uniche', () => {
   assert.strictEqual(C.GROUP_EMOJI.length, 3);
   const keys = [];
-  C.GROUP_EMOJI.forEach(s => { assert.strictEqual(s.items.length, 4); s.items.forEach(it => keys.push(it.key)); });
-  assert.strictEqual(new Set(keys).size, 12);
+  // 4 × 6 × 6 = 144 combinazioni (erano 64: cibo e mezzi sono passati a 6 il 15/9/2026)
+  assert.deepStrictEqual(C.GROUP_EMOJI.map(s => s.items.length), [4, 6, 6]);
+  assert.deepStrictEqual(C.GROUP_EMOJI.map(s => s.set), ['animali', 'cibo', 'mezzi']);
+  C.GROUP_EMOJI.forEach(s => s.items.forEach(it => keys.push(it.key)));
+  // Le chiavi sono lo SLUG del gruppo: due uguali in due set diversi renderebbero
+  // ambigua una combo salvata («volpe-mela-treno» va letta in un modo solo).
+  assert.strictEqual(new Set(keys).size, keys.length);
+  assert.strictEqual(keys.length, 16);
+  // Le emoji sono ciò che il bambino riconosce: due uguali = due gruppi uguali.
+  const emoji = C.GROUP_EMOJI.flatMap(s => s.items.map(it => it.emoji));
+  assert.strictEqual(new Set(emoji).size, emoji.length);
 });
 
 test('validateGroupCombo: combo valida → nick ASCII + emojiLabel', () => {
