@@ -1,7 +1,10 @@
 /**
  * mappai-latex.js
  * Rendering LaTeX/KaTeX e supporto formule STEM per MappAI
- * Dipende da: KaTeX (CDN), app.js (window.openSourceModal)
+ * Dipende da: KaTeX LOCALE (js/vendor/katex-0.16.9.min.js + katex-auto-render-0.16.9.min.js
+ * + katex-0.16.9.min.css, dal 15/9/2026 — prima arrivavano da cdnjs e senza rete
+ * `renderMathInElement` non esisteva: la guardia sotto usciva in silenzio), app.js
+ * (window.openSourceModal)
  */
 
 // ── Configurazione KaTeX ─────────────────────────────────
