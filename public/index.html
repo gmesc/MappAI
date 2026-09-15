@@ -329,12 +329,14 @@
       .link-group.link-hidden { display: none !important; }
 
     </style>
-    <!-- KaTeX — rendering formule matematiche LaTeX -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
-        crossorigin="anonymous">
+    <!-- KaTeX — rendering formule matematiche LaTeX. Tutto LOCALE dal 15/9/2026:
+         foglio, motore, estensione auto-render e i 20 woff2 in js/vendor/katex-fonts/.
+         Prima foglio ed estensione venivano da cdnjs — in aula senza rete (o dietro il
+         filtro della scuola) le formule perdevano lo stile e `renderMathInElement` non
+         esisteva: mappai-latex.js:26 usciva in silenzio e restava il TeX grezzo. -->
+    <link rel="stylesheet" href="js/vendor/katex-0.16.9.min.css">
     <script src="js/vendor/katex-0.16.9.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
-        crossorigin="anonymous"></script>
+    <script src="js/vendor/katex-auto-render-0.16.9.min.js"></script>
 </head>
 
 <!-- =========================================================================-->
@@ -3163,7 +3165,7 @@
     <script src="js/mappai-d3-render.js?v=font1"></script>
     <script src="js/mappai-ui-canvas.js?v=sf1"></script>
     <!-- Moduli MappAI estesi -->
-    <script src="js/mappai-latex.js"></script>
+    <script src="js/mappai-latex.js?v=privacy-katex-20260915"></script>
     <script src="js/mappai-lenses.js"></script>
     <script src="js/mappai-disciplines.js"></script>
     <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
