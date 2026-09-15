@@ -58,9 +58,16 @@ const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
   '.pdf': 'application/pdf',
-  '.zip': 'application/zip'
+  '.zip': 'application/zip',
+  '.ttf': 'font/ttf', '.woff2': 'font/woff2',
 };
 const STATIC_ALLOW = [
+  /* Il CARATTERE della pagina dello studente (15/9/2026). Prima Space Mono
+     arrivava da fonts.googleapis.com: in aula senza rete, o dietro il filtro
+     della scuola, il telefono cadeva sul monospace di sistema senza dirlo — e
+     il carattere è la cosa che serve di più a chi fa fatica a leggere. Solo
+     questa cartella, sola lettura, nessun altro file del repo. */
+  '/public/fonts/',
   '/public/live/',
   '/public/js/mappai-live-core.js',
   // «Domande a scelta»: la pagina studente carica il core e la view — senza

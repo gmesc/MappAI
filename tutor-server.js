@@ -50,9 +50,18 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf', '.woff2': 'font/woff2',
 };
-const STATIC_ALLOW = ['/public/tutor/'];
+const STATIC_ALLOW = [
+  /* Il CARATTERE della pagina dello studente (15/9/2026). Prima Space Mono
+     arrivava da fonts.googleapis.com: in aula senza rete, o dietro il filtro
+     della scuola, il telefono cadeva sul monospace di sistema senza dirlo — e
+     il carattere è la cosa che serve di più a chi fa fatica a leggere. Solo
+     questa cartella, sola lettura, nessun altro file del repo. */
+  '/public/fonts/',
+  '/public/tutor/'
+];
 const BODY_CAP = 1024 * 1024;   // 1 MB
 
 function token(n) { return crypto.randomBytes(n).toString('base64url').slice(0, n); }
