@@ -28,6 +28,27 @@ const mammoth = require('mammoth');
 const os = require('os');
 const crypto = require('crypto');
 const yaml = require('js-yaml');
+const { LocalAI } = require('./local-ai/bridge');
+const localSearch = new LocalAI({
+    root: path.join(app.getPath('appData'), 'MappAI', 'local-ai'),
+    worker: app.isPackaged ? path.join(process.resourcesPath, 'local-ai', 'worker.py') : path.join(__dirname, 'local-ai', 'worker.py')
+});
+ipcMain.handle('local-search', async (event, request) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) return { status: 'unavailable', diagnostics: ['invalid_sender'] };
+    const importing = request?.method === 'prepare';
+    try { return await localSearch.handle(importing ? event.sender.id + ':import' : event.sender.id, importing ? { ...request, method: 'sync' } : request, progress => {
+        if (!event.sender.isDestroyed()) event.sender.send('local-search-progress', { ...progress, scope: request.scope, revision: request.revision });
+    }); } catch (error) { return { status: 'unavailable', results: [], diagnostics: [error.message] }; }
+});
+ipcMain.handle('local-search-open-original', async (event, recordId) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame || typeof recordId !== 'string') return { ok: false };
+    const file = localSearch.original(event.sender.id, recordId);
+    if (!file) return { ok: false };
+    return { ok: !(await shell.openPath(file)) };
+});
+app.on('will-quit', () => localSearch.stop());
+app.on('web-contents-created', (_, contents) => contents.on('destroyed', () => { localSearch.cancelSender(contents.id); localSearch.sessions.delete(contents.id); localSearch.authorized.delete(contents.id); localSearch.cancelSender(contents.id + ':import'); localSearch.sessions.delete(contents.id + ':import'); }));
+
 // Logica pura organizzazione file (010): nomi cartelle, gerarchia per-classe,
 // piano migrazione, parsing sessioni. UMD → in Node ritorna module.exports.
 const FilesCore = require('./public/js/mappai-files-core.js');
@@ -1795,6 +1816,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             return { id: node.id, images: absoluteVaultPaths };
         });
 
+        localSearch.authorize(event.sender.id, folderPath);
         return { success: true, path: folderPath, upgrades: upgrades, istantanea: istantanea };
     } catch (err) {
         return { success: false, error: err.message };
@@ -2015,6 +2037,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
 
         const reviewManifest = ReviewStore.readManifest(folderPath);
         mapData._pipelineManifest = reviewManifest || null;
+        localSearch.authorize(event.sender.id, folderPath);
         return { success: true, data: mapData };
     } catch (err) {
         return { success: false, error: err.message };

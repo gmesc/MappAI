@@ -294,6 +294,10 @@ window.openValidateModal = function (linkData) {
     document.getElementById('validate-rel-input').value = linkData.rel.replace('🤖 ', '');
 
     const modal = document.getElementById('validate-link-modal');
+    modal.querySelector('[data-local-relation-search]')?.remove();
+    const searchHost = document.createElement('div'); searchHost.dataset.localRelationSearch = '';
+    modal.firstElementChild.appendChild(searchHost);
+    window.MappAILocalSearch?.mount(searchHost, { query: [sNode?.label, linkData.rel, tNode?.label].filter(Boolean).join(' → ') });
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     window.safeCreateIcons();
@@ -316,6 +320,7 @@ window.confirmValidateLink = function () {
     // Update the link
     validateLinkTarget.rel = newRel;
     validateLinkTarget.aiSuggested = false;
+    window.MappAILocalSearch?.schedule();
 
     // Re-render to update visual
     renderGraph();

@@ -543,7 +543,7 @@ const MARKER_END = String.fromCharCode(96, 96, 96);
    ========================================== */
 
 if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/pdf.worker.min.js';
 } else {
     console.warn("pdfjsLib non caricato correttamente. L'estrazione da PDF potrebbe non funzionare.");
 }
@@ -559,14 +559,23 @@ if (typeof pdfjsLib !== 'undefined') {
    chiamanti, invariati); chi vuole di più chiama `extractPdfPages`. */
 window.extractPdfPages = async function (file) {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pdfHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', arrayBuffer)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
     const pages = [];
     const altezze = [];
     const grezzi = [];
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        pages.push({ n: i, text: content.items.map(item => item.str).join(" ") });
+        const rawText = content.items.map(item => item.str).join(" ");
+        const rows = new Map();
+        content.items.filter(item => item.str?.trim() && item.transform).forEach(item => {
+            const y = Math.round(item.transform[5]);
+            if (!rows.has(y)) rows.set(y, []);
+            rows.get(y).push(item.transform[4]);
+        });
+        const tableLike = [...rows.values()].filter(xs => xs.length >= 4 && Math.max(...xs) - Math.min(...xs) > 200).length >= 3;
+        pages.push({ n: i, text: rawText, ...(tableLike ? { extractionWarning: 'possible_table_or_columns' } : {}) });
         // altezza del glifo: `height`, o la scala verticale della matrice
         content.items.forEach(it => {
             const h = it.height || (it.transform && Math.abs(it.transform[3])) || 0;
@@ -611,7 +620,7 @@ window.extractPdfPages = async function (file) {
         titoli.push({ page: g.n, text: g.s });
     });
     if (titoli.length > 24) titoli = titoli.slice(0, 24);          // un indice, non un secondo documento
-    return { text: pages.map(p => p.text).join('\n'), pages, titoli };
+    return { text: pages.map(p => p.text).join('\n'), pages, titoli, pdfHash };
 };
 
 window.extractTextFromPDF = async function (file) {
@@ -1173,7 +1182,8 @@ window.handlePDFUpload = async function (input) {
     statusEl.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 inline animate-spin"></i> Estrazione testo in corso...';
 
     try {
-        const text = await window.extractTextFromPDF(file);
+        const parsed = await window.extractPdfPages(file);
+        const text = parsed.text; sourceObj.pages = parsed.pages; sourceObj.pdfHash = parsed.pdfHash;
         sourceObj.content = text;
         statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> PDF pronto (' + sizeMB + ' MB).';
         window.updateTokenCounter();
@@ -1183,6 +1193,7 @@ window.handlePDFUpload = async function (input) {
 
     window.safeCreateIcons();
     window.handleSourceAutofill(file.name);
+    if (sourceObj.pages) window.MappAILocalSearch?.prepare(sourceObj, statusEl);
 }
 
 window.processSourceFile = async function (sourceObj, file, statusEl) {
@@ -1205,7 +1216,8 @@ window.processSourceFile = async function (sourceObj, file, statusEl) {
         }
         let text = "";
         if (fileName.endsWith('.pdf')) {
-            text = await window.extractTextFromPDF(file);
+            const parsed = await window.extractPdfPages(file);
+            text = parsed.text; sourceObj.pages = parsed.pages; sourceObj.pdfHash = parsed.pdfHash;
         } else if (fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.csv') || fileName.endsWith('.rtf')) {
             text = await file.text();
         }
@@ -1222,6 +1234,7 @@ window.processSourceFile = async function (sourceObj, file, statusEl) {
         statusEl.innerHTML = `<i data-lucide="alert-circle" class="w-3 h-3 inline text-red-400"></i> Errore lettura.`;
     }
     window.safeCreateIcons();
+    if (fileName.endsWith('.pdf') && sourceObj.pages) window.MappAILocalSearch?.prepare(sourceObj, statusEl);
 };
 
 /* ── LE IMMAGINI (20/8): dalla foto alla SCHEDA, al caricamento ────────────
@@ -1434,6 +1447,7 @@ window.startGeneration = async function () {
     /* pagine + titoli dei PDF di QUESTA generazione: alimentano l'àncora e
        l'indice del documento in Fase 1. Vuoto se le fonti non sono PDF. */
     var _pdfPagine = [];
+    var _readWebSources = [];
     var fileParts = [];
     var hasSources = false;
 
@@ -1457,6 +1471,7 @@ window.startGeneration = async function () {
                     const res = await window.electronAPI.fetchUrl(urlVal);
                     if (res.success) {
                         textParts.push(`[FONTE WEB ${urlVal}]:\n` + res.text);
+                        _readWebSources.push({ id: src.id, title: res.title || urlVal, url: urlVal, acquiredAt: new Date().toISOString(), origin: src.origin === 'reference' ? 'reference' : 'original', content: res.text });
                         hasSources = true;
                     } else {
                         throw new Error(res.error);
@@ -1480,7 +1495,7 @@ window.startGeneration = async function () {
                     /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
                        citazioni sanno da che pagina vengono) e alla Fase 1 (i
                        titoli del dossier come indice). Il prompt non cambia. */
-                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli });
+                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli, pdfHash: _pdf.pdfHash });
                     hasSources = true;
                 }
             } catch (err) {
@@ -1499,7 +1514,7 @@ window.startGeneration = async function () {
                     /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
                        citazioni sanno da che pagina vengono) e alla Fase 1 (i
                        titoli del dossier come indice). Il prompt non cambia. */
-                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli });
+                    _pdfPagine.push({ nome: src.file.name, pages: _pdf.pages, titoli: _pdf.titoli, pdfHash: _pdf.pdfHash });
                     hasSources = true;
                 }
             } catch (err) {
@@ -1615,10 +1630,11 @@ window.startGeneration = async function () {
     // Archive original text before cleaning it for generation. Text/URL/DOCX
     // inputs may live only in textParts, while the source UI stores just an ID.
     var _reviewSourceSnapshot = _pdfPagine.map(function (doc) {
-        return { nome: doc.nome, pages: doc.pages.map(p => ({ n: p.n, text: p.text })) };
+        return { nome: doc.nome, pdfHash: doc.pdfHash, pages: doc.pages.map(p => ({ n: p.n, text: p.text, ...(p.extractionWarning ? { extractionWarning: p.extractionWarning } : {}) })) };
     });
+    _reviewSourceSnapshot.push(..._readWebSources);
     textParts.forEach(function (part, index) {
-        if (/^\[FONTE (?:PDF|YOUTUBE)\b/.test(part)) return;
+        if (/^\[FONTE (?:PDF|YOUTUBE|WEB)\b/.test(part)) return;
         var header = /^\[FONTE ([^\]]+)\]:\s*\n/.exec(part);
         var content = header ? part.slice(header[0].length) : part;
         if (content.trim()) _reviewSourceSnapshot.push({ id: 'text-' + index,
@@ -1682,6 +1698,7 @@ window.startGeneration = async function () {
        un lucchetto che resta su dopo un errore blocca l'app per sempre. */
     appState._pipelineManifest = null;
     appState._generationSources = _reviewSourceSnapshot;
+    window.MappAILocalSearch?.schedule();
     appState._reviewRevision = undefined;
     appState._reviewRequested = !!(window.MappAIReview && window.MappAIReview.enabled());
     appState._judgeReport = appState._giudiceReport = null;

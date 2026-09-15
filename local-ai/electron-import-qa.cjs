@@ -1,0 +1,18 @@
+const http=require('http'),WS=require('ws'),fs=require('fs'),path=require('path');
+const root='/private/tmp/mappai-st-eval', port=Number(process.argv[2]||9338);
+http.get('http://127.0.0.1:'+port+'/json/list',res=>{let s='';res.on('data',c=>s+=c);res.on('end',async()=>{
+ const target=JSON.parse(s).find(t=>t.url.includes('index.html'));const ws=new WS(target.webSocketDebuggerUrl);await new Promise(r=>ws.on('open',r));
+ let id=0;const waits=new Map();ws.on('message',b=>{const m=JSON.parse(b);if(m.id){const p=waits.get(m.id);waits.delete(m.id);m.result?.exceptionDetails?p.reject(Error(JSON.stringify(m.result.exceptionDetails))):p.resolve(m.result?.result?.value)}});
+ const run=expression=>new Promise((resolve,reject)=>{const n=++id;waits.set(n,{resolve,reject});ws.send(JSON.stringify({id:n,method:'Runtime.evaluate',params:{expression,awaitPromise:true,returnByValue:true}}))});
+ try {
+ const vault=path.join(root,'projects/Officina Project E'),manifest=JSON.parse(fs.readFileSync(path.join(vault,'pipeline.json')));
+ const result=await run(`(async()=>{const data=await electronAPI.loadVault(${JSON.stringify(vault)});if(!data.success)throw Error(data.error);appState.db=data.data;appState.activeVaultPath=${JSON.stringify(vault)};appState._pipelineManifest=${JSON.stringify(manifest)};const before=JSON.stringify(appState._pipelineManifest.review);let pulses=0;const timer=setInterval(()=>pulses++,25);const index=await MappAILocalSearch.sync();clearInterval(timer);const hits=await MappAILocalSearch.search('Resistenza e tensione elettrica','occurrences');return {index,pulses,kinds:[...new Set(hits.results.map(r=>r.kind))],roles:[...new Set(hits.results.map(r=>r.role))],decisionsPreserved:before===JSON.stringify(appState._pipelineManifest.review)}})()`);
+ if(!result.index.semantic || result.index.count<1000 || !result.decisionsPreserved)throw Error('Project E indexing failed');
+ fs.writeFileSync(path.join(root,'packaged-project-e.json'),JSON.stringify(result,null,2));console.log('Project E',result.index.count,'records;',result.pulses,'responsive ticks; decisions preserved');
+ const extracted=await run(`(async()=>{const r=await electronAPI.readVaultFile({vaultPath:appState.activeVaultPath,relPath:'Allegati/2.1 PROJECT E.pdf'});const file=new File([Uint8Array.from(atob(r.base64),c=>c.charCodeAt(0))],'2.1 PROJECT E.pdf',{type:'application/pdf'});const source={id:'qa-import',file,type:'doc'};appState.sources.push(source);const host=document.createElement('p');host.id='qa-import-status';document.body.appendChild(host);await processSourceFile(source,file,host);return {pages:source.pages.length,hash:source.pdfHash,warnings:source.pages.filter(p=>p.extractionWarning).map(p=>p.n)}})()`);
+ let status='';for(let i=0;i<120;i++){status=await run("document.getElementById('qa-import-status').textContent");if(status.includes('Indice della fonte preparato'))break;await new Promise(r=>setTimeout(r,500));}
+ if(!status.includes('Indice della fonte preparato')||extracted.pages!==24||!extracted.hash?.match(/^[a-f0-9]{64}$/))throw Error('Import failed: '+status);
+ const stillWorks=await run("MappAILocalSearch.search('Ohm','evidence').then(r=>r.semantic && r.results.length>0)");if(!stillWorks)throw Error('Import stole current project session');
+ fs.writeFileSync(path.join(root,'packaged-import.json'),JSON.stringify({...extracted,status,currentProjectUnaffected:stillWorks},null,2));console.log('Automatic PDF import PASS, offline worker, hash and extraction flags; current project remains searchable');ws.close();
+ }catch(error){console.error(error);ws.close();process.exitCode=1;}
+});});

@@ -1,0 +1,547 @@
+{
+  "schema": 1,
+  "annotationStatus": "agent-drafted, literal source check; independent human review pending",
+  "splitRule": "Entire electricity dossier in development, entire history dossier in verification; both Officina copies stay together.",
+  "cases": [
+    {
+      "id": "IT-001",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "condition",
+      "page": 5,
+      "query": "Un circuito chiuso può comunque provocare il riscaldamento della batteria?",
+      "needle": "Può anche capitare che un circuito sia perfettamente chiuso"
+    },
+    {
+      "id": "IT-002",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "negation",
+      "page": 5,
+      "query": "Il cortocircuito richiede sempre un circuito aperto?",
+      "needle": "Il corto circuito accade quando all’interno del mio circuito non ho un utilizzatore"
+    },
+    {
+      "id": "IT-003",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "synonym",
+      "page": 6,
+      "query": "Quale dislivello elettrico mette in moto le cariche?",
+      "needle": "Questa differenza di potenziale elettrico genera una SPINTA"
+    },
+    {
+      "id": "IT-004",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "units",
+      "page": 6,
+      "query": "In che unità si esprime la tensione U?",
+      "needle": "Volt"
+    },
+    {
+      "id": "IT-005",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "units",
+      "page": 6,
+      "query": "Il flusso di cariche I si misura in ampère?",
+      "needle": "Ampère"
+    },
+    {
+      "id": "IT-006",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "instrument",
+      "page": 7,
+      "query": "Dove va collegato sempre uno dei puntali dello strumento?",
+      "needle": "COM"
+    },
+    {
+      "id": "IT-007",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "instrument",
+      "page": 7,
+      "query": "Come scelgo grandezza e intervallo di misura sul multimetro?",
+      "needle": "una manopola per selezionare la grandezza da misurare e l’intervallo di misura"
+    },
+    {
+      "id": "IT-008",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "numbers",
+      "page": 7,
+      "query": "Quali tre tensioni si devono provare nel compito con la lampadina?",
+      "needle": "2V, 5V e 9V"
+    },
+    {
+      "id": "IT-009",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "condition_omitted",
+      "page": 8,
+      "query": "Più tensione implica sempre più corrente? Cerca il testo da valutare.",
+      "needle": "maggiore è la tensione e maggiore sarà il flusso e viceversa"
+    },
+    {
+      "id": "IT-010",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "inversion",
+      "page": 8,
+      "query": "La resistenza favorisce il passaggio di corrente senza opporsi?",
+      "needle": "La resistenza indica quanto uno o più oggetti all’interno del circuito si oppongono"
+    },
+    {
+      "id": "IT-011",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "formula",
+      "page": 8,
+      "query": "Qual è la relazione U = R * I?",
+      "needle": "U = R * I"
+    },
+    {
+      "id": "IT-012",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "symbol",
+      "page": 8,
+      "query": "Quale unità della resistenza corrisponde al simbolo Ω?",
+      "needle": "Ohm"
+    },
+    {
+      "id": "IT-013",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "instrument",
+      "page": 8,
+      "query": "È possibile misurare direttamente la resistenza con lo strumento?",
+      "needle": "Il multimetro ci permette di misurare anche la resistenza"
+    },
+    {
+      "id": "IT-014",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "condition",
+      "page": 9,
+      "query": "Quante grandezze devo conoscere per usare la legge di Ohm?",
+      "needle": "sapendo almeno 2 delle 3 grandezze fisiche"
+    },
+    {
+      "id": "IT-015",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "synonym",
+      "page": 9,
+      "query": "Come verificare i circuiti con una simulazione interattiva?",
+      "needle": "Circuit Construction Kit"
+    },
+    {
+      "id": "IT-016",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "units",
+      "page": 13,
+      "query": "Un ampère equivale a coulomb al secondo?",
+      "needle": "A = C/s = coulomb/secondo"
+    },
+    {
+      "id": "IT-017",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "formula",
+      "page": 13,
+      "query": "Quale grandezza conta Q durante l’intervallo ∆t?",
+      "needle": "quantità di elettricità (Q) che passa nel circuito"
+    },
+    {
+      "id": "IT-018",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "non_equivalent",
+      "page": 14,
+      "query": "Tensione e corrente sono la stessa grandezza?",
+      "needle": "energia per unità di carica elettrica"
+    },
+    {
+      "id": "IT-019",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "neighbor",
+      "page": 14,
+      "query": "Come cambia la spinta passando attraverso un utilizzatore?",
+      "needle": "La differenza di potenziale elettrico (= spinta) diminuisce"
+    },
+    {
+      "id": "IT-020",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "series",
+      "page": 15,
+      "query": "Perché due lampadine in serie emettono meno luce?",
+      "needle": "ogni lampadina sfrutterà solo una parte della differenza di potenziale totale"
+    },
+    {
+      "id": "IT-021",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "parallel",
+      "page": 15,
+      "query": "Quale collegamento dà a ogni lampadina tutta la tensione?",
+      "needle": "ogni lampadina sfrutterà tutta la differenza di potenziale totale"
+    },
+    {
+      "id": "IT-022",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "negation",
+      "page": 16,
+      "query": "Tutti i materiali conducono nello stesso modo?",
+      "needle": "Non tutti i materiali conducono la corrente elettrica allo stesso modo"
+    },
+    {
+      "id": "IT-023",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "inversion",
+      "page": 16,
+      "query": "I conduttori offrono più resistenza degli isolanti?",
+      "needle": "“conduttori” che offrono poca resistenza"
+    },
+    {
+      "id": "IT-024",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "energy",
+      "page": 19,
+      "query": "Che trasformazione energetica avviene nella batteria a limoni?",
+      "needle": "l’energia chimica si trasforma in energia elettrica"
+    },
+    {
+      "id": "IT-025",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "condition",
+      "page": 20,
+      "query": "Il LED si accende anche senza un circuito completamente chiuso?",
+      "needle": "Questa corrente inoltre circola unicamente quando il circuito è completamente chiuso"
+    },
+    {
+      "id": "IT-026",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "inversion",
+      "page": 20,
+      "query": "Elettroni e corrente convenzionale scorrono nello stesso verso?",
+      "needle": "la corrente scorre in senso inverso rispetto agli elettroni"
+    },
+    {
+      "id": "IT-027",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "history",
+      "page": 21,
+      "query": "Chi costruì una pila di dischi metallici nel 1800?",
+      "needle": "Alessandro Volta nel 1800"
+    },
+    {
+      "id": "IT-028",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Qual è il valore della costante di Planck?",
+      "needle": null
+    },
+    {
+      "id": "IT-029",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Qual è la resistività numerica del rame a 20 gradi Celsius?",
+      "needle": null
+    },
+    {
+      "id": "IT-030",
+      "project": "Officina Elettrica",
+      "split": "development",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Quanti watt eroga esattamente il motore del veicolo costruito dalla classe?",
+      "needle": null
+    },
+    {
+      "id": "IT-031",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "date",
+      "page": 1,
+      "query": "In quale giorno fu formulata la dichiarazione di neutralità?",
+      "needle": "31 agosto 1939"
+    },
+    {
+      "id": "IT-032",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "institution",
+      "page": 1,
+      "query": "Quale organo dichiara formalmente che il territorio sarà difeso?",
+      "needle": "il Consiglio Federale dichiara perciò formalmente"
+    },
+    {
+      "id": "IT-033",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "negation",
+      "page": 1,
+      "query": "La Svizzera intendeva abbandonare la propria neutralità?",
+      "needle": "non scostarsi per nulla dai principi di neutralità"
+    },
+    {
+      "id": "IT-034",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "humanitarian",
+      "page": 1,
+      "query": "Quale spazio era previsto per gli organismi umanitari?",
+      "needle": "l’attività imparziale delle organizzazioni umanitarie"
+    },
+    {
+      "id": "IT-035",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "condition",
+      "page": 1,
+      "query": "La carica di Generale esiste anche ordinariamente in tempo di pace?",
+      "needle": "esiste solo in tempo di guerra"
+    },
+    {
+      "id": "IT-036",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "inversion",
+      "page": 1,
+      "query": "Fu il Consiglio federale a dare pieni poteri all’Assemblea federale?",
+      "needle": "accordò pieni poteri al Consiglio Federale"
+    },
+    {
+      "id": "IT-037",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "date",
+      "page": 2,
+      "query": "Quando avvenne l’annessione dell’Austria da parte tedesca?",
+      "needle": "La Germania aveva annesso l’Austria nel 1938"
+    },
+    {
+      "id": "IT-038",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "causal",
+      "page": 2,
+      "query": "Perché nel 1940 la Svizzera si trovò accerchiata?",
+      "needle": "La caduta della Francia in mano tedesca nel giugno 1940"
+    },
+    {
+      "id": "IT-039",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "mobilization",
+      "page": 2,
+      "query": "Chi venne impiegato come guardia di confine nel marzo 1939?",
+      "needle": "i r iservisti furono chiamati"
+    },
+    {
+      "id": "IT-040",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "synonym",
+      "page": 3,
+      "query": "A che servivano gli ostacoli anticarro soprannominati tobleroni?",
+      "needle": "per rallenta re l’avanzata dei carri armati tedeschi"
+    },
+    {
+      "id": "IT-041",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "condition",
+      "page": 3,
+      "query": "Gli esplosivi nei ponti sarebbero stati fatti detonare senza invasione?",
+      "needle": "se le potenze dell’Asse avessero tentato di invadere la Svizzera"
+    },
+    {
+      "id": "IT-042",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "location",
+      "page": 3,
+      "query": "Dove era progettata l’ultima zona di resistenza?",
+      "needle": "“Ridotto nazionale” nelle Alpi"
+    },
+    {
+      "id": "IT-043",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "camouflage",
+      "page": 3,
+      "query": "Come erano nascoste le fortezze alpine?",
+      "needle": "camuffate in superficie come case coloniche e fienili"
+    },
+    {
+      "id": "IT-044",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "food",
+      "page": 3,
+      "query": "Che cosa prevedeva il piano Wahlen per i terreni agricoli?",
+      "needle": "l’estensione della campicoltura"
+    },
+    {
+      "id": "IT-045",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "non_equivalent",
+      "page": 3,
+      "query": "Il razionamento è descritto come garanzia di pasti equilibrati?",
+      "needle": "un sofisticato sistema di razionamento"
+    },
+    {
+      "id": "IT-046",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "trade",
+      "page": 4,
+      "query": "Uno Stato neutrale poteva commerciare armi con paesi in guerra?",
+      "needle": "compresa la vendita di armamenti"
+    },
+    {
+      "id": "IT-047",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "partner",
+      "page": 4,
+      "query": "Quale paese ricevette più esportazioni svizzere nel 1940-1944?",
+      "needle": "La Germania era da tempo un importante partner commerciale"
+    },
+    {
+      "id": "IT-048",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "negation",
+      "page": 4,
+      "query": "La Svizzera interruppe ogni commercio con gli Alleati?",
+      "needle": "il commercio con gli Alleati"
+    },
+    {
+      "id": "IT-049",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "ratio",
+      "page": 4,
+      "query": "Quanto pesavano gli scambi con gli Alleati rispetto a quelli con la Germania?",
+      "needle": "solo un terzo di quello con la Germania"
+    },
+    {
+      "id": "IT-050",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "percentage",
+      "page": 4,
+      "query": "Che quota di esportazioni andava a Germania e Italia nel 1940-1942?",
+      "needle": "45% delle esportazioni"
+    },
+    {
+      "id": "IT-051",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "imports",
+      "page": 4,
+      "query": "Quali materie prime arrivavano in Svizzera dai partner commerciali?",
+      "needle": "carbone, derivati del petrolio"
+    },
+    {
+      "id": "IT-052",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "gold",
+      "page": 5,
+      "query": "Quale istituzione svizzera commerciava oro con il regime nazista?",
+      "needle": "la sua Banca Nazionale"
+    },
+    {
+      "id": "IT-053",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "moral",
+      "page": 5,
+      "query": "Per quale ragione l’acquisto dell’oro poneva problemi morali?",
+      "needle": "era frutto di rapina"
+    },
+    {
+      "id": "IT-054",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "refugees",
+      "page": 5,
+      "query": "Quante persone trovarono protezione in Svizzera secondo il dossier?",
+      "needle": "circa 300'000 persone"
+    },
+    {
+      "id": "IT-055",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "omitted_category",
+      "page": 6,
+      "query": "Fino al 1943 furono accolti solo disertori e rifugiati politici?",
+      "needle": "rifugiati politici, militari internati e disertori"
+    },
+    {
+      "id": "IT-056",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "commission",
+      "page": 6,
+      "query": "Chi esaminò le accuse sulla condotta svizzera e quando concluse il rapporto?",
+      "needle": "commissione Bergier"
+    },
+    {
+      "id": "IT-057",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "negation",
+      "page": 6,
+      "query": "La commissione Bergier escluse che migliaia di ebrei fossero stati respinti?",
+      "needle": "molte migliaia di ebrei si videro negare l’accesso"
+    },
+    {
+      "id": "IT-058",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Qual era il nome di ogni singolo rifugiato respinto nel 1942?",
+      "needle": null
+    },
+    {
+      "id": "IT-059",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Quale articolo della Costituzione del 1999 regola le iniziative popolari?",
+      "needle": null
+    },
+    {
+      "id": "IT-060",
+      "project": "10 Svizzera e 2a GM",
+      "split": "verification",
+      "category": "no_evidence",
+      "page": null,
+      "query": "Quanto valeva esattamente in franchi ogni lingotto di oro acquistato?",
+      "needle": null
+    }
+  ]
+}

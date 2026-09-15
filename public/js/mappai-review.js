@@ -31,7 +31,7 @@
       if (!res || !res.ok) throw new Error((res && res.error) || 'Salvataggio revisione non riuscito');
       manifest._storageVersion = res.version;
       versions.set(vaultPath, res.version);
-      if (state().activeVaultPath === vaultPath) state()._pipelineManifest = manifest;
+      if (state().activeVaultPath === vaultPath) { state()._pipelineManifest = manifest; window.MappAILocalSearch?.schedule(); }
       return res;
     });
     writes = work.catch(() => {});
@@ -114,6 +114,7 @@
     }
     state()._pipelineManifest = manifest;
     state()._reviewRevision = expected;
+    window.MappAILocalSearch?.schedule();
     // sourcesDict is read from the actual vault/cache. Replacing it with an old
     // approval snapshot would silently undo source corrections made afterwards.
     if (r.initial.status === 'applying') {
@@ -517,11 +518,12 @@
       '<label for="mrv-reason">' + esc(t('rv_context_reason', 'Motivo')) + '<select id="mrv-reason"></select></label></div><button type="button" class="pm-btn-cancel" id="mrv-clear-filters" hidden>' + esc(t('rv_context_clear', 'Azzera i filtri')) + '</button>' +
       '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
-      '<div class="mrv-detail">' + (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
+      '<div class="mrv-detail"><div id="mrv-local-search-host" data-local-search></div>' + (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
     document.body.appendChild(modal);
+    window.MappAILocalSearch?.mount(modal.querySelector('#mrv-local-search-host'));
     const content = modal.querySelector('#mrv-content'), status = modal.querySelector('#mrv-status');
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
@@ -1026,7 +1028,13 @@
           (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
           (issue.origin === 'teacher' && !evidenceRows(issue.evidence).length ? '' : evidencePreview(issue, r, value => referenceView(value).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>') +
           (isFinal && issue.target.kind === 'item' ? '<button type="button" class="pm-btn-cancel mrv-find-occurrences" data-find-occurrences>' + esc(t('rv_occurrences_other', 'Cerca altre occorrenze')) + '</button>' : '') +
-          '<div data-editor></div><div data-relation-preview></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
+          '<div data-local-search></div><div data-editor></div><div data-relation-preview></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
+        window.MappAILocalSearch?.mount(card.querySelector('[data-local-search]'), { query: beforeText, onEdit: hit => {
+          if (hit.itemId) return getReview().initial.status === 'awaiting_review' ? openMaterialField(hit.itemId, hit.field) : window.MappAILocalSearch.openOccurrence(hit);
+          const target = getReview().initial.issues.find(i => String(i.target.id) === String(hit.nodeId || hit.relationId));
+          if (target) { activeIssueId = target.id; activeFilter = 'all'; render(); }
+          else if (hit.nodeId && window.openEditModal) window.openEditModal(state().db.nodes.find(n => String(n.id) === String(hit.nodeId)));
+        } });
         const occurrenceButton = card.querySelector('[data-find-occurrences]');
         if (occurrenceButton) occurrenceButton.onclick = () => findOccurrences(issue);
         const actions = card.querySelector('[data-actions]'), editor = card.querySelector('[data-editor]'), choiceLabel = card.querySelector('[data-choice]');
@@ -1328,6 +1336,7 @@
         isFinal ? t('rv_finalize', 'Salva le decisioni e completa i materiali') : t('rv_continue', 'Salva le decisioni e continua');
     }
     render();
+    if (isFinal && options.focusItemId) openMaterialField(options.focusItemId, options.focusField || 'question');
     modal.querySelector('#mrv-later').onclick = async () => { if (busy) return; await pendingSave; if (!saveError && !busy) close(); };
     proceed.onclick = async () => {
       if (closed || busy || committing || invalidEditors.size || proceed.hidden) return;

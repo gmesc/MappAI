@@ -78,3 +78,27 @@ pubblicazione ufficiale del Dipartimento dell'educazione, della cultura e dello 
 Canton Ticino — è materiale di terzi e **non viene ridistribuito**: non sta nel repository e
 non finisce negli installer. Se un giorno servisse pubblicarlo, il diritto va verificato
 prima con il DECS.
+
+## Recupero locale opzionale (15 settembre 2026)
+
+Il setup `local-ai/setup.py` installa nell'area utente un ambiente Python separato.
+Runtime e pesi non sono incorporati nell'installer Electron. Versioni complete
+in `local-ai/requirements.txt`; licenze integrali delle librerie nel rispettivo
+`runtime/lib/python3.13/site-packages/*.dist-info/licenses` quando fornite dal pacchetto.
+
+- Sentence Transformers 6.0.1, Transformers 5.17.0, Tokenizers 0.23.2 e Hugging Face Hub 1.31.0: Apache-2.0.
+- PyTorch 2.14.0: BSD-3-Clause, con notices delle dipendenze nel pacchetto.
+- NumPy 2.5.3, SciPy e scikit-learn: BSD-3-Clause (vedere le licenze distribuite per componenti aggiuntivi).
+- BAAI/bge-m3: MIT; revisione `5617a9f61b028005a4858fdac845db406aefb181`.
+- BAAI/bge-reranker-v2-m3: Apache-2.0; revisione `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`.
+- intfloat/multilingual-e5-base: MIT; revisione `d128750597153bb5987e10b1c3493a34e5a4502a`.
+
+Le model card e gli eventuali LICENSE sono conservati nelle snapshot scaricate.
+Fonti: https://huggingface.co/BAAI/bge-m3,
+https://huggingface.co/BAAI/bge-reranker-v2-m3,
+https://huggingface.co/intfloat/multilingual-e5-base.
+
+Il worker PDF.js `public/js/pdf.worker.min.js` è quello di pdfjs-dist 3.4.120,
+Apache-2.0, stessa versione della libreria già presente. Provenienza: pacchetto
+npm ufficiale pdfjs-dist, SHA1 tarball `6f4222117157498f179c95dc4569fad6336a8fdd`.
+La copia locale elimina la dipendenza dalla CDN per l'estrazione PDF offline.

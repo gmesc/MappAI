@@ -21,6 +21,14 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+    // TODO iPadOS: local Python retrieval is desktop-only; renderer retains lexical search.
+    localSearch: request => ipcRenderer.invoke('local-search', request),
+    localSearchOpenOriginal: recordId => ipcRenderer.invoke('local-search-open-original', recordId),
+    onLocalSearchProgress: callback => {
+        const listener = (_, progress) => callback(progress);
+        ipcRenderer.on('local-search-progress', listener);
+        return () => ipcRenderer.removeListener('local-search-progress', listener);
+    },
     generateGemini: (data) => ipcRenderer.invoke('generate-gemini', data),
     generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', data),
     generateEmbeddingsInfomaniak: (data) => ipcRenderer.invoke('generate-embeddings-infomaniak', data),

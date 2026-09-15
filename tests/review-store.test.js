@@ -44,8 +44,9 @@ function mainHandlers() {
   const source = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
   const handlers = {};
   const ctx = vm.createContext({ fs, path, Buffer, console,
+    localSearch: { authorize: () => {} },
     yaml: require('js-yaml'), ReviewStore: S, FilesCore: require('../public/js/mappai-files-core'),
-    ipcMain: { handle: (name, fn) => { handlers[name] = fn; } },
+    ipcMain: { handle: (name, fn) => { handlers[name] = (event, ...args) => fn({ ...event, sender: { id: 1 } }, ...args); } },
     _contaNodiInCartella: () => 0,
     shell: { trashItem: async () => { throw new Error('No trash operations expected in this test'); } }
   });

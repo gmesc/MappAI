@@ -70,3 +70,9 @@ docs/archify/*.visual-check.*
 !tools/stile/**
 !tools/dove.js
 !tools/atlante-ui/glossario.js
+
+# Local retrieval: code and reproducible evaluation, never model weights/cache.
+!local-ai/**
+local-ai/__pycache__/
+!docs/VERIFICA-sentence-transformers-locale-2026-09-15.md
+!docs/GUIDA-ricerca-locale.md

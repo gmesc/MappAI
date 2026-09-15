@@ -48,8 +48,8 @@
   function sourceSnapshot(sources) {
     return sorted((Array.isArray(sources) ? sources : []).map(function (s) {
       if (typeof s === 'string') return { text: s };
-      var r = pick(s, ['id', 'docId', 'documentId', 'sourceId', 'title', 'name', 'nome', 'type', 'url', 'source', 'page', 'n', 'content', 'text', 'hash', 'verbatim']);
-      if (Array.isArray(s && s.pages)) r.pages = s.pages.map(function (p) { return pick(p, ['id', 'n', 'page', 'text']); });
+      var r = pick(s, ['id', 'docId', 'documentId', 'sourceId', 'title', 'name', 'nome', 'type', 'url', 'source', 'page', 'n', 'content', 'text', 'hash', 'verbatim', 'origin', 'acquiredAt', 'pdfHash']);
+      if (Array.isArray(s && s.pages)) r.pages = s.pages.map(function (p) { return pick(p, ['id', 'n', 'page', 'text', 'extractionWarning']); });
       return r;
     }));
   }

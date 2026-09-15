@@ -684,6 +684,13 @@ window.openSourceModal = function (nodeId) {
         }
 
         sourceModalBody.innerHTML = html;
+        const localSearchHost = document.createElement('div');
+        sourceModalBody.appendChild(localSearchHost);
+        window.MappAILocalSearch?.mount(localSearchHost, { query: [d.label, d.desc || d.content].filter(Boolean).join(' '), onEdit: hit => {
+            const node = appState.db.nodes.find(n => String(n.id) === String(hit.nodeId));
+            if (node) window.openEditModal(node);
+            else window.MappAILocalSearch.openOccurrence(hit);
+        } });
         window.safeCreateIcons();
 
         /* Gli strumenti di lettura nella scheda compaiono quando il carattere

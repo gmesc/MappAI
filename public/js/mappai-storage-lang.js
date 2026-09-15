@@ -66,6 +66,7 @@ const StorageManager = {
     },
 
     saveCurrentProject: function () {
+        window.MappAILocalSearch?.schedule();
         if (appState && (appState._reviewRestoring || appState._reviewRestoreError)) return;
         // GUARDIA Studio attivo: durante una sessione la mappa sul canvas è
         // (20/8: qui si saltava il salvataggio mentre una modalità di Studio
