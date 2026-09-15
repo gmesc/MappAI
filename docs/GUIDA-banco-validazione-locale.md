@@ -62,6 +62,20 @@ laterale; PDF e annotazioni hanno pannelli affiancati con scorrimento indipenden
 Le azioni di salvataggio e completamento restano visibili in basso. Nelle
 finestre strette i pannelli si dispongono in verticale.
 
+La testata mostra soltanto **Banco validazione** e i comandi della vista.
+**Confronta metodi**, **Esporta revisioni** e **Copia annotazioni** sono nella
+sidebar. **Nascondi sidebar** estende l’area di revisione a tutta la larghezza;
+**Mostra sidebar** ripristina selettori e strumenti senza cambiare il caso o
+le annotazioni. Per lo schermo intero si usa il controllo nativo di macOS.
+L’ingresso resta nella Cabina: questa finestra usa già tutta la superficie
+disponibile, quindi non è stata aggiunta una sezione alla navigazione Crea/Elabora.
+
+L’avanzamento occupa una sola riga alle larghezze desktop. **Da chiarire**
+compare sotto il selettore del caso solo quando è maggiore di zero: conta
+gli stati esplicitamente lasciati in dubbio nel lotto selezionato, non la
+differenza tra casi totali e completati. La distinzione fra pertinenza e
+correttezza scientifica resta nell’aiuto espandibile e nel rapporto.
+
 Il PDF si apre con la pagina intera adattata allo spazio del pannello.
 **Adatta alla larghezza** ingrandisce la visualizzazione per la lettura;
 **Mostra pagina intera** ripristina la vista d’insieme. Cambia soltanto la vista
@@ -217,6 +231,30 @@ introdotto nuovi risultati di qualità o una verifica della build arm64.
 L’integrazione non aggiunge inferenze né cambia il banco italiano: i risultati
 precedenti del recupero restano quelli documentati. Queste prove verificano il
 funzionamento dell’app, non la pertinenza delle annotazioni o la correttezza scientifica.
+
+### Banco compatto — 15 settembre 2026
+
+- A **1707 × 960 pixel CSS**, con **Space Mono**, testata più avanzamento
+  passano da **202,60 a 92,33 px**: **110,27 px** aggiuntivi per l’area di
+  lavoro, che passa da **686,73 a 797 px**. Nascondendo la sidebar la larghezza
+  del dettaglio passa da **1434,67 a 1706,67 px**. Sono misure di questa
+  configurazione, non una garanzia per qualsiasi font, zoom o messaggio di errore.
+- Browser verificato a **1707 × 960**, **1400 × 907** e **700 × 600** pixel CSS:
+  nessuno scorrimento orizzontale della pagina, azioni finali visibili,
+  sidebar reversibile e ripresa della nota dopo ricaricamento. A 700 px i
+  pannelli sono verticali e il corpo scorre; la sidebar può essere nascosta.
+- Prova sintetica su copia temporanea: con **0/20 completati**, un caso lasciato
+  in dubbio mostra **1 da chiarire nel lotto** nella sidebar; tornando a bozza
+  il conteggio scompare. Il confronto continua a escludere quel caso.
+- **30 test mirati superati, 0 fallimenti**, su banco e font. Nessun errore o
+  avviso nella console della sessione browser di prova.
+- Ricostruita e aperta la build **arm64** in
+  `dist/banco-compatto-20260915/mac-arm64/MappAI.app`: stesse versioni indicate
+  sopra, firma locale disabilitata. Verificati ingresso dalla Cabina, nuovo
+  titolo, PDF, Space Mono ereditato e area espansa con sidebar nascosta.
+
+Questa modifica riguarda lo spazio dell’interfaccia: non aggiorna le misure
+di recupero, non aggiunge revisioni del docente e non modifica i materiali.
 
 Consegna: build definitiva aperta con il profilo MappAI esistente e collegata
 tramite il selettore nativo a `local-ai-data/review/`. Verificati gli hash dei

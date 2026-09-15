@@ -5,6 +5,13 @@ input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review.bank-review{padding:0;background:var(--mm-fondo);display:block}
 #mappai-teacher-review.bank-review .mrv-dashboard{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none}
 #mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:var(--mm-console-side) minmax(0,1fr)}
+#mappai-teacher-review.bank-review .mrv-workspace:has(>#bank-sidebar[hidden]){grid-template-columns:minmax(0,1fr)}
+/* 15/9: one title, one progress row; secondary tools use the existing sidebar. */
+#mappai-teacher-review .mrv-header{padding:var(--mm-btn-gap) var(--mm-pad);gap:var(--mm-gap);flex-shrink:0}
+#mappai-teacher-review .mrv-overview{padding:var(--mm-btn-gap) var(--mm-pad);gap:var(--mm-gap);flex-shrink:0;flex-wrap:wrap}
+#mappai-teacher-review .mrv-overview>strong{white-space:nowrap}
+#mappai-teacher-review .bank-tools{border-top:1px solid var(--mm-bordo);padding-top:var(--mm-gap)}
+#mappai-teacher-review .mrv-coverage.bank-help{margin-top:0;padding-top:var(--mm-gap)}
 #mappai-teacher-review :is(.pm-btn-cancel,.pm-btn-primary){font-size:var(--mm-btn-fs)}
 #mappai-teacher-review .bank-stack{display:flex;flex-direction:column;gap:var(--mm-gap)}
 #mappai-teacher-review .bank-stack>*{min-width:0;flex-shrink:0}
@@ -49,24 +56,20 @@ input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review .bank-report h3{margin-top:var(--mm-pad)}
 @media(max-width:1100px){
   #mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:200px minmax(0,1fr)}
-  #mappai-teacher-review .mrv-header{padding:16px 20px}
-  #mappai-teacher-review .mrv-header nav{max-width:40%}
   #mappai-teacher-review .bank-column-head,#mappai-teacher-review .bank-column-body{padding:var(--mm-gap)}
 }
 @media(max-width:960px){
   #mappai-teacher-review.bank-review .mrv-workspace{display:flex;flex-direction:column;overflow:hidden}
   #mappai-teacher-review .mrv-sidebar.bank-stack{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:auto;max-height:180px;border-right:0;border-bottom:1px solid var(--mm-bordo);flex-shrink:0;padding:var(--mm-gap)}
   #mappai-teacher-review .bank-help{grid-column:1/-1;margin:0;padding-top:8px}
+  #mappai-teacher-review .bank-tools{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:wrap;gap:var(--mm-btn-gap)}
   #mappai-teacher-review .mrv-detail{flex:1;min-height:0}
   #mappai-teacher-review .bank-question{padding:var(--mm-gap)}
   #mappai-teacher-review .mrv-footer-actions{max-width:none;flex-wrap:wrap}
 }
 @media(max-width:760px){
-  #mappai-teacher-review .mrv-header{gap:var(--mm-gap);display:flex;align-items:start}
-  #mappai-teacher-review .mrv-header nav{max-width:36%}
-  #mappai-teacher-review .pm-subtitle{font-size:.75rem}
+  #mappai-teacher-review .mrv-header{flex-wrap:wrap}
   #mappai-teacher-review #message{max-width:100%;margin-left:0}
-  #mappai-teacher-review .mrv-overview{flex-wrap:wrap;gap:var(--mm-btn-gap);padding:10px 16px}
   #mappai-teacher-review.bank-review .mrv-workspace{overflow:auto;display:block}
   #mappai-teacher-review .mrv-sidebar.bank-stack{overflow:visible;max-height:none;grid-template-columns:1fr 1fr}
   #mappai-teacher-review .mrv-sidebar>.bank-stack{grid-column:1/-1}

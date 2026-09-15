@@ -34,7 +34,8 @@ function updateProgress() {
   const list = batch(), completed = list.filter(c => data.annotations[c.id]?.status === 'reviewed').length;
   $('completed').textContent = completed + ' / ' + list.length;
   $('bank-progress').max = list.length; $('bank-progress').value = completed;
-  $('uncertain').textContent = list.filter(c => data.annotations[c.id]?.status === 'uncertain').length;
+  const uncertain = list.filter(c => data.annotations[c.id]?.status === 'uncertain').length;
+  $('uncertain').textContent = uncertain; $('uncertain-summary').hidden = uncertain === 0;
   $('case-select').replaceChildren(...list.map(c => { const o = document.createElement('option'); o.value = c.id; const state = data.annotations[c.id]?.status; o.textContent = c.id + ' · ' + ({ reviewed: 'Completato', draft: 'Bozza', uncertain: 'Da chiarire' }[state] || 'Da rivedere') + ' · ' + c.query; return o; }));
   $('case-select').value = caseId;
 }
@@ -155,6 +156,11 @@ on('metrics', 'click', async () => {
 });
 on('close-report', 'click', () => $('report').close()); on('download-report', 'click', () => download('confronto-revisionato-r' + reportData.annotationRevision + '.json', reportData));
 on('pdf-fit', 'click', () => { const wide = $('pdf-viewer').dataset.fit !== 'width'; $('pdf-viewer').dataset.fit = wide ? 'width' : 'page'; $('pdf-fit').setAttribute('aria-pressed', String(wide)); $('pdf-fit').textContent = wide ? 'Mostra pagina intera' : 'Adatta alla larghezza'; });
+on('toggle-sidebar', 'click', () => {
+  const sidebar = $('bank-sidebar'); sidebar.hidden = !sidebar.hidden;
+  $('toggle-sidebar').setAttribute('aria-expanded', String(!sidebar.hidden));
+  $('toggle-sidebar').textContent = sidebar.hidden ? 'Mostra sidebar' : 'Nascondi sidebar';
+});
 window.addEventListener('beforeunload', event => { if (changed !== saved) { event.preventDefault(); event.returnValue = ''; } });
 let closing = false;
 async function closeBank() {
