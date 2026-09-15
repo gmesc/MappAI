@@ -524,12 +524,17 @@ window.sendNodeTutorMessage = async function (presetText) {
     const lang = appState.language || 'it';
     let instruction = "";
 
+    /* Il NOME dell'allievo non entra MAI nel prompt: nel profilo entrano solo età,
+       classe e sistema scolastico, come promette il pannello Privacy
+       (mappai-cabina.js, `cb_pv_allievi_d`). `nickname` resta la CHIAVE locale del
+       profilo e serve qui solo da guardia «esiste una scheda allievo?» — è la stessa
+       convenzione già rispettata da kg-extraction, mm-extraction e activeTuningBlock. */
     let userProfileStr = "";
     if (appState.userProfile && appState.userProfile.nickname) {
         if (lang === 'it') {
-            userProfileStr = ` L'utente è ${appState.userProfile.nickname}, ha ${appState.userProfile.age} anni, frequenta la classe ${appState.userProfile.grade} nel sistema: ${appState.userProfile.system}. Adatta rigorosamente la complessità didattica, il vocabolario e le domande a questo profilo cognitivo e curriculare. `;
+            userProfileStr = ` L'utente è uno studente di ${appState.userProfile.age} anni, frequenta la classe ${appState.userProfile.grade} nel sistema: ${appState.userProfile.system}. Adatta rigorosamente la complessità didattica, il vocabolario e le domande a questo profilo cognitivo e curriculare. `;
         } else {
-            userProfileStr = ` The user is ${appState.userProfile.nickname}, ${appState.userProfile.age} years old, attending grade ${appState.userProfile.grade}. Strictly adapt the pedagogical complexity, vocabulary, and questions to this cognitive and curricular profile. `;
+            userProfileStr = ` The user is a student aged ${appState.userProfile.age}, attending grade ${appState.userProfile.grade}. Strictly adapt the pedagogical complexity, vocabulary, and questions to this cognitive and curricular profile. `;
         }
     }
 

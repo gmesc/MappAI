@@ -3,6 +3,28 @@
 // ==========================================
 // Caricato DOPO app.js: usa appState/showToast/showPrompt/safeCreateIcons via scope globale.
 // Il Vault Manager (stessa sezione originale) resta in app.js.
+//
+// ⚠️ Il NOME dell'allievo NON si chiede più (15/9/2026). Il campo «Come ti chiami?»
+// era l'unico posto in cui l'app domandava a un minorenne come si chiama, e il suo
+// valore finiva nel prompt del tutor — contro la frase del pannello Privacy «Il NOME
+// dell'allievo non entra mai» (mappai-cabina.js, `cb_pv_allievi_d`).
+// `nickname` RESTA la chiave locale del profilo — la leggono dieci moduli (pickers di
+// CREA/INSEGNA/Cabina, live-classes, vault-manager, study-session) e le schede già
+// salvate la portano — ma da qui in avanti la SCRIVE l'app, non l'allievo: è
+// un'etichetta progressiva che non identifica nessuno.
+
+/* Etichetta di un profilo nuovo: la prima «Studente N» libera.
+   Stesso vocabolario di mappai-study-session.js («Studente Anonimo»).
+   Pura: `presi` è la lista delle etichette già in uso. */
+window.nuovaEtichettaProfilo = function (presi) {
+    const usate = new Set((presi || [])
+        .map(n => String(n == null ? '' : n).trim().toLowerCase())
+        .filter(Boolean));
+    for (let i = 1; ; i++) {
+        const et = 'Studente ' + i;
+        if (!usate.has(et.toLowerCase())) return et;
+    }
+};
 window.updateProfilesDropdown = function () {
     const select = document.getElementById('up-saved-profiles');
     if (!select) return;
@@ -32,7 +54,6 @@ window.loadSelectedProfile = function () {
     if (!selectedNickname) {
         // Clear fields for a new profile
         appState.userProfile = { nickname: "", age: "", grade: "", system: "Ticino" };
-        document.getElementById('up-nickname').value = "";
         document.getElementById('up-age').value = "";
         document.getElementById('up-system').value = "Ticino";
         window.updateGradeOptions();
@@ -43,7 +64,6 @@ window.loadSelectedProfile = function () {
     const profile = appState.allProfiles.find(p => p.nickname === selectedNickname);
     if (profile) {
         appState.userProfile = { ...profile };
-        document.getElementById('up-nickname').value = profile.nickname || "";
         document.getElementById('up-age').value = profile.age || "";
         document.getElementById('up-system').value = profile.system || "Ticino";
         window.updateGradeOptions();
@@ -107,7 +127,6 @@ window.showUserProfileModal = function () {
     window.updateProfilesDropdown();
 
     // Fill fields
-    document.getElementById('up-nickname').value = appState.userProfile.nickname || "";
     document.getElementById('up-age').value = appState.userProfile.age || "";
     document.getElementById('up-system').value = appState.userProfile.system || "Ticino";
 
@@ -139,11 +158,14 @@ window.closeUserProfileModal = function () {
 };
 
 window.saveUserProfile = function () {
-    const nickname = document.getElementById('up-nickname').value.trim();
-    if (!nickname) {
-        window.showToast(window.t('tst_nickname_required', "Il nickname è obbligatorio"), "error");
-        return;
-    }
+    /* Quale scheda si sta salvando lo dice la tendina, non un campo nome: con una
+       voce scelta si MODIFICA quella (e la sua etichetta resta, comprese le schede
+       vecchie che portano un nome vero); su «+ Nuovo Profilo» l'etichetta la conia
+       l'app. Nessun nome chiesto all'allievo. */
+    const select = document.getElementById('up-saved-profiles');
+    const scelto = select ? select.value : '';
+    const nickname = scelto
+        || window.nuovaEtichettaProfilo(appState.allProfiles.map(p => p && p.nickname));
 
     appState.userProfile.nickname = nickname;
     appState.userProfile.age = document.getElementById('up-age').value.trim();
@@ -151,7 +173,7 @@ window.saveUserProfile = function () {
     appState.userProfile.system = document.getElementById('up-system').value;
 
     // Update or add to allProfiles
-    const existingIndex = appState.allProfiles.findIndex(p => p.nickname.toLowerCase() === nickname.toLowerCase());
+    const existingIndex = appState.allProfiles.findIndex(p => p.nickname && p.nickname.toLowerCase() === nickname.toLowerCase());
     if (existingIndex >= 0) {
         appState.allProfiles[existingIndex] = { ...appState.userProfile };
     } else {

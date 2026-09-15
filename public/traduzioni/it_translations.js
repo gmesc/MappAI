@@ -641,7 +641,6 @@ const it_translations = {
     ui_save: "Salva",
     ui_how_study: "Come vuoi Studiare?",
     ui_new_profile: "+ Nuovo Profilo",
-    ph_your_name: "Come ti chiami?",
     ui_age: "Età",
     ui_vault_manager_desc: "Sfoglia, gestisci e carica i tuoi vault locali.",
     ph_layout_title: "Inserisci il titolo della disposizione...",
