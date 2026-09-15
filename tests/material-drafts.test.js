@@ -9,7 +9,8 @@ const path = require('node:path');
 const G = require('../public/js/mappai-grounding-core');
 
 function renderer() {
-  const window = { t: (_, fallback) => fallback, MappAIGroundingCore: G, MappAIDocEdit: require('../public/js/mappai-docedit-core') };
+  const window = { t: (_, fallback) => fallback, katex: require('../public/js/vendor/katex-0.16.9.min'),
+    MappAIGroundingCore: G, MappAIDocEdit: require('../public/js/mappai-docedit-core') };
   // Minimal DOM adapter for the actual audio block collector, with no browser,
   // provider, filesystem output or duplicated citation-removal implementation.
   class DOMParser {
@@ -18,7 +19,7 @@ function renderer() {
       const wrap = el => el ? { get textContent() { return $(el).text(); }, remove: () => $(el).remove(),
         querySelector: selector => wrap($(el).find(selector)[0]),
         querySelectorAll: selector => $(el).find(selector).toArray().map(wrap) } : null;
-      return { querySelector: selector => wrap($(selector)[0]) };
+      return { body: wrap($('body')[0]), querySelector: selector => wrap($(selector)[0]) };
     }
   }
   const sandbox = { window, DOMParser, appState: { db: { nodes: [], links: [] } }, console: { log() {}, warn() {}, error() {} } };
@@ -31,6 +32,44 @@ function renderer() {
   window.MappAICausal.triplesFor = () => { throw new Error('A renderer must not regenerate reviewed triples'); };
   return Object.assign(window.MappAISynthesis.buildHtml, { audioBlocks: window.__audioBlocks, modalBody: window.__modalBody });
 }
+test('synthesis renders TeX as portable MathML, protects its syntax and retains it after document editing', () => {
+  const source = { id: 'src-lithium', idx: 17, title: 'Manuale', text: 'Testo originale.', verbatim: true };
+  const rawText = String.raw`Il composto $\text{LiNiCoAlO}_2$ [src-lithium].
+**Confronto** $x < y$ e $[1] * x$.
+$$\frac{V}{R}
+= I$$
+\[E = mc^2\] e \(a_1\).
+Riferimento assente [src-unknown].`;
+  const data = { rawText, branchLabel: 'Pile', sourcesArr: [source], causalTriples: [] };
+  const before = JSON.stringify(data), build = renderer(), html = build(data), $ = load(html);
+  assert.equal($('.bs-body math').length, 6);
+  assert.equal($('.bs-body math[display="block"]').length, 2);
+  assert.equal($('.bs-body math sup, .bs-body math em').length, 0, 'math brackets and stars are not citations or Markdown');
+  assert.match($('.bs-body math').first().text(), /LiNiCoAlO/);
+  assert.equal($('.bs-body a[href="#bs-cite-whole-17"]').length, 1);
+  assert.doesNotMatch($('.bs-body').text(), /src-lithium|src-unknown/);
+  assert.match($('.bs-body').text(), /Fonte da verificare/);
+  assert.doesNotMatch(html, /<script[^>]*src=["'][^"']*katex/i, 'standalone output needs no KaTeX download');
+  assert.doesNotMatch(build.audioBlocks(data).join(' '), /\\text|\\frac|src-/);
+  const E = require('../public/js/mappai-docedit-core');
+  const editedBlocks = E.blocksFromHtml($('.bs-body').html());
+  assert.match(editedBlocks.map(b => b.html).join(''), /\$\\text\{LiNiCoAlO\}_2\$/);
+  assert.doesNotMatch(editedBlocks.filter(b => b.tag !== 'raw').map(b => b.html).join(''), /<math|<annotation/);
+  const edited = load(build({ ...data, editedBlocks }));
+  assert.equal(edited('.bs-body math').length, 6);
+  assert.equal(edited('.bs-body math[display="block"]').length, 2);
+  assert.deepEqual(edited('math annotation').map((_, n) => edited(n).text()).get(), $('math annotation').map((_, n) => $(n).text()).get());
+  const modal = load(build.modalBody({ whole: true, sections: [data] }));
+  assert.equal(modal('math').length, 6, 'modal and export share the renderer');
+  assert.equal(JSON.stringify(data), before, 'rendering does not rewrite the approved material');
+});
+
+test('TeX rendering does not enable HTML or script commands and leaves escaped currency literal', () => {
+  const html = renderer()({ rawText: String.raw`Prezzo \$5. Formula $\href{javascript:alert(1)}{x}$. $\htmlClass{unsafe}{y}$.`, sourcesArr: [] });
+  const $ = load(html);
+  assert.equal($('.bs-body [href^="javascript:"], .bs-body .unsafe, .bs-body script').length, 0);
+  assert.match($('.bs-body').text(), /Prezzo \\\$5/);
+});
 test('review corrections reach the same MC key, flash answer, rubric and synthesis that exporters consume', () => {
   const drafts = { B: {
     mc: { id: 'm', type: 'mc', items: [{ q: 'Chi riceve valuta?', options: ['Svizzera', 'Germania'], correct: 'Svizzera' }] },

@@ -5,14 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlante MappAI</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
-<!-- Regola 10: il sistema unico della UI. Si importa, non si copia. -->
-<link rel="stylesheet" href="../../public/css/mappai-ui.css">
+<!-- Regola 10: il sistema unico della UI. Si importa, non si copia.
+     ⚠️ Il nome è QUELLO PUBBLICATO: `mappai-ui.css` qui accanto è un link
+     simbolico a public/css/mappai-ui.css. Non rimettere il percorso lungo
+     `../../public/css/...`: funziona in locale ma nell'artifact non esiste,
+     e il rail esce senza stile (successo il 14/9). -->
+<link rel="stylesheet" href="mappai-ui.css">
 <style>
   /* Solo layout di pagina, dai token: rail a sinistra, mappa a destra. */
   html, body { margin: 0; height: 100%; }
   body { display: grid; grid-template-columns: 300px 1fr; background: var(--ui-fondo); color: var(--ui-testo); font-family: var(--ui-font); }
   main { display: flex; min-width: 0; }
   iframe { flex: 1; width: 100%; border: 0; background: var(--ui-pannello); }
+  /* Undici voci non ci stanno più in un portatile: il rail scorre, e il piede
+     con «Schermo intero / Tema» resta appiccicato in basso invece di finire
+     fuori schermo. */
+  .ui-rail-piede { position: sticky; bottom: -20px; background: var(--ui-fondo); }
+  /* La voce del glossario non è una mappa numerata: al posto del numero ha la
+     ƒ, che va un filo più grande per stare in mezzo al cerchio. */
+  .ui-voce .n.gl { font-size: 15px; font-weight: 400; font-style: italic; }
   @media (max-width: 760px) {
     body { height: auto; min-height: 100vh; grid-template-columns: 1fr; }
     .ui-rail { border-right: 0; border-bottom: 1px solid var(--ui-bordo); }
@@ -41,6 +52,9 @@
   <button type="button" class="ui-voce" data-src="fragilita.workflow.html"><span class="n">09</span><b>Fragilità</b><small>Dieci punti deboli con file e riga, e le decisioni da prendere.</small></button>
   <button type="button" class="ui-voce" data-src="vault.dataflow.html"><span class="n">10</span><b>Lineage del vault</b><small>Chi scrive e chi legge index.yaml, Nodi/*.md, materiali e tracce della classe.</small></button>
 
+  <p class="ui-eyebrow">Glossario</p>
+  <button type="button" class="ui-voce" data-src="funzioni.html"><span class="n gl">ƒ</span><b>Le funzioni</b><small>Tutte le funzioni del codice, con che cosa fanno. Ricerca e filtri per mappa, area, momento.</small></button>
+
   <div class="ui-rail-piede">
     <div class="ui-azioni"><button type="button" class="ui-btn" id="apri">Schermo intero</button><button type="button" class="ui-btn" id="tema">Tema</button></div>
     <span>Ogni mappa ha temi, ricerca, capitoli guidati ed Export. Sorgenti e ricevute in docs/archify/.</span>
@@ -67,23 +81,15 @@
   });
   try { if (localStorage.getItem('atlante_tema') === 'light') radice.dataset.theme = 'light'; } catch (e) {}
 
-  // Dentro ogni viewer (stessa origine): testata con più aria, bottoni della barra più piccoli.
-  // Non tocca i file consegnati da Archify (le ricevute restano valide): è un foglio iniettato a caricamento.
-  const RITOCCHI = `
-    header { padding-right: 0 !important; margin-bottom: 1.6rem !important; }
-    h1 { font-size: 1.3rem !important; line-height: 1.2 !important; margin: 0 0 .4rem !important; }
-    .header-row { gap: 1rem !important; row-gap: .6rem !important; align-items: flex-start !important; }
-    .toolbar { position: static !important; display: flex !important; justify-content: flex-end !important; flex-wrap: wrap !important; gap: .35rem !important; margin: .5rem 0 .9rem !important; }
-    .toolbar button { padding: .3rem .55rem !important; font-size: .78rem !important; min-height: 1.9rem !important; }
-    .toolbar #btn-preset, .toolbar #btn-motion { min-width: 0 !important; }
-    .toolbar .toolbar-icon { width: .85rem !important; height: .85rem !important; }
-  `;
-  frame.addEventListener('load', () => {
-    try {
-      const d = frame.contentDocument; if (!d || !d.head) return;
-      const s = d.createElement('style'); s.textContent = RITOCCHI; d.head.appendChild(s);
-    } catch (e) { /* origine diversa (file://): il viewer resta com’è */ }
-  });
+  /* ⚠️ QUI NON SI INIETTA PIÙ NIENTE NEI VIEWER (14/9).
+     C'era un foglio di «ritocchi» che rimetteva la barra degli strumenti nel
+     flusso (`.toolbar { position: static }`, l'originale la tiene `fixed`) e
+     azzerava il `padding-right` della testata. Ma quei viewer misurano la
+     propria testata per decidere la larghezza del disegno: toolbar nel flusso
+     → a ogni cambio di larghezza i bottoni vanno a capo → la testata cambia
+     altezza → si rimisura la larghezza → i bottoni tornano su una riga → …
+     Un'oscillazione che non si ferma: la mappa sfarfalla e la CPU resta a
+     terra. I viewer si dispongono da soli: si lasciano stare. */
 
   const avvio = parseInt(location.hash.slice(1), 10);
   mostra(avvio >= 1 && avvio <= mappe.length ? avvio - 1 : 0);

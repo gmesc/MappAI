@@ -232,9 +232,20 @@
     }
     var r = clone(next), issues = clone(previous.initial.issues), known = new Set(issues.map(identity));
     r.initial.decisions = clone(previous.initial.decisions);
+    function manualFinding(issue) {
+      var data = JSON.parse(identity(issue));
+      if (!data.quote || issue.target.kind !== 'node') return null;
+      delete data.after; delete data.hasProposal;
+      return stable(data);
+    }
+    var manuallyResolved = new Set(issues.filter(function (i) {
+      return r.initial.decisions[i.id] && r.initial.decisions[i.id].choice === 'manual';
+    }).map(manualFinding).filter(Boolean));
     next.initial.issues.forEach(function (issue) {
       var key = identity(issue);
-      if (known.has(key)) return;
+      // A new wording of a proposal on the same proof does not reopen a
+      // teacher's own correction. Different quotes/evidence remain reviewable.
+      if (known.has(key) || manuallyResolved.has(manualFinding(issue))) return;
       var added = clone(issue);
       // Even an explicit/reused model ID cannot transfer approval to a
       // different proposal or different evidence.
@@ -301,7 +312,9 @@
     if (['awaiting_review', 'applying', 'approved'].indexOf(review.initial.status) < 0) fail('invalid_review_status');
     var sources = own(opts, 'sources') ? opts.sources : review.sources;
     var conflicts = [], unresolved = [], work = copyDb(db), patches = [], overrides = [];
-    function conflict(issueId, code) { conflicts.push({ issueId: issueId || null, code: code }); }
+    function conflict(issueId, code, otherIssueId) {
+      conflicts.push(Object.assign({ issueId: issueId || null, code: code }, otherIssueId ? { otherIssueId: otherIssueId } : {}));
+    }
     if (review.initial.status === 'approved' || review.initial.status === 'applying') {
       if (matchesSnapshot(db, sources, review.approvedSnapshot, review.approvedRevision, review.sources)) {
         return { ok: true, db: work, conflicts: [], unresolved: [], revision: review.approvedRevision,
@@ -338,11 +351,16 @@
         var change = textChange(i.before, value);
         if (!other.whole && !found.whole && other.target.field === i.target.field && change && other.edits &&
             other.edits.every(function (e) { return change.start > e.end || change.end < e.start; })) {
+          change.issueId = i.id;
           other.edits.push(change); other.additions = other.additions.concat(additions);
-        } else conflict(i.id, 'conflicting_decisions');
+        } else {
+          var overlapping = change && other.edits && other.edits.find(function (e) { return change.start <= e.end && change.end >= e.start; });
+          conflict(i.id, 'conflicting_decisions', overlapping && overlapping.issueId || other.issueId);
+        }
         return;
       }
       var edit = textChange(i.before, value);
+      if (edit) edit.issueId = i.id;
       patches.push({ row: found.row, target: i.target, value: value, whole: found.whole, issueId: i.id,
         edits: edit ? [edit] : null, additions: additions });
     });

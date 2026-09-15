@@ -1,0 +1,565 @@
+public/js/app.js:23	Ridisegna le icone Lucide dopo che hai iniettato HTML nuovo. Chiamata da 62 posti: se un'icona non compare, manca questa.
+public/js/app.js:75	Chiude tutti i modali aperti, uno per uno, prima di cambiare superficie.
+public/js/app.js:178	Accende la modalità PRO di Infomaniak: mostra tutti i modelli, non solo quelli consigliati.
+public/js/app.js:189	All'avvio rimette il provider e il modello che avevi scelto l'ultima volta.
+public/js/app.js:217	Applica alla pagina la modalità studente: nasconde i bottoni che allo studente non servono.
+public/js/app.js:270	Accende e spegne la modalità studente.
+public/js/app.js:289	Sceglie fra generazione a passo unico e multi-pass.
+public/js/app.js:315	Sceglie la pipeline di generazione A o B (prova comparativa).
+public/js/app.js:361	Sceglie la logica MindMap: 'mappai' classica o 'triage' con profondità adattiva.
+public/js/app.js:376	Dice quale logica MindMap è attiva.
+public/js/app.js:378	Dice quale pipeline (A/B) è attiva.
+public/js/app.js:402	Costruisce l'elenco dei verbi di relazione ammessi nel KG, nella lingua delle mappe.
+public/js/app.js:423	Salva il product ID di Infomaniak.
+public/js/app.js:429	Salva il modello scelto nella tendina.
+public/js/app.js:440	Cambia provider AI (Google ↔ Infomaniak) e ricarica l'elenco dei modelli.
+public/js/app.js:492	Apre la pagina web dove si prende la chiave API del provider.
+public/js/app.js:506	Aggiorna il riquadro che spiega dove passano i dati con questo provider.
+public/js/app.js:560	Legge un PDF con PDF.js e restituisce il testo PAGINA PER PAGINA (serve all'àncora per citare la pagina giusta).
+public/js/app.js:617	Scorciatoia: dallo stesso PDF prende solo il testo intero, senza le pagine.
+public/js/app.js:624	Restituisce la chiave API del provider attivo. Ogni chiamata AI comincia da qui.
+public/js/app.js:639	Restituisce la chiave di UN provider preciso, anche se non è quello attivo.
+public/js/app.js:650	Etichetta leggibile del provider, per dire al docente dove passano i dati.
+public/js/app.js:655	Elenca i provider per cui hai messo una chiave: sotto i due, il selettore non si mostra.
+public/js/app.js:665	Decide il tetto di token in uscita per il modello attivo (i verbosi ne vogliono di più).
+public/js/app.js:754	IL PASSAGGIO OBBLIGATO di ogni chiamata AI dell'app: sceglie provider e modello, invia, conta i token, gestisce l'errore.
+public/js/app.js:921	Aggiorna a schermo il costo stimato della generazione in corso.
+public/js/app.js:955	Aggiorna il contatore dei token della fonte caricata.
+public/js/app.js:961	Ricalcola la stima di token e costo prima di generare.
+public/js/app.js:1086	Aggiunge una fonte vuota (PDF, URL, YouTube, testo) al modulo di CREA.
+public/js/app.js:1133	Quando esci dal campo URL, prova a leggere la pagina e a prenderne il titolo.
+public/js/app.js:1146	Propone il titolo della mappa a partire dal nome della fonte.
+public/js/app.js:1150	Toglie una fonte dall'elenco.
+public/js/app.js:1157	Riceve il PDF scelto e lo passa alla lavorazione.
+public/js/app.js:1188	Lavora il file caricato: riconosce il tipo (PDF, DOCX, testo, immagine) ed estrae il testo.
+public/js/app.js:1233	Registra una fonte iconografica: l'immagine non dà testo, la leggerà Gemini.
+public/js/app.js:1269	Riceve un file qualunque dal selettore e lo instrada come fonte.
+public/js/app.js:1325	IL ROUTER DELLA GENERAZIONE: prende il lucchetto, sceglie il motore (MindMap o KG, iterativo o multi-pass) e avvia.
+public/js/app.js:1934	Costruisce il blocco di taratura sulla classe da iniettare nei prompt, quando il contesto è armato.
+public/js/app.js:1963	Abilita o spegne la riga «Adatta al livello» in COSTRUISCI.
+public/js/app.js:1979	Attacca la taratura classe al systemInstruction di un payload AI.
+public/js/app.js:2002	Le regole di scrittura accessibile iniettate nei prompt: frasi corte, nessi espliciti, tecnicismi spiegati.
+public/js/app.js:2045	Mostra il rendiconto di fine generazione: chiamate, token, costo, fasi.
+public/js/app.js:2183	Elenca gli ID di un nodo e di tutti i suoi discendenti.
+public/js/app.js:2197	Raccoglie le fonti di un nodo e di tutto il suo sottoalbero: è il materiale che va ai prompt di studio.
+public/js/app.js:2267	Le categorie della segnalazione dalla Cabina (interfaccia, AI, …).
+public/js/app.js:2281	Invia la segnalazione del docente (e dice se è partita davvero).
+main.js:80	Il lanciatore: apre la finestra Docente o quella Studio secondo la scelta iniziale.
+main.js:363	Il canale che porta davvero la richiesta a Google Gemini (HTTPS dal processo principale, non dalla pagina).
+main.js:642	Apre un indirizzo nel browser di sistema.
+main.js:718	Fotografa la finestra dell'app e la restituisce come immagine.
+main.js:725	Salva il JSON della mappa nella cartella delle mappe.
+main.js:942	Scrive un file dentro un vault, con le guardie che impediscono di uscire dalla cartella.
+main.js:1084	Manda in stampa un materiale del vault col dialogo di sistema.
+main.js:1277	Salva la trascrizione di una chat col tutor dentro il vault.
+main.js:1308	Salva la risposta scritta a un quiz dentro il vault.
+main.js:1469	SCRIVE IL VAULT INTERO su disco: index.yaml, links.json, Nodi/*.md, allegati.
+main.js:1827	LEGGE UN VAULT dal disco e lo ricostruisce in memoria come mappa.
+main.js:2294	Ferma il server del Knowledge Garden.
+main.js:2310	Apre nel Finder la cartella del Knowledge Garden.
+main.js:2385	Ferma il server della Lavagna collaborativa.
+main.js:2406	Apre nel Finder la cartella della Lavagna.
+main.js:2562	Ferma il server di MappAI Live.
+main.js:2577	Apre nel Finder la cartella della sessione Live.
+main.js:2616	Ferma il server dei materiali.
+main.js:2624	Dice se il server dei materiali è acceso e a quale indirizzo.
+main.js:2675	Salva su disco il registro delle classi e delle credenziali.
+main.js:2762	Aggiunge una riga al registro dei consumi AI.
+main.js:2763	Legge il registro dei consumi AI (lo mangia il cruscotto dei costi).
+main.js:2775	Apre nel Finder la cartella del registro consumi.
+main.js:2842	Chiede alla cache della voce se questa frase è già stata registrata.
+main.js:2850	Restituisce dalla cache l'audio già registrato di una frase.
+main.js:2857	Mette in cache l'audio appena registrato, così domani non si ripaga.
+main.js:2872	Svuota la cache della voce.
+main.js:2921	Aggiunge una riga al registro locale degli errori.
+main.js:2922	Legge il registro degli errori (lo mostra la Cabina, non parte niente da solo).
+main.js:2935	Svuota il registro degli errori.
+main.js:2943	Apre nel Finder la cartella della diagnostica.
+main.js:3034	Avvia il server di «Chatta e Scrivi» e restituisce indirizzo e QR.
+main.js:3099	Ferma il server del tutor.
+main.js:3107	Dice se la sessione tutor è attiva e con quali parametri.
+main.js:3112	Apre nel Finder la cartella delle chat del tutor.
+main.js:3190	Elenca tutti i vault presenti su disco: è la fonte dell'elenco «Progetti esistenti».
+main.js:3288	Apre il dialogo di sistema per scegliere una cartella.
+main.js:3324	Apre nel Finder la cartella di un vault.
+main.js:3412	Dice dov'è la cartella madre «MappAI - file» e se l'organizzazione è attiva.
+main.js:3585	Elenca le sessioni di studio registrate su disco.
+main.js:3670	Apre il dialogo di sistema per scegliere un file.
+main.js:3684	Estrae il testo da un DOCX (con mammoth).
+main.js:3711	Scarica una pagina web e ne estrae il testo, per la fonte URL.
+main.js:3738	Carica i template dei prompt: quelli del repo più l'eventuale override dell'utente.
+main.js:3764	Salva i template dei prompt modificati nella dashboard admin.
+public/js/storageAdapter.js:43	Carica le chiavi API dal portachiavi quando l'app gira fuori da Electron.
+public/js/storageAdapter.js:64	Salva una chiave API nel portachiavi (iPadOS/web).
+public/js/admin_prompts.js:46	Traduce le etichette della dashboard admin.
+public/js/admin_prompts.js:148	Apre la dashboard admin dei prompt (CTRL+SHIFT+P,O,I,U).
+public/js/admin_prompts.js:171	Chiude la dashboard admin.
+public/js/admin_prompts.js:177	Carica da disco la configurazione dei prompt.
+public/js/admin_prompts.js:188	Disegna l'elenco dei template nella dashboard.
+public/js/admin_prompts.js:272	Cambia tab nella dashboard (MINDMAPS, KG, …).
+public/js/admin_prompts.js:279	Apre un template nell'editor della dashboard.
+public/js/admin_prompts.js:290	Salva il template modificato (finisce nell'override in userData).
+public/js/admin_prompts.js:308	Mostra l'area di prova del template.
+public/js/admin_prompts.js:316	Prova il template con una chiamata AI vera e mostra la risposta.
+public/js/admin_prompts.js:349	Rimette un template al valore di fabbrica.
+public/js/admin_prompts.js:391	Rimette TUTTI i template ai valori di fabbrica (serve quando l'override è vecchio).
+public/js/mappai-generation-support.js:105	Assegna a un hub il gruppo (e quindi il colore) dei suoi vicini, per votazione.
+public/js/mappai-generation-support.js:155	Trova i nodi doppi e li fonde in cross-link invece di lasciarli duplicati.
+public/js/mappai-generation-support.js:275	Toglie dai nodi i chunk verbatim quando il freeze è acceso.
+public/js/mappai-generation-support.js:636	Dice se la validazione delle macro-aree L1 è accesa.
+public/js/mappai-generation-support.js:664	Dice se il catalogo dei rami fratelli va nei prompt di Fase 3.
+public/js/mappai-generation-support.js:695	Chiede gli embedding dei testi al provider (servono al dedup semantico).
+public/js/mappai-generation-support.js:730	Fonde i nodi semanticamente uguali usando gli embedding, con soglia e tetto.
+public/js/mappai-generation-support.js:828	Dice se la Fase 5 (riclassificazione dei nodi mal collocati) è accesa.
+public/js/mappai-generation-support.js:1196	Riscrive le descrizioni troppo magre andando a ripescare la fonte.
+public/js/mappai-generation-support.js:1298	Controlla le macro-aree L1 appena generate: doppioni, titoli composti, numero.
+public/js/mappai-generation-support.js:1508	Dice se la Fase 4 (merge e cross-link semantici) è accesa.
+public/js/mappai-generation-support.js:1746	Dice se la Fase 3.7 di approfondimento è accesa (lo è di default).
+public/js/mappai-generation-support.js:1783	LA FASE 3.7: per ogni ramo chiede all'AI i nodi di approfondimento «_D».
+public/js/mappai-generation-support.js:2035	Imposta a mano la profondità della generazione (1-5).
+public/js/mappai-generation-support.js:2044	Accende la profondità automatica, decisa dal triage.
+public/js/mappai-generation-support.js:2048	Aggiorna il bottone della profondità automatica.
+public/js/mappai-generation-support.js:2146	IL PASSAGGIO DI COPERTURA: una sola chiamata sul residuo della fonte per recuperare i concetti persi.
+public/js/mappai-generation-support.js:2316	Dice se il giudice può APPLICARE le correzioni o solo segnalarle.
+public/js/mappai-generation-support.js:2320	IL GIUDICE: rilegge ogni ramo con davanti le frasi vere e cerca gli errori di senso.
+public/js/mappai-l1-checkpoint.js:49	Dice se il checkpoint delle macro-aree è acceso.
+public/js/mappai-tree-sanitizer.js:139	Ripara l'albero appena generato: livelli sbagliati, genitori inesistenti, ID doppi.
+public/js/mappai-anchor.js:50	APPLICA L'ÀNCORA alla mappa: a ogni nodo le frasi vere della fonte, poi misura copertura e fedeltà.
+public/js/mappai-entity-backbone.js:178	Dice se la diagnostica sulle entità sparse è accesa.
+public/js/mappai-lenses.js:176	Accende o spegne una lente di estrazione.
+public/js/mappai-lenses.js:192	Applica un preset disciplinare di lenti (Storia, Scienze, …).
+public/js/mappai-disciplines.js:74	Imposta la disciplina attiva (o la toglie se ripremi la stessa).
+public/js/mappai-disciplines.js:110	Costruisce il pezzo di prompt di sistema che dice all'AI in che disciplina siamo.
+public/js/mappai-disciplines.js:144	Disegna il selettore delle discipline.
+public/js/mappai-contextual-ai.js:12	Apre «Espandi con AI» su un nodo.
+public/js/mappai-contextual-ai.js:31	Esegue l'espansione: manda testo o PDF all'AI e attacca i nodi nuovi sotto quello scelto.
+public/js/mappai-contextual-ai.js:159	Passa da «incolla testo» a «carica PDF» dentro quel modale.
+public/js/mappai-contextual-ai.js:185	Riceve il PDF scelto per l'espansione.
+public/js/mappai-contextual-ai.js:194	Chiude il modale dell'espansione.
+public/js/mappai-material-pipeline.js:43	IL LUCCHETTO: dice se l'app sta già generando qualcosa. Da chiamare prima di ogni avvio.
+public/js/mappai-branch-synthesis.js:257	Porta la pagina alla citazione numerata cliccata nella sintesi.
+public/js/mappai-branch-synthesis.js:455	Genera la sintesi di un ramo con l'AI, con le citazioni alla fonte.
+public/js/mappai-branch-synthesis.js:1497	Apre la sintesi appena fatta nell'editor dei documenti.
+public/js/mappai-branch-synthesis.js:1513	Stampa la sintesi di ramo.
+public/js/mappai-branch-synthesis.js:2026	Fa leggere la sintesi ad alta voce e ne salva l'audio.
+public/js/mappai-doc-editor.js:88	Rimette l'anteprima del documento allo zoom naturale.
+public/js/mappai-doc-editor.js:127	Cambia il carattere di QUESTO documento (vuoto = quello della Cabina).
+public/js/mappai-doc-editor.js:327	Apre una sintesi di ramo dentro l'editor dei documenti.
+public/js/mappai-doc-editor.js:582	Cambia la famiglia di un nesso nella catena dei perché.
+public/js/mappai-doc-editor.js:595	Aggiunge una riga alla catena dei perché.
+public/js/mappai-doc-editor.js:600	Elimina una riga della catena dei perché.
+public/js/mappai-doc-editor.js:605	Sposta su o giù una riga della catena dei perché.
+public/js/mappai-doc-editor.js:650	Cambia il formato del foglio dei nodi (quante card per pagina).
+public/js/mappai-doc-editor.js:664	Mette o toglie la griglia di sfondo al foglio dei nodi.
+public/js/mappai-doc-editor.js:668	Sceglie fino a che livello scendono le card del foglio.
+public/js/mappai-doc-editor.js:725	Aggiunge una parola chiave a una card.
+public/js/mappai-doc-editor.js:739	Toglie una parola chiave da una card.
+public/js/mappai-doc-editor.js:744	Sposta una card nel foglio.
+public/js/mappai-doc-editor.js:759	Rimette nel foglio tutte le card che avevi tolto.
+public/js/mappai-doc-editor.js:880	Torna all'elenco dei documenti, avvisando se ci sono modifiche non salvate.
+public/js/mappai-doc-editor.js:963	Annulla l'ultima modifica al documento.
+public/js/mappai-doc-editor.js:1007	Aggiunge una domanda al quiz.
+public/js/mappai-doc-editor.js:1017	Elimina una domanda del quiz (con conferma).
+public/js/mappai-doc-editor.js:1025	Sposta una domanda su o giù.
+public/js/mappai-doc-editor.js:1030	Aggiunge un'opzione a una domanda a scelta multipla.
+public/js/mappai-doc-editor.js:1035	Toglie un'opzione.
+public/js/mappai-doc-editor.js:1040	Segna quale opzione è quella giusta.
+public/js/mappai-doc-editor.js:1064	Cambia il tipo di un blocco di testo (titolo, paragrafo, …).
+public/js/mappai-doc-editor.js:1076	Aggiunge un blocco di testo alla sintesi.
+public/js/mappai-doc-editor.js:1086	Elimina un blocco di testo.
+public/js/mappai-doc-editor.js:1092	Sposta un blocco di testo.
+public/js/mappai-doc-editor.js:1112	Colora il testo selezionato.
+public/js/mappai-doc-editor.js:1127	La pipetta: prende un colore da qualunque punto dello schermo.
+public/js/mappai-study-export-core.js:188	Restituisce un documento di studio archiviato dal suo id.
+public/js/mappai-print-dossier.js:42	Apre il modale che stampa le etichette dei nodi.
+public/js/mappai-print-dossier.js:1403	Stampa il dossier di tutti i nodi.
+public/js/mappai-print-dossier.js:1407	Apre il modale di configurazione del dossier PDF.
+public/js/mappai-print-dossier.js:1453	Chiude quel modale.
+public/js/mappai-print-dossier.js:1465	Aggiorna le opzioni quando cambi il nodo di partenza del dossier.
+public/js/mappai-print-dossier.js:1477	GENERA IL DOSSIER PDF con le opzioni scelte (jsPDF, testo vettoriale).
+public/js/mappai-quiz-print.js:997	Stampa tutti i set di studio della mappa.
+public/js/mappai-quiz-print.js:1031	Ricostruisce il percorso della fonte a partire dal nome del file.
+public/js/mappai-visione.js:394	Monta la superficie delle immagini (dentro CREA o dentro ELABORA).
+public/js/mappai-visione.js:578	Apre la scheda di una fonte iconografica.
+public/js/mappai-visione.js:589	Restituisce la scheda immagine su cui si sta lavorando.
+public/js/mappai-visione.js:590	Dimentica la scheda immagine corrente.
+public/js/mappai-visione.js:598	Con una foto fra le fonti il genere cambia: non si fa la mappa, si fa il dossier.
+public/js/mappai-visione.js:671	Crea una scheda nuova da un'immagine e la fa leggere a Gemini.
+public/js/mappai-timeline.js:325	Apre il modale che configura la timeline (compatta o con contesto).
+public/js/mappai-timeline.js:436	Chiede all'AI gli eventi datati, li deduplica e apre la timeline.
+public/js/mappai-latex.js:58	Dice se un testo contiene formule da far rendere a KaTeX.
+public/js/mappai-text-utils.js:62	Spezza un'etichetta nelle sue righe.
+public/js/mappai-correction-mode.js:57	Annulla la revisione mappa in corso e rimette tutto com'era.
+public/js/mappai-structure-analyzer.js:635	Trova gli «hub di significato»: i nodi da cui passa più ragionamento (betweenness).
+public/js/mappai-suggestions-panel.js:101	Disegna il pannello dei suggerimenti strutturali.
+public/js/mappai-suggestions-panel.js:149	Fonde un nodo del cluster suggerito nel suo nodo àncora.
+public/js/mappai-suggestions-panel.js:169	Dice se il pannello dei suggerimenti è acceso.
+public/js/mappai-meta-analysis.js:122	Analizza il vault di UNO studente: volume, sessioni, padronanza.
+public/js/mappai-meta-analysis.js:183	Confronta gli studenti fra loro e restituisce il quadro della classe.
+public/js/mappai-meta-analysis.js:246	Chiede all'AI un feedback costruttivo su uno studente.
+public/js/mappai-meta-analysis.js:279	Chiede all'AI di leggere le chat di uno studente e dirne qualcosa.
+public/js/mappai-elabora.js:64	Dice se c'è una mappa vera su cui ELABORA può lavorare.
+public/js/mappai-elabora.js:171	Smonta il pannello della fonte.
+public/js/mappai-elabora.js:172	Disegna il pannello della fonte dentro la console.
+public/js/mappai-elabora.js:193	Esegue un'azione sulla fonte (estrai domande, esporta il PDF evidenziato).
+public/js/mappai-elabora.js:201	Ridisegna ELABORA.
+public/js/mappai-elabora.js:261	Aggancio: quando salvi un nodo, ELABORA si ridisegna.
+public/js/mappai-elabora.js:622	Esporta il PDF della fonte con le evidenziazioni per nodo.
+public/js/mappai-elabora.js:1033	Sceglie che cosa mostrare nella colonna destra.
+public/js/mappai-elabora.js:1046	Apre o chiude un ramo nell'albero di ELABORA.
+public/js/mappai-elabora.js:1048	Clic su una riga dell'albero: porta alla scheda del nodo.
+public/js/mappai-elabora.js:1054	Porta la vista sulla scheda di quel nodo.
+public/js/mappai-elabora.js:1063	Rinomina un nodo da ELABORA.
+public/js/mappai-elabora.js:1074	Apre il modale di modifica del nodo da ELABORA.
+public/js/mappai-elabora.js:1110	Trascinamento nell'albero: sposta un nodo sotto un altro.
+public/js/mappai-elabora.js:1137	Annulla la scelta del nodo con cui fondere.
+public/js/mappai-elabora.js:1374	Cambia vista della fonte (testo, PDF).
+public/js/mappai-elabora.js:1381	Va a una pagina precisa del PDF.
+public/js/mappai-elabora.js:1497	Mette da parte un rilievo dell'analisi.
+public/js/mappai-elabora.js:1499	Apre il selettore per aggiungere un PDF come fonte.
+public/js/mappai-elabora.js:1501	Riceve il PDF aggiunto e lo registra come fonte.
+public/js/mappai-elabora.js:1516	Aggiunge una fonte incollando del testo.
+public/js/mappai-elabora.js:1623	Scrive nel vault le fonti caricate, in modo che restino con la mappa.
+public/js/mappai-elabora.js:1744	Rimette in memoria le fonti salvate nel vault quando riapri una mappa.
+public/js/mappai-elabora.js:1796	Va a ripescare i testi delle fonti che mancano.
+public/js/mappai-elabora.js:1972	Chiude ELABORA e torna alla mappa.
+public/js/mappai-elabora-console.js:46	Dice se ELABORA gira nella forma console (oggi sempre).
+public/js/mappai-d3-render.js:1040	Inchioda o libera i nodi: con i nodi fissi la mappa non si muove più da sola.
+public/js/mappai-d3-render.js:1063	Accende e spegne la fisica della simulazione.
+public/js/mappai-d3-render.js:1065	Accende e spegne l'attrazione fra i nodi.
+public/js/mappai-d3-render.js:1104	Ingrandisce o rimpicciolisce il testo dei nodi.
+public/js/mappai-d3-render.js:1109	Ingrandisce o rimpicciolisce il testo sulle frecce.
+public/js/mappai-d3-render.js:1117	Dice se le etichette sono nascoste.
+public/js/mappai-d3-render.js:1118	Dice come si mostrano i verbi sulle frecce (niente, corto, intero).
+public/js/mappai-d3-render.js:1131	Esporta la mappa come immagine PNG.
+public/js/mappai-d3-render.js:1506	Esporta la mappa come SVG vettoriale.
+public/js/mappai-d3-render.js:1546	Allarga o stringe le distanze fra i nodi.
+public/js/mappai-d3-render.js:1563	Rimette i nodi dove li avevi lasciati (disposizione salvata).
+public/js/mappai-d3-render.js:1579	Cambia disposizione: libera, radiale, ad albero.
+public/js/mappai-d3-render.js:1665	Aggiorna la scritta del bottone della disposizione.
+public/js/mappai-d3-render.js:1699	Applica alla simulazione le forze della disposizione scelta.
+public/js/mappai-d3-render.js:1736	Imposta come si vedono i verbi sulle frecce.
+public/js/mappai-d3-render.js:1752	Aggiorna la scritta del bottone dei testi.
+public/js/mappai-d3-render.js:1781	Ricalcola quanti link ha ogni nodo (serve ai filtri).
+public/js/mappai-d3-render.js:1802	Applica i filtri della vista: livelli, nodi poco connessi, lenti.
+public/js/mappai-d3-render.js:1846	Aggiorna la scritta del cursore dei livelli.
+public/js/mappai-d3-render.js:1863	Reagisce al cursore dei livelli.
+public/js/mappai-d3-render.js:1873	Reagisce al cursore del filtro sui collegamenti.
+public/js/mappai-ui-canvas.js:99	Mostra o toglie il velo di attesa, col testo di quel che sta succedendo.
+public/js/mappai-ui-canvas.js:162	Rinomina la mappa dal titolo in alto.
+public/js/mappai-ui-canvas.js:241	Passa dalla landing alla vista mappa.
+public/js/mappai-ui-canvas.js:278	Torna alla landing (e ricarica la pagina: non si fa durante una generazione).
+public/js/mappai-ui-canvas.js:313	Porta la vista su un nodo e lo apre.
+public/js/mappai-ui-canvas.js:323	IL CLIC SU UN NODO: apre la scheda, o serve alle modalità fondi/collega/seleziona.
+public/js/mappai-ui-canvas.js:475	Simula il clic su un nodo (da codice, senza mouse).
+public/js/mappai-ui-canvas.js:480	Apre la scheda del nodo con descrizione, fonti, immagini, strumenti.
+public/js/mappai-ui-canvas.js:725	Apre un link del nodo nel browser di sistema.
+public/js/mappai-ui-canvas.js:739	Chiude la scheda del nodo.
+public/js/mappai-ui-canvas.js:756	Rimette lo zoom della mappa a zero.
+public/js/mappai-ui-canvas.js:761	Aggiorna il passo 4 del modulo secondo la modalità scelta.
+public/js/mappai-ui-canvas.js:785	Sceglie MindMap o Knowledge Graph.
+public/js/mappai-ui-canvas.js:946	Aggiunge una riga per dettare a mano una macro-area L1.
+public/js/mappai-ui-canvas.js:959	Toglie quella riga.
+public/js/mappai-ui-canvas.js:963	Riordina la mappa lasciando fermi i nodi inchiodati.
+public/js/mappai-ui-canvas.js:991	Salva la disposizione attuale dei nodi.
+public/js/mappai-ui-canvas.js:1012	Esporta la mappa come file JSON.
+public/js/mappai-ui-canvas.js:1030	Apre nel Finder la cartella delle mappe.
+public/js/mappai-ui-canvas.js:1043	Importa una mappa da un file JSON.
+public/js/mappai-context-menu.js:11	Chiude il lightbox dell'immagine.
+public/js/mappai-context-menu.js:62	Apre il menu contestuale (tasto destro o pressione lunga) su nodo o freccia.
+public/js/mappai-context-menu.js:223	Esegue la voce scelta nel menu contestuale.
+public/js/mappai-edit-modal.js:106	Cambia il colore del nodo in modifica.
+public/js/mappai-edit-modal.js:113	Disegna l'elenco dei link del nodo.
+public/js/mappai-edit-modal.js:125	Disegna l'elenco delle immagini del nodo.
+public/js/mappai-edit-modal.js:137	Aggiunge un link al nodo.
+public/js/mappai-edit-modal.js:147	Toglie un link.
+public/js/mappai-edit-modal.js:152	Aggiunge un'immagine da indirizzo.
+public/js/mappai-edit-modal.js:162	Toglie un'immagine.
+public/js/mappai-edit-modal.js:167	Sceglie un file locale da allegare al nodo.
+public/js/mappai-edit-modal.js:177	Carica un'immagine dal disco nel nodo.
+public/js/mappai-edit-modal.js:189	Rimette la descrizione originale dell'AI, buttando le tue modifiche.
+public/js/mappai-edit-modal.js:197	Chiude il modale di modifica.
+public/js/mappai-edit-modal.js:206	SALVA le modifiche al nodo (testo, colore, link, immagini) e ridisegna.
+public/js/mappai-edit-modal.js:253	Aggiorna nella barra laterale le note che hai scritto tu.
+public/js/mappai-node-merge.js:6	Avvia «Fondi con…»: il prossimo nodo cliccato sarà quello che assorbe.
+public/js/mappai-node-merge.js:15	Annulla la modalità fondi.
+public/js/mappai-node-merge.js:21	Riceve il nodo bersaglio della fusione.
+public/js/mappai-node-merge.js:37	ESEGUE LA FUSIONE di A dentro B: figli, link, fonti, colori, livelli e gruppi ricalcolati.
+public/js/mappai-node-merge.js:123	Avvia «Cambia link»: il prossimo nodo cliccato diventa il nuovo genitore.
+public/js/mappai-node-merge.js:132	Annulla la modalità cambia-link.
+public/js/mappai-node-merge.js:137	Riceve il nuovo genitore scelto.
+public/js/mappai-node-merge.js:152	ESEGUE LO SPOSTAMENTO: stacca A dal vecchio genitore, lo attacca al nuovo, ricalcola livelli e colori.
+public/js/mappai-merge-validate.js:14	Unisce alla mappa aperta un'altra mappa presa da file.
+public/js/mappai-merge-validate.js:67	Annulla l'unione.
+public/js/mappai-merge-validate.js:78	Conferma l'unione delle due mappe.
+public/js/mappai-merge-validate.js:302	Chiude il modale di validazione del link.
+public/js/mappai-merge-validate.js:309	Conferma il verbo scritto su quella freccia.
+public/js/mappai-merge-validate.js:326	Elimina un link proposto dall'AI.
+public/js/mappai-multiselect.js:103	Ridisegna l'evidenza dei nodi selezionati.
+public/js/mappai-multiselect.js:111	Svuota la selezione multipla.
+public/js/mappai-search-finder.js:8	Evidenzia in giallo il testo cercato dentro un risultato.
+public/js/mappai-search-finder.js:17	Cerca dentro la mappa aperta e accende i nodi che corrispondono.
+public/js/mappai-search-finder.js:64	IL SUPER FINDER: cerca dentro TUTTI i vault su disco, non solo nella mappa aperta.
+public/js/mappai-search-finder.js:191	Svuota la ricerca globale.
+public/js/mappai-sidebar-resize.js:32	Applica (e ricorda) la larghezza della barra laterale.
+public/js/mappai-effort-view.js:54	Aggancio al disegno: dopo ogni ridisegno rimette la tinta del «Lavoro».
+public/js/mappai-mastery-view.js:68	Aggancio al disegno: dopo ogni ridisegno rimette la tinta della «Padronanza».
+public/js/mappai-studio-view.js:121	Salva il profilo della Vista studio (motore, focus, centro).
+public/js/mappai-studio-view.js:135	Restituisce il profilo della Vista studio, riempiendo i valori mancanti.
+public/js/mappai-studio-view.js:221	Il profilo del Focus: che cosa resta acceso quando ti concentri su un ramo.
+public/js/mappai-studio-view.js:352	Disegna la Vista studio.
+public/js/mappai-studio-view.js:411	Il nome leggibile di un motore di disposizione.
+public/js/mappai-studio-view.js:551	Costruisce il pannello dei controlli della Vista studio nella barra laterale.
+public/js/mappai-studio-view.js:824	Apre il Focus su un nodo: il resto della mappa si spegne.
+public/js/mappai-studio-view.js:958	Apre la descrizione del nodo in grande, per leggerla.
+public/js/mappai-studio-view.js:1177	Esce dalla Vista studio e torna alla mappa normale.
+public/js/mappai-studio-view.js:1259	Cambia motore di disposizione della Vista studio.
+public/js/mappai-vista-ridotta.js:140	Dice a che passo è la forma ridotta di COSTRUISCI.
+public/js/mappai-vista-ridotta.js:158	Aggiorna la forma ridotta: sblocca il passo raggiunto.
+public/js/mappai-vista-ridotta.js:401	Accende o spegne la forma ridotta.
+public/js/mappai-vista-ridotta.js:411	Inverte la forma ridotta.
+public/js/mappai-vista-ridotta.js:419	Aggancio a setMode: dopo il cambio MM/KG risincronizza la forma ridotta.
+public/js/mappai-vault-io.js:75	Prepara l'oggetto che verrà scritto nel vault: nodi, link, fonti, vista, contesto.
+public/js/mappai-vault-io.js:108	SALVA LA MAPPA NEL VAULT (la strada normale del salvataggio).
+public/js/mappai-vault-io.js:289	Carica la mappa dimostrativa.
+public/js/mappai-vault-io.js:351	CARICA UN VAULT scegliendo la cartella.
+public/js/mappai-vault-io.js:510	Gestisce il clic su «Importa» distinguendo Electron da iPadOS.
+public/js/mappai-vault-io.js:525	Importa un vault su iPadOS, da file zip.
+public/js/mappai-vault-io.js:571	Apre il selettore per importare un JSON.
+public/js/mappai-vault-io.js:576	Crea una mappa vuota col solo nodo radice.
+public/js/mappai-vault-manager.js:23	Chiude il gestore dei vault.
+public/js/mappai-vault-manager.js:34	Carica ed elenca i vault trovati su disco.
+public/js/mappai-vault-manager.js:85	Apre un vault dato il percorso, senza passare dal dialogo.
+public/js/mappai-vault-manager.js:282	Azzera lo stato legato al vault precedente (revisione, manifest, pipeline).
+public/js/mappai-vaults-bus.js:52	Annuncia che le cartelle sono cambiate: gli elenchi aperti si aggiornano da soli.
+public/js/mappai-storage-lang.js:669	Carica un progetto salvato dall'elenco.
+public/js/mappai-storage-lang.js:693	Cambia la lingua dell'interfaccia e ritraduce la pagina.
+public/js/mappai-scelta.js:54	Legge i fogli di domande disponibili per una mappa (quiz, domande aperte).
+public/js/mappai-scelta.js:279	Costruisce il serbatoio di domande di un tipo.
+public/js/mappai-scelta.js:283	I due serbatoi (aperte e scelta multipla) per il lanciatore.
+public/js/mappai-scelta.js:288	Apre l'attività a scelta dentro l'app (senza QR).
+public/js/mappai-scelta-view.js:144	L'etichetta leggibile del taglio della domanda (definizione, causa, …).
+public/js/mappai-collab-teacher.js:134	Apre la proiezione col QR della Lavagna, per la LIM.
+public/js/mappai-jigsaw.js:447	Spegne la modalità JIGSAW.
+public/js/mappai-jigsaw.js:453	Stampa in console se JIGSAW è acceso e su quale ramo.
+public/js/mappai-landing-teach.js:43	Legge il registro delle classi e dei progetti.
+public/js/mappai-landing-teach.js:44	Scrive il registro delle classi e dei progetti.
+public/js/mappai-landing-teach.js:183	Filtra l'elenco delle classi (attive o tutte).
+public/js/mappai-landing-teach.js:236	Disegna la tabella dei progetti di ELABORA.
+public/js/mappai-landing-teach.js:277	Apre un progetto di ELABORA dalla tabella.
+public/js/mappai-landing-teach.js:286	Apre nel Finder la cartella di quel progetto.
+public/js/mappai-landing-teach.js:291	Elimina quel progetto (conferma a digitazione del nome).
+public/js/mappai-landing-teach.js:322	Assegna un progetto di ELABORA a una classe.
+public/js/mappai-landing-teach.js:514	Seleziona un progetto nella landing.
+public/js/mappai-landing-teach.js:587	Apre un file trovato su disco.
+public/js/mappai-landing-teach.js:810	Apre o chiude una sezione della landing.
+public/js/mappai-landing-teach.js:830	Ridisegna la landing INSEGNA.
+public/js/mappai-landing-teach.js:1001	Apre una mappa dalla tabella dei progetti.
+public/js/mappai-landing-teach.js:1006	Apre nel Finder la cartella della mappa.
+public/js/mappai-landing-teach.js:1011	Condivide la mappa col QR (zip nei materiali).
+public/js/mappai-landing-teach.js:1017	Elimina una mappa (conferma a digitazione del nome).
+public/js/mappai-landing-teach.js:1054	Ricostruisce i vault mancanti per i progetti vecchi.
+public/js/mappai-landing-teach.js:1151	Elimina un progetto dal registro.
+public/js/mappai-landing-teach.js:1160	Apre la cartella del progetto.
+public/js/mappai-landing-teach.js:1166	Zippa il vault e lo mette fra i materiali scaricabili col QR.
+public/js/mappai-landing-teach.js:1172	Apre nel Finder la cartella delle mappe.
+public/js/mappai-landing-teach.js:1546	Apre la cartella di un'attività svolta.
+public/js/mappai-landing-teach.js:1572	Apre un report di un'attività.
+public/js/mappai-landing-teach.js:1581	Apre un documento di studio archiviato.
+public/js/mappai-landing-teach.js:1593	Apre il set di studio di un progetto.
+public/js/mappai-landing-teach.js:1650	Costruisce la voce di menu di una mappa per la console.
+public/js/mappai-landing-teach.js:1767	I percorsi brevi guidati: parti da qui e l'app ti porta al punto giusto.
+public/js/mappai-landing-teach.js:2525	Lo schema della console dei contenuti della classe.
+public/js/mappai-landing-teach.js:2954	Apre la console INSEGNA su una voce precisa.
+public/js/mappai-teacher-profile.js:254	Apre il modale del profilo insegnante.
+public/js/mappai-user-profile.js:28	Carica il profilo utente scelto nella tendina.
+public/js/mappai-user-profile.js:56	Aggiorna le classi disponibili secondo il sistema scolastico scelto.
+public/js/mappai-user-profile.js:103	Apre il modale del profilo studente.
+public/js/mappai-user-profile.js:130	Chiude quel modale.
+public/js/mappai-user-profile.js:141	Salva il profilo studente.
+public/js/mappai-user-profile.js:168	Azzera il profilo studente.
+public/js/mappai-study-session.js:11	Avvia la creazione delle flashcard su tutta la mappa.
+public/js/mappai-study-session.js:15	Avvia la creazione del quiz su tutta la mappa.
+public/js/mappai-study-session.js:19	Apre il modale che configura quiz e flashcard: quantità, taglio, ambito.
+public/js/mappai-study-session.js:59	Chiude quel modale.
+public/js/mappai-study-session.js:68	Sceglie quante domande generare.
+public/js/mappai-study-session.js:111	Il nome leggibile del taglio della domanda.
+public/js/mappai-study-session.js:115	Costruisce le opzioni della tendina dei tagli.
+public/js/mappai-study-session.js:152	Il pezzo di prompt che impone il taglio alle flashcard.
+public/js/mappai-study-session.js:230	Il pezzo di prompt che impone la lunghezza delle risposte.
+public/js/mappai-study-session.js:333	GENERA quiz o flashcard con l'AI e prepara la sessione.
+public/js/mappai-study-session.js:467	Apre il player della sessione di studio.
+public/js/mappai-study-session.js:542	Chiude il player e ferma il cronometro.
+public/js/mappai-study-session.js:552	Disegna la domanda o la flashcard corrente.
+public/js/mappai-study-session.js:597	Gira la flashcard.
+public/js/mappai-study-session.js:603	Corregge una risposta a scelta multipla.
+public/js/mappai-study-session.js:639	Corregge una risposta aperta confrontandola con quella attesa.
+public/js/mappai-study-session.js:676	Passa all'elemento successivo, registrando l'esito.
+public/js/mappai-study-session.js:698	Registra il punteggio della sessione appena finita.
+public/js/mappai-study-session.js:735	Mostra lo storico dei punteggi.
+public/js/mappai-study-session.js:808	Cancella tutto lo storico dei punteggi.
+public/js/mappai-study-session.js:820	Salva da sé le risposte aperte scritte dallo studente.
+public/js/mappai-study-session.js:893	Mostra il riepilogo di fine sessione.
+public/js/mappai-study-session.js:939	Salva nel vault il report della sessione.
+public/js/mappai-active-study-core.js:38	La distanza di Levenshtein fra due parole (quanti ritocchi le separano).
+public/js/mappai-active-study-core.js:71	Spezza una frase in parole utili, togliendo le parole vuote.
+public/js/mappai-active-study-core.js:75	Quanto si sovrappongono due risposte, contando le parole in comune.
+public/js/mappai-active-study-core.js:84	La più lunga sequenza comune fra due testi.
+public/js/mappai-flashcards-sr.js:11	Genera con l'AI le flashcard di UN nodo (o di tutto il suo ramo).
+public/js/mappai-flashcards-sr.js:105	Disegna l'elenco dei set di studio della mappa.
+public/js/mappai-flashcards-sr.js:163	Carica un set di studio salvato.
+public/js/mappai-flashcards-sr.js:189	Elimina un set di studio.
+public/js/mappai-flashcards-sr.js:253	Restituisce i nodi discendenti (in MindMap il ramo, in KG i vicini).
+public/js/mappai-flashcards-sr.js:281	Genera le flashcard di un ramo intero.
+public/js/mappai-flashcards-sr.js:322	Avvia il ripasso delle flashcard di un ramo.
+public/js/mappai-flashcards-sr.js:335	Apre il quiz di un nodo.
+public/js/mappai-flashcards-sr.js:369	Chiude il quiz del nodo.
+public/js/mappai-flashcards-sr.js:378	Disegna la domanda corrente del quiz di nodo.
+public/js/mappai-flashcards-sr.js:430	Corregge la risposta data e colora le opzioni.
+public/js/mappai-flashcards-sr.js:481	Passa alla domanda successiva.
+public/js/mappai-flashcards-sr.js:486	Registra «facile / difficile» e ricalcola quando rivedere la carta (ripetizione dilazionata).
+public/js/mappai-flashcards-sr.js:523	Carica un'immagine nel nodo dal disco.
+public/js/mappai-flashcards-sr.js:546	Aggiunge un'immagine al nodo da indirizzo web.
+public/js/mappai-causal-chains.js:45	Colore, icona ed etichetta di una famiglia di nessi.
+public/js/mappai-causal-chains.js:104	Trasforma le triple causa-effetto in un blocco di prompt.
+public/js/mappai-causal-chains.js:154	Costruisce il documento stampabile della catena dei perché.
+public/js/mappai-causal-chains.js:236	Il nome della mappa corrente.
+public/js/mappai-ai-tutor.js:12	Apre il modale del tutor AI.
+public/js/mappai-ai-tutor.js:35	Chiude il tutor e ferma la voce.
+public/js/mappai-ai-tutor.js:101	Converte il markdown semplice della risposta AI in HTML.
+public/js/mappai-ai-tutor.js:110	Legge ad alta voce un testo dal bottone dell'altoparlante.
+public/js/mappai-ai-tutor.js:140	Salva nel vault la trascrizione della chat col tutor.
+public/js/mappai-ai-tutor.js:163	Azzera la conversazione del tutor nella barra laterale.
+public/js/mappai-ai-tutor.js:183	Manda il messaggio al tutor della barra laterale (con la mappa come contesto).
+public/js/mappai-ai-tutor.js:279	Azzera la conversazione del tutor su quel nodo.
+public/js/mappai-ai-tutor.js:293	Avvia il tutor sul nodo aperto.
+public/js/mappai-ai-tutor.js:399	Disegna le modalità del tutor di nodo (spiega, interroga, …).
+public/js/mappai-ai-tutor.js:411	Sceglie la modalità del tutor di nodo.
+public/js/mappai-ai-tutor.js:448	Sceglie la modalità del tutor della barra laterale.
+public/js/mappai-ai-tutor.js:628	Genera con l'AI un quiz al volo sul nodo aperto.
+public/js/mappai-ai-tutor.js:701	Registra la risposta scelta nel quiz del tutor.
+public/js/mappai-pomodoro.js:13	Imposta la durata del Pomodoro.
+public/js/mappai-pomodoro.js:40	Avvia o mette in pausa il Pomodoro.
+public/js/mappai-pomodoro.js:72	Azzera il timer.
+public/js/mappai-pomodoro.js:90	Mostra quante sessioni Pomodoro hai finito.
+public/js/mappai-pomodoro.js:102	Azzera il conteggio delle sessioni.
+public/js/mappai-pomodoro.js:115	Ricalcola le statistiche di studio: quanti nodi fatti, da rivedere, da fare.
+public/js/mappai-ui-modals.js:12	IL TOAST: il messaggino in basso. Tipi: error, success, info.
+public/js/mappai-ui-modals.js:31	L'avviso con un solo bottone.
+public/js/mappai-ui-modals.js:56	La conferma sì/no.
+public/js/mappai-ui-modals.js:85	La richiesta di un testo.
+public/js/mappai-ui-modals.js:138	Il modale che chiede il verbo del link, con le sette famiglie e il bidirezionale.
+public/js/mappai-ui-modals.js:276	Chiude il modale di configurazione AI.
+public/js/mappai-ui-modals.js:283	Apre la guida dell'app.
+public/js/mappai-ui-modals.js:287	Ferma la lettura ad alta voce.
+public/js/mappai-ui-modals.js:302	Accende la lente d'ingrandimento.
+public/js/mappai-ui-modals.js:357	Ridisegna il contenuto sotto la lente.
+public/js/mappai-ui-modals.js:409	Muove la lente col mouse.
+public/js/mappai-ui-modals.js:426	Legge ad alta voce il contenuto di un modale.
+public/js/mappai-ui-modals.js:469	Accende o spegne la lettura sul modale aperto.
+public/js/mappai-ui-modals.js:480	Ferma la voce e rimette a posto i bottoni.
+public/js/mappai-ui-modals.js:490	Chiude la guida.
+public/js/mappai-ui-modals.js:496	Apre il tutorial.
+public/js/mappai-ui-modals.js:500	Chiude il tutorial.
+public/js/mappai-ui-modals.js:506	Chiude il profilo utente.
+public/js/mappai-ui-modals.js:514	Cambia tab nella barra laterale (struttura, note, studio, cerca, tutor, LIM, vista).
+public/js/mappai-ui-modals.js:559	Apre o chiude un ramo nell'albero della barra laterale.
+public/js/mappai-ui-modals.js:603	Disegna l'albero dei nodi nella barra laterale.
+public/js/mappai-ui-modals.js:751	Clic su un nodo nell'albero laterale.
+public/js/mappai-ui-modals.js:764	Doppio clic: porta la mappa su quel nodo.
+public/js/mappai-ui-modals.js:776	Inquadra un gruppo di nodi nello schermo.
+public/js/mappai-ui-modals.js:815	Esegue il clic singolo nella barra laterale (apre la scheda del nodo).
+public/js/mappai-ui-modals.js:1108	Rilegge dal provider l'elenco dei modelli disponibili.
+public/js/mappai-cabina.js:1180	APRE LA CABINA: configurazione AI, aspetto, guida, diagnostica.
+public/js/mappai-costruisci-manifesto.js:255	Disegna la tabella delle fonti nella veste manifesto di COSTRUISCI.
+public/js/mappai-costruisci-manifesto.js:844	Monta il mega-bento di COSTRUISCI.
+public/js/mappai-costruisci-manifesto.js:1114	Decide se il bottone «Genera» è premibile (fonti e contesto a posto).
+public/js/mappai-a11y.js:11	Accende la sillabazione del testo (per i lettori dislessici).
+public/js/mappai-a11y.js:48	Apre il menu degli strumenti compensativi.
+public/js/mappai-a11y.js:71	Cambia l'interlinea, a giri.
+public/js/mappai-a11y.js:93	Ingrandisce il testo, a giri.
+public/js/mappai-a11y.js:97	Applica un gradino preciso di ingrandimento.
+public/js/mappai-a11y.js:202	Rimette gli strumenti compensativi a zero.
+public/js/mappai-a11y.js:331	Nasconde il bottone a11y fuori dai contesti di lettura.
+public/js/mappai-tts-reader.js:417	Mette i comandi della voce in uno spazio predisposto.
+public/js/mappai-tts-reader.js:427	Attacca il chip della voce a un contenitore qualunque.
+public/js/mappai-tts-reader.js:436	Cerca nella pagina gli spazi dove va messa la voce.
+public/js/mappai-tts-reader.js:455	Accende o spegne la lettura ad alta voce.
+public/js/mappai-tts-reader.js:473	Dice se la barra della voce è aperta.
+public/js/mappai-tts-reader.js:474	Apre la barra della voce e legge.
+public/js/mappai-tts-reader.js:498	Inverte lo stato della voce dal bottone.
+public/js/mappai-usage-tracker.js:29	Dice quale categoria di consumo si sta registrando adesso.
+public/js/mappai-usage-tracker.js:48	REGISTRA UNA CHIAMATA AI: token in, token out, costo, categoria.
+public/js/mappai-usage-dashboard.js:37	Il cambio franco/dollaro usato nei conti dei costi.
+public/js/dev-console-metrics.js:189	Svuota il buffer dei log di generazione.
+public/js/dev-console-metrics.js:194	Restituisce il buffer dei log.
+public/js/dev-console-metrics.js:200	IL RAPPORTO: metriche della mappa in Markdown, copiato negli appunti.
+public/js/dev-console-metrics.js:386	Conta i verbi di relazione usati nella mappa.
+public/js/dev-console-metrics.js:402	Conta i cross-link contro i link gerarchici.
+public/js/dev-console-metrics.js:421	Quanti nodi per livello.
+public/js/dev-console-metrics.js:436	Quanti nodi per gruppo (colore).
+public/js/dev-console-metrics.js:451	Il grado dei nodi: chi ha più collegamenti.
+public/js/dev-console-metrics.js:486	La betweenness: da quali nodi passa più ragionamento.
+public/js/dev-console-metrics.js:515	Quanti nodi hanno una fonte e quanti hanno i chunk verbatim.
+public/js/dev-console-metrics.js:537	A che punto è lo studio, nodo per nodo.
+public/js/dev-console-metrics.js:552	Lancia l'analisi strutturale e stampa i suggerimenti.
+public/js/dev-console-metrics.js:584	Quante risposte AI sono state troncate.
+public/js/dev-console-metrics.js:630	La fotografia della mappa in console, in un colpo solo.
+public/js/dev-console-metrics.js:679	Esporta il rapporto completo in Markdown.
+public/js/dev-console-metrics.js:919	Scarica l'ultimo rapporto come file.
+public/js/dev-console-metrics.js:937	Le metriche in tabella, in console.
+public/js/dev-console-metrics.js:977	Copia negli appunti il confronto fra due snapshot.
+public/js/dev-console-metrics.js:1003	Salva uno snapshot delle metriche con un'etichetta.
+public/js/dev-console-metrics.js:1019	Ricarica uno snapshot salvato.
+public/js/dev-console-metrics.js:1030	Ricarica l'ultimo snapshot.
+public/js/dev-console-metrics.js:1039	Elenca gli snapshot salvati.
+public/js/dev-console-metrics.js:1052	Cancella uno snapshot.
+public/js/dev-console-metrics.js:1057	Cancella tutti gli snapshot.
+public/js/dev-console-metrics.js:1065	Confronta due snapshot e mostra le differenze.
+public/js/dev-console-metrics.js:1141	Accende il formato JSONL in Fase 3 (anti-troncamento, Infomaniak).
+public/js/dev-console-metrics.js:1153	Spegne il JSONL.
+public/js/dev-console-metrics.js:1161	Accende il checkpoint delle macro-aree L1.
+public/js/dev-console-metrics.js:1174	Spegne il checkpoint L1.
+public/js/dev-console-metrics.js:1180	Dice se il checkpoint L1 è acceso.
+public/js/dev-console-metrics.js:1199	Accende la Fase 1.5 (validazione delle L1).
+public/js/dev-console-metrics.js:1211	Spegne la Fase 1.5.
+public/js/dev-console-metrics.js:1217	Dice se la Fase 1.5 è accesa.
+public/js/dev-console-metrics.js:1236	Accende la Fase 5 (riclassificazione dei nodi mal collocati).
+public/js/dev-console-metrics.js:1248	Spegne la Fase 5.
+public/js/dev-console-metrics.js:1254	Dice se la Fase 5 è accesa.
+public/js/dev-console-metrics.js:1273	Accende il catalogo dei rami fratelli nei prompt di Fase 3.
+public/js/dev-console-metrics.js:1285	Lo spegne.
+public/js/dev-console-metrics.js:1291	Dice se è acceso.
+public/js/dev-console-metrics.js:1310	Accende la Fase 4 (merge e cross-link semantici).
+public/js/dev-console-metrics.js:1322	Spegne la Fase 4.
+public/js/dev-console-metrics.js:1328	Dice se la Fase 4 è accesa.
+public/js/dev-console-metrics.js:1345	Dice se il JSONL è acceso.
+public/js/dev-console-metrics.js:1368	Accende il freeze: i chunk verbatim non finiscono nei nodi.
+public/js/dev-console-metrics.js:1376	Spegne il freeze.
+public/js/dev-console-metrics.js:1382	Dice se il freeze è acceso.
+public/js/dev-console-metrics.js:1401	Accende l'arricchimento delle descrizioni magre.
+public/js/dev-console-metrics.js:1413	Lo spegne.
+public/js/dev-console-metrics.js:1419	Dice se è acceso.
+public/js/dev-console-metrics.js:1437	Accende la Fase 1.6 (spezza le macro-aree composte).
+public/js/dev-console-metrics.js:1449	La spegne.
+public/js/dev-console-metrics.js:1457	Accende i verbi significativi sugli archi (concept map, non «include»).
+public/js/dev-console-metrics.js:1469	Li spegne.
+public/js/dev-console-metrics.js:1477	Accende il triage adattivo prima della Fase 1.
+public/js/dev-console-metrics.js:1491	Lo spegne.
+public/js/dev-console-metrics.js:1500	Accende il KG Community (comunità GraphRAG invece dell'albero).
+public/js/dev-console-metrics.js:1517	Lo spegne.
+public/js/dev-console-metrics.js:1531	Accende l'analisi graphology.
+public/js/dev-console-metrics.js:1539	La spegne.
+public/js/dev-console-metrics.js:1546	Dice se è accesa.
+public/js/dev-console-metrics.js:1555	Accende il pannello dei suggerimenti strutturali.
+public/js/dev-console-metrics.js:1563	Lo spegne.
+public/js/dev-console-metrics.js:1570	Dice se è acceso.
+public/js/dev-console-metrics.js:1579	Accende il dedup semantico con embedding.
+public/js/dev-console-metrics.js:1586	Lo spegne.
+public/js/dev-console-metrics.js:1592	Esegue subito il dedup semantico con la soglia data.
+public/js/dev-console-metrics.js:1604	Accende la diagnostica sulle entità sparse.
+public/js/dev-console-metrics.js:1611	La spegne.
+public/js/dev-console-metrics.js:1617	Cerca subito le entità equivalenti sparse su rami diversi.
+public/js/dev-console-metrics.js:1628	Accende il pannello dei suggerimenti (seconda via).
+public/js/dev-console-metrics.js:1635	Lo spegne.
+public/js/preload.js:98	Dalla pagina chiede al processo principale di SCRIVERE IL VAULT (canale «save-vault»): prima decide le cartelle dei rami, poi passa la mappa intera.

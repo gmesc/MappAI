@@ -2324,7 +2324,8 @@ window.executeJudgePass = async function (apiKey, opts) {
     const abilitato = typeof o.enabled === 'boolean' ? o.enabled : (revisione || window.isJudgeEnabled());
     const applica = !revisione && (typeof o.apply === 'boolean' ? o.apply : window.isJudgeApplyEnabled());
     const nodi = (appState.db && appState.db.nodes) || [];
-    const rami = nodi.filter(n => (n.level || 0) === 1);
+    // The root owns its description and outgoing links, in a separate pass.
+    const rami = nodi.filter(n => (n.level || 0) === 1).concat(nodi.filter(n => (n.level || 0) === 0));
     const esito = { quando: new Date().toISOString(), stato: 'in-corso', motivoSkip: '',
         rami: 0, ramiPrevisti: rami.length, correzioni: [], applicate: 0, segnalati: [], scartati: [],
         linkTolti: [], applicaAcceso: applica, esitiRami: [],
@@ -2362,7 +2363,8 @@ window.executeJudgePass = async function (apiKey, opts) {
     const proprietario = new Map();
     const perRamo = new Map();
     rami.forEach(ramo => {
-        const figli = (window.getDescendants ? window.getDescendants(ramo.id) : nodi.filter(n => n.level > 1 && n.group === ramo.group)) || [];
+        const figli = (ramo.level || 0) === 0 ? [] :
+            (window.getDescendants ? window.getDescendants(ramo.id) : nodi.filter(n => n.level > 1 && n.group === ramo.group)) || [];
         const ids = [ramo.id].concat(figli.map(eid));
         perRamo.set(ramo.id, ids);
         ids.forEach(id => { if (!proprietario.has(id)) proprietario.set(id, ramo.id); });
@@ -2441,7 +2443,7 @@ window.executeJudgePass = async function (apiKey, opts) {
                     }
                 },
                 link: {
-                    type: 'ARRAY', maxItems: 5,
+                    type: 'ARRAY', maxItems: Math.max(5, archi.length),
                     items: {
                         type: 'OBJECT',
                         properties: {
@@ -2547,6 +2549,8 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
         } catch (e) {
             statoRamo.stato = 'errore';
             statoRamo.motivo = e.message;
+            archi.forEach(l => esito.copertura.linkSaltati.push({ source: eid(l.source), target: eid(l.target), rel: l.rel,
+                motivo: 'controllo del ramo non completato: ' + e.message }));
             console.warn('[Giudice] ramo «' + ramo.label + '» saltato:', e.message);
         }
     }
@@ -2555,7 +2559,7 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
     esito.copertura.nodiSaltati = nodi.filter(n => !letti.has(n.id)).map(n => ({ id: n.id, label: n.label,
         motivo: !proprietario.has(n.id) ? 'nodo fuori dai rami esaminati' : (!frammenti[n.id] ? 'descrizione o citazione mancante' : 'ramo non completato') }));
     esito.stato = esito.esitiRami.every(r => r.stato === 'completato') && !esito.copertura.linkSaltati.length &&
-        !esito.copertura.nodiSaltati.some(n => (perId.get(n.id).level || 0) > 0) ? 'completato' : 'parziale';
+        !esito.copertura.nodiSaltati.length ? 'completato' : 'parziale';
     console.info('[Giudice] ' + esito.rami + ' rami riletti · ' + esito.correzioni.length + ' proposte (' + esito.applicate + ' applicate)' +
         ' · ' + esito.segnalati.length + ' segnalazioni · ' + esito.linkTolti.length + ' nessi non sostenuti' +
         (esito.scartati.length ? ' · ' + esito.scartati.length + ' verdetti scartati' : ''));

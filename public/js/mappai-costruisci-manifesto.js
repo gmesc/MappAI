@@ -324,7 +324,17 @@
         if (!B) return null;
         try {
             var s = localStorage.getItem('mappai_bento_layout');
-            if (s) { var j = JSON.parse(s); if (Array.isArray(j) && j.length) return j; }
+            if (s) {
+                var j = JSON.parse(s);
+                if (Array.isArray(j) && j.length) {
+                    if (B.withMaterialControls) {
+                        var next = B.withMaterialControls(j);
+                        if (next !== j) localStorage.setItem('mappai_bento_layout', JSON.stringify(next));
+                        j = next;
+                    }
+                    return j;
+                }
+            }
         } catch (e) { }
         return B.MODULI;
     }
@@ -520,8 +530,10 @@
                     '<label><input type="radio" name="mp-adapt-scope" value="materials"><span>' + esc(t('mp_adapt_materials', 'Solo i materiali')) + '</span></label>' +
                     '<label><input type="radio" name="mp-adapt-scope" value="both" checked><span>' + esc(t('mp_adapt_both', 'Entrambi')) + '</span></label>' +
                     '</div>';
+            case 'mp-fc-count':
+                return campo(v.et, '<input type="number" id="mp-fc-count" min="1" max="30" value="5" class="mn-num"' + w + ' aria-label="' + esc(v.et) + '">');
             case 'mp-perbranch':
-                return campo(v.et, '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="mn-num"' + w + ' aria-label="' + esc(v.et) + '">');
+                return campo(v.et, '<input type="number" id="mp-perbranch" min="1" max="10" value="2" class="mn-num"' + w + ' aria-label="' + esc(v.et) + '">');
             case 'mp-angle':
                 return campo(v.et, '<select id="mp-angle" class="mn-sel"' + w + ' aria-label="' + esc(v.et) + '">' +
                     (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>');
@@ -537,11 +549,10 @@
                montaggio. Ridisegnare la copia di un toggle vorrebbe dire due
                controlli per lo stesso stato (la lezione di `#mn-genere-dx`). */
             case 'mp-src-pdf': return spunta('mp-src-pdf', v.et, pdfDefault());
-            case 'mp-qt-mc': return spunta('mp-qt-mc', v.et, true);
-            case 'mp-qt-open': return spunta('mp-qt-open', v.et, true);
-            /* il box «Più set per angolo» nasce tutto ACCESO (Giacomo, 19/8): i
-               due generi e i sette angoli. È la configurazione che serve alle
-               attività «a scelta», dove lo studente sceglie fra le versioni. */
+            case 'mp-qt-mixed': return spunta('mp-qt-mixed', v.et, true);
+            case 'mp-qt-mc': return spunta('mp-qt-mc', v.et, false);
+            case 'mp-qt-open': return spunta('mp-qt-open', v.et, false);
+            // Le varianti si aggiungono su richiesta; il primo lotto usa il misto.
             case 'mp-ns-title': return spunta('mp-ns-title', v.et, true);
             default:
                 if (v.base && v.base.tipo === 'azione') {
@@ -552,11 +563,11 @@
                         '<i data-lucide="' + (v.base.primaria ? 'package' : 'git-merge') + '"></i>' +
                         '<span>' + esc(v.et) + '</span></button>';
                 }
-                /* le sette caselle degli angoli: accese, e riconosciute dal
+                /* le sette caselle degli angoli: spente, e riconosciute dal
                    PREFISSO invece che con sette `case` — l'elenco vero sta in
                    `QUIZ_ANGLES`, e una lista qui divergerebbe al primo angolo
                    aggiunto (inv. 6). */
-                if (v.id.indexOf('mp-ang-') === 0) return spunta(v.id, v.et, true);
+                if (v.id.indexOf('mp-ang-') === 0) return spunta(v.id, v.et, false);
                 if ((v.base && v.base.tipo) === 'spunta' || v.tipo === 'spunta') return spunta(v.id, v.et, false);
                 return '';
         }
@@ -957,6 +968,8 @@
                montaggio significherebbe un toast «Classe attiva: …» a ogni
                apertura della pagina, per una scelta che nessuno ha fatto ora. */
             if (id === 'mp-chi' || id === 'mp-disc') scriviContesto(id);
+            if (id === 'mp-preset' && window.MappAIPipeline) window.MappAIPipeline._applyPreset();
+            if (window.MappAIPipeline && window.MappAIPipeline._syncQuizSelection) window.MappAIPipeline._syncQuizSelection(id);
             sincronizzaBento();
             memorizza();
         });
@@ -1145,6 +1158,7 @@
     }
 
     function sincronizzaBento() {
+        if (window.MappAIPipeline && window.MappAIPipeline._syncQuizSelection) window.MappAIPipeline._syncQuizSelection();
         var on = function (id) { var e = document.getElementById(id); return e ? e.checked : false; };
         /* ⚠️ Il corpo di una sezione si nasconde solo se il master è a SCHERMO:
            un master derivato è nascosto e si accende dai figli, quindi spegnere il
@@ -1177,7 +1191,7 @@
        che è anche ciò che legge la stima. */
     function sincronizzaMulti() {
         var on = function (id) { var e = document.getElementById(id); return !!(e && e.checked); };
-        var almenoUnGenere = on('mp-qt-open') || on('mp-qt-mc');
+        var almenoUnGenere = !on('mp-qt-mixed') && (on('mp-qt-open') || on('mp-qt-mc'));
         var caselle = document.querySelectorAll('#mn-bento input[id^="mp-ang-"]');
         for (var i = 0; i < caselle.length; i++) caselle[i].disabled = !almenoUnGenere;
     }
@@ -1218,6 +1232,10 @@
         var o = null;
         try { o = JSON.parse(localStorage.getItem(CHIAVE_SCELTE) || 'null'); } catch (e) { o = null; }
         if (!o || typeof o !== 'object') return false;
+        if (!Object.prototype.hasOwnProperty.call(o, 'mp-fc-count') && o['mp-perbranch'] != null) {
+            var flashCount = document.getElementById('mp-fc-count');
+            if (flashCount) flashCount.value = o['mp-perbranch'];
+        }
         campiDelBento().forEach(function (e) {
             if (!(e.id in o)) return;          /* campo nato dopo: tiene il suo default */
             if (e.type === 'checkbox') e.checked = !!o[e.id];
@@ -1272,12 +1290,18 @@
            configurazione di partenza non può più venire dalle spunte del markup
            — nessuno le vede. La dice il preset «Default», che si crea da sé, si
            applica una volta e resta modificabile da chi apre la vista estesa. */
-        try { if (window.MappAIPipeline && MappAIPipeline.assicuraPresetDefault) MappAIPipeline.assicuraPresetDefault(); } catch (e) { }
+        var restoredPreset;
+        try { if (window.MappAIPipeline && MappAIPipeline.assicuraPresetDefault) restoredPreset = MappAIPipeline.assicuraPresetDefault(); } catch (e) { }
         /* …e SOPRA il preset, quello che il docente ha lasciato l'ultima volta.
            L'ordine è la regola: il preset dà la configurazione di partenza, le
            sue scelte la correggono. Poi si risincronizza, o i campi riabilitati
            dal ripristino resterebbero spenti. */
-        try { if (ripristina()) sincronizzaBento(); } catch (e) { }
+        try {
+            // A used preset wins over unsaved changes left in the bento.
+            if (!restoredPreset || !restoredPreset.usedForGeneration) ripristina();
+            sincronizzaBento();
+            memorizza();
+        } catch (e) { }
         /* la landing può comparire: il mega-bento c'è. Prima di questo punto si
            vedrebbe il form storico — è il lampo che Giacomo ha segnalato (5/8).
            Le due reti nello script di boot restano: se questa riga non si

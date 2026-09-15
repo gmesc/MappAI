@@ -89,7 +89,7 @@
                 while (p && p !== block) {
                     if (p.nodeType === 1) {
                         var tag = p.tagName.toLowerCase();
-                        if (tag === 'sup' || tag === 'button' || tag === 'style' || tag === 'script') return NodeFilter.FILTER_REJECT;
+                        if (tag === 'sup' || tag === 'annotation' || tag === 'button' || tag === 'style' || tag === 'script') return NodeFilter.FILTER_REJECT;
                         if (p.classList && (p.classList.contains('bs-citations') || p.classList.contains('mai-tts-wrap') || p.hasAttribute('data-tts-skip'))) return NodeFilter.FILTER_REJECT;
                     }
                     p = p.parentNode;

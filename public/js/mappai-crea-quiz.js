@@ -273,7 +273,7 @@
                         campi: [
                             { id: 'quante', tipo: 'numero',
                               etichetta: sch ? t('cq_quante_f', 'Quante domande') : t('cq_quante', 'Quante domande per area'),
-                              valore: (v && v.quante) || 5, min: 1, max: 30, larghezza: 'meta' },
+                              valore: (v && v.quante) || 2, min: 1, max: 30, larghezza: 'meta' },
                             /* ── LE DOMANDE D'AVVIO (13/8) ───────────────────────
                                Solo per le domande aperte: nei quiz a scelta multipla
                                la graduazione non ha lo stesso senso — lì le opzioni

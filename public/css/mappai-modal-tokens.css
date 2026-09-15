@@ -28,13 +28,25 @@
     --mm-ok: #059669;
     /* stato positivo, non bottoni */
 
-    --mm-testo: #0f172a;
+    /* DECISIONE C (13/9/26) — UN SOLO SCURO per l'app: lo stesso `#404040` della veste
+       manifesto (`--man-nero`), invece dei due che convivevano (#0f172a nelle finestre,
+       #404040 sulla landing). Misurato: 10,37:1 su bianco, 9,91 sul fondo di sezione,
+       9,40 sul neutro — tutti sopra 4,5. Gli altri due livelli restano la SCALA del
+       testo, non un secondo scuro. */
+    --mm-testo: #404040;
     --mm-testo-2: #475569;
     --mm-testo-3: #64748b;
     /* minimo leggibile su bianco: 4.76:1 */
     --mm-bordo: #e2e8f0;
     --mm-fondo: #ffffff;
     --mm-fondo-sez: #f8fafc;
+    /* DECISIONE G (13/9/26) — UN SOLO NEUTRO a riposo. Ne convivevano due a due passi:
+       `#f1f5f9` (slate-100 di Tailwind: bottoni-card della landing, campi, «Annulla») e
+       `#f1f4f8` (`--man-card` della veste). Due grigi così vicini si leggono come un
+       errore di stampa, non come due stati. Vince quello della veste, e `--man-card` ora
+       lo LEGGE da qui: sta su `:root` perché i pezzi fuori da `html.manifesto` (campi dei
+       modali, bottoni legacy) devono poterlo risolvere anche a veste spenta. */
+    --mm-neutro: #f1f4f8;
 
     /* ── Superficie ──────────────────────────────────────────────────────
        DECISIONE 6 — velo unico, chiaro abbastanza da non spegnere il contesto
@@ -45,6 +57,11 @@
     /* Raggi: 10px per ciò che si tocca, 16px per il contenitore.
        Sono i due valori più frequenti nel codice (131 e 28 occorrenze). */
     --mm-r-box: 16px;
+    /* DECISIONE E (13/9/26) — un raggio solo per le CARD GRANDI, dove ne convivevano tre:
+       bento 22 scritto a mano, console 18, bottoni-card della landing 16 (`rounded-2xl`).
+       18 è il valore che aveva già un token (`--mnc-card-r`), e sta in mezzo. Le
+       FINESTRE restano a 16 (`--mm-r-box`): una finestra non è una card. */
+    --mm-r-card: 18px;
     --mm-r-campo: 10px;
     --mm-r-btn: 10px;
     --mm-r-pill: 999px;
@@ -298,7 +315,7 @@
     padding: 9px 11px;
     font: inherit;
     color: var(--mm-testo);
-    background: #f1f5f9;
+    background: var(--mm-neutro);   /* DECISIONE G (13/9/26): era #f1f5f9 */
 }
 
 /* dentro un riquadro grigio il riempimento si inverte: campo bianco */
@@ -1529,7 +1546,9 @@ button.mm-ctx__p:focus-visible {
     border-radius: var(--mm-r-btn);
     background: none;
     color: var(--mm-testo-2);
-    font-size: 12.5px;
+    /* DECISIONE F (13/9/26): i bottoni hanno UN corpo, 12. Una voce di navigazione è un
+       bottone; era 12,5, cioè mezzo punto che nessuno aveva deciso. */
+    font-size: var(--mm-btn-fs);
     font-weight: 700;
     text-align: left;
     cursor: pointer;

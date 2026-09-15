@@ -214,6 +214,10 @@
         for (const sent of sentences) {
             for (const c of CONNECTIVES) {
                 if (c.answerOnly) continue;   // solo grading cloze, mai estrazione
+                // 'X funziona grazie a Y' cannot become 'Y permette X funziona'.
+                // ponytail: keep these dependencies in the prose; extracting them needs
+                // a grammatical rewrite, beyond this literal, deterministic extractor.
+                if (c.dir === 'ec' && c.cls === 'prep' && c.family === 'dipendenza') continue;
                 const m = c.re.exec(sent);
                 if (!m) continue;
                 let left = _clean(sent.slice(0, m.index));

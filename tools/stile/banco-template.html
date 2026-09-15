@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="it" class="manifesto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banco dei token</title>
+<!--
+  banco-token.html — GENERATO da tools/stile/banco.js (non si modifica a mano:
+  si corregge il template tools/stile/banco-template.html e si rilancia).
+
+  A che serve: le decisioni ANCORA APERTE fra i quattro mondi grafici dell'app
+  (Tailwind legacy · modali .pm-* · motore .mm-* · veste manifesto .mn-*) si
+  guardano qui, AFFIANCATE, sui pezzi veri disegnati dal CSS vero dell'app —
+  gli stessi quattro fogli di index.html più il blocco @layer components,
+  copiato dal builder. Niente è ridisegnato: se un pezzo qui è brutto, è brutto
+  anche in app.
+
+  Due colonne, ognuna con le sue leve: si mette A a sinistra e B a destra e si
+  confronta. Sotto ogni pezzo il METRO legge da getComputedStyle fondo, testo,
+  raggio, corpo e CONTRASTO — è il numero che decide, non l'occhio.
+
+  ⚠️ Si apre servendo public/ (porta 8145, .claude/launch.json) su
+  /dev/banco-token.html — mai file://. Nel pannello browser fare resize prima
+  di misurare (GUIDA-ARCHITETTO §8.3).
+-->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>:root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }</style>
+<script src="../js/tailwind.js"></script>
+<link rel="stylesheet" href="../css/style.css?v={{V}}">
+<link rel="stylesheet" href="../css/mappai-modal-tokens.css?v={{V}}">
+<link rel="stylesheet" href="../css/mappai-stile-manifesto.css?v={{V}}">
+<link rel="stylesheet" href="../css/mappai-console-manifesto.css?v={{V}}">
+<style type="text/tailwindcss">{{LAYER}}</style>
+<style>
+    /* ── il banco stesso (prefisso bk-, non collide con nulla) ─────────── */
+    body { background: #fff; margin: 0; color: #0f172a; }
+    .bk-testa { padding: 18px 24px 10px; border-bottom: 1px solid #e2e8f0; }
+    .bk-testa h1 { font-size: 20px; margin: 0 0 4px; }
+    .bk-testa p { font-size: 12px; color: #64748b; margin: 0; max-width: 90ch; }
+    .bk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .bk-col { padding: 14px 24px 40px; min-width: 0; }
+    .bk-col + .bk-col { border-left: 2px dashed #cbd5e1; }
+    .bk-leve { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin-bottom: 18px;
+               padding: 12px 14px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .bk-leve label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; color: #334155; }
+    .bk-leve select { font-size: 12px; padding: 3px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; max-width: 60%; }
+    .bk-colnome { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; margin: 0 0 8px; }
+    .bk-pezzo { margin: 0 0 26px; }
+    .bk-pezzo h2 { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; margin: 0 0 8px; }
+    .bk-pezzo h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; color: #94a3b8; }
+    .bk-metro { display: block; font-size: 11px; color: #475569; margin-top: 8px; line-height: 1.6; }
+    .bk-metro b { color: #0f172a; }
+    .bk-metro .ko { color: #b91c1c; font-weight: 700; }
+    .bk-metro .ok { color: #047857; font-weight: 700; }
+    .bk-riga { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .bk-svg { width: 20px; height: 20px; flex: 0 0 auto; }
+
+    /* i pezzi hanno posizionamenti da app: qui stanno nel flusso */
+    .bk-col .mm-box { width: 100%; max-width: none; position: static; max-height: none; color: var(--mm-testo); }
+    .bk-col .mm-box--console { height: 250px; box-shadow: var(--mm-ombra); border-radius: var(--mm-r-box); flex-direction: row; }
+    .bk-col .mm-console__side { flex-basis: 200px; }
+    .bk-col .mm-close { margin-left: auto; }
+    .bk-col .mn-card { min-height: 120px; }
+    .bk-col .bk-bento { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--mn-gap); }
+    .bk-col .btn_header_setting { width: var(--mm-ctx-h); height: var(--mm-ctx-h); border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* ── LEVA 1: accento delle finestre (motore + pm + landing) ─────────── */
+    .bk-col[data-acc="verde"] { --mm-accent: var(--man-verde); --mm-accent-hover: var(--man-verde-scuro); --mm-accent-soft: #e6fbf3; }
+    .bk-col[data-acc="verde"] .mm-btn--primario { color: var(--man-su-verde); }
+    .bk-col[data-acc="verde"] .pm-btn-primary { background: var(--man-verde) !important; color: var(--man-su-verde) !important; }
+    .bk-col[data-acc="verde"] .pm-btn-primary:hover { background: var(--man-verde-scuro) !important; }
+    /* ── LEVA 2: il bottone Cabina (cerchio dell'header) ────────────────── */
+    .bk-col[data-cab="verde"] .btn_header_setting { background: var(--man-verde) !important; color: var(--man-su-verde) !important; }
+    .bk-col[data-cab="indigo"] .btn_header_setting { background: var(--mm-accent) !important; color: #fff !important; }
+    .bk-col[data-cab="viola"] .btn_header_setting { background: var(--man-viola) !important; color: #fff !important; }
+    /* ── LEVA 8: i DUE neutri a due passi (slate-100 #f1f5f9 · --man-card #f1f4f8) */
+    .bk-col[data-neutro="f1f4f8"] .teach-qs-btn, .bk-col[data-neutro="f1f4f8"] .mm-campo { background: #f1f4f8 !important; }
+    .bk-col[data-neutro="f1f5f9"] { --mm-neutro: #f1f5f9; --man-card: #f1f5f9; }
+    /* ── LEVA 3: lo scuro del testo ─────────────────────────────────────── */
+    .bk-col[data-scuro="404040"] { --mm-testo: #404040; --man-nero: #404040; --mn-tit-col: #404040; --mnc-chip-txt: #404040; }
+    .bk-col[data-scuro="0f172a"] { --mm-testo: #0f172a; --man-nero: #0f172a; --man-su-verde: #0f172a; --mn-tit-col: #0f172a; --mnc-chip-txt: #0f172a; }
+    /* ── LEVA 4: il filetto ─────────────────────────────────────────────── */
+    .bk-col[data-bordo="ebebeb"] { --mm-bordo: #ebebeb; --mnc-hairline: #ebebeb; }
+    .bk-col[data-bordo="e2e8f0"] { --mm-bordo: #e2e8f0; --mnc-hairline: #e2e8f0; }
+    /* ── LEVA 5: il raggio delle card grandi (bento 22 · console 18 · finestra 16) */
+    .bk-col[data-card="16"] { --bk-card-r: 16px; }
+    .bk-col[data-card="22"] { --mm-r-card: 22px; --bk-card-r: 22px; }
+    .bk-col[data-card="16"] { --mm-r-card: 16px; }
+    .bk-col[data-card="app"] { --bk-card-r: var(--mm-r-card); }
+    .bk-col .mn-card, .bk-col .teach-qs-btn { border-radius: var(--bk-card-r, 18px) !important; }
+    /* ── LEVA 6: il corpo dei bottoni ───────────────────────────────────── */
+    .bk-col[data-btnfs="14"] { --mm-btn-fs: 14px; }
+    .bk-col[data-btnfs="14"] .pm-btn-primary, .bk-col[data-btnfs="14"] .pm-btn-cancel,
+    .bk-col[data-btnfs="14"] .mn-btn, .bk-col[data-btnfs="14"] .mm-nav__v { font-size: 14px !important; }
+    .bk-col[data-btnfs="14"] { --mm-btn-fs: 14px; }
+    /* ── LEVA 7: l'ombra di ciò che galleggia ───────────────────────────── */
+    .bk-col[data-ombra="no"] { --mm-ombra: none; }
+    .bk-col[data-ombra="no"] .mm-nav__v.is-attiva { box-shadow: none; }
+</style>
+</head>
+<body>
+<div class="bk-testa">
+    <h1>Banco dei token — le decisioni aperte, affiancate</h1>
+    <p>Pezzi VERI col CSS VERO dell'app (i quattro fogli + il blocco <code>@layer</code>). Sinistra e destra hanno leve indipendenti: metti una scelta di qua e l'altra di là.
+       Il METRO sotto ogni pezzo legge <code>getComputedStyle</code>: contrasto ≥ 4,5:1 per il testo, ≥ 3:1 per icone. La regola: <code>docs/rules/09-stile-e-token.md</code>.</p>
+</div>
+
+<template id="bk-leve">
+    <div class="bk-leve">
+        <label>Accento finestre <select data-leva="acc"><option value="app">app: indigo nelle finestre (29/7)</option><option value="verde">e se fosse verde?</option></select></label>
+        <label>Bottone Cabina <select data-leva="cab"><option value="app">app: neutro, pallino viola all'hover</option><option value="verde">verde</option><option value="indigo">indigo</option><option value="viola">viola #ac72fe</option></select></label>
+        <label>Scuro del testo <select data-leva="scuro"><option value="app">app: #404040 ovunque (C, 13/9)</option><option value="0f172a">com'era: #0f172a nelle finestre</option></select></label>
+        <label>Filetto <select data-leva="bordo"><option value="app">app: #e2e8f0 ovunque (D, 13/9)</option><option value="ebebeb">com'era: #ebebeb nelle console</option></select></label>
+        <label>Raggio card grandi <select data-leva="card"><option value="app">app: 18 ovunque (E, 13/9)</option><option value="16">16</option><option value="22">com'era: 22 nel bento</option></select></label>
+        <label>Corpo bottoni <select data-leva="btnfs"><option value="app">app: 12 ovunque (F, 13/9)</option><option value="14">e se fosse 14?</option></select></label>
+        <label>Neutro a riposo <select data-leva="neutro"><option value="app">app: #f1f4f8 ovunque (G, 13/9)</option><option value="f1f5f9">com'era: #f1f5f9 nei pezzi Tailwind</option></select></label>
+        <label>Ombra finestre <select data-leva="ombra"><option value="app">app: sì sulle finestre</option><option value="no">no, piatto</option></select></label>
+    </div>
+</template>
+
+<template id="bk-pezzi">
+    <!-- 1. FINESTRA DEL MOTORE — mappai-modal.js render(), classi .mm-* -->
+    <section class="bk-pezzo">
+        <h2>1 · Finestra del motore <small>.mm-box · .mm-head · .mm-sez · .mm-foot (mappai-modal.js)</small></h2>
+        <div class="mm-box" data-metro="finestra">
+            <div class="mm-head">
+                <div class="mm-head__testi"><div class="mm-title" data-metro="titolo">Elimina la classe 3B</div>
+                <div class="mm-subtitle">Le mappe restano nel Cestino; il registro no.</div></div>
+                <button type="button" class="mm-close" aria-label="Chiudi">&times;</button>
+            </div>
+            <div class="mm-sez" data-metro="riquadro">
+                <span class="mm-sez__t" data-metro="titolo di sezione">Conferma</span>
+                <label class="mm-label">Scrivi il nome esatto</label>
+                <input class="mm-campo" placeholder="3B" data-metro="campo">
+            </div>
+            <div class="mm-foot mm-foot--split">
+                <div class="mm-foot__sx"><button type="button" class="mm-btn mm-btn--distruttivo" data-metro="distruttivo">Elimina</button></div>
+                <div class="mm-foot__dx"><button type="button" class="mm-btn mm-btn--secondario" data-metro="secondario">Annulla</button>
+                <button type="button" class="mm-btn mm-btn--primario" data-metro="primario">Conferma</button></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. CONSOLE — colonna di navigazione + area -->
+    <section class="bk-pezzo">
+        <h2>2 · Console <small>.mm-box--console · .mm-nav__v · .mm-console__area</small></h2>
+        <div class="mm-box mm-box--console" data-metro="console">
+            <nav class="mm-console__side">
+                <div class="mm-nav__g"><div class="mm-nav__gt">Classi</div>
+                <button type="button" class="mm-nav__v is-attiva" data-metro="voce attiva">3B · Storia</button>
+                <button type="button" class="mm-nav__v" data-metro="voce">4A · Scienze</button>
+                <button type="button" class="mm-nav__v">Generico</button></div>
+            </nav>
+            <div class="mm-console__area">
+                <div class="mm-sez mm-sez--accento" data-metro="riquadro accento"><span class="mm-sez__t">Materie</span>
+                    <div class="bk-riga"><span class="mm-ctx" data-metro="chip"><span class="mm-ctx__p">3B</span><span class="mm-ctx__p">Storia</span></span>
+                    <button type="button" class="mm-btn mm-btn--primario">+ Aggiungi</button></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. LANDING (Tailwind + @layer) — i pezzi del mondo legacy -->
+    <section class="bk-pezzo">
+        <h2>3 · Landing e modali vecchi <small>.teach-qs-btn · .btn_header_setting · .pm-btn-* (index.html @layer)</small></h2>
+        <div class="bk-riga" style="align-items:stretch">
+            <button type="button" class="teach-qs-btn" data-metro="bottone-card" style="max-width:170px"><svg class="bk-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/></svg><span>Crea una mappa</span></button>
+            <button type="button" class="teach-qs-btn" style="max-width:170px"><svg class="bk-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg><span>Apri una classe</span></button>
+            <button type="button" id="btn-cabina" class="btn_header_setting" aria-label="Cabina" data-metro="Cabina"><svg class="bk-svg nav_util_icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2" fill="#fff"/><circle cx="15" cy="16" r="2" fill="#fff"/></svg></button>
+        </div>
+        <div class="bk-riga" style="margin-top:10px">
+            <button type="button" class="pm-btn-cancel" data-metro="pm annulla" style="flex:0 0 130px">Annulla</button>
+            <button type="button" class="pm-btn-primary" data-metro="pm conferma" style="flex:0 0 160px">Conferma</button>
+        </div>
+    </section>
+
+    <!-- 4. BENTO manifesto — i moduli di COSTRUISCI -->
+    <section class="bk-pezzo">
+        <h2>4 · Bento di COSTRUISCI <small>.mn-card · .mn-card__t · .mn-btn · .mn-card--genera (mappai-costruisci-manifesto.js)</small></h2>
+        <div class="bk-bento">
+            <div class="mn-card" data-metro="modulo nero"><div class="mn-card__t">Quiz</div>
+                <div class="mn-card__b"><button type="button" class="mn-btn" data-metro="mn-btn">Scelta multipla</button><button type="button" class="mn-btn">Vero / falso</button></div></div>
+            <div class="mn-card" style="background:var(--man-card);color:var(--man-nero)" data-metro="modulo neutro"><div class="mn-card__t">Fogli nodi</div>
+                <div class="mn-card__b"><button type="button" class="mn-btn">Scheda</button><button type="button" class="mn-btn">Catena dei perché</button></div></div>
+            <button type="button" class="mn-card mn-card--genera" style="background:var(--man-verde);color:var(--man-su-verde);align-items:center;justify-content:center" data-metro="Genera">Genera materiali</button>
+        </div>
+    </section>
+</template>
+
+<div class="bk-cols">
+    <div class="bk-col" id="bk-A" data-acc="app" data-cab="app" data-scuro="app" data-bordo="app" data-card="app" data-btnfs="app" data-neutro="app" data-ombra="app"><p class="bk-colnome">A · l'app, con le decisioni del 13/9</p></div>
+    <div class="bk-col manifesto" id="bk-B" data-acc="app" data-cab="app" data-scuro="app" data-bordo="app" data-card="app" data-btnfs="app" data-neutro="app" data-ombra="app"><p class="bk-colnome">B · da provare (muovi una leva)</p></div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    /* ── costruzione delle due colonne ────────────────────────────────── */
+    document.querySelectorAll('.bk-col').forEach(function (col) {
+        col.appendChild(document.getElementById('bk-leve').content.cloneNode(true));
+        col.appendChild(document.getElementById('bk-pezzi').content.cloneNode(true));
+        col.querySelectorAll('[data-leva]').forEach(function (sel) {
+            sel.value = col.dataset[sel.dataset.leva];
+            sel.addEventListener('change', function () { col.dataset[sel.dataset.leva] = sel.value; setTimeout(function () { misura(col); }, 150); });
+        });
+    });
+    /* A eredita i token dell'app; B è un contenitore `.manifesto` a sé, così
+       le leve possono cambiare i --man-* senza toccare A (vedi la nota in
+       mappai-stile-manifesto.css: i token stanno su html.manifesto E .manifesto). */
+    document.getElementById('bk-A').classList.add('manifesto');
+
+    /* ── il metro: contrasto WCAG da getComputedStyle ────────────────── */
+    function rgb(s) {
+        var m = s.match(/[\d.]+/g) || [], k = /^color\(srgb/.test(s) ? 255 : 1;   /* color-mix → color(srgb 0..1) */
+        return { r: (+m[0] || 0) * k, g: (+m[1] || 0) * k, b: (+m[2] || 0) * k, a: m.length > 3 ? +m[3] : 1 };
+    }
+    function lum(c) { var f = function (v) { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(c.r) + .7152 * f(c.g) + .0722 * f(c.b); }
+    function contrasto(a, b) { var l1 = lum(a), l2 = lum(b); return ((Math.max(l1, l2) + .05) / (Math.min(l1, l2) + .05)); }
+    function fondoDi(el) {          /* risale componendo i fondi semitrasparenti (color-mix) su quelli sotto */
+        var strati = [];
+        for (var e = el; e; e = e.parentElement) { var c = rgb(getComputedStyle(e).backgroundColor); if (c.a > 0) { strati.push(c); if (c.a >= 1) break; } }
+        var out = { r: 255, g: 255, b: 255, a: 1 };
+        strati.reverse().forEach(function (c) { out = { r: c.r * c.a + out.r * (1 - c.a), g: c.g * c.a + out.g * (1 - c.a), b: c.b * c.a + out.b * (1 - c.a), a: 1 }; });
+        return out;
+    }
+    function hex(c) { return '#' + [c.r, c.g, c.b].map(function (v) { return ('0' + Math.round(v).toString(16)).slice(-2); }).join(''); }
+    function misura(col) {
+        col.querySelectorAll('.bk-metro').forEach(function (m) { m.remove(); });
+        col.querySelectorAll('[data-metro]').forEach(function (el) {
+            var cs = getComputedStyle(el), bg = fondoDi(el), fg = rgb(cs.color);
+            if (/Cabina/.test(el.dataset.metro)) {          /* il pallino Cabina: il segno è uno pseudo-elemento, non il testo */
+                ['::before', '::after'].forEach(function (p) { var c = rgb(getComputedStyle(el, p).backgroundColor); if (c.a > 0) fg = c; });
+            }
+            var k = contrasto(bg, fg);
+            var soglia = /Cabina/.test(el.dataset.metro) ? 3 : 4.5;     /* icona: 3:1 */
+            var m = document.createElement('span'); m.className = 'bk-metro';
+            m.innerHTML = '<b>' + el.dataset.metro + '</b> fondo ' + hex(bg) + ' · testo ' + hex(fg) +
+                ' · raggio ' + cs.borderTopLeftRadius + ' · corpo ' + cs.fontSize +
+                ' · contrasto <span class="' + (k >= soglia ? 'ok' : 'ko') + '">' + k.toFixed(2).replace('.', ',') + ':1</span>';
+            (el.closest('.bk-pezzo')).appendChild(m);
+        });
+    }
+    function tutto() { document.querySelectorAll('.bk-col').forEach(misura); }
+    /* Tailwind (play, locale) compila il blocco @layer DOPO il load: si misura
+       quando i pezzi hanno il loro stile, non prima. */
+    window.addEventListener('load', function () { setTimeout(tutto, 300); });
+    window.BancoToken = { misura: function () { return new Promise(function (ok) { setTimeout(function () { tutto(); ok(); }, 150); }); } };
+})();
+</script>
+</body>
+</html>

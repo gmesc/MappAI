@@ -215,6 +215,94 @@ function finalManifest(items, issues) {
   return m;
 }
 
+function stalledMaterialFixture(opts = {}) {
+  const h = runtime(opts), items = Array.from({ length: 250 }, (_, i) => ({ id: 'material-' + i, kind: 'flashcard', question: 'Domanda ' + i + '?', answer: 'Risposta ' + i + '.' }));
+  const issues = Array.from({ length: 6 }, (_, i) => ({ id: 'decision-' + i, target: { kind: 'item', id: items[i].id, field: 'answer' }, after: 'Correzione ' + i + '.' }));
+  const m = finalManifest(items, issues), final = m.review.final;
+  issues.forEach((issue, i) => { final.review = Core.setDecision(final.review, issue.id, i < 3 ? 'accept' : i < 5 ? 'reject' : 'manual', { text: 'Scelta personale.' }); });
+  final.review.initial.checkStatus = 'incomplete';
+  final.review.initial.report = { checkStatus: 'incomplete', coverage: { expectedIds: items.map(i => i.id), checkedIds: items.slice(0, 240).map(i => i.id),
+    skipped: items.slice(240).map(i => ({ id: i.id, reason: 'Una o più affermazioni non hanno un esito verificabile' })),
+    claims: items.slice(240).map((i, index) => ({ itemId: i.id, field: 'answer', text: i.answer, status: index === 9 ? 'missing' : 'uncertain', checked: false })) } };
+  final.review.initial.retrySummary = { newIssueIds: [], decisionsPreserved: 6, targeted: 10, reused: 240, checked: 0, remaining: 10 };
+  h.st._pipelineManifest = m;
+  return { ...h, m };
+}
+
+test('a stalled retry explains attempted vs completed checks and exposes the exact draft, original sources and missing verdicts', () => {
+  const h = stalledMaterialFixture(), before = clone(h.m), modal = h.R.open('/vault', h.m, { final: true });
+  assert.match(modal.querySelector('#mrv-retry-summary').textContent, /10 materiali sottoposti al tentativo · 0 nuovi controlli completati · 10 materiali ancora da verificare · 240 controlli riutilizzati/);
+  assert.match(modal.querySelector('#mrv-no-progress').textContent, /non ha completato nuovi controlli/);
+  assert.equal(modal.querySelectorAll('[data-coverage-item]').length, 10);
+  const first = modal.querySelector('[data-coverage-item="material-240"]');
+  assert.match(first.textContent, /Riscontro nella fonte non confermato/); assert.match(first.textContent, /Risposta 240/);
+  assert.match(modal.querySelector('[data-coverage-item="material-249"]').textContent, /non ha restituito un esito/);
+  assert.match(modal.querySelector('.mrv-coverage-sources').textContent, /Libro.pdf · Pagina 4/);
+  assert.match(modal.querySelector('.mrv-coverage-sources').textContent, /Un contesto più ampio/);
+  assert.match(modal.querySelector('#mrv-material-coverage').textContent, /non sono valutate dal pulsante di ricontrollo/);
+  assert.deepEqual(clone(h.m), before); assert.equal(h.calls.manifest, 0);
+});
+
+test('reviewing a residual adds one field decision, previews its correction and requires a fresh personal confirmation before approval', async () => {
+  const h = stalledMaterialFixture(), initialDecisions = clone(h.m.review.final.review.initial.decisions), report = clone(h.m.review.final.review.initial.report);
+  const modal = h.R.open('/vault', h.m, { final: true });
+  let confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  await modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').click();
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
+  assert.equal(h.m.review.final.review.initial.issues.length, 7);
+  let card = currentCard(modal);
+  assert.doesNotMatch(card.textContent, /Il giudice segnala un problema|La prova non è disponibile/);
+  assert.match(card.textContent, /Hai aperto questa scheda/);
+  await card.querySelector('[data-review-choice="manual"]').click();
+  const input = card.querySelector('[data-editor] textarea'); input.value = 'Risposta verificata personalmente.'; input.oninput(); await tick();
+  await modal.querySelector('[data-review-filter="pending"]').click();
+  const version = modal.querySelector('[data-coverage-item="material-240"] .mrv-coverage-version');
+  assert.match(version.textContent, /Risposta 240\./); assert.match(version.textContent, /Risposta verificata personalmente/);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /10/);
+  assert.equal(h.m.review.final.items[240].answer, 'Risposta 240.', 'corrections are still separate from the checked drafts');
+  await modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').click();
+  assert.equal(h.m.review.final.review.initial.issues.length, 7, 'opening the same field reuses its saved decision');
+  assert.equal(currentCard(modal).querySelector('[data-editor] textarea').value, 'Risposta verificata personalmente.');
+  confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
+  // Even a later edit in the already open editor invalidates the confirmation.
+  const edit = currentCard(modal).querySelector('[data-editor] textarea'); edit.value = 'Versione definitiva verificata.'; edit.oninput(); await tick();
+  assert.equal(confirmation.checked, false); assert.equal(modal.querySelector('#mrv-continue').hidden, true);
+  confirmation.checked = true; confirmation.onchange();
+  await modal.querySelector('#mrv-continue').click();
+  assert.equal(h.m.review.final.review.initial.status, 'approved');
+  assert.equal(h.m.review.final.review.initial.manualReview, true);
+  assert.equal(h.m.review.final.review.initial.checkStatus, 'incomplete', 'personal approval never changes the model verdict');
+  assert.equal(h.m.review.final.items.find(i => i.id === 'material-240').answer, 'Versione definitiva verificata.');
+  for (const [id, decision] of Object.entries(initialDecisions)) assert.deepEqual(clone(h.m.review.final.review.initial.decisions[id]), decision);
+  assert.deepEqual(clone(h.m.review.final.review.initial.report), report);
+});
+
+test('a residual edit reopens an existing decision without resetting it, and blocked saves cannot silently navigate away', async () => {
+  const h = stalledMaterialFixture(), final = h.m.review.final;
+  final.review = Core.addIssue(final.review, { id: 'existing', target: { kind: 'item', id: 'material-240', field: 'answer' }, after: 'Proposta scelta.' });
+  final.review = Core.setDecision(final.review, 'existing', 'accept');
+  const modal = h.R.open('/vault', h.m, { final: true }), before = clone(final.review);
+  await modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').click();
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'existing');
+  assert.deepEqual(clone(final.review), before); assert.equal(h.calls.manifest, 0);
+  h.opts.failSave = true;
+  await modal.querySelector('[data-coverage-item="material-241"] [data-coverage-edit="answer"]').click();
+  assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'existing');
+  h.opts.failSave = false; await modal.querySelector('#mrv-save-retry').click(); await tick();
+  await modal.querySelector('[data-coverage-item="material-241"] [data-coverage-edit="answer"]').click();
+  assert.equal(final.review.initial.issues.length, 8, 'retrying a failed save does not duplicate the field decision');
+});
+
+test('manual corrections for two residuals with identical text never share a decision group', () => {
+  const h = runtime(), m = finalManifest([{ id: 'a', kind: 'flashcard', answer: 'Uguale' }, { id: 'b', kind: 'flashcard', answer: 'Uguale' }]);
+  let r = m.review.final.review;
+  for (const id of ['a', 'b']) r = Core.addIssue(r, { origin: 'teacher', problem: 'Modifica del docente: Risposta', target: { kind: 'item', id, field: 'answer' } });
+  assert.equal(h.R.groupIssues(r.initial.issues).length, 2);
+});
+
 test('G2 rejects invalid MC keys even when teacher keeps the proposal; explicit exclusion succeeds', async () => {
   const items = [{ id: 'q', kind: 'mc', question: 'Chi?', options: ['Germania', 'Svizzera'], correctIndex: 8 }];
   const report = Material.validate(items), m = finalManifest(items, report.issues), h = runtime();
@@ -315,6 +403,91 @@ test('causal cards show the complete relationship and a no-proposal warning; kee
   assert.deepEqual(m.review.final.items, [item]);
   await modal.querySelector('[data-review-filter="decided"]').click();
   assert.match(modal.querySelector('[data-choice]').textContent, /Testo mantenuto senza modifiche/);
+});
+
+test('relationship editing previews every chosen field, offers the gerund fix explicitly and persists the composed result', async () => {
+  const item = { id: 'hydraulic', kind: 'causal', step: 'D', question: "L’acqua scorre con facendo girare una turbina [[src-water]].", text: 'causa',
+    answer: 'il movimento nel circuito elettrico.', citations: [{ id: 'src-water', idx: 1, title: 'Modello idraulico', text: 'Estratto originale.' }] };
+  const m = finalManifest([item], [
+    { id: 'wording', target: { kind: 'item', id: item.id, field: 'question' }, problem: 'Rileggi la frase.' },
+    { id: 'connector', target: { kind: 'item', id: item.id, field: 'text' }, after: 'è analogo a', problem: 'Rivedi il rapporto.' }
+  ]);
+  m.review.final.review = Core.setDecision(m.review.final.review, 'connector', 'accept');
+  const h = runtime(), untouched = clone(m), modal = h.R.open('/vault', m, { final: true });
+  let card = currentCard(modal);
+  assert.match(card.querySelector('[data-relation-sentence]').textContent, /con facendo.*è analogo a.*circuito elettrico/);
+  assert.doesNotMatch(card.querySelector('[data-relation-sentence]').textContent, /src-water|→/);
+  assert.ok(card.querySelector('[data-relation-hint]'));
+  assert.deepEqual(m, untouched, 'the hint never edits the teacher’s text on its own');
+  await card.querySelector('[data-relation-edit=question]').click();
+  card = currentCard(modal);
+  const input = card.querySelector('[data-review-field=question]');
+  assert.equal(h.dom.document.activeElement, input);
+  await card.querySelector('[data-relation-suggestion=question]').click(); await tick();
+  assert.equal(card.querySelector('[data-review-field=question]'), input, 'typing and suggestions retain the actual editor');
+  assert.equal(h.dom.document.activeElement, input);
+  assert.equal(card.querySelector('[data-relation-hint]'), null);
+  assert.match(card.querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a/);
+  assert.equal(card.querySelector('[data-relation-part=question]').getAttribute('data-changed'), 'true');
+  assert.equal(m.review.final.review.initial.decisions.wording.text, item.question.replace('con facendo', 'facendo'));
+  assert.deepEqual(m.review.final.items, [item], 'approval, not an inline suggestion, updates the published draft');
+
+  await card.querySelector('[data-relation-edit=answer]').click();
+  card = currentCard(modal);
+  const second = card.querySelector('[data-review-field=answer]');
+  second.value = 'ciò che accade nel circuito elettrico.'; second.oninput(); await tick();
+  assert.match(card.querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a ciò che accade/);
+  await modal.querySelector('#mrv-later').click();
+  const reopened = h.R.open('/vault', h.saved.manifest, { final: true });
+  await reopened.querySelector('[data-review-filter=decided]').click();
+  assert.match(currentCard(reopened).querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a ciò che accade/);
+  await reopened.querySelector('#mrv-continue').click();
+  assert.equal(h.saved.manifest.review.final.items[0].question, item.question.replace('con facendo', 'facendo'));
+  assert.equal(h.saved.manifest.review.final.items[0].text, 'è analogo a');
+  assert.equal(h.saved.manifest.review.final.items[0].answer, second.value);
+  assert.deepEqual(h.saved.manifest.review.final.items[0].citations, item.citations);
+});
+
+test('whole-relationship editors follow sentence order, escape live text and handle a residue across field boundaries', async () => {
+  const item = { id: 'whole', kind: 'causal', question: 'L’acqua scorre con', text: 'facendo', answer: 'girare una turbina.' };
+  const m = finalManifest([item], [{ id: 'whole-issue', target: { kind: 'item', id: item.id, field: '$item' }, problem: 'Rileggi la relazione.' }]);
+  const h = runtime(), modal = h.R.open('/vault', m, { final: true });
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const card = currentCard(modal), inputs = card.querySelectorAll('[data-review-field]');
+  assert.deepEqual(inputs.map(el => el.getAttribute('data-review-field')), ['question', 'text', 'answer']);
+  assert.ok(card.querySelector('[data-relation-hint]'));
+  assert.equal(card.querySelector('[data-relation-suggestion]'), null, 'no partial fix can silently cross two fields');
+  inputs[0].value = 'L’acqua scorre <img src=x onerror=alert(1)>'; inputs[0].oninput(); await tick();
+  assert.equal(card.querySelector('[data-relation-preview] img'), null);
+  assert.match(card.querySelector('[data-relation-sentence]').textContent, /<img/);
+  assert.equal(card.querySelector('[data-relation-hint]'), null);
+  await card.querySelector('[data-relation-edit=answer]').click();
+  assert.equal(h.dom.document.activeElement, inputs[2]);
+  assert.deepEqual(m.review.final.items, [item]);
+});
+
+test('relationship previews do not group different sentences or claim a result for conflicts and exclusions', async () => {
+  const items = ['one', 'two'].map((id, n) => ({ id, kind: 'causal', question: 'Premessa comune', text: 'quindi', answer: 'Risultato ' + n }));
+  const issues = items.map(i => ({ id: 'fix-' + i.id, target: { kind: 'item', id: i.id, field: 'question' }, after: 'Premessa corretta',
+    problem: 'Stesso problema', evidence: [{ text: 'dopo.', quotationMatched: true, verifiedAgainst: 'archived-source-text' }] }));
+  const m = finalManifest(items, issues), h = runtime(), modal = h.R.open('/vault', m, { final: true });
+  assert.equal(modal.querySelectorAll('[data-review-card]').length, 2);
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(modal).querySelector('textarea'); input.value = 'Premessa scelta'; input.oninput(); await tick();
+  assert.equal(m.review.final.review.initial.decisions['fix-two']?.choice || 'pending', 'pending');
+  await modal.querySelector('#mrv-later').click();
+  m.review.final.review = Core.addIssue(m.review.final.review, { id: 'overlap', target: { kind: 'item', id: 'one', field: 'question' }, after: 'Altra scelta' });
+  m.review.final.review = Core.setDecision(m.review.final.review, 'overlap', 'accept');
+  const conflict = h.R.open('/vault', m, { final: true });
+  assert.match(currentCard(conflict).querySelector('[data-relation-preview]').textContent, /decisioni in conflitto/);
+  assert.equal(currentCard(conflict).querySelector('[data-relation-sentence]'), null);
+  await conflict.querySelector('#mrv-later').click();
+  const excluded = finalManifest([items[0]], [{ id: 'exclude', target: { kind: 'item', id: 'one', field: '$item' }, after: null, hasProposal: true }]);
+  excluded.review.final.review = Core.setDecision(excluded.review.final.review, 'exclude', 'accept');
+  const last = h.R.open('/vault', excluded, { final: true });
+  await last.querySelector('[data-review-filter=decided]').click();
+  assert.match(currentCard(last).querySelector('[data-relation-preview]').textContent, /esclusa dai materiali/);
+  assert.equal(currentCard(last).querySelector('[data-relation-edit]'), null);
 });
 
 test('review references and editor use reversible source labels, leaving original IDs and decisions intact', async () => {
@@ -461,6 +634,39 @@ test('filtering precedes duplicate grouping so a new decision cannot overwrite a
   await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Applica la proposta').click();
   assert.equal(m.review.initial.decisions.first.choice, 'reject');
   assert.equal(m.review.initial.decisions.second.choice, 'accept');
+});
+
+test('saved manual correction and two accepted rewrites expose the conflict and can be resolved without losing the teacher text', async () => {
+  const issues = [
+    { id: 'teacher', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'Il testo nega un fatto presente nella fonte.', quote: 'dopo.', evidence: [{ text: 'dopo.' }] },
+    ...['variant-a', 'variant-b'].map((id, n) => ({ id, target: { kind: 'node', id: 'a', field: 'desc' },
+      after: 'Versione proposta ' + n + '.', problem: 'Riformulazione della stessa segnalazione.', quote: 'dopo.', evidence: [{ text: 'dopo.' }] }))
+  ];
+  let review = initial({ checkStatus: 'incomplete', issues });
+  review = Core.setDecision(review, 'teacher', 'manual', { text: 'Il testo scritto dal docente.' });
+  for (const id of ['variant-a', 'variant-b']) review = Core.setDecision(review, id, 'accept');
+  const m = manifest(review), h = runtime(), modal = h.R.open('/vault', m);
+  assert.match(modal.querySelector('#mrv-filter-count').textContent, /2 da rivedere/);
+  assert.match(modal.querySelector('[data-decision-conflict]').textContent, /Il testo scritto dal docente/);
+  assert.match(modal.querySelector('.mrv-queue-state').textContent, /Scelte in conflitto/);
+  assert.equal(modal.querySelector('[data-review-choice="accept"]').disabled, true, 'clicking the same accepted proposal cannot solve the conflict');
+  modal.querySelector('#mrv-search').value = 'Riformulazione';
+  await modal.querySelector('#mrv-search').oninput();
+  await modal.querySelector('[data-decision-conflict] button').click();
+  assert.equal(modal.querySelector('#mrv-search').value, '', 'opening the other choice clears filters that would hide it');
+  assert.match(modal.querySelector('#mrv-current-title').textContent, /Il testo nega/);
+  await modal.querySelector('[data-review-filter="pending"]').click();
+  for (let n = 0; n < 2; n++) {
+    const keep = modal.querySelectorAll('[data-review-choice="reject"]').find(b => b.textContent === 'Conserva l’altra scelta');
+    assert.ok(keep); await keep.click(); await tick();
+  }
+  assert.match(modal.querySelector('#mrv-filter-count').textContent, /0 da rivedere/);
+  assert.equal(m.review.initial.decisions.teacher.text, 'Il testo scritto dal docente.');
+  assert.equal(Core.preview(m.review, h.st.db).db.nodes[0].desc, 'Il testo scritto dal docente.');
+  assert.equal(m.review.initial.checkStatus, 'incomplete', 'resolving choices does not fabricate model coverage');
+  assert.deepEqual(h.st.db, DB, 'nothing is applied to the map before final confirmation');
+  const reload = runtime(), reopened = reload.R.open('/vault', clone(h.saved.manifest));
+  assert.match(reopened.querySelector('#mrv-filter-count').textContent, /0 da rivedere/);
 });
 
 test('already chosen actions remain actionable when structurally invalid or conflicting', async () => {
@@ -635,7 +841,7 @@ test('G2 retry rolls back a failed manifest write and remains retryable without 
 test('G2 incomplete review offers material retry, freezes controls and retains a retryable dialog after provider failure', async () => {
   const h = materialRetryFixture(), modal = h.R.open('/vault', h.m, { final: true });
   const retry = modal.querySelector('#mrv-retry-judge');
-  assert.ok(retry); assert.equal(retry.textContent, 'Completa i controlli mancanti');
+  assert.ok(retry); assert.equal(retry.textContent, 'Riprova il controllo automatico dei residui');
   retry.focus();
   const confirmation = modal.querySelector('#mrv-manual-confirm');
   assert.ok(confirmation); assert.equal(modal.querySelector('#mrv-continue').hidden, true);
@@ -674,7 +880,7 @@ test('G2 cannot spend another model call while a teacher decision has an unresol
   assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
 });
 
-test('G2 shows only a compact unchecked count and keeps the full 105-item diagnostics in the unchanged manifest', () => {
+test('G2 exposes every unchecked material without creating findings or modifying the manifest', () => {
   const h = materialRetryFixture();
   h.m.review.final.review.initial.issues = [];
   h.m.review.final.review.initial.decisions = {};
@@ -683,7 +889,12 @@ test('G2 shows only a compact unchecked count and keeps the full 105-item diagno
   assert.ok(unchecked, 'skipped material checks remain visible even when no correction issue was returned');
   assert.match(unchecked.textContent, /105/);
   assert.equal(unchecked.querySelectorAll('li,details').length, 0);
-  assert.doesNotMatch(h.dom.html(), /HTTP 400|schema non valido|Domanda salvata|saved-\d+|Dettaglio tecnico/);
+  const details = modal.querySelector('#mrv-material-coverage');
+  assert.equal(details.querySelectorAll('[data-coverage-item]').length, 105);
+  assert.match(details.textContent, /Domanda salvata 104/);
+  assert.match(details.textContent, /HTTP 400: schema non valido/);
+  assert.match(details.textContent, /problema tecnico/);
+  assert.equal(details.querySelector('.mrv-coverage-technical').getAttribute('open'), undefined);
   assert.doesNotMatch(h.dom.text(), /Nessuna proposta di correzione\. Puoi leggere i contenuti e continuare\./);
   assert.equal(modal.querySelector('#mrv-filters').hidden, true);
   assert.equal(modal.querySelector('#mrv-filter-count').hidden, true);
@@ -944,7 +1155,7 @@ test('new retry findings and retained decisions are explained without counting p
   assert.deepEqual(clone(h.m.review.final.review.initial.retrySummary.newIssueIds), ['fresh']);
   const summary = modal.querySelector('#mrv-retry-summary');
   assert.match(summary.textContent, /1 nuove segnalazioni/);
-  assert.match(summary.textContent, /3 materiali ricontrollati/);
+  assert.match(summary.textContent, /3 materiali sottoposti al tentativo/);
   assert.match(summary.textContent, /102 controlli riutilizzati/);
   assert.ok(modal.querySelector('[data-review-issue=fresh] .mrv-new-finding'));
   assert.equal(h.saved.manifest.review.final.review.initial.retrySummary.newIssueIds.length, 1);
@@ -991,4 +1202,177 @@ test('a link targeted by ID shows its real concept names, including D3 object en
   assert.match(currentCard(modal).textContent, /Germania → richiede → Svizzera/);
   assert.match(currentCard(modal).textContent, /Germania → condiziona → Svizzera/);
   assert.doesNotMatch(currentCard(modal).textContent, /Concetto non disponibile/);
+});
+
+async function searchMaterials(modal, query, mode = 'words') {
+  modal.querySelector('#mrv-occurrence-query').value = query;
+  modal.querySelector('#mrv-occurrence-mode').value = mode;
+  await modal.querySelector('#mrv-occurrence-search').click();
+  return modal.querySelectorAll('[data-occurrence-item]');
+}
+
+test('individual decisions remain separate after closing and reopening the review', async () => {
+  const h = contextualDashboard();
+  await searchMaterials(h.modal, 'conflitto');
+  await h.modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  await currentCard(h.modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(h.modal).querySelector('textarea'); input.value = 'Correzione individuale MC.'; input.oninput(); await tick();
+  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'context-open', 'reject');
+  const reopened = h.R.open('/vault', h.m, { final: true });
+  await reopened.querySelector('[data-review-filter=decided]').click();
+  assert.equal(reopened.querySelectorAll('[data-review-issue]').length, 2);
+  await reopened.querySelector('[data-review-issue=context-mc]').click();
+  assert.equal(currentCard(reopened).querySelector('[data-review-targets]'), null);
+  await currentCard(reopened).querySelector('[data-review-choice=manual]').click();
+  assert.equal(currentCard(reopened).querySelector('textarea').value, input.value);
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-open'].choice, 'reject');
+});
+
+test('reopening occurrence results refreshes edited text without replacing the active editor', async () => {
+  const h = contextualDashboard(), { modal } = h;
+  await searchMaterials(modal, 'conflitto');
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(modal).querySelector('textarea'); input.value = 'Scelta individuale.'; input.oninput(); await tick();
+  const details = modal.querySelector('#mrv-occurrences'); details.open = true; details.ontoggle();
+  assert.equal(modal.querySelector('[data-occurrence-item=mc]'), null);
+  assert.ok(modal.querySelector('[data-occurrence-item=open]'));
+  assert.equal(currentCard(modal).querySelector('textarea'), input);
+  input.value = 'Il conflitto spiegato.'; input.oninput(); await tick();
+  assert.ok(modal.querySelector('[data-occurrence-item=mc]'));
+  assert.equal(currentCard(modal).querySelector('textarea'), input);
+});
+
+test('full material context shows canonical criteria and MC options without stale aliases', async () => {
+  const h = runtime(), items = [
+    { id: 'open', kind: 'open', question: 'Circuito?', guide: 'Spiega il circuito.', criteria: ['Criterio aggiornato.'], criteri: ['Criterio vecchio.'], lines: 5 },
+    { id: 'mc', kind: 'mc', question: 'Circuito?', options: ['Opzione aggiornata.', 'Altra opzione.'], answer: 'Risposta vecchia.', correctIndex: 0 }
+  ];
+  const m = finalManifest(items), modal = h.R.open('/vault', m, { final: true });
+  await searchMaterials(modal, 'Circuito');
+  assert.match(modal.querySelector('[data-occurrence-item=open] .mrv-item-context').textContent, /Criterio aggiornato/);
+  assert.doesNotMatch(modal.querySelector('[data-occurrence-item=open] .mrv-item-context').textContent, /Criterio vecchio/);
+  assert.doesNotMatch(modal.querySelector('[data-occurrence-item=mc] .mrv-item-context').textContent, /Risposta vecchia/);
+});
+
+test('a short generated batch stays visible in material review after reopening', () => {
+  const h = runtime(), m = finalManifest([{ id: 'mc', kind: 'mc', question: 'Circuito?', options: ['Sì', 'No'], correctIndex: 0 }]);
+  m.review.drafts = { B: { 'mc-auto': { title: 'Quiz MC', generation: { requested: 12, produced: 9 } } } };
+  const modal = h.R.open('/vault', m, { final: true });
+  assert.match(modal.querySelector('#mrv-batch-coverage').textContent, /Quiz MC: 9 \/ 12/);
+  assert.match(modal.querySelector('#mrv-batch-coverage').textContent, /alla generazione/);
+});
+
+test('occurrences include unflagged materials with the full exercise and do not turn matches into findings', async () => {
+  const h = runtime(), items = [
+    { id: 'mc', kind: 'mc', question: 'Quando avviene il corto circuito?', options: ['Con un filo diretto.', 'Con il circuito aperto.'], correctIndex: 0, explanation: 'Il corto circuito evita il carico.' },
+    { id: 'open', kind: 'open', question: 'Giustifica il risultato.', guide: 'Spiega il corto circuito.', criteria: ['Spiega il corto circuito.'], lines: 5 },
+    { id: 'synthesis', kind: 'synthesis', text: 'Il corto circuito: <img src=x onerror=alert(1)>.', title: 'Circuiti' }
+  ];
+  const m = finalManifest(items), before = clone(m), modal = h.R.open('/vault', m, { final: true });
+  const results = await searchMaterials(modal, 'corto circuito');
+  assert.equal(results.length, 3);
+  assert.match(modal.querySelector('.mrv-occurrences-count').textContent, /3 materiali con corrispondenze · 3 materiali esaminati/);
+  const mc = modal.querySelector('[data-occurrence-item=mc] .mrv-item-context');
+  assert.match(mc.textContent, /Risposta corretta:[\s\n]*A\. Con un filo diretto/);
+  assert.match(mc.textContent, /Spiegazione:[\s\n]*Il corto circuito evita il carico/);
+  const open = modal.querySelector('[data-occurrence-item=open]');
+  assert.ok(open.querySelector('[data-occurrence-edit=guide]'));
+  assert.ok(open.querySelector('[data-occurrence-edit=criteria]'));
+  assert.match(open.querySelector('.mrv-item-context').textContent, /Criteri di correzione/);
+  assert.ok(modal.querySelector('[data-occurrence-item=mc] mark'));
+  assert.equal(modal.querySelector('[data-occurrence-item=synthesis] img'), null);
+  assert.match(modal.querySelector('[data-occurrence-item=synthesis]').textContent, /<img src=x/);
+  assert.deepEqual(clone(m), before); assert.equal(h.calls.manifest, 0);
+  assert.equal(h.dom.document.activeElement, modal.querySelector('#mrv-occurrence-results'));
+});
+
+test('editing a found occurrence isolates a previously grouped proposal and keeps other materials unchanged', async () => {
+  const h = contextualDashboard(), { modal } = h;
+  assert.equal(currentCard(modal).querySelectorAll('[data-review-targets] li').length, 2);
+  await currentCard(modal).querySelector('[data-find-occurrences]').click();
+  assert.match(modal.querySelector('.mrv-occurrences-source').textContent, /Motivo 0/);
+  assert.equal(h.dom.document.activeElement, modal.querySelector('#mrv-occurrence-query'));
+  await searchMaterials(modal, 'Prima conflitto');
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  let card = currentCard(modal);
+  assert.equal(card.getAttribute('data-review-card'), 'context-mc');
+  assert.equal(card.querySelector('[data-review-targets]'), null, 'an individual edit must not inherit a shared action');
+  await card.querySelector('[data-review-choice=manual]').click();
+  const input = card.querySelector('textarea'); input.value = 'Spiegazione rettificata dal docente.'; input.oninput(); await tick();
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, input.value);
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-open'], undefined);
+  assert.equal(h.m.review.final.items[0].explanation, 'Prima del conflitto.');
+  const matches = await searchMaterials(modal, 'rettificata');
+  assert.equal(matches.length, 1, 'search applies the saved edit while other findings remain pending');
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  assert.equal(currentCard(modal).querySelector('textarea').value, input.value);
+  assert.equal(h.m.review.final.review.initial.issues.length, 3);
+});
+
+test('moving from an accepted occurrence to manual editing starts from the chosen proposal', async () => {
+  const h = contextualDashboard(), { modal } = h;
+  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'context-mc', 'accept');
+  const before = clone(h.m.review.final.review);
+  const matches = await searchMaterials(modal, 'Dopo conflitto');
+  assert.equal(matches.length, 1);
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  assert.deepEqual(clone(h.m.review.final.review), before, 'opening an existing field is read-only');
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  assert.equal(currentCard(modal).querySelector('textarea').value, 'Dopo il conflitto.');
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, 'Dopo il conflitto.');
+  assert.equal(h.m.review.final.review.initial.decisions['context-open'], undefined);
+});
+
+test('an occurrence edit invalidates personal confirmation, persists once and exports only that field', async () => {
+  const h = stalledMaterialFixture(), { m } = h, modal = h.R.open('/vault', m, { final: true });
+  const initial = clone(m.review.final.review.initial.decisions);
+  let confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
+  await searchMaterials(modal, 'Risposta 240');
+  assert.equal(confirmation.checked, true, 'looking for matches is not a new decision');
+  await modal.querySelector('[data-occurrence-item="material-240"] [data-occurrence-edit=answer]').click();
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
+  const input = currentCard(modal).querySelector('textarea'); input.value = 'Risposta controllata.'; input.oninput(); await tick();
+  confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
+  await modal.querySelector('#mrv-continue').click();
+  assert.equal(m.review.final.items.find(item => item.id === 'material-240').answer, 'Risposta controllata.');
+  assert.equal(m.review.final.items.find(item => item.id === 'material-241').answer, 'Risposta 241.');
+  for (const [id, decision] of Object.entries(initial)) assert.deepEqual(clone(m.review.final.review.initial.decisions[id]), decision);
+});
+
+test('occurrences in approved deliveries remain searchable and excluded materials stay excluded', async () => {
+  const h = runtime(), items = [
+    { id: 'kept', kind: 'flashcard', question: 'Circuito?', answer: 'Circuito chiuso.' },
+    { id: 'excluded', kind: 'flashcard', question: 'Circuito?', answer: 'Circuito aperto.' }
+  ];
+  const m = finalManifest(items, [{ id: 'drop', target: { kind: 'item', id: 'excluded', field: '$item' }, after: null }]);
+  const decision = Core.setDecision(m.review.final.review, 'drop', 'accept'), approval = Core.beginApproval(decision, { items });
+  m.review.final.review = Core.completeApproval(approval.review, approval.revision); m.review.final.items = approval.db.items; m.review.final.stage = 'done';
+  const before = clone(m), modal = h.R.open('/vault', m, { final: true });
+  assert.equal((await searchMaterials(modal, 'Circuito')).length, 1);
+  assert.equal(modal.querySelectorAll('[data-occurrence-edit]').length, 0);
+  assert.deepEqual(clone(m), before); assert.equal(h.calls.manifest, 0);
+});
+
+test('failed saves and unfinished numeric edits block occurrence navigation without discarding the editor', async () => {
+  const h = contextualDashboard(), { modal } = h;
+  await searchMaterials(modal, 'Domanda');
+  h.opts.failSave = true;
+  await modal.querySelector('[data-occurrence-item=open] [data-occurrence-edit=question]').click();
+  assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'context-mc');
+  h.opts.failSave = false; await modal.querySelector('#mrv-save-retry').click(); await tick();
+  await modal.querySelector('[data-occurrence-item=open] [data-occurrence-edit=question]').click();
+  assert.equal(h.m.review.final.review.initial.issues.length, 4);
+  const next = Core.addIssue(h.m.review.final.review, { id: 'line-edit', origin: 'teacher', target: { kind: 'item', id: 'open', field: 'lines' } });
+  h.m.review.final.review = Core.setDecision(next, 'line-edit', 'manual', { text: 4 });
+  const reopened = h.R.open('/vault', h.m, { final: true });
+  await reopened.querySelector('[data-review-filter=all]').click();
+  await reopened.querySelector('[data-review-issue="line-edit"]').click();
+  const input = currentCard(reopened).querySelector('input[type=number]'); input.value = ''; input.oninput();
+  await searchMaterials(reopened, 'Domanda');
+  assert.equal(currentCard(reopened).getAttribute('data-review-card'), 'line-edit');
+  assert.equal(currentCard(reopened).querySelector('input[type=number]'), input);
+  assert.equal(input.value, '');
 });

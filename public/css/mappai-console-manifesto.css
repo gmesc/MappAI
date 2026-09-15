@@ -39,7 +39,10 @@ html.manifesto {
        parte — quindi valeva sempre il ripiego, e la testata della console usava
        comunque `--mm-bordo` (#e2e8f0) sul secondo bordo: due linee di due colori
        diversi. */
-    --mnc-hairline: #ebebeb;
+    /* DECISIONE D (13/9/26): UN filetto solo, `#e2e8f0` — lo stesso di `--mm-bordo` e dei
+       192 `border-slate-200` del markup. Era `#ebebeb`, che compariva solo qui: due
+       grigi di bordo a un passo l'uno dall'altro sulla stessa schermata. */
+    --mnc-hairline: var(--mm-bordo, #e2e8f0);
 }
 
 /* CABLAGGIO nell'app (classe `mn-bento-app` su <html>): via il chip e il
@@ -266,12 +269,18 @@ html.manifesto .mm-box--console .mm-nav__v {
     border-radius: 10px;
     margin: 0 10px;
 }
+/* DECISIONE H (13/9/26) — la voce ATTIVA. Era testo viola `#ac72fe` su bianco: **3,19:1**,
+   sotto la soglia 4,5 del testo (misurato nel banco dei token). Il viola resta il segno
+   dell'attivo, ma passa nel FONDO — dove 3:1 basta perché è grafica, non testo — e il
+   testo torna allo scuro dell'app. Misurato dopo: 8,6:1. */
 html.manifesto .mm-box--console .mm-nav__v.is-attiva {
-    background: #fff;
-    color: var(--man-viola);
+    background: color-mix(in srgb, var(--man-viola) 16%, #fff);
+    color: var(--man-nero);
     box-shadow: inset 0 0 0 1px var(--mm-bordo);
 }
-html.manifesto .mm-box--console .mm-nav__v.is-attiva svg { color: var(--man-viola); }
+/* l'icona eredita lo scuro del testo (DECISIONE H): sul fondo viola tenue un glifo viola
+   farebbe 2,6:1, sotto la soglia 3:1 delle icone. */
+html.manifesto .mm-box--console .mm-nav__v.is-attiva svg { color: inherit; }
 html.manifesto .mm-box--console .mm-nav__g { padding-left: 22px; }
 
 /* ── la maniglia: bottoncino a icona, non più linguetta sul confine ─────── */
@@ -527,7 +536,7 @@ html.manifesto .mm-box--console .mm-console__area > * {
 html.manifesto .mm-box--console {
     /* colonna */
     --mnc-voce-h: 44px;          /* altezza di una voce di navigazione */
-    --mnc-voce-fs: 13px;
+    --mnc-voce-fs: var(--mm-btn-fs, 12px);   /* DECISIONE F (13/9/26): era 13 */
     --mnc-voce-gap: 2px;         /* passo fra le voci */
     --mnc-voce-r: 10px;          /* raggio della voce */
     --mnc-col-pad: 14px;         /* imballaggio della colonna */
@@ -898,7 +907,7 @@ html.manifesto {
     --mnc-campo-max: 100%;
     --mnc-tendina-w: 160px;
     /* i riquadri dell'area */
-    --mnc-card-r: 18px;
+    --mnc-card-r: var(--mm-r-card, 18px);    /* DECISIONE E (13/9/26): il raggio delle card grandi sta in un token solo */
     --mnc-card-ombra: none;
     /* la colonna: l'allineamento vale per tutte le sidebar */
     --mnc-voce-just: flex-start;

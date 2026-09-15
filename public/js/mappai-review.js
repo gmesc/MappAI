@@ -346,6 +346,8 @@
     ? ({ question: t('rv_relation_start', 'Prima parte'), text: t('rv_relation_connector', 'Collegamento'), answer: t('rv_relation_end', 'Seconda parte') })[f]
     : fieldLabels[f] ? t(...fieldLabels[f]) : t('rv_other_field', 'Contenuto');
   const itemFields = ['question', 'answer', 'options', 'correctIndex', 'explanation', 'guide', 'criteria', 'criteri', 'text', 'lines'];
+  const canonicalFields = item => itemFields.filter(f => own(item, f) &&
+    !(f === 'criteri' && own(item, 'criteria')) && !(f === 'answer' && item.kind === 'mc' && Array.isArray(item.options)));
   const nodeLabel = id => { const key = id && typeof id === 'object' ? id.id : id; const n = (state().db.nodes || []).find(n => String(n.id) === String(key)); return n ? n.label : t('rv_missing_node', 'Concetto non disponibile'); };
   function itemFor(issue, review) { return (review.baseSnapshot.items || []).find(i => String(i.id) === String(issue.target.id)); }
   function readable(value, target, item) {
@@ -362,7 +364,7 @@
     }
     if (Array.isArray(value)) return value.map((v, i) => (i + 1) + '. ' + (typeof v === 'string' ? v : t('rv_unreadable_field', 'Contenuto da correggere'))).join('\n');
     if (typeof value === 'object' && value.kind === 'causal') return [value.question, value.text, value.answer].join(' → ');
-    if (typeof value === 'object') return itemFields.filter(f => own(value, f)).map(f => fieldName(f, value) + ':\n' + readable(value[f], { field: f }, value)).join('\n\n');
+    if (typeof value === 'object') return canonicalFields(value).map(f => fieldName(f, value) + ':\n' + readable(value[f], { field: f }, value)).join('\n\n');
     return String(value);
   }
   R.describeValue = readable;
@@ -378,7 +380,7 @@
       // Similar wording alone never authorizes changing another material.
       const sharedCorrection = issue.target.kind !== 'link' && issue.hasProposal && typeof issue.before === 'string' && typeof issue.after === 'string' &&
         evidenceRows(issue.evidence).some(e => e.quotationMatched && e.verifiedAgainst === 'archived-source-text');
-      const independentTarget = ['correctIndex', 'options', '$item'].includes(issue.target.field) ? issue.target.id : null;
+      const independentTarget = issue.origin === 'teacher' || ['correctIndex', 'options', '$item'].includes(issue.target.field) ? issue.target.id : null;
       const key = canonical([issue.target.kind, issue.target.field, issue.before, issue.after, issue.hasProposal,
         sharedCorrection ? null : issue.problem, issue.evidence, issue.quote, issue.type, issue.citationAdditions, independentTarget]);
       if (!groups.has(key)) groups.set(key, []);
@@ -515,7 +517,7 @@
       '<label for="mrv-reason">' + esc(t('rv_context_reason', 'Motivo')) + '<select id="mrv-reason"></select></label></div><button type="button" class="pm-btn-cancel" id="mrv-clear-filters" hidden>' + esc(t('rv_context_clear', 'Azzera i filtri')) + '</button>' +
       '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
-      '<div class="mrv-detail"><nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
+      '<div class="mrv-detail">' + (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
@@ -524,11 +526,13 @@
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
     const invalidEditors = new Set();
-    let activeFilter = 'pending', activeIssueId = null, search = '', visibleGroups = [], coverageWasPending = true;
+    let activeFilter = 'pending', activeIssueId = null, search = '', visibleGroups = [], coverageWasPending = true, coverageExpanded = null;
+    const individualIssues = new Set();
+    const occurrenceSearch = { open: false, query: '', mode: 'words', searched: false, sourceIssueId: null, dirty: false };
     const facets = { area: '', kind: '', reason: '' };
     const filters = modal.querySelector('#mrv-filters'), filterCount = modal.querySelector('#mrv-filter-count');
     const filterLabels = { pending: t('rv_filter_pending', 'Da rivedere'), decided: t('rv_filter_decided', 'Già decise'), all: t('rv_filter_all', 'Tutte') };
-    const setReview = r => { if (isFinal) manifest.review.final.review = r; else manifest.review = r; };
+    const setReview = r => { occurrenceSearch.dirty = true; if (isFinal) manifest.review.final.review = r; else manifest.review = r; };
     function decisionState() {
       const r = getReview(), issues = r.initial.issues;
       const db = isFinal ? { items: manifest.review.final.items } : state().db;
@@ -543,7 +547,7 @@
       }
       const pending = issues.filter(i => attention.has(i.id) || !['accept', 'reject', 'manual'].includes(r.initial.decisions[i.id]?.choice));
       const ids = new Set(pending.map(i => i.id));
-      return { pending, decided: issues.filter(i => !ids.has(i.id)), all: issues };
+      return { pending, decided: issues.filter(i => !ids.has(i.id)), all: issues, conflicts: preview.conflicts };
     }
     function updateFilters() {
       const groups = decisionState();
@@ -631,11 +635,19 @@
       return pendingSave;
     }
     retrySave.onclick = () => { if (!busy) save(); };
+    function invalidateManualCheck() {
+      manualConfirmed = false;
+      const input = modal.querySelector('#mrv-manual-confirm');
+      if (input) { input.checked = false; proceed.hidden = true; }
+    }
     function decide(group, choice, value) {
       if (busy || getReview().initial.status !== 'awaiting_review') return;
+      invalidateManualCheck();
       let r = getReview();
       group.forEach(issue => { r = core().setDecision(r, issue.id, choice, { text: value }); });
-      setReview(r); updateFilters(); updateSummary(); return save();
+      setReview(r); updateFilters(); updateSummary();
+      if (occurrenceSearch.open) renderOccurrences();
+      return save();
     }
     function updateSummary() {
       const r = getReview(), summary = modal.querySelector('#mrv-decision-summary');
@@ -658,10 +670,213 @@
       });
       if (!value) proceed.disabled = invalidEditors.size > 0;
     }
+    // Both incomplete controls and text matches open the same saved field
+    // decision. An occurrence is edited individually even when an older
+    // identical proposal was displayed as a shared correction.
+    async function openMaterialField(itemId, field) {
+      if (busy || invalidEditors.size || getReview().initial.status !== 'awaiting_review') return;
+      await pendingSave; if (saveError || closed || busy) return;
+      let next = getReview();
+      const item = next.baseSnapshot.items.find(row => String(row.id) === String(itemId));
+      if (!item || !itemFields.includes(field) || !own(item, field)) return;
+      const sameItem = next.initial.issues.filter(issue => issue.target.kind === 'item' && String(issue.target.id) === String(itemId));
+      const decided = issue => ['accept', 'manual'].includes(next.initial.decisions[issue.id]?.choice);
+      let existing = sameItem.find(issue => issue.target.field === '$item' && decided(issue)) ||
+        sameItem.find(issue => issue.target.field === field && decided(issue)) ||
+        sameItem.find(issue => issue.target.field === field) || sameItem.find(issue => issue.target.field === '$item');
+      if (!existing) {
+        next = core().addIssue(next, { target: { kind: 'item', id: String(itemId), field }, origin: 'teacher', blocking: true,
+          problem: t('rv_teacher_edit', 'Modifica del docente') + ': ' + fieldName(field, item) });
+        existing = next.initial.issues[next.initial.issues.length - 1];
+        invalidateManualCheck(); setReview(next); await save();
+      }
+      if (closed || saveError) return;
+      individualIssues.add(existing.id);
+      activeIssueId = existing.id; activeFilter = 'all'; search = ''; coverageExpanded = false; occurrenceSearch.open = false;
+      modal.querySelector('#mrv-search').value = ''; Object.keys(facets).forEach(key => { facets[key] = ''; });
+      render(); modal.querySelector('#mrv-current-title')?.focus();
+    }
+    function renderOccurrences() {
+      const host = modal.querySelector('#mrv-occurrences-host'), helper = window.MappAIReviewContext;
+      if (!host || !helper?.searchOccurrences || !helper?.occurrenceSnapshot) return;
+      occurrenceSearch.dirty = false;
+      host.replaceChildren();
+      const box = document.createElement('details'); box.id = 'mrv-occurrences';
+      if (occurrenceSearch.open) box.setAttribute('open', '');
+      box.ontoggle = () => {
+        if (host.querySelector('#mrv-occurrences') !== box) return;
+        occurrenceSearch.open = box.open;
+        if (box.open && occurrenceSearch.dirty) renderOccurrences();
+      };
+      box.innerHTML = '<summary>' + esc(t('rv_occurrences_title', 'Trova le occorrenze nei materiali')) + '</summary>' +
+        '<p class="mrv-occurrences-help">' + esc(t('rv_occurrences_help', 'Cerca parole o una frase in tutti i materiali, anche quelli senza segnalazioni. Leggi ogni corrispondenza nel suo contesto e scegli quali correggere. Per formulazioni diverse prova altre parole.')) + '</p>';
+      const sourceIssue = getReview().initial.issues.find(issue => issue.id === occurrenceSearch.sourceIssueId);
+      if (sourceIssue) {
+        const source = document.createElement('p'); source.className = 'mrv-occurrences-source';
+        source.textContent = t('rv_occurrences_problem', 'Problema da seguire:') + ' ' + sourceIssue.problem;
+        box.appendChild(source);
+      }
+      const form = document.createElement('div'); form.className = 'mrv-occurrences-search';
+      form.innerHTML = '<label for="mrv-occurrence-query">' + esc(t('rv_occurrences_query', 'Parole o frase da cercare')) +
+        '<input id="mrv-occurrence-query" type="search" placeholder="' + esc(t('rv_occurrences_hint', 'Per esempio: corto circuito')) + '"></label>' +
+        '<label for="mrv-occurrence-mode">' + esc(t('rv_occurrences_mode', 'Come cercare')) + '<select id="mrv-occurrence-mode"><option value="words">' +
+        esc(t('rv_occurrences_words', 'Tutte le parole')) + '</option><option value="phrase">' + esc(t('rv_occurrences_phrase', 'Frase esatta')) + '</option></select></label>' +
+        '<button type="button" id="mrv-occurrence-search" class="pm-btn-primary">' + esc(t('rv_occurrences_search', 'Cerca nei materiali')) + '</button>';
+      const query = form.querySelector('input'), mode = form.querySelector('select');
+      query.value = occurrenceSearch.query; mode.value = occurrenceSearch.mode;
+      const run = async () => {
+        if (busy || invalidEditors.size) return;
+        await pendingSave; if (saveError || closed || busy) return;
+        occurrenceSearch.query = query.value; occurrenceSearch.mode = mode.value; occurrenceSearch.searched = true; occurrenceSearch.open = true;
+        renderOccurrences(); modal.querySelector('#mrv-occurrence-results')?.focus();
+      };
+      form.querySelector('button').onclick = run;
+      query.oninput = () => { occurrenceSearch.query = query.value; };
+      query.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); run(); } };
+      mode.onchange = () => { occurrenceSearch.mode = mode.value; };
+      box.appendChild(form);
+      const results = document.createElement('div'); results.id = 'mrv-occurrence-results'; results.setAttribute('tabindex', '-1');
+      box.appendChild(results); host.appendChild(box);
+      if (!occurrenceSearch.searched) return;
+      const snapshot = helper.occurrenceSnapshot(getReview(), manifest.review.final.items, core());
+      if (!snapshot.ok) {
+        results.textContent = t('rv_occurrences_conflict', 'Risolvi le decisioni in conflitto prima di cercare nella versione corretta dei materiali.'); return;
+      }
+      const found = helper.searchOccurrences(snapshot.items, occurrenceSearch.query, { mode: occurrenceSearch.mode, excludedIds: snapshot.excludedIds });
+      const count = document.createElement('p'); count.setAttribute('role', 'status'); count.className = 'mrv-occurrences-count';
+      count.textContent = !found.valid ? t('rv_occurrences_empty_query', 'Scrivi almeno una parola o una frase da cercare.') :
+        found.matches.length + ' ' + t('rv_occurrences_found', 'materiali con corrispondenze') + ' · ' + found.totalItems + ' ' + t('rv_occurrences_scanned', 'materiali esaminati');
+      results.appendChild(count);
+      const version = document.createElement('p'); version.className = 'mrv-occurrences-help';
+      version.textContent = t('rv_occurrences_version', 'La ricerca usa il testo con le decisioni attuali ed esclude i materiali rimossi. Una corrispondenza non è una nuova segnalazione né un controllo scientifico.');
+      results.appendChild(version);
+      if (getReview().initial.status === 'approved') {
+        const readonly = document.createElement('p'); readonly.className = 'mrv-occurrences-help';
+        readonly.textContent = t('rv_occurrences_readonly', 'Questa consegna è già completata: puoi consultare le corrispondenze. Le modifiche sono disponibili durante la revisione dei materiali.');
+        results.appendChild(readonly);
+      }
+      if (!found.valid) return;
+      if (!found.matches.length) {
+        const empty = document.createElement('p'); empty.textContent = t('rv_occurrences_none', 'Nessuna corrispondenza. Prova meno parole o una formulazione diversa.'); results.appendChild(empty); return;
+      }
+      const list = document.createElement('div'); list.className = 'mrv-occurrence-list'; results.appendChild(list);
+      found.matches.forEach((match, index) => {
+        const item = match.item, target = { kind: 'item', id: match.id };
+        const row = document.createElement('details'); row.className = 'mrv-occurrence'; row.setAttribute('data-occurrence-item', match.id);
+        row.innerHTML = '<summary>' + (index + 1) + '. ' + esc(referenceView(item.title || item.question || item.text || t('rv_material', 'Materiale')).text) + '</summary>' + chips([{ target }]);
+        const context = document.createElement('details'); context.className = 'mrv-item-context';
+        context.innerHTML = '<summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary><p class="mrv-coverage-text">' +
+          esc(displayValue(item, { field: '$item' }, item)) + '</p>';
+        row.appendChild(context);
+        match.fields.forEach(foundField => {
+          const field = document.createElement('div'); field.className = 'mrv-occurrence-field';
+          const title = document.createElement('h4'); title.textContent = fieldName(foundField.field, item) +
+            (foundField.index != null ? ' ' + (foundField.field === 'options' ? String.fromCharCode(65 + foundField.index) : foundField.index + 1) : '');
+          field.appendChild(title);
+          const quote = document.createElement('p'); quote.className = 'mrv-coverage-text';
+          // Reference labels change offsets: only highlight literal text when
+          // reference rendering leaves its positions intact.
+          const shown = referenceView(foundField.text).text;
+          if (shown === foundField.text) {
+            let cursor = 0;
+            quote.innerHTML = foundField.ranges.map(([start, end]) => {
+              const html = esc(shown.slice(cursor, start)) + '<mark>' + esc(shown.slice(start, end)) + '</mark>'; cursor = end; return html;
+            }).join('') + esc(shown.slice(cursor));
+          } else quote.textContent = shown;
+          field.appendChild(quote);
+          if (getReview().initial.status === 'awaiting_review') {
+            const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'pm-btn-cancel';
+            edit.setAttribute('data-occurrence-edit', foundField.field); edit.textContent = t('rv_occurrences_edit', 'Rivedi questo campo');
+            edit.onclick = () => openMaterialField(match.id, foundField.field); field.appendChild(edit);
+          }
+          row.appendChild(field);
+        });
+        list.appendChild(row);
+      });
+    }
+    async function findOccurrences(issue) {
+      if (busy || invalidEditors.size) return;
+      await pendingSave; if (saveError || closed || busy) return;
+      occurrenceSearch.sourceIssueId = issue.id; occurrenceSearch.open = true;
+      renderOccurrences(); modal.querySelector('#mrv-occurrence-query')?.focus();
+    }
+    function renderMaterialCoverage(r, rows, editable, pending) {
+      const box = document.createElement('details'); box.id = 'mrv-material-coverage';
+      const retry = r.initial.retrySummary || r.initial.report?.retrySummary;
+      const stalled = retry?.targeted > 0 && retry.checked === 0 && retry.remaining > 0;
+      if (coverageExpanded ?? (!pending || stalled)) box.setAttribute('open', '');
+      box.ontoggle = () => { coverageExpanded = box.open; };
+      box.innerHTML = '<summary id="mrv-coverage-heading" tabindex="-1">' + esc(t('rv_coverage_materials', 'Materiali con controllo incompleto')) + ' (' + rows.length + ')</summary>' +
+        (stalled ? '<p id="mrv-no-progress" role="status">' + esc(t('rv_coverage_stalled', 'L’ultimo tentativo non ha completato nuovi controlli. Esamina le frasi qui sotto: riprovare può recuperare una risposta mancante, ma non aggiunge prove alla fonte.')) + '</p>' : '') +
+        '<p>' + esc(t('rv_coverage_count_help', 'Questo numero conta i materiali con almeno una verifica automatica incompleta, non gli errori. Ogni tentativo riesamina tutti i residui e conserva i controlli validi.')) + '</p>' +
+        '<p>' + esc(t('rv_coverage_version', 'Le frasi segnalate appartengono alle bozze originali controllate. Le correzioni scelte qui vengono applicate quando completi la revisione: non sono valutate dal pulsante di ricontrollo e non abbassano questo conteggio.')) + '</p>';
+      // Show the exact archived source text, never generated node descriptions
+      // as evidence for an uncertain claim. Unknown relevance stays unknown.
+      const sources = document.createElement('details'); sources.className = 'mrv-coverage-sources';
+      sources.innerHTML = '<summary>' + esc(t('rv_coverage_sources', 'Consulta il testo delle fonti usato dal controllo')) + '</summary>';
+      let pages = 0;
+      (r.sources || []).forEach(source => {
+        (source.pages || [{ text: source.text || source.content, n: null }]).forEach(page => {
+          if (!page.text) return;
+          pages++;
+          const detail = document.createElement('details');
+          detail.innerHTML = '<summary>' + esc(source.title || source.name || source.nome || t('rv_source', 'Fonte')) +
+            (page.n != null ? ' · ' + esc(t('rv_page', 'Pagina')) + ' ' + esc(page.n) : '') + '</summary><p class="mrv-coverage-text">' + esc(page.text) + '</p>';
+          sources.appendChild(detail);
+        });
+      });
+      if (!pages) sources.innerHTML += '<p>' + esc(t('rv_coverage_no_sources', 'Il testo delle fonti non è disponibile in questo archivio. Per la verifica personale consulta il documento originale.')) + '</p>';
+      box.appendChild(sources);
+      const preview = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
+      const previewItems = new Map((preview.ok ? preview.db.items : []).map(item => [String(item.id), item]));
+      const labels = {
+        uncertain: t('rv_coverage_uncertain', 'Riscontro nella fonte non confermato'),
+        missing: t('rv_coverage_missing', 'Il modello non ha restituito un esito'),
+        unverified: t('rv_coverage_unverified', 'Esito non validato')
+      };
+      rows.forEach((row, index) => {
+        const item = row.item, issue = { target: { kind: 'item', id: row.id } };
+        const detail = document.createElement('details'); detail.className = 'mrv-coverage-material'; detail.setAttribute('data-coverage-item', row.id);
+        detail.innerHTML = '<summary>' + (index + 1) + '. ' + esc(issueTarget(issue)) + '</summary>' + chips([issue]) +
+          (row.claims.length ? '<ul class="mrv-coverage-claims">' + row.claims.map(claim => '<li><strong>' + esc(fieldName(claim.field, item)) + ' · ' + esc(labels[claim.status]) +
+            '</strong><p class="mrv-coverage-text">' + esc(referenceView(claim.text).text) + '</p></li>').join('') + '</ul>' :
+            '<p>' + esc(row.error ? t('rv_coverage_technical', 'Il controllo si è interrotto per un problema tecnico.') : t('rv_coverage_no_verdict', 'Il rapporto non contiene un controllo completo per questo materiale. Non indica quali frasi siano state verificate.')) + '</p>') +
+          (row.error || row.reason ? '<details class="mrv-coverage-technical"><summary>' + esc(t('rv_coverage_detail', 'Dettaglio del controllo')) + '</summary><p>' + esc(row.error || row.reason) + '</p></details>' : '');
+        if (item) {
+          const version = document.createElement('details'); version.className = 'mrv-coverage-version';
+          const chosen = previewItems.get(row.id);
+          version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' +
+            '<h4>' + esc(t('rv_coverage_original', 'Bozza originale controllata')) + '</h4><p class="mrv-coverage-text">' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' +
+            '<h4>' + esc(t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')) + '</h4><p class="mrv-coverage-text">' +
+            esc(!preview.ok ? t('rv_coverage_preview_pending', 'Completa le decisioni e risolvi eventuali conflitti per vedere l’anteprima. Le modifiche salvate sono consultabili nelle segnalazioni.') :
+              chosen ? displayValue(chosen, { field: '$item' }, chosen) : t('rv_coverage_excluded', 'Hai scelto di escludere questo materiale.')) + '</p>';
+          detail.appendChild(version);
+          if (editable) {
+            const actions = document.createElement('div'); actions.className = 'mrv-coverage-actions';
+            canonicalFields(item).forEach(field => {
+              const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
+              button.setAttribute('data-coverage-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
+              button.onclick = () => openMaterialField(row.id, field);
+              actions.appendChild(button);
+            });
+            detail.appendChild(actions);
+          }
+        } else {
+          const missing = document.createElement('p'); missing.textContent = t('rv_coverage_item_missing', 'Il materiale indicato dal rapporto non è disponibile nella bozza salvata.'); detail.appendChild(missing);
+        }
+        box.appendChild(detail);
+      });
+      content.appendChild(box);
+      const show = document.createElement('button'); show.type = 'button'; show.id = 'mrv-show-unchecked'; show.className = 'pm-btn-primary';
+      show.textContent = t('rv_coverage_examine', 'Esamina i materiali rimasti') + ' (' + rows.length + ')';
+      show.onclick = () => { coverageExpanded = true; box.setAttribute('open', ''); modal.querySelector('#mrv-coverage-heading').focus(); };
+      modal.querySelector('#mrv-coverage-details').appendChild(show);
+    }
     function render() {
       const r = getReview(), approved = r.initial.status === 'approved', editable = r.initial.status === 'awaiting_review';
       content.replaceChildren(); invalidEditors.clear();
       const groups = updateFilters();
+      renderOccurrences();
       filters.hidden = filterCount.hidden = !r.initial.issues.length;
       const query = search.trim().toLocaleLowerCase();
       function facetValues(issue, key) {
@@ -686,7 +901,15 @@
         input.value = facets[key];
       }
       const matchingIssues = groups[activeFilter].filter(issue => matches(issue));
-      visibleGroups = R.groupIssues(matchingIssues);
+      visibleGroups = R.groupIssues(matchingIssues).flatMap(group => {
+        const decisions = new Set(group.map(issue => {
+          const d = r.initial.decisions[issue.id];
+          return canonical([d?.choice || 'pending', d?.choice === 'manual' ? d.text : null]);
+        }));
+        // Each relationship needs its own complete sentence, even when one
+        // field has the same suggested correction in several materials.
+        return decisions.size > 1 || group.some(issue => individualIssues.has(issue.id) || itemFor(issue, r)?.kind === 'causal') ? group.map(issue => [issue]) : [group];
+      });
       modal.querySelector('#mrv-clear-filters').hidden = !query && !Object.values(facets).some(Boolean);
       if (!visibleGroups.some(group => group.some(issue => issue.id === activeIssueId))) activeIssueId = visibleGroups[0]?.[0].id || null;
       const selectedIndex = visibleGroups.findIndex(group => group.some(issue => issue.id === activeIssueId));
@@ -698,9 +921,10 @@
         const button = document.createElement('button'); button.type = 'button'; button.className = 'mrv-queue-item';
         button.setAttribute('data-review-issue', issue.id); button.setAttribute('aria-current', selected ? 'true' : 'false');
         const pending = group.some(i => groups.pending.some(p => p.id === i.id));
+        const conflict = groups.conflicts.some(c => c.code === 'conflicting_decisions' && group.some(i => i.id === c.issueId));
         const isNew = group.some(i => (r.initial.retrySummary?.newIssueIds || []).includes(i.id));
         button.innerHTML = chips(group, true) + (isNew ? '<span class="mrv-new-finding">' + esc(t('rv_context_new', 'Nuova segnalazione')) + '</span>' : '') + '<span class="mrv-queue-meta">' + (index + 1) + ' · ' + esc(fieldName(issue.target.field, itemFor(issue, r))) +
-          (group.length > 1 ? ' · ' + group.length + ' ' + esc(t('rv_dashboard_targets', 'contenuti')) : '') + '</span><strong>' + esc(issueTarget(issue)) + '</strong><span class="mrv-queue-problem">' + esc(issue.problem || fieldName(issue.target.field)) + '</span><span class="mrv-queue-state" data-pending="' + pending + '">' + esc(pending ? outcomes.pending : outcomes[core().decisionOutcome(issue, r.initial.decisions[issue.id])]) + '</span>';
+          (group.length > 1 ? ' · ' + group.length + ' ' + esc(t('rv_dashboard_targets', 'contenuti')) : '') + '</span><strong>' + esc(issueTarget(issue)) + '</strong><span class="mrv-queue-problem">' + esc(issue.problem || fieldName(issue.target.field)) + '</span><span class="mrv-queue-state" data-pending="' + pending + '">' + esc(conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? outcomes.pending : outcomes[core().decisionOutcome(issue, r.initial.decisions[issue.id])]) + '</span>';
         button.onclick = () => navigate(issue.id); queue.appendChild(button);
       });
       modal.querySelector('#mrv-queue-count').textContent = visibleGroups.length + ' ' + t('rv_dashboard_in_list', 'voci in elenco') +
@@ -721,12 +945,25 @@
         groups.pending.length ? t('rv_dashboard_decide_help', 'Confronta il testo e la proposta, poi scegli. Dopo una decisione passerai alla segnalazione successiva.') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Verifica la copertura del controllo prima di continuare.');
       content.appendChild(info);
+      if (isFinal) {
+        const shortBatches = Object.values(manifest.review.drafts?.B || {}).filter(draft =>
+          Number.isFinite(draft.generation?.requested) && Number.isFinite(draft.generation?.produced) && draft.generation.produced < draft.generation.requested);
+        if (shortBatches.length) {
+          const batch = document.createElement('div'); batch.id = 'mrv-batch-coverage'; batch.className = 'mrv-retry-summary';
+          batch.innerHTML = '<strong>' + esc(t('rv_batch_short_title', 'Il lotto contiene meno domande del previsto')) + '</strong>' + shortBatches.map(draft =>
+            '<p>' + esc((draft.title || t('rv_material', 'Materiale')) + ': ' + draft.generation.produced + ' / ' + draft.generation.requested) + '</p>').join('') +
+            '<p>' + esc(t('rv_batch_short_help', 'Questi numeri descrivono le domande ottenute alla generazione. Verifica quali obiettivi sono coperti prima di aggiungere altre domande.')) + '</p>';
+          content.appendChild(batch);
+        }
+      }
       if (r.initial.retrySummary) {
         const retry = r.initial.retrySummary, summary = document.createElement('p');
         summary.className = 'mrv-retry-summary'; summary.id = 'mrv-retry-summary'; summary.setAttribute('role', 'status');
         summary.textContent = (retry.newIssueIds || []).length + ' ' + t('rv_context_new_findings', 'nuove segnalazioni') + ' · ' +
           retry.decisionsPreserved + ' ' + t('rv_context_preserved', 'decisioni conservate') +
-          (typeof retry.targeted === 'number' ? ' · ' + retry.targeted + ' ' + t('rv_context_rechecked', 'materiali ricontrollati') : '') +
+          (typeof retry.targeted === 'number' ? ' · ' + retry.targeted + ' ' + t('rv_context_rechecked', 'materiali sottoposti al tentativo') : '') +
+          (typeof retry.checked === 'number' ? ' · ' + retry.checked + ' ' + t('rv_coverage_completed_now', 'nuovi controlli completati') : '') +
+          (typeof retry.remaining === 'number' ? ' · ' + retry.remaining + ' ' + t('rv_coverage_remaining', 'materiali ancora da verificare') : '') +
           (typeof retry.reused === 'number' ? ' · ' + retry.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
         content.appendChild(summary);
       }
@@ -736,20 +973,20 @@
         const summary = document.createElement('p'); summary.id = 'mrv-decision-summary';
         summary.setAttribute('aria-live', 'polite'); history.appendChild(summary); content.appendChild(history); updateSummary();
       }
-      if (!visibleGroups.length && r.initial.issues.length) {
+      if (!visibleGroups.length && r.initial.issues.length && !(isFinal && r.initial.checkStatus !== 'completed' && activeFilter === 'pending' && !groups.pending.length && !query && !Object.values(facets).some(Boolean))) {
         const empty = document.createElement('p'); empty.id = 'mrv-filter-empty';
         empty.textContent = query || Object.values(facets).some(Boolean) ? t('rv_context_no_results', 'Nessuna segnalazione corrisponde ai filtri. Cambia la selezione o usa Azzera i filtri.') : activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
         content.appendChild(empty);
       }
       if (r.initial.checkStatus !== 'completed') {
         const report = r.initial.report || {}, coverage = report.copertura || {};
-        const unchecked = (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length + (report.coverage?.skipped || []).length;
-        // Coverage belongs to diagnostics, not to the teacher's correction list.
-        // Keep the full report in the manifest; only actual findings get cards.
+        const residuals = isFinal ? window.MappAIReviewContext.incompleteMaterials(report, r.baseSnapshot.items) : [];
+        const unchecked = isFinal ? residuals.length : (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length;
         const box = document.createElement('div'); box.id = 'mrv-unchecked';
         box.innerHTML = (unchecked ? '<p>' + esc(t('rv_remaining_checks', 'Parti ancora da controllare:')) + ' ' + unchecked + '.</p>' : '') +
           '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
         modal.querySelector('#mrv-coverage-details').appendChild(box);
+        if (isFinal && residuals.length) renderMaterialCoverage(r, residuals, editable, groups.pending.length);
       }
       for (const group of visibleGroups) {
         const issue = group[0], item = itemFor(issue, r);
@@ -759,9 +996,7 @@
         const title = issue.problem || fieldName(issue.target.field);
         const targets = group.map(i => i.target.kind === 'item' ? (itemFor(i, r)?.title || itemFor(i, r)?.question || itemFor(i, r)?.text || t('rv_material', 'Materiale')) :
           i.target.kind === 'link' ? readable(i.before, i.target) : nodeLabel(i.target.id));
-        const itemContext = item?.kind === 'causal' ? '<p class="mb-2" data-relation><strong>' + esc(t('rv_relation_review', 'Relazione da verificare')) + ':</strong> ' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' :
-          item && item.question ? '<p class="mb-2"><strong>' + esc(t('rv_question', 'Domanda')) + ':</strong> ' + esc(referenceView(item.question).text) + '</p>' +
-          (Array.isArray(item.options) ? '<ul class="mb-3">' + item.options.map((option, i) => '<li>' + esc(String.fromCharCode(65 + i) + '. ' + referenceView(option).text) + '</li>').join('') + '</ul>' : '') : '';
+        const itemContext = item ? '<p class="mrv-coverage-text"' + (item.kind === 'causal' ? ' data-relation' : '') + '>' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' : '';
         const references = referenceView(readable(issue.before, issue.target, item) + '\n' + (issue.hasProposal ? readable(issue.after, issue.target, item) : '')).mapping;
         const proposedItem = item?.kind === 'causal' && issue.hasProposal && issue.target.field !== '$item' ? Object.assign({}, item, { [issue.target.field]: issue.after }) : null;
         const change = issue.hasProposal && !proposedItem ? core().textChange(issue.before, issue.after) : null;
@@ -774,7 +1009,7 @@
           while (left > 0 && /\S/.test(issue.before[left - 1])) left--;
           while (right < issue.before.length && /\S/.test(issue.before[right])) right++;
         }
-        const before = compact ? (left ? '…' : '') + issue.before.slice(left, right) + (right < issue.before.length ? '…' : '') : issue.before;
+        const before = compact ? (left ? '…' : '') + issue.before.slice(left, right) + (right < issue.before.length ? '…' : '') : proposedItem ? item : issue.before;
         const after = compact ? (left ? '…' : '') + issue.before.slice(left, change.start) + change.after + issue.before.slice(change.end, right) + (right < issue.before.length ? '…' : '') : proposedItem || issue.after;
         const beforeText = displayValue(before, issue.target, item), afterText = issue.hasProposal ? displayValue(after, proposedItem ? { field: '$item' } : issue.target, item) : '';
         const highlighted = issue.hasProposal && typeof before === 'string' && typeof after === 'string' ? highlightedValues(beforeText, afterText) : [esc(beforeText), esc(afterText)];
@@ -783,17 +1018,98 @@
           (itemContext ? '<details class="mrv-item-context"><summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary>' + itemContext + '</details>' : '') +
           (group.length > 1 ? '<details class="mb-2" data-review-targets open><summary>' + esc(t('rv_context_shared', 'La stessa decisione riguarda questi contenuti')) + ' (' + group.length + ')</summary><ul>' + targets.map((x, i) => '<li>' +
             chips([group[i]]) + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' : '') +
-          '<div class="mrv-comparison"><div class="mrv-before"><p class="mrv-field-label">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[0] + '</p></div>' +
+          '<div data-conflict></div><div class="mrv-comparison"><div class="mrv-before"><p class="mrv-field-label">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[0] + '</p></div>' +
           (issue.hasProposal ? '<div class="mrv-proposal"><p class="mrv-field-label">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[1] + '</p></div></div>' +
             (compact ? '<details data-full-change class="mb-3"><summary>' + esc(t('rv_full_change', 'Leggi il testo completo prima e dopo')) + '</summary><p class="font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.before, issue.target, item)) + '</p><p class="font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.after, issue.target, item)) + '</p></details>' : '') +
             (issue.citationAdditions?.length ? '<p data-added-sources class="mb-3">' + esc(t('rv_added_sources', 'La proposta collega anche le fonti originali dei nuovi richiami.')) + '</p>' : '') :
-            '</div><p class="mb-3" data-no-proposal>' + esc(t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
+            '</div><p class="mb-3" data-no-proposal>' + esc(issue.origin === 'teacher' ? t('rv_coverage_teacher_edit', 'Hai aperto questa scheda per rivedere il materiale. Puoi modificarlo o mantenere il testo dopo averlo verificato.') : t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
           (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
-          evidencePreview(issue, r, value => referenceView(value).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>' +
-          '<div data-editor></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
+          (issue.origin === 'teacher' && !evidenceRows(issue.evidence).length ? '' : evidencePreview(issue, r, value => referenceView(value).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>') +
+          (isFinal && issue.target.kind === 'item' ? '<button type="button" class="pm-btn-cancel mrv-find-occurrences" data-find-occurrences>' + esc(t('rv_occurrences_other', 'Cerca altre occorrenze')) + '</button>' : '') +
+          '<div data-editor></div><div data-relation-preview></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
+        const occurrenceButton = card.querySelector('[data-find-occurrences]');
+        if (occurrenceButton) occurrenceButton.onclick = () => findOccurrences(issue);
         const actions = card.querySelector('[data-actions]'), editor = card.querySelector('[data-editor]'), choiceLabel = card.querySelector('[data-choice]');
+        function renderRelation() {
+          if (item?.kind !== 'causal') return;
+          const box = card.querySelector('[data-relation-preview]'); box.className = 'mrv-relation-preview';
+          const currentReview = getReview();
+          const preview = window.MappAIReviewContext.occurrenceSnapshot(currentReview, manifest.review.final.items, core());
+          const conflicts = !preview.ok;
+          const result = preview.items?.find(i => String(i.id) === String(item.id) && !preview.excludedIds.includes(String(i.id)));
+          box.innerHTML = '<p class="mrv-field-label">' + esc(t('rv_relation_preview', 'Relazione risultante')) + '</p>';
+          if (conflicts || !result) {
+            const message = document.createElement('p'); message.setAttribute('role', 'status');
+            message.textContent = conflicts ? t('rv_relation_conflict', 'Risolvi le decisioni in conflitto per vedere la relazione risultante.') : t('rv_relation_excluded', 'Questa relazione è esclusa dai materiali.');
+            box.appendChild(message); return;
+          }
+          const fields = ['question', 'text', 'answer'];
+          box.innerHTML += '<p class="mrv-relation-sentence" data-relation-sentence aria-live="polite" aria-atomic="true">' + fields.map(field => {
+            const value = typeof result[field] === 'string' ? result[field] : '';
+            return '<span data-relation-part="' + field + '"' + (value !== item[field] ? ' data-changed="true"' : '') + '>' +
+              esc(referenceView(value).text || '[' + fieldName(field, item) + ']') + '</span>';
+          }).join(' ') + '</p><p class="mrv-relation-help">' + esc(t('rv_relation_read_help', 'Rileggi le tre parti come una sola frase. Le parti evidenziate contengono le modifiche scelte.')) + '</p>';
+          // ponytail: one known editorial residue, not a general grammar checker.
+          // Extend only with unambiguous examples; never rewrite teacher text silently.
+          if (/\bcon\s+facendo\b/iu.test(fields.map(f => result[f] || '').join(' '))) {
+            const hint = document.createElement('div'); hint.className = 'mrv-relation-hint'; hint.setAttribute('data-relation-hint', ''); hint.setAttribute('role', 'status');
+            const text = document.createElement('p'); text.textContent = t('rv_relation_gerund_hint', 'Raccordo da rileggere: «con facendo». Se intendi descrivere come avviene l’azione, puoi usare «facendo».'); hint.appendChild(text);
+            if (editable) fields.forEach(field => {
+              const input = editor.querySelector('[data-review-field="' + field + '"]');
+              if (!input || !/\bcon\s+facendo\b/iu.test(input.value)) return;
+              const fix = document.createElement('button'); fix.type = 'button'; fix.className = 'pm-btn-cancel'; fix.disabled = busy;
+              fix.setAttribute('data-relation-suggestion', field); fix.textContent = t('rv_relation_use_gerund', 'Usa «facendo»');
+              fix.onclick = () => {
+                if (busy || getReview().initial.status !== 'awaiting_review') return;
+                input.value = input.value.replace(/\bcon\s+(facendo)\b/giu, '$1'); input.oninput(); input.focus();
+              };
+              hint.appendChild(fix);
+            });
+            box.appendChild(hint);
+          }
+          if (editable) {
+            const buttons = document.createElement('div'); buttons.className = 'mrv-relation-fields';
+            fields.forEach(field => {
+              const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel'; button.disabled = busy;
+              button.setAttribute('data-relation-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
+              button.onclick = async () => {
+                if (busy) return;
+                const input = editor.querySelector('[data-review-field="' + field + '"]');
+                if (input) { input.focus(); return; }
+                await openMaterialField(item.id, field);
+                if (saveError || closed || busy) return;
+                const active = content.querySelector('.mrv-card:not([hidden])');
+                if (!active?.querySelector('[data-review-field="' + field + '"]')) await active?.querySelector('[data-review-choice="manual"]')?.click();
+                active?.querySelector('[data-review-field="' + field + '"]')?.focus();
+              };
+              buttons.appendChild(button);
+            });
+            box.appendChild(buttons);
+          }
+        }
         const labels = { pending: t('rv_pending', 'Da decidere'), accept: issue.after === null && ['$item', '$link'].includes(issue.target.field) ? t('rv_accept_exclusion', 'Escludi questo elemento') : t('rv_accept', 'Applica la proposta'), reject: t('rv_reject', 'Mantieni il testo senza modifiche'), manual: t('rv_edit', 'Modifica il testo') };
+        const conflict = groups.conflicts.find(c => c.code === 'conflicting_decisions' && group.some(i => i.id === c.issueId));
+        const otherIssue = conflict && r.initial.issues.find(i => i.id === conflict.otherIssueId);
+        if (otherIssue) {
+          const otherDecision = r.initial.decisions[otherIssue.id];
+          const box = document.createElement('div'); box.className = 'mrv-proposal mb-3'; box.setAttribute('data-decision-conflict', ''); box.setAttribute('role', 'alert');
+          box.innerHTML = '<p class="font-bold">' + esc(t('rv_decision_conflict', 'Scelte in conflitto')) + '</p><p>' +
+            esc(t('rv_decision_conflict_help', 'La scelta è salvata, ma un’altra decisione modifica lo stesso contenuto in modo diverso. Applicare di nuovo non risolve il conflitto. Puoi conservare la versione già scelta qui sotto, oppure rivedere l’altra decisione.')) +
+            '</p><p class="whitespace-pre-wrap">' + esc(displayValue(otherDecision.choice === 'manual' ? otherDecision.text : otherIssue.after, otherIssue.target, itemFor(otherIssue, r))) + '</p>';
+          const openOther = document.createElement('button'); openOther.type = 'button'; openOther.className = 'pm-btn-cancel';
+          openOther.textContent = t('rv_conflict_open_other', 'Rivedi l’altra decisione');
+          openOther.onclick = async () => {
+            if (busy || invalidEditors.size) return;
+            await pendingSave; if (saveError || closed || busy) return;
+            activeFilter = 'all'; search = ''; modal.querySelector('#mrv-search').value = '';
+            Object.keys(facets).forEach(key => { facets[key] = ''; });
+            return navigate(otherIssue.id);
+          };
+          box.appendChild(openOther); card.querySelector('[data-conflict]').appendChild(box);
+          labels.reject = t('rv_conflict_keep_other', 'Conserva l’altra scelta');
+        }
         function showChoice() {
+          renderRelation();
           const choices = new Set(group.map(i => core().decisionOutcome(i, getReview().initial.decisions[i.id])));
           const outcomes = { pending: t('rv_pending', 'Da decidere'), kept: t('rv_outcome_kept', 'Testo mantenuto senza modifiche'),
             edited: t('rv_outcome_edited', 'Testo modificato da te'), applied: t('rv_outcome_applied', 'Proposta scelta'), excluded: t('rv_outcome_excluded', 'Esclusione scelta') };
@@ -801,20 +1117,27 @@
           actions.querySelectorAll('[data-review-choice]').forEach(button => {
             const choice = button.getAttribute('data-review-choice');
             button.setAttribute('aria-pressed', String(group.every(i => getReview().initial.decisions[i.id]?.choice === choice)));
+            if (choice === 'accept' && otherIssue) button.disabled = !editable || group.every(i => getReview().initial.decisions[i.id]?.choice === 'accept');
             if (choice === 'pending') button.hidden = choices.size === 1 && choices.has('pending');
           });
           const entry = Array.from(modal.querySelectorAll('[data-review-issue]')).find(button => button.getAttribute('data-review-issue') === issue.id);
           if (entry && !card.hidden) {
-            const pending = decisionState().pending.some(i => group.some(g => g.id === i.id));
+            const state = decisionState(), pending = state.pending.some(i => group.some(g => g.id === i.id));
+            const conflict = state.conflicts.some(c => c.code === 'conflicting_decisions' && group.some(g => g.id === c.issueId));
             const label = entry.querySelector('.mrv-queue-state');
-            label.textContent = pending ? outcomes.pending : choiceLabel.textContent;
+            label.textContent = conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? outcomes.pending : choiceLabel.textContent;
             label.setAttribute('data-pending', String(pending));
           }
         }
         const allowed = issue.target.kind !== 'item' || issue.target.field === '$item' || itemFields.includes(issue.target.field);
+        function chosenValue() {
+          const decision = getReview().initial.decisions[issue.id];
+          return decision?.choice === 'manual' && own(decision, 'text') ? decision.text :
+            decision?.choice === 'accept' && issue.hasProposal ? issue.after : issue.before;
+        }
         function editBox(focus) {
           editor.replaceChildren();
-          let current = clone(own(getReview().initial.decisions[issue.id], 'text') ? getReview().initial.decisions[issue.id].text : issue.before);
+          let current = clone(chosenValue());
           if (current == null && issue.target.field === '$item') current = clone(item);
           function changed(value) {
             proceed.disabled = invalidEditors.size > 0;
@@ -857,9 +1180,11 @@
               if (refs.mapping.length) { const hint = document.createElement('p'); hint.className = 'text-sm'; hint.textContent = t('rv_reference_edit_help', 'I richiami alle fonti restano collegati quando modifichi il testo.'); label.appendChild(hint); }
             }
             input.className = 'w-full border rounded p-3 font-sans';
+            input.setAttribute('data-review-field', field);
             input.oninput = input.onchange = () => {
               const number = field === 'correctIndex' || field === 'lines';
               if (number && (input.value === '' || !Number.isInteger(Number(input.value)))) {
+                invalidateManualCheck();
                 invalidEditors.add(errorKey); proceed.disabled = true; status.textContent = t('rv_invalid_edit', 'Completa il campo della modifica prima di continuare.'); return;
               }
               invalidEditors.delete(errorKey);
@@ -868,11 +1193,12 @@
             label.appendChild(input); parent.appendChild(label);
           }
           if (issue.target.field === '$item') {
-            const fields = Array.from(new Set(itemFields.filter(f => own(current, f)).concat(current?.kind === 'mc' ? ['question', 'options', 'correctIndex'] : [])));
+            const fields = Array.from(new Set((current?.kind === 'causal' ? ['question', 'text', 'answer'] : []).concat(canonicalFields(current), current?.kind === 'mc' ? ['question', 'options', 'correctIndex'] : [])));
             fields.forEach(field => control(editor, field, current[field], value => { current[field] = value; changed(clone(current)); }, current));
           } else if (issue.target.field === '$link') {
             ['source', 'rel', 'target'].forEach(field => control(editor, field, current[field], value => { current[field] = value; changed(clone(current)); }, current));
           } else control(editor, issue.target.field, current, changed, item);
+          renderRelation();
           if (focus) editor.querySelector('textarea,select,input')?.focus();
         }
         for (const choice of ['accept', 'reject', 'manual', 'pending']) {
@@ -882,8 +1208,8 @@
           button.textContent = choice === 'pending' ? t('rv_undo', 'Annulla decisione') : labels[choice];
           button.onclick = async () => {
             Array.from(invalidEditors).filter(k => k.startsWith(issue.id + ':')).forEach(k => invalidEditors.delete(k));
-            const current = getReview().initial.decisions[issue.id];
-            const saved = decide(group, choice, choice === 'manual' ? (own(current, 'text') ? current.text : issue.before) : undefined); showChoice();
+            const current = chosenValue();
+            const saved = decide(group, choice, choice === 'manual' ? current : undefined); showChoice();
             if (choice === 'manual') editBox(true); else {
               editor.replaceChildren(); proceed.disabled = invalidEditors.size > 0;
               await saved;
@@ -899,6 +1225,7 @@
         if (isFinal && issue.target.kind === 'item' && editable && !(issue.hasProposal && issue.target.field === '$item' && issue.after === null)) {
           const exclude = document.createElement('button'); exclude.type = 'button'; exclude.className = 'pm-btn-cancel'; exclude.textContent = t('rv_exclude_material', 'Escludi dagli esercizi');
           exclude.onclick = () => {
+            invalidateManualCheck();
             let next = getReview();
             const ids = new Set(group.map(i => String(i.target.id)));
             next.initial.issues.filter(i => i.target.kind === 'item' && ids.has(String(i.target.id))).forEach(i => { next = core().setDecision(next, i.id, 'reject'); });
@@ -936,7 +1263,7 @@
           const n = state().db.nodes.find(n => String(n.id) === select.value);
           const next = core().addIssue(getReview(), { target: { kind: 'node', id: n.id, field: field.value || 'desc' },
             problem: t('rv_teacher_edit', 'Modifica del docente') + ': ' + n.label, origin: 'teacher', blocking: true }, state().db);
-          setReview(next);
+          invalidateManualCheck(); setReview(next);
           activeIssueId = next.initial.issues.find(i => i.origin === 'teacher' && i.target.kind === 'node' && String(i.target.id) === String(n.id) && i.target.field === (field.value || 'desc'))?.id || null;
           activeFilter = 'pending'; search = ''; modal.querySelector('#mrv-search').value = '';
           Object.keys(facets).forEach(key => { facets[key] = ''; });
@@ -968,7 +1295,7 @@
         label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.'))); manualOption.appendChild(label);
         {
           const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary';
-          retry.textContent = isFinal ? t('rv_context_retry_missing', 'Completa i controlli mancanti') : t('rv_retry_judge', 'Riprova il controllo automatico');
+          retry.textContent = isFinal ? t('rv_context_retry_missing', 'Riprova il controllo automatico dei residui') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
             if (busy || invalidEditors.size) return;
             freeze(true);
@@ -989,7 +1316,7 @@
           manual.appendChild(retry);
           if (isFinal) {
             const scope = document.createElement('p'); scope.className = 'text-sm';
-            scope.textContent = r.initial.report?.checkpoint ? t('rv_context_retry_scope', 'Il ricontrollo riguarda le bozze salvate e riusa le verifiche complete ancora valide. Le tue correzioni restano decisioni del docente.') :
+            scope.textContent = r.initial.report?.checkpoint ? t('rv_context_retry_scope', 'Ricontrolla le bozze originali, prima delle tue correzioni. Riusa i controlli validi; le decisioni sono conservate. Il tentativo può restare incompleto.') :
               t('rv_context_retry_legacy', 'Questo progetto usa un controllo precedente: il primo ricontrollo riesamina le bozze per poter riutilizzare in seguito le verifiche complete. Le tue decisioni restano conservate.');
             manual.appendChild(scope);
           }

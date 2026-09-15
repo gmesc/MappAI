@@ -30,12 +30,13 @@ test('desc: "perché" inverte — causa a destra', () => {
     assert.ok(t[0].effect.includes('amido di grano'));
 });
 
-test('desc: "grazie a" = effetto prima, causa dopo (famiglia dipendenza)', () => {
-    const t = C.extractDescTriples('La carta arrivò in Europa grazie ai mercanti arabi lungo la Via della Seta.');
-    assert.strictEqual(t.length, 1);
-    assert.ok(t[0].cause.includes('mercanti arabi'));
-    assert.ok(t[0].effect.includes('carta arrivò in Europa'));
-    assert.strictEqual(t[0].family, 'dipendenza');
+test('desc: grazie a / thanks to stay in prose when inversion would require grammatical rewriting', () => {
+    for (const text of [
+        "L'auto elettrica è un veicolo che funziona grazie all'energia elettrica.",
+        'La carta arrivò in Europa grazie ai mercanti arabi lungo la Via della Seta.',
+        'Thanks to the powerful electric motor, the vehicle accelerates quickly.',
+        'The vehicle accelerates quickly thanks to the powerful electric motor.'
+    ]) assert.strictEqual(C.extractDescTriples(text).length, 0, text);
 });
 
 test('desc: "invece di" = contrasto senza direzione', () => {
@@ -83,10 +84,10 @@ test('desc: lati anaforici/copula senza contenuto scartati', () => {
 
 test('buildChains: desc del ROOT → rootItems, non nei ponti', () => {
     const nodes = NODES.concat();
-    nodes[0] = { ...nodes[0], desc: 'La carta si diffuse in Europa grazie ai mercanti arabi della Via della Seta.' };
+    nodes[0] = { ...nodes[0], desc: 'La carta si diffuse in Europa perché i mercanti arabi la portarono lungo la Via della Seta.' };
     const res = C.buildChains({ nodes, links: LINKS });
     assert.strictEqual(res.rootItems.length, 1);
-    assert.strictEqual(res.rootItems[0].conn, 'grazie a');
+    assert.strictEqual(res.rootItems[0].conn, 'perché');
     assert.strictEqual(res.cross.length, 1); // solo il ponte dai link
     assert.strictEqual(res.total, 4);
 });
@@ -139,13 +140,13 @@ test('desc: connShow — tripla "perché" normalizzata mostra connettivo causa-p
 });
 
 test('desc: abbreviazioni (d.C.) non spezzano la frase', () => {
-    const t = C.extractDescTriples('Nata nel 105 d.C., la carta si diffuse grazie ai mercanti arabi.');
+    const t = C.extractDescTriples('Nata nel 105 d.C., la carta si diffuse perché i mercanti arabi la portarono in Europa.');
     assert.strictEqual(t.length, 1);
     assert.ok(t[0].cause.includes('mercanti arabi'));
 });
 
 test('desc: "ec" a metà frase — causa tagliata alla prima virgola (coda scartata)', () => {
-    const t = C.extractDescTriples('La tecnica si diffuse grazie ai mercanti arabi, rivoluzionando la cultura europea.');
+    const t = C.extractDescTriples('La tecnica si diffuse perché i mercanti arabi la portarono in Europa, rivoluzionando la cultura europea.');
     assert.strictEqual(t.length, 1);
     assert.ok(!t[0].cause.includes('rivoluzionando'), 'coda non tagliata: ' + t[0].cause);
 });

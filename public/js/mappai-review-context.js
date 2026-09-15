@@ -138,5 +138,127 @@
             item.answer === String(row.type === 'contrast' ? row.b : row.effect) &&
             item.text === String(row.connShow || row.conn || '');
     }
-    return { createIndex };
+    // Diagnostics describe the report's original drafts. Teacher corrections
+    // and approval never turn an uncertain/missing model verdict into a pass.
+    function incompleteMaterials(report, items) {
+        report = report || {};
+        const coverage = report.coverage || {}, byId = new Map(list(items).filter(Boolean).map(item => [id(item), item]));
+        const checked = new Set(list(coverage.checkedIds).map(id)), rows = new Map();
+        function add(value) {
+            const key = id(value);
+            if (key && !rows.has(key)) rows.set(key, { id: key, item: byId.get(key) || null, claims: [], reason: '', error: '' });
+            return rows.get(key);
+        }
+        (Array.isArray(coverage.expectedIds) ? coverage.expectedIds : Array.from(byId.keys())).forEach(value => {
+            if (!checked.has(id(value))) add(value);
+        });
+        list(coverage.skipped).filter(Boolean).forEach(row => { const entry = add(row); if (entry) entry.reason = String(row.reason || ''); });
+        list(coverage.claims).filter(row => row && row.checked !== true).forEach(claim => {
+            const entry = add(claim.itemId);
+            if (!entry) return;
+            // Deduplicate identical report rows, retaining occurrences in
+            // different fields (e.g. an answer guide and its marking criteria).
+            const value = { field: String(claim.field || ''), text: String(claim.text || ''),
+                status: claim.status === 'uncertain' ? 'uncertain' : claim.status === 'missing' ? 'missing' : 'unverified' };
+            if (!entry.claims.some(row => row.field === value.field && row.text === value.text && row.status === value.status)) entry.claims.push(value);
+        });
+        list(report.batches).filter(batch => batch && (batch.error || batch.reason)).forEach(batch => {
+            list(batch.ids).forEach(value => { const entry = rows.get(id(value)); if (entry) entry.error = String(batch.error || batch.reason); });
+        });
+        return Array.from(rows.values(), row => ({ ...row, reason: row.reason || String(report.reason || ''),
+            error: row.error || String(report.requestError?.message || '') }));
+    }
+    // Search the saved teacher choices even while unrelated issues are pending.
+    // ReviewCore remains the sole patch/conflict authority. The temporary
+    // rejects below mean “keep the original in this preview”, never a decision.
+    function occurrenceSnapshot(review, currentItems, reviewCore) {
+        const unavailable = (error, conflicts = []) => ({ ok: false, items: [], excludedIds: [], hasPending: false, conflicts, error });
+        if (!review || !Array.isArray(currentItems) || typeof reviewCore?.preview !== 'function') return unavailable('invalid-review');
+        try {
+            const draft = JSON.parse(JSON.stringify(review));
+            if (!draft.initial || !Array.isArray(draft.initial.issues)) return unavailable('invalid-review');
+            draft.initial.decisions = draft.initial.decisions || {};
+            let hasPending = false;
+            draft.initial.issues.forEach(issue => {
+                if (!Object.prototype.hasOwnProperty.call(draft.initial.decisions, issue.id) || draft.initial.decisions[issue.id]?.choice === 'pending') {
+                    hasPending = true;
+                    Object.defineProperty(draft.initial.decisions, issue.id, { value: { choice: 'reject' }, enumerable: true, configurable: true, writable: true });
+                }
+            });
+            const preview = reviewCore.preview(draft, { items: currentItems }, { sources: draft.sources });
+            if (!preview.ok) return { ...unavailable('conflicting-decisions', preview.conflicts), hasPending };
+            const present = new Set(preview.db.items.map(id));
+            return { ok: true, items: preview.db.items, excludedIds: list(review.baseSnapshot?.items).map(id).filter(key => !present.has(key)), hasPending, conflicts: [] };
+        } catch (_) { return unavailable('invalid-review'); }
+    }
+
+    const SEARCH_FIELDS = ['question', 'options', 'answer', 'explanation', 'guide', 'criteria', 'text'];
+    const searchText = value => value.normalize('NFC').toLocaleLowerCase('it').replace(/[’‘ʼ]/g, "'").replace(/\s+/gu, ' ');
+    const wordTokens = value => Array.from(value.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*/gu), match => ({
+        value: searchText(match[0]), start: match.index, end: match.index + match[0].length
+    }));
+    function phraseRanges(text, query) {
+        const normalized = searchText(text), found = [];
+        let offset = normalized.indexOf(query);
+        while (offset !== -1) {
+            const before = Array.from(normalized.slice(0, offset)).pop() || '', after = Array.from(normalized.slice(offset + query.length))[0] || '';
+            if (!(/[\p{L}\p{M}\p{N}]/u.test(Array.from(query)[0]) && /[\p{L}\p{M}\p{N}]/u.test(before)) &&
+                !(/[\p{L}\p{M}\p{N}]/u.test(Array.from(query).pop()) && /[\p{L}\p{M}\p{N}]/u.test(after))) found.push([offset, offset + query.length]);
+            offset = normalized.indexOf(query, offset + query.length);
+        }
+        if (!found.length) return [];
+        // Grapheme offsets preserve highlighted accents and surrogate pairs
+        // when NFC or case folding changes the normalized string's length.
+        const positions = [];
+        let previousSpace = false;
+        for (const part of new Intl.Segmenter('it', { granularity: 'grapheme' }).segment(text)) {
+            const normalizedPart = searchText(part.segment);
+            for (let n = 0; n < normalizedPart.length; n++) {
+                const space = normalizedPart[n] === ' ';
+                // A Unicode Prepend character can share its grapheme with a
+                // space. Collapse whitespace across that boundary as well.
+                if (space && previousSpace) positions[positions.length - 1][1] = part.index + part.segment.length;
+                else positions.push([part.index, part.index + part.segment.length]);
+                previousSpace = space;
+            }
+        }
+        return found.map(([start, end]) => [positions[start][0], positions[end - 1][1]]);
+    }
+
+    // ponytail: lexical candidates only; synonyms, paraphrases and scientific
+    // equivalence need a separate judgement. A shared word never merges issues.
+    // Return plain text and original offsets, not HTML; the view must escape it.
+    function searchOccurrences(items, query, options = {}) {
+        query = typeof query === 'string' ? query.trim() : '';
+        const mode = options.mode === 'phrase' ? 'phrase' : 'words', words = new Set(wordTokens(query).map(token => token.value));
+        const excluded = new Set(list(options.excludedIds).map(id));
+        const active = list(items).filter(item => item && id(item) && !excluded.has(id(item)));
+        const result = { query, mode, valid: words.size > 0, totalItems: active.length, matches: [] };
+        if (!result.valid) return result;
+        active.forEach(item => {
+            const fields = [];
+            SEARCH_FIELDS.forEach(field => {
+                // Printed/imported MC items can retain an obsolete answer
+                // alias after editing options. The canonical key is already
+                // represented by options[correctIndex], not this alias.
+                if (item.kind === 'mc' && field === 'answer') return;
+                const value = item[field];
+                (Array.isArray(value) ? value : [value]).forEach((text, index) => {
+                    if (typeof text !== 'string') return;
+                    let ranges;
+                    if (mode === 'phrase') ranges = phraseRanges(text, searchText(query));
+                    else {
+                        const tokens = wordTokens(text), present = new Set(tokens.map(token => token.value));
+                        ranges = Array.from(words).every(word => present.has(word)) ? tokens.filter(token => words.has(token.value)).map(token => [token.start, token.end]) : [];
+                    }
+                    if (ranges.length) fields.push({ field, index: Array.isArray(value) ? index : null, text, ranges });
+                });
+            });
+            // Identical guide and marking criteria stay editable as distinct
+            // fields while counting as one material in the results.
+            if (fields.length) result.matches.push({ id: id(item), item, fields });
+        });
+        return result;
+    }
+    return { createIndex, incompleteMaterials, occurrenceSnapshot, searchOccurrences };
 }));

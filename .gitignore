@@ -61,3 +61,12 @@ tests/studio-layouts.test.js
 !docs/
 !docs/archify/**
 docs/archify/*.visual-check.*
+
+# Checkpoint prima del motore semantico locale: piani e strumenti richiamati
+# dagli script npm, conservati insieme al codice che li usa.
+!docs/PIANO-sentence-transformers-locale-2026-09-15.md
+!docs/TRACCIA-UDL-revisione-barriere-2026-09-15.md
+!docs/ricontrollo-sintesi-2026-09-15.md
+!tools/stile/**
+!tools/dove.js
+!tools/atlante-ui/glossario.js

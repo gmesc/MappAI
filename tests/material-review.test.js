@@ -62,6 +62,64 @@ function throughGeminiGateway(answer) {
     return { ...r, posts };
 }
 
+test('Officina: a synthesis list introduction can complete a retry, while factual prose cannot pass as instruction', async () => {
+    const lead = 'Ecco come funziona il movimento delle cariche:';
+    const item = { id: 'synthesis-3', kind: 'synthesis', text: lead + '\n- ' + GOLD };
+    const items = [item, flash('already-checked')];
+    const first = runtime(batch => {
+        const data = clean(batch);
+        const claim = MR.claimUnits(batch).find(c => c.text === lead);
+        if (claim) Object.assign(data.checkedClaims.find(c => c.id === claim.id), { status: 'uncertain', sourceIds: [] });
+        return response(data);
+    });
+    const previousReport = plain(await first.check(items));
+    assert.equal(previousReport.checkStatus, 'incomplete');
+    const second = runtime((batch, payload) => {
+        assert.deepEqual(batch.map(i => i.id), [item.id]);
+        assert.match(payload.contents[0].parts[0].text, /introduzione editoriale/);
+        const data = clean(batch), claim = MR.claimUnits(batch).find(c => c.text === lead);
+        Object.assign(data.checkedClaims.find(c => c.id === claim.id), { status: 'instruction', sourceIds: [] });
+        return response(data);
+    });
+    const completed = await second.checkRemaining(items, { previousReport });
+    assert.equal(completed.checkStatus, 'completed');
+    assert.equal(completed.retrySummary.remaining, 0);
+    assert.equal(completed.retrySummary.reused, 1);
+    assert.equal(completed.coverage.claims.find(c => c.text === lead).checked, true);
+    const cached = await second.checkRemaining(items, { previousReport: plain(completed), apiKey: '' });
+    assert.equal(cached.retrySummary.reused, 2);
+    assert.equal(second.calls.length, 1);
+
+    for (const text of ['Lo zinco è positivo.', 'Spiega perché lo zinco è positivo.', lead + ' Lo zinco è positivo.']) {
+        const r = runtime(batch => {
+            const data = clean(batch);
+            data.checkedClaims.forEach(c => Object.assign(c, { status: 'instruction', sourceIds: [] }));
+            return response(data);
+        });
+        assert.equal((await r.check([{ ...item, text }])).checkStatus, 'incomplete', text);
+    }
+});
+
+test('single-bracket unknown citations are findings, while reference-only lines are not factual claims', () => {
+    const item = { id: 'synthesis-3', kind: 'synthesis', text: 'Fatto [src-absent].', citations: [] };
+    const report = MR.validate([item]);
+    assert.equal(report.ok, false);
+    assert.match(report.issues[0].problem, /src-absent/);
+    assert.equal(report.issues[0].hasProposal, false);
+    assert.equal(MR.claimUnits([{ ...item, text: '[src-absent].\n[[src-absent]]' }]).length, 0);
+});
+
+test('the updated instruction contract invalidates old checks once, then reuses the new complete report', async () => {
+    const items = [flash('f')], previousReport = plain(await runtime().check(items));
+    previousReport.checkpoint.version = 'material-check@1';
+    const r = runtime(), checked = await r.checkRemaining(items, { previousReport });
+    assert.equal(checked.retrySummary.reason, 'review-contract-changed');
+    assert.equal(checked.retrySummary.reused, 0);
+    assert.equal(checked.checkStatus, 'completed');
+    assert.equal((await r.checkRemaining(items, { previousReport: plain(checked) })).retrySummary.reused, 1);
+    assert.equal(r.calls.length, 1);
+});
+
 test('a verified source missing from a synthesis registry travels with the proposal through approval and export', async () => {
     const sources = [{ docId: 'book', title: 'Fonte', pages: [
         { n: 1, text: 'La Svizzera era neutrale.' },

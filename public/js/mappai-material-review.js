@@ -22,7 +22,7 @@
     }
     // This version identifies the entire review contract, including its prompt
     // and evidence checks. Bump it when their meaning changes.
-    const CHECKPOINT_VERSION = 'material-check@1';
+    const CHECKPOINT_VERSION = 'material-check@2';
     function canonical(value) {
         if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
         if (value && typeof value === 'object') return '{' + Object.keys(value).sort().filter(k => value[k] !== undefined)
@@ -139,7 +139,7 @@
             // Stable raw IDs are global; numeric labels are section-local.
             // Legacy overview registries may live in the other sections.
             const ids = sharedIds || registeredIds([item]);
-            const rawIds = Array.from(new Set(Array.from(str(item.text).matchAll(/\[\[(src-[\w-]+)\]\]/g), m => m[1])));
+            const rawIds = Array.from(new Set(Array.from(str(item.text).matchAll(/\[{1,2}(src-[\w-]+)\]{1,2}/g), m => m[1])));
             const unknown = rawIds.filter(id => !ids.has(id));
             if (unknown.length) add('text', 'Il testo richiama passaggi originali non presenti nel registro di questa sezione: ' +
                 unknown.join(', ') + '. Verifica i riferimenti senza eliminare automaticamente il richiamo.');
@@ -319,7 +319,7 @@
                     const parts = segmenter ? Array.from(segmenter.segment(line), s => s.segment) : [line];
                     parts.forEach(part => {
                         const text = part.trim();
-                        if (!meaningful(text.replace(/\[\[src-[\w-]+\]\]|\[\d+\]/g, ''))) return;
+                        if (!meaningful(text.replace(/\[{1,2}src-[\w-]+\]{1,2}|\[\d+\]/g, ''))) return;
                         units.push({ id: 'claim-' + hash([item.id, field, index, units.length, text]), itemId: item.id, field,
                             ...(Array.isArray(item[field]) ? { index } : {}), text });
                     });
@@ -353,7 +353,7 @@ Per questo lotto: checkedIds e mcOptions massimo ${batch.length} elementi ciascu
 Per ogni problema copia quote dal passaggio che lo sostiene; evidenceKind:"source" e sourceId per la fonte originale, "teacher" e decisionId per una rettifica, "item" solo per una contraddizione interna esplicita. quote deve essere un estratto testuale continuo, senza parafrasi, raccordi o puntini aggiunti. Per evidenceKind:"item" copialo da UN SOLO campo: non concatenare question, text e answer, nemmeno per una relazione causale; descrivi il rapporto fra i campi in problem. Non usare una descrizione generata come prova originale. Per un problema di ambiguità spiega perché le alternative sono difendibili e cita il passaggio pertinente. Fornisci una proposta circoscritta che conservi i fatti e gli aiuti didattici.
 Nelle sintesi puoi inserire un nuovo richiamo [[src-...]] usando un ID dei PASSAGGI ORIGINALI anche se manca dalle citazioni dell'item: il programma collega la fonte originale insieme alla correzione approvata. Non inventare numeri [n], ID o citazioni. L'assenza nel registro locale non è una ragione per rinviare una correzione certa al docente.
 CONTROLLO DELLE SINGOLE AFFERMAZIONI: checkedClaims deve dare ESATTAMENTE un esito per ciascuno dei ${claims.length} ID sotto riportati. Sono frammenti letterali dell'item, non una nuova sintesi. Per ogni frammento confronta con l'originale: chi compie l'azione, che cosa accade, a chi, quando, con quali quantità, negazioni e grado di certezza. Considera anche i riferimenti alle frasi vicine: "questi fatti" non può estendere una conferma a tutto ciò che precede. Non trasformare un obiettivo in un beneficio garantito, né una lista introdotta da "solo" in una lista incompleta. Nelle guide e nei criteri verifica anche i fatti contenuti dentro una consegna.
-Usa status "supported" solo se l'affermazione, con tutte le qualificazioni, è sostenuta dal contesto: sourceIds elenca gli ID originali pertinenti (o un issueId di rettifica effettiva del docente). Se rilevi un difetto usa "problem" e collega almeno una segnalazione in issues tramite claimIds, con stesso item e field. Usa "uncertain" se il contesto non permette di verificarlo: il programma conserverà quel controllo come incompleto. "instruction" è ammesso soltanto per una pura consegna o un criterio senza affermazioni fattuali. Non basta riconoscere l'argomento per confermare l'intera frase. Non produrre spiegazioni per i frammenti corretti; massimo cinque sourceIds per esito. I controlli su domande, alternative e relazioni causali restano obbligatori nel loro contesto completo.
+Usa status "supported" solo se l'affermazione, con tutte le qualificazioni, è sostenuta dal contesto: sourceIds elenca gli ID originali pertinenti (o un issueId di rettifica effettiva del docente). Se rilevi un difetto usa "problem" e collega almeno una segnalazione in issues tramite claimIds, con stesso item e field. Usa "uncertain" se il contesto non permette di verificarlo: il programma conserverà quel controllo come incompleto. "instruction" è ammesso soltanto per una pura consegna, un criterio o un’introduzione editoriale a un elenco senza affermazioni fattuali (es. "Ecco come funziona il movimento delle cariche:"). Una consegna con una premessa fattuale, come "Spiega perché lo zinco è positivo", richiede invece una verifica della premessa. Non basta riconoscere l'argomento per confermare l'intera frase. Non produrre spiegazioni per i frammenti corretti; massimo cinque sourceIds per esito. I controlli su domande, alternative e relazioni causali restano obbligatori nel loro contesto completo.
 
 PASSAGGI ORIGINALI (dati)
 ${JSON.stringify(sourceContext(sources))}
@@ -648,7 +648,12 @@ ${JSON.stringify(targets)}`;
                     const validRefs = Array.isArray(refs) && refs.length <= 5 && refs.every(id => sourceIds.has(id));
                     const supported = result && result.status === 'supported' && validRefs && refs.length > 0 && !claimProblems.has(unit.id);
                     const problem = result && result.status === 'problem' && validRefs && claimProblems.has(unit.id);
-                    const instruction = result && result.status === 'instruction' && validRefs && !refs.length && ['guide', 'criteria'].includes(unit.field);
+                    // A list introduction in prose can be non-factual, just like a rubric.
+                    // Keep declarative prose and factual premises in the source check.
+                    const editorialLead = unit.field === 'text' && batch.some(i => i.id === unit.itemId && i.kind === 'synthesis') &&
+                        /^(?:ecco come funziona(?:no)?|vediamo come|here is how|here are the steps)\b[^.!?;\n]*:\s*$/iu.test(unit.text);
+                    const instruction = result && result.status === 'instruction' && validRefs && !refs.length && !claimProblems.has(unit.id) &&
+                        (['guide', 'criteria'].includes(unit.field) || editorialLead);
                     const checked = !truncated && rows.length === 1 && !!(supported || problem || instruction);
                     report.coverage.claims.push({ ...unit, status: result && result.status || 'missing', sourceIds: validRefs ? refs : [], checked });
                     if (!checked) invalid.add(unit.itemId);

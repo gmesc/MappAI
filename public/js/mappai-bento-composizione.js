@@ -113,8 +113,9 @@
            configurazione: derivare qui e non lì significa zero modifiche alla
            pipeline, e il modale storico (veste spenta) continua a funzionare. */
         { id: 'mp-quiz-on', aiuto: 'Genera quiz e flashcard dai rami della mappa. Si accende da sé quando spunti un genere qui sotto.', et: 'Quiz e flashcard', tipo: 'spunta', chiave: 'quiz', master: true,
-          derivato: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open'],
+          derivato: ['mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open'],
           seFuori: 'nessuna perdita: si accende da sé se almeno un genere di quiz è spuntato' },
+        { id: 'mp-qt-mixed', aiuto: 'Un set coordinato: 2 domande a scelta multipla e 2 aperte per ramo, con funzioni diverse. Le varianti aggiuntive restano facoltative.', et: 'Lotto misto', tipo: 'spunta', chiave: 'quiz.mixed', figlioDi: 'mp-quiz-on', seFuori: 'nessun set misto coordinato di domande a scelta multipla e aperte' },
         { id: 'mp-qt-mc', aiuto: 'Domande a scelta multipla con distrattori e spiegazione della risposta.', et: 'Scelta multipla', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun quiz a scelta multipla' },
         { id: 'mp-qt-fc', aiuto: 'Carte domanda/risposta da studiare o da stampare e ritagliare.', et: 'Flashcard', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessuna flashcard' },
         /* Le domande aperte NON producono un set giocabile: sono un foglio da
@@ -123,6 +124,7 @@
            scelta è la stessa — «che verifica preparo?» — non perché siano un
            quiz. */
         { id: 'mp-qt-open', aiuto: 'Domande a cui si risponde scrivendo: il foglio porta le righe per la risposta e, in coda, le tracce di correzione per te.', et: 'Domande aperte', tipo: 'spunta', chiave: 'quiz.types', figlioDi: 'mp-quiz-on', seFuori: 'nessun foglio di domande aperte' },
+        { id: 'mp-fc-count', aiuto: 'Numero di flashcard per ogni ramo, indipendente dalle domande MC e aperte.', et: 'Flashcard per ramo', tipo: 'numero', chiave: 'quiz.perTipo.flashcards', figlioDi: 'mp-quiz-on', seFuori: 'si conserva la quantità del preset o il valore precedente' },
         { id: 'mp-perbranch', aiuto: 'Quante domande generare per ogni ramo della mappa. Più domande = più chiamate AI.', et: 'Per ramo', tipo: 'numero', chiave: 'quiz.perBranch', figlioDi: 'mp-quiz-on', seFuori: 'restano 3 domande per ramo (default)' },
         { id: 'mp-angle', aiuto: 'Il taglio delle domande, quando se ne genera UNO solo. Dal 19/8 gli angoli si spuntano nel box «Più set per angolo»: questa tendina è fuori dalla composizione.', et: 'Angolo', tipo: 'tendina', chiave: 'quiz.angle', figlioDi: 'mp-quiz-on', seFuori: 'l\u0027angolo lo dicono le spunte del box «Più set per angolo»; un genere senza angoli spuntati esce ad angolo misto' },
 
@@ -543,7 +545,7 @@
            e le domande aperte sparirebbero in silenzio. */
         { id: 'output', titolo: 'Output automatici', icona: 'package-check', span: 4, altezza: 130,
           layout: { colonneVoci: 3 },
-          voci: ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
+          voci: ['mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
               { id: 'mp-syn-on', et: 'Sintesi' }, { id: 'mp-syn-audio', et: 'Voce naturale' }] },
         { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
           voci: [{ id: 'mp-preset', w: 190 }] },
@@ -559,7 +561,7 @@
            false` nella pipeline): l'opzione vive anche nell'editor della
            sintesi di ELABORA (bottone «Voce», 17/8). */
         { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
-          voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }] },
+          voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-fc-count', w: 70 }] },
         { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
           /* «Titolo» montato dal 7/9: il master «Fogli nodi» si accende dai figli
              montati, e il preset Default chiede proprio il foglio dei soli titoli —
@@ -988,10 +990,33 @@
         return { righe: v.righe.length, colonne: COLONNE, moduli: (moduli || []).length };
     }
 
+    // Migrazione additiva: si conserva il layout del docente, anche se il box output mancava.
+    function withMixedOutput(moduli) {
+        if ((moduli || []).some(function (m) { return (m.voci || []).some(function (v) { return (typeof v === 'string' ? v : v.id) === 'mp-qt-mixed'; }); })) return moduli;
+        var out = (moduli || []).slice(), index = out.findIndex(function (m) { return m.id === 'output'; });
+        if (index >= 0) out[index] = Object.assign({}, out[index], { voci: ['mp-qt-mixed'].concat(out[index].voci || []) });
+        else {
+            var base = MODULI.find(function (m) { return m.id === 'output'; });
+            var firstExtra = out.findIndex(nascondibile);
+            out.splice(firstExtra < 0 ? out.length : firstExtra, 0, Object.assign({}, base, { voci: ['mp-qt-mixed'] }));
+        }
+        return out;
+    }
+
+    function withMaterialControls(moduli) {
+        var out = withMixedOutput(moduli);
+        if (out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-fc-count'; }); })) return out;
+        out = out.slice();
+        var index = out.findIndex(function (m) { return m.id === 'quiz'; });
+        if (index >= 0) out[index] = Object.assign({}, out[index], { voci: (out[index].voci || []).concat(['mp-fc-count']) });
+        else out.push(Object.assign({}, MODULI.find(function (m) { return m.id === 'quiz'; }), { voci: ['mp-fc-count'] }));
+        return out;
+    }
+
     return {
         SCALA: SCALA, VOCI: VOCI, MODULI: MODULI, COLONNE: COLONNE, ICONE: ICONE, STILE_BASE: STILE_BASE,
         voce: voce, vociDi: vociDi, soloAzioni: soloAzioni, stileDi: stileDi, contrasto: contrasto,
-        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate,
+        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate, withMixedOutput: withMixedOutput, withMaterialControls: withMaterialControls,
         RIGHE: RIGHE, riga: riga, validaRighe: validaRighe, nascondibile: nascondibile,
         firma: firma, FORME: FORME, formaDi: formaDi,
         /* i controlli granulari (5/8): layout delle voci e colori dei bottoni interni */

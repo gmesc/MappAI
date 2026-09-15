@@ -126,11 +126,45 @@
 #mappai-teacher-review .mrv-summary { font-size: .75rem; margin-bottom: 16px; }
 #mappai-teacher-review #mrv-decision-summary { margin-top: 8px; line-height: 1.8; }
 #mappai-teacher-review .mrv-card { border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 14px; padding: 22px; background: #fff; overflow-wrap: anywhere; }
+#mappai-teacher-review #mrv-material-coverage { margin: 16px 0; padding: 16px; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 14px; background: #fff; overflow-wrap: anywhere; }
+#mappai-teacher-review #mrv-material-coverage > summary { font-size: 1rem; font-weight: 700; }
+#mappai-teacher-review #mrv-material-coverage p { margin: 10px 0; }
+#mappai-teacher-review #mrv-no-progress { padding: 12px; background: #fffbeb; color: #78350f; border-left: 3px solid #d97706; border-radius: 6px; }
+#mappai-teacher-review .mrv-coverage-material { border-top: 1px solid var(--mm-bordo, #e2e8f0); padding: 14px 0; }
+#mappai-teacher-review .mrv-coverage-material > summary { font-weight: 700; }
+#mappai-teacher-review .mrv-coverage-material .mrv-chips { margin-top: 12px; }
+#mappai-teacher-review .mrv-coverage-claims { padding-left: 20px; }
+#mappai-teacher-review .mrv-coverage-claims li { margin: 14px 0; }
+#mappai-teacher-review .mrv-coverage-text { white-space: pre-wrap; }
+#mappai-teacher-review .mrv-coverage-technical { color: var(--mm-testo-2, #475569); font-size: .75rem; }
+#mappai-teacher-review .mrv-coverage-version, #mappai-teacher-review .mrv-coverage-sources { background: var(--mm-fondo-sez, #f8fafc); border-radius: 8px; padding: 12px; margin: 12px 0; }
+#mappai-teacher-review .mrv-coverage-sources details { margin-top: 10px; }
+#mappai-teacher-review .mrv-coverage-version h4 { font-size: .8rem; font-weight: 700; margin: 16px 0 6px; }
+#mappai-teacher-review .mrv-coverage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+#mappai-teacher-review .mrv-coverage-actions button { font-size: .75rem; }
+#mappai-teacher-review #mrv-show-unchecked { width: 100%; margin: 8px 0; }
 #mappai-teacher-review .mrv-card h3 { font-size: 1.12rem; font-weight: 700; line-height: 1.35; margin: 0 0 14px; }
 #mappai-teacher-review .mrv-card details { margin: 12px 0; font-size: .8rem; }
 #mappai-teacher-review summary { cursor: pointer; color: var(--mm-testo-2, #475569); font-weight: 700; }
 #mappai-teacher-review details p { margin-top: 10px; }
 #mappai-teacher-review .mrv-item-context { padding: 10px 12px; background: var(--mm-fondo-sez, #f8fafc); border-radius: 8px; }
+#mappai-teacher-review #mrv-occurrences-host { flex-shrink: 0; max-height: 60%; overflow-y: auto; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); background: #fff; }
+#mappai-teacher-review #mrv-occurrences { padding: 14px 24px; }
+#mappai-teacher-review .mrv-occurrences-help { font-size: .78rem; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review .mrv-occurrences-source { padding: 10px 12px; border-left: 3px solid var(--mm-accent, #4f46e5); background: var(--mm-accent-soft, #eef2ff); }
+#mappai-teacher-review .mrv-occurrences-search { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+#mappai-teacher-review .mrv-occurrences-search label { flex: 1 1 160px; font-weight: 700; font-size: .75rem; }
+#mappai-teacher-review .mrv-occurrences-search label:first-child { flex-basis: 240px; }
+#mappai-teacher-review .mrv-occurrences-search input, #mappai-teacher-review .mrv-occurrences-search select { display: block; margin-top: 5px; }
+#mappai-teacher-review .mrv-occurrences-count { font-weight: 700; }
+#mappai-teacher-review .mrv-occurrence { border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 10px; padding: 12px; margin-top: 10px; overflow-wrap: anywhere; }
+#mappai-teacher-review .mrv-occurrence > summary { font-size: .8rem; }
+#mappai-teacher-review .mrv-occurrence .mrv-chips { margin-top: 12px; }
+#mappai-teacher-review .mrv-occurrence-field { border-top: 1px solid var(--mm-bordo, #e2e8f0); padding-top: 12px; margin-top: 12px; }
+#mappai-teacher-review .mrv-occurrence-field h4 { margin: 0; font-size: .78rem; }
+#mappai-teacher-review .mrv-occurrence-field button { margin-top: 10px; }
+#mappai-teacher-review .mrv-occurrence mark { color: inherit; background: var(--mm-accent-soft, #eef2ff); font-weight: 700; }
+#mappai-teacher-review .mrv-find-occurrences { margin: 8px 0; }
 #mappai-teacher-review .mrv-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 #mappai-teacher-review .mrv-before, #mappai-teacher-review .mrv-proposal { padding: 15px; border-radius: 10px; background: var(--mm-fondo-sez, #f8fafc); border: 1px solid var(--mm-bordo, #e2e8f0); }
 #mappai-teacher-review .mrv-before:only-child { grid-column: 1 / -1; }
@@ -143,6 +177,16 @@
 #mappai-teacher-review [data-review-choice=pending] { border-color: transparent; }
 #mappai-teacher-review [data-choice] { font-size: .75rem; font-weight: 700; color: var(--mm-testo-2, #475569); }
 #mappai-teacher-review [data-editor] label { display: block; margin: 12px 0 6px; font-weight: 700; }
+#mappai-teacher-review .mrv-relation-preview { margin-top: 18px; padding: 16px; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 10px; background: var(--mm-fondo-sez, #f8fafc); }
+#mappai-teacher-review .mrv-relation-sentence { font-size: 1rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+#mappai-teacher-review [data-relation-part=text] { font-weight: 700; }
+#mappai-teacher-review [data-relation-part][data-changed=true] { background: #e0e7ff; color: #312e81; text-decoration: underline; text-decoration-color: #818cf8; text-underline-offset: 3px; }
+#mappai-teacher-review .mrv-relation-help { margin-top: 10px; font-size: .75rem; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review .mrv-relation-hint { margin-top: 12px; padding: 12px; border-left: 3px solid #d97706; border-radius: 6px; background: #fffbeb; color: #78350f; font-size: .8rem; }
+#mappai-teacher-review .mrv-relation-hint button { margin-top: 10px; }
+#mappai-teacher-review .mrv-relation-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#mappai-teacher-review .mrv-relation-fields button { font-size: .75rem; }
+#mappai-teacher-review .mrv-relation-preview button, #mappai-teacher-review [data-review-field] { scroll-margin-block: 110px; }
 #mappai-teacher-review textarea { resize: vertical; min-height: 90px; margin-top: 6px; font-weight: 400; line-height: 1.6; }
 #mappai-teacher-review #mrv-other-nodes { margin-top: 20px; font-size: .8rem; }
 #mappai-teacher-review #mrv-filter-empty { padding: 30px; border: 1px dashed var(--mm-bordo, #e2e8f0); border-radius: 12px; background: #fff; margin-top: 18px; }
@@ -175,6 +219,8 @@
   #mappai-teacher-review #mrv-queue { max-height: 160px; }
   #mappai-teacher-review .mrv-coverage { margin-top: 12px; }
   #mappai-teacher-review .mrv-detail { overflow: visible; }
+  #mappai-teacher-review #mrv-occurrences-host { max-height: none; overflow: visible; }
+  #mappai-teacher-review #mrv-occurrences { padding: 12px 16px; }
   #mappai-teacher-review #mrv-detail-nav { position: sticky; top: 0; z-index: 1; padding: 8px 16px; }
   #mappai-teacher-review #mrv-content { overflow: visible; }
   #mappai-teacher-review [data-actions] { position: static; }

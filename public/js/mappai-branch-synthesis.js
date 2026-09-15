@@ -157,12 +157,32 @@
     function _referenceView(value, entries) {
         const G = window.MappAIGroundingCore;
         return G && G.referenceView ? G.referenceView(value, entries || [], _referenceLabels())
-            : { text: String(value || '').replace(/\[\[src-[\w-]+\]\]/g, '[' + _referenceLabels().unknownLabel + ']'), mapping: [] };
+            : { text: String(value || '').replace(/\[{1,2}src-[\w-]+\]{1,2}/g, '[' + _referenceLabels().unknownLabel + ']'), mapping: [] };
     }
     function _citationId(scope, n) { return 'bs-cite-' + (scope || 'whole') + '-' + n; }
+    // Protect TeX before Markdown and citations can consume its syntax. Native
+    // MathML travels in the exported HTML: no network, scripts or fonts required.
+    function _protectMath(value, htmlEncoded) {
+        const original = String(value || ''), formulas = [];
+        let prefix = 'MAPPAIMATH';
+        while (original.includes(prefix)) prefix += 'X';
+        const text = original.replace(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|(?<!\\)\$([^$\n]+?)(?<!\\)\$/g,
+            (_, blockDollar, blockBracket, inlineBracket, inlineDollar) => {
+                let tex = blockDollar ?? blockBracket ?? inlineBracket ?? inlineDollar;
+                if (htmlEncoded) tex = new DOMParser().parseFromString(tex, 'text/html').body.textContent;
+                if (!window.katex) throw new Error('Il motore delle formule non è disponibile. Ricarica MappAI.');
+                const rendered = window.katex.renderToString(tex, { output: 'mathml', displayMode: blockDollar !== undefined || blockBracket !== undefined,
+                    throwOnError: false, trust: false, strict: false });
+                const token = prefix + formulas.length + 'END';
+                formulas.push({ token, rendered });
+                return token;
+            });
+        return { text, restore: html => formulas.reduce((result, f) => result.split(f.token).join(f.rendered), html) };
+    }
     function _mdToHtml(md, variant, sourcesArr, scope) {
+        const math = _protectMath(md);
         const G = window.MappAIGroundingCore;
-        const resolved = G && G.resolveCitations ? G.resolveCitations(md, sourcesArr || []).text : md;
+        const resolved = G && G.resolveCitations ? G.resolveCitations(math.text, sourcesArr || []).text : math.text;
         const refs = _referenceView(resolved, sourcesArr);
         const lines = refs.text.replace(/\r\n/g, '\n').split('\n');
         let html = '';
@@ -215,7 +235,7 @@
             html += `<${P}>${inlineFmt(trimmed)}</p>`;
         });
         closeList();
-        return html;
+        return math.restore(html);
     }
 
     // ── Blocco citazioni (modale o stampa) ────────────────────────────────
@@ -619,16 +639,16 @@
             (data.sections || []).flatMap(s => s.sourcesArr || []));
     }
     function _editedHtml(data) {
-        const html = window.MappAIDocEdit.blocksToHtml(data.editedBlocks);
+        const math = _protectMath(window.MappAIDocEdit.blocksToHtml(data.editedBlocks), true);
         const entries = data.whole ? _introSources(data).concat((data.sections || []).flatMap(s => s.sourcesArr || [])) : data.sourcesArr || [];
-        const refs = _referenceView(html, entries);
+        const refs = _referenceView(math.text, entries);
         let result = refs.text;
         refs.mapping.forEach(ref => {
             const source = ref.source;
             const label = source ? _referenceLabels().sourceLabel + ': ' + (source.title || source.docId || '') + (source.page ? ' — ' + (_isEnglish() ? 'page ' : 'pagina ') + source.page : source.source ? ' — ' + source.source : '') : ref.label;
             result = result.split(ref.label).join('<sup data-ap-skip>' + _escBS(label) + '</sup>');
         });
-        return result;
+        return math.restore(result);
     }
 
     // Corpo HTML della sintesi intera: panoramica + una sezione per ramo,
@@ -1319,7 +1339,7 @@ ${_bsPie(data.mapName)}
         var w=document.createTreeWalker(block,NodeFilter.SHOW_TEXT,{acceptNode:function(n){
           var p=n.parentNode;
           while(p&&p!==block){ if(p.nodeType===1){ var tg=p.tagName.toLowerCase();
-            if(tg==='sup'||tg==='button'||tg==='style'||tg==='script') return NodeFilter.FILTER_REJECT;
+            if(tg==='sup'||tg==='annotation'||tg==='button'||tg==='style'||tg==='script') return NodeFilter.FILTER_REJECT;
             if(p.classList&&(p.classList.contains('bs-citations')||p.hasAttribute('data-ap-skip'))) return NodeFilter.FILTER_REJECT; }
             p=p.parentNode; }
           return NodeFilter.FILTER_ACCEPT; }});
@@ -1612,7 +1632,7 @@ ${_bsPie(data.mapName)}
         // Stessa regola dei lettori: materiale generato fuori dal parlato.
         // Se qui e nei lettori i blocchi non coincidessero, i cue finirebbero
         // sul paragrafo sbagliato.
-        bodyEl.querySelectorAll('.bs-citations, [data-ap-skip], sup').forEach(n => n.remove());
+        bodyEl.querySelectorAll('.bs-citations, [data-ap-skip], sup, annotation').forEach(n => n.remove());
         const out = [];
         bodyEl.querySelectorAll('h3,h4,p,li,blockquote').forEach(bl => {
             const txt = _cleanPlain(bl.textContent || '');

@@ -180,7 +180,7 @@ test('un master si deriva dai figli montati, e non conta come voce dimenticata',
        genererebbe niente. */
     /* dal 19/8 i generi sono TRE: la pipeline non produce più quiz Vero/Falso
        (la spec resta viva solo per il gesto singolo di ELABORA). */
-    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-open']);
+    assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-mixed', 'mp-qt-open']);
     const v = B.valida(B.MODULI);
     assert.ok(!v.fuori.includes('mp-quiz-on'), 'un master derivato è montato, nascosto');
     assert.ok(!v.fuori.includes('mp-ns-on'));
@@ -734,9 +734,9 @@ test('la pipeline non genera più quiz Vero/Falso (19/8)', () => {
        riga, coi due della sintesi); nel box «Quiz» resta il PARAMETRO. */
     const out = B.MODULI.find(x => x.id === 'output');
     assert.deepStrictEqual(B.vociDi(out).map(v => v.id),
-        ['mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-syn-on', 'mp-syn-audio']);
+        ['mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-syn-on', 'mp-syn-audio']);
     const quiz = B.MODULI.find(x => x.id === 'quiz');
-    assert.deepStrictEqual(B.vociDi(quiz).map(v => v.id), ['mp-perbranch']);
+    assert.deepStrictEqual(B.vociDi(quiz).map(v => v.id), ['mp-perbranch', 'mp-fc-count']);
 });
 
 /* ═══ IL BOX «OUTPUT AUTOMATICI» (20/8) ═══════════════════════════════════════
@@ -751,4 +751,44 @@ test('output automatici: spostate, non duplicate — e la famiglia resta legata'
     /* la fonte-immagine NON ha più una voce sua (20/8 sera): le foto entrano
        dal bottone «Documenti», autoriconosciute dall'estensione */
     assert.ok(!B.voce('mn-src-img'));
+});
+
+test('Set misto è il primo output, resta nei box nascosti e accende il master quiz', () => {
+    const output = B.MODULI.find(m => m.id === 'output');
+    assert.equal(B.vociDi(output)[0].id, 'mp-qt-mixed');
+    assert.equal(B.nascondibile(output), true);
+    assert.equal(B.voce('mp-qt-mixed').figlioDi, 'mp-quiz-on');
+    assert.ok(B.mastersDerivati(B.MODULI).find(m => m.id === 'mp-quiz-on').da.includes('mp-qt-mixed'));
+});
+
+test('la migrazione del layout aggiunge Set misto senza cambiare scelte grafiche o ordine delle altre voci', () => {
+    const original = [{ id: 'output', titolo: 'I miei materiali', span: 3, altezza: 212,
+        layout: { colonneVoci: 2 }, stile: { bg: '#334455' },
+        voci: [{ id: 'mp-qt-open', et: 'Scrivere', w: 90 }, 'mp-qt-mc'] },
+        { id: 'personale', span: 1, voci: ['mp-src-pdf'] }];
+    const before = JSON.parse(JSON.stringify(original));
+    const migrated = B.withMixedOutput(original);
+    assert.deepEqual(original, before);
+    assert.deepEqual(migrated[0], { ...before[0], voci: ['mp-qt-mixed', ...before[0].voci] });
+    assert.deepEqual(migrated[1], before[1]);
+    assert.strictEqual(B.withMixedOutput(migrated), migrated, 'non inserisce una seconda checkbox');
+});
+
+test('se il box output personale manca, la migrazione crea solo il campo nuovo in un box nascosto', () => {
+    const original = [{ id: 'preset', voci: ['mp-preset'] }];
+    const migrated = B.withMixedOutput(original);
+    const added = migrated.find(m => m.id === 'output');
+    assert.deepEqual(added.voci, ['mp-qt-mixed']);
+    assert.equal(B.nascondibile(added), true);
+    assert.deepEqual(migrated.find(m => m.id === 'preset'), original[0]);
+});
+
+
+test('i controlli nuovi riparano un layout vecchio anche dopo la precedente migrazione', () => {
+    const old = B.MODULI.map(m => ({ ...m, voci: m.voci.filter(v => !['mp-qt-mixed', 'mp-fc-count'].includes(typeof v === 'string' ? v : v.id)) }));
+    const fixed = B.withMaterialControls(old);
+    assert.equal(B.vociDi(fixed.find(m => m.id === 'output'))[0].id, 'mp-qt-mixed');
+    assert.ok(B.vociDi(fixed.find(m => m.id === 'quiz')).some(v => v.id === 'mp-fc-count'));
+    assert.strictEqual(B.withMaterialControls(fixed), fixed);
+    assert.equal(B.valida(fixed).errori.length, 0);
 });

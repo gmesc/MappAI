@@ -29,7 +29,7 @@ function dom() {
 }
 function runtime(opts = {}) {
     const log = { calls: { map: 0, mc: 0, flash: 0, open: 0, synthesis: 0, nodeDraft: 0, nodeExport: 0, chains: 0, judge: 0, audio: 0 },
-        writes: [], pdfs: [], quiz: [], flash: [], open: [], synth: [], nodes: [], chains: [], opened: [], toasts: [], errors: [], tuning: [], modelContexts: [] };
+        writes: [], pdfs: [], quiz: [], flash: [], open: [], synth: [], nodes: [], chains: [], opened: [], toasts: [], errors: [], tuning: [], modelContexts: [], openPrompts: [], mcRequests: [] };
     const db = { nodes: [{ id: 'root', level: 0, label: 'Svizzera', desc: GOLD },
         { id: 'gold', level: 1, group: 1, label: 'Oro e valuta', desc: GOLD }],
         links: [{ source: 'root', target: 'gold', rel: 'include' }],
@@ -63,6 +63,7 @@ function runtime(opts = {}) {
         buildVaultMapData: () => Object.assign(copy(state.db), { reviewRevision: state._reviewRevision, reviewCommit: state._reviewCommit }),
         startGeneration: async () => { log.calls.map++; },
         generateDynamicQuiz: async args => {
+            log.mcRequests.push(copy(args));
             log.modelContexts.push(copy(state._reviewAIContext || null));
             log.calls.mc++; assert.match(args.material, /PASSAGGI ORIGINALI/);
             return [{ q: 'Chi riceve valuta dalla vendita di oro?', options: ['La Germania', 'La Svizzera', 'La Francia'], correct: 'La Svizzera', explanation: GOLD }];
@@ -71,6 +72,8 @@ function runtime(opts = {}) {
             log.modelContexts.push(copy(state._reviewAIContext || null));
             if (payload.generationConfig.responseSchema.items.properties.domanda) {
                 log.calls.open++;
+                log.openPrompts.push(payload.contents[0].parts[0].text);
+                if (opts.openItems) return { candidates: [{ content: { parts: [{ text: JSON.stringify(opts.openItems) }] } }] };
                 return { candidates: [{ content: { parts: [{ text: JSON.stringify([{ domanda: 'Spiega lo scambio fra oro e valuta.', traccia: GOLD, righe: 4, aree: ['Oro e valuta'], livello: 'base' }]) }] } }] };
             }
             log.calls.flash++;
@@ -150,6 +153,87 @@ function runtime(opts = {}) {
         }
     };
 }
+
+test('primo lotto: due soli formati, il secondo conosce gli MC anche se i tipi erano in ordine inverso', async () => {
+    const h = runtime({ openItems: [
+        { domanda: 'Chi riceve valuta dalla vendita di oro?', traccia: GOLD, livello: 'base' },
+        { domanda: 'Spiega come la vendita di oro permette un acquisto e giustifica ogni passaggio.', traccia: GOLD, livello: 'ponte' },
+        { domanda: 'Questa terza domanda non è stata richiesta.', traccia: GOLD, livello: 'ponte' }
+    ] });
+    const cfg = PC.initialBatchOptions();
+    cfg.quiz.types.reverse();
+    let m = await h.fresh(cfg);
+    m = await h.approveMap(m);
+    m = await h.run(m);
+    assert.deepEqual(h.log.errors, []);
+    assert.deepEqual(Object.keys(m.review.drafts.B).sort(), ['mc-auto', 'open-auto']);
+    assert.equal(h.log.calls.mc, 1);
+    assert.equal(h.log.calls.open, 1);
+    assert.equal(h.log.calls.flash, 0);
+    assert.equal(h.log.calls.nodeDraft, 0);
+    assert.equal(h.log.calls.synthesis, 1);
+    assert.equal(h.log.mcRequests[0].quantity, 2);
+    assert.match(h.log.openPrompts[0], /FUNZIONE DOMANDE APERTE/);
+    assert.match(h.log.openPrompts[0], /Chi riceve valuta dalla vendita di oro/);
+    assert.match(h.log.openPrompts[0], /ALTRO FORMATO GIÀ DISPONIBILE/);
+    assert.equal(m.review.drafts.B['open-auto'].items.length, 1, 'una copia esclusa e la terza domanda oltre quota non pubblicata');
+    assert.deepEqual(m.review.drafts.B['open-auto'].generation, { requested: 2, produced: 1 });
+    assert.match(m.review.drafts.B['open-auto'].items[0].question, /^Spiega come/);
+    assert.ok(h.log.toasts.some(x => /identiche all’altro formato/.test(x.message)));
+    const beforeCalls = copy(h.log.calls);
+    await h.run(m);
+    assert.deepEqual(h.log.calls, beforeCalls, 'la ripresa usa le bozze e non rigenera per riempire la quota');
+});
+
+test('un formato privo di domande utilizzabili non viene dichiarato completato e conserva gli MC già generati', async () => {
+    const h = runtime({ openItems: [{ domanda: 'Chi riceve valuta dalla vendita di oro?', traccia: GOLD, livello: 'base' }] });
+    let m = await h.fresh(PC.initialBatchOptions());
+    m = await h.approveMap(m);
+    m = await h.run(m);
+    assert.equal(m.steps.B.status, 'failed');
+    assert.ok(m.review.drafts.B['mc-auto']);
+    assert.equal(m.review.drafts.B['open-auto'], undefined);
+    assert.equal(h.log.calls.synthesis, 1, 'la sintesi indipendente può completarsi e resta salvata');
+    assert.equal(h.log.calls.judge, 0);
+    assert.equal(h.log.pdfs.length, 0);
+    assert.match(m.steps.B.error, /Nessuna domanda utilizzabile/);
+    const generation = copy(m.review.drafts.B['mc-auto'].generation);
+    const resumed = await h.run(m);
+    assert.equal(h.log.calls.mc, 1, 'la ripresa del solo formato vuoto riusa gli MC');
+    assert.deepEqual(resumed.review.drafts.B['mc-auto'].generation, generation, 'riusare una bozza non azzera il conteggio richiesto');
+});
+
+test('generaSet/varianti: angolo e quantità espliciti restano; le aperte leggono il set MC esistente', async () => {
+    const h = runtime();
+    h.w.MappAIReview.requireStandalone = async () => true;
+    h.state.db.studySets = [{ id: 'mc-saved', type: 'Scelta Multipla', items: [
+        { q: 'Quale soggetto riceve valuta?', explanation: GOLD, ramo: 'Oro e valuta' }
+    ] }];
+    h.w.MappAIStudyDocs = { save: () => 'saved-open' };
+    // Il gesto pubblico invocato da _generaVarianti, per due angoli richiesti.
+    for (const angolo of ['causa', 'confronto']) {
+        const result = await h.w.MappAIPipeline.generaSet({ tipo: 'open', quantita: 4, angolo, nome: angolo });
+        assert.equal(result.ok, true, result.errore);
+        assert.equal(h.log.open.at(-1).angle, angolo);
+        assert.deepEqual(copy(result.generation), { requested: 4, produced: 1 });
+        assert.deepEqual(h.log.open.at(-1).generation, { requested: 4, produced: 1 });
+    }
+    assert.equal(h.log.openPrompts.length, 2);
+    h.log.openPrompts.forEach(p => assert.match(p, /Quale soggetto riceve valuta/));
+    assert.equal(h.state.db.studySets[0].id, 'mc-saved', 'il complemento esistente non viene modificato');
+});
+
+test('generaSet MC: le aperte già corrette nell’archivio diventano il contesto complementare', async () => {
+    const h = runtime();
+    h.w.MappAIReview.requireStandalone = async () => true;
+    const other = { type: 'Domande aperte', items: [{ question: 'Giustifica il rapporto fra oro e valuta.', guide: GOLD, areas: ['Oro e valuta'] }] };
+    h.w.MappAIStudyDocs = { list: () => [{ id: 'open-saved', kind: 'quizpaper', mapName: 'Svizzera' }], get: () => ({ html: 'saved' }) };
+    h.w.MappAIQuizPrint = { setFromHtml: html => { assert.equal(html, 'saved'); return other; } };
+    const result = await h.w.MappAIPipeline.generaSet({ tipo: 'mc', quantita: 3, angolo: 'applicazione', nome: 'nuovo' });
+    assert.equal(result.ok, true, result.errore);
+    assert.deepEqual(h.log.mcRequests[0].complementary, other.items);
+    assert.equal(h.log.mcRequests[0].quantity, 3);
+});
 
 test('fresh generation checkpoints G1 durably; pending review blocks all material calls including resume', async () => {
     const h = runtime();
@@ -308,4 +392,35 @@ test('resume preserves saved tuning and provider/model snapshots despite changes
     assert.ok(h.log.tuning.slice(lastTune).every(c => c.classId === '4R' && c.disc === 'Storia'));
     assert.equal(h.state.aiProvider, 'infomaniak', 'the current UI preference is preserved');
     assert.equal(h.state._reviewAIContext, undefined, 'the per-run override is released');
+});
+
+test('il preset diventa ultimo usato solo quando parte una nuova generazione; le flashcard hanno quantità indipendente', async () => {
+    const h = runtime(), cfg = PC.initialBatchOptions();
+    cfg.quiz.types.push('flashcards'); cfg.quiz.perTipo = { flashcards: 7 };
+    const store = new Map([['mappai_material_presets', JSON.stringify([{ id: 'used', name: 'Scelto', options: cfg }])]]);
+    h.w.localStorage.getItem = key => store.get(key) || null;
+    h.w.localStorage.setItem = (key, value) => store.set(key, value);
+    const originalFetch = h.w.fetchModelAPI;
+    let flashLimit;
+    h.w.fetchModelAPI = async payload => {
+        if (payload.generationConfig.responseSchema.items.properties.front) {
+            flashLimit = payload.generationConfig.responseSchema.maxItems;
+            return { candidates: [{ content: { parts: [{ text: JSON.stringify(Array.from({ length: 11 }, (_, i) => ({ front: 'Carta distinta ' + i, back: GOLD }))) }] } }] };
+        }
+        return originalFetch(payload);
+    };
+    const key = h.w.getSystemKey; h.w.getSystemKey = () => '';
+    await h.w.MappAIPipeline.run(cfg, { presetId: 'used' });
+    assert.equal(store.get('mappai_material_last_used'), undefined, 'preflight fallito non cambia il default');
+    h.w.getSystemKey = key;
+    await h.w.MappAIPipeline.run(cfg, { presetId: 'used' });
+    const remembered = store.get('mappai_material_last_used');
+    assert.equal(JSON.parse(remembered).options.quiz.perTipo.flashcards, 7);
+    assert.equal(JSON.parse(remembered).presetId, 'used');
+    let m = await h.approveMap(h.disk()); m = await h.run(m);
+    assert.equal(flashLimit, 7);
+    assert.equal(m.review.drafts.B['flashcards-auto'].items.length, 7);
+    assert.equal(m.review.drafts.B['flashcards-auto'].generation.requested, 7);
+    assert.equal(h.log.mcRequests[0].quantity, 2);
+    assert.equal(store.get('mappai_material_last_used'), remembered, 'la ripresa non sceglie un altro preset');
 });

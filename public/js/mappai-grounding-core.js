@@ -140,7 +140,7 @@
     function resolveCitations(value, sourcesArr) {
         const entries = new Map((sourcesArr || []).map(s => [s.id, s]));
         const unknownIds = [];
-        const resolved = text(value).replace(/\[\[(src-[\w-]+)\]\]/g, (all, id) => {
+        const resolved = text(value).replace(/\[{1,2}(src-[\w-]+)\]{1,2}/g, (all, id) => {
             const entry = entries.get(id);
             if (entry && Number.isInteger(entry.idx) && entry.idx > 0) return '[' + entry.idx + ']';
             if (!unknownIds.includes(id)) unknownIds.push(id);
@@ -156,7 +156,7 @@
         const original = text(value), entries = new Map((sourcesArr || []).filter(Boolean).map(s => [s.id, s]));
         const mapping = [], unknownIds = [], labels = new Map();
         let next = 1;
-        const result = original.replace(/\[\[(src-[\w-]+)\]\]/g, (_, id) => {
+        const result = original.replace(/\[{1,2}(src-[\w-]+)\]{1,2}/g, (_, id) => {
             if (labels.has(id)) return labels.get(id);
             const source = entries.get(id), prefix = source ? options.sourceLabel || 'Fonte' : options.unknownLabel || 'Fonte da verificare';
             let label;
@@ -182,7 +182,7 @@
         const byId = new Map((sourcesArr || []).filter(Boolean).map(s => [s.id, s]));
         const used = new Set(), occupied = new Set(Array.from(text(value).matchAll(/\[(\d+)\]/g), m => Number(m[1])));
         const out = []; let idx = 1;
-        for (const match of text(value).matchAll(/\[\[(src-[\w-]+)\]\]/g)) {
+        for (const match of text(value).matchAll(/\[{1,2}(src-[\w-]+)\]{1,2}/g)) {
             const source = byId.get(match[1]);
             if (!source || used.has(source.id)) continue;
             while (occupied.has(idx)) idx++;
@@ -199,7 +199,7 @@
         const pages = originals === undefined ? null : sourcePages(originals);
         const occupied = new Set(registry.map(s => Number(s.idx)));
         for (const m of value.matchAll(/\[(\d+)\]/g)) occupied.add(Number(m[1]));
-        for (const m of value.matchAll(/\[\[(src-[\w-]+)\]\]/g)) {
+        for (const m of value.matchAll(/\[{1,2}(src-[\w-]+)\]{1,2}/g)) {
             if (registry.some(s => s.id === m[1])) continue;
             const matches = (candidates || []).filter(s => s && s.id === m[1]);
             if (matches.length !== 1 || !flat(matches[0].text)) return null;

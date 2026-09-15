@@ -12,7 +12,10 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "test": "node --test",
-    "dove": "node tools/dove.js"
+    "dove": "node tools/dove.js",
+    "stile": "node tools/stile/censimento.js",
+    "stile:banco": "node tools/stile/banco.js",
+    "ui": "node tools/stile/anatomia.js"
   },
   "build": {
     "asar": true,

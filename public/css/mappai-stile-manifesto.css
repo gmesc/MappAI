@@ -50,7 +50,7 @@ html.manifesto, .manifesto {
        chip vuoto, i tre avvii. Un token solo — così «tutti i bottoni non attivi
        allo stesso grigio» resta vero anche al prossimo pezzo che si aggiunge,
        invece di essere una coincidenza da rifare a mano ogni volta. */
-    --man-card: #f1f4f8;
+    --man-card: var(--mm-neutro, #f1f4f8);
     /* ⚠️ Il «nero» di COSTRUISCI è #404040, non #0b0b0b (5/8, scelta di Giacomo):
        un unico grigio scuro per i bottoni e per ogni testo scuro della pagina.
        Contrasti misurati: su verde #41e6aa 6,48:1 · sulle card #f1f4f8 9,4:1 ·
@@ -555,7 +555,7 @@ html.manifesto #mn-genere-dx {
     height: var(--mn-h-modulo);
     background: var(--man-card);
     border: 1px solid var(--man-card);
-    border-radius: 22px;             /* come .mn-card */
+    border-radius: var(--mm-r-card);  /* come .mn-card (DECISIONE E, 13/9/26): era 22px */
     padding: 14px 18px;
     color: var(--man-su-verde);
 }
@@ -608,7 +608,9 @@ html.manifesto #mn-genere-dx #step-kg-density-container .landing_label_secondary
 html.manifesto .btn_selezione_input {
     background: var(--man-card);
     color: var(--man-card);          /* l'etichetta sparisce nel fondo */
-    border-radius: var(--mm-r-box);
+    /* DECISIONE E (13/9/26): è alto come un modulo del bento, quindi prende il raggio delle
+       CARD (18), non quello delle finestre (--mm-r-box, 16) che aveva per ripiego. */
+    border-radius: var(--mm-r-card);
     letter-spacing: normal;
     font-size: var(--bn-fs-azione);
     font-weight: var(--bn-fw-azione);
@@ -714,7 +716,7 @@ html.manifesto #generate-btn { display: none !important; }
 .manifesto .mn-card {
     background: var(--man-nero);
     color: #fff;   /* default; lo stile inline del modulo lo sostituisce */
-    border-radius: 22px;
+    border-radius: var(--mm-r-card);   /* DECISIONE E (13/9/26): era 22px scritto a mano */
     padding: 18px 20px;
     min-height: 150px;
     display: flex;
@@ -940,7 +942,7 @@ html.mappai-ridotta.manifesto #qa-apri-json { display: flex !important; }
 html.manifesto .btn_quick_action {
     background: var(--man-card);
     color: var(--mm-testo-2);
-    border-radius: var(--mm-r-box);
+    border-radius: var(--mm-r-card);   /* DECISIONE E (13/9/26): era --mm-r-box */
     letter-spacing: normal;
     font-size: var(--bn-fs-azione);
     font-weight: var(--bn-fw-azione);

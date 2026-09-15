@@ -254,10 +254,14 @@ window.generateDynamicQuiz = async function (opts) {
     /* la regola sulla lunghezza vale solo dove ci sono opzioni da scegliere */
     const lenBlock = (window.quizLengthBlock && !/apert/i.test(String(quizType)))
         ? window.quizLengthBlock() : '';
+    const mc = !/vero|false|apert|open/i.test(String(quizType));
+    const roleBlock = mc && window.MappAIPipelineCore && window.MappAIPipelineCore.questionRoleBlock
+        ? window.MappAIPipelineCore.questionRoleBlock('mc', opts.complementary, window.getPromptLanguage && window.getPromptLanguage() === 'en') : '';
     const prompt = (angleBlock ? angleBlock + '\n\n' : '') +
         window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce }) +
         (evBlock ? '\n\n' + evBlock : '') +
-        (lenBlock ? '\n\n' + lenBlock : '');
+        (lenBlock ? '\n\n' + lenBlock : '') +
+        (roleBlock ? '\n\n' + roleBlock : '');
     /* ── LA PROVA (11/9) ──────────────────────────────────────────────────────
        `evidenza` = la frase del MATERIALE che rende vera la risposta segnata. Non
        serve al foglio (non viene stampata): serve a poterla CONTROLLARE. Senza,
@@ -297,6 +301,8 @@ window.generateDynamicQuiz = async function (opts) {
         const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
         let arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
         if (!Array.isArray(arr)) return [];
+        // Il limite scelto dal docente vale anche se il provider ignora maxItems.
+        arr = arr.slice(0, _quante);
         /* ── POST-PRODUZIONE (11/9) ───────────────────────────────────────────
            Fra la risposta del modello e il PDF stampato non c'era NIENTE: la
            risposta esatta usciva dov'era stata scritta, e in una cartella vera

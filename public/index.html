@@ -43,25 +43,25 @@
     <script src="js/vendor/spacemono-font.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="css/style.css?v=dh26">
+    <link rel="stylesheet" href="css/style.css?v=dh27">
 
     <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
          Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
          modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
-    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=bar2">
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=bar3">
 
     <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
          Ogni regola è scoped sotto html.manifesto: senza quella classe questo
          foglio non cambia NULLA. La mette mappai-stile-manifesto.js, che si
          spegne con localStorage mappai_stile_manifesto='0'.
          Va DOPO i token e fuori dai @layer: le regole in layer perdono. -->
-    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=oq11">
+    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=oq13">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
     <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh17">
     <!-- Regola 10: il sistema unico della UI per ogni pagina nuova (token --ui-*, si attiva con .ui) -->
     <link rel="stylesheet" href="css/mappai-ui.css?v=1">
-    <link rel="stylesheet" href="css/mappai-review-dashboard.css?v=20260914-2">
+    <link rel="stylesheet" href="css/mappai-review-dashboard.css?v=relation-preview-20260915-1">
     <link rel="stylesheet" href="css/mappai-learning-path.css?v=20260914-1">
 
     <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
@@ -189,12 +189,16 @@
         .teach-section-card { @apply max-w-[806px] mx-auto mb-4 border border-slate-200 rounded-2xl overflow-hidden; } /* Sezione collassabile della modalità Insegna (+20% larghezza, 19/7) */
         /* Bottone quick-start QR (005) — stile COSTRUISCI: grigio → hover emerald,
            label centrata su due righe (leading-tight + min-h) così 4 stanno su una riga. */
-        .teach-qs-btn { @apply flex-1 basis-0 min-w-[150px] flex flex-col items-center justify-center gap-3 px-4 py-6 bg-slate-100 rounded-2xl shadow-sm hover:bg-emerald-400 hover:text-white transition-all text-slate-500 font-bold text-sm text-center; }
+        .teach-qs-btn { @apply flex-1 basis-0 min-w-[150px] flex flex-col items-center justify-center gap-3 px-4 py-6 shadow-sm hover:bg-emerald-400 hover:text-white transition-all text-slate-600 font-bold text-sm text-center; background: var(--mm-neutro); border-radius: var(--mm-r-card); }
+        /* 13/9/26 — DECISIONI G (un neutro solo, era bg-slate-100 #f1f5f9), E (un raggio solo
+           per le card grandi, era rounded-2xl) e I (testo slate-600: slate-500 su quel fondo
+           faceva 4,34:1, sotto 4,5 — misurato nel banco dei token). Stessa cura sui tre
+           fratelli qui sotto: sono la stessa famiglia di bottone-card grigio. */
         .teach-qs-btn span { @apply flex items-center justify-center text-center leading-tight min-h-[2.4em]; } /* label a 2 righe, altezza uniforme */
         .form_helper_text { @apply text-[12px] text-slate-500 italic mb-2; } /* Testi di aiuto in corsivo all'interno del form */
         .modal_field_title { @apply text-[16px] text-slate-500 uppercase; } /* Titolo del campo nei modali (es. "NOME NODO", "CONTENUTO") */
         .modal_title { @apply text-[24px] tracking-[0.15em] text-slate-600 font-bold; } /* Titolo principale dei modali standard dell'applicazione */
-        .source_btn_text { @apply text-[20px] text-slate-400 font-bold tracking-[0.25em]; } /* Testo dei pulsanti di caricamento fonti */ 
+        .source_btn_text { @apply text-[20px] text-slate-600 font-bold tracking-[0.25em]; }   /* 13/9/26 DECISIONE I: slate-400 su neutro faceva 2,6:1 */ /* Testo dei pulsanti di caricamento fonti */
 
         /* ==========================================================================
            6. CAMPI DI INSERIMENTO DATI (INPUT & TEXTAREA FIELDS)
@@ -206,8 +210,8 @@
         /* ==========================================================================
            7. BOTTONI D'AZIONE, CONFERMA E PULSANTI GENERALI (BUTTONS & ACTIONS)
            ========================================================================== */
-        .btn_header_setting { @apply px-8 text-[12px] text-slate-500 uppercase tracking-[0.2em] bg-slate-100 rounded-xl hover:bg-emerald-400 hover:text-white transition-all shadow-sm hover:shadow-emerald-400 flex items-center justify-center gap-2 h-20; } /* Bottoni piccoli per impostazioni e pulsanti utility header */
-        .btn_selezione_input { @apply text-[20px] flex flex-1 flex-col items-center justify-center px-8 text-[18px] text-slate-400 font-bold tracking-[0.2em] bg-slate-100 rounded-2xl hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
+        .btn_header_setting { @apply px-8 text-[12px] text-slate-600 uppercase tracking-[0.2em] rounded-xl hover:bg-emerald-400 hover:text-white transition-all shadow-sm hover:shadow-emerald-400 flex items-center justify-center gap-2 h-20; background: var(--mm-neutro); } /* Bottoni piccoli per impostazioni e pulsanti utility header */
+        .btn_selezione_input { @apply text-[20px] flex flex-1 flex-col items-center justify-center px-8 text-[18px] text-slate-600 font-bold tracking-[0.2em] hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; background: var(--mm-neutro); border-radius: var(--mm-r-card); } /* Pulsanti rettangolari grandi per caricare fonti (URL Web, YouTube, ecc.) */
 
         .btn_mode_selector { @apply px-8 text-[20px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsanti di selezione modalità nei modali */
         .btn_mode_selector_sm { @apply px-8 py-8 h-12 !text-[20px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-400 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2; } /* Pulsanti di selezione modalità nei modali */
@@ -215,7 +219,7 @@
         .btn_secondary_action { @apply w-full py-3 bg-white border border-indigo-200 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 transition-colors flex justify-center items-center gap-2 shadow-sm cursor-pointer; } /* Pulsante secondario ad ampia larghezza (es. "Pulisci Form") */
         .btn_primary { @apply px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-md border-none cursor-pointer; } /* Bottone standard primario per dialoghi o pulsante "Ho capito" */
         .link_primary { @apply text-[12px] font-bold text-indigo-500 cursor-pointer hover:underline; } /* Collegamento ipertestuale primario azzurro */
-        .btn_quick_action { @apply px-8 text-[20px] flex flex-1 flex-col items-center justify-center text-slate-500 text-center font-bold tracking-[0.2em] bg-slate-100 rounded-2xl hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; }    
+        .btn_quick_action { @apply px-8 text-[20px] flex flex-1 flex-col items-center justify-center text-slate-600 text-center font-bold tracking-[0.2em] hover:bg-emerald-400 hover:text-white shadow-sm gap-4 h-48 border-none; background: var(--mm-neutro); border-radius: var(--mm-r-card); }
 
         .btn_generate { @apply w-full py-4 flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold rounded-2xl transition-colors hover:bg-indigo-700; } /* Bottone principale di avvio generazione mappa in fondo al form */
 
@@ -328,7 +332,7 @@
     <!-- KaTeX — rendering formule matematiche LaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
         crossorigin="anonymous">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" crossorigin="anonymous"></script>
+    <script src="js/vendor/katex-0.16.9.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
         crossorigin="anonymous"></script>
 </head>
@@ -3120,8 +3124,8 @@
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
-    <script src="traduzioni/it_translations.js?v=review-context-20260914-1"></script>
-    <script src="traduzioni/en_translations.js?v=review-context-20260914-1"></script>
+    <script src="traduzioni/it_translations.js?v=review-conflicts-20260914-1"></script>
+    <script src="traduzioni/en_translations.js?v=review-conflicts-20260914-1"></script>
     <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/infomaniak_bridge.js"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
@@ -3282,7 +3286,7 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=review-20260912-2"></script>
+    <script src="js/mappai-pipeline-core.js?v=presets-flash-20260914-1"></script>
     <script src="js/mappai-landing-teach.js?v=dos5"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
@@ -3305,13 +3309,13 @@
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
     <script src="js/mappai-elabora-console.js?v=rig2"></script>
-    <script src="js/mappai-review-core.js?v=review-teacher-20260913-6"></script>
-    <script src="js/mappai-review-context.js?v=review-context-20260914-1"></script>
+    <script src="js/mappai-review-core.js?v=review-conflicts-20260914-1"></script>
+    <script src="js/mappai-review-context.js?v=quality-lots-20260914-1"></script>
     <script src="js/mappai-material-drafts.js?v=review-teacher-20260913-4"></script>
     <script src="js/mappai-material-review.js?v=review-context-20260914-1"></script>
-    <script src="js/mappai-review.js?v=review-context-20260914-1"></script>
+    <script src="js/mappai-review.js?v=relation-preview-20260915-1"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=review-teacher-20260913-3"></script>
+    <script src="js/mappai-material-pipeline.js?v=presets-flash-20260914-1"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>
@@ -3319,10 +3323,10 @@
          core, provata in Node; la vista si apre da INSEGNA («Proietta»). -->
     <script src="js/mappai-proiezione-core.js?v=dos3"></script>
     <script src="js/mappai-proiezione.js?v=dos3"></script>
-    <script src="js/mappai-crea-quiz.js?v=dos1"></script>
+    <script src="js/mappai-crea-quiz.js?v=quality-lots-20260914-1"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=dos3"></script>
-    <script src="js/mappai-costruisci-manifesto.js?v=ang2"></script>
+    <script src="js/mappai-bento-composizione.js?v=presets-flash-20260914-1"></script>
+    <script src="js/mappai-costruisci-manifesto.js?v=presets-flash-20260914-1"></script>
     <script src="js/mappai-usage-core.js?v=dh12"></script>
     <script src="js/mappai-usage-tracker.js"></script>
     <script src="js/mappai-usage-dashboard.js?v=font1"></script>
@@ -3356,7 +3360,7 @@
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
     <script src="js/mappai-ai-tutor.js?v=dh15"></script>
-    <script src="js/mappai-study-session.js?v=review-20260912-2"></script>
+    <script src="js/mappai-study-session.js?v=quality-lots-20260914-1"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-tts-reader.js"></script>
     <script src="js/mappai-dev-selftest.js?v=sf1"></script>

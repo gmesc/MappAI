@@ -1,6 +1,22 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const G = require('../public/js/mappai-grounding-core.js');
+test('single and double source brackets share resolution, registration and editor identity without changing numeric references', () => {
+    const source = { id: 'src-a', idx: 17, title: 'Manuale', text: 'Estratto originale.' };
+    const raw = 'Fatto [src-a], ancora [[src-a]], [1] e [src-missing].';
+    assert.deepEqual(G.resolveCitations(raw, [source]), { text: 'Fatto [17], ancora [17], [1] e [src-missing].', unknownIds: ['src-missing'] });
+    const view = G.referenceView(raw, [source]);
+    assert.doesNotMatch(view.text, /src-/);
+    assert.equal(view.mapping.length, 2);
+    assert.equal(G.restoreReferenceIds(view.text, view.mapping), 'Fatto [[src-a]], ancora [[src-a]], [1] e [[src-missing]].');
+    assert.deepEqual(G.citationRegistry(raw, [source]), [{ ...source, idx: 2 }]);
+    const extended = G.extendCitations({ kind: 'synthesis', citations: [] }, raw.replace('[src-missing]', ''), [source]);
+    assert.equal(extended.citations.length, 1);
+    assert.equal(extended.citations[0].idx, 2);
+    assert.equal(extended.citations[0].text, source.text);
+    assert.deepEqual(extended.additions, extended.citations);
+    assert.equal(G.extendCitations({ kind: 'synthesis', citations: [] }, raw, [source]), null, 'unknown references cannot be silently authenticated');
+});
 test('a teacher correction only authorizes the changed sentences, not unchanged claims in the same field', () => {
     const retained = 'La commissione confermò tutte le accuse.';
     const correction = { origin: 'teacher', choice: 'manual', target: { kind: 'node', id: 'n', field: 'desc' },

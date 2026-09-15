@@ -46,6 +46,58 @@ function setMap(st) {
     st.db.sourcesDict = { A: [{ text: GOLD, source: 'pagina 5', verbatim: true }], B: [{ text: FOOD, source: 'pagina 3', verbatim: true }] };
     st._pdfPagine = [{ pages: [{ n: 5, text: GOLD }, { n: 3, text: FOOD }] }];
 }
+test('judge: the central node owns its verdict and every outgoing relation, without repeating branch checks', async () => {
+    const { window: w, appState: st } = runtime();
+    setMap(st);
+    const root = { id: 'ROOT', level: 0, group: 0, label: 'Svizzera', desc: GOLD };
+    st.db.nodes.unshift(root);
+    st.db.sourcesDict.ROOT = [{ text: GOLD, source: 'pagina 5', verbatim: true }];
+    st.db.links.push({ source: root, target: 'A', rel: 'riguarda' }, { source: 'ROOT', target: st.db.nodes[2], rel: 'comprende' });
+    // getDescendants(ROOT) normally includes the whole map. It must not assign
+    // all branches to the root's review request.
+    w.getDescendants = id => id === 'ROOT' ? st.db.nodes.slice(1) : [];
+    const checked = [], links = [];
+    w.fetchModelAPI = async payload => {
+        const ids = payload.generationConfig.responseSchema.properties.nodi.items.properties.id.enum;
+        checked.push(...ids);
+        const outgoing = st.db.links.filter(l => ids.includes(typeof l.source === 'object' ? l.source.id : l.source));
+        const verdicts = outgoing.map(l => ({ source: typeof l.source === 'object' ? l.source.id : l.source,
+            target: typeof l.target === 'object' ? l.target.id : l.target, valido: true, prova_source: GOLD,
+            prova_target: (typeof l.target === 'object' ? l.target.id : l.target) === 'B' ? FOOD : GOLD }));
+        links.push(...verdicts.map(l => l.source + '>' + l.target));
+        if (ids.includes('ROOT')) {
+            assert.equal(ids.length, 1);
+            assert.match(payload.contents[0].parts[0].text, /ROOT → riguarda → A/);
+            assert.ok(payload.contents[0].parts[0].text.includes(FOOD));
+        }
+        return response({ nodi: [], link: verdicts });
+    };
+    const before = JSON.stringify(st.db), r = await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+    assert.equal(r.stato, 'completato');
+    assert.deepEqual(checked.sort(), ['A', 'B', 'ROOT']);
+    assert.deepEqual(links.sort(), ['A>B', 'ROOT>A', 'ROOT>B']);
+    assert.equal(r.copertura.nodiSaltati.length, 0);
+    assert.equal(r.copertura.linkSaltati.length, 0);
+    assert.equal(JSON.stringify(st.db), before, 'review proposes and never edits the map');
+});
+
+test('judge: absent central evidence, failed central requests and missing root-link verdicts remain incomplete', async () => {
+    for (const mode of ['no-evidence', 'provider-error', 'missing-link']) {
+        const { window: w, appState: st } = runtime();
+        setMap(st);
+        st.db.nodes.unshift({ id: 'ROOT', level: 0, label: 'Svizzera', desc: GOLD });
+        if (mode !== 'no-evidence') st.db.sourcesDict.ROOT = [{ text: GOLD, verbatim: true }];
+        st.db.links = [{ source: 'ROOT', target: 'A', rel: 'riguarda' }];
+        w.fetchModelAPI = async payload => {
+            if (mode === 'provider-error' && payload.generationConfig.responseSchema.properties.nodi.items.properties.id.enum.includes('ROOT')) throw new Error('unavailable');
+            return response({ nodi: [], link: [] });
+        };
+        const r = await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+        assert.equal(r.stato, 'parziale', mode);
+        if (mode !== 'missing-link') assert.ok(r.copertura.nodiSaltati.some(n => n.id === 'ROOT'), mode);
+        assert.ok(r.copertura.linkSaltati.some(l => l.source === 'ROOT'), mode);
+    }
+});
 for (const provider of ['google', 'infomaniak']) {
     test(`${provider}: review run keeps actor-swap proposal and cross-group evidence without applying`, async () => {
         const { window: w, appState: st } = runtime({ mappai_giudice_applica: '1' });

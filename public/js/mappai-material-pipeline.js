@@ -14,6 +14,8 @@
 
   function PC() { return window.MappAIPipelineCore; }
   function FC() { return window.MappAIFilesCore; }
+  function _configRoot() { return document.getElementById('mp-modal') || document; }
+  function _configElement(id) { const root = _configRoot(); return root === document || root.id === id ? document.getElementById(id) : root.querySelector('#' + id); }
   function _t(k, f) { return window.t ? window.t(k, f) : f; }
   function _state() { try { return (typeof appState !== 'undefined') ? appState : window.appState; } catch (e) { return window.appState; } }
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -338,7 +340,7 @@
     const resp = await window.fetchModelAPI(payload, apiKey);
     const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
     const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
-    return Array.isArray(arr) ? arr : [];
+    return Array.isArray(arr) ? arr.slice(0, quante) : [];
   }
 
   /* Le DOMANDE APERTE (11/8/26). Stesso schema di `_genFlashcards`: prompt dal
@@ -437,6 +439,39 @@
     } catch (e) { return raw; }
   }
 
+  function _complementaryQuestions(type, branchLabel, manifest) {
+    if (type !== 'mc' && type !== 'open') return [];
+    const other = type === 'mc' ? 'open' : 'mc';
+    const drafts = manifest && manifest.review && manifest.review.drafts && manifest.review.drafts.B;
+    let sets = drafts ? Object.values(drafts).filter(s => s.type === other) : [];
+    if (!manifest) {
+      sets = ((_state().db || {}).studySets || []).filter(s => s && s.type === _QT[other].typeLabel);
+      if (other === 'open') {
+        const docs = window.MappAIStudyDocs, print = window.MappAIQuizPrint;
+        if (docs && docs.list && print && print.setFromHtml) {
+          (docs.list() || []).filter(d => d.kind === 'quizpaper' && d.mapName === _mapName()).forEach(d => {
+            const full = docs.get ? docs.get(d.id) : d;
+            const set = full && print.setFromHtml(full.html);
+            if (set && set.type === _QT.open.typeLabel) sets.push(set);
+          });
+        }
+      }
+    } else if (!drafts) {
+      sets = ((_state().db || {}).studySets || []).filter(s => s && s._pipeline && s.type === _QT[other].typeLabel);
+    }
+    return sets.flatMap(s => s.items || []).filter(Boolean).filter(it => {
+      const areas = it.areas || [];
+      return it.ramo === branchLabel || it.l1 === branchLabel || areas.indexOf(branchLabel) >= 0;
+    });
+  }
+
+  function _withoutCrossFormatCopies(items, related) {
+    const result = PC().removeCrossFormatCopies(items, related);
+    if (result.removed.length) _toast(_t('mp_cross_format_copies', '{n} domande identiche all’altro formato escluse. Controlla la copertura del lotto.')
+      .replace('{n}', result.removed.length), 'warning');
+    return result.items;
+  }
+
   /* Che cosa si chiede in «criteri»: elementi SPUNTABILI, non una risposta. */
   function _bloccoCriteri() {
     var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
@@ -498,9 +533,9 @@
         dueAree: areaB
           ? ('\n\nDUE MACRO-AREE. Il materiale qui sotto viene da due aree della mappa: ' +
             '«' + nodeLabel + '» e «' + areaB + '». La maggior parte delle domande resta su ' +
-            '«' + nodeLabel + '»; ALMENO UNA deve COLLEGARE le due aree (confronto, influenza ' +
-            'reciproca, causa in una ed effetto nell\'altra) e si può rispondere solo tenendole ' +
-            'insieme. Mai più di due aree per domanda.\n' +
+            '«' + nodeLabel + '». Collega le due aree soltanto se il materiale sostiene un ' +
+            'collegamento utile all’obiettivo; non forzare un ponte per completare una quota. ' +
+            'Mai più di due aree per domanda.\n' +
             'In «aree» elenca le macro-aree che quella domanda richiede davvero: una sola, ' +
             'oppure entrambe. Usa ESATTAMENTE questi nomi: «' + nodeLabel + '», «' + areaB + '».')
           : ''
@@ -522,7 +557,7 @@
         'e «livello» ("base" se si risponde con un concetto solo, "ponte" se ne collega due o più).\n' +
         'Restituisci SOLO un JSON: [{"domanda":"…","traccia":"…","righe":5,"aree":["…"],"livello":"base"}]\n' +
         'Usa l\'italiano. Il tema del ramo è: \'' + nodeLabel + '\'.' +
-        (areaB ? ('\nLa seconda area è \'' + areaB + '\': almeno una domanda deve collegarle.') : '');
+        (areaB ? ('\nLa seconda area è \'' + areaB + '\': puoi collegarla solo se utile e sostenuto dal materiale.') : '');
     }
     /* LA FORMA DELLA TRACCIA si chiede FUORI dal template, come l'angolo: chi ha
        un `prompts_config.json` personale non ha la chiave nuova e la lascerebbe
@@ -530,6 +565,7 @@
        ripiego chiede «1-2 frasi» e senza questo blocco i suoi fogli sarebbero
        gli unici senza griglia di correzione. */
     prompt += '\n\n' + _bloccoCriteri();
+    prompt += '\n\n' + PC().questionRoleBlock('open', opts.complementary, window.getPromptLanguage && window.getPromptLanguage() === 'en');
     /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
        modello riempie fino al massimo suo. È QUI che è successo per davvero —
        63.437 token in una chiamata sola.
@@ -605,7 +641,7 @@
     const ammesse = [nodeLabel].concat(areaB ? [areaB] : []);
     const etichette = _etichetteDaMateriale(material).concat(ammesse);
     const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
-    return arr.filter(x => x && x.domanda).map(x => {
+    return arr.filter(x => x && x.domanda).slice(0, quanteOq).map(x => {
       let aree = Array.isArray(x.aree) ? x.aree : [];
       aree = aree.map(a => ammesse.find(v => norm(v) === norm(a))).filter(Boolean);
       /* mai più di due, ed è la regola dichiarata nel prompt: se il modello ne
@@ -666,7 +702,8 @@
     try {
       const branches = _branchNodes();
       const mapName = _mapName();
-      const types = (config.quiz.types || []).filter(t => _QT[t]);
+      // MC prima delle aperte: il secondo formato conosce ciò che il primo verifica già.
+      const types = (config.quiz.types || []).filter(t => _QT[t]).sort((a, b) => (a === 'mc' ? -1 : b === 'mc' ? 1 : 0));
       const perBranch = Math.max(1, config.quiz.perBranch || 3);
       const angle = config.quiz.angle || 'auto';
       /* «Più set per angolo»: i generi elencati qui si generano una volta per
@@ -703,10 +740,13 @@
           if (finalizing && cached && cached.published) continue;
           if (finalizing && !cached) throw new Error('Bozza mancante: ' + draftKey);
           const raw = cached ? JSON.parse(JSON.stringify(cached.items)) : [];
+          let requestedCount = 0;
           for (let bi = 0; bi < (cached ? 0 : ramiT.length); bi++) {
             const b = ramiT[bi];
             const material = _branchMaterial(b);
             if (!material.trim()) continue;
+            requestedCount += quanti;
+            const complementary = _complementaryQuestions(t, _clean(b.label), manifest);
             counter.calls++;
             if (t === 'open') {
               /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
@@ -722,7 +762,7 @@
                  «Genera materiali» e il gesto singolo si noterebbero subito */
               const items = await _genOpenQuestions(insieme, _clean(b.label), quanti, apiKey,
                 { areaB: comp ? _clean(comp.label) : '', angolo: ang,
-                  base: PC().quotaBase(quanti, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF) });
+                  base: PC().quotaBase(quanti, config.quiz.base != null ? config.quiz.base : QUOTA_BASE_DEF), complementary });
               /* le AREE le porta già l'item (filtrate contro i nomi veri in
                  `_genOpenQuestions`): qui si tiene `l1` come area principale, che
                  è quella per cui stiamo generando */
@@ -730,18 +770,21 @@
                  dove si sa — e non ricavata dopo: chi legge il foglio (le
                  attività di studio) raggruppa per ramo, e in coda al ciclo
                  l'informazione non c'è più. */
-              items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
+              _withoutCrossFormatCopies(items, complementary).forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
             } else if (t === 'flashcards') {
               const items = await _genFlashcards(material, _clean(b.label), quanti, apiKey, { angolo: ang });
               items.forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             } else {
-              const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: quanti, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub });
-              (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
+              const items = await window.generateDynamicQuiz({ nodeLabel: _clean(b.label), material, quizType: spec.quizType, quantity: quanti, angle: ang, apiKey, usageCat: 'pipeline', usageSub: spec.sub, complementary });
+              _withoutCrossFormatCopies(items || [], complementary).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
             }
           }
           if (!cached) raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '')));
           if (spec.mode === 'quiz') _guardaLunghezze(raw, spec.typeLabel + (nomeVar ? ' · ' + nomeVar : ''));
-          if (!raw.length) continue;   // tipo senza risultati: salta, non fallisce lo step
+          if (!cached && requestedCount && !raw.length) throw new Error(_t('mp_batch_empty', 'Nessuna domanda utilizzabile per {f}. Il lotto resta da completare.').replace('{f}', spec.typeLabel));
+          if (!raw.length) continue;
+          if (!cached && raw.length < requestedCount) _toast(_t('mp_batch_short', '{f}: {n} domande utilizzabili sulle {t} richieste. Verifica gli obiettivi rimasti scoperti.')
+            .replace('{f}', spec.typeLabel).replace('{n}', raw.length).replace('{t}', requestedCount), 'warning');
           const setId = cached ? cached.id : 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
           const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
           /* Il DOCUMENTO segue la convenzione dei cloni («Domande Aperte -
@@ -751,7 +794,8 @@
           const titoloDoc = _titoloDoc(spec, nomeVar, mapName);
           raw.forEach((it, i) => { if (!it.id) it.id = setId + '-' + i; });
           if (manifest.review && !finalizing) {
-            manifest.review.drafts.B[draftKey] = { id: setId, type: t, angle: ang, title: titoloDoc, items: raw, revision: manifest.review.approvedRevision };
+            manifest.review.drafts.B[draftKey] = { id: setId, type: t, angle: ang, title: titoloDoc, items: raw,
+              generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length }, revision: manifest.review.approvedRevision };
             await _writeManifest(vaultPath, manifest);
             continue;
           }
@@ -762,7 +806,8 @@
              il ri-salvataggio del vault. Producono il foglio, lo archiviano per
              INSEGNA e passano al tipo successivo. */
           if (spec.documento) {
-            const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: ang },
+            const htmlOq = window.buildOpenQuestionsHtml({ id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: ang,
+              generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length } },
               { mapName, includeBar: false });
             const pdfOq = await window.electronAPI.htmlToPdf({ html: htmlOq, options: { landscape: false } });
             if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
@@ -802,7 +847,8 @@
         /* ⚠️ `clone` è il campo da cui ELABORA legge il nome della variante (e
            `buildFileName` il nome del file): senza, i sette set per angolo si
            chiamavano tutti «Scelta Multipla». */
-        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: nomeVar, _pipeline: true };
+        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: nomeVar, _pipeline: true,
+          generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length } };
         _state().db.studySets = _state().db.studySets || [];
         set.reviewRevision = manifest.review && manifest.review.approvedRevision;
         const existingSet = _state().db.studySets.findIndex(x => x.id === set.id);
@@ -1274,6 +1320,7 @@
       const finalReady = opts.manifest && opts.manifest.review && opts.manifest.review.final && ['approved', 'finalizing', 'done'].includes(opts.manifest.review.final.stage);
       if (!apiKey && !finalReady) throw new Error(_t('tst_need_key', "Inserisci un'API Key per continuare"));
 
+      if (opts.presetId) _rememberUsedPreset(config, opts.presetId);
       let vaultPath = opts.vaultPath || null;
       let manifest = opts.manifest || null;
 
@@ -1498,188 +1545,70 @@
     if (!list.length) return '<option value="">' + _esc(_t('mp_no_presets', 'Nessun preset salvato')) + '</option>';
     return list.map(p => '<option value="' + _esc(p.id) + '">' + _esc(p.name) + '</option>').join('');
   }
-  function _refreshPresetSelect() { const s = document.getElementById('mp-preset'); if (s) s.innerHTML = _presetOptions(); }
+  function _refreshPresetSelect() { const s = _configElement('mp-preset'); if (s) s.innerHTML = _presetOptions(); }
 
-  /* ══ IL PRESET «Default» (11/8/26) ════════════════════════════════════════
-     Dall'11/8 i quattro box delle opzioni (Preset · Quiz · Fogli nodi · Fonte &
-     Sintesi) stanno nella vista ESTESA: la schermata d'ingresso non li mostra
-     più. Quindi la configurazione di partenza non può più venire dalle spunte
-     del markup — nessuno le vede — e diventa un PRESET, che è la forma in cui
-     una configurazione si dice, si salva e si cambia.
-     Contenuto (scelto con Giacomo): quello che c'era di default, **più le
-     domande aperte e la voce naturale**. La catena dei perché entra perché è
-     deterministica — zero chiamate AI — quindi è un materiale in più che non
-     costa niente.
-     ⚠️ `tuned`/`levelTuned` a true NON è un dettaglio: `_applyPreset` deriva da
-     lì la spunta «Adatta alla classe», che il modulo del bento monta NASCOSTA e
-     accesa. Un preset che li lasciasse falsi la spegnerebbe, e la taratura del
-     contesto attivo sparirebbe dai prompt senza che niente lo dica. */
-  var PRESET_DEFAULT_NOME = 'Default';
-  /* l'ultimo preset scelto dal docente: è quello che governa la sessione dopo */
+  // Una proposta nuova, senza riscrivere le opzioni dei preset personali o dei manifest.
   var CHIAVE_PRESET_ATTIVO = 'mappai_preset_attivo';
-  /* marcatore della sola MIGRAZIONE di un «Default» preesistente (domande aperte
-     + voce naturale): separato dal precedente, che dice «l'ho già applicato» */
-  var CHIAVE_PRESET_OQ = 'mappai_preset_default_oq_v1';
-  /* marcatore dei default del 19/8 (aperte · 5 per ramo · niente V/F · voce
-     spenta · tutti gli angoli): anche questo si applica UNA volta sola */
-  var CHIAVE_PRESET_V2 = 'mappai_preset_default_v2';
-  /* marcatore dei default del 9/9 (3 domande per ramo · catena dei perche' spenta
-     · voce naturale spenta): stessa regola, una volta sola. Va APPLICATO PER
-     ULTIMO fra le migrazioni, perche' quella delle domande aperte riaccende la
-     voce e senza quest'ordine la spegneremmo per poi riaccenderla. */
-  var CHIAVE_PRESET_V3 = 'mappai_preset_default_v3';
-  function _opzioniDefault() {
-    return {
-      /* 19/8, scelte di Giacomo: domande aperte accese, cinque per ramo, niente
-         vero/falso, voce naturale SPENTA (costa e si aggiunge dopo, dall'editor),
-         e il box «Più set per angolo» tutto acceso — è la configurazione che
-         serve alle attività «a scelta», dove lo studente sceglie fra le versioni. */
-      /* 7/9, Giacomo: anche flashcard, sintesi, foglio dei nodi e PDF allegato
-         sono di partenza; la voce naturale resta spenta. */
-      /* 9/9, Giacomo: TRE domande per ramo invece di cinque, e la catena dei
-         perche' fuori dal corredo di partenza. Chi la vuole la accende: e' un
-         documento a se', e di partenza allunga ogni generazione senza che sia
-         stata chiesta. */
-      quiz: { types: ['mc', 'open', 'flashcards'], perBranch: 3, angle: 'auto',
-              multi: ['open', 'mc'], angoli: PC().angoliMulti() },
-      nodesheet: { maxLevel: 'all', fmt: '2x2', modes: ['title'], causal: false },
-      synthesis: { audio: false },
-      sourcePdf: true,
-      causal: false,
-      tuned: true, levelTuned: true
-    };
+  var PRESET_LOTTO_ID = 'mappai-first-batch-v1';
+  const LAST_USED_PRESET = 'mappai_material_last_used';
+  function _lastUsedPreset() {
+    try { return JSON.parse(localStorage.getItem(LAST_USED_PRESET) || 'null'); } catch (_) { return null; }
   }
-  /* Crea il preset se manca, lo mette in cima alla tendina e — la PRIMA volta —
-     lo applica ai campi. Idempotente: si può chiamare a ogni montaggio del
-     bento senza sovrascrivere le scelte di chi lo ha poi modificato. */
-  Pipeline.assicuraPresetDefault = function () {
-    let list = _loadPresets();
-    const suo = (x) => String(x.name || '').toLowerCase() === PRESET_DEFAULT_NOME.toLowerCase();
-    let p = list.filter(suo)[0];
+  function _rememberUsedPreset(config, presetId) {
+    if (!presetId || !_loadPresets().some(p => p.id === presetId)) return;
+    localStorage.setItem(LAST_USED_PRESET, JSON.stringify({ presetId, options: PC().presetFromConfig(config) }));
+    localStorage.setItem(CHIAVE_PRESET_ATTIVO, presetId);
+  }
+  function _ensureInitialBatch() {
+    const list = _loadPresets();
+    let p = list.find(x => x.id === PRESET_LOTTO_ID);
     if (!p) {
-      list = PC().presetListPush(list, {
-        name: PRESET_DEFAULT_NOME, createdAt: _now(), options: _opzioniDefault()
-      }, 50);
-      _savePresets(list);
-      p = _loadPresets().filter(suo)[0];
-    } else {
-      /* ⚠️ UN «Default» PUÒ ESISTERE GIÀ, scritto dal docente prima di oggi —
-         è il caso vero trovato provando: mc+tf+flashcard, 6 domande per ramo.
-         Le sue scelte non si toccano: si AGGIUNGE soltanto ciò che Giacomo ha
-         chiesto che il Default comprenda — le domande aperte e la voce
-         naturale — e una volta sola, con un marcatore suo. Senza il marcatore,
-         chi togliesse di proposito le domande aperte se le ritroverebbe al
-         riavvio successivo: sarebbe una preferenza che non si può esprimere. */
-      /* ══ I DEFAULT DEL 19/8 VINCONO UNA VOLTA (inv. 17) ═══════════════════
-         Un «Default» già sul computer del docente porta le scelte di prima
-         (vero/falso acceso, 3 domande per ramo, voce naturale accesa): senza
-         questo passaggio i default nuovi li vedrebbero solo le installazioni
-         fresche, e chi ha usato l'app fin qui non li vedrebbe mai. Una volta
-         sola, col suo marcatore: dopo comanda di nuovo la scelta dell'utente. */
-      let v2 = false;
-      try { v2 = localStorage.getItem(CHIAVE_PRESET_V2) != null; } catch (e) { }
-      if (!v2) {
-        const o2 = p.options || {};
-        const q2 = o2.quiz || {};
-        const tipi2 = (Array.isArray(q2.types) ? q2.types : []).filter(t => t !== 'tf');
-        if (tipi2.indexOf('open') < 0) tipi2.push('open');
-        if (!tipi2.length) tipi2.push('mc');
-        const nuove = Object.assign({}, o2, {
-          quiz: Object.assign({}, q2, {
-            types: tipi2, perBranch: 5,
-            multi: ['open', 'mc'], angoli: PC().angoliMulti()
-          }),
-          synthesis: Object.assign({}, o2.synthesis || {}, { audio: false })
-        });
-        list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: nuove }) : x);
-        _savePresets(list);
-        p = _loadPresets().filter(suo)[0];
-        /* ⚠️ e la MEMORIA dei box va svuotata: se restasse, il ripristino
-           rimetterebbe le scelte di ieri sopra i default nuovi e la migrazione
-           non si vedrebbe (è lo stesso guasto che il marcatore evita, un piano
-           più sotto). */
-        try { localStorage.removeItem('mappai_bento_scelte'); } catch (e) { }
-        try { localStorage.setItem(CHIAVE_PRESET_V2, '1'); } catch (e) { }
-      }
-      let migrato = false;
-      try { migrato = localStorage.getItem(CHIAVE_PRESET_OQ) != null; } catch (e) { }
-      if (!migrato) {
-        const o = p.options || {};
-        const tipi = (o.quiz && Array.isArray(o.quiz.types)) ? o.quiz.types.slice() : [];
-        let cambiato = false;
-        if (tipi.indexOf('open') < 0) { tipi.push('open'); cambiato = true; }
-        /* ⚠️ questa migrazione accendeva anche la voce naturale. Dal 19/8 la
-           voce e' SPENTA di partenza (costa, e si aggiunge dopo dall'editor):
-           lasciarla qui significava riaccenderla alle spalle di chi non l'ha
-           chiesta. Ora tocca solo le domande aperte, che erano il suo scopo. */
-        const opts = Object.assign({}, o, {
-          quiz: Object.assign({ perBranch: 3, angle: 'auto' }, o.quiz || {}, { types: tipi })
-        });
-        if (cambiato) {
-          list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: opts }) : x);
-          _savePresets(list);
-          p = _loadPresets().filter(suo)[0];
-        }
-        try { localStorage.setItem(CHIAVE_PRESET_OQ, '1'); } catch (e) { }
-      }
-      /* ══ I DEFAULT DEL 9/9 VINCONO UNA VOLTA ═══════════════════════════════
-         Stessa ragione delle due migrazioni sopra: senza questo passaggio i
-         default nuovi li vedrebbero solo le installazioni fresche. Per ULTIMO,
-         cosi' nessuna migrazione precedente puo' rimettere la voce. */
-      let v3 = false;
-      try { v3 = localStorage.getItem(CHIAVE_PRESET_V3) != null; } catch (e) { }
-      if (!v3) {
-        const o3 = p.options || {};
-        const nuove3 = Object.assign({}, o3, {
-          quiz: Object.assign({}, o3.quiz || {}, { perBranch: 3 }),
-          synthesis: Object.assign({}, o3.synthesis || {}, { audio: false }),
-          causal: false
-        });
-        list = _loadPresets().map(x => suo(x) ? Object.assign({}, x, { options: nuove3 }) : x);
-        _savePresets(list);
-        p = _loadPresets().filter(suo)[0];
-        /* come per la v2: la memoria dei box va svuotata, o il ripristino
-           rimetterebbe le scelte di ieri sopra i default nuovi */
-        try { localStorage.removeItem('mappai_bento_scelte'); } catch (e) { }
-        try { localStorage.setItem(CHIAVE_PRESET_V3, '1'); } catch (e) { }
-      }
+      p = PC().presetNormalize({ id: PRESET_LOTTO_ID, name: _t('mp_first_batch', 'Primo lotto'),
+        createdAt: _now(), options: PC().initialBatchOptions() });
+      // Non eliminare il preset più vecchio per inserire una proposta dell'app.
+      _savePresets([p].concat(list));
+
     }
+    return p;
+  }
+  Pipeline.assicuraPresetDefault = function () {
+    const initial = _ensureInitialBatch();
+    const list = _loadPresets();
+    let selected = null;
+    try { selected = localStorage.getItem(CHIAVE_PRESET_ATTIVO); } catch (e) { }
+    // Un vecchio Default resta valido; nessuna migrazione delle scelte del docente.
+    const used = _lastUsedPreset();
+    const usedPreset = used?.options && list.find(x => x.id === used.presetId);
+    const active = usedPreset || list.find(x => x.id === selected) || list.find(x => x.name.toLowerCase() === 'default') || initial;
     _refreshPresetSelect();
-    /* Quale preset governa questa sessione: l'ULTIMO scelto, o «Default».
-       ⚠️ Si applica a OGNI montaggio del bento, e non una volta sola — perché
-       le spunte NON persistono: sono campi del DOM, ricostruiti dal markup a
-       ogni avvio. Con un marcatore «già fatto» il preset avrebbe governato solo
-       la primissima sessione e da lì in poi la generazione sarebbe ripartita
-       dai default del markup (solo scelta multipla, niente voce, niente domande
-       aperte) — cioè esattamente ciò che il preset doveva evitare.
-       È il difetto trovato al primo riavvio dopo aver spostato i box: a schermo
-       non si vede nulla, perché quei campi non sono più a vista.
-       `montaBento` gira una volta per sessione, quindi questo NON cancella le
-       scelte fatte nella vista estesa mentre si lavora. */
-    let scelto = null;
-    try { scelto = localStorage.getItem(CHIAVE_PRESET_ATTIVO); } catch (e) { }
-    const list2 = _loadPresets();
-    let attivo = scelto ? list2.filter(x => x.id === scelto)[0] : null;
-    if (!attivo) attivo = p;
-    const sel = document.getElementById('mp-preset');
-    if (sel && attivo) sel.value = attivo.id;
-    if (attivo) Pipeline._applyPreset({ silenzioso: true });
-    return attivo || null;
+    const sel = _configElement('mp-preset');
+    if (sel) { sel.value = active.id; Pipeline._applyPreset({ silenzioso: true }); }
+    if (usedPreset) {
+      _applyOptions(PC().presetNormalize({ options: used.options }).options);
+      return Object.assign({}, active, { usedForGeneration: true });
+    }
+    return active;
+  };
+  Pipeline.applyInitialBatch = function () {
+    const initial = _ensureInitialBatch();
+    _refreshPresetSelect();
+    const sel = _configElement('mp-preset');
+    if (sel) { sel.value = initial.id; Pipeline._applyPreset(); }
   };
 
-  Pipeline._applyPreset = function (opts) {
-    const s = document.getElementById('mp-preset');
-    if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
-    const p = _loadPresets().filter(x => x.id === s.value)[0]; if (!p) return;
-    const o = p.options || {};
-    const set = (id, v) => { const e = document.getElementById(id); if (e) e.checked = !!v; };
-    const val = (id, v) => { const e = document.getElementById(id); if (e && v != null) e.value = v; };
+  function _applyOptions(o) {
+    const set = (id, v) => { const e = _configElement(id); if (e) e.checked = !!v; };
+    const val = (id, v) => { const e = _configElement(id); if (e && v != null) e.value = v; };
     set('mp-quiz-on', !!o.quiz);
+    set('mp-qt-mixed', !!o.quiz?.mixed);
+    val('mp-fc-count', PC().quantiPerTipo(o.quiz, 'flashcards', o.quiz?.perBranch || 5));
     if (o.sourcePdf !== undefined) set('mp-src-pdf', !!o.sourcePdf);   /* il preset dice anche del PDF allegato (7/9) */
-    if (o.quiz) { set('mp-qt-mc', o.quiz.types.indexOf('mc') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
-      const ang = o.quiz.angoli || [];
+    if (o.quiz) { set('mp-qt-mc', !o.quiz.mixed && o.quiz.types.indexOf('mc') >= 0); set('mp-qt-fc', o.quiz.types.indexOf('flashcards') >= 0); set('mp-qt-open', !o.quiz.mixed && o.quiz.types.indexOf('open') >= 0); val('mp-perbranch', o.quiz.perBranch); val('mp-angle', o.quiz.angle);
+      const ang = PC().multiTypes(o.quiz).length ? (o.quiz.angoli || []) : [];
       PC().angoliMulti().forEach(k => set('mp-ang-' + k, ang.indexOf(k) >= 0)); }
+    if (!o.quiz) ['mp-qt-mc', 'mp-qt-open', 'mp-qt-fc'].forEach(id => set(id, false));
     set('mp-ns-on', !!o.nodesheet);
+    if (!o.nodesheet) ['mp-ns-title', 'mp-ns-keywords', 'mp-ns-summary', 'mp-ns-card'].forEach(id => set(id, false));
     if (o.nodesheet) { val('mp-ns-level', o.nodesheet.maxLevel === 'all' ? 'all' : String(o.nodesheet.maxLevel)); val('mp-ns-fmt', o.nodesheet.fmt); set('mp-ns-title', o.nodesheet.modes.indexOf('title') >= 0); set('mp-ns-keywords', o.nodesheet.modes.indexOf('keywords') >= 0); set('mp-ns-summary', o.nodesheet.modes.indexOf('summary') >= 0); set('mp-ns-card', o.nodesheet.modes.indexOf('card') >= 0); }
     /* la catena è fuori da `nodesheet` dal 5/8; `presetNormalize` la legge anche
        dai preset vecchi, qui basta il campo nuovo */
@@ -1692,13 +1621,20 @@
     let scope = 'both';
     if (o.levelTuned && !o.tuned) scope = 'map';
     else if (o.tuned && !o.levelTuned) scope = 'materials';
-    const r = document.querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
+    const r = _configRoot().querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
     if (r) r.checked = true;
     _syncSections(); Pipeline._reestimate();
+  }
+
+  Pipeline._applyPreset = function (opts) {
+    const s = _configElement('mp-preset');
+    if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
+    const p = _loadPresets().filter(x => x.id === s.value)[0]; if (!p) return;
+    _applyOptions(p.options || {});
     /* ⚠️ `.checked = x` da JS non scatena `change` (trappola 10): senza questa
        riga il preset appena applicato non finirebbe nella memoria dei box
        nascosti, e al riavvio tornerebbe quello di prima. */
-    try { if (window.MappAICostruisci && window.MappAICostruisci.memorizza) window.MappAICostruisci.memorizza(); } catch (e) { }
+    try { if (!(opts && opts.silenzioso) && _configRoot() === document && window.MappAICostruisci && window.MappAICostruisci.memorizza) window.MappAICostruisci.memorizza(); } catch (e) { }
     /* Applicato al BOOT (il preset «Default») non si annuncia: un toast a ogni
        avvio per una cosa che l'utente non ha chiesto è rumore. Applicato col
        bottone sì: lì è la risposta al suo gesto. */
@@ -1711,7 +1647,6 @@
 
   Pipeline._savePreset = function () {
     const cfg = _readConfig(); if (!cfg) return;
-    if (!_hasOutput(cfg)) { _toast(_t('mp_pick_one', 'Attiva almeno una sezione di output.'), 'warning'); return; }
     // window.prompt NON è supportato in Electron → prompt custom dell'app.
     const commit = function (name) {
       name = String(name == null ? '' : name).trim();
@@ -1719,6 +1654,9 @@
       let list = _loadPresets();
       list = PC().presetListPush(list, { name: name, createdAt: _now(), options: PC().presetFromConfig(cfg) }, 50);
       _savePresets(list); _refreshPresetSelect();
+      const saved = list[list.length - 1], select = _configElement('mp-preset');
+      if (select) select.value = saved.id;
+      localStorage.setItem(CHIAVE_PRESET_ATTIVO, saved.id);
       _toast(_t('mp_preset_saved', 'Preset salvato'), 'success');
     };
     if (window.showPrompt) window.showPrompt(_t('mp_preset_name', 'Nome del preset'), '', commit, _t('mp_preset_name_desc', 'Salva le opzioni correnti (senza la classe) per riusarle.'));
@@ -1726,8 +1664,9 @@
   };
 
   Pipeline._deletePreset = function () {
-    const s = document.getElementById('mp-preset'); if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
+    const s = _configElement('mp-preset'); if (!s || !s.value) { _toast(_t('mp_pick_preset', 'Scegli un preset dalla lista'), 'warning'); return; }
     const list = _loadPresets().filter(x => x.id !== s.value);
+    if (_lastUsedPreset()?.presetId === s.value) localStorage.removeItem(LAST_USED_PRESET);
     _savePresets(list); _refreshPresetSelect();
     _toast(_t('mp_preset_deleted', 'Preset eliminato'), 'info');
   };
@@ -1739,7 +1678,9 @@
       _toast(_t('mp_need_source', 'Carica almeno una fonte prima di generare i materiali'), 'warning');
       return;
     }
-    const old = document.getElementById('mp-modal'); if (old) old.remove();
+    const currentConfig = _readConfig();
+    const currentPresetId = _configElement('mp-preset')?.value;
+    const old = _configElement('mp-modal'); if (old) old.remove();
     // Opzione checkbox leggibile (label slate-700 12.5px).
     const chk = (id, label, checked) =>
       '<label class="flex items-center gap-2 cursor-pointer select-none">' +
@@ -1786,11 +1727,16 @@
           // Quiz
           '<div class="' + SECT + '">' + secHeader('mp-quiz-on', _t('mp_quiz', 'Quiz e flashcard')) +
             '<div id="mp-quiz-body" class="mt-3 space-y-3">' +
-              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), true) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + chk('mp-qt-open', _t('mp_qt_open', 'Domande aperte'), false) + '</div>' +
+              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-qt-mixed', _t('mp_mixed_set', 'Lotto misto'), true) + chk('mp-qt-mc', _t('mp_qt_mc', 'Scelta multipla'), false) + chk('mp-qt-fc', _t('mp_qt_fc', 'Flashcard'), false) + chk('mp-qt-open', _t('mp_qt_open', 'Domande aperte'), false) + '</div>' +
+              '<p class="text-sm text-slate-600">' + _esc(_t('mp_mixed_set_help', 'Lotto misto: 2 MC e 2 aperte per ramo. Per quantità e angolazioni personalizzate scegli i formati separati.')) + '</p>' +
               '<div class="flex gap-5 items-center flex-wrap">' +
-                fld(_t('mp_perbranch', 'Per ramo'), '<input type="number" id="mp-perbranch" min="1" max="10" value="3" class="w-[56px] ' + SEL + '">') +
+                fld(_t('mp_perbranch', 'Per ramo'), '<input type="number" id="mp-perbranch" min="1" max="10" value="2" class="w-[56px] ' + SEL + '">') +
+                fld(_t('mp_flashcard_count', 'Flashcard per ramo'), '<input type="number" id="mp-fc-count" min="1" max="30" value="5" class="w-[56px] ' + SEL + '">') +
                 fld(_t('mp_angle', 'Angolo'), '<select id="mp-angle" class="' + SEL + '">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>') +
-              '</div></div></div>' +
+              '</div>' +
+              '<details><summary>' + _esc(_t('mp_multi_optional', 'Varianti aggiuntive per angolazione')) + '</summary><div class="flex gap-x-5 gap-y-2 flex-wrap">' +
+                PC().angoliMulti().map(k => chk('mp-ang-' + k, window.quizAngleLabel ? window.quizAngleLabel(k) : k, false)).join('') +
+              '</div></details></div></div>' +
           // Foglio nodi
           '<div class="' + SECT + '">' + secHeader('mp-ns-on', _t('mp_nodesheet', 'Fogli nodi')) +
             '<div id="mp-ns-body" class="mt-3 space-y-3">' +
@@ -1842,24 +1788,49 @@
     modal.querySelector('#mp-preset-apply').onclick = () => Pipeline._applyPreset();
     modal.querySelector('#mp-preset-save').onclick = () => Pipeline._savePreset();
     modal.querySelector('#mp-preset-del').onclick = () => Pipeline._deletePreset();
-    modal.addEventListener('change', () => { _syncSections(); Pipeline._reestimate(); });
+    modal.addEventListener('change', event => { if (event.target.id === 'mp-preset') Pipeline._applyPreset(); Pipeline._syncQuizSelection(event.target.id); _syncSections(); Pipeline._reestimate(); });
     modal.addEventListener('input', () => Pipeline._reestimate());
     const esc = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); } };
     document.addEventListener('keydown', esc);
+    Pipeline.assicuraPresetDefault();
+    if (currentConfig) {
+      _applyOptions(PC().presetFromConfig(currentConfig));
+      if (currentPresetId) _configElement('mp-preset').value = currentPresetId;
+    }
     _syncSections();
     Pipeline._reestimate();
   };
 
+  Pipeline._syncQuizSelection = function (changedId) {
+    const mixed = _configElement('mp-qt-mixed');
+    if (!mixed) return;
+    const separate = ['mp-qt-mc', 'mp-qt-open'];
+    if (separate.includes(changedId) && _configElement(changedId)?.checked) mixed.checked = false;
+    if (mixed.checked) {
+      separate.forEach(id => { const field = _configElement(id); if (field) field.checked = false; });
+      const quantity = _configElement('mp-perbranch'), angle = _configElement('mp-angle');
+      if (quantity) quantity.value = 2;
+      if (angle) angle.value = 'auto';
+      PC().angoliMulti().forEach(key => { const field = _configElement('mp-ang-' + key); if (field) field.checked = false; });
+    }
+    ['mp-perbranch', 'mp-angle'].forEach(id => { const field = _configElement(id); if (field) field.disabled = mixed.checked; });
+    const flashCount = _configElement('mp-fc-count');
+    if (flashCount) flashCount.disabled = !_configElement('mp-qt-fc')?.checked;
+    const variants = !mixed.checked && separate.some(id => _configElement(id)?.checked);
+    PC().angoliMulti().forEach(key => { const field = _configElement('mp-ang-' + key); if (field) field.disabled = !variants; });
+  };
+
   function _syncSections() {
-    const on = (id) => { const e = document.getElementById(id); return e ? e.checked : false; };
-    const body = (id, vis) => { const e = document.getElementById(id); if (e) e.style.display = vis ? '' : 'none'; };
+    Pipeline._syncQuizSelection();
+    const on = (id) => { const e = _configElement(id); return e ? e.checked : false; };
+    const body = (id, vis) => { const e = _configElement(id); if (e) e.style.display = vis ? '' : 'none'; };
     body('mp-quiz-body', on('mp-quiz-on'));
     body('mp-ns-body', on('mp-ns-on'));
     body('mp-syn-body', on('mp-syn-on'));
     body('mp-adapt-body', on('mp-adapt-on'));
     // Nome classe nel master toggle «Adatta alla classe».
-    const sel = document.getElementById('mp-class');
-    const lbl = document.getElementById('mp-adapt-cls');
+    const sel = _configElement('mp-class');
+    const lbl = _configElement('mp-adapt-cls');
     if (sel && lbl) {
       const cls = (sel.value && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(sel.value) : null;
       lbl.textContent = cls ? cls.name : '';
@@ -1871,12 +1842,12 @@
      stessi id apposta. Una lettura sola per due superfici: una copia qui
      divergerebbe al primo campo aggiunto. Null se non c'è nessuna delle due. */
   function _readConfig() {
-    const g = (id) => document.getElementById(id);
+    const g = (id) => _configElement(id);
     if (!g('mp-modal') && !g('mn-bento')) return null;
     const on = (id) => g(id) && g(id).checked;
     // «Adatta alla classe»: master + ambito → levelTuned (mappa) e/o tuned (materiali VERDE).
     const adaptOn = !!on('mp-adapt-on');
-    const scopeEl = document.querySelector('input[name="mp-adapt-scope"]:checked');
+    const scopeEl = _configRoot().querySelector('input[name="mp-adapt-scope"]:checked');
     const scope = adaptOn ? (scopeEl ? scopeEl.value : 'both') : 'none';
     const cfg = {
       classId: (g('mp-class') && g('mp-class').value) || '',
@@ -1884,12 +1855,13 @@
       tuned: adaptOn && (scope === 'materials' || scope === 'both')
     };
     if (on('mp-quiz-on')) {
-      const types = [];
-      if (on('mp-qt-mc')) types.push('mc');
+      const mixed = !!on('mp-qt-mixed');
+      const types = mixed ? ['mc', 'open'] : [];
+      if (!mixed && on('mp-qt-mc')) types.push('mc');
       if (on('mp-qt-fc')) types.push('flashcards');
-      if (on('mp-qt-open')) types.push('open');
+      if (!mixed && on('mp-qt-open')) types.push('open');
       if (types.length) {
-        cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 3)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
+        cfg.quiz = { types, perBranch: Math.max(1, Math.min(10, parseInt(g('mp-perbranch').value, 10) || 2)), angle: (g('mp-angle') && g('mp-angle').value) || 'auto' };
         /* «Più set per angolo»: un materiale per ognuno degli angoli spuntati
            invece che uno solo, per i generi che lo ammettono (aperte, MC). Le
            caselle-angolo vivono nel BENTO (vista estesa) e nel modale storico
@@ -1903,6 +1875,8 @@
         const angoli = PC().angoliMulti().filter(k => on('mp-ang-' + k));
         cfg.quiz.angoli = angoli;
         cfg.quiz.multi = PC().multiTypes({ multi, types, angoli });
+        if (mixed) Object.assign(cfg.quiz, { mixed: true, perBranch: 2, angle: 'auto', multi: [], angoli: [] });
+        if (g('mp-fc-count')) cfg.quiz.perTipo = { flashcards: Math.max(1, Math.min(30, parseInt(g('mp-fc-count').value, 10) || 5)) };
       }
     }
     if (on('mp-ns-on')) {
@@ -1946,7 +1920,7 @@
   }
 
   Pipeline._reestimate = function () {
-    const el = document.getElementById('mp-estimate'); if (!el) return;
+    const el = _configElement('mp-estimate'); if (!el) return;
     const cfg = _readConfig(); if (!cfg) return;
     if (!_hasOutput(cfg)) { el.innerHTML = _esc(_t('mp_pick_one', 'Attiva almeno una sezione di output.')); return; }
     const est = PC().estimateCalls(cfg, _mapStats());
@@ -1955,7 +1929,7 @@
   };
 
   // A new material job keeps the approved map and the previous delivery.
-  Pipeline.runApprovedMaterials = async function (config, target) {
+  Pipeline.runApprovedMaterials = async function (config, target, presetId) {
     const st = _state(), old = st._pipelineManifest;
     if (Pipeline._running || !old?.review || !await window.MappAIReview.requireApproved()) return;
     if (target && (target.vaultPath !== st.activeVaultPath || target.revision !== old.review.approvedRevision)) {
@@ -1973,7 +1947,7 @@
     }
     delete manifest.review.final;
     manifest.review.drafts = { B: {}, C: {} };
-    await Pipeline.run(config, { only: ['B', 'C', 'D', 'E'], vaultPath: st.activeVaultPath, manifest });
+    await Pipeline.run(config, { only: ['B', 'C', 'D', 'E'], vaultPath: st.activeVaultPath, manifest, presetId });
   };
 
   // Pre-flight + avvio dal modale.
@@ -1991,6 +1965,7 @@
       let gk = ''; try { gk = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
       if (!gk) { cfg.synthesis.audio = false; _toast(_t('mp_no_google', 'Voce naturale disattivata: serve la chiave Google (Gemini). La sintesi sarà solo testo.'), 'warning'); }
     }
+    const presetId = _configElement('mp-preset')?.value;
     const modal = document.getElementById('mp-modal'); if (modal) modal.remove();
     /* ── LE IMMAGINI FANNO DOSSIER (20/8) ────────────────────────────────────
        Ogni fonte-immagine con la scheda confermata diventa un DOSSIER suo: un
@@ -2003,9 +1978,9 @@
     const schede = schedeFoto;
     if (Pipeline._reviewTarget) {
       const target = Pipeline._reviewTarget; Pipeline._reviewTarget = null;
-      Pipeline.runApprovedMaterials(cfg, target); return;
+      Pipeline.runApprovedMaterials(cfg, target, presetId); return;
     }
-    if (!schede.length) { Pipeline.run(cfg); return; }
+    if (!schede.length) { Pipeline.run(cfg, { presetId }); return; }
     (async () => {
       if (_haAltreFonti()) {
         _toast(_t('mp_dossier_solo', 'Con delle immagini caricate si generano i DOSSIER delle fonti: le altre fonti non entrano (generale separatamente).'), 'info');
@@ -2318,7 +2293,7 @@
 
     const vaultPath = _state().activeVaultPath || '';
     const mapName = _mapName();
-    const quantita = Math.max(1, Math.min(30, parseInt(opts.quantita, 10) || 5));
+    const quantita = Math.max(1, Math.min(30, parseInt(opts.quantita, 10) || 2));
     const angle = opts.angolo || 'auto';
     /* Le domande d'AVVIO: la percentuale la sceglie il docente, il numero per
        ramo lo fa il core (`quotaBase`) — al modello si danno numeri. */
@@ -2368,10 +2343,13 @@
         spec.typeLabel + (nome ? ' · ' + nome : '') + ' — ' + mapName);
       _setContext(spec.sub);
       const raw = [];
+      let requestedCount = 0;
       for (let i = 0; i < scelte.length; i++) {
         const b = scelte[i];
         const material = _branchMaterial(b);
         if (!material.trim()) continue;
+        requestedCount += quantita;
+        const complementary = sorg ? [] : _complementaryQuestions(opts.tipo, _clean(b.label));
         if (opts.tipo === 'open') {
           const comp = _ramoCompagno(b, tutte);
           const materialeB = comp ? _branchMaterial(comp) : '';
@@ -2382,22 +2360,25 @@
              domande di un ramo si somministrano insieme, e una quota globale
              potrebbe metterle tutte d'avvio in un'area e nessuna in un'altra. */
           const items = await _genOpenQuestions(insieme, _clean(b.label), quantita, apiKey,
-            { areaB: comp ? _clean(comp.label) : '', angolo: angle, base: baseRamo });
-          items.forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
+            { areaB: comp ? _clean(comp.label) : '', angolo: angle, base: baseRamo, complementary });
+          _withoutCrossFormatCopies(items, complementary).forEach(it => raw.push(Object.assign({ l1: _clean(b.label), ramo: _clean(b.label) }, it)));
         } else if (opts.tipo === 'flashcards') {
           const items = await _genFlashcards(material, _clean(b.label), quantita, apiKey);
           items.forEach(it => raw.push(it));
         } else {
           const items = await window.generateDynamicQuiz({
             nodeLabel: _clean(b.label), material, quizType: spec.quizType,
-            quantity: quantita, angle, apiKey, usageCat: 'pipeline', usageSub: spec.sub
+            quantity: quantita, angle, apiKey, usageCat: 'pipeline', usageSub: spec.sub, complementary
           });
-          (items || []).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
+          _withoutCrossFormatCopies(items || [], complementary).forEach(it => raw.push(Object.assign({ ramo: _clean(b.label) }, it)));
         }
       }
       raw.splice(0, raw.length, ..._potaDoppioni(raw, spec.typeLabel + (nome ? ' · ' + nome : '')));
       if (spec.mode === 'quiz') _guardaLunghezze(raw, spec.typeLabel + (nome ? ' · ' + nome : ''));
       if (!raw.length) return { ok: false, errore: _t('cq_vuoto', 'L\'AI non ha prodotto domande utilizzabili: riprova, magari con un\'area più ricca.') };
+      const generation = { requested: requestedCount, produced: raw.length };
+      if (raw.length < requestedCount) _toast(_t('mp_batch_short', '{f}: {n} domande utilizzabili sulle {t} richieste. Verifica gli obiettivi rimasti scoperti.')
+        .replace('{f}', spec.typeLabel).replace('{n}', raw.length).replace('{t}', requestedCount), 'warning');
       /* Le domande d'avvio in testa al loro ramo: un foglio si comincia da ciò
          che si sa. L'ordine si rimescola solo DENTRO il ramo (il foglio resta
          organizzato per macro-area). */
@@ -2429,7 +2410,7 @@
            builder la mette in testa E dentro la sorgente incorporata, così
            l'immagine sopravvive alla riapertura nell'editor. */
         const html = window.buildOpenQuestionsHtml(
-          { id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: angle, intro: opts.intro || null },
+          { id: setId, title: titoloDoc, type: spec.typeLabel, items: raw, angle: angle, intro: opts.intro || null, generation },
           { mapName, includeBar: false });
         /* La SORGENTE si salva PRIMA della RESA. L'archivio porta l'HTML con
            dentro le domande — è ciò che si riapre e si corregge in ELABORA;
@@ -2482,13 +2463,13 @@
         if (!inArchivio && !fileScritto) return { ok: false, errore: pdfErrore || 'PDF non generato' };
         /* `pdfErrore` solo se un vault c'era: senza vault il PDF non è promesso
            e il toast giusto è quello del vault mancante, non un guasto. */
-        return { ok: true, titolo: titoloDoc, file: fileScritto ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '' };
+        return { ok: true, titolo: titoloDoc, file: fileScritto ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '', generation };
       }
 
       // ── set EDITABILE (è da questi che nascono i quiz live) + PDF nel vault
       const set = {
         id: setId, title: titolo, mode: spec.mode, type: spec.typeLabel,
-        items: raw, angle: angle, quantity: quantita, date: _now(), clone: nome
+        items: raw, angle: angle, quantity: quantita, date: _now(), clone: nome, generation
       };
       _state().db.studySets = _state().db.studySets || [];
       _state().db.studySets.push(set);
@@ -2523,7 +2504,7 @@
       if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
       /* `pdfErrore` solo se un vault c'era: senza vault il PDF non è promesso
          e il toast giusto è quello del vault mancante, non un guasto. */
-      return { ok: true, setId: setId, titolo: titolo, file: (pdfOk && vaultPath) ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '' };
+      return { ok: true, setId: setId, titolo: titolo, file: (pdfOk && vaultPath) ? fileName : '', pdfErrore: vaultPath ? pdfErrore : '', generation };
     } catch (e) {
       return { ok: false, errore: e.message || String(e) };
     } finally {

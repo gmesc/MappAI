@@ -25,6 +25,12 @@ test('retry preserves legacy decisions when only the explanation changes, while 
   assert.equal(R.beginApproval(merged, db()).db.nodes[0].desc, AFTER);
   assert.equal(JSON.stringify(previous), saved);
   assert.deepEqual(merged.initial.previousReports, [report]);
+  const proposedAgain = R.createReview({ db: db(), sources: SOURCES, report: { stato: 'completato',
+    correzioni: [{ ...reworded, dopo: 'Una nuova formulazione proposta sulla stessa prova.' }] } });
+  const preserved = R.mergeRetry(previous, proposedAgain);
+  assert.equal(preserved.initial.issues.length, 1, 'a proposed rewrite on identical proof cannot reopen the teacher’s manual correction');
+  assert.deepEqual(preserved.initial.decisions, previous.initial.decisions);
+  assert.deepEqual(preserved.initial.report, proposedAgain.initial.report, 'the complete new report is still archived');
   const differentQuote = R.createReview({ db: db(), sources: SOURCES, report: { stato: 'completato',
     segnalati: [{ ...reworded, prova: 'ottenere franchi' }] } });
   const reopened = R.mergeRetry(previous, differentQuote);
@@ -68,6 +74,7 @@ test('independent corrections in one text compose, survive reload and preserve o
   const rejected = R.preview(review, { items: [item] });
   assert.equal(rejected.ok, false); assert.deepEqual(rejected.db.items, [item]);
   assert.ok(rejected.conflicts.some(c => c.code === 'conflicting_decisions'));
+  assert.equal(rejected.conflicts.find(c => c.code === 'conflicting_decisions').otherIssueId, 'guisan');
   const node = { id: 'N', desc: item.text, content: item.text };
   const nodeIssues = issues.map(i => ({ ...i, target: { kind: 'node', id: 'N', field: 'desc' } }));
   let nodeReview = R.createReview({ db: { nodes: [node] }, sources: SOURCES, report: { checkStatus: 'completed', issues: nodeIssues } });

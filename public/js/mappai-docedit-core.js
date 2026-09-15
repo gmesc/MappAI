@@ -331,7 +331,14 @@
      * i '<' orfani.
      */
     function sanitizeInline(html) {
-        var src = _s(html);
+        // Edit the original TeX, not the concatenated MathML presentation and
+        // annotation. The synthesis renderer typesets it again on export.
+        var src = _s(html).replace(/<math\b[^>]*>[\s\S]*?<\/math>/gi, function (math) {
+            var annotation = /<annotation\b[^>]*encoding=["']application\/x-tex["'][^>]*>([\s\S]*?)<\/annotation>/i.exec(math);
+            if (!annotation) return math;
+            var delimiter = /^<math\b[^>]*display=["']block["']/i.test(math) ? '$$' : '$';
+            return delimiter + annotation[1] + delimiter;
+        });
         var out = '';
         var open = [];                    // stack dei tag realmente emessi
         // Tag SCARTATI ma ancora aperti nell'input: la loro chiusura va ingoiata,
@@ -392,6 +399,7 @@
     /** Testo semplice di un frammento inline (per TTS, ricerca, conteggi). */
     function plainText(html) {
         return _s(html)
+            .replace(/<annotation\b[^>]*>[\s\S]*?<\/annotation>/gi, '')
             .replace(/<br\s*\/?>/gi, ' ')
             .replace(/<[^>]*>/g, '')
             .replace(/&nbsp;/g, ' ')

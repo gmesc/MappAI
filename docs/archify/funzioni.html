@@ -1,0 +1,427 @@
+<title>Le funzioni di MappAI</title>
+<script>document.documentElement.classList.add("ui");</script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mappai-ui.css">
+<style>
+  /* ── Le funzioni: una superficie di CONSULTAZIONE, sui token della regola 10.
+       L'unica cosa nuova è un colore per AREA: è categoriale (dice «di che cosa
+       si occupa»), non semantico — per questo vive in token separati e non tocca
+       --ui-ok/--ui-no/--ui-mod, che dicono uno stato. ─────────────────────── */
+  :root {
+    --a-nucleo:   #7DD3FC;   /* la spina dorsale: azzurro, come l'accento */
+    --a-server:   #A78BFA;
+    --a-gen:      #FBBF24;   /* la generazione: il calore delle chiamate AI */
+    --a-mat:      #F472B6;
+    --a-rev:      #34D399;
+    --a-mappa:    #60A5FA;
+    --a-vault:    #C084FC;
+    --a-classe:   #FB923C;
+    --a-studio:   #4ADE80;
+    --a-ui:       #94A3B8;
+    --a-a11y:     #22D3EE;
+    --a-dev:      #F87171;
+  }
+  html.ui[data-theme="light"], .ui[data-theme="light"] {
+    --a-nucleo: #0369A1; --a-server: #6D28D9; --a-gen: #B45309; --a-mat: #BE185D;
+    --a-rev: #047857; --a-mappa: #1D4ED8; --a-vault: #7E22CE; --a-classe: #C2410C;
+    --a-studio: #15803D; --a-ui: #475569; --a-a11y: #0E7490; --a-dev: #B91C1C;
+  }
+  @media (prefers-color-scheme: light) {
+    html.ui:not([data-theme="dark"]) {
+      --a-nucleo: #0369A1; --a-server: #6D28D9; --a-gen: #B45309; --a-mat: #BE185D;
+      --a-rev: #047857; --a-mappa: #1D4ED8; --a-vault: #7E22CE; --a-classe: #C2410C;
+      --a-studio: #15803D; --a-ui: #475569; --a-a11y: #0E7490; --a-dev: #B91C1C;
+    }
+  }
+
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--ui-fondo); color: var(--ui-testo);
+         font-family: var(--ui-font); font-size: var(--ui-fs-corpo); }
+  .foglio { max-width: var(--ui-tetto); margin: 0 auto; padding-inline: 24px; padding-block: 0 60px; }
+
+  /* Testata */
+  header.f-testata { padding-block: 28px 18px; border-bottom: 1px solid var(--ui-bordo); }
+  .f-titolo { font-size: 28px; line-height: 1.15; font-weight: 700; margin: 0 0 8px; text-wrap: balance; }
+  .f-sotto { color: var(--ui-testo-2); line-height: var(--ui-lh-corpo); margin: 0; max-width: 72ch; }
+  .f-conti { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .f-conto { display: grid; gap: 2px; padding: 8px 14px; border: 1px solid var(--ui-bordo);
+             border-radius: var(--ui-r); background: var(--ui-pannello); min-width: 108px; }
+  .f-conto b { font-size: 20px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .f-conto small { font-size: 10px; letter-spacing: var(--ui-ls-eti); text-transform: uppercase; color: var(--ui-testo-2); }
+
+  /* Barra dei filtri: resta in alto, è lo strumento della pagina */
+  .f-barra { position: sticky; top: 0; z-index: 5; background: var(--ui-fondo);
+             border-bottom: 1px solid var(--ui-bordo); padding-block: 12px 10px; }
+  .f-riga-cerca { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .f-cerca { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 8px;
+             border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); background: var(--ui-pannello); padding: 0 12px; }
+  .f-cerca input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ui-testo);
+                   font: 400 16px var(--ui-font); padding: 10px 0; }
+  .f-cerca input::placeholder { color: var(--ui-testo-2); }
+  .f-cerca input:focus { outline: none; }
+  .f-cerca:focus-within { border-color: var(--ui-accento); }
+  .f-cerca .tasto { font-size: 11px; color: var(--ui-testo-2); border: 1px solid var(--ui-bordo);
+                    border-radius: 5px; padding: 1px 5px; }
+
+  .f-filtri { display: grid; gap: 6px; margin-top: 10px; }
+  .f-fila { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .f-fila > .eti { font-size: 10px; letter-spacing: var(--ui-ls-eti); text-transform: uppercase;
+                   color: var(--ui-testo-2); width: 92px; flex: 0 0 92px; padding-top: 5px; }
+  .f-tag { font: 700 12px var(--ui-font); color: var(--ui-testo-2); background: var(--ui-pannello);
+           border: 1px solid var(--ui-bordo); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .f-tag:hover { background: var(--ui-pannello-attivo); color: var(--ui-testo); }
+  .f-tag[aria-pressed="true"] { background: var(--ui-pannello-attivo); color: var(--ui-testo); border-color: var(--ui-accento); }
+  .f-tag .pal { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+                background: var(--pal, var(--ui-testo-2)); vertical-align: middle; }
+  .f-azzera { margin-left: auto; font: 700 12px var(--ui-font); background: none; border: 0;
+              color: var(--ui-accento); cursor: pointer; padding: 4px 2px; }
+
+  /* Esito */
+  .f-esito { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+             padding-block: 14px 6px; color: var(--ui-testo-2); font-size: 12px; }
+  .f-esito b { color: var(--ui-testo); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .f-mappa-nota { border-left: 2px solid var(--ui-accento); padding: 10px 14px; margin: 12px 0 0;
+                  background: var(--ui-pannello); border-radius: 0 var(--ui-r) var(--ui-r) 0; }
+  .f-mappa-nota p { margin: 0; color: var(--ui-testo-2); line-height: var(--ui-lh-corpo); }
+  .f-mappa-nota a { color: var(--ui-accento); }
+
+  /* Gruppi per modulo */
+  .f-modulo { margin-top: 18px; border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro);
+              background: var(--ui-pannello); overflow: hidden; }
+  .f-modulo > h2 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+                   margin: 0; padding: 12px 16px; font-size: 14px; font-weight: 700;
+                   border-bottom: 1px solid var(--ui-bordo); border-left: 3px solid var(--pal); }
+  .f-modulo > h2 .file { color: var(--ui-testo-2); font-weight: 400; font-size: 12px; }
+  .f-modulo > h2 .conta { margin-left: auto; font-size: 11px; color: var(--ui-testo-2); font-variant-numeric: tabular-nums; }
+  .f-modulo > .mdesc { margin: 0; padding: 10px 16px 12px; color: var(--ui-testo-2);
+                       line-height: var(--ui-lh-corpo); border-bottom: 1px solid var(--ui-bordo); }
+  .f-modulo > .mdesc .mappe { display: block; margin-top: 6px; font-size: 11px; }
+  .f-modulo > .mdesc .mappe a { color: var(--ui-accento); text-decoration: none; }
+  .f-modulo > .mdesc .mappe a:hover { text-decoration: underline; }
+
+  /* Una funzione */
+  .f-fn { border-bottom: 1px solid var(--ui-bordo); }
+  .f-fn:last-child { border-bottom: 0; }
+  .f-fn > button { display: grid; grid-template-columns: minmax(0, 26ch) 1fr auto; gap: 4px 16px;
+                   width: 100%; text-align: left; background: none; border: 0; cursor: pointer;
+                   color: inherit; font-family: var(--ui-font); padding: 10px 16px; }
+  .f-fn > button:hover { background: var(--ui-pannello-attivo); }
+  .f-fn .nome { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+  .f-fn .nome .pre { color: var(--ui-testo-2); font-weight: 400; }
+  .f-fn .desc { font-size: 13px; line-height: 1.5; color: var(--ui-testo); min-width: 0; }
+  .f-fn .desc.vuota { color: var(--ui-testo-2); font-style: italic; }
+  .f-fn .riga { font-size: 11px; color: var(--ui-testo-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .f-fn .segni { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+  .f-segno { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--ui-testo-2);
+             border: 1px solid var(--ui-bordo); border-radius: 4px; padding: 1px 6px; }
+  .f-segno.ai { color: var(--ui-mod); border-color: color-mix(in srgb, var(--ui-mod) 45%, transparent); }
+  .f-dettaglio { padding: 0 16px 14px calc(16px + 26ch + 16px); display: grid; gap: 8px; }
+  .f-dettaglio dl { display: grid; grid-template-columns: 11ch 1fr; gap: 4px 12px; margin: 0; font-size: 12px; }
+  .f-dettaglio dt { color: var(--ui-testo-2); }
+  .f-dettaglio dd { margin: 0; overflow-wrap: anywhere; }
+  .f-dettaglio code { background: var(--ui-pannello-attivo); border-radius: 4px; padding: 1px 5px; }
+  .f-dettaglio .nota { color: var(--ui-testo-2); line-height: 1.5; font-size: 12px; }
+  @media (max-width: 760px) {
+    .f-fn > button { grid-template-columns: 1fr; }
+    .f-fn .segni { grid-column: 1; }
+    .f-dettaglio { padding-left: 16px; }
+    .f-fila > .eti { width: auto; flex: 0 0 100%; }
+  }
+
+  .f-altre { display: block; width: 100%; margin-top: 18px; }
+  .f-niente { padding: 40px 0; color: var(--ui-testo-2); text-align: center; }
+  .f-piede { margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--ui-bordo);
+             color: var(--ui-testo-2); font-size: 12px; line-height: 1.6; }
+  .f-piede code { background: var(--ui-pannello); border-radius: 4px; padding: 1px 5px; }
+</style>
+
+<div class="foglio">
+  <header class="f-testata">
+    <p class="ui-eyebrow">Atlante MappAI · il glossario</p>
+    <h1 class="f-titolo">Le funzioni di MappAI</h1>
+    <p class="f-sotto">Ogni funzione del codice, con il nome che ha, il file e la riga dove vive,
+      e che cosa fa. Raccolte per modulo, filtrabili per mappa dell'Atlante, per area, per momento
+      del lavoro e per che cosa toccano. Quando in chat compare un nome — <code>fetchModelAPI</code>,
+      <code>applyAnchor</code>, <code>saveMapVault</code> — questa pagina dice di che cosa si parla.</p>
+    <div class="f-conti" id="conti"></div>
+  </header>
+
+  <div class="f-barra">
+    <div class="f-riga-cerca">
+      <label class="f-cerca" for="cerca">
+        <input id="cerca" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Cerca un nome, una parola della descrizione, un file…">
+        <span class="tasto">/</span>
+      </label>
+      <div class="ui-segmenti" role="tablist" aria-label="Quante funzioni mostrare">
+        <button type="button" id="solo-api" role="tab" aria-selected="true">Le funzioni con un nome pubblico</button>
+        <button type="button" id="tutte" role="tab" aria-selected="false">Tutte</button>
+      </div>
+    </div>
+    <div class="f-filtri" id="filtri"></div>
+  </div>
+
+  <div class="f-esito" id="esito"></div>
+  <div id="nota-mappa"></div>
+  <main id="elenco"></main>
+  <button type="button" class="ui-btn f-altre" id="altre" hidden></button>
+
+  <p class="f-piede">
+    Come si leggono i nomi. <code>window.qualcosa</code> è una funzione globale: si chiama così
+    anche dalla console dell'app. <code>MappAIQualcosa.metodo</code> vive dentro un namespace, e si
+    chiama col prefisso. <code>electronAPI.qualcosa</code> è il ponte verso il processo principale;
+    <code>canale IPC</code> è la sua sponda dall'altra parte, dentro <code>main.js</code>.
+    «Interna» vuol dire che quella funzione lavora solo dentro il suo file.<br>
+    Le descrizioni con <em>dal codice</em> sono il commento che sta nel sorgente, riportato com'è.
+    Nomi, file, righe, argomenti e i segni («chiama l'AI», «stampa o PDF»…) sono letti dal codice,
+    non scritti a mano: valgono per il commit da cui questa pagina è stata generata.
+  </p>
+</div>
+
+<script src="funzioni-dati.js"></script>
+<script>
+(function () {
+  var D = window.MAPPAI_FUNZIONI;
+  var righe = D.rows, moduli = D.moduli, MAPPE = D.mappe, FASI = D.fasi, FLAGS = D.flags;
+
+  var PAL = {
+    'Nucleo': '--a-nucleo', 'Server LAN': '--a-server', 'Generazione': '--a-gen',
+    'Materiali': '--a-mat', 'Revisione': '--a-rev', 'Mappa e canvas': '--a-mappa',
+    'Vault e file': '--a-vault', 'Classe e live': '--a-classe', 'Studio': '--a-studio',
+    'Interfaccia': '--a-ui', 'Accessibilità': '--a-a11y', 'Costi e dev': '--a-dev'
+  };
+  var ESPOSIZIONI = ['globale', 'namespace', 'electronAPI', 'canale IPC', 'interna'];
+  var ETICHETTA_ESP = {
+    'globale': 'window.*', 'namespace': 'MappAI*.*', 'electronAPI': 'electronAPI.*',
+    'canale IPC': 'canale IPC', 'interna': 'interna al file'
+  };
+
+  // Indice di ricerca, costruito una volta sola.
+  righe.forEach(function (r) {
+    r.q = (r[0] + ' ' + r[1] + ' ' + r[2] + ' ' + r[5]).toLowerCase();
+    r.m = moduli[r[2]];
+  });
+
+  var stato = { cerca: '', soloApi: true, mappa: null, aree: [], fasi: [], segni: [], esp: [], quante: 250 };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+
+  /* ── I filtri ─────────────────────────────────────────────────────────── */
+  var aree = Object.keys(PAL);
+  function tag(testo, attivo, pal) {
+    return '<button type="button" class="f-tag" aria-pressed="' + (attivo ? 'true' : 'false') + '"' +
+      (pal ? ' style="--pal:var(' + pal + ')"' : '') + '>' +
+      (pal ? '<span class="pal"></span>' : '') + esc(testo) + '</button>';
+  }
+  function disegnaFiltri() {
+    var h = '';
+    h += '<div class="f-fila" data-gruppo="mappa"><span class="eti">Mappa</span>';
+    MAPPE.forEach(function (m) { h += tag(m[0] + ' · ' + m[1], stato.mappa === m[0]); });
+    h += tag('fuori dalle mappe', stato.mappa === 'fuori');
+    h += '<button type="button" class="f-azzera" id="azzera">Azzera i filtri</button></div>';
+
+    h += '<div class="f-fila" data-gruppo="area"><span class="eti">Area</span>';
+    aree.forEach(function (a) { h += tag(a, stato.aree.indexOf(a) >= 0, PAL[a]); });
+    h += '</div>';
+
+    h += '<div class="f-fila" data-gruppo="fase"><span class="eti">Quando</span>';
+    Object.keys(FASI).forEach(function (k) { h += tag(FASI[k], stato.fasi.indexOf(k) >= 0); });
+    h += '</div>';
+
+    h += '<div class="f-fila" data-gruppo="segno"><span class="eti">Che cosa fa</span>';
+    Object.keys(FLAGS).forEach(function (k) { h += tag(FLAGS[k], stato.segni.indexOf(k) >= 0); });
+    h += '</div>';
+
+    h += '<div class="f-fila" data-gruppo="esp"><span class="eti">Come si chiama</span>';
+    ESPOSIZIONI.forEach(function (e) { h += tag(ETICHETTA_ESP[e], stato.esp.indexOf(e) >= 0); });
+    h += '</div>';
+    document.getElementById('filtri').innerHTML = h;
+  }
+
+  document.getElementById('filtri').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    if (b.id === 'azzera') {
+      stato.mappa = null; stato.aree = []; stato.fasi = []; stato.segni = []; stato.esp = [];
+      stato.cerca = ''; document.getElementById('cerca').value = '';
+      stato.quante = 250; disegnaFiltri(); disegna(); return;
+    }
+    var fila = b.closest('.f-fila'); if (!fila) return;
+    var g = fila.dataset.gruppo;
+    var i = Array.prototype.indexOf.call(fila.querySelectorAll('.f-tag'), b);
+    stato.quante = 250;
+    if (g === 'mappa') {
+      var val = (i < MAPPE.length) ? MAPPE[i][0] : 'fuori';
+      stato.mappa = (stato.mappa === val) ? null : val;
+    } else {
+      var lista = { area: aree, fase: Object.keys(FASI), segno: Object.keys(FLAGS), esp: ESPOSIZIONI }[g];
+      var chiave = { area: 'aree', fase: 'fasi', segno: 'segni', esp: 'esp' }[g];
+      var v = lista[i], pos = stato[chiave].indexOf(v);
+      if (pos >= 0) stato[chiave].splice(pos, 1); else stato[chiave].push(v);
+    }
+    disegnaFiltri(); disegna();
+  });
+
+  var input = document.getElementById('cerca');
+  input.addEventListener('input', function () {
+    stato.cerca = input.value.trim().toLowerCase(); stato.quante = 250; disegna();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+  });
+  document.getElementById('solo-api').addEventListener('click', function () { modo(true); });
+  document.getElementById('tutte').addEventListener('click', function () { modo(false); });
+  function modo(solo) {
+    stato.soloApi = solo; stato.quante = 250;
+    document.getElementById('solo-api').setAttribute('aria-selected', solo ? 'true' : 'false');
+    document.getElementById('tutte').setAttribute('aria-selected', solo ? 'false' : 'true');
+    disegna();
+  }
+
+  /* ── Il filtro vero ───────────────────────────────────────────────────── */
+  function passa(r) {
+    if (stato.soloApi && r[7] === 'interna') return false;
+    if (stato.cerca && r.q.indexOf(stato.cerca) < 0) return false;
+    if (stato.mappa) {
+      var mm = r.m.mappe;
+      if (stato.mappa === 'fuori') { if (mm.length) return false; }
+      else if (mm.indexOf(parseInt(stato.mappa, 10)) < 0) return false;
+    }
+    if (stato.aree.length && stato.aree.indexOf(r.m.area) < 0) return false;
+    if (stato.fasi.length && stato.fasi.indexOf(r.m.fase) < 0) return false;
+    if (stato.esp.length && stato.esp.indexOf(r[7]) < 0) return false;
+    if (stato.segni.length) {
+      for (var i = 0; i < stato.segni.length; i++) if (r[8].indexOf(stato.segni[i]) < 0) return false;
+    }
+    return true;
+  }
+
+  /* ── Il disegno ───────────────────────────────────────────────────────── */
+  function numeroMappa(n) { for (var i = 0; i < MAPPE.length; i++) if (parseInt(MAPPE[i][0], 10) === n) return MAPPE[i]; return null; }
+
+  function disegna() {
+    var sel = righe.filter(passa);
+    var perModulo = [], ultimo = null;
+    sel.forEach(function (r) {
+      if (!ultimo || ultimo.mod !== r[2]) { ultimo = { mod: r[2], m: r.m, fn: [] }; perModulo.push(ultimo); }
+      ultimo.fn.push(r);
+    });
+
+    var mostrate = 0, h = '';
+    for (var i = 0; i < perModulo.length && mostrate < stato.quante; i++) {
+      var g = perModulo[i], pal = 'var(' + PAL[g.m.area] + ')';
+      h += '<section class="f-modulo" style="--pal:' + pal + '">';
+      h += '<h2><span>' + esc(g.mod) + '</span><span class="file">' + esc(g.m.area) + ' · ' + esc(FASI[g.m.fase]) + '</span>' +
+           '<span class="conta">' + g.fn.length + (g.fn.length === 1 ? ' funzione' : ' funzioni') + '</span></h2>';
+      h += '<p class="mdesc">' + esc(g.m.desc);
+      if (g.m.mappe.length) {
+        h += '<span class="mappe">Nelle mappe: ';
+        h += g.m.mappe.map(function (n) {
+          var M = numeroMappa(n); if (!M) return '';
+          return '<a href="' + M[2] + '" target="_top">' + M[0] + ' · ' + esc(M[1]) + '</a>';
+        }).join(' · ');
+        h += '</span>';
+      }
+      h += '</p>';
+      for (var j = 0; j < g.fn.length && mostrate < stato.quante; j++, mostrate++) {
+        h += fnHtml(g.fn[j], g.m);
+      }
+      h += '</section>';
+    }
+
+    document.getElementById('elenco').innerHTML = h ||
+      '<p class="f-niente">Nessuna funzione con questi filtri. Prova ad azzerarli.</p>';
+
+    var e = document.getElementById('esito');
+    e.innerHTML = '<b>' + sel.length + '</b> funzioni' +
+      (sel.length !== righe.length ? ' su ' + righe.length : '') +
+      ' · <span>' + perModulo.length + ' moduli</span>' +
+      (mostrate < sel.length ? ' · <span>mostrate le prime ' + mostrate + '</span>' : '');
+
+    var nm = document.getElementById('nota-mappa');
+    if (stato.mappa && stato.mappa !== 'fuori') {
+      var M = numeroMappa(parseInt(stato.mappa, 10));
+      nm.innerHTML = '<div class="f-mappa-nota"><p><b>' + M[0] + ' · ' + esc(M[1]) + '</b> — ' + esc(M[3]) +
+        ' <a href="' + M[2] + '" target="_top">apri la mappa →</a></p></div>';
+    } else if (stato.mappa === 'fuori') {
+      nm.innerHTML = '<div class="f-mappa-nota"><p>I moduli che nessuna delle dieci mappe racconta: ' +
+        'le superfici dell\'interfaccia, lo studio, le attività di classe, gli strumenti compensativi.</p></div>';
+    } else nm.innerHTML = '';
+
+    var b = document.getElementById('altre');
+    if (mostrate < sel.length) {
+      b.hidden = false;
+      b.textContent = 'Mostra altre ' + Math.min(250, sel.length - mostrate) + ' (ne restano ' + (sel.length - mostrate) + ')';
+    } else b.hidden = true;
+  }
+
+  document.getElementById('altre').addEventListener('click', function () {
+    stato.quante += 250; disegna();
+    window.scrollBy({ top: 200, behavior: 'smooth' });
+  });
+
+  function fnHtml(r, m) {
+    var pre = '', nome = r[0];
+    var p = nome.lastIndexOf('.');
+    if (r[7] === 'globale') { pre = 'window.'; nome = nome.slice(7); }
+    else if (p > 0) { pre = nome.slice(0, p + 1); nome = nome.slice(p + 1); }
+    else if (r[7] === 'canale IPC') { pre = 'ipc: '; }
+
+    var segni = r[8].map(function (f) {
+      return '<span class="f-segno' + (f === 'ai' ? ' ai' : '') + '">' + esc(FLAGS[f]) + '</span>';
+    }).join('');
+    if (r[6] === 'codice') segni += '<span class="f-segno">dal codice</span>';
+
+    var desc = r[5] ? esc(r[5]) : 'Nessuna descrizione: è una funzione interna, il codice non la commenta.';
+    var id = 'f-' + r[2].replace(/\W/g, '') + '-' + r[3];
+
+    var det = '<div class="f-dettaglio" id="' + id + '" hidden><dl>';
+    det += '<dt>si chiama</dt><dd><code>' + esc(r[0]) + '(' + esc(r[4]) + ')</code></dd>';
+    det += '<dt>dove</dt><dd><code>' + esc(m.file) + ':' + r[3] + '</code> · ' + r[9] + ' righe</dd>';
+    det += '<dt>modulo</dt><dd>' + esc(m.desc) + '</dd>';
+    det += '</dl>';
+    if (r[10] && r[10] !== r[5]) det += '<p class="nota">Dal codice: ' + esc(r[10]) + '</p>';
+    det += '</div>';
+
+    return '<div class="f-fn"><button type="button" aria-expanded="false" aria-controls="' + id + '">' +
+      '<span class="nome"><span class="pre">' + esc(pre) + '</span>' + esc(nome) + '</span>' +
+      '<span class="desc' + (r[5] ? '' : ' vuota') + '">' + desc + '</span>' +
+      '<span class="riga">' + esc(r[2]) + ':' + r[3] + '</span>' +
+      (segni ? '<span class="segni">' + segni + '</span>' : '') +
+      '</button>' + det + '</div>';
+  }
+
+  document.getElementById('elenco').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.f-fn > button'); if (!b) return;
+    var d = document.getElementById(b.getAttribute('aria-controls'));
+    var aperto = b.getAttribute('aria-expanded') === 'true';
+    b.setAttribute('aria-expanded', aperto ? 'false' : 'true');
+    if (d) d.hidden = aperto;
+  });
+
+  /* ── I conti in testata ───────────────────────────────────────────────── */
+  (function conti() {
+    var api = righe.filter(function (r) { return r[7] !== 'interna'; }).length;
+    var ia = righe.filter(function (r) { return r[8].indexOf('ai') >= 0; }).length;
+    var c = [[righe.length, 'funzioni'], [Object.keys(moduli).length, 'moduli'],
+             [api, 'con nome pubblico'], [ia, 'chiamano l\'AI'], [10, 'mappe dell\'Atlante']];
+    document.getElementById('conti').innerHTML = c.map(function (x) {
+      return '<div class="f-conto"><b>' + x[0] + '</b><small>' + x[1] + '</small></div>';
+    }).join('');
+  })();
+
+  disegnaFiltri();
+  disegna();
+
+  // Arrivo con #nomefunzione: cerca quel nome e aprilo.
+  if (location.hash.length > 1) {
+    input.value = decodeURIComponent(location.hash.slice(1));
+    stato.cerca = input.value.toLowerCase();
+    disegna();
+  }
+})();
+</script>
