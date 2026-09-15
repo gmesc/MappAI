@@ -18,8 +18,16 @@ sotto **SIL Open Font License 1.1**. Il testo di ciascuna licenza viaggia con l'
 | Atkinson Hyperlegible | 2020 Braille Institute of America, Inc. | OFL 1.1 | `public/fonts/OFL-Atkinson.txt` |
 | TM Sans, TM Alt | 2013 Luciano Perondi, da Titillium © 2008-2011 Accademia di Belle Arti di Urbino | OFL 1.1 | `public/fonts/OFL-TestMe.txt` |
 | DejaVu Sans (solo alcuni glifi) | 2003 Bitstream, Inc.; modifiche DejaVu di pubblico dominio | Bitstream Vera License | `public/fonts/LICENSE-DejaVu.txt` |
+| MappAI Emoji (27 glifi da Noto Color Emoji) | 2013-2024 Google Inc. e collaboratori | OFL 1.1 | `public/fonts/OFL-NotoColorEmoji.txt` |
 
-**Modifiche fatte.** Ai quattro font sono stati aggiunti i glifi scientifici mancanti
+**MappAI Emoji** è un SOTTOINSIEME di Noto Color Emoji: 27 emoji su 1.499, da 23,9 MB a
+254 KB. Non sono ridisegnate — sono gli stessi glifi, solo meno. Sono le emoji con cui l'app
+costruisce le identità degli allievi e i codici d'accesso dei gruppi, che devono vedersi anche
+senza rete. La famiglia è rinominata per non confondersi con quella intera che arriva dalla
+CDN; il copyright dentro il file resta di Google, come la OFL richiede. Si rigenera con
+`tools/font/emoji-sottoinsieme.py`.
+
+**Modifiche fatte.** Ai quattro font di TESTO sono stati aggiunti i glifi scientifici mancanti
 (greco, matematica, frecce, filetti, spunte) presi da DejaVu Sans, perché jsPDF non ha un
 ripiego quando un glifo manca. Lo strumento che li produce è `tools/font/prepara-font.py`.
 
@@ -69,7 +77,24 @@ Non sono ridistribuiti, ma servono a far funzionare l'app:
 
 - **Google Gemini** e **Infomaniak AI** — generazione dei contenuti, con la chiave
   dell'utente e alle condizioni dei rispettivi fornitori.
-- **KaTeX** (MIT) e **Noto Color Emoji** (OFL) — caricati da CDN quando c'è rete.
+- **Noto Color Emoji** (OFL) — il font INTERO resta un servizio esterno, caricato da
+  `fonts.googleapis.com` quando c'è rete, per le emoji decorative: in `public/index.html` e
+  nelle sette pagine servite agli allievi. Senza rete si ricade sulle emoji di sistema. Non è
+  ridistribuito intero: pesa 23,9 MB, più di dieci volte tutti i caratteri che spediamo.
+  ⚠️ **Space Mono non è più qui**: dal 15/9/2026 anche le pagine degli allievi lo prendono
+  dai file locali `public/fonts/*.ttf`, serviti dal server LAN — è ridistribuito, sotto OFL,
+  come gli altri caratteri dell'app.
+
+⚠️ **KaTeX non è più un servizio esterno.** Dal 15/9/2026 è **ridistribuito** dentro l'app,
+quindi la sua licenza vale per quello che spediamo:
+
+- **KaTeX 0.16.9** (MIT, © Khan Academy e collaboratori) — `public/js/vendor/`:
+  motore (`katex-0.16.9.min.js`), estensione `auto-render`
+  (`katex-auto-render-0.16.9.min.js`), foglio (`katex-0.16.9.min.css`) e i **20 font
+  `KaTeX_*.woff2`** in `katex-fonts/`. Testo della licenza in
+  `public/js/vendor/katex-LICENSE.txt`. I font KaTeX sono coperti dalla stessa MIT del
+  progetto KaTeX. Dal foglio sono stati tolti i `@font-face` woff/ttf: si ridistribuisce il
+  solo woff2, che Chromium legge.
 
 ## Dati di terzi: fuori dal repository
 

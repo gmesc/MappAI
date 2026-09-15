@@ -57,11 +57,18 @@
                border-radius: 14px; background: #fff; color: #0f172a; font-family: var(--emoji); }
   #join .emoji-btn.sel { border-color: #4f46e5; background: #eef2ff; }
   /* Login a gruppi: 3 file di emoji (animali/frutti/mezzi), una scelta per fila */
-  #join-group { width: min(340px, 88vw); margin: 0 auto 6px; }
+  #join-group { width: min(380px, 92vw); margin: 0 auto 6px; }
   .combo-set { margin-bottom: 12px; }
   .combo-label { font-size: 12px; font-weight: 700; color: #64748b; text-align: center;
                  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-  .combo-row { display: grid; grid-template-columns: repeat(4, 60px); gap: 10px; justify-content: center; }
+  /* Da 4 a 6 voci per fila (15/9/2026: cibo e mezzi sono passati a 6). A 6 chip
+     da 60px la fila non ci sta in un telefono: 48px e FLEX che va a capo da sé.
+     48 ≥ 44, che è il bersaglio minimo per un dito e non si scende sotto.
+     Misurato: 6×48 + 5×8 = 328px dentro i 345 disponibili a 375px di schermo.
+     ⚠️ Il prefisso #join serve a battere `#join .emoji-btn{width:60px}`: un id
+     batte le classi, e senza prefisso la fila sbordava (visto a 375px). */
+  .combo-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #join .combo-row .emoji-btn { width: 48px; height: 48px; flex: 0 0 auto; font-size: 26px; }
   .combo-preview { font-family: var(--emoji); font-size: 30px; text-align: center; min-height: 38px; margin: 2px 0 8px; }
 
   /* ── Editor ── */
@@ -283,7 +290,9 @@
   }).catch(function () { $('join-err').textContent = 'Server non raggiungibile.'; });
 
   // ── Login a gruppi via emoji ───────────────────────────────────────────────
-  var SET_LABELS = { animali: 'Animali', frutti: 'Frutti', mezzi: 'Mezzi' };
+  // `frutti` resta per le sessioni APERTE prima del 15/9/2026: i set arrivano dal
+  // server (`r.body.groupEmoji`), quindi una ripresa può ancora mandarlo.
+  var SET_LABELS = { animali: 'Animali', cibo: 'Cibo', frutti: 'Frutti', mezzi: 'Mezzi' };
   function buildGroupCombo(sets) {
     $('nick').style.display = 'none';
     var host = $('join-group'); host.style.display = 'block';

@@ -43,18 +43,26 @@
   // (animali · frutti · mezzi): la tripletta ordinata È l'identità. Vantaggio
   // sul nickname libero: deterministica → stesso gruppo = stessa chiave (slug)
   // → la ripresa di una sessione ritrova i suoi contributi; vocabolario chiuso
-  // (64 combinazioni) leggibile dai bambini. La chiave interna resta ASCII
-  // (es. "volpe-fragola-razzo") per uno slug stabile; il display sono le emoji.
+  // (4 × 6 × 6 = 144 combinazioni) leggibile dai bambini. La chiave interna resta
+  // ASCII (es. "volpe-fragola-razzo") per uno slug stabile; il display sono le emoji.
+  // ⚠️ Il set `frutti` si chiama `cibo` dal 15/9/2026 (pizza e carota non sono
+  // frutti). Il nome del SET è solo display — lo slug è fatto dalle chiavi degli
+  // ITEM — quindi le sessioni vecchie restano valide; `SET_LABELS` in
+  // public/collab/student.html tiene entrambe le chiavi per quelle riprese.
+  // ⚠️ Aggiungendo un'emoji qui, RILANCIARE `tools/font/emoji-sottoinsieme.py`:
+  //    il font locale degli allievi si costruisce leggendo QUESTO elenco.
   var GROUP_EMOJI = [
     { set: 'animali', items: [
       { key: 'gatto', emoji: '🐱' }, { key: 'cane', emoji: '🐶' },
       { key: 'volpe', emoji: '🦊' }, { key: 'coniglio', emoji: '🐰' } ] },
-    { set: 'frutti', items: [
+    { set: 'cibo', items: [
       { key: 'mela', emoji: '🍎' }, { key: 'banana', emoji: '🍌' },
-      { key: 'fragola', emoji: '🍓' }, { key: 'uva', emoji: '🍇' } ] },
+      { key: 'fragola', emoji: '🍓' }, { key: 'uva', emoji: '🍇' },
+      { key: 'pizza', emoji: '🍕' }, { key: 'carota', emoji: '🥕' } ] },
     { set: 'mezzi', items: [
       { key: 'treno', emoji: '🚂' }, { key: 'razzo', emoji: '🚀' },
-      { key: 'bici', emoji: '🚲' }, { key: 'barca', emoji: '⛵' } ] }
+      { key: 'bici', emoji: '🚲' }, { key: 'barca', emoji: '⛵' },
+      { key: 'autobus', emoji: '🚌' }, { key: 'elicottero', emoji: '🚁' } ] }
   ];
 
   function _emojiForSet(setIdx, key) {

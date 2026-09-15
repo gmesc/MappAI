@@ -18,11 +18,22 @@
          stanno in public/fonts/ e le @font-face le inietta mappai-font.js dal
          catalogo (mappai-font-core.js), insieme a TestMe e Atkinson.
          Noto Color Emoji resta dalla CDN: è l'unica via per le emoji a colori
-         su desktop, e senza rete il sistema ha comunque le sue. -->
+         su desktop, e senza rete il sistema ha comunque le sue.
+         ⟵ 15/9/26: con UNA eccezione. Le 27 emoji che NON sono decorazione —
+         l'identità di un allievo (🦊 07) e i codici d'accesso dei gruppi — sono
+         ora in un font LOCALE di 254 KB, `MappAI Emoji`, ritagliato da Noto con
+         `tools/font/emoji-sottoinsieme.py`. Sta PRIMA nello stack: quelle 27 si
+         vedono sempre e uguali su ogni dispositivo, tutte le altre si comportano
+         come prima (Noto dalla rete, poi le emoji di sistema). Il font intero
+         sarebbe 23,9 MB: dieci volte tutti i caratteri di testo dell'app. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
-    <style>:root { --emoji-font: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }</style>
+    <style>
+      @font-face { font-family: 'MappAI Emoji'; font-style: normal; font-weight: 400;
+        src: url('fonts/MappAIEmoji.ttf') format('truetype'); font-display: swap; }
+      :root { --emoji-font: 'MappAI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
+    </style>
 
     <!-- Tailwind CSS (Local) -->
     <script src="js/tailwind.js"></script>
@@ -3253,7 +3264,7 @@
     <script src="js/vendor/qrcode-generator.js"></script>
     <!-- Variante WEB: toggle rete WiFi aula / Internet condiviso dai wizard QR -->
     <script src="js/mappai-net-mode.js"></script>
-    <script src="js/mappai-collab-core.js"></script>
+    <script src="js/mappai-collab-core.js?v=emoji-20260915"></script>
     <script src="js/mappai-collab-teacher.js"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
     <script src="js/mappai-live-core.js?v=qz2"></script>

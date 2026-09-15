@@ -69,4 +69,10 @@ docs/archify/*.visual-check.*
 !docs/ricontrollo-sintesi-2026-09-15.md
 !tools/stile/**
 !tools/dove.js
+# I due script che GENERANO i caratteri committati in public/fonts/: senza di
+# loro quegli asset non si rifanno dal repo, e THIRD-PARTY-NOTICES.md cita
+# prepara-font.py come la fonte delle modifiche ai font (15/9/2026).
+!tools/font/prepara-font.py
+!tools/font/emoji-sottoinsieme.py
+!tools/font/copertura-glifi.py
 !tools/atlante-ui/glossario.js
