@@ -6,6 +6,7 @@ import resource
 import socket
 import time
 from worker import Engine, digest
+from evaluation_metrics import position, validate_reviewed_bank
 
 # An attempted connection is a test failure even if a library catches it.
 network_attempts = []
@@ -19,11 +20,15 @@ p = argparse.ArgumentParser()
 p.add_argument('--root', type=Path, required=True)
 p.add_argument('--model', required=True)
 p.add_argument('--device', default='mps')
+p.add_argument('--bank', type=Path, help='Human-reviewed bank exported by the local review tool')
 args = p.parse_args()
 config = json.loads((Path.home() / 'Library/Application Support/MappAI/local-ai/config.json').read_text())
 config.update(embedding=args.model, device=args.device)
-corpus = json.loads((args.root / 'corpus.json').read_text())
-bank = json.loads((args.root / 'bank-resolved.json').read_text())
+corpus_bytes = (args.root / 'corpus.json').read_bytes()
+corpus = json.loads(corpus_bytes)
+bank = json.loads((args.bank or (args.root / 'bank-resolved.json')).read_text())
+if args.bank:
+    validate_reviewed_bank(bank, corpus, corpus_bytes)
 started = time.perf_counter()
 engine = Engine(args.root / ('indexes-' + args.model.split('/')[-1]), config)
 assert engine.models(), engine.model_error
@@ -36,17 +41,6 @@ for name, snap in corpus.items():
     assert reused['encoded'] == 0
     indexed[name] = result
     print(name, 'passages', result['count'], 'encode ms', round(result['wallMs']), flush=True)
-
-def position(test, results):
-    if not test['expected']:
-        return None
-    expected = test['expected'][0]
-    for n, row in enumerate(results):
-        if row.get('recordId', '').split(':')[:3] != expected['recordId'].split(':')[:3]:
-            continue
-        if ' '.join(expected['text'].split()) in ' '.join(row['text'].split()):
-            return n + 1
-    return None
 
 rows = []
 for test in bank['cases']:
@@ -74,13 +68,16 @@ for split in ['development', 'verification']:
     for method in ['legacy', 'lexical', 'dense', 'hybrid', 'rerank', 'direct']:
         available = [r for r in subset if method in r['methods']]
         positive = [r for r in available if r['hasEvidence']]
-        if not positive: continue
+        if not available: continue
         ranks = [r['methods'][method]['position'] for r in positive]
         times = [r['methods'][method]['ms'] for r in available if 'ms' in r['methods'][method]]
-        summary[split][method] = {'n': len(positive), 'recall5': sum(p is not None and p <= 5 for p in ranks) / len(ranks), 'recall20': sum(p is not None and p <= 20 for p in ranks) / len(ranks), 'mrr20': sum(1 / p if p else 0 for p in ranks) / len(ranks), 'p50ms': percentile(times, .5), 'p95ms': percentile(times, .95), 'misses': [r['id'] for r in positive if not r['methods'][method]['position']], 'noEvidenceWithResults': [r['id'] for r in available if not r['hasEvidence'] and r['methods'][method]['returned']]}
+        summary[split][method] = {'n': len(positive), 'recall5': sum(p is not None and p <= 5 for p in ranks) / len(ranks) if ranks else None, 'recall20': sum(p is not None and p <= 20 for p in ranks) / len(ranks) if ranks else None, 'mrr20': sum(1 / p if p else 0 for p in ranks) / len(ranks) if ranks else None, 'p50ms': percentile(times, .5), 'p95ms': percentile(times, .95), 'misses': [r['id'] for r in positive if not r['methods'][method]['position']], 'noEvidenceWithResults': [r['id'] for r in available if not r['hasEvidence'] and r['methods'][method]['returned']]}
 import torch
 report = {'model': args.model, 'device': args.device, 'annotationStatus': bank['annotationStatus'], 'manifest': engine.manifest, 'coldMs': cold_ms, 'maxRssBytes': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, 'mpsAllocatedBytes': torch.mps.current_allocated_memory() if args.device == 'mps' else None, 'mpsDriverBytes': torch.mps.driver_allocated_memory() if args.device == 'mps' else None, 'networkAttempts': network_attempts, 'indexing': indexed, 'summary': summary, 'cases': rows}
+if args.bank:
+    report.update(packetId=bank['packetId'], annotationRevision=bank['annotationRevision'], excluded=bank['excluded'])
 assert not network_attempts, network_attempts
-out = args.root / (args.model.split('/')[-1] + '-' + args.device + '.json')
+suffix = '-reviewed-r' + str(bank['annotationRevision']) if args.bank else ''
+out = args.root / (args.model.split('/')[-1] + '-' + args.device + suffix + '.json')
 out.write_text(json.dumps(report, indent=2))
 print('REPORT', out, json.dumps(summary), flush=True)

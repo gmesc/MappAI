@@ -73,6 +73,7 @@ docs/archify/*.visual-check.*
 
 # Local retrieval: code and reproducible evaluation, never model weights/cache.
 !local-ai/**
+!docs/GUIDA-banco-validazione-locale.md
 local-ai/__pycache__/
 !docs/VERIFICA-sentence-transformers-locale-2026-09-15.md
 !docs/GUIDA-ricerca-locale.md

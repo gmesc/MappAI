@@ -17,7 +17,8 @@
     "stile:banco": "node tools/stile/banco.js",
     "ui": "node tools/stile/anatomia.js",
     "local-ai:setup": "python3.13 local-ai/setup.py",
-    "test:local-ai": "node --test tests/local-search.test.js"
+    "test:local-ai": "node --test tests/local-search.test.js",
+    "local-ai:review": "node local-ai/review-bank.cjs serve --open"
   },
   "build": {
     "asar": true,
