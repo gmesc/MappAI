@@ -58,6 +58,7 @@ test('HTTP binds localhost, requires token and same origin, and rejects replaced
   await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
   t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
   const url = new URL(server.reviewUrl), origin = url.origin, headers = { 'X-Review-Token': url.hash.slice(1) };
+  for (const asset of ['/review-pdf.js', '/public/js/lucide.min.js', '/public/js/mappai-proiezione-core.js']) assert.equal((await fetch(origin + asset)).status, 200);
   assert.equal((await fetch(origin + '/api/state')).status, 403);
   assert.equal((await fetch(origin + '/api/state', { headers: { ...headers, Origin: 'https://foreign.invalid' } })).status, 403);
   const wrongHost = await new Promise((resolve, reject) => require('node:http').get(origin + '/api/state', { headers: { ...headers, Host: 'evil.invalid' } }, response => { response.resume(); resolve(response.statusCode); }).on('error', reject));

@@ -9,7 +9,9 @@
   <link rel="stylesheet" href="review-layout.css">
   <script src="../public/js/mappai-font-core.js" defer></script>
   <script src="../public/js/mappai-font.js" defer></script>
-  <script src="../public/js/pdf.min.js" defer></script><script src="review-ui.js" defer></script>
+  <script src="../public/js/lucide.min.js" defer></script>
+  <script src="../public/js/mappai-proiezione-core.js" defer></script>
+  <script src="../public/js/pdf.min.js" defer></script><script src="review-pdf.js" defer></script><script src="review-ui.js" defer></script>
 </head>
 <body id="mappai-teacher-review" class="bank-review">
 <main class="mrv-dashboard">
@@ -28,28 +30,34 @@
       <label>Revisore<input id="reviewer" placeholder="Nome o sigla" autocomplete="name" maxlength="120"></label>
       <div class="bank-stack"><label>Caso<select id="case-select"></select></label><p id="uncertain-summary" class="bank-muted" hidden><span id="uncertain">0</span> da chiarire nel lotto</p><button type="button" class="pm-btn-cancel" id="next-case">Prossimo da rivedere</button></div>
       <nav class="bank-stack bank-tools" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button></nav>
-      <details class="mrv-coverage bank-help"><summary>Come si usa il banco</summary><p>Consulta la fonte e valuta ogni passaggio. Puoi aggiungere estratti mancanti dal testo archiviato.</p><p>La pertinenza rispetto alla domanda e la correttezza scientifica richiedono giudizi separati.</p><p>Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire restano esclusi. Il conteggio «da chiarire» comprende soltanto i casi lasciati esplicitamente in dubbio, non tutti quelli ancora da rivedere.</p><p>Le revisioni precedenti sono conservate su disco.</p></details>
+      <details class="mrv-coverage bank-help"><summary>Come si usa il banco</summary><p>Consulta la fonte e valuta ogni passaggio. Puoi aggiungere estratti mancanti dal testo archiviato.</p><p>Nel PDF usa la rotellina per ingrandire sul puntatore e trascina tenendo premuto il tasto sinistro. Da tastiera: + e − per lo zoom, frecce per spostare, 0 per adattare alla larghezza. Il pulsante con le frecce orizzontali ripristina la larghezza.</p><p>Aa cambia soltanto la dimensione del testo da valutare: x1, x1,5, x2. Ordine dei passaggi mescolato; modelli, posizioni e punteggi sono nascosti.</p><p>La pertinenza rispetto alla domanda e la correttezza scientifica richiedono giudizi separati.</p><p>Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire restano esclusi. Il conteggio «da chiarire» comprende soltanto i casi lasciati esplicitamente in dubbio, non tutti quelli ancora da rivedere.</p><p>Le revisioni precedenti sono conservate su disco.</p></details>
     </aside>
     <section class="mrv-detail" aria-labelledby="question">
       <header class="bank-question"><p id="project" class="mrv-eyebrow"></p><h2 id="question"></h2></header>
       <div class="bank-columns">
         <section class="bank-column bank-source" aria-labelledby="source-heading">
-          <header class="bank-column-head bank-stack">
-            <div class="bank-row"><h3 id="source-heading" class="grow">Consulta la fonte</h3><button type="button" class="pm-btn-cancel" id="download-pdf">Scarica PDF completo</button></div>
-            <div class="bank-row"><select id="page-select" class="grow" aria-label="Pagina del dossier"></select><button type="button" class="pm-btn-cancel" id="pdf-fit" aria-pressed="false">Adatta alla larghezza</button></div>
-            <p class="bank-muted" id="pdf-status" role="status"></p>
+          <header class="bank-column-head">
+            <h3 id="source-heading" class="grow">Fonte</h3>
+            <select id="page-select" aria-label="Pagina del dossier"></select>
+            <button type="button" class="pm-btn-cancel bank-icon-button" id="pdf-fit" aria-label="Adatta PDF alla larghezza" title="Adatta alla larghezza (0)"><i data-lucide="move-horizontal" aria-hidden="true"></i></button>
+            <button type="button" class="pm-btn-cancel bank-icon-button" id="download-pdf" aria-label="Scarica PDF completo" title="Scarica PDF completo"><i data-lucide="download" aria-hidden="true"></i></button>
           </header>
           <div class="bank-column-body">
-            <div class="bank-pdf" id="pdf-viewer" data-fit="page"><canvas id="pdf-canvas" aria-label="Pagina del PDF originale"></canvas></div>
+            <div class="bank-pdf" id="pdf-viewer" tabindex="0" role="region" aria-label="PDF originale: rotellina per zoom, trascina per spostare. Tastiera: più, meno, frecce; zero adatta alla larghezza."><canvas id="pdf-canvas" aria-label="Pagina del PDF originale"></canvas><p class="bank-muted bank-pdf-status" id="pdf-status" role="status"></p></div>
+            <div class="bank-source-notes">
             <details id="raw-details"><summary>Testo archiviato della pagina</summary><p class="bank-muted">Seleziona e copia il passaggio necessario. Simboli e tabelle possono essere estratti male: confronta sempre il PDF.</p><p id="source-text" class="bank-text" tabindex="0"></p></details>
             <details id="manual-details"><summary>Aggiungi un passaggio mancante</summary><div class="bank-stack"><label>Passaggio esatto della pagina selezionata<textarea id="manual-text" rows="4" placeholder="Incolla dal testo archiviato; mantieni il contesto necessario."></textarea></label><label>Valutazione<select id="manual-grade"><option value="relevant">Pertinente</option><option value="partial">Parzialmente pertinente</option></select></label><button type="button" class="pm-btn-cancel" id="add-passage">Aggiungi alla revisione</button><div id="additions" class="bank-stack"></div></div></details>
+            </div>
           </div>
         </section>
-        <section class="bank-column" aria-labelledby="candidate-heading">
-          <header class="bank-column-head bank-stack">
-            <div class="bank-row"><h3 id="candidate-heading" class="grow">Passaggi da valutare</h3><span id="candidate-count" class="mrv-chip"></span></div>
-            <p class="bank-muted">Ordine mescolato. Modelli, posizioni e punteggi sono nascosti.</p>
-            <div class="bank-row"><button type="button" class="pm-btn-cancel" id="prev-passage">Precedente</button><button type="button" class="pm-btn-cancel" id="next-passage">Successivo</button><button type="button" class="pm-btn-cancel" id="show-context">Mostra pagina</button></div>
+        <section id="bank-review-pane" class="bank-column" aria-labelledby="candidate-heading">
+          <header class="bank-column-head">
+            <h3 id="candidate-heading" class="grow">Da valutare</h3>
+            <button type="button" class="pm-btn-cancel" id="text-size" title="Dimensione del testo: x1, x1,5, x2" aria-label="Testo x1. Passa a x1,5">Aa x1</button>
+            <button type="button" class="pm-btn-cancel bank-icon-button" id="prev-passage" aria-label="Passaggio precedente" title="Passaggio precedente"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+            <span id="candidate-count" class="mrv-chip"></span>
+            <button type="button" class="pm-btn-cancel bank-icon-button" id="next-passage" aria-label="Passaggio successivo" title="Passaggio successivo"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+            <button type="button" class="pm-btn-cancel bank-icon-button" id="show-context" aria-label="Mostra pagina del passaggio" title="Mostra pagina del passaggio"><i data-lucide="file-text" aria-hidden="true"></i></button>
           </header>
           <div class="bank-column-body bank-stack">
             <p id="candidate-source" class="mrv-evidence-source"></p>

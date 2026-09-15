@@ -9,7 +9,7 @@ window.addEventListener('hashchange', () => {
     sessionStorage.setItem(tokenKey, location.hash.slice(1)); location.reload();
   }
 });
-let data, caseId, candidateIndex = 0, currentPage, pendingTimer, serial = Promise.resolve(), reportData, pdfTask;
+let data, caseId, candidateIndex = 0, currentPage, pendingTimer, serial = Promise.resolve(), reportData;
 let changed = 0, saved = 0, pageRequest = 0;
 const pdfs = new Map();
 const test = () => data.cases.find(c => c.id === caseId);
@@ -66,14 +66,20 @@ async function selectCase(id) {
   $('question').textContent = test().query; $('project').textContent = test().project;
   $('source-checked').checked = a.sourceChecked; $('no-evidence').checked = a.noEvidence; $('notes').value = a.notes || '';
   $('manual-text').value = a.manualDraft?.text || ''; $('manual-details').open = !!a.manualDraft?.text;
-  $('page-select').replaceChildren(...data.pages.filter(p => p.project === test().project).map(p => { const option = document.createElement('option'); option.value = p.id; option.textContent = 'Pagina ' + p.page + ' · ' + p.title; return option; }));
+  const groups = new Map();
+  for (const p of data.pages.filter(p => p.project === test().project)) {
+    if (!groups.has(p.pdfId)) { const group = document.createElement('optgroup'); group.label = p.title; groups.set(p.pdfId, group); }
+    const option = document.createElement('option'); option.value = p.id; option.textContent = 'Pag. ' + p.page; groups.get(p.pdfId).append(option);
+  }
+  $('page-select').replaceChildren(...groups.values());
   updateProgress(); renderCandidate(); renderAdditions(); await showPage(a.manualDraft?.pageId || candidate().pageId);
   message(({ reviewed: 'Caso già completato. Una modifica lo riapre come bozza.', uncertain: 'Caso da chiarire.', draft: 'Bozza pronta.' })[a.status]);
   sessionStorage.setItem('review-case-' + data.packetId, id);
 }
 function renderCandidate() {
   const item = candidate(), a = annotation(), page = data.pages.find(p => p.id === item.pageId), j = a.judgments[item.id] || {};
-  $('candidate-count').textContent = (candidateIndex + 1) + ' / ' + test().candidates.length;
+  $('candidate-count').textContent = (candidateIndex + 1) + '/' + test().candidates.length;
+  $('candidate-count').setAttribute('aria-label', 'Passaggio ' + (candidateIndex + 1) + ' di ' + test().candidates.length);
   $('candidate-source').textContent = page.title + ' · pagina ' + page.page;
   $('candidate-text').textContent = item.text;
   document.querySelectorAll('[data-grade]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.grade === j.grade)));
@@ -99,16 +105,14 @@ async function showPage(id) {
   currentPage = data.pages.find(p => p.id === id); $('page-select').value = id;
   $('manual-text').value = annotation().manualDraft?.pageId === id ? annotation().manualDraft.text : '';
   $('source-text').textContent = currentPage.text; const request = ++pageRequest;
-  $('pdf-status').textContent = 'Caricamento della copia del PDF originale…'; $('pdf-canvas').hidden = true;
+  window.MappAIReviewPdf.loading();
   try {
     const pageInfo = currentPage, { document } = await pdfDocument(pageInfo.pdfId);
     const page = await document.getPage(pageInfo.page); if (request !== pageRequest) return;
-    if (pdfTask) { pdfTask.cancel(); try { await pdfTask.promise; } catch (_) {} }
-    const canvas = $('pdf-canvas'), viewport = page.getViewport({ scale: 1.5 }); canvas.width = viewport.width; canvas.height = viewport.height;
-    pdfTask = page.render({ canvasContext: canvas.getContext('2d'), viewport }); await pdfTask.promise;
+    await window.MappAIReviewPdf.show(page);
     if (request !== pageRequest) return;
-    canvas.hidden = false; $('pdf-status').textContent = 'Pagina ' + pageInfo.page + ' di ' + document.numPages + ' · copia verificata all’apertura';
-  } catch (error) { if (request === pageRequest) { $('pdf-status').textContent = error.message; message('PDF non disponibile: la revisione del contesto resta da svolgere.', true); } }
+    $('page-select').title = pageInfo.title + ' · pagina ' + pageInfo.page + ' di ' + document.numPages + ' · copia verificata all’apertura';
+  } catch (error) { if (request === pageRequest) { window.MappAIReviewPdf.failed(error); message('PDF non disponibile: la revisione del contesto resta da svolgere.', true); } }
 }
 function renderAdditions() {
   $('additions').replaceChildren(...annotation().additions.map((item, i) => {
@@ -155,7 +159,13 @@ on('metrics', 'click', async () => {
   $('report').showModal();
 });
 on('close-report', 'click', () => $('report').close()); on('download-report', 'click', () => download('confronto-revisionato-r' + reportData.annotationRevision + '.json', reportData));
-on('pdf-fit', 'click', () => { const wide = $('pdf-viewer').dataset.fit !== 'width'; $('pdf-viewer').dataset.fit = wide ? 'width' : 'page'; $('pdf-fit').setAttribute('aria-pressed', String(wide)); $('pdf-fit').textContent = wide ? 'Mostra pagina intera' : 'Adatta alla larghezza'; });
+let textSizeIndex = 0;
+on('text-size', 'click', () => {
+  const scales = [1, 1.5, 2], labels = ['1', '1,5', '2']; textSizeIndex = (textSizeIndex + 1) % scales.length;
+  $('bank-review-pane').style.setProperty('--bank-text-scale', scales[textSizeIndex]);
+  $('text-size').textContent = 'Aa x' + labels[textSizeIndex];
+  $('text-size').setAttribute('aria-label', 'Testo x' + labels[textSizeIndex] + '. Passa a x' + labels[(textSizeIndex + 1) % scales.length]);
+});
 on('toggle-sidebar', 'click', () => {
   const sidebar = $('bank-sidebar'); sidebar.hidden = !sidebar.hidden;
   $('toggle-sidebar').setAttribute('aria-expanded', String(!sidebar.hidden));
@@ -181,6 +191,7 @@ if (window.reviewBank) {
   });
 }
 (async () => {
+  window.safeCreateIcons ||= () => window.lucide?.createIcons(); window.safeCreateIcons();
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('../public/js/pdf.worker.min.js', location.href).href; data = await api('state'); $('workspace').hidden = false;
   const remembered = sessionStorage.getItem('review-case-' + data.packetId); if (remembered && data.cases.find(c => c.id === remembered && !c.critical)) $('batch').value = 'all';
   await selectCase(data.cases.some(c => c.id === remembered) ? remembered : batch().find(c => data.annotations[c.id]?.status !== 'reviewed')?.id || batch()[0].id);

@@ -76,10 +76,25 @@ gli stati esplicitamente lasciati in dubbio nel lotto selezionato, non la
 differenza tra casi totali e completati. La distinzione fra pertinenza e
 correttezza scientifica resta nell’aiuto espandibile e nel rapporto.
 
-Il PDF si apre con la pagina intera adattata allo spazio del pannello.
-**Adatta alla larghezza** ingrandisce la visualizzazione per la lettura;
-**Mostra pagina intera** ripristina la vista d’insieme. Cambia soltanto la vista
-del browser: il file PDF e la sua impaginazione rimangono identici.
+Le barre dei due pannelli mostrano **Fonte** e **Da valutare**, con tutti i
+controlli sulla stessa riga alle dimensioni verificate. Le icone Lucide sono
+quelle già distribuite con l’app; ogni comando ha nome accessibile e tooltip.
+Il selettore PDF mostra **Pag. N**; aprendo la tendina le pagine sono raggruppate
+per documento e il tooltip conserva titolo, pagina e totale.
+
+Il PDF si apre **adattato alla larghezza**. La rotellina ingrandisce o riduce
+attorno al puntatore; tenendo premuto il tasto sinistro si trascina la pagina.
+Il pulsante con le frecce orizzontali ripristina larghezza e posizione iniziale.
+Con il PDF a fuoco: **+ / −** regolano lo zoom, le **frecce** spostano e **0**
+ripristina. La geometria è quella di `MappAIProiezioneCore`, già usata in
+Proietta; una striscia della pagina resta raggiungibile anche trascinandola
+verso i bordi. Il cambio pagina riparte dalla larghezza; il ridimensionamento
+della finestra mantiene l’adattamento se attivo e rispetta uno zoom manuale.
+
+**Aa x1 → Aa x1,5 → Aa x2 → Aa x1** cambia il testo del passaggio e del suo
+estratto essenziale. Conserva il carattere scelto nell’app e non ingrandisce
+bottoni e titoli. PDF, zoom e Aa cambiano soltanto la vista: non salvano
+revisioni, non modificano il testo annotato, il file PDF o la sua impaginazione.
 
 ## Il primo lotto
 
@@ -255,6 +270,32 @@ funzionamento dell’app, non la pertinenza delle annotazioni o la correttezza s
 
 Questa modifica riguarda lo spazio dell’interfaccia: non aggiorna le misure
 di recupero, non aggiunge revisioni del docente e non modifica i materiali.
+
+### Controlli di lettura — 15 settembre 2026
+
+- Barre **Fonte / Da valutare** entrambe di **54,67 px** in Space Mono alle
+  dimensioni **1707 × 960**, **980 × 800** e **700 × 600** pixel CSS. Controlli
+  allineati anche con Aa x1,5; pagina senza overflow orizzontale e footer visibile.
+- Verificati nel browser rotellina, trascinamento di **+80 / −50 px**, ripristino
+  alla larghezza, cambio pagina e ritorno alla pagina del candidato. Testo a
+  **14 / 21 / 28 px**, controlli sempre a **12 px**; nessun errore nella console.
+- Il PDF viene ridisegnato alla risoluzione dello zoom dopo **120 ms** senza
+  ulteriori gesti. Ogni bitmap è limitato a **16 megapixel** e **8192 px per lato**;
+  oltre tale risoluzione l’ingrandimento resta disponibile, ma può perdere
+  nitidezza. Il dettaglio già assente nelle scansioni non viene ricostruito.
+  La scala usa i limiti già presenti in Proietta: **0,05–8**.
+- **40 test mirati superati**: persistenza e isolamento del banco, risorse locali,
+  font, geometria condivisa, eventi del visualizzatore, cambio pagina durante
+  un rendering, ripristino durante uno zoom e gestione degli errori.
+- Build locale **arm64**, Electron **41.10.7**, MappAI **1.0.0-beta.5**,
+  electron-builder **26.15.3**, in
+  `dist/banco-lettura-20260915/mac-arm64/MappAI.app`, non firmata/notarizzata.
+  Prova nativa su banco e profilo temporanei: Atkinson scelto nella Cabina e
+  applicato al banco, PDF, zoom con rotellina, trascinamento, ripristino con **0**
+  e Aa x1,5. Queste prove non attribuiscono giudizi ai materiali del docente.
+
+I controlli di lettura non cambiano recupero, metriche, preset, materiali o
+decisioni del docente; pertinenza e correttezza scientifica restano separate.
 
 Consegna: build definitiva aperta con il profilo MappAI esistente e collegata
 tramite il selettore nativo a `local-ai-data/review/`. Verificati gli hash dei
