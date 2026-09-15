@@ -127,7 +127,11 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
   const assets = new Map([
     ['/', [path.join(__dirname, 'review.html'), 'text/html; charset=utf-8']],
     ['/review-ui.js', [path.join(__dirname, 'review-ui.js'), 'text/javascript; charset=utf-8']],
-    ['/ui.css', [path.join(ROOT, 'public/css/mappai-ui.css'), 'text/css; charset=utf-8']],
+    ['/modal-tokens.css', [path.join(ROOT, 'public/css/mappai-modal-tokens.css'), 'text/css; charset=utf-8']],
+    ['/review-dashboard.css', [path.join(ROOT, 'public/css/mappai-review-dashboard.css'), 'text/css; charset=utf-8']],
+    ['/review-layout.css', [path.join(__dirname, 'review-layout.css'), 'text/css; charset=utf-8']],
+    ['/fonts/SpaceMono-Regular.ttf', [path.join(ROOT, 'public/fonts/SpaceMono-Regular.ttf'), 'font/ttf']],
+    ['/fonts/SpaceMono-Bold.ttf', [path.join(ROOT, 'public/fonts/SpaceMono-Bold.ttf'), 'font/ttf']],
     ['/pdf.min.js', [path.join(ROOT, 'public/js/pdf.min.js'), 'text/javascript']],
     ['/pdf.worker.min.js', [path.join(ROOT, 'public/js/pdf.worker.min.js'), 'text/javascript']]
   ]);
@@ -136,7 +140,7 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
     const send = (status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     try {
       if (req.headers.host !== new URL(origin).host || (req.headers.origin && req.headers.origin !== origin)) throw fail('Origine non autorizzata.', 403);
       if (req.headers['sec-fetch-site'] === 'cross-site') throw fail('Origine non autorizzata.', 403);

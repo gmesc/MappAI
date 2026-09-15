@@ -15,7 +15,7 @@ const pdfs = new Map();
 const test = () => data.cases.find(c => c.id === caseId);
 const annotation = () => data.annotations[caseId];
 const candidate = () => test().candidates[candidateIndex];
-function message(text, error = false) { $('message').textContent = text; $('message').className = error ? 'ui-review-error' : 'ui-review-muted'; }
+function message(text, error = false) { $('message').textContent = text; $('message').className = error ? 'bank-error' : 'bank-muted'; }
 async function api(route, body) {
   const response = await fetch('/api/' + route, { headers: { 'X-Review-Token': token || '', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}) });
   const value = await response.json(); if (!response.ok) throw Error(value.error); return value;
@@ -26,7 +26,9 @@ function download(name, value, type = 'application/json') {
 }
 function batch() { return data.cases.filter(c => $('batch').value === 'all' || c.critical); }
 function updateProgress() {
-  const list = batch(); $('completed').textContent = list.filter(c => data.annotations[c.id]?.status === 'reviewed').length + ' / ' + list.length;
+  const list = batch(), completed = list.filter(c => data.annotations[c.id]?.status === 'reviewed').length;
+  $('completed').textContent = completed + ' / ' + list.length;
+  $('bank-progress').max = list.length; $('bank-progress').value = completed;
   $('uncertain').textContent = list.filter(c => data.annotations[c.id]?.status === 'uncertain').length;
   $('case-select').replaceChildren(...list.map(c => { const o = document.createElement('option'); o.value = c.id; const state = data.annotations[c.id]?.status; o.textContent = c.id + ' · ' + ({ reviewed: 'Completato', draft: 'Bozza', uncertain: 'Da chiarire' }[state] || 'Da rivedere') + ' · ' + c.query; return o; }));
   $('case-select').value = caseId;
@@ -100,9 +102,9 @@ async function showPage(id) {
 }
 function renderAdditions() {
   $('additions').replaceChildren(...annotation().additions.map((item, i) => {
-    const box = document.createElement('div'), text = document.createElement('p'); text.className = 'ui-review-text';
+    const box = document.createElement('div'), text = document.createElement('p'); text.className = 'bank-text';
     const page = data.pages.find(p => p.id === item.pageId); text.textContent = 'Pagina ' + page.page + ' · ' + (item.grade === 'partial' ? 'Parziale' : 'Pertinente') + '\n' + item.text;
-    const button = document.createElement('button'); button.type = 'button'; button.className = 'ui-btn'; button.textContent = 'Ritira dalla revisione';
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel'; button.textContent = 'Ritira dalla revisione';
     button.onclick = () => { annotation().additions.splice(i, 1); dirty(); renderAdditions(); }; box.append(text, button); return box;
   }));
 }
@@ -143,7 +145,7 @@ on('metrics', 'click', async () => {
   $('report').showModal();
 });
 on('close-report', 'click', () => $('report').close()); on('download-report', 'click', () => download('confronto-revisionato-r' + reportData.annotationRevision + '.json', reportData));
-on('theme', 'click', () => { const light = document.documentElement.dataset.theme !== 'light'; document.documentElement.dataset.theme = light ? 'light' : 'dark'; $('theme').textContent = light ? 'Tema scuro' : 'Tema chiaro'; });
+on('pdf-fit', 'click', () => { const wide = $('pdf-viewer').dataset.fit !== 'width'; $('pdf-viewer').dataset.fit = wide ? 'width' : 'page'; $('pdf-fit').setAttribute('aria-pressed', String(wide)); $('pdf-fit').textContent = wide ? 'Mostra pagina intera' : 'Adatta alla larghezza'; });
 window.addEventListener('beforeunload', event => { if (changed !== saved) { event.preventDefault(); event.returnValue = ''; } });
 (async () => {
   pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'; data = await api('state'); $('workspace').hidden = false;

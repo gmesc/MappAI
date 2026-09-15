@@ -1,46 +1,70 @@
 <!doctype html>
-<html lang="it" class="ui">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MappAI · Banco di revisione</title><link rel="stylesheet" href="/ui.css">
-<style>
-*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button,a,summary{cursor:pointer}
-body,input,select,textarea{font-size:var(--ui-fs-corpo);line-height:var(--ui-lh-corpo)}
-input,select,textarea{background:var(--ui-fondo);color:var(--ui-testo);border:1px solid var(--ui-bordo);border-radius:var(--ui-r);padding:var(--ui-gap);max-width:100%}
-textarea{width:100%;resize:vertical}label{display:grid;gap:calc(var(--ui-gap)/2)}label.check{display:flex;align-items:start}input[type=checkbox]{margin-top:calc(var(--ui-gap)/2)}
-main{max-width:var(--ui-tetto);margin:auto;padding:var(--ui-pad)}h2,h3,p{margin-top:0}h2{font-size:var(--ui-fs-chip)}h3{font-size:var(--ui-fs-btn)}
-.ui-review-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--ui-gap);align-items:start}
-.ui-review-grid>.ui-pannello{width:100%;margin:0;padding:var(--ui-pad)}.ui-review-stack{display:grid;gap:var(--ui-gap)}.ui-review-stack>*{min-width:0}
-.ui-review-row{display:flex;gap:var(--ui-gap);align-items:center;flex-wrap:wrap}.ui-review-row>*{min-width:0;max-width:100%}.ui-review-row .grow{flex:1 1 24ch}h2{overflow-wrap:anywhere}select{width:100%}
-.ui-review-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--ui-lh-corpo);margin:0}.ui-review-muted{color:var(--ui-testo-2)}
-.ui-review-error{color:var(--ui-no)}.ui-review-good{color:var(--ui-ok)}.ui-review-warning{color:var(--ui-mod)}
-.ui-review-question{padding:var(--ui-pad);margin:0 0 var(--ui-gap)}.ui-review-grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(var(--ui-gap)/2)}
-.ui-review-grade .ui-btn{padding:var(--ui-gap);overflow-wrap:anywhere}.ui-btn[aria-pressed=true]{border-color:var(--ui-accento);background:var(--ui-pannello-attivo)}
-.ui-review-footer{margin-top:var(--ui-gap);padding:var(--ui-pad)}canvas{display:block;width:100%;height:auto;border-radius:var(--ui-r)}
-#source-text{max-height:45vh;overflow:auto}#candidate-text{max-height:35vh;overflow:auto;padding:var(--ui-gap);background:var(--ui-fondo);border-radius:var(--ui-r)}
-details>summary{padding:var(--ui-gap) 0}dialog{color:var(--ui-testo);width:calc(100% - var(--ui-gap)*2);max-height:90vh;padding:var(--ui-pad)}dialog::backdrop{background:var(--ui-velo)}
-table{border-collapse:collapse;width:100%}th,td{padding:var(--ui-gap);border-bottom:1px solid var(--ui-bordo);text-align:left}th{color:var(--ui-testo-2)}
-:is(input,select,textarea):focus-visible{outline:2px solid var(--ui-accento);outline-offset:2px}[hidden]{display:none!important}
-@media(max-width:800px){.ui-review-grid{grid-template-columns:minmax(0,1fr)}.ui-testata{flex-direction:column}.ui-chip-fila{flex-wrap:wrap}.ui-titolo{font-size:var(--ui-fs-chip)}.ui-review-grade{grid-template-columns:1fr}}
-</style>
-<script src="/pdf.min.js" defer></script><script src="/review-ui.js" defer></script></head>
-<body>
-<header class="ui-testata"><div><p class="ui-eyebrow">MappAI · Validazione del recupero</p><h1 class="ui-titolo">Rivedi i passaggi</h1><p class="ui-sotto">Valuta la pertinenza rispetto alla domanda. La correttezza scientifica richiede un giudizio separato.</p></div><div class="ui-chip-fila"><div class="ui-chip"><b id="completed">0 / 20</b><small>Casi completati</small></div><div class="ui-chip"><b id="uncertain">0</b><small>Da chiarire</small></div></div></header>
-<nav class="ui-barra" aria-label="Banco"><div class="ui-review-row"><label>Lotto<select id="batch"><option value="critical">Primi 20 casi critici</option><option value="all">Tutti i 60 casi</option></select></label><label>Revisore<input id="reviewer" placeholder="Nome o sigla" autocomplete="name" maxlength="120"></label></div><div class="ui-review-row"><button type="button" class="ui-btn" id="export">Esporta revisioni</button><button type="button" class="ui-btn" id="metrics">Confronta metodi</button><button type="button" class="ui-btn" id="theme">Tema chiaro</button></div></nav>
-<main>
-<p id="message" role="status" aria-live="polite">Caricamento del banco locale…</p>
-<div id="workspace" hidden>
-<section class="ui-pannello ui-review-question ui-review-stack"><div class="ui-review-row"><label class="grow">Caso<select id="case-select"></select></label><button type="button" class="ui-btn" id="next-case">Prossimo da rivedere</button></div><h2 id="question"></h2><p class="ui-review-muted" id="project"></p></section>
-<div class="ui-review-grid">
-<section class="ui-pannello ui-review-stack" aria-labelledby="source-heading"><h3 id="source-heading">Consulta la fonte</h3><div class="ui-review-row"><label class="grow">Pagina del dossier<select id="page-select"></select></label><button type="button" class="ui-btn" id="download-pdf">Scarica PDF completo</button></div><p class="ui-review-muted" id="pdf-status" role="status"></p><canvas id="pdf-canvas" aria-label="Pagina del PDF originale"></canvas>
-<details id="raw-details"><summary>Testo archiviato della pagina</summary><p class="ui-review-muted">Seleziona e copia il passaggio necessario. Simboli e tabelle possono essere estratti male: confronta sempre il PDF.</p><p id="source-text" class="ui-review-text" tabindex="0"></p></details>
-<details id="manual-details"><summary>Aggiungi un passaggio mancante</summary><div class="ui-review-stack"><label>Passaggio esatto della pagina selezionata<textarea id="manual-text" rows="4" placeholder="Incolla dal testo archiviato; mantieni il contesto necessario."></textarea></label><label>Valutazione<select id="manual-grade"><option value="relevant">Pertinente</option><option value="partial">Parzialmente pertinente</option></select></label><button type="button" class="ui-btn" id="add-passage">Aggiungi alla revisione</button><div id="additions" class="ui-review-stack"></div></div></details>
-</section>
-<section class="ui-pannello ui-review-stack" aria-labelledby="candidate-heading"><div class="ui-review-row"><h3 id="candidate-heading" class="grow">Passaggi da valutare</h3><span id="candidate-count" class="ui-review-muted"></span></div><p class="ui-review-muted">Ordine mescolato. Modelli, posizioni e punteggi sono nascosti.</p><div class="ui-review-row"><button type="button" class="ui-btn" id="prev-passage">Precedente</button><button type="button" class="ui-btn" id="next-passage">Successivo</button><button type="button" class="ui-btn" id="show-context">Mostra pagina</button></div><p id="candidate-source" class="ui-review-muted"></p><p id="candidate-text" class="ui-review-text" tabindex="0"></p>
-<div class="ui-review-grade" role="group" aria-label="Pertinenza del passaggio"><button type="button" class="ui-btn" data-grade="relevant" aria-pressed="false">Pertinente</button><button type="button" class="ui-btn" data-grade="partial" aria-pressed="false">Parzialmente pertinente</button><button type="button" class="ui-btn" data-grade="irrelevant" aria-pressed="false">Non pertinente</button></div>
-<label id="quote-label" hidden>Passaggio essenziale da usare nel banco<textarea id="quote" rows="5"></textarea><span class="ui-review-muted">Puoi accorciarlo copiando un estratto esatto. Mantieni soggetto, negazioni e condizioni; più passaggi validi sono ammessi.</span></label><label>Nota sul passaggio<input id="passage-note" maxlength="1000" placeholder="Facoltativa"></label><p id="judged-count" class="ui-review-muted"></p>
-</section></div>
-<section class="ui-pannello ui-review-footer ui-review-stack"><h3>Conclusione del caso</h3><label class="check"><input type="checkbox" id="source-checked">Ho consultato il PDF e il contesto necessario alla valutazione.</label><label class="check"><input type="checkbox" id="no-evidence">Non ho trovato alcuna prova nel dossier, dopo averlo controllato oltre i passaggi proposti.</label><label>Note e dubbi<textarea id="notes" rows="3" placeholder="Motiva i casi dubbi e il controllo svolto quando la prova è assente."></textarea></label><div class="ui-review-row"><button type="button" class="ui-btn" id="save">Salva bozza</button><button type="button" class="ui-btn" id="mark-uncertain">Lascia da chiarire</button><button type="button" class="ui-btn" id="complete">Completa revisione</button><button type="button" class="ui-btn" id="backup">Scarica copia annotazioni</button></div><p class="ui-review-muted">Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire rimangono esclusi. Le revisioni precedenti sono conservate su disco.</p></section>
-</div>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MappAI · Banco di revisione</title>
+  <link rel="stylesheet" href="/modal-tokens.css">
+  <link rel="stylesheet" href="/review-dashboard.css">
+  <link rel="stylesheet" href="/review-layout.css">
+  <script src="/pdf.min.js" defer></script><script src="/review-ui.js" defer></script>
+</head>
+<body id="mappai-teacher-review" class="bank-review">
+<main class="mrv-dashboard">
+  <header class="mrv-header">
+    <div class="mrv-heading"><p class="mrv-eyebrow">MappAI · Banco di validazione</p><h1 id="mrv-title">Rivedi i passaggi</h1><p class="pm-subtitle">Valuta la pertinenza rispetto alla domanda. La correttezza scientifica richiede un giudizio separato.</p></div>
+    <nav class="bank-row" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button></nav>
+  </header>
+  <section class="mrv-overview" aria-label="Avanzamento">
+    <div><strong><span id="completed">0 / 20</span> casi completati</strong><p class="bank-muted"><span id="uncertain">0</span> da chiarire</p></div>
+    <progress id="bank-progress" max="20" value="0" aria-label="Avanzamento della revisione"></progress>
+    <p id="message" role="status" aria-live="polite">Caricamento del banco locale…</p>
+  </section>
+  <div id="workspace" class="mrv-workspace" hidden>
+    <aside class="mrv-sidebar bank-stack" aria-label="Selezione del caso">
+      <label>Lotto<select id="batch"><option value="critical">Primi 20 casi critici</option><option value="all">Tutti i 60 casi</option></select></label>
+      <label>Revisore<input id="reviewer" placeholder="Nome o sigla" autocomplete="name" maxlength="120"></label>
+      <div class="bank-stack"><label>Caso<select id="case-select"></select></label><button type="button" class="pm-btn-cancel" id="next-case">Prossimo da rivedere</button></div>
+      <details class="mrv-coverage bank-help"><summary>Come si usa il banco</summary><p>Consulta la fonte e valuta ogni passaggio. Puoi aggiungere estratti mancanti dal testo archiviato.</p><p>Le bozze si salvano automaticamente. Solo i casi completati entrano nel confronto; quelli da chiarire restano esclusi.</p><p>Le revisioni precedenti sono conservate su disco.</p></details>
+    </aside>
+    <section class="mrv-detail" aria-labelledby="question">
+      <header class="bank-question"><p id="project" class="mrv-eyebrow"></p><h2 id="question"></h2></header>
+      <div class="bank-columns">
+        <section class="bank-column bank-source" aria-labelledby="source-heading">
+          <header class="bank-column-head bank-stack">
+            <div class="bank-row"><h3 id="source-heading" class="grow">Consulta la fonte</h3><button type="button" class="pm-btn-cancel" id="download-pdf">Scarica PDF completo</button></div>
+            <div class="bank-row"><select id="page-select" class="grow" aria-label="Pagina del dossier"></select><button type="button" class="pm-btn-cancel" id="pdf-fit" aria-pressed="false">Adatta alla larghezza</button></div>
+            <p class="bank-muted" id="pdf-status" role="status"></p>
+          </header>
+          <div class="bank-column-body">
+            <div class="bank-pdf" id="pdf-viewer" data-fit="page"><canvas id="pdf-canvas" aria-label="Pagina del PDF originale"></canvas></div>
+            <details id="raw-details"><summary>Testo archiviato della pagina</summary><p class="bank-muted">Seleziona e copia il passaggio necessario. Simboli e tabelle possono essere estratti male: confronta sempre il PDF.</p><p id="source-text" class="bank-text" tabindex="0"></p></details>
+            <details id="manual-details"><summary>Aggiungi un passaggio mancante</summary><div class="bank-stack"><label>Passaggio esatto della pagina selezionata<textarea id="manual-text" rows="4" placeholder="Incolla dal testo archiviato; mantieni il contesto necessario."></textarea></label><label>Valutazione<select id="manual-grade"><option value="relevant">Pertinente</option><option value="partial">Parzialmente pertinente</option></select></label><button type="button" class="pm-btn-cancel" id="add-passage">Aggiungi alla revisione</button><div id="additions" class="bank-stack"></div></div></details>
+          </div>
+        </section>
+        <section class="bank-column" aria-labelledby="candidate-heading">
+          <header class="bank-column-head bank-stack">
+            <div class="bank-row"><h3 id="candidate-heading" class="grow">Passaggi da valutare</h3><span id="candidate-count" class="mrv-chip"></span></div>
+            <p class="bank-muted">Ordine mescolato. Modelli, posizioni e punteggi sono nascosti.</p>
+            <div class="bank-row"><button type="button" class="pm-btn-cancel" id="prev-passage">Precedente</button><button type="button" class="pm-btn-cancel" id="next-passage">Successivo</button><button type="button" class="pm-btn-cancel" id="show-context">Mostra pagina</button></div>
+          </header>
+          <div class="bank-column-body bank-stack">
+            <p id="candidate-source" class="mrv-evidence-source"></p>
+            <div class="mrv-evidence-preview bank-evidence"><p id="candidate-text" class="bank-text" tabindex="0"></p></div>
+            <div class="bank-grade" role="group" aria-label="Pertinenza del passaggio"><button type="button" class="pm-btn-cancel" data-grade="relevant" aria-pressed="false">Pertinente</button><button type="button" class="pm-btn-cancel" data-grade="partial" aria-pressed="false">Parzialmente pertinente</button><button type="button" class="pm-btn-cancel" data-grade="irrelevant" aria-pressed="false">Non pertinente</button></div>
+            <label id="quote-label" hidden>Passaggio essenziale da usare nel banco<textarea id="quote" rows="4"></textarea><span class="bank-muted">Puoi accorciarlo copiando un estratto esatto. Mantieni soggetto, negazioni e condizioni; più passaggi validi sono ammessi.</span></label>
+            <label>Nota sul passaggio<input id="passage-note" maxlength="1000" placeholder="Facoltativa"></label><p id="judged-count" class="bank-muted"></p>
+            <section class="bank-conclusion bank-stack" aria-labelledby="conclusion-heading">
+              <h3 id="conclusion-heading">Conclusione del caso</h3>
+              <label class="bank-check"><input type="checkbox" id="source-checked">Ho consultato il PDF e il contesto necessario alla valutazione.</label>
+              <label class="bank-check"><input type="checkbox" id="no-evidence">Non ho trovato alcuna prova nel dossier, dopo averlo controllato oltre i passaggi proposti.</label>
+              <label>Note e dubbi<textarea id="notes" rows="3" placeholder="Motiva i casi dubbi e il controllo svolto quando la prova è assente."></textarea></label>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+  <footer class="mrv-footer"><p id="mrv-next-step">Le annotazioni si salvano nel banco. I materiali originali restano invariati.</p><div class="mrv-footer-actions"><button type="button" class="pm-btn-cancel" id="save">Salva bozza</button><button type="button" class="pm-btn-cancel" id="mark-uncertain">Lascia da chiarire</button><button type="button" class="pm-btn-primary" id="complete">Completa revisione</button></div></footer>
 </main>
-<dialog id="report" class="ui-pannello"><div class="ui-review-row"><h2 class="grow">Confronto sui casi revisionati</h2><button type="button" class="ui-btn" id="close-report">Chiudi</button></div><p id="report-note" class="ui-review-muted"></p><div id="report-body"></div><button type="button" class="ui-btn" id="download-report">Scarica rapporto JSON</button></dialog>
+<dialog id="report" class="mrv-card bank-report"><div class="bank-row"><h2 class="grow">Confronto sui casi revisionati</h2><button type="button" class="pm-btn-cancel" id="close-report">Chiudi</button></div><p id="report-note" class="bank-muted"></p><div id="report-body"></div><button type="button" class="pm-btn-cancel" id="download-report">Scarica rapporto JSON</button></dialog>
 </body></html>

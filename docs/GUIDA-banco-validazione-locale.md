@@ -17,6 +17,23 @@ modelli caricati o connessione Internet.** Il server ascolta soltanto su
 tolta dalla barra degli indirizzi e mantenuta nella sessione del browser.
 Al riavvio del server usare il nuovo collegamento stampato nel terminale.
 
+## Interfaccia e rapporto con l’app
+
+Il revisore è attualmente **un banco locale nel browser, separato dall’app**.
+Usa direttamente i fogli di stile del modale MappAI **“Rivedi i materiali”**:
+token, colori, campi e bottoni condivisi, con il font locale Space Mono. Il tema
+è quello chiaro del modale; non è più presente il cambio tema del primo prototipo.
+
+Il banco occupa tutta la finestra. Su desktop i selettori sono nella barra
+laterale; PDF e annotazioni hanno pannelli affiancati con scorrimento indipendente.
+Le azioni di salvataggio e completamento restano visibili in basso. Nelle
+finestre strette i pannelli si dispongono in verticale.
+
+Il PDF si apre con la pagina intera adattata allo spazio del pannello.
+**Adatta alla larghezza** ingrandisce la visualizzazione per la lettura;
+**Mostra pagina intera** ripristina la vista d’insieme. Cambia soltanto la vista
+del browser: il file PDF e la sua impaginazione rimangono identici.
+
 ## Il primo lotto
 
 Il banco apre i **20 casi critici**; il selettore permette di passare a tutti i
@@ -46,8 +63,8 @@ etichette e i ranghi dei modelli non sono mostrati al revisore.
 
 Le bozze si salvano automaticamente e sono riprese anche dopo il riavvio.
 Controllare la scritta “Bozza salvata” prima di chiudere. In caso di errore o
-conflitto fra finestre, il testo rimane nella schermata: **Scarica copia
-annotazioni** permette di conservarlo prima di ricaricare. La copia scaricata è
+conflitto fra finestre, il testo rimane nella schermata: **Copia annotazioni**
+permette di scaricarlo e conservarlo prima di ricaricare. La copia scaricata è
 un backup leggibile; non viene reimportata automaticamente.
 
 ## Confronto ed esportazione
@@ -130,10 +147,19 @@ taratura. Questo strumento rende possibile la revisione umana; non l’ha svolta
   identità del corpus e offset Unicode.
 - Browser reale: PDF visualizzato, blocco del completamento incompleto,
   completamento, aggiunta manuale, salvataggio/ripresa e confronto che esclude
-  un caso dubbio; tema chiaro/scuro e layout a 700 pixel CSS.
+  un caso dubbio; layout a 700 pixel CSS.
 - Esportazione prodotta dalla UI di QA accettata dall’evaluatore e rieseguita
   con BGE/MPS offline. Le annotazioni di QA sono sintetiche, in una copia in
   `/private/tmp`: **non sono revisioni del docente né nuovi risultati di qualità**.
+
+Aggiornamento grafico successivo: rieseguiti **5 test del banco, tutti superati**.
+Nel browser verificati lo stile condiviso, il PDF intero/adattato alla larghezza,
+il salvataggio e la ripresa di una nota, il confronto e i layout a **1707, 1400 e
+700 pixel CSS**, senza scorrimento orizzontale della pagina e con azioni visibili
+in basso. Nessun errore o avviso nella console della sessione di prova. Prove
+eseguite sulla copia temporanea; il banco destinato al docente non è stato annotato.
+Questo aggiornamento non cambia il recupero dei passaggi né introduce nuovi
+risultati di qualità o una nuova verifica della build arm64.
 
 Comandi: `node --test tests/local-review-bank.test.js` e
 `python3.13 local-ai/test_evaluation_metrics.py`. Evidenze tecniche temporanee
