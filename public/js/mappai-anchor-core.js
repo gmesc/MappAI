@@ -48,6 +48,100 @@
         return String(t || '').replace(/\s+/g, ' ').split(/(?<=[.!?;:])\s+/).map(function (s) { return s.trim(); }).filter(Boolean);
     }
 
+    /* ── CERCARE nella fonte: BM25 ─────────────────────────────────────────────
+       (15 settembre 2026) `ancoraNodi` qui sotto risponde a «quali frasi parlano
+       di QUESTO nodo»: query lunga (una desc intera), due citazioni per nodo, e
+       un cancello (`relMin`) che esiste per non inventare citazioni. `cercaBM25`
+       risponde a un'altra domanda — «dove, nella fonte, si parla di questo?» —
+       con una query CORTA scritta da un docente, e non ha cancello: serve un
+       elenco ordinato, non un verdetto.
+
+       PERCHÉ BM25 E NON IL PUNTEGGIO DELL'ÀNCORA. Il punteggio di `ancoraNodi` è
+       `parole in comune / parole della frase`: non pesa le parole rare e premia
+       le frasi CORTE (una riga di tre parole con due in comune fa 0,67; un
+       paragrafo di quaranta con quindici fa 0,37). BM25 aggiunge le due cose che
+       mancano — l'IDF, che dà peso alla parola rara invece che a «di», e una
+       normalizzazione della lunghezza governata da `b` invece che una divisione
+       secca.
+
+       MISURATO sul banco di 60 domande italiane di `local-ai/italian-bank.json`,
+       sulle STESSE frasi, cambiando solo la funzione di punteggio:
+
+         metodo                       Recall@5 (taratura / verifica)   MRR@20
+         punteggio dell'àncora          48,1%  /  74,1%              0,313 / 0,509
+         BM25 (questa funzione)         88,9%  /  96,3%              0,726 / 0,858
+         SQLite FTS5 vero, riferimento  88,9%  /  96,3%              0,720 / 0,846
+
+       Cioè: in JS puro si ottiene lo STESSO recupero di FTS5 — stessi casi
+       mancati (IT-018, IT-020, IT-034) — senza SQLite, senza Python, senza i
+       7,4 GB di runtime e modelli. Il banco è piccolo (176 e 53 frasi) e le sue
+       etichette attendono ancora una revisione indipendente: questi numeri
+       confrontano metodi fra loro, non certificano nulla.
+
+       ⚠️ IL CANCELLO NON VA MESSO QUI. Riusando `relMin: 0.18` come filtro il
+       Recall@5 CROLLA a 63,0% / 44,4% — sotto il punteggio vecchio: in un terzo
+       dei casi la frase giusta non entra nemmeno fra i candidati. Quella soglia
+       è tarata su query lunghe, e su una domanda corta taglia la risposta.
+
+       ⚠️ TOKENIZER SUO, e non `_words`. `contentWords` tiene solo le parole di
+       quattro lettere o più e scarta le cifre: «ohm», «Ω», «W» sparirebbero, cioè
+       proprio i termini di una domanda di fisica. Qui si fa come `unicode61` di
+       SQLite — minuscole, via i diacritici, si spezza sui non alfanumerici — più
+       gli stessi alias del worker per i segni che una tastiera non scrive. */
+
+    function _cercaWords(t) {
+        return String(t == null ? '' : t)
+            .replace(/[Ωω]/g, ' ohm ').replace(/µ/g, ' micro ').replace(/²/g, '2').replace(/³/g, '3')
+            .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .split(/[^a-z0-9]+/).filter(Boolean);
+    }
+
+    /* `frasi` = l'uscita di frasiDaPagine. Ritorna le prime `max` in ordine di
+       pertinenza: [{ idx, text, page, score, hit }]. `hit` = quanti termini della
+       domanda compaiono, utile a spiegare un risultato senza mostrare il punteggio
+       grezzo (che non è una percentuale di correttezza e non va presentato come tale). */
+    function cercaBM25(frasi, query, opts) {
+        var o = Object.assign({ max: 20, k1: 1.2, b: 0.75, maxTermini: 64 }, opts || {});
+        var lista = frasi || [];
+        if (!lista.length) return [];
+        var termini = [];
+        _cercaWords(query).forEach(function (w) { if (termini.indexOf(w) < 0) termini.push(w); });
+        termini = termini.slice(0, o.maxTermini);
+        if (!termini.length) return [];
+
+        var docs = lista.map(function (f) { return _cercaWords(f.text); });
+        var N = docs.length, lunghezze = 0, df = {};
+        docs.forEach(function (d) {
+            lunghezze += d.length;
+            var visti = {};
+            d.forEach(function (w) { if (!visti[w]) { visti[w] = 1; df[w] = (df[w] || 0) + 1; } });
+        });
+        var avgdl = lunghezze / N || 1;
+
+        var out = [];
+        docs.forEach(function (d, idx) {
+            var tf = {};
+            d.forEach(function (w) { tf[w] = (tf[w] || 0) + 1; });
+            var score = 0, hit = 0;
+            for (var i = 0; i < termini.length; i++) {
+                var f = tf[termini[i]];
+                if (!f) continue;
+                hit++;
+                var n = df[termini[i]] || 0;
+                var idf = Math.log(1 + (N - n + 0.5) / (n + 0.5));
+                score += idf * (f * (o.k1 + 1)) / (f + o.k1 * (1 - o.b + o.b * d.length / avgdl));
+            }
+            if (hit) out.push({ idx: idx, text: lista[idx].text, page: lista[idx].page, score: score, hit: hit });
+        });
+        /* Ordine STABILE: due passate sullo stesso PDF devono dare la stessa
+           lista, come già per ancoraNodi — a parità di punteggio comanda la
+           posizione nel documento. */
+        out.sort(function (a, b) { return (b.score - a.score) || (a.idx - b.idx); });
+        return out.slice(0, o.max).map(function (r) {
+            return { idx: r.idx, text: r.text, page: r.page, score: Number(r.score.toFixed(4)), hit: r.hit };
+        });
+    }
+
     /* ── LE FRASI, COL NUMERO DI PAGINA ───────────────────────────────────────
        `pagine` = [{ n, text }] come le restituisce il lettore di PDF. Con un
        corpus senza pagine (testo incollato, URL) si passa [{n:0,text:tutto}] e
@@ -398,6 +492,7 @@
         frasiDaPagine: frasiDaPagine,
         paginePiatte: paginePiatte,
         ancoraNodi: ancoraNodi,
+        cercaBM25: cercaBM25,
         copertura: copertura,
         orfanePerPassaggio: orfanePerPassaggio,
         validaProposte: validaProposte,

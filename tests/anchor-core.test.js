@@ -336,3 +336,81 @@ test('validaProposte: il tetto ferma la crescita della mappa', () => {
   assert.strictEqual(r.proposte.length, 2);
   assert.strictEqual(r.scartate[0].perche, 'oltre il tetto');
 });
+
+// ── cercaBM25: cercare nella fonte (15/9/2026) ──────────────────────────────
+// Non è `ancoraNodi` con un altro punteggio: risponde a un'altra domanda (una
+// query CORTA del docente, nessun cancello). I numeri del banco stanno nel
+// commento sopra la funzione; qui si prova il COMPORTAMENTO che li produce.
+
+const frasiDi = (...testi) => A.frasiDaPagine([{ n: 1, text: testi.join(' ') }],
+  { minSentenceWords: 1, maxSentenceChars: 5000 });
+
+test('cercaBM25: non premia la frase CORTA — è il difetto del punteggio vecchio', () => {
+  // «parole in comune / parole della frase» dà 1,00 alla riga di tre parole e
+  // 0,25 al paragrafo che risponde davvero.
+  const frasi = frasiDi(
+    'La resistenza elettrica.',
+    'La resistenza elettrica di un conduttore cresce con la lunghezza del filo e diminuisce quando la sezione del filo aumenta, a parita di materiale.'
+  );
+  const out = A.cercaBM25(frasi, 'da che cosa dipende la resistenza elettrica di un conduttore');
+  assert.ok(out.length >= 2);
+  assert.match(out[0].text, /cresce con la lunghezza/, 'primo deve essere il paragrafo che risponde');
+});
+
+test('cercaBM25: la parola RARA pesa piu di quella comune (IDF)', () => {
+  const frasi = frasiDi(
+    'Il circuito e collegato alla batteria.',
+    'Il circuito e collegato alla lampadina.',
+    'Il circuito e collegato al reostato.'
+  );
+  const out = A.cercaBM25(frasi, 'circuito reostato');
+  assert.match(out[0].text, /reostato/, '«reostato» compare una volta sola: deve comandare lui, non «circuito»');
+});
+
+test('cercaBM25: tiene unita, simboli e cifre — contentWords li scarta', () => {
+  const frasi = frasiDi(
+    'La tensione si misura in volt e vale dodici unita nel nostro caso.',
+    'Una resistenza da 12 ohm limita la corrente nel circuito.'
+  );
+  for (const q of ['12 ohm', 'resistenza da 12 Ω']) {
+    const out = A.cercaBM25(frasi, q);
+    assert.ok(out.length, `nessun risultato per «${q}»`);
+    assert.match(out[0].text, /12 ohm/, `«${q}» deve trovare la riga con 12 ohm`);
+  }
+});
+
+test('cercaBM25: nessun cancello — a differenza di ancoraNodi non scarta i deboli', () => {
+  const frasi = frasiDi(
+    'Il generatore fornisce energia al circuito chiuso e la corrente puo scaldare i conduttori collegati lungo tutto il percorso previsto.'
+  );
+  // una sola parola in comune su una frase lunga: relMin 0.18 la taglierebbe
+  const out = A.cercaBM25(frasi, 'generatore');
+  assert.strictEqual(out.length, 1, 'la frase debole deve comunque comparire');
+  assert.strictEqual(out[0].hit, 1);
+});
+
+test('cercaBM25: deterministico e con tetto rispettato', () => {
+  const frasi = frasiDi(...Array.from({ length: 30 }, (_, i) => `La corrente scorre nel ramo numero ${i}.`));
+  const a = A.cercaBM25(frasi, 'corrente ramo');
+  const b = A.cercaBM25(frasi, 'corrente ramo');
+  assert.deepStrictEqual(a, b, 'due passate devono dare la stessa lista');
+  assert.ok(a.length <= 20, 'tetto di default 20');
+  assert.strictEqual(A.cercaBM25(frasi, 'corrente', { max: 3 }).length, 3);
+});
+
+test('cercaBM25: casi vuoti non lanciano', () => {
+  const frasi = frasiDi('Una frase qualunque sul circuito elettrico.');
+  assert.deepStrictEqual(A.cercaBM25(frasi, ''), []);
+  assert.deepStrictEqual(A.cercaBM25(frasi, '   ,,, '), []);
+  assert.deepStrictEqual(A.cercaBM25([], 'circuito'), []);
+  assert.deepStrictEqual(A.cercaBM25(null, 'circuito'), []);
+  assert.deepStrictEqual(A.cercaBM25(frasi, 'parolacheNONesiste'), []);
+});
+
+test('cercaBM25 NON tocca ancoraNodi: il cancello dell\'ancora resta dov\'era', () => {
+  // Guardia di regressione: la funzione nuova vive accanto, non al posto.
+  const frasi = frasiDi('Il circuito chiuso scalda la batteria quando la resistenza e troppo bassa.');
+  const estraneo = A.ancoraNodi([{ id: 'x', desc: 'La fotosintesi clorofilliana nelle piante verdi' }], frasi);
+  assert.deepStrictEqual(estraneo.perNodo, {}, 'un nodo estraneo non deve ricevere citazioni');
+  assert.ok(A.cercaBM25(frasi, 'batteria').length, 'la ricerca invece risponde: e un elenco, non un verdetto');
+});
