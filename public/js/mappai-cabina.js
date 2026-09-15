@@ -57,6 +57,7 @@
            sulla landing vuota, quindi irraggiungibile appena si comincia a
            lavorare (e con la veste manifesto anche prima). */
         { gruppo: 'cb_g_dev', gruppoTesto: 'Sviluppo' },
+        { id: 'banco-validazione', chiave: 'cb_v_banco_validazione', testo: 'Banco di validazione', icona: 'list-checks' },
         { id: 'insegnai', chiave: 'cb_v_insegnai', testo: 'insegnai.ch', icona: 'globe' },
         /* ⚠️ La sola voce con una veste sua: è il CLONE del bottone ambra del
            cassetto (`.btn_feedback_action`), stesso comando in due posti. */
@@ -1222,6 +1223,16 @@
 
             if (id === '__nav') {
                 if (ev.voce === 'guida-online') { _apriEsterno(GUIDA_DOCENTI_URL); return; }   /* non è una vista */
+                if (ev.voce === 'banco-validazione') {
+                    if (!window.electronAPI || !window.electronAPI.openReviewBank) {
+                        toast(t('cb_banco_desktop', 'Il banco di validazione si apre nell’app MappAI per computer.'), 'info');
+                        return;
+                    }
+                    window.electronAPI.openReviewBank().then(function (result) {
+                        if (!result.ok && !result.canceled) toast(result.error, 'error');
+                    }).catch(function (error) { toast(error.message, 'error'); });
+                    return;
+                }
                 if (_st.voce === 'ai') _restituisciAi();
                 _st.voce = ev.voce;
                 if (_st.voce === 'consumi') _caricaConsumi();

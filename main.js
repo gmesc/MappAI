@@ -60,6 +60,10 @@ let mainWindow;
 let launcherWindow;
 let studioWindow;
 
+require('./local-ai/review-electron.cjs').installReviewBank({
+    app, BrowserWindow, ipcMain, dialog, mainWindow: () => mainWindow, readSettings, writeSettings
+});
+
 // Launcher all'avvio: scegli MappAI o Memory Dungeon Studio.
 // Presente ANCHE nella build pacchettizzata (richiesta 7/7/26: i docenti devono
 // poter entrare nello Studio dall'app installata).

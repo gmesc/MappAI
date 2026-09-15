@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const tokenKey = 'mappai-review-session';
 const token = location.hash.slice(1) || sessionStorage.getItem(tokenKey);
 if (token) sessionStorage.setItem(tokenKey, token);
-history.replaceState(null, '', location.pathname);
+if (!window.reviewBank) history.replaceState(null, '', location.pathname);
 window.addEventListener('hashchange', () => {
   if (location.hash.slice(1) && location.hash.slice(1) !== token) {
     sessionStorage.setItem(tokenKey, location.hash.slice(1)); location.reload();
@@ -17,6 +17,11 @@ const annotation = () => data.annotations[caseId];
 const candidate = () => test().candidates[candidateIndex];
 function message(text, error = false) { $('message').textContent = text; $('message').className = error ? 'bank-error' : 'bank-muted'; }
 async function api(route, body) {
+  if (window.reviewBank) {
+    const result = await window.reviewBank.request(route, body);
+    if (result.error) throw Error(result.error);
+    return result.value;
+  }
   const response = await fetch('/api/' + route, { headers: { 'X-Review-Token': token || '', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { method: 'POST', body: JSON.stringify(body) } : {}) });
   const value = await response.json(); if (!response.ok) throw Error(value.error); return value;
 }
@@ -77,9 +82,13 @@ function renderCandidate() {
 }
 async function pdfDocument(id) {
   if (!pdfs.has(id)) pdfs.set(id, (async () => {
-    const response = await fetch('/api/pdf/' + id, { headers: { 'X-Review-Token': token } });
-    if (!response.ok) throw Error((await response.json()).error);
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    let bytes;
+    if (window.reviewBank) bytes = new Uint8Array(await api('pdf/' + id));
+    else {
+      const response = await fetch('/api/pdf/' + id, { headers: { 'X-Review-Token': token } });
+      if (!response.ok) throw Error((await response.json()).error);
+      bytes = new Uint8Array(await response.arrayBuffer());
+    }
     const document = await pdfjsLib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
     return { document, bytes };
   })());
@@ -147,8 +156,26 @@ on('metrics', 'click', async () => {
 on('close-report', 'click', () => $('report').close()); on('download-report', 'click', () => download('confronto-revisionato-r' + reportData.annotationRevision + '.json', reportData));
 on('pdf-fit', 'click', () => { const wide = $('pdf-viewer').dataset.fit !== 'width'; $('pdf-viewer').dataset.fit = wide ? 'width' : 'page'; $('pdf-fit').setAttribute('aria-pressed', String(wide)); $('pdf-fit').textContent = wide ? 'Mostra pagina intera' : 'Adatta alla larghezza'; });
 window.addEventListener('beforeunload', event => { if (changed !== saved) { event.preventDefault(); event.returnValue = ''; } });
+let closing = false;
+async function closeBank() {
+  if (closing) return;
+  closing = true;
+  try { if (caseId) await flush(); window.reviewBank.close(); }
+  catch (error) {
+    message(error.message + ' Puoi conservare una copia delle annotazioni.', true);
+    await window.reviewBank.closeFailed();
+  } finally { closing = false; }
+}
+if (window.reviewBank) {
+  $('close-bank').hidden = false;
+  on('close-bank', 'click', closeBank);
+  window.reviewBank.onClosing(closeBank);
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !$('report').open) { event.preventDefault(); closeBank(); }
+  });
+}
 (async () => {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'; data = await api('state'); $('workspace').hidden = false;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('../public/js/pdf.worker.min.js', location.href).href; data = await api('state'); $('workspace').hidden = false;
   const remembered = sessionStorage.getItem('review-case-' + data.packetId); if (remembered && data.cases.find(c => c.id === remembered && !c.critical)) $('batch').value = 'all';
   await selectCase(data.cases.some(c => c.id === remembered) ? remembered : batch().find(c => data.annotations[c.id]?.status !== 'reviewed')?.id || batch()[0].id);
 })().catch(error => message(error.message, true));

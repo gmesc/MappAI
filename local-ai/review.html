@@ -3,16 +3,19 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>MappAI · Banco di revisione</title>
-  <link rel="stylesheet" href="/modal-tokens.css">
-  <link rel="stylesheet" href="/review-dashboard.css">
-  <link rel="stylesheet" href="/review-layout.css">
-  <script src="/pdf.min.js" defer></script><script src="/review-ui.js" defer></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="stylesheet" href="../public/css/mappai-modal-tokens.css">
+  <link rel="stylesheet" href="../public/css/mappai-review-dashboard.css">
+  <link rel="stylesheet" href="review-layout.css">
+  <script src="../public/js/mappai-font-core.js" defer></script>
+  <script src="../public/js/mappai-font.js" defer></script>
+  <script src="../public/js/pdf.min.js" defer></script><script src="review-ui.js" defer></script>
 </head>
 <body id="mappai-teacher-review" class="bank-review">
 <main class="mrv-dashboard">
   <header class="mrv-header">
     <div class="mrv-heading"><p class="mrv-eyebrow">MappAI · Banco di validazione</p><h1 id="mrv-title">Rivedi i passaggi</h1><p class="pm-subtitle">Valuta la pertinenza rispetto alla domanda. La correttezza scientifica richiede un giudizio separato.</p></div>
-    <nav class="bank-row" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button></nav>
+    <nav class="bank-row" aria-label="Strumenti del banco"><button type="button" class="pm-btn-cancel" id="export">Esporta revisioni</button><button type="button" class="pm-btn-cancel" id="metrics">Confronta metodi</button><button type="button" class="pm-btn-cancel" id="backup">Copia annotazioni</button><button type="button" class="pm-btn-cancel" id="close-bank" hidden>Torna a MappAI</button></nav>
   </header>
   <section class="mrv-overview" aria-label="Avanzamento">
     <div><strong><span id="completed">0 / 20</span> casi completati</strong><p class="bank-muted"><span id="uncertain">0</span> da chiarire</p></div>

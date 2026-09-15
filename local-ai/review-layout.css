@@ -1,11 +1,11 @@
 /* Full-window layout. Visual skin: the app's shared review dashboard and modal tokens. */
-@font-face{font-family:'Space Mono';src:url('/fonts/SpaceMono-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
-@font-face{font-family:'Space Mono';src:url('/fonts/SpaceMono-Bold.ttf') format('truetype');font-style:normal;font-weight:700;font-display:swap}
-html,body{margin:0;height:100%;font-family:'Space Mono',monospace;color-scheme:light}
+/* Fonts come exclusively from MappAIFont, as in Cabina > Aspetto. */
+html,body{margin:0;height:100%;font-family:var(--app-font);color-scheme:light}
 input,select,textarea,button{font-family:inherit}
 #mappai-teacher-review.bank-review{padding:0;background:var(--mm-fondo);display:block}
 #mappai-teacher-review.bank-review .mrv-dashboard{width:100%;height:100dvh;max-height:none;border-radius:0;box-shadow:none}
-#mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:240px minmax(0,1fr)}
+#mappai-teacher-review.bank-review .mrv-workspace{grid-template-columns:var(--mm-console-side) minmax(0,1fr)}
+#mappai-teacher-review :is(.pm-btn-cancel,.pm-btn-primary){font-size:var(--mm-btn-fs)}
 #mappai-teacher-review .bank-stack{display:flex;flex-direction:column;gap:var(--mm-gap)}
 #mappai-teacher-review .bank-stack>*{min-width:0;flex-shrink:0}
 #mappai-teacher-review .bank-row{display:flex;align-items:center;gap:var(--mm-btn-gap);flex-wrap:wrap}

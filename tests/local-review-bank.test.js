@@ -67,3 +67,78 @@ test('HTTP binds localhost, requires token and same origin, and rejects replaced
   assert.equal((await fetch(origin + '/api/pdf/pdf', { headers })).status, 200);
   fs.writeFileSync(path.join(directory, 'pdf/test.pdf'), 'replacement'); assert.equal((await fetch(origin + '/api/pdf/pdf', { headers })).status, 409);
 });
+
+test('Electron opens one native window, guards IPC, preserves revisions and waits for close acknowledgment', async t => {
+  const { EventEmitter } = require('node:events');
+  const { pathToFileURL } = require('node:url');
+  const { directory, annotation } = fixture(t);
+  const { installReviewBank } = require('../local-ai/review-electron.cjs');
+  const handlers = new Map(), ipcMain = new EventEmitter(), app = new EventEmitter();
+  ipcMain.handle = (name, fn) => handlers.set(name, fn);
+  app.isPackaged = true; app.quit = () => { app.quits = (app.quits || 0) + 1; };
+  const windows = [];
+  class Window extends EventEmitter {
+    constructor(options) {
+      super(); this.options = options; this.webContents = new EventEmitter();
+      this.webContents.mainFrame = { url: '' };
+      this.webContents.setWindowOpenHandler = handler => { this.popup = handler; };
+      this.webContents.send = name => { this.lastMessage = name; };
+      windows.push(this);
+    }
+    isDestroyed() { return !!this.destroyed; }
+    isMinimized() { return false; }
+    isMaximized() { return true; }
+    getBounds() { return { width: 1280, height: 800 }; }
+    show() {} focus() {} maximize() { this.maximized = true; }
+    async loadFile(file) { this.webContents.mainFrame.url = pathToFileURL(file).href; }
+    close() { let prevented = false; this.emit('close', { preventDefault() { prevented = true; } }); if (!prevented) this.destroy(); }
+    destroy() { this.destroyed = true; this.emit('closed'); }
+  }
+  const parent = new Window(), settings = { reviewBankDirectory: directory };
+  let closeChoice = 0, closeDialogs = 0;
+  const event = win => ({ sender: win.webContents, senderFrame: win.webContents.mainFrame });
+  installReviewBank({ app, BrowserWindow: Window, ipcMain, dialog: {
+    showOpenDialog() { throw Error('Existing bank must not prompt.'); },
+    async showMessageBox() { closeDialogs++; return { response: closeChoice }; }
+  }, mainWindow: () => parent,
+    readSettings: () => settings, writeSettings: data => Object.assign(settings, data) });
+  const open = handlers.get('review-bank-open'), request = handlers.get('review-bank-request');
+  assert.equal((await open({ ...event(parent), senderFrame: {} })).ok, false);
+  await Promise.all([open(event(parent)), open(event(parent))]);
+  assert.equal(windows.length, 2);
+  const bank = windows[1]; assert.equal(bank.maximized, true);
+  assert.deepEqual(bank.popup({ url: 'https://untrusted.invalid' }), { action: 'deny' });
+  assert.equal(bank.options.webPreferences.sandbox, true);
+  assert.equal(bank.options.webPreferences.nodeIntegration, false);
+  assert(request(event(parent), 'state').error);
+  assert(request({ ...event(bank), senderFrame: {} }, 'state').error);
+  assert(!JSON.stringify(request(event(bank), 'state')).includes('SECRET INITIAL'));
+  assert(request(event(bank), 'arbitrary-route').error);
+  assert.equal(request(event(bank), 'annotation', { caseId: 'IT-001', version: 0, annotation }).value.version, 1);
+  assert(request(event(bank), 'annotation', { caseId: 'IT-001', version: 0, annotation }).error);
+  assert.equal(request(event(bank), 'export').value.cases.length, 1);
+  assert.equal(request(event(bank), 'pdf/pdf').value.toString(), 'test pdf');
+  const revision = fs.readFileSync(path.join(directory, 'annotations/00000001.json'));
+  bank.close(); assert.equal(bank.isDestroyed(), false); assert.equal(bank.lastMessage, 'review-bank-closing');
+  ipcMain.emit('review-bank-close', event(parent)); assert.equal(bank.isDestroyed(), false);
+  ipcMain.emit('review-bank-close', event(bank)); assert.equal(bank.isDestroyed(), true);
+  await open(event(parent));
+  assert.equal(request(event(windows[2]), 'state').value.version, 1);
+  assert.deepEqual(fs.readFileSync(path.join(directory, 'annotations/00000001.json')), revision);
+  fs.writeFileSync(path.join(directory, 'pdf/test.pdf'), 'replacement');
+  assert.match(request(event(windows[2]), 'pdf/pdf').error, /sostituito/);
+  let preventedQuit = false;
+  app.emit('before-quit', { preventDefault() { preventedQuit = true; } });
+  assert.equal(preventedQuit, true);
+  assert.equal(windows[2].lastMessage, 'review-bank-closing');
+  await handlers.get('review-bank-close-failed')(event(parent)); assert.equal(closeDialogs, 0);
+  await handlers.get('review-bank-close-failed')(event(windows[2]));
+  assert.equal(closeDialogs, 1); assert.equal(windows[2].isDestroyed(), false);
+  ipcMain.emit('review-bank-close', event(windows[2]));
+  assert.equal(app.quits, undefined, 'Canceling a failed quit keeps the app running');
+  await open(event(parent));
+  closeChoice = 1;
+  app.emit('before-quit', { preventDefault() {} });
+  await handlers.get('review-bank-close-failed')(event(windows[3]));
+  assert.equal(app.quits, 1);
+});

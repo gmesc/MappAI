@@ -386,6 +386,14 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
+    // Finestre della stessa app (Banco incluso): una sola preferenza, viva anche
+    // dopo l'apertura. Non riscriviamo lo storage, evitando rimbalzi fra finestre.
+    window.addEventListener('storage', function (event) {
+        if (event.key !== CHIAVE && event.key !== KILL && event.key !== null) return;
+        applica(); annunciaMetriche(); precaricaIncorporabile();
+        window.dispatchEvent(new CustomEvent('mappai-font-cambiato', { detail: { id: attivo() } }));
+    });
+
     window.MappAIFont = {
         CHIAVE: CHIAVE, KILL: KILL,
         accesa: accesa, attivo: attivo, imposta: imposta, applica: applica,

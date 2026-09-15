@@ -2,6 +2,24 @@
 
 ## Avvio sul Mac
 
+Nell’app MappAI aprire **Cabina → Sviluppo → Banco di validazione**.
+Il banco ha una finestra propria; un secondo clic riporta alla stessa finestra.
+Non servono terminale, Node installato separatamente, Python o un server HTTP.
+
+La prima apertura nella build installata chiede la **cartella del banco**, con
+`packet.json`, `corpus.json`, `pdf/` e le eventuali `annotations/`.
+Per il banco già preparato scegliere **`local-ai-data/review/`** del repository.
+La scelta viene ricordata nelle impostazioni dell’app; le revisioni sono lette
+e salvate nella stessa cartella, senza importazioni, copie o azzeramenti.
+In sviluppo quella cartella viene riconosciuta automaticamente.
+
+**Torna a MappAI**, Esc e la chiusura nativa della finestra attendono il salvataggio.
+Esc nel confronto chiude soltanto il confronto. Se il salvataggio fallisce, il
+banco resta disponibile: si può scaricare **Copia annotazioni** oppure scegliere
+esplicitamente di uscire senza salvare le sole modifiche ancora in memoria.
+
+### Avvio tecnico nel browser, ancora disponibile
+
 Aprire con doppio clic **`local-ai/Avvia banco.command`** nel repository.
 Il browser si apre sul banco; lasciare aperta la finestra del terminale che lo avvia.
 Per chiuderlo usare Ctrl+C in quella finestra. In alternativa:
@@ -19,10 +37,25 @@ Al riavvio del server usare il nuovo collegamento stampato nel terminale.
 
 ## Interfaccia e rapporto con l’app
 
-Il revisore è attualmente **un banco locale nel browser, separato dall’app**.
+Il revisore vive ora **in una finestra Electron dell’app MappAI**.
 Usa direttamente i fogli di stile del modale MappAI **“Rivedi i materiali”**:
-token, colori, campi e bottoni condivisi, con il font locale Space Mono. Il tema
-è quello chiaro del modale; non è più presente il cambio tema del primo prototipo.
+token, colori, campi e bottoni condivisi. Il tema è quello chiaro del modale,
+come richiesto; non è presente il cambio tema del primo prototipo.
+
+**Il font segue Cabina → Aspetto e leggibilità**, sia alla prima apertura sia
+quando la scelta cambia con il banco già aperto. Catalogo, file locali e variabile
+`--app-font` vengono dal modulo `MappAIFont` dell’app; nessun secondo elenco di
+caratteri. Vale per campi, pulsanti, passaggi e rapporto; il PDF conserva i propri
+caratteri originali. L’avvio tecnico HTTP ha una sessione browser separata e non
+riceve le preferenze dell’app Electron.
+
+Riferimenti letti prima dell’integrazione: regole **08**, **09 §2–6**, **10** e
+**11**, verificate con `npm run ui` e il censimento dei token. La richiesta
+esplicita di mantenere la pelle del modale prevale sul tema scuro delle nuove
+pagine descritto nella regola 10. L’ingresso nella Cabina usa la navigazione già
+prodotta dal motore; la finestra nativa contiene il banco esistente, senza creare
+un nuovo overlay. Il corpo dei bottoni legge `--mm-btn-fs` e la barra laterale
+`--mm-console-side`; nessuna nuova palette, famiglia di font o regola globale di stile.
 
 Il banco occupa tutta la finestra. Su desktop i selettori sono nella barra
 laterale; PDF e annotazioni hanno pannelli affiancati con scorrimento indipendente.
@@ -110,8 +143,9 @@ La cartella **`local-ai-data/review/`**, esclusa da Git, contiene:
   questa cartella** per trasferire o mettere al sicuro il lavoro.
 
 Nessuna scrittura nei vault, in `pipeline.json`, nei preset o nei materiali
-originali. Il banco è uno strumento di sviluppo locale separato dalla build
-MappAI arm64; questa fase non cambia il suo installer. Nessuna implementazione UDL.
+originali. La build MappAI arm64 include interfaccia, collegamento Electron e
+font; **non include i PDF privati, il corpus o le annotazioni del banco**.
+Questi restano nella cartella scelta dal docente. Nessuna implementazione UDL.
 
 Per rigenerare un pacchetto in una **nuova** cartella, dopo avere predisposto
 copie temporanee e risultati del confronto:
@@ -158,8 +192,36 @@ il salvataggio e la ripresa di una nota, il confronto e i layout a **1707, 1400 
 700 pixel CSS**, senza scorrimento orizzontale della pagina e con azioni visibili
 in basso. Nessun errore o avviso nella console della sessione di prova. Prove
 eseguite sulla copia temporanea; il banco destinato al docente non è stato annotato.
-Questo aggiornamento non cambia il recupero dei passaggi né introduce nuovi
-risultati di qualità o una nuova verifica della build arm64.
+Il solo aggiornamento grafico non aveva cambiato il recupero dei passaggi né
+introdotto nuovi risultati di qualità o una verifica della build arm64.
+
+### Integrazione nell’app — 15 settembre 2026
+
+- Build locale **arm64**, MappAI **1.0.0-beta.5**, Electron **41.10.7**,
+  electron-builder **26.15.3**. Build di sviluppo non firmata/notarizzata,
+  conservata in `dist/banco-validazione-20260915/mac-arm64/MappAI.app`.
+- **1.543 test Node superati, 0 fallimenti, 2 saltati**; escluso il già noto
+  `live-server.test.js`. **30 test mirati** rieseguiti dopo l’ultima rifinitura
+  della chiusura: confini IPC, unicità della finestra, storia immutabile,
+  rigetto dei PDF sostituiti, uscita annullata e sincronizzazione dei quattro font.
+- Prova nell’app pacchettizzata, con profilo e banco in `/private/tmp`:
+  ingresso dalla Cabina, PDF caricato dal pacchetto di dati, apertura in Atkinson,
+  passaggio a Space Mono **nella stessa finestra già aperta**, bozza conservata,
+  chiusura nativa e riapertura con la nota presente; Esc nel rapporto lascia
+  aperto il banco. Le annotazioni di questa prova sono sintetiche, non del docente.
+- L’IPC del banco accetta richieste solo dal frame principale della sua finestra;
+  il preload dedicato non espone le API generali dell’app. Il renderer riceve la
+  stessa vista anonima usata dal browser; modello, ranghi ed etichette iniziali
+  restano nascosti durante la revisione. Store, validazione e metriche sono condivisi.
+
+L’integrazione non aggiunge inferenze né cambia il banco italiano: i risultati
+precedenti del recupero restano quelli documentati. Queste prove verificano il
+funzionamento dell’app, non la pertinenza delle annotazioni o la correttezza scientifica.
+
+Consegna: build definitiva aperta con il profilo MappAI esistente e collegata
+tramite il selettore nativo a `local-ai-data/review/`. Verificati gli hash dei
+**376 materiali originali** e di tutti i file del banco reale: identici, nessuna
+annotazione di prova aggiunta. Il vecchio server browser è stato chiuso.
 
 Comandi: `node --test tests/local-review-bank.test.js` e
 `python3.13 local-ai/test_evaluation_metrics.py`. Evidenze tecniche temporanee

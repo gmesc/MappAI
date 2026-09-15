@@ -1,4 +1,6 @@
 const it_translations = {
+    cb_v_banco_validazione: "Banco di validazione",
+    cb_banco_desktop: "Il banco di validazione si apre nell’app MappAI per computer.",
     ls_url: "Apri pagina della fonte",
     ls_scan: "PDF senza testo leggibile: apri l’originale.",
     ls_prepared: "Indice della fonte preparato",

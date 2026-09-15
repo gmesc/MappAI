@@ -1,4 +1,6 @@
 const en_translations = {
+    cb_v_banco_validazione: "Validation bench",
+    cb_banco_desktop: "The validation bench opens in the MappAI desktop app.",
     ls_url: "Open source page",
     ls_scan: "PDF has no readable text: open the original.",
     ls_prepared: "Source index prepared",

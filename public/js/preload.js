@@ -21,6 +21,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+    openReviewBank: () => ipcRenderer.invoke('review-bank-open'),
     // TODO iPadOS: local Python retrieval is desktop-only; renderer retains lexical search.
     localSearch: request => ipcRenderer.invoke('local-search', request),
     localSearchOpenOriginal: recordId => ipcRenderer.invoke('local-search-open-original', recordId),

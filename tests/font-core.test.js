@@ -276,3 +276,30 @@ test('i font vendorizzati sono TrueType anche nell intestazione sfnt', () => {
         }
     }
 });
+
+test('font condiviso: una finestra già aperta segue storage, kill-switch e reset senza riscrivere la preferenza', () => {
+    const vm = require('node:vm'), fs = require('node:fs'), path = require('node:path');
+    const listeners = {}, values = new Map(), attributes = {}, properties = {}, events = [];
+    const win = {
+        MappAIFontCore: F,
+        addEventListener: (name, fn) => { listeners[name] = fn; },
+        dispatchEvent: event => events.push(event),
+        localStorage: { getItem: key => values.get(key) ?? null, setItem() { throw Error('Unexpected preference write'); } },
+        CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+        document: { readyState: 'loading', addEventListener() {}, currentScript: { src: 'file:///app/public/js/mappai-font.js' },
+            documentElement: { style: { setProperty: (key, value) => { properties[key] = value; } }, setAttribute: (key, value) => { attributes[key] = value; } } }
+    };
+    for (const font of F.elenco()) win[font.incorporaGlobale] = {};
+    win.window = win;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/mappai-font.js'), 'utf8'), win);
+    for (const font of F.elenco()) {
+        values.set('mappai_font_app', font.id); listeners.storage({ key: 'mappai_font_app' });
+        assert.equal(attributes['data-font'], font.id);
+        assert.equal(properties['--app-font'], F.stackDi(font.id));
+        assert.equal(events.at(-1).detail.id, font.id);
+    }
+    values.set('mappai_font_selettore', '0'); listeners.storage({ key: 'mappai_font_selettore' });
+    assert.equal(attributes['data-font'], F.DEFAULT);
+    values.clear(); listeners.storage({ key: null });
+    assert.equal(attributes['data-font'], F.DEFAULT);
+});

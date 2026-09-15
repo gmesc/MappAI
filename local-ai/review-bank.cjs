@@ -115,7 +115,26 @@ function createStore(directory) {
     finally { fs.unlinkSync(temp); }
     return next;
   }
-  return { packet, load, save };
+  function pdf(id) {
+    const document = packet.documents.find(d => d.id === id);
+    if (!document || path.basename(document.file) !== document.file) throw fail('PDF non trovato.', 404);
+    const bytes = fs.readFileSync(path.join(directory, 'pdf', document.file));
+    if (sha(bytes) !== document.sha256) throw fail('Il PDF è stato sostituito: consultazione bloccata.', 409);
+    return bytes;
+  }
+  function request(route, body) {
+    if (route === 'state') return publicView(packet, load());
+    if (route === 'export') return Core.exportBank(packet, load());
+    if (route === 'report') return Core.report(packet, load());
+    if (typeof route === 'string' && route.startsWith('pdf/')) return pdf(route.slice(4));
+    if (route === 'annotation') {
+      if (!body || Buffer.byteLength(JSON.stringify(body)) > 2 * 1024 * 1024) throw fail('Annotazione non valida o troppo grande.', 413);
+      const next = save(body.caseId, body.version, body.annotation);
+      return { version: next.version, annotation: next.annotations[body.caseId] };
+    }
+    throw fail('Percorso non disponibile.', 404);
+  }
+  return { packet, load, save, request };
 }
 
 function publicView(packet, state) {
@@ -127,14 +146,19 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
   const assets = new Map([
     ['/', [path.join(__dirname, 'review.html'), 'text/html; charset=utf-8']],
     ['/review-ui.js', [path.join(__dirname, 'review-ui.js'), 'text/javascript; charset=utf-8']],
-    ['/modal-tokens.css', [path.join(ROOT, 'public/css/mappai-modal-tokens.css'), 'text/css; charset=utf-8']],
-    ['/review-dashboard.css', [path.join(ROOT, 'public/css/mappai-review-dashboard.css'), 'text/css; charset=utf-8']],
+    ['/public/css/mappai-modal-tokens.css', [path.join(ROOT, 'public/css/mappai-modal-tokens.css'), 'text/css; charset=utf-8']],
+    ['/public/css/mappai-review-dashboard.css', [path.join(ROOT, 'public/css/mappai-review-dashboard.css'), 'text/css; charset=utf-8']],
     ['/review-layout.css', [path.join(__dirname, 'review-layout.css'), 'text/css; charset=utf-8']],
-    ['/fonts/SpaceMono-Regular.ttf', [path.join(ROOT, 'public/fonts/SpaceMono-Regular.ttf'), 'font/ttf']],
-    ['/fonts/SpaceMono-Bold.ttf', [path.join(ROOT, 'public/fonts/SpaceMono-Bold.ttf'), 'font/ttf']],
-    ['/pdf.min.js', [path.join(ROOT, 'public/js/pdf.min.js'), 'text/javascript']],
-    ['/pdf.worker.min.js', [path.join(ROOT, 'public/js/pdf.worker.min.js'), 'text/javascript']]
+    ['/public/js/mappai-font-core.js', [path.join(ROOT, 'public/js/mappai-font-core.js'), 'text/javascript']],
+    ['/public/js/mappai-font.js', [path.join(ROOT, 'public/js/mappai-font.js'), 'text/javascript']],
+    ['/public/js/pdf.min.js', [path.join(ROOT, 'public/js/pdf.min.js'), 'text/javascript']],
+    ['/public/js/pdf.worker.min.js', [path.join(ROOT, 'public/js/pdf.worker.min.js'), 'text/javascript']]
   ]);
+  // The app's catalog remains the only list of fonts, including embedded variants.
+  for (const font of require('../public/js/mappai-font-core').elenco()) {
+    for (const file of Object.values(font.file)) assets.set('/public/fonts/' + file, [path.join(ROOT, 'public/fonts', file), 'font/ttf']);
+    assets.set('/public/js/' + font.incorpora, [path.join(ROOT, 'public/js', font.incorpora), 'text/javascript']);
+  }
   let origin;
   const server = http.createServer(async (req, res) => {
     const send = (status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
@@ -148,14 +172,9 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
       const asset = assets.get(pathname);
       if (req.method === 'GET' && asset) { res.writeHead(200, { 'Content-Type': asset[1] }); return fs.createReadStream(asset[0]).pipe(res); }
       if (req.headers['x-review-token'] !== token) throw fail('Sessione non autorizzata. Riapri il banco dal collegamento di avvio.', 403);
-      if (req.method === 'GET' && pathname === '/api/state') return send(200, publicView(store.packet, store.load()));
-      if (req.method === 'GET' && pathname === '/api/export') return send(200, Core.exportBank(store.packet, store.load()));
-      if (req.method === 'GET' && pathname === '/api/report') return send(200, Core.report(store.packet, store.load()));
+      if (req.method === 'GET' && ['/api/state', '/api/export', '/api/report'].includes(pathname)) return send(200, store.request(pathname.slice(5)));
       if (req.method === 'GET' && pathname.startsWith('/api/pdf/')) {
-        const document = store.packet.documents.find(d => pathname === '/api/pdf/' + d.id);
-        if (!document) throw fail('PDF non trovato.', 404);
-        const bytes = fs.readFileSync(path.join(directory, 'pdf', document.file));
-        if (sha(bytes) !== document.sha256) throw fail('Il PDF è stato sostituito: consultazione bloccata.', 409);
+        const bytes = store.request(pathname.slice(5));
         res.writeHead(200, { 'Content-Type': 'application/pdf' }); return res.end(bytes);
       }
       if (req.method === 'POST' && pathname === '/api/annotation') {
@@ -163,8 +182,7 @@ function serve(directory = DEFAULT_DATA, port = 8766) {
         let bytes = 0, chunks = [];
         for await (const chunk of req) { bytes += chunk.length; if (bytes > 2 * 1024 * 1024) throw fail('Annotazione troppo grande.', 413); chunks.push(chunk); }
         const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        const next = store.save(data.caseId, data.version, data.annotation);
-        return send(200, { version: next.version, annotation: next.annotations[data.caseId] });
+        return send(200, store.request('annotation', data));
       }
       throw fail('Percorso non disponibile.', 404);
     } catch (error) { if (!res.headersSent) send(error.status || 400, { error: error.message }); else res.end(); }

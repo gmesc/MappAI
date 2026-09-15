@@ -45,7 +45,11 @@
       "!public/assets/**/*.ase",
       "!public/assets/**/*.xcf",
       "!public/assets/rogue8x8/**",
-      "local-ai/bridge.js"
+      "local-ai/bridge.js",
+      "local-ai/review*.js",
+      "local-ai/review*.cjs",
+      "local-ai/review.html",
+      "local-ai/review-layout.css"
     ],
     "appId": "com.mappai.generatore",
     "icon": "public/MappAI_icon.png",
