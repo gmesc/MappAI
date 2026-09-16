@@ -165,24 +165,26 @@
             f.querySelector('.mai-lv-ppm').textContent = vel.value + ' p/min';
         });
 
-        /* la parola si trascina come un nastro: a sinistra avanti, a destra indietro */
-        var pz = f.querySelector('.mai-rsvp'), x0 = null, mosso = false, acc = 0;
+        /* la parola si trascina come un nastro: a sinistra (o in su, come una
+           rotella: sull'iPad la rotella non c'è) avanti, a destra (o in giù) indietro */
+        var pz = f.querySelector('.mai-rsvp'), x0 = null, y0 = null, mosso = false, acc = 0;
         pz.addEventListener('pointerdown', function (e) {
-            x0 = e.clientX; mosso = false;
+            x0 = e.clientX; y0 = e.clientY; mosso = false;
             try { pz.setPointerCapture(e.pointerId); } catch (er) { }
             e.preventDefault();
         });
         pz.addEventListener('pointermove', function (e) {
             if (x0 === null) return;
-            var n = Math.trunc((e.clientX - x0) / PASSO_PX);
+            var dx = e.clientX - x0, dy = e.clientY - y0, oriz = Math.abs(dx) >= Math.abs(dy);
+            var n = Math.trunc((oriz ? dx : dy) / PASSO_PX);
             if (!n) return;
             if (!mosso) { mosso = true; pausa(); }
             vai(R.i - n);
-            x0 += n * PASSO_PX;
+            if (oriz) { x0 += n * PASSO_PX; y0 = e.clientY; } else { y0 += n * PASSO_PX; x0 = e.clientX; }
         });
         function su(e) {
             if (x0 === null) return;
-            x0 = null;
+            x0 = null; y0 = null;
             try { pz.releasePointerCapture(e.pointerId); } catch (er) { }
             if (!mosso && e.type === 'pointerup') { if (R.play) pausa(); else suona(); }
         }
@@ -242,7 +244,7 @@
             '.mai-lv-top{display:flex;align-items:center;gap:10px;margin:0 0 10px}' +
             '.mai-lv-t{flex:1;min-width:0;margin:0;font-size:14px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.mai-lv-x{flex:0 0 auto;width:36px;height:36px;border:0;border-radius:9999px;background:#f1f5f9;color:#475569;cursor:pointer;font-size:15px;line-height:1}' +
-            '.mai-lv .mai-rsvp{font-size:46px;min-height:2.1em;margin:0 0 12px;cursor:ew-resize;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:3px}' +
+            '.mai-lv .mai-rsvp{font-size:46px;min-height:2.1em;margin:0 0 12px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:3px}' +
             '.mai-lv-ctrl{display:flex;align-items:center;gap:12px}' +
             '.mai-lv-vel{flex:1 1 180px;min-width:120px;height:36px;accent-color:#4f46e5}' +
             '.mai-lv-ppm{flex:0 0 auto;min-width:86px;text-align:right;font-size:12px;font-weight:700;color:#64748b}' +

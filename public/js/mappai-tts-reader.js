@@ -732,7 +732,7 @@
             '.mai-tts-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4000;width:min(560px,92vw);background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 18px 44px rgba(15,23,42,.30);padding:16px 18px 14px;font-family:"Space Mono",monospace}' +
             '.mai-tts-float-close{position:absolute;top:9px;right:12px;border:0;background:transparent;color:#94a3b8;cursor:pointer;font-size:15px;line-height:1;width:22px;height:22px;border-radius:9999px}' +
             '.mai-tts-float-close:hover{background:#f1f5f9;color:#475569}' +
-            '.mai-tts-float-body{max-height:32vh;overflow:auto;margin:2px 22px 12px 0;padding-right:6px}' +
+            '.mai-tts-float-body{max-height:32vh;overflow:auto;margin:0 0 12px;padding-right:6px}' +
             '.mai-tts-float-body h4{font-size:14px;font-weight:800;color:#4338ca;margin:0 0 6px}' +
             '.mai-tts-float-body p{font-size:13px;line-height:1.75;color:#334155;margin:0}' +
             '.mai-tts-float-ctrl{display:flex}' +
@@ -747,21 +747,21 @@
             '.mai-rsvp__w{display:grid;grid-template-columns:1fr auto 1fr;width:100%;white-space:pre}' +
             '.mai-rsvp__b{text-align:right}.mai-rsvp__o{color:#ef4444}.mai-rsvp__a{text-align:left}' +
             '.mai-tts-rsvp{margin:10px 20px 0}' +
-            '.mai-tts-float .mai-tts-rsvp{margin:2px 30px 10px 0}' +
+            '.mai-tts-float .mai-tts-rsvp{margin:0 0 10px}' +
             // grandezza del pannello flottante
             '.mai-tts-float-size{position:absolute;top:7px;right:40px;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border:1px solid #e2e8f0;border-radius:9999px;background:#fff;color:#4f46e5;cursor:pointer;font:700 11px "Space Mono",monospace}' +
             '.mai-tts-float-size svg,.mai-tts-float-size i{width:15px;height:15px}' +
-            '.mai-tts-float:not(.mai-tts-float--x15):not(.mai-tts-float--x2) .mai-tts-float-body h4{padding-right:84px}' +
-            '.mai-tts-float-t{display:none;font-size:13px;font-weight:800;color:#4338ca;margin:0 130px 8px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-            '.mai-tts-float--x15,.mai-tts-float--x2{padding-top:42px}' +
+            // la testata è una riga sua in tutte le grandezze: titolo a sinistra,
+            // Aa e × a destra — la striscia RSVP ci finiva sopra (17/9)
+            '.mai-tts-float:not(.mai-lv){padding-top:44px}' +
+            '.mai-tts-float-body h4{display:none}' +
+            '.mai-tts-float-t{position:absolute;top:13px;left:18px;right:130px;margin:0;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.mai-tts-float--x15{width:min(880px,96vw)}' +
             '.mai-tts-float--x15 .mai-tts-float-body{max-height:calc(3 * 22px * 1.6);overflow:hidden;margin-right:0}' +
             '.mai-tts-float--x15 .mai-tts-float-body p{font-size:22px;line-height:1.6}' +
             '.mai-tts-float--x15 .mai-rsvp{font-size:48px}' +
             '.mai-tts-float--x2{width:calc(100vw - 24px);bottom:12px}' +
-            '.mai-tts-float--x15 .mai-tts-float-t,.mai-tts-float--x2 .mai-tts-float-t{display:block;position:absolute;top:12px;left:18px;right:130px;margin:0}' +
             '.mai-tts-float--x2 .mai-tts-float-body{max-height:calc(36px * 1.4);overflow:hidden;margin-right:0}' +
-            '.mai-tts-float--x15 .mai-tts-float-body h4,.mai-tts-float--x2 .mai-tts-float-body h4{display:none}' +
             '.mai-tts-float--x2 .mai-tts-float-body p{font-size:36px;line-height:1.4}' +
             '.mai-tts-float--x2 .mai-rsvp{font-size:64px}' +
             '@media (prefers-color-scheme: dark){' +
