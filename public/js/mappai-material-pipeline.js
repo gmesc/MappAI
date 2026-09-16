@@ -150,8 +150,55 @@
     if (branch && typeof branch._materiale === 'string') return branch._materiale.slice(0, 12000);
     const kids = (window.getDescendants ? window.getDescendants(branch.id) : []) || [];
     const all = [branch].concat(kids);
-    if (window.MappAIGroundingCore) return window.MappAIGroundingCore.materialForNodes(_state().db, all, window.MappAIReview ? window.MappAIReview.sources() : _state().sources, window.MappAIReview && window.MappAIReview.current());
+    const srcs = window.MappAIReview ? window.MappAIReview.sources() : _state().sources;
+    if (window.MappAIGroundingCore) {
+      const res = window.MappAIGroundingCore.buildInput(_state().db, all, srcs,
+        window.MappAIReview && window.MappAIReview.current(), { passaggi: _passaggiDelRamo(all, srcs) });
+      /* Si dice quanti ne sono entrati: senza questa riga il capovolgimento
+         tornerebbe in silenzio il giorno in cui le fonti non arrivano più fin qui
+         (su un progetto riaperto dal vault le pagine ci sono solo se torna anche
+         `pipeline.json`). Zero passaggi su una fonte che esiste è un sintomo. */
+      console.info('[Passaggi] ' + _clean(branch.label) + ': +' + res.sourceCoverage.passaggiAggiunti +
+        ' dalla fonte (' + res.sourceCoverage.originalPagesAvailable + ' pagine disponibili) · materiale ' + res.material.length + ' car');
+      return res.material;
+    }
     return all.map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n');
+  }
+
+  /* ── LE FRASI DELLA FONTE CHE PARLANO DI QUESTO RAMO (16/9/26) ─────────────
+     Il materiale di un ramo era: le desc dei suoi nodi + le citazioni che
+     l'àncora aveva attaccato a quei nodi. Due testi che si somigliano per
+     costruzione (vedi il commento lungo in `mappai-grounding-core.js`), e una
+     fonte che resta fuori: sui due progetti «Officina» solo 59-61 frasi di
+     contenuto su 120 finiscono in una citazione — metà del PDF non arriva a
+     nessun generatore.
+     Qui si chiede a `cercaBM25` — la stessa funzione del pannello di ricerca,
+     misurata al 88,9%/96,3% di Recall@5 — dove si parla di questo ramo, con una
+     query corta fatta delle ETICHETTE dei suoi nodi. Misurato per ramo sui tre
+     progetti veri: +11% / +67% di materiale, e da 13 a 95 parole di contenuto
+     che il generatore non aveva mai visto — «carbone, derivati del petrolio,
+     materie prime», «30 agosto 1939», «la convenzione dell'Aia consente agli
+     stati neutrali il libero commercio». Sono esattamente gli appigli che un
+     ANGOLO diverso dalla definizione può mordere.
+     `buildInput` le verifica contro le pagine archiviate: quello che qui è un
+     elenco di candidati, di là diventa una citazione o niente.
+     ⚠️ `n: i` invece del numero di pagina vero: a `frasiDaPagine` serve solo che
+     due pagine diverse abbiano indici diversi (riconosce le intestazioni dalla
+     frase che torna su tre pagine), e la pagina vera la ritrova `buildInput`. */
+  const PASSAGGI_PER_RAMO = 8;
+  function _passaggiDelRamo(nodi, srcs) {
+    if (localStorage.getItem('mappai_passaggi_ramo') === '0') return [];
+    const A = window.MappAIAnchorCore, G = window.MappAIGroundingCore;
+    if (!A || !A.cercaBM25 || !G) return [];
+    try {
+      const pagine = G.sourcePages(srcs).map((p, i) => ({ n: i, text: p.text }));
+      if (!pagine.length) return [];
+      const query = nodi.map(n => _clean(n.label)).join(' ');
+      return A.cercaBM25(A.frasiDaPagine(pagine), query, { max: PASSAGGI_PER_RAMO }).map(h => h.text);
+    } catch (e) {
+      console.warn('[Pipeline] passaggi del ramo non recuperati:', e);
+      return [];
+    }
   }
 
   // ── Conversione item quiz → forma stampabile (question/correctIndex) ────

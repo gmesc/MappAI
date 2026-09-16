@@ -110,9 +110,50 @@
 
         // No matched node excerpts: provide the available original pages as context,
         // without pretending that the node's own paraphrase is a quotation.
+        /* ── IL CAPOVOLGIMENTO, E LA VIA D'USCITA (16/9/26) ───────────────────
+           La riga qui sotto dava le pagine intere SOLO a chi non aveva nessuna
+           citazione: più un nodo era ancorato, MENO testo della fonte vedeva chi
+           ci scrive sopra le domande — il caso peggiore era quello che sembrava
+           il migliore. E le citazioni dell'àncora sono, per costruzione, le
+           frasi più simili alla desc (`ancoraNodi` punteggia le parole in comune
+           con la desc): quello che arrivava al generatore era l'ECO di ciò che
+           già c'era, non l'informazione che la desc aveva lasciato fuori.
+
+           MISURATO sui tre progetti veri di `local-ai-data/review/corpus.json`:
+           la prima citazione dell'àncora è DIVERSA dalla prima di `cercaBM25`
+           sull'etichetta del nodo nel 72-79% dei casi; su «Svizzera e 2a GM» il
+           20% delle citazioni è un attacco che finisce con i due punti («Per
+           fronteggiare la minaccia di invasione, la Confederazione prese anche
+           altre risoluzioni:» — zero fatti, ma tutte le sue parole stanno nella
+           desc, quindi vince). Il nodo «Elezione del generale Guisan» aveva quei
+           due punti come prima prova e non vedeva la frase con la data, l'organo
+           che elesse e il grado che in Svizzera esiste solo in tempo di guerra.
+
+           `options.passaggi` è la via d'uscita: chi chiama sceglie — con BM25,
+           `mappai-anchor-core.js` — le frasi della fonte che parlano di QUESTO
+           ramo e le passa qui. Non sono la prova di un nodo (nessun nodo le
+           rivendica): sono il testo su cui una domanda può nascere. Si verificano
+           contro le pagine archiviate come ogni altra citazione — una frase che
+           nella fonte non c'è non entra, e finisce in `unverified`.
+           ⚠️ La scelta è esclusiva: se le pagine intere sono già dentro (nessuna
+           citazione, oppure il giudice) i passaggi sarebbero un doppione. */
+        let passaggiAggiunti = 0;
         if (!sourcesArr.length || options && options.includeOriginalPages) originals.forEach(p => add(p, p.text));
+        else ((options && options.passaggi) || []).forEach(value => {
+            const needle = flat(value);
+            if (!needle) return;
+            const matches = originals.map(p => ({ p, excerpt: originalExcerpt(p.text, needle) })).filter(m => m.excerpt != null);
+            if (matches.length !== 1) {
+                unverified.push({ nodeId: null, text: text(value), reason: matches.length ? 'ambiguous-source' : 'source-not-matched' });
+                return;
+            }
+            const before = sourcesArr.length;
+            add(matches[0].p, matches[0].excerpt);
+            if (sourcesArr.length > before) passaggiAggiunti++;
+        });
         const sourceCoverage = { originalPagesAvailable: originals.length,
-            fullPagesIncluded: originals.filter(p => sourcesArr.some(s => s.docId === p.docId && s.page === p.page && s.text === p.text)).length };
+            fullPagesIncluded: originals.filter(p => sourcesArr.some(s => s.docId === p.docId && s.page === p.page && s.text === p.text)).length,
+            passaggiAggiunti };
         const overrides = (review.overrides || []).filter(o => {
             const target = o.target || {};
             return isTeacherAmendment(o) && (target.kind === 'node' ? ids.has(target.id)
@@ -221,5 +262,5 @@
     }
 
     return { sourcePages, originalExcerpt, buildInput, resolveCitations, referenceView, restoreReferenceIds, citationRegistry, isTeacherAmendment, amendmentText, extendCitations,
-        materialForNodes: (db, nodes, sources, approvedReview) => buildInput(db, nodes, sources, approvedReview).material };
+        materialForNodes: (db, nodes, sources, approvedReview, options) => buildInput(db, nodes, sources, approvedReview, options).material };
 }));

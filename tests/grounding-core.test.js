@@ -48,6 +48,30 @@ test('grounding: conserva frammenti distinti della stessa pagina e deduplica sol
     assert.match(result.material, /La Germania ricevette valuta\./);
 });
 
+/* Il capovolgimento: un nodo ancorato riceveva SOLO l'eco della propria desc.
+   `passaggi` porta al generatore le frasi della fonte che nessun nodo rivendica,
+   e le fa passare dallo stesso controllo delle citazioni. */
+test('grounding: i passaggi pertinenti entrano solo se stanno davvero nella fonte, e mai in doppione con le pagine intere', () => {
+    const orfana = 'Il rapporto riportava accuse.';
+    const db = dbFor([chunk('La BNS acquistò oro.')]);
+    const senza = G.buildInput(db, [node], originals);
+    assert.ok(!senza.material.includes(orfana), 'oggi quella frase non arriva a chi scrive le domande');
+
+    const con = G.buildInput(db, [node], originals, null, { passaggi: [orfana, 'Frase che nella fonte non esiste.'] });
+    assert.equal(con.sourcesArr.length, 2);
+    assert.ok(con.material.includes(orfana));
+    assert.equal(con.sourceCoverage.passaggiAggiunti, 1);
+    assert.equal(con.sourceCoverage.fullPagesIncluded, 0, 'un passaggio non è una pagina intera');
+    assert.deepEqual(con.unverified.map(u => u.reason), ['source-not-matched']);
+    assert.deepEqual(con.sourcesArr[0], senza.sourcesArr[0], 'le citazioni dei nodi conservano la loro identità');
+
+    // Nessuna citazione: le pagine intere ci sono già e i passaggi sarebbero un doppione.
+    const nude = G.buildInput({ nodes: [node], sourcesDict: {} }, [node], originals, null, { passaggi: [orfana] });
+    assert.equal(nude.sourcesArr.length, 1);
+    assert.equal(nude.sourceCoverage.fullPagesIncluded, 1);
+    assert.equal(nude.sourceCoverage.passaggiAggiunti, 0);
+});
+
 test('grounding: a final judge can inspect complete originals without losing stable excerpt identities or silently truncating context', () => {
     const db = dbFor([chunk('La BNS acquistò oro.')]);
     const normal = G.buildInput(db, [node], originals);
@@ -57,8 +81,8 @@ test('grounding: a final judge can inspect complete originals without losing sta
     assert.ok(!normal.sourcesListText.includes('Il rapporto riportava accuse.'));
     assert.ok(full.sourcesListText.includes('Il rapporto riportava accuse.'));
     assert.equal(full.sourcesArr[1].text, originals[0].pages[0].text);
-    assert.deepEqual(normal.sourceCoverage, { originalPagesAvailable: 1, fullPagesIncluded: 0 });
-    assert.deepEqual(full.sourceCoverage, { originalPagesAvailable: 1, fullPagesIncluded: 1 });
+    assert.deepEqual(normal.sourceCoverage, { originalPagesAvailable: 1, fullPagesIncluded: 0, passaggiAggiunti: 0 });
+    assert.deepEqual(full.sourceCoverage, { originalPagesAvailable: 1, fullPagesIncluded: 1, passaggiAggiunti: 0 });
 });
 
 test('grounding: stesso numero di pagina e stesso testo in documenti diversi non collassano', () => {
