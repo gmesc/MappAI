@@ -1595,6 +1595,8 @@
                     title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
                 <button id="btn-modal-tts" onclick="window.MappAITTS && window.MappAITTS.playSlotNear(this)" class="tts-button"
                     title="Leggi ad alta voce" aria-label="Leggi ad alta voce" data-i18n-title="tt_read_aloud"><i data-lucide="volume-2"></i></button>
+                <button id="btn-modal-rsvp" onclick="window.MappAILetturaVeloce && window.MappAILetturaVeloce.daScheda()" class="tts-button"
+                    title="Lettura veloce" aria-label="Lettura veloce" data-i18n-title="rsvp_titolo"><i data-lucide="gauge"></i></button>
                 <span class="mai-tts-slot" data-tts-body="#source-modal-body"></span>
             </div>
 
@@ -3399,6 +3401,7 @@
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-rsvp-core.js"></script>
     <script src="js/mappai-tts-reader.js"></script>
+    <script src="js/mappai-lettura-veloce.js"></script>
     <script src="js/mappai-dev-selftest.js?v=sf1"></script>
     <script src="js/dev-console-metrics.js"></script>
     <script>

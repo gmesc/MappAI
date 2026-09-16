@@ -488,6 +488,9 @@ window.openSourceModal = function (nodeId) {
         const sourceModal = document.getElementById('source-modal');
         const sourceModalBox = document.getElementById('source-modal-content-box');
         const sourceModalHeader = document.getElementById('source-modal-header');
+        // da un nodo all'altro senza chiudere: la lettura veloce del precedente
+        // lascerebbe nascosto il corpo nuovo
+        try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) {}
         const sourceModalTitle = document.getElementById('source-modal-title');
         const sourceModalSubtitle = document.getElementById('source-modal-subtitle');
         const sourceModalBody = document.getElementById('source-modal-body');
@@ -756,6 +759,7 @@ window.closeSourceModal = function () {
     if (!sourceModal) return;
     // il testo del prossimo nodo sarà un altro: niente lettura del vecchio
     try { if (window.MappAITTS) window.MappAITTS.invalidate(); } catch (e) {}
+    try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) {}
     sourceModal.classList.add('opacity-0');
     sourceModalBox.classList.remove('scale-100');
     sourceModalBox.classList.add('scale-95');

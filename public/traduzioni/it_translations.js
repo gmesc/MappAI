@@ -781,6 +781,7 @@ const it_translations = {
     tts_fx_rsvp: "Effetto: una parola alla volta",
     tts_scale: "Grandezza del testo",
     rsvp_titolo: "Lettura veloce",
+    ctx_rsvp: "Lettura veloce",
     rsvp_velocita: "Velocità (parole al minuto)",
     rsvp_trascina: "Trascina la parola per andare avanti o indietro",
     ui_undo: "Annulla",

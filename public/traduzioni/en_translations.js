@@ -1547,6 +1547,7 @@ const en_translations = {
     tts_fx_rsvp: "Effect: one word at a time",
     tts_scale: "Text size",
     rsvp_titolo: "Speed reading",
+    ctx_rsvp: "Speed reading",
     rsvp_velocita: "Speed (words per minute)",
     rsvp_trascina: "Drag the word to move forward or back",
     tts_group: "Read aloud",

@@ -96,6 +96,7 @@ window.showContextMenu = function (e, type, data) {
 
         menu.innerHTML = `
                     <div class="ctx-item" onclick="window.ctxAction('tts')"><i data-lucide="volume-2" class="text-sky-500"></i> ${window.t('ctx_tts', "Leggi ad alta voce")}</div>
+                    <div class="ctx-item" onclick="window.ctxAction('rsvp')"><i data-lucide="gauge" class="text-sky-500"></i> ${window.t('ctx_rsvp', "Lettura veloce")}</div>
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200">${window.t('ctx_study_status', "Stato di Studio")}</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_todo')"><i data-lucide="circle-dashed" class="text-red-500"></i> ${window.t('ctx_status_todo', "Da studiare")}</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_review')"><i data-lucide="refresh-cw" class="text-amber-500"></i> ${window.t('ctx_status_review', "Ripasso necessario")}</div>
@@ -230,6 +231,10 @@ window.ctxAction = function (action) {
     }
     if (action === 'tts') {
         window.speakNode(data);
+        return;
+    }
+    if (action === 'rsvp') {
+        if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.daNodo(data);
         return;
     }
     if (action.startsWith('status_')) {

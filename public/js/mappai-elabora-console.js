@@ -1486,6 +1486,7 @@
        che non c'è più. */
     function _fermaLettura() {
         try { if (window.MappAITTS && window.MappAITTS.stop) window.MappAITTS.stop(); } catch (e) { }
+        try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) { }
     }
 
     /* Un documento del VAULT nella tela: sola lettura. È un file finito (HTML o
@@ -1673,6 +1674,20 @@
                 try { url = String((d.location && d.location.href) || ''); } catch (e) { url = ''; }
                 if (url === 'about:blank') return;
                 sistemato = true;
+                /* La lettura veloce accanto al lettore: il documento si
+                   nasconde e al suo posto resta solo la parola. Prima
+                   dell'eccezione dell'audio incorporato, che esce da qui. */
+                if (window.MappAILetturaVeloce && !barra.querySelector('.ec-rsvp')) {
+                    var bv = document.createElement('button');
+                    bv.type = 'button'; bv.className = 'de-btn ec-rsvp';
+                    bv.textContent = t('rsvp_titolo', 'Lettura veloce');
+                    bv.title = t('rsvp_titolo', 'Lettura veloce');
+                    bv.addEventListener('click', function () {
+                        try { if (window.MappAITTS) window.MappAITTS.stop(); } catch (e) { }
+                        window.MappAILetturaVeloce.daIframe(fr, nomeFile.replace(/\.[^.]+$/, ''));
+                    });
+                    barra.insertBefore(bv, chipHost.nextSibling);
+                }
                 /* La taglia del testo PRIMA di ogni altra cosa, e prima
                    dell'eccezione qui sotto: un documento con la voce incorporata
                    esce di qui senza passare dal resto, e resterebbe l'unico a

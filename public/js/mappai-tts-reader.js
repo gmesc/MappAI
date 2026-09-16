@@ -401,6 +401,8 @@
     }
     function _playFrom(i, subChar) {
         _clearGap();
+        // un lettore alla volta: la lettura veloce, se aperta, si chiude
+        try { document.dispatchEvent(new CustomEvent('mappai:lettura', { detail: { chi: 'voce' } })); } catch (e) {}
         E.idx = Math.max(0, Math.min(i, E.chunks.length - 1));
         E.subChar = subChar || 0; E.playing = true;
         _paint(true); _startTicker();
@@ -655,8 +657,6 @@
     function playFloating(opts) {
         opts = opts || {};
         _closeFloat();
-        // un lettore flottante alla volta (anche la lettura veloce usa .mai-tts-float)
-        try { document.querySelectorAll('.mai-tts-float').forEach(function (el) { el.remove(); }); } catch (e) {}
         var f = document.createElement('div');
         f.id = 'mai-tts-float'; f.className = 'mai-tts-float';
         f.setAttribute('lang', (opts.lang === 'en-US' || opts.lang === 'en') ? 'en' : 'it');
@@ -794,6 +794,8 @@
             mo.observe(document.body, { childList: true, subtree: true });
         } catch (e) {}
         try { document.addEventListener('visibilitychange', function () { if (document.hidden) _pause(); }); } catch (e) {}
+        // un lettore alla volta: parte la lettura veloce, la voce tace
+        try { document.addEventListener('mappai:lettura', function (e) { if (e.detail && e.detail.chi !== 'voce') { _stop(); _closeFloat(); } }); } catch (e) {}
     }
 
     /**

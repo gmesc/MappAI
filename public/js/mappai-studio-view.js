@@ -783,6 +783,10 @@
                 const n = (appState.db.nodes || []).find(x => x.id === node.id);
                 if (n && window.speakNode) window.speakNode(n);
             }],
+            [t('ctx_rsvp', 'Lettura veloce'), () => {
+                const n = (appState.db.nodes || []).find(x => x.id === node.id);
+                if (n && window.MappAILetturaVeloce) window.MappAILetturaVeloce.daNodo(n);
+            }],
             [t('sv_focus_vicini', 'Focus: vicini diretti'), () => openFocus(node.id, 'vicini')],
             [t('sv_focus_parenti', 'Focus: parentela'), () => openFocus(node.id, 'parenti')]
         ];
