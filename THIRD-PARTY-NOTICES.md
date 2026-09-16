@@ -18,14 +18,15 @@ sotto **SIL Open Font License 1.1**. Il testo di ciascuna licenza viaggia con l'
 | Atkinson Hyperlegible | 2020 Braille Institute of America, Inc. | OFL 1.1 | `public/fonts/OFL-Atkinson.txt` |
 | TM Sans, TM Alt | 2013 Luciano Perondi, da Titillium © 2008-2011 Accademia di Belle Arti di Urbino | OFL 1.1 | `public/fonts/OFL-TestMe.txt` |
 | DejaVu Sans (solo alcuni glifi) | 2003 Bitstream, Inc.; modifiche DejaVu di pubblico dominio | Bitstream Vera License | `public/fonts/LICENSE-DejaVu.txt` |
-| MappAI Emoji (27 glifi da Noto Color Emoji) | 2013-2024 Google Inc. e collaboratori | OFL 1.1 | `public/fonts/OFL-NotoColorEmoji.txt` |
+| MappAI Emoji (`MappAIEmoji.ttf` 27 glifi, `MappAIEmojiApp.ttf` ~114, da Noto Color Emoji) | 2013-2024 Google Inc. e collaboratori | OFL 1.1 | `public/fonts/OFL-NotoColorEmoji.txt` |
 
 **MappAI Emoji** è un SOTTOINSIEME di Noto Color Emoji: 27 emoji su 1.499, da 23,9 MB a
 254 KB. Non sono ridisegnate — sono gli stessi glifi, solo meno. Sono le emoji con cui l'app
 costruisce le identità degli allievi e i codici d'accesso dei gruppi, che devono vedersi anche
 senza rete. La famiglia è rinominata per non confondersi con quella intera che arriva dalla
 CDN; il copyright dentro il file resta di Google, come la OFL richiede. Si rigenera con
-`tools/font/emoji-sottoinsieme.py`.
+`tools/font/emoji-sottoinsieme.py`. Lo stesso script scrive `MappAIEmojiApp.ttf` (stessa famiglia, 1,4 MB):
+le 27 più le emoji dell'interfaccia, caricato solo dall'app — gli allievi restano sulle 27.
 
 **Modifiche fatte.** Ai quattro font di TESTO sono stati aggiunti i glifi scientifici mancanti
 (greco, matematica, frecce, filetti, spunte) presi da DejaVu Sans, perché jsPDF non ha un

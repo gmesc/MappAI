@@ -5,6 +5,15 @@ emoji-sottoinsieme.py — costruisce `public/fonts/MappAIEmoji.ttf` (15/9/2026)
     python3 tools/font/emoji-sottoinsieme.py            # scrive il font
     python3 tools/font/emoji-sottoinsieme.py --elenco   # dice solo che cosa entrerebbe
 
+DUE FILE, UNA FAMIGLIA (16/9/2026)
+  · `MappAIEmoji.ttf`    — SOLO le 27 dell'identità. È il pacchetto che le pagine
+    degli allievi (live/, collab/, tutor/) scaricano dal docente via QR, anche
+    senza rete: resta piccolo e non cresce con l'interfaccia.
+  · `MappAIEmojiApp.ttf` — le 27 + ogni emoji che il codice dell'APP scrive
+    (index.html, js/, css/, traduzioni/) e che Noto possiede. Lo carica solo
+    `index.html` (e MappAI studente): offline l'app si vede come online.
+  Stessa famiglia 'MappAI Emoji' in entrambi → lo stack non cambia.
+
 PERCHÉ ESISTE
 Noto Color Emoji intero pesa **23,9 MB**: più di dieci volte tutti i caratteri
 di testo che MappAI spedisce messi insieme. Per questo `index.html` lo lasciava
@@ -42,6 +51,9 @@ import argparse, os, re, subprocess, sys, tempfile
 
 RADICE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 USCITA = os.path.join(RADICE, 'public', 'fonts', 'MappAIEmoji.ttf')
+USCITA_APP = os.path.join(RADICE, 'public', 'fonts', 'MappAIEmojiApp.ttf')
+# Dove l'app scrive emoji. Le pagine degli allievi NO: quelle usano solo le 27.
+SORGENTI_APP = ['public/index.html', 'public/js', 'public/css', 'public/traduzioni']
 LICENZA = os.path.join(RADICE, 'public', 'fonts', 'OFL-NotoColorEmoji.txt')
 
 # Il CSS di Google Fonts con uno user-agent vecchio risponde col .ttf invece del
@@ -86,6 +98,23 @@ def distinte(gruppi):
     return ordinate
 
 
+def codepoint_app(noto):
+    """Ogni codepoint (≥ U+2000: niente cifre né #) che il codice dell'app
+    contiene E che Noto possiede. Anche i commenti: qualche glifo in più costa
+    meno di un'emoji dimenticata."""
+    trovati = set()
+    for rel in SORGENTI_APP:
+        base = os.path.join(RADICE, rel)
+        file = [base] if os.path.isfile(base) else [
+            os.path.join(d, f) for d, dirs, fs in os.walk(base)
+            if 'vendor' not in d for f in fs
+            if f.endswith(('.js', '.css', '.html')) and not f.endswith('.min.js')]
+        for f in file:
+            trovati.update(ord(c) for c in open(f, encoding='utf-8', errors='ignore').read()
+                           if ord(c) >= 0x2000 and ord(c) in noto)
+    return trovati
+
+
 def unicodes(caratteri):
     """Un'emoji può essere una SEQUENZA (bandiere, ZWJ): si prendono tutti i
     codepoint che la compongono, o il glifo non si risolve."""
@@ -120,6 +149,27 @@ def scarica_ttf(dove):
     return curl(url.group(1), dove)
 
 
+def ritaglia(intero, cp, uscita, descrizione, tmp):
+    from fontTools.ttLib import TTFont
+    ridotto = os.path.join(tmp, os.path.basename(uscita))
+    subprocess.run([sys.executable, '-m', 'fontTools.subset', intero,
+                    f'--unicodes={",".join(cp)}', f'--output-file={ridotto}'], check=True)
+    f = TTFont(ridotto)
+    # Senza questo ogni rilancio riscrive `head.modified` e il .ttf risulta
+    # «modificato» pur essendo lo stesso font: il repo si sporca a ogni giro.
+    # Stessa cura, stessa ragione, di tools/font/prepara-font.py:160.
+    f.recalcTimestamp = False
+    for rec in f['name'].names:
+        if rec.nameID in (1, 4, 16): rec.string = NOME
+        elif rec.nameID == 6: rec.string = PS
+    f['name'].setName(
+        f'{NOME} — sottoinsieme di Noto Color Emoji (Google), {descrizione}. '
+        f'SIL Open Font License 1.1. Rigenerato da tools/font/emoji-sottoinsieme.py.',
+        10, 3, 1, 0x409)
+    f.save(uscita)
+    print(f'✓ {os.path.relpath(uscita, RADICE)}  {os.path.getsize(uscita)/1024:.0f} KB')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--elenco', action='store_true', help='dice che cosa entrerebbe, senza scrivere')
@@ -144,24 +194,12 @@ def main():
         byte = scarica_ttf(intero)
         print(f'  intero: {byte/1048576:.1f} MB')
 
-        ridotto = os.path.join(tmp, 'sub.ttf')
-        subprocess.run([sys.executable, '-m', 'fontTools.subset', intero,
-                        f'--unicodes={",".join(cp)}', f'--output-file={ridotto}'], check=True)
-
-        f = TTFont(ridotto)
-        # Senza questo ogni rilancio riscrive `head.modified` e il .ttf risulta
-        # «modificato» pur essendo lo stesso font: il repo si sporca a ogni giro.
-        # Stessa cura, stessa ragione, di tools/font/prepara-font.py:160.
-        f.recalcTimestamp = False
-        for rec in f['name'].names:
-            if rec.nameID in (1, 4, 16): rec.string = NOME
-            elif rec.nameID == 6: rec.string = PS
-        f['name'].setName(
-            f'{NOME} — sottoinsieme di Noto Color Emoji (Google), {len(care)} emoji: '
-            f'gli animali degli ID allievo e i set dei codici di gruppo. '
-            f'SIL Open Font License 1.1. Rigenerato da tools/font/emoji-sottoinsieme.py.',
-            10, 3, 1, 0x409)
-        f.save(USCITA)
+        ritaglia(intero, cp, USCITA,
+                 f'{len(care)} emoji: gli animali degli ID allievo e i set dei codici di gruppo', tmp)
+        noto = TTFont(intero, lazy=True).getBestCmap()
+        cp_app = sorted({int(c[2:], 16) for c in cp} | codepoint_app(noto))
+        ritaglia(intero, [f'U+{c:04X}' for c in cp_app], USCITA_APP,
+                 f"{len(cp_app)} codepoint: le 27 dell'identità + le emoji dell'interfaccia", tmp)
 
         if not os.path.exists(LICENZA):
             curl(URL_LICENZA, LICENZA)

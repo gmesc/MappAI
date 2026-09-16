@@ -99,7 +99,7 @@ test("le pagine che mostrano le identità mettono 'MappAI Emoji' PRIMA nello sta
     // Il guasto tipico (CLAUDE.md globale): si dichiara il font e non lo si mette
     // nello stack effettivo → l'emoji prende il glifo dal primo font che ce l'ha,
     // cioè quello di sistema, e il @font-face non serve a niente.
-    const pagine = ['public/index.html', 'public/live/student.html', 'public/live/scelta.html',
+    const pagine = ['public/live/student.html', 'public/live/scelta.html',
         'public/live/materials.html', 'public/live/file.html', 'public/live/timeline-build.html',
         'public/collab/student.html', 'public/tutor/student.html'];
     for (const p of pagine) {
@@ -107,5 +107,23 @@ test("le pagine che mostrano le identità mettono 'MappAI Emoji' PRIMA nello sta
         assert.match(html, /@font-face[^}]*MappAIEmoji\.ttf/, `${p}: manca il @font-face`);
         assert.match(html, /'MappAI Emoji'\s*,\s*'Noto Color Emoji'/,
             `${p}: 'MappAI Emoji' non precede Noto in nessuno stack`);
+    }
+});
+
+// 16/9/2026 — l'app ha il suo file (le 27 + l'interfaccia); gli allievi NO.
+const FONT_APP = path.join(ROOT, 'public/fonts/MappAIEmojiApp.ttf');
+
+test("index.html carica MappAIEmojiApp.ttf, che contiene tutte le 27", () => {
+    const html = leggi('public/index.html');
+    assert.match(html, /@font-face[^}]*'MappAI Emoji'[^}]*MappAIEmojiApp\.ttf/);
+    const app = codepointDelFont(FONT_APP);
+    for (const c of codepointDelFont(FONT)) assert.ok(app.has(c), `manca ${String.fromCodePoint(c)} in MappAIEmojiApp.ttf`);
+});
+
+test("le pagine QR degli allievi NON scaricano il font dell'app: solo le 27", () => {
+    for (const p of ['public/live/student.html', 'public/live/scelta.html', 'public/live/materials.html',
+        'public/live/file.html', 'public/live/timeline-build.html', 'public/collab/student.html',
+        'public/tutor/student.html']) {
+        assert.doesNotMatch(leggi(p), /MappAIEmojiApp/, `${p} scaricherebbe 1,4 MB invece di 258 KB`);
     }
 });

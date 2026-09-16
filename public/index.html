@@ -25,13 +25,16 @@
          `tools/font/emoji-sottoinsieme.py`. Sta PRIMA nello stack: quelle 27 si
          vedono sempre e uguali su ogni dispositivo, tutte le altre si comportano
          come prima (Noto dalla rete, poi le emoji di sistema). Il font intero
-         sarebbe 23,9 MB: dieci volte tutti i caratteri di testo dell'app. -->
+         sarebbe 23,9 MB: dieci volte tutti i caratteri di testo dell'app.
+         ⟵ 16/9/26: qui si carica `MappAIEmojiApp.ttf` — stessa famiglia, le 27
+         + le emoji dell'interfaccia (1,4 MB). Le pagine degli allievi restano
+         su `MappAIEmoji.ttf`, il pacchetto di 27 che scaricano via QR. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
     <style>
       @font-face { font-family: 'MappAI Emoji'; font-style: normal; font-weight: 400;
-        src: url('fonts/MappAIEmoji.ttf') format('truetype'); font-display: swap; }
+        src: url('fonts/MappAIEmojiApp.ttf') format('truetype'); font-display: swap; }
       :root { --emoji-font: 'MappAI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
     </style>
 
