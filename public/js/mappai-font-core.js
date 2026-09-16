@@ -53,7 +53,9 @@
     // Noto Color Emoji va messo SUBITO DOPO il carattere di testo e PRIMA di
     // qualunque ripiego generico, o su macOS si cade sull'emoji di sistema.
     // (regola emoji Android di MappAI — vale per ogni stack che emettiamo)
-    var EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji'";
+    // 'MappAI Emoji' (public/fonts/MappAIEmoji.ttf, sottoinsieme locale di Noto)
+    // viene PRIMA: senza rete è l'unico Noto che c'è.
+    var EMOJI = "'MappAI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji'";
 
     var DEFAULT = 'space-mono';
 

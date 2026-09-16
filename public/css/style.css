@@ -30,7 +30,7 @@ html {
        Le emoji stanno DENTRO lo stack, non solo dichiarate in una variabile:
        prendono il glifo dal PRIMO carattere che ce l'ha, e senza Noto qui
        macOS serve le sue (bug già pagato in MappAI). */
-    font-family: var(--app-font, 'Space Mono', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', monospace) !important;
+    font-family: var(--app-font, 'Space Mono', 'MappAI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', monospace) !important;
 }
 
 /* (la regola body.font-dyslexic è uscita col carattere che applicava: il
