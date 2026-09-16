@@ -42,7 +42,9 @@
     const data = { schema: 'mappai-qualita@2', quando: new Date().toISOString(),
       generationId: s._generationId, modello: (s.generationUsage || {}).usedModel || '',
       ancora: s._qualityReport || null, copertura: s._coverageReport || null,
-      giudice: s._judgeReport || s._giudiceReport || null };
+      giudice: s._judgeReport || s._giudiceReport || null,
+      // l'esito del reranker (16/9/26): chiudendo l'app spariva, e con lui la prova che fosse partito
+      reranker: s._rerankerReport || null };
     const res = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'qualita.json', text: JSON.stringify(data, null, 2) });
     if (!res || !res.ok) throw new Error((res && res.error) || 'Rapporto non salvato');
   };

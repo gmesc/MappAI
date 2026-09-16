@@ -967,6 +967,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const productInput = document.getElementById('infomaniak-product-id');
         if (productInput) productInput.value = appState.infomaniakProductId;
     }
+    // Interruttore del reranker Infomaniak (spento se mai toccato)
+    const rerankToggle = document.getElementById('infomaniak-reranker-toggle');
+    if (rerankToggle) { try { rerankToggle.checked = localStorage.getItem('mappai_reranker_infomaniak') === '1'; } catch (e) { rerankToggle.checked = false; } }
 
     // Load saved models on boot
     const isInfomaniak = (appState.aiProvider === 'infomaniak');

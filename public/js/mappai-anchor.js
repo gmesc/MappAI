@@ -164,6 +164,121 @@
         return rep;
     };
 
+    /* ── IL RERANKER DI INFOMANIAK SCEGLIE LE CITAZIONI (16/9/26) ─────────────
+       Dopo l'àncora, per ogni nodo chiede a BAAI/bge-reranker-v2-m3 quali frasi
+       della fonte lo sostengono, e tiene le prime due. I numeri che giustificano
+       la sostituzione (86% di frasi giuste contro il 72% dell'àncora, giudicate a
+       mano) e l'assenza di soglie stanno in mappai-anchor-core.js, accanto a
+       `citazioniDaVoti`.
+
+       QUANDO. `finalizeMindMapQuality` la chiama quando le descrizioni sono
+       definitive e PRIMA del giudice, che legge proprio queste citazioni.
+
+       ANCHE CON GOOGLE GEMINI. Le credenziali sono quelle di Infomaniak, lette
+       senza guardare il provider della generazione (richiesta di Giacomo, 16/9).
+
+       ⚠️ SPENTO DI DEFAULT: manda a un secondo fornitore le frasi della fonte e le
+       descrizioni dei nodi, quindi lo accende chi usa l'app, in Configurazione AI.
+       Kill-switch: localStorage `mappai_reranker_infomaniak` = '1' acceso.
+
+       ⚠️ UNA CHIAMATA PER NODO, una al secondo: l'API ammette 60 richieste al
+       minuto. Una mappa da 46 nodi aggiunge circa un minuto. Se una chiamata
+       fallisce (token, rete) la fase si ferma e i nodi non ancora visti tengono
+       le citazioni dell'àncora: niente resta a metà dentro un nodo. */
+    const RERANK_PAUSA_MS = 1050;
+    const _dormi = ms => new Promise(r => setTimeout(r, ms));
+    function _rerankerAcceso() {
+        try { return localStorage.getItem('mappai_reranker_infomaniak') === '1'; } catch (e) { return false; }
+    }
+    function _leggi(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+    function _credenzialiInfomaniak() {
+        const st = _state() || {};
+        const campoT = document.getElementById('infomaniak-api-key-input');
+        const campoP = document.getElementById('infomaniak-product-id');
+        const token = (campoT && campoT.value.trim()) || (window.secureKeys && window.secureKeys['infomaniak_api_key']) || _leggi('infomaniak_api_key');
+        const prodotto = (campoP && campoP.value.trim()) || st.infomaniakProductId || _leggi('infomaniak_product_id');
+        return { token: String(token || '').trim(), prodotto: String(prodotto || '').trim() };
+    }
+    window.isRerankerEnabled = _rerankerAcceso;
+
+    window.applyRerankerCitations = async function () {
+        const A = window.MappAIAnchorCore;
+        const st = _state();
+        const rep = { stato: 'saltato', motivo: '', nodi: 0, esaminati: 0, cambiati: 0, token: 0, secondi: 0 };
+        if (st) st._rerankerReport = rep;
+        const salta = motivo => { rep.motivo = motivo; console.log('[Reranker] saltato: ' + motivo); return rep; };
+        if (!_rerankerAcceso()) return salta('spento (Configurazione AI › Infomaniak)');
+        if (!A || !A.citazioniDaVoti || !st || !st.db || !Array.isArray(st.db.nodes)) return salta('modulo non disponibile');
+        if (!_acceso()) return salta('àncora spenta');
+        if (!window.electronAPI || !window.electronAPI.rerankInfomaniak) return salta('serve l\'app desktop');
+        const cred = _credenzialiInfomaniak();
+        if (!cred.token) return salta('manca il token Infomaniak');
+        if (!/^\d+$/.test(cred.prodotto)) return salta('manca il Product ID Infomaniak');
+        const pagine = _pagine();
+        const frasi = pagine.length ? A.frasiDaPagine(pagine) : [];
+        if (!frasi.length) return salta('nessuna frase della fonte');
+        const titolo = _nomeFonte(pagine);
+        const nodi = st.db.nodes.filter(n => n && n.id && String(n.desc || n.content || '').trim());
+        rep.stato = 'in-corso';
+        rep.nodi = nodi.length;
+        const inizio = Date.now();
+        const nascondi = m => String(m || '').split(cred.token).join('«token»');
+
+        for (let k = 0; k < nodi.length; k++) {
+            const n = nodi[k];
+            if (window.showLoadingOverlay) {
+                window.showLoadingOverlay(true, (window.t ? window.t('lo_reranker', 'Scelgo le frasi della fonte con il reranker…') : 'Scelgo le frasi della fonte con il reranker…') + ' ' + (k + 1) + '/' + nodi.length);
+            }
+            if (k) await _dormi(RERANK_PAUSA_MS);
+            const indici = A.candidatiReranker(frasi, n);
+            const richiesta = { apiKey: cred.token, productId: cred.prodotto, query: A.queryReranker(n), documents: indici.map(i => frasi[i].text) };
+            let r = await window.electronAPI.rerankInfomaniak(richiesta);
+            if (r && r.ok === false && r.status === 429) {
+                await _dormi(Math.max(r.retryAfter || 0, 61) * 1000);
+                r = await window.electronAPI.rerankInfomaniak(richiesta);
+            }
+            if (!r || r.ok === false) {
+                rep.stato = 'interrotto';
+                rep.motivo = 'HTTP ' + ((r && r.status) || '?') + ': ' + nascondi(r && r.message);
+                console.warn('[Reranker] interrotto al nodo ' + (k + 1) + '/' + nodi.length + ' — ' + rep.motivo + '. I nodi restanti tengono le citazioni dell\'àncora.');
+                break;
+            }
+            rep.esaminati++;
+            rep.token += (r.usage && Number(r.usage.total_tokens)) || 0;
+            const cit = A.citazioniDaVoti(frasi, indici, r.scores);
+            if (!cit.length) continue;   // la fonte non parla di questo nodo: resta quello che c'era
+            st.db.sourcesDict = st.db.sourcesDict || {};
+            const prima = JSON.stringify(((st.db.sourcesDict[n.id] || []).filter(c => c && c.verbatim)).map(c => c.text));
+            const fonte = x => (x.page ? ('pagina ' + x.page) : 'fonte');
+            st.db.sourcesDict[n.id] = cit.map(x => ({ title: titolo, source: fonte(x), text: x.text, verbatim: true }));
+            n.chunks = cit.map(x => ({ title: titolo, source: fonte(x), text: x.text }));
+            if (prima !== JSON.stringify(cit.map(x => x.text))) rep.cambiati++;
+        }
+        if (rep.stato === 'in-corso') rep.stato = 'completato';
+        rep.secondi = Math.round((Date.now() - inizio) / 1000);
+
+        /* La copertura e il conto dei nodi citati descrivevano le citazioni
+           dell'àncora: si ricontano su quelle di adesso, così il rapporto che il
+           docente legge e il giudice parlano delle stesse frasi. */
+        const qr = st._qualityReport;
+        if (qr && rep.esaminati) {
+            const perTesto = new Map(frasi.map(f => [f.text, f.idx]));
+            const usate = {};
+            let citati = 0;
+            st.db.nodes.forEach(n => {
+                const vere = ((st.db.sourcesDict || {})[n.id] || []).filter(c => c && c.verbatim);
+                if (vere.length) citati++;
+                vere.forEach(c => { if (perTesto.has(c.text)) usate[perTesto.get(c.text)] = 1; });
+            });
+            qr.copertura = A.copertura(frasi, usate);
+            qr.ancorati = citati;
+            qr.senzaCitazione = st.db.nodes.length - citati;
+        }
+        console.log('[Reranker] ' + rep.stato + ' · ' + rep.esaminati + '/' + rep.nodi + ' nodi letti · ' + rep.cambiati + ' con citazioni diverse dall\'àncora · '
+            + rep.token + ' token (~CHF ' + (rep.token * 0.01 / 1e6).toFixed(4) + ') · ' + rep.secondi + ' s');
+        return rep;
+    };
+
     /* Righe pronte per il rapporto di generazione che il docente vede. Testo, non
        oggetti: chi lo stampa non deve conoscere la forma del rapporto. */
     window.anchorReportLines = function () {
@@ -191,6 +306,14 @@
                 .join(' · '));
         }
         if (r.metaRipulite) out.push('Descrizioni ripulite dal metatesto: ' + r.metaRipulite);
+        const rr = (_state() || {})._rerankerReport;
+        if (rr && rr.esaminati) {
+            out.push('Citazioni scelte dal reranker Infomaniak: ' + rr.esaminati + (rr.esaminati === 1 ? ' nodo su ' : ' nodi su ') + rr.nodi + ', '
+                + rr.cambiati + (rr.cambiati === 1 ? ' diversa' : ' diverse') + ' da quelle dell\'àncora'
+                + (rr.stato === 'interrotto' ? ' — interrotto (' + rr.motivo + '): gli altri nodi tengono le citazioni dell\'àncora' : ''));
+        } else if (rr && rr.stato === 'saltato' && rr.motivo && !/^spento/.test(rr.motivo)) {
+            out.push('Reranker Infomaniak acceso ma non partito: ' + rr.motivo);
+        }
         /* Il verdetto del giudice entra nelle stesse righe: per il docente è una
            cosa sola — che cosa sa il programma di questa mappa prima che la
            stampi. Le misure qui sopra restano quelle di PRIMA del giudice, ed è

@@ -455,6 +455,7 @@ window.switchAIProvider = function (provider) {
     const btnInfomaniak = document.getElementById('provider-infomaniak');
     const geminiFields = document.getElementById('gemini-api-key-container');
     const infomaniakFields = document.getElementById('infomaniak-api-key-container');
+    const notaReranker = document.getElementById('infomaniak-reranker-nota');
 
     if (!btnGoogle || !btnInfomaniak) return;
 
@@ -465,7 +466,10 @@ window.switchAIProvider = function (provider) {
         btnInfomaniak.classList.add('text-slate-500');
 
         if (geminiFields) geminiFields.classList.remove('hidden');
-        if (infomaniakFields) infomaniakFields.classList.add('hidden');
+        /* Token e Product ID di Infomaniak restano visibili anche con Google (16/9/26):
+           servono al reranker, che si chiama con Infomaniak qualunque sia il provider. */
+        if (infomaniakFields) infomaniakFields.classList.remove('hidden');
+        if (notaReranker) notaReranker.classList.remove('hidden');
     } else {
         btnInfomaniak.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
         btnInfomaniak.classList.remove('text-slate-500');
@@ -474,6 +478,7 @@ window.switchAIProvider = function (provider) {
 
         if (geminiFields) geminiFields.classList.add('hidden');
         if (infomaniakFields) infomaniakFields.classList.remove('hidden');
+        if (notaReranker) notaReranker.classList.add('hidden');
     }
 
     // Add visual 'active' checkmark indicator to provider buttons
@@ -2096,6 +2101,13 @@ window.showGenerationReport = function () {
                     ? (window.t('gen_rep_giu_on', 'Errori di senso corretti dal controllo: ') + _g.applicate)
                     : (window.t('gen_rep_giu_off', 'Errori di senso TROVATI dal controllo (non corretti: le scritture sono spente): ') + _g.correzioni.length));
             }
+            /* Il reranker acceso che non arriva in fondo va visto (16/9/26): senza questa
+               riga un token sbagliato o un Product ID mancante restavano in Console, e
+               le citazioni restavano quelle dell'àncora senza che nessuno lo sapesse. */
+            var _rr = appState._rerankerReport;
+            if (_rr && (_rr.stato === 'interrotto' || (_rr.stato === 'saltato' && _rr.motivo && !/^spento/.test(_rr.motivo)))) {
+                _allarmi.push(window.t('gen_rep_rerank', 'Reranker Infomaniak non completato: ') + _rr.motivo);
+            }
             if (_allarmi.length) {
                 setTimeout(function () { window.showToast(_allarmi.join(' · '), 'warning'); }, 2600);
             }
@@ -2133,7 +2145,8 @@ window.showGenerationReport = function () {
                                 quando: new Date().toISOString(),
                                 modello: (document.getElementById('model-select') || {}).value || '',
                                 ancora: appState._qualityReport || null,
-                                giudice: appState._giudiceReport || null
+                                giudice: appState._giudiceReport || null,
+                                reranker: appState._rerankerReport || null
                             }, null, 2)
                         });
                     }

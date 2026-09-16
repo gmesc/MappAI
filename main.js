@@ -517,6 +517,47 @@ ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, product
     }
 });
 
+/* ── IL RERANKER DI INFOMANIAK (16/9/26) ─────────────────────────────────────
+   Una domanda, un elenco di frasi, un voto per frase (formato Cohere Rerank v2:
+   developer.infomaniak.com/docs/api/post/2/ai/{product_id}/cohere/v2/rerank).
+   ⚠️ Si usa con le credenziali Infomaniak ANCHE quando la generazione gira su
+   Google Gemini: chi chiama non guarda il provider (richiesta di Giacomo, 16/9).
+   ⚠️ Non lancia: restituisce { ok:false, status, retryAfter, message }. Un errore
+   che attraversa l'IPC perde tutto tranne il messaggio, e chi chiama deve sapere
+   se è un 429 da aspettare o un token sbagliato da segnalare.
+   maxRedirects 0: un reindirizzamento non deve portare il token altrove. */
+ipcMain.handle('rerank-infomaniak', async (event, { apiKey, productId, query, documents, model }) => {
+    const prodotto = String(productId || '').trim();
+    if (!apiKey) return { ok: false, status: 0, retryAfter: 0, message: 'token Infomaniak mancante' };
+    if (!/^\d+$/.test(prodotto)) return { ok: false, status: 0, retryAfter: 0, message: 'Product ID Infomaniak mancante o non numerico' };
+    if (!Array.isArray(documents) || !documents.length) return { ok: true, scores: [], usage: null, model: null };
+    const url = `https://api.infomaniak.com/2/ai/${prodotto}/cohere/v2/rerank`;
+    try {
+        const response = await axios.post(url, {
+            model: model || 'BAAI/bge-reranker-v2-m3',
+            query: String(query || ''),
+            documents: documents.map(d => String(d == null ? '' : d))
+        }, {
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            timeout: 60000,
+            maxRedirects: 0
+        });
+        const data = response.data || {};
+        const scores = new Array(documents.length).fill(null);
+        (Array.isArray(data.results) ? data.results : []).forEach(r => {
+            if (r && Number.isInteger(r.index) && r.index >= 0 && r.index < scores.length && typeof r.relevance_score === 'number') scores[r.index] = r.relevance_score;
+        });
+        return { ok: true, scores, usage: data.usage || null, model: data.model || null };
+    } catch (error) {
+        const res = error.response;
+        const err = res && res.data && res.data.error;
+        const message = (typeof err === 'string' ? err : err && (err.description || err.message || err.code))
+            || (res && res.data && res.data.message) || error.message || 'errore sconosciuto';
+        return { ok: false, status: (res && res.status) || 0, retryAfter: Number(res && res.headers && res.headers['retry-after']) || 0,
+            message: String(message).split(String(apiKey)).join('«token»') };
+    }
+});
+
 // IPC handler per embeddings Google (default: gemini-embedding-001).
 // Endpoint: batchEmbedContents (fino a 100 richieste per chiamata).
 ipcMain.handle('generate-embeddings-google', async (event, { apiKey, model, texts }) => {

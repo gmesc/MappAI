@@ -1613,6 +1613,9 @@ const en_translations = {
     ui_ai_corr_desc: "The AI will look for possible correlations between the nodes of the two maps and create dashed links you can validate or remove.",
     ui_validate_corr: "Validate AI Correlation",
     ui_edit_rel_word: "Edit the relation word and confirm to make the link permanent.",
+    ui_infomaniak_for_reranker: "With Google Gemini, the Infomaniak token and Product ID are used only by the reranker.",
+    ui_reranker_title: "Infomaniak reranker for citations",
+    ui_reranker_desc: "At the end of generation it picks, for each node, the source sentences that support it. Works with Google Gemini too. Sends the source sentences and node descriptions to Infomaniak.",
     ui_validate_btn: "✓ Validate",
     ui_refresh: "Refresh",
 
@@ -1648,6 +1651,8 @@ const en_translations = {
     gen_rep_nessi: "Impossible causal links, corrected: ",
     gen_rep_fid: "Descriptions weakly anchored to the source, worth re-reading: ",
     gen_rep_giu_on: "Meaning errors corrected by the check: ",
+    lo_reranker: "Choosing the source sentences with the reranker\u2026",
+    gen_rep_rerank: "Infomaniak reranker not completed: ",
     gen_rep_giu_off: "Meaning errors FOUND by the check (not corrected: writing is off): ",
     lo_docx: "Extracting text from Word document...",
     lo_cloud_upload: "Uploading",

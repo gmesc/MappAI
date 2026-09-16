@@ -2603,6 +2603,11 @@ window.finalizeMindMapQuality = async function (textParts, apiKey) {
     report.arricchimento.nodiCambiati = appState.db.nodes.filter(n => descPrima.get(n.id) !== n.desc).map(n => n.id);
     report.dopoArricchimento = misura();
     await recupera({ phase: 'dopo-arricchimento', previous: iniziale });
+    /* Il reranker Infomaniak (se acceso) sceglie le citazioni qui: le descrizioni
+       sono definitive, la copertura non è ancora fotografata e il giudice, che le
+       legge, viene dopo. Un errore lascia le citazioni dell'àncora. */
+    try { if (window.applyRerankerCitations) await window.applyRerankerCitations(); }
+    catch (e) { console.warn('[Reranker] errore, restano le citazioni dell\'àncora:', e); }
     report.dopo = appState._qualityReport && appState._qualityReport.copertura
         ? JSON.parse(JSON.stringify(appState._qualityReport.copertura)) : null;
     if (appState._qualityReport) appState._qualityReport.recuperoCopertura = report;

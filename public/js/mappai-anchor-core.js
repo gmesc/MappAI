@@ -269,6 +269,67 @@
         return { perNodo: perNodo, usate: usate };
     }
 
+    /* ── IL RERANKER: CHE COSA MANDARGLI, CHE COSA TENERE (16/9/26) ──────────────
+       `ancoraNodi` sceglie la frase che ha più parole in comune con la desc, e
+       per questo premia le frasi corte e i collegamenti vuoti. Un reranker
+       (BAAI/bge-reranker-v2-m3, su Infomaniak) legge insieme nodo e frase e dà
+       un voto al SENSO. Qui sta la parte deterministica: la domanda, le frasi
+       candidate, le citazioni che restano. La chiamata vera sta in mappai-anchor.js.
+
+       MISURATO sul dossier «Svizzera e 2a GM» (35 nodi dove àncora, BM25 e
+       reranker sceglievano frasi diverse, giudicati a mano da Giacomo il 16/9,
+       alla cieca):
+         metodo      prima frase giusta   frasi proposte giuste
+         àncora            28/35             48/67  (72%)
+         BM25              22/35             36/64  (56%)
+         reranker          32/35             60/70  (86%)
+       Contro l'àncora la differenza sulla prima frase (6 nodi a 2) non è ancora
+       solida con 35 nodi; contro BM25 sì. Un solo dossier, un solo docente.
+
+       ⚠️ NESSUNA SOGLIA DI QUALITÀ SUL VOTO. Le frasi sbagliate del reranker
+       avevano voti di 0,98 e 0,97: qualunque soglia toglieva più frasi giuste che
+       sbagliate. `votoMinimo` è solo una rete per il nodo di cui la fonte non
+       parla affatto, sotto la più bassa frase giusta osservata (0,024).
+
+       ⚠️ LA DOMANDA È «etichetta. descrizione», la stessa della prova: cambiarla
+       vuol dire che i numeri qui sopra non valgono più. */
+    var RERANK = { tutteFinoA: 120, prefiltro: 60, maxPerNode: 2, votoMinimo: 0.01 };
+
+    function queryReranker(nodo) {
+        return String((nodo && nodo.label) || '').trim() + '. ' + String((nodo && (nodo.desc || nodo.content)) || '').trim();
+    }
+
+    /* Indici delle frasi da mandare. Fino a `tutteFinoA` frasi si mandano tutte,
+       com'era nella prova. Oltre, BM25 fa da setaccio: su una fonte da 800 frasi
+       mandarle tutte per 150 nodi costerebbe 12 milioni di token e minuti di
+       attesa; BM25 ha Recall@20 del 100% sul banco italiano. */
+    function candidatiReranker(frasi, nodo, opts) {
+        var o = Object.assign({}, RERANK, opts || {});
+        var lista = frasi || [];
+        if (lista.length <= o.tutteFinoA) return lista.map(function (f, i) { return i; });
+        var presi = {};
+        cercaBM25(lista, queryReranker(nodo), { max: o.prefiltro }).forEach(function (h) { presi[h.idx] = 1; });
+        cercaBM25(lista, String((nodo && nodo.label) || ''), { max: Math.ceil(o.prefiltro / 3) }).forEach(function (h) { presi[h.idx] = 1; });
+        return Object.keys(presi).map(Number).sort(function (a, b) { return a - b; });
+    }
+
+    /* `voti[k]` è il voto della frase `frasi[indici[k]]`. Restano le prime
+       `maxPerNode`; a parità di voto vince la frase che viene prima nel documento,
+       così due passate sulla stessa risposta danno le stesse citazioni. */
+    function citazioniDaVoti(frasi, indici, voti, opts) {
+        var o = Object.assign({}, RERANK, opts || {});
+        var righe = [];
+        (indici || []).forEach(function (i, k) {
+            var v = voti ? voti[k] : null;
+            if (typeof v !== 'number' || !isFinite(v) || v < o.votoMinimo || !frasi || !frasi[i]) return;
+            righe.push({ i: i, v: v });
+        });
+        righe.sort(function (a, b) { return (b.v - a.v) || (a.i - b.i); });
+        return righe.slice(0, o.maxPerNode).map(function (r) {
+            return { idx: r.i, text: frasi[r.i].text, page: frasi[r.i].page, score: Number(r.v.toFixed(4)) };
+        });
+    }
+
     /* ── LA COPERTURA ─────────────────────────────────────────────────────────
        Quali frasi della fonte non sono finite in nessun nodo. È la misura che
        mancava del tutto: la pagina economica di un dossier poteva sparire da una
@@ -493,6 +554,10 @@
         paginePiatte: paginePiatte,
         ancoraNodi: ancoraNodi,
         cercaBM25: cercaBM25,
+        RERANK: RERANK,
+        queryReranker: queryReranker,
+        candidatiReranker: candidatiReranker,
+        citazioniDaVoti: citazioniDaVoti,
         copertura: copertura,
         orfanePerPassaggio: orfanePerPassaggio,
         validaProposte: validaProposte,

@@ -2836,6 +2836,8 @@
 
                 <!-- Infomaniak API Key & Product ID Container -->
                 <div id="infomaniak-api-key-container" class="hidden space-y-5">
+                    <!-- Con Google il riquadro resta visibile (16/9/26): token e Product ID servono al reranker -->
+                    <p id="infomaniak-reranker-nota" class="hidden input_label_xs" data-i18n="ui_infomaniak_for_reranker">Con Google Gemini il token e il Product ID di Infomaniak servono solo al reranker.</p>
                     <div>
                         <label class="input_label_xs uppercase font-bold tracking-wider"
                             id="label-api-key-infomaniak">Infomaniak API
@@ -2864,6 +2866,17 @@
                                 onblur="if(window.updateInfomaniakProductId) window.updateInfomaniakProductId(this.value); if(window.refreshGeminiModels) window.refreshGeminiModels();"
                                 class="form_input !pl-10" placeholder="Es: 12345">
                         </div>
+                    </div>
+                    <!-- Il reranker Infomaniak (16/9/26): spento di default, manda la fonte a un secondo fornitore -->
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" id="infomaniak-reranker-toggle" class="mt-0.5 accent-indigo-600 w-4 h-4"
+                                onchange="try { localStorage.setItem('mappai_reranker_infomaniak', this.checked ? '1' : '0'); } catch (e) {}">
+                            <div>
+                                <span class="text-xs font-bold text-indigo-700" data-i18n="ui_reranker_title">Reranker Infomaniak per le citazioni</span>
+                                <p class="text-xs text-indigo-700 mt-0.5 leading-relaxed" data-i18n="ui_reranker_desc">A fine generazione sceglie, per ogni nodo, le frasi della fonte che lo sostengono. Funziona anche con Google Gemini. Manda a Infomaniak le frasi della fonte e le descrizioni dei nodi.</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
                 <div>

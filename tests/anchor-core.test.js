@@ -414,3 +414,36 @@ test('cercaBM25 NON tocca ancoraNodi: il cancello dell\'ancora resta dov\'era', 
   assert.deepStrictEqual(estraneo.perNodo, {}, 'un nodo estraneo non deve ricevere citazioni');
   assert.ok(A.cercaBM25(frasi, 'batteria').length, 'la ricerca invece risponde: e un elenco, non un verdetto');
 });
+
+// ── il reranker: che cosa mandargli, che cosa tenere (16/9/26) ──────────────
+test('reranker: la domanda è «etichetta. descrizione», la stessa della prova giudicata a mano', () => {
+    assert.strictEqual(A.queryReranker({ label: ' Piano Wahlen ', desc: 'Aumentò le coltivazioni. ' }), 'Piano Wahlen. Aumentò le coltivazioni.');
+    assert.strictEqual(A.queryReranker({ label: 'Nodo', content: 'solo content' }), 'Nodo. solo content');
+});
+
+test('reranker: fino a 120 frasi si mandano tutte; oltre, BM25 fa da setaccio e tiene la frase pertinente', () => {
+    const poche = Array.from({ length: 120 }, (_, i) => ({ idx: i, text: 'frase numero ' + i + ' sul tema generico', page: 1 }));
+    assert.deepStrictEqual(A.candidatiReranker(poche, { label: 'x', desc: 'y' }), poche.map((f, i) => i));
+
+    const molte = Array.from({ length: 500 }, (_, i) => ({ idx: i, text: 'riga di riempimento ' + i + ' senza argomento preciso', page: 1 + (i % 20) }));
+    molte[437] = { idx: 437, text: 'Il piano Wahlen aumentò le superfici coltivate a patate e cereali.', page: 18 };
+    const scelte = A.candidatiReranker(molte, { label: 'Piano Wahlen', desc: 'Il piano aumentò le coltivazioni di patate.' });
+    assert.ok(scelte.includes(437), 'la frase che parla del nodo deve arrivare al reranker');
+    assert.ok(scelte.length <= A.RERANK.prefiltro + Math.ceil(A.RERANK.prefiltro / 3), 'il setaccio deve restare stretto');
+    assert.deepStrictEqual(scelte, scelte.slice().sort((a, b) => a - b), 'in ordine di documento');
+});
+
+test('reranker: dai voti restano le prime due, anche su un sottoinsieme di frasi, senza soglie di qualità', () => {
+    const frasi = ['a', 'b', 'c', 'd', 'e'].map((t, i) => ({ idx: i, text: 'frase ' + t, page: i + 1 }));
+    // indici non contigui: il voto k-esimo appartiene a frasi[indici[k]]
+    const cit = A.citazioniDaVoti(frasi, [4, 1, 3], [0.97, 0.99, 0.02]);
+    assert.deepStrictEqual(cit.map(c => c.idx), [1, 4]);
+    assert.deepStrictEqual(cit[0], { idx: 1, text: 'frase b', page: 2, score: 0.99 });
+    // pari merito: vince la frase che viene prima nel documento
+    assert.deepStrictEqual(A.citazioniDaVoti(frasi, [3, 2, 0], [0.5, 0.5, 0.5]).map(c => c.idx), [0, 2]);
+    // la sola rete: sotto 0,01 non si cita, e un voto rotto non conta
+    assert.deepStrictEqual(A.citazioniDaVoti(frasi, [0, 1, 2], [0.005, null, NaN]), []);
+    assert.deepStrictEqual(A.citazioniDaVoti(frasi, [0, 1], [0.024, 0.009]).map(c => c.idx), [0], '0,024 era la frase giusta più bassa osservata: resta');
+    // voti mancanti o più corti degli indici non rompono niente
+    assert.deepStrictEqual(A.citazioniDaVoti(frasi, [0, 1], undefined), []);
+});
