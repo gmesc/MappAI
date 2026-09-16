@@ -52,6 +52,7 @@ tabella `name` di ogni file.
 | qrcode-generator — Kazuhiko Arase | MIT |
 | graphology + plugin (bundle `mappai-graphology.min.js`) | MIT |
 | **lamejs** — encoder MP3 in JS, da `github.com/zhuker/lamejs` | **LGPL-3.0** |
+| rsvp-reading — Thomas Kolmans, `github.com/thomaskolmans/rsvp-reading` (lettera di fissazione e pause, riscritte in `mappai-rsvp-core.js`) | MIT, Copyright (c) 2025 |
 
 **lamejs è LGPL-3.0**, non MIT: compatibile con la GPLv3, ma con obblighi propri. Chi
 ridistribuisce MappAI deve poter sostituire quella libreria; il sorgente non minificato sta
