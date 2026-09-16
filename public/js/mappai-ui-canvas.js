@@ -754,6 +754,8 @@ window.closeSourceModal = function () {
     const sourceModal = document.getElementById('source-modal');
     const sourceModalBox = document.getElementById('source-modal-content-box');
     if (!sourceModal) return;
+    // il testo del prossimo nodo sarà un altro: niente lettura del vecchio
+    try { if (window.MappAITTS) window.MappAITTS.invalidate(); } catch (e) {}
     sourceModal.classList.add('opacity-0');
     sourceModalBox.classList.remove('scale-100');
     sourceModalBox.classList.add('scale-95');

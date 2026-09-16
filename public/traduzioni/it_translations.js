@@ -774,6 +774,7 @@ const it_translations = {
     ui_active_study_btn: "Studio attivo",
     ui_branch_synth: "Sintesi materiale",
     ui_tts_tool: "Ascolto Testo",
+    tt_read_aloud: "Leggi ad alta voce",
     ui_undo: "Annulla",
     ui_quiz_type: "Tipo di Quiz",
     ui_quiz_angle: "Angolo delle domande",

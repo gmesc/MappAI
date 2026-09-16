@@ -1540,6 +1540,7 @@ const en_translations = {
     ui_active_study_btn: "Active study",
     ui_branch_synth: "Study material synthesis",
     ui_tts_tool: "Read Aloud",
+    tt_read_aloud: "Read aloud",
     tts_group: "Read aloud",
     tts_back: "Back 10 seconds",
     tts_play: "Listen / Pause",

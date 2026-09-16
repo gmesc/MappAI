@@ -495,6 +495,17 @@
         _stop(); _load(wrap); _playFrom(0, 0); // avvio automatico
         return f;
     }
+    // Bottone esplicito accanto allo slot (es. 🔊 nella barra a11y del modale
+    // nodo): mostra il chip anche col toggle compensativo spento e legge/pausa.
+    function playSlotNear(btn) {
+        var slot = btn && btn.parentElement && btn.parentElement.querySelector('.mai-tts-slot');
+        if (!slot) return;
+        mountSlot(slot);
+        var h = _mounted.filter(function (m) { return m.slot === slot; })[0];
+        if (!h) return;
+        h.wrap.style.display = '';
+        _togglePlay(h.wrap);
+    }
     function toggle(btn) {
         var on = !isEnabled();
         setEnabled(on);
@@ -587,7 +598,7 @@
         isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle, invalidate: invalidate,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
-        playFloating: playFloating, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
+        playFloating: playFloating, playSlotNear: playSlotNear, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
         stop: function () { _stop(); }, _speeds: SPEEDS
     };
 
