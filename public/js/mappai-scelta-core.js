@@ -154,16 +154,19 @@
                 var testo = _trim(it.question || it.domanda || it.q || it.stem || '');
                 if (!testo) return;
                 var k = _chiave(testo);
+                /* l'angolo dell'ITEM vince su quello del foglio (16/9): un foglio
+                   misto (`angle:"auto"`) porta il taglio su ogni domanda */
+                var angIt = (_s(it.angle) && _s(it.angle) !== 'auto') ? _s(it.angle) : ang;
                 if (visti[k] != null) {
                     var g = out[visti[k]];
-                    if (ang && g.angle !== ang && g.anche.indexOf(ang) < 0) g.anche.push(ang);
+                    if (angIt && g.angle !== angIt && g.anche.indexOf(angIt) < 0) g.anche.push(angIt);
                     return;
                 }
                 var v = {
                     id: _hash(titolo + '|' + i + '|' + k),
                     tipo: tipo,
                     testo: testo,
-                    angle: ang,
+                    angle: angIt,
                     anche: [],
                     /* la POSIZIONE nel foglio (6/9): serve a `perDomandaPerAngoli`,
                        che accoppia per posizione la domanda i dei fogli d'angolo.
@@ -176,6 +179,11 @@
                     livello: (_s(it.livello).toLowerCase() === 'base') ? 'base' : 'ponte',
                     foglio: titolo,
                     traccia: _trim(it.guide || it.traccia || ''),
+                    /* i CRITERI di riuscita (16/9): 2-4 elementi spuntabili. Sono di
+                       fatto la soluzione: la view li mostra solo DOPO la risposta
+                       (opzione `criteri`), e `pubblico` non li copia */
+                    criteri: (Array.isArray(it.criteri) ? it.criteri : Array.isArray(it.criteria) ? it.criteria : [])
+                        .map(_trim).filter(Boolean),
                     /* la spiegazione NON viaggia col pool (`pubblico` non la
                        copia): esce solo dentro il verdetto, cioè dopo che si è
                        risposto — è materiale didattico, non una chiave */
@@ -421,6 +429,16 @@
     function _vocab(v) { return (Array.isArray(v) && v.length) ? v.map(_s) : CHIP; }
     function _risposte(stato) { return (stato && stato.risposte) || {}; }
     function _letture(stato) { return (stato && stato.letture) || {}; }
+    /* L'autovalutazione coi criteri: spuntati / totali, o null se la domanda non
+       ha criteri o l'allievo non li ha ancora guardati (16/9) */
+    function punteggioCriteri(v, r) {
+        var n = (v && Array.isArray(v.criteri)) ? v.criteri.length : 0;
+        if (!n || !r || !r.criteriVisti) return null;
+        var sp = Array.isArray(r.spunte) ? r.spunte : [];
+        var si = 0;
+        for (var i = 0; i < n; i++) if (sp[i]) si++;
+        return si / n;
+    }
     function scritta(r) {
         if (!r) return false;
         if (r.scelta != null && r.scelta !== '') return true;
@@ -669,7 +687,7 @@
         angoloDalTitolo: angoloDalTitolo,
         poolDaFogli: poolDaFogli, pubblico: pubblico,
         mescola: mescola, perRamo: perRamo, perDomandaPerAngoli: perDomandaPerAngoli,
-        scritta: scritta, conteggio: conteggio, validaConsegna: validaConsegna,
+        scritta: scritta, punteggioCriteri: punteggioCriteri, conteggio: conteggio, validaConsegna: validaConsegna,
         profilo: profilo, evitata: evitata, calorClasse: calorClasse, calorAree: calorAree,
         normalizzaStato: normalizzaStato
     };

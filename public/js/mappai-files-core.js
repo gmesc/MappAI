@@ -270,30 +270,33 @@
   /* ── LO SCAMBIO CON MAPPAI STUDENTE (7/9) ──────────────────────────────────
      Tre regole che valgono su ENTRAMBI i lati (il file è copiato nel reader): */
   var CONSEGNE = 'Consegne';   // <vault>/Consegne/<studente>/ — ciò che gli allievi mandano
-  /* ── I MATERIALI CHE RESTANO AL DOCENTE (7/9) ───────────────────────────────
-     LA REGOLA, nelle parole di Giacomo: «l'unico PDF che viaggia dal docente
-     all'allievo è quello della scheda didattica originale». Quello sta in
-     `Allegati/`; in `Materiale Studio/` NESSUN pdf va allo studente.
-     Due ragioni. I fogli di quiz, flashcard e domande aperte portano le SOLUZIONI
-     nell'ultima pagina. E tutto il resto — la mappa stampata, i Focus, le viste
-     di studio, la catena dei perché — nell'app lo studente se lo genera da sé
-     dalla mappa che ha in mano: un PDF già impaginato dal docente sarebbe una
-     seconda copia della stessa cosa, più vecchia.
-     Viaggiano invece: la sintesi (`.html` + `.mp3`), i set `set-*.json` e i
-     gemelli `.html` in `Materiale Studio/Sorgenti/` — cioè le SORGENTI con cui
-     l'app costruisce quiz e prove; senza, «Prova» resta vuota.
-     ⚠️ Il nome basta perché tutti i chiamanti guardano dentro `Materiale Studio`
-     (la cartella la decide `relVaultStudente` qui sotto, e gli elenchi dell'app
-     dello studente chiedono quella). */
+  /* ── CHE COSA VIAGGIA ALL'ALLIEVO: UN ELENCO CHIUSO (16/9) ─────────────────
+     Era «tutto tranne i PDF di Materiale Studio». Ma MappAI aggiunge un genere
+     di output ogni settimana, e ognuno sarebbe partito verso gli allievi senza
+     che nessuno l'avesse deciso. Ora passa SOLO ciò che è nominato qui; un
+     genere nuovo resta al docente finché qualcuno non lo aggiunge.
+     Da `Materiale Studio/` viaggiano:
+       · la sintesi `Sintesi*.html` (anche `Sintesi-voce*`) e il suo audio `Sintesi-audio*.mp3`;
+       · i set di flashcard e quiz MC `set-*.json` (e i vecchi `*_set_*.json`);
+       · da `Sorgenti/`, i gemelli `Domande-aperte*.html` — le SORGENTI delle prove.
+     Tutto il resto (i PDF con le soluzioni in coda, gli export SVG/PNG, gli
+     HTML degli altri generi) resta al docente: l'app se lo rigenera dalla mappa.
+     ⚠️ Il nome basta perché i chiamanti guardano dentro `Materiale Studio`
+     (la cartella la decide `relVaultStudente` qui sotto). */
+  var MATERIALE_ALLIEVO = [/^Sintesi.*\.html?$/i, /^Sintesi-audio.*\.mp3$/i, /^set-.*\.json$/i, /_set_.*\.json$/i];
+  var SORGENTI_ALLIEVO = [/^Domande.?aperte.*\.html?$/i];
+  function _inElenco(elenco, nome) {
+    return elenco.some(function (re) { return re.test(nome); });
+  }
   function materialeSoloDocente(nomeFile) {
-    return /\.pdf$/i.test(String(nomeFile == null ? '' : nomeFile).trim());
+    return !_inElenco(MATERIALE_ALLIEVO, String(nomeFile == null ? '' : nomeFile).trim());
   }
 
-  /* Che cosa del vault VA allo studente: la mappa (index.yaml, links.json,
-     Nodi/**), i materiali (Materiale Studio/* e /Sorgenti/*), gli allegati e
-     l'indice delle fonti. NON vanno: vista.json (la vista è di chi guarda),
-     Studio Attivo/** (i record di studio), Chat/, Fonti/ (gli originali di
-     ELABORA), pipeline.json, chat_state.json, le consegne, i dotfile.
+  /* Che cosa del vault VA allo studente, elenco chiuso: la mappa (index.yaml,
+     links.json, Nodi/**.md), i materiali qui sopra, e `Allegati/*` — la scheda
+     didattica originale. NON va nient'altro: vista.json, qualita.json,
+     pipeline.json, chat_state.json, fonti_e_link.txt, Studio Attivo/**, Chat/,
+     Fonti/, Consegne/, i dotfile.
      Ritorna il rel normalizzato o null; la usa chi ESPONE (live-server) e chi
      RICEVE (l'adapter dello studente): fiducia zero nel manifest. */
   function relVaultStudente(relPath) {
@@ -304,13 +307,11 @@
     for (var i = 0; i < segs.length; i++) {
       if (safeName(segs[i], '') !== segs[i] || segs[i].charAt(0) === '.') return null;
     }
-    if (segs.length === 1) return (segs[0] === 'index.yaml' || segs[0] === 'links.json' || segs[0] === 'fonti_e_link.txt') ? segs[0] : null;
+    if (segs.length === 1) return (segs[0] === 'index.yaml' || segs[0] === 'links.json') ? segs[0] : null;
     if (segs[0] === 'Nodi' && segs.length <= 3 && /\.md$/i.test(segs[segs.length - 1])) return segs.join('/');
-    if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Allegati')) {
-      if (segs[0] === 'Materiale Studio' && materialeSoloDocente(segs[1])) return null;
-      return segs.join('/');
-    }
-    if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI) return segs.join('/');
+    if (segs.length === 2 && segs[0] === 'Allegati') return segs.join('/');
+    if (segs.length === 2 && segs[0] === 'Materiale Studio') return materialeSoloDocente(segs[1]) ? null : segs.join('/');
+    if (segs.length === 3 && segs[0] === 'Materiale Studio' && segs[1] === SORGENTI && _inElenco(SORGENTI_ALLIEVO, segs[2])) return segs.join('/');
     return null;
   }
   /* L'identità dell'allievo: numero personale del registro + classe. La classe

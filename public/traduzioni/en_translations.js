@@ -2753,6 +2753,8 @@ const en_translations = {
     sc_auto_3: "sure",
     sc_auto_2: "so-so",
     sc_auto_1: "I guessed",
+    sc_crit_vedi: "I have answered: check against the criteria",
+    sc_crit: "What is in your answer? Tick what you wrote.",
     sc_senza_ramo: "Other questions",
     sc_oss: "Notes — why these ones? (optional)",
     sc_consegna: "Hand in",

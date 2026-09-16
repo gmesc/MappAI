@@ -490,3 +490,24 @@ test('un vocabolario di chip suo: senza, si scarta come oggi; con, si tiene e si
     /* e i quattro storici restano quelli */
     assert.deepStrictEqual(S.CHIP, ['subito', 'partenza', 'vago', 'niente']);
 });
+
+/* 16/9 — fogli misti (`angle:"auto"`) con l'angolo per domanda, e i criteri come
+   autovalutazione: si contano solo dopo che l'allievo li ha guardati */
+test('poolDaFogli: l\'angolo dell\'item vince sul foglio misto; i criteri entrano nel pool, non in pubblico', () => {
+    const pool = S.poolDaFogli([{ titolo: 'Domande-aperte-X-misto', angle: 'auto', tipo: 'open', items: [
+        { question: 'Perché A?', angle: 'causa', criteria: ['Nomina A.', ' Collega A a B. ', ''] },
+        { question: 'Che cos\'è B?', angle: 'auto' }
+    ] }]);
+    assert.deepStrictEqual(pool.map(v => v.angle), ['causa', 'auto']);
+    assert.deepStrictEqual(pool[0].criteri, ['Nomina A.', 'Collega A a B.']);
+    assert.deepStrictEqual(pool[1].criteri, []);
+    assert.ok(S.pubblico(pool).every(p => !('criteri' in p)));
+});
+
+test('punteggioCriteri: spuntati/totali, null senza criteri o prima di guardarli', () => {
+    const v = { criteri: ['a', 'b', 'c', 'd'] };
+    assert.strictEqual(S.punteggioCriteri(v, { testo: 'x', spunte: [true, true] }), null, 'non ancora visti');
+    assert.strictEqual(S.punteggioCriteri(v, { criteriVisti: true, spunte: [true, false, true] }), 0.5);
+    assert.strictEqual(S.punteggioCriteri(v, { criteriVisti: true }), 0);
+    assert.strictEqual(S.punteggioCriteri({ criteri: [] }, { criteriVisti: true }), null);
+});

@@ -173,7 +173,11 @@
            `mostraAngolo` il taglio sulla card
            `raggruppa`    'domanda-per-angoli' = per ramo, riga i = la i-esima domanda di ogni foglio
            `chipPrende`   la chiave del chip che PRENDE la domanda (il verde): niente bottone a parte
-           `hint`         la frase in testa al passo ②, se chi monta ne vuole una sua */
+           `hint`         la frase in testa al passo ②, se chi monta ne vuole una sua
+           `criteri`      (16/9) le aperte che portano `criteri` NON mostrano la traccia:
+                          dopo «Ho risposto» la risposta si blocca e i criteri compaiono
+                          come spunte (`r.criteriVisti`, `r.spunte`), al posto della
+                          scala a tre livelli. Sono la soluzione: mai prima. */
         var CHIPS = (Array.isArray(o.chip) && o.chip.length)
             ? o.chip.map(function (c) { return { k: String(c.k), et: c.et || etChip(t, c.k), colore: c.colore || '' }; })
             : S().CHIP.map(function (k) { return { k: k, et: etChip(t, k), colore: '' }; });
@@ -502,7 +506,8 @@
             var q = document.createElement('div'); q.className = 'sc-dom';
             q.textContent = v.testo;
             list.appendChild(q);
-            if (v.traccia) {
+            var conCriteri = !!(o.criteri && v.tipo !== 'mc' && v.criteri && v.criteri.length);
+            if (v.traccia && !conCriteri) {
                 var tr = document.createElement('div'); tr.className = 'sc-lbl';
                 tr.textContent = v.traccia; list.appendChild(tr);
             }
@@ -527,8 +532,37 @@
                 var ta = document.createElement('textarea');
                 ta.className = 'sc-ta'; ta.value = r.testo || '';
                 ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
-                ta.oninput = function () { r.testo = ta.value; salva(v.id); };
+                ta.oninput = function () { r.testo = ta.value; salva(v.id); if (vedi) vedi.disabled = !S().scritta(r); };
                 list.appendChild(ta);
+                var vedi = null;
+                if (conCriteri && !r.criteriVisti) {
+                    vedi = bottone(_t(t, 'sc_crit_vedi', 'Ho risposto: controlla coi criteri'), function () {
+                        if (!S().scritta(r)) return;
+                        r.criteriVisti = true; r.spunte = v.criteri.map(function () { return false; });
+                        salva(v.id, true); disegna();
+                    }, 'sc-go sc-go--quieto');
+                    vedi.disabled = !S().scritta(r);
+                    list.appendChild(vedi);
+                } else if (conCriteri) {
+                    /* visti i criteri, la risposta non si ritocca: sarebbe copiarli */
+                    ta.readOnly = true;
+                    var lc = document.createElement('div'); lc.className = 'sc-lbl';
+                    lc.textContent = _t(t, 'sc_crit', 'Che cosa c\'è nella tua risposta? Spunta ciò che hai scritto.');
+                    list.appendChild(lc);
+                    v.criteri.forEach(function (testo, ci) {
+                        var cb = document.createElement('button');
+                        cb.type = 'button'; cb.className = 'sc-opt'; cb.setAttribute('role', 'checkbox');
+                        cb.setAttribute('aria-checked', String(!!(r.spunte && r.spunte[ci])));
+                        cb.textContent = testo;
+                        cb.onclick = function () {
+                            r.spunte = r.spunte || [];
+                            r.spunte[ci] = !r.spunte[ci];
+                            cb.setAttribute('aria-checked', String(r.spunte[ci]));
+                            salva(v.id, true);
+                        };
+                        list.appendChild(cb);
+                    });
+                }
             }
 
             /* l'esito della domanda corrente, se è già stato dato */
@@ -543,7 +577,7 @@
                 list.appendChild(box2);
             }
 
-            if (cfg.autovalutazione) {
+            if (cfg.autovalutazione && !conCriteri) {
                 var la = document.createElement('div'); la.className = 'sc-lbl';
                 la.textContent = _t(t, 'sc_auto', 'Quanto ti senti sicuro di questa risposta?');
                 list.appendChild(la);

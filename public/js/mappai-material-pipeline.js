@@ -636,6 +636,16 @@
        ripiego chiede «1-2 frasi» e senza questo blocco i suoi fogli sarebbero
        gli unici senza griglia di correzione. */
     prompt += '\n\n' + _bloccoCriteri();
+    /* L'ANGOLO PER DOMANDA nei fogli misti (16/9). Con un angolo scelto vale per
+       tutte; con `auto` il foglio era UNO e senza taglio per domanda, e la
+       sessione a tre colori dell'allievo («la stessa domanda in tutti i tagli»)
+       ne vedeva uno solo. Un campo `enum` corto, non long-form: non gonfia la
+       risposta (vedi il commento su `criteri` qui sotto). */
+    const misto = !opts.angolo || opts.angolo === 'auto';
+    const angoliOq = PC().angoliMulti();
+    if (misto) prompt += '\n\n' + ((window.getPromptLanguage && window.getPromptLanguage() === 'en')
+      ? 'For each question write in «angolo» the angle it takes, one of: ' + angoliOq.join(', ') + '.'
+      : 'Per ogni domanda scrivi in «angolo» il taglio che prende, uno fra: ' + angoliOq.join(', ') + '.');
     prompt += '\n\n' + PC().questionRoleBlock('open', opts.complementary, window.getPromptLanguage && window.getPromptLanguage() === 'en');
     /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
        modello riempie fino al massimo suo. È QUI che è successo per davvero —
@@ -684,14 +694,15 @@
              la stessa griglia sul foglio. */
           /* `enum` invece di una stringa libera: senza, arrivano «facile»,
              «medio», «base/ponte» — e chi conta non riconosce più niente. */
-          livello: { type: 'STRING', enum: ['base', 'ponte'] }
+          livello: { type: 'STRING', enum: ['base', 'ponte'] },
+          ...(misto ? { angolo: { type: 'STRING', enum: angoliOq } } : {})
         },
         /* ⚠️ `livello` è OBBLIGATORIO, e la prima prova con l'AI vera dice
            perché: da opzionale il modello semplicemente non lo emetteva —
            l'istruzione «2 su 5 di avvio» veniva letta, e il campo che la rende
            verificabile spariva. Tutte le domande cadevano su «ponte» e la leva
            sembrava non fare niente. */
-        required: ['domanda', 'traccia', 'livello']
+        required: misto ? ['domanda', 'traccia', 'livello', 'angolo'] : ['domanda', 'traccia', 'livello']
       }
     };
     let payload = {
@@ -739,7 +750,9 @@
         criteri: (PC() && PC().criteriDaItem) ? PC().criteriDaItem({ guide: x.traccia }) : [],
         lines: x.righe,
         areas: aree,
-        livello: liv
+        livello: liv,
+        /* un angolo fuori elenco non si inventa: resta `auto`, e il reader lo tratta come misto */
+        angle: misto ? (angoliOq.indexOf(String(x.angolo || '').trim().toLowerCase()) >= 0 ? String(x.angolo).trim().toLowerCase() : 'auto') : opts.angolo
       };
     });
   }
