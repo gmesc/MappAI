@@ -157,7 +157,7 @@
         const J = window.MappAIJigsaw;
         const offTip = t('hub_fn_missing', 'Funzione non disponibile in questa versione.');
         const defs = {
-            pdf:      { icon: 'file-text',       ok: !!window.exportPDF,                 fn: () => window.exportPDF(),
+            pdf:      { icon: 'file-text',       ok: !!window.exportPDF,                 fn: () => (window.exportPDFVista || window.exportPDF)(),
                         title: t('ui_export_pdf_btn', 'Esporta PDF mappa'),  tip: t('tt_export_pdf', 'Esporta la mappa visibile in formato PDF (vettoriale).') },
             sheet:    { icon: 'scissors',        ok: !!window.openNodeLabelsPrintModal,  fn: () => window.openNodeLabelsPrintModal(),
                         title: t('ui_node_sheet_btn', 'Foglio nodi'),        tip: t('tt_node_sheet', 'Foglio stampabile con i nodi da ritagliare (forbici).') },

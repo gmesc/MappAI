@@ -1273,6 +1273,15 @@
         persist();
     }
 
+    /* Il PDF di ciò che si sta guardando: la vista (o il Focus) se è attiva,
+       altrimenti la mappa libera. Chi offre «PDF della mappa» fuori dalla vista
+       (menu dei materiali, MappAI studente) chiama questo: `window.exportPDF`
+       esporta SEMPRE il canvas D3, anche con Albero, DAG o Fasci a schermo. */
+    window.exportPDFVista = function () {
+        if (S.active && (S.focus || S.handle)) { exportViewPdf(); return; }
+        if (typeof window.exportPDF === 'function') window.exportPDF();
+    };
+
     window.MappAIStudioView = {
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S,

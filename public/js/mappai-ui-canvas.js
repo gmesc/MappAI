@@ -760,6 +760,11 @@ window.closeSourceModal = function () {
     // il testo del prossimo nodo sarà un altro: niente lettura del vecchio
     try { if (window.MappAITTS) window.MappAITTS.invalidate(); } catch (e) {}
     try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) {}
+    // la riga di lettura accesa dalla fila della scheda se ne va con la scheda
+    try {
+        const riga = document.getElementById('reading-ruler');
+        if (riga && riga.getAttribute('data-da-scheda') === '1') { riga.classList.remove('active'); riga.setAttribute('data-da-scheda', ''); }
+    } catch (e) {}
     sourceModal.classList.add('opacity-0');
     sourceModalBox.classList.remove('scale-100');
     sourceModalBox.classList.add('scale-95');

@@ -405,9 +405,16 @@
         E.playing = false; E.idx = 0; E.subChar = 0;
         _paint(false); _renderProgress(1);
     }
+    // WebKit (iPad): un `cancel()` che arriva mentre una frase sta partendo a
+    // volte non la ferma, e la voce prosegue a pannello chiuso. Se ne manda un
+    // secondo poco dopo — solo se nel frattempo nessuno ha ripreso a leggere.
+    function _zitto() {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        setTimeout(function () { if (!E.playing) { try { window.speechSynthesis.cancel(); } catch (e) {} } }, 80);
+    }
     function _stop(keepWrap) {
         _clearGap(); _stopTicker(); _clearHighlight(); _rsvpHide();
-        try { window.speechSynthesis.cancel(); } catch (e) {}
+        _zitto();
         E.playing = false; E.utter = null; E.idx = 0; E.subChar = 0;
         _paint(false); _renderProgress(0);
         if (!keepWrap) E.wrap = null;
@@ -423,7 +430,7 @@
     }
     function _pause() {
         _clearGap(); _stopTicker();
-        try { window.speechSynthesis.cancel(); } catch (e) {}
+        _zitto();
         E.playing = false; E.subChar = 0; // alla ripresa rilegge la frase corrente dall'inizio
         _paint(false);
     }
@@ -780,7 +787,13 @@
                     var r = document.getElementById('reading-ruler'), on = !!(r && r.classList.contains('active'));
                     return { t: on ? _t('tts_si', 'sì') : _t('tts_no', 'no'), on: on };
                 },
-                premi: function () { var r = document.getElementById('reading-ruler'); if (r) r.classList.toggle('active'); }
+                // accesa da qui → si spegne quando la scheda si chiude (closeSourceModal);
+                // accesa dal pannello degli strumenti resta: è una scelta per tutta l'app
+                premi: function () {
+                    var r = document.getElementById('reading-ruler'); if (!r) return;
+                    r.classList.toggle('active');
+                    r.setAttribute('data-da-scheda', r.classList.contains('active') ? '1' : '');
+                }
             },
             veloce: function () { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.daScheda(); }
         });
