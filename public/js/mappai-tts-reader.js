@@ -631,6 +631,19 @@
         var row = document.createElement('div');
         row.className = 'mai-fila';
         host.appendChild(row);
+        if (opts.sganciabile) {
+            // la maniglia: trascinata sgancia la fila e la porta dove si vuole;
+            // toccata e basta la sgancia in basso al centro (e da tastiera)
+            var grip = document.createElement('button');
+            grip.type = 'button'; grip.className = 'mai-fila-bt mai-fila-grip';
+            grip.title = _t('tts_sposta', 'Sposta i comandi'); grip.setAttribute('aria-label', grip.title);
+            grip.innerHTML = '<i data-lucide="grip-vertical"></i>';
+            row.appendChild(grip);
+            var mosso = false, eraLibera = false;
+            _trascina(grip, row, function () { mosso = false; eraLibera = !!row._libera; _sgancia(row); }, function () { mosso = true; }, function () {
+                if (!mosso && !eraLibera) _posiziona(row, (innerWidth - row.offsetWidth) / 2, innerHeight - row.offsetHeight - 24);
+            });
+        }
         var wrap = mountChip(row, opts.corpo);
         if (wrap) wrap.style.display = ''; // qui è IL lettore: il cancello degli strumenti compensativi non vale
         row._wrap = wrap;
@@ -660,13 +673,100 @@
         });
         if (opts.veloce) bt(_t('rsvp_titolo', 'Lettura veloce'), 'gauge', opts.veloce);
         (opts.altro || []).forEach(function (a) { bt(a.etichetta, a.icona, a.azione); });
+        if (opts.sganciabile) bt(_t('tts_rimetti', 'Rimetti i comandi al loro posto'), 'pin', function () { _rimetti(row); })
+            .classList.add('mai-fila-rimetti');
         _icons();
         return row;
+    }
+
+    // ── Spostare i comandi (17/9/26) ────────────────────────────────────────
+    // Il pannello flottante si trascina dalla testata e ricorda dove è stato
+    // lasciato (doppio tocco sulla testata: torna in basso al centro). La fila
+    // della scheda e della sintesi si SGANCIA dalla sua maniglia e diventa una
+    // barra libera; 📌 la rimette al suo posto, e al posto torna comunque quando
+    // la scheda si chiude (invalidate).
+    var LS_POS = 'mappai_lettura_pos';
+    var _libere = [];
+    function _posiziona(el, x, y) {
+        var w = el.offsetWidth, h = el.offsetHeight;
+        x = Math.max(8, Math.min(x, innerWidth - w - 8));
+        y = Math.max(8, Math.min(y, innerHeight - h - 8));
+        el.style.left = x + 'px'; el.style.top = y + 'px';
+        el.style.right = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'none';
+        return { x: x, y: y };
+    }
+    // onStart all'appoggio, onMove al primo spostamento, onEnd al rilascio
+    function _trascina(handle, el, onStart, onMove, onEnd) {
+        var d = null;
+        handle.addEventListener('pointerdown', function (e) {
+            if (e.button > 0) return;
+            var b = e.target.closest ? e.target.closest('button') : null;
+            if (b && b !== handle) return; // la × e gli altri bottoni restano bottoni
+            if (onStart) onStart();
+            var r = el.getBoundingClientRect();
+            d = { dx: e.clientX - r.left, dy: e.clientY - r.top, x0: e.clientX, y0: e.clientY, mosso: false };
+            try { handle.setPointerCapture(e.pointerId); } catch (er) {}
+            e.preventDefault();
+        });
+        handle.addEventListener('pointermove', function (e) {
+            if (!d) return;
+            if (!d.mosso && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 6) return;
+            if (!d.mosso) { d.mosso = true; if (onMove) onMove(); }
+            _posiziona(el, e.clientX - d.dx, e.clientY - d.dy);
+        });
+        function fine(e) {
+            if (!d) return;
+            d = null;
+            try { handle.releasePointerCapture(e.pointerId); } catch (er) {}
+            if (onEnd) onEnd();
+        }
+        handle.addEventListener('pointerup', fine);
+        handle.addEventListener('pointercancel', fine);
+    }
+    function _sgancia(row) {
+        if (row._libera) return;
+        var r = row.getBoundingClientRect();
+        var posto = document.createElement('span');
+        posto.className = 'mai-fila-posto'; posto.hidden = true;
+        row.parentNode.insertBefore(posto, row);
+        row._posto = posto; row._libera = true;
+        row.classList.add('mai-fila--libera');
+        document.body.appendChild(row);
+        _posiziona(row, r.left, r.top);
+        _libere.push(row);
+        _icons();
+    }
+    function _rimetti(row) {
+        if (!row._libera) return;
+        row._libera = false;
+        row.classList.remove('mai-fila--libera');
+        row.style.left = row.style.top = row.style.right = row.style.bottom = row.style.transform = '';
+        if (row._posto && row._posto.isConnected) { row._posto.parentNode.insertBefore(row, row._posto); row._posto.remove(); }
+        else row.remove(); // la superficie non c'è più: la fila va via con lei
+        row._posto = null;
+        _libere = _libere.filter(function (x) { return x !== row; });
+    }
+    // Pannello flottante trascinabile dalla sua testata, con memoria.
+    function trascinabile(panel, handle) {
+        try {
+            var pos = JSON.parse(localStorage.getItem(LS_POS) || 'null');
+            if (pos && typeof pos.x === 'number') _posiziona(panel, pos.x, pos.y);
+        } catch (e) {}
+        handle.classList.add('mai-maniglia');
+        _trascina(handle, panel, null, null, function () {
+            if (!panel.style.left) return;
+            try { localStorage.setItem(LS_POS, JSON.stringify({ x: parseFloat(panel.style.left), y: parseFloat(panel.style.top) })); } catch (e) {}
+        });
+        handle.addEventListener('dblclick', function () {
+            try { localStorage.removeItem(LS_POS); } catch (e) {}
+            panel.style.left = panel.style.top = panel.style.right = panel.style.bottom = panel.style.transform = '';
+        });
     }
     // La fila della scheda del nodo: Aa è lo zoom del testo dell'app, Riga la
     // riga di lettura dell'app, la lettura veloce prende il posto del corpo.
     function _filaScheda(slot) {
         fila(slot, {
+            sganciabile: true,
             corpo: _resolverForSlot(slot),
             aa: {
                 leggi: function () {
@@ -731,6 +831,7 @@
         var sc = SCALES[(SCALES.indexOf(_scale()) + 1) % SCALES.length];
         try { localStorage.setItem(LS_SCALE, String(sc)); } catch (e) {}
         _applyScale(f);
+        if (f.style.left) _posiziona(f, parseFloat(f.style.left), parseFloat(f.style.top));
         // cambiata la misura, la parola corrente torna in vista
         var k = E.wordIdx; if (k >= 0) { E.wordIdx = -1; _word(k); }
     }
@@ -761,6 +862,7 @@
             }
         })._wrap;
         wrap._floating = true;
+        trascinabile(f, titleBar); // dopo la fila: la posizione ricordata si misura sul pannello intero
         _stop(); _load(wrap); _playFrom(0, 0); // avvio automatico
         return f;
     }
@@ -830,7 +932,15 @@
             // Aa e × a destra — la striscia RSVP ci finiva sopra (17/9)
             '.mai-tts-float:not(.mai-lv){padding-top:44px}' +
             '.mai-tts-float-body h4{display:none}' +
-            '.mai-tts-float-t{position:absolute;top:13px;left:18px;right:44px;margin:0;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            // la testata è anche la maniglia: alta 44, tutta da afferrare
+            '.mai-tts-float-t{position:absolute;top:0;left:0;right:44px;height:44px;line-height:44px;margin:0;padding-left:18px;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.mai-maniglia{cursor:move;touch-action:none;user-select:none;-webkit-user-select:none}' +
+            '.mai-maniglia::before{content:"⠿";margin-right:8px;color:#94a3b8;font-weight:400}' +
+            '.mai-fila-grip{min-width:30px;padding:0 3px;border-color:transparent;background:transparent;color:#94a3b8;cursor:grab;touch-action:none}' +
+            '.mai-fila-rimetti{display:none}' +
+            '.mai-fila--libera{position:fixed;z-index:4100;width:max-content;max-width:calc(100vw - 24px);padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 44px rgba(15,23,42,.28)}' +
+            '.mai-fila--libera .mai-fila-rimetti{display:inline-flex}' +
+            '.mai-fila--libera .mai-fila-grip{cursor:grabbing}' +
             '.mai-tts-float--x15{width:min(880px,96vw)}' +
             '.mai-tts-float--x15 .mai-tts-float-body{max-height:calc(3 * 22px * 1.6);overflow:hidden;margin-right:0}' +
             '.mai-tts-float--x15 .mai-tts-float-body p{font-size:22px;line-height:1.6}' +
@@ -843,7 +953,7 @@
             '@media (prefers-color-scheme: dark){' +
             '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(148,163,184,.35) !important}::highlight(mai-tts-word-lit){color:#fff;background-color:rgba(202,138,4,.55)}' +
             '::highlight(mai-tts-word-u){text-decoration-color:#a5b4fc;background-color:rgba(67,56,202,.45)}' +
-            '.mai-rsvp{background:#0f172a;color:#f1f5f9}.mai-fila-bt{background:#1e293b;border-color:#334155;color:#a5b4fc}.mai-fila-bt[aria-pressed="true"]{background:#312e81;border-color:#4338ca}.mai-tts-float-t{color:#c7d2fe}' +
+            '.mai-rsvp{background:#0f172a;color:#f1f5f9}.mai-fila-bt{background:#1e293b;border-color:#334155;color:#a5b4fc}.mai-fila-grip{background:transparent;border-color:transparent;color:#64748b}.mai-fila--libera{background:#0f172a;border-color:#334155}.mai-fila-bt[aria-pressed="true"]{background:#312e81;border-color:#4338ca}.mai-tts-float-t{color:#c7d2fe}' +
             '.mai-tts-chip{background:#1e293b;border-color:#334155}.mai-tts-seg{color:#a5b4fc;border-left-color:#334155}.mai-tts-seg:hover{background:#334155}' +
             '.mai-tts-progress{background:#334155}.mai-tts-time{color:#94a3b8}.mai-tts-sec{background:#312e81;color:#c7d2fe}' +
             '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}' +
@@ -890,6 +1000,7 @@
      */
     function invalidate() {
         _stop();
+        _libere.slice().forEach(_rimetti);
         E.chunks = []; E.durations = []; E.starts = []; E.total = 0;
         // i controlli smontati (l'editor ri-disegna il foglio) escono dall'elenco
         _mounted = _mounted.filter(function (m) {
@@ -901,7 +1012,7 @@
         isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle, invalidate: invalidate,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
-        playFloating: playFloating, fila: fila, effect: _effect, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
+        playFloating: playFloating, fila: fila, trascinabile: trascinabile, effect: _effect, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
         stop: function () { _stop(); }, _speeds: SPEEDS
     };
 

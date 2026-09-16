@@ -154,6 +154,7 @@
             opts.dove.style.display = 'none';
         } else {
             document.body.appendChild(f);
+            if (window.MappAITTS && window.MappAITTS.trascinabile) window.MappAITTS.trascinabile(f, f.querySelector('.mai-lv-t'));
         }
         R.el = f;
 
@@ -242,7 +243,7 @@
         st.textContent =
             '.mai-lv{font-family:var(--app-font,"Space Mono",monospace)}' +
             '.mai-lv-top{display:flex;align-items:center;gap:10px;margin:0 0 10px}' +
-            '.mai-lv-t{flex:1;min-width:0;margin:0;font-size:14px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.mai-lv-t{flex:1;min-width:0;margin:0;line-height:36px;font-size:14px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.mai-lv-x{flex:0 0 auto;width:36px;height:36px;border:0;border-radius:9999px;background:#f1f5f9;color:#475569;cursor:pointer;font-size:15px;line-height:1}' +
             '.mai-lv .mai-rsvp{font-size:46px;min-height:2.1em;margin:0 0 12px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline-offset:3px}' +
             '.mai-lv-ctrl{display:flex;align-items:center;gap:12px}' +
