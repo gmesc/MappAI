@@ -778,6 +778,11 @@
         // una focus-map (prima viveva solo nel tooltip del browser).
         const voci = [
             [t('sv_desc_cmd', 'Descrizione'), () => openDescModal(node.id)],
+            // la stessa voce del menu della mappa D3 (card audio flottante)
+            [t('ctx_tts', 'Leggi ad alta voce'), () => {
+                const n = (appState.db.nodes || []).find(x => x.id === node.id);
+                if (n && window.speakNode) window.speakNode(n);
+            }],
             [t('sv_focus_vicini', 'Focus: vicini diretti'), () => openFocus(node.id, 'vicini')],
             [t('sv_focus_parenti', 'Focus: parentela'), () => openFocus(node.id, 'parenti')]
         ];
