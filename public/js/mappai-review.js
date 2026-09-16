@@ -642,12 +642,43 @@
       const input = modal.querySelector('#mrv-manual-confirm');
       if (input) { input.checked = false; proceed.hidden = true; }
     }
+    /* ── APPROVARE UN MATERIALE RIMASTO SENZA CONTROLLO (16/9/26) ─────────────
+       Il controllo automatico può lasciare materiali «senza esito» anche dopo
+       molti tentativi: frasi che introducono un elenco, affermazioni senza
+       verdetto. L'unica uscita era una casella globale chiusa in fondo al
+       riquadro, e «Esamina i materiali rimasti» apriva l'elenco senza registrare
+       niente: in «Svizzera e 2a GM» (16/9) Giacomo li ha esaminati tutti e la
+       revisione è rimasta ferma, dopo sei tentativi che non potevano riuscire.
+       Ora ogni materiale si approva da solo; approvati tutti, si completa.
+       L'approvazione vale per la versione LETTA: si tiene un'impronta
+       dell'anteprima con le decisioni attuali, e se una decisione la cambia
+       l'approvazione decade da sé. */
+    function improntaTesto(value) {
+      let n = 2166136261;
+      for (const c of String(value)) n = Math.imul(n ^ c.codePointAt(0), 16777619);
+      return (n >>> 0).toString(36);
+    }
+    function statoApprovazioni(r) {
+      const vuoto = { residui: [], impronte: new Map(), approvati: new Set(), tutti: false };
+      if (!isFinal || !r || r.initial.checkStatus === 'completed' || !window.MappAIReviewContext) return vuoto;
+      const residui = window.MappAIReviewContext.incompleteMaterials(r.initial.report || {}, r.baseSnapshot.items);
+      if (!residui.length) return vuoto;
+      const anteprima = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
+      const perId = new Map((anteprima.ok ? anteprima.db.items : []).map(item => [String(item.id), item]));
+      const fatte = r.initial.manualChecks || {};
+      const impronte = new Map(residui.map(row => [row.id, anteprima.ok ? improntaTesto(JSON.stringify(perId.get(row.id) || null)) : '']));
+      const approvati = new Set(residui.filter(row => impronte.get(row.id) && Object.prototype.hasOwnProperty.call(fatte, row.id) &&
+        fatte[row.id] && fatte[row.id].impronta === impronte.get(row.id)).map(row => row.id));
+      return { residui, impronte, approvati, tutti: anteprima.ok && approvati.size === residui.length };
+    }
     function decide(group, choice, value) {
       if (busy || getReview().initial.status !== 'awaiting_review') return;
       invalidateManualCheck();
       let r = getReview();
       group.forEach(issue => { r = core().setDecision(r, issue.id, choice, { text: value }); });
       setReview(r); updateFilters(); updateSummary();
+      // una decisione può far decadere un'approvazione per materiale: si ricalcola
+      if (isFinal && getReview().initial.checkStatus !== 'completed' && modal.querySelector('#mrv-manual-confirm')) proceed.hidden = !statoApprovazioni(getReview()).tutti;
       if (occurrenceSearch.open) renderOccurrences();
       return save();
     }
@@ -802,7 +833,8 @@
       occurrenceSearch.sourceIssueId = issue.id; occurrenceSearch.open = true;
       renderOccurrences(); modal.querySelector('#mrv-occurrence-query')?.focus();
     }
-    function renderMaterialCoverage(r, rows, editable, pending) {
+    function renderMaterialCoverage(r, rows, editable, pending, approvazioni) {
+      approvazioni = approvazioni || statoApprovazioni(r);
       const box = document.createElement('details'); box.id = 'mrv-material-coverage';
       const retry = r.initial.retrySummary || r.initial.report?.retrySummary;
       const stalled = retry?.targeted > 0 && retry.checked === 0 && retry.remaining > 0;
@@ -831,6 +863,10 @@
       box.appendChild(sources);
       const preview = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
       const previewItems = new Map((preview.ok ? preview.db.items : []).map(item => [String(item.id), item]));
+      if (approvazioni.approvati.size) {
+        box.querySelector('#mrv-coverage-heading').textContent = t('rv_coverage_materials', 'Materiali con controllo incompleto') + ' (' + rows.length + ' · ' +
+          approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') + ')';
+      }
       const labels = {
         uncertain: t('rv_coverage_uncertain', 'Riscontro nella fonte non confermato'),
         missing: t('rv_coverage_missing', 'Il modello non ha restituito un esito'),
@@ -839,7 +875,9 @@
       rows.forEach((row, index) => {
         const item = row.item, issue = { target: { kind: 'item', id: row.id } };
         const detail = document.createElement('details'); detail.className = 'mrv-coverage-material'; detail.setAttribute('data-coverage-item', row.id);
-        detail.innerHTML = '<summary>' + (index + 1) + '. ' + esc(issueTarget(issue)) + '</summary>' + chips([issue]) +
+        const approvato = approvazioni.approvati.has(row.id);
+        detail.innerHTML = '<summary>' + (index + 1) + '. ' + esc(issueTarget(issue)) +
+          (approvato ? ' · ' + esc(t('rv_coverage_approved_short', 'approvato')) : '') + '</summary>' + chips([issue]) +
           (row.claims.length ? '<ul class="mrv-coverage-claims">' + row.claims.map(claim => '<li><strong>' + esc(fieldName(claim.field, item)) + ' · ' + esc(labels[claim.status]) +
             '</strong><p class="mrv-coverage-text">' + esc(referenceView(claim.text).text) + '</p></li>').join('') + '</ul>' :
             '<p>' + esc(row.error ? t('rv_coverage_technical', 'Il controllo si è interrotto per un problema tecnico.') : t('rv_coverage_no_verdict', 'Il rapporto non contiene un controllo completo per questo materiale. Non indica quali frasi siano state verificate.')) + '</p>') +
@@ -855,6 +893,20 @@
           detail.appendChild(version);
           if (editable) {
             const actions = document.createElement('div'); actions.className = 'mrv-coverage-actions';
+            const approva = document.createElement('button'); approva.type = 'button';
+            approva.className = approvato ? 'pm-btn-cancel' : 'pm-btn-primary';
+            approva.setAttribute('data-coverage-approve', row.id); approva.setAttribute('aria-pressed', String(approvato));
+            approva.textContent = approvato ? t('rv_coverage_approved', 'Approvato così com’è · annulla') : t('rv_coverage_approve', 'Approva così com’è');
+            approva.onclick = async () => {
+              if (busy || invalidEditors.size || closed) return;
+              const impronta = approvazioni.impronte.get(row.id);
+              if (!approvato && !impronta) { status.textContent = t('rv_coverage_approve_blocked', 'Risolvi prima le decisioni in conflitto: serve l’anteprima del materiale.'); return; }
+              setReview(core().setManualCheck(getReview(), row.id, approvato ? null : impronta));
+              coverageExpanded = true; render();
+              const di = modal.querySelector('[data-coverage-approve="' + row.id + '"]'); if (di) di.focus();
+              return save();
+            };
+            actions.appendChild(approva);
             canonicalFields(item).forEach(field => {
               const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
               button.setAttribute('data-coverage-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
@@ -983,12 +1035,14 @@
       if (r.initial.checkStatus !== 'completed') {
         const report = r.initial.report || {}, coverage = report.copertura || {};
         const residuals = isFinal ? window.MappAIReviewContext.incompleteMaterials(report, r.baseSnapshot.items) : [];
+        const approvazioni = statoApprovazioni(r);
         const unchecked = isFinal ? residuals.length : (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length;
         const box = document.createElement('div'); box.id = 'mrv-unchecked';
-        box.innerHTML = (unchecked ? '<p>' + esc(t('rv_remaining_checks', 'Parti ancora da controllare:')) + ' ' + unchecked + '.</p>' : '') +
+        box.innerHTML = (unchecked ? '<p>' + esc(t('rv_remaining_checks', 'Parti ancora da controllare:')) + ' ' + unchecked +
+          (approvazioni.approvati.size ? ' · ' + approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') : '') + '.</p>' : '') +
           '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
         modal.querySelector('#mrv-coverage-details').appendChild(box);
-        if (isFinal && residuals.length) renderMaterialCoverage(r, residuals, editable, groups.pending.length);
+        if (isFinal && residuals.length) renderMaterialCoverage(r, residuals, editable, groups.pending.length, approvazioni);
       }
       for (const group of visibleGroups) {
         const issue = group[0], item = itemFor(issue, r);
@@ -1282,21 +1336,27 @@
         content.appendChild(recover);
       });
       const manual = modal.querySelector('#mrv-manual'); manual.replaceChildren();
-      proceed.hidden = editable && r.initial.checkStatus !== 'completed' && !manualConfirmed;
+      proceed.hidden = editable && r.initial.checkStatus !== 'completed' && !manualConfirmed && !statoApprovazioni(r).tutti;
       if (r.initial.checkStatus !== 'completed' && editable) {
         const outcome = document.createElement('p'); outcome.id = 'mrv-check-result'; outcome.className = 'text-sm font-bold';
         outcome.textContent = checkMessage(); manual.appendChild(outcome);
         const help = document.createElement('p'); help.className = 'text-sm';
-        help.textContent = t('rv_check_continue_help', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare serve un controllo completo oppure la tua conferma di aver verificato anche le parti rimaste scoperte.');
+        help.textContent = isFinal
+          ? t('rv_check_continue_help_final', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare approva uno per uno i materiali rimasti, oppure conferma in blocco di averli verificati. Riprovare il controllo serve solo quando è mancata una risposta.')
+          : t('rv_check_continue_help', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare serve un controllo completo oppure la tua conferma di aver verificato anche le parti rimaste scoperte.');
         manual.appendChild(help);
         const manualOption = document.createElement('details'); manualOption.id = 'mrv-manual-option'; manualOption.className = 'mt-3 text-sm';
         manualOption.innerHTML = '<summary>' + esc(t('rv_manual_option', 'Scelgo di completare io il controllo')) + '</summary>';
         const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'mrv-manual-confirm'; input.checked = manualConfirmed;
         label.className = 'block mt-2';
-        input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed; updateFilters(); };
+        input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed && !statoApprovazioni(getReview()).tutti; updateFilters(); };
         label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.'))); manualOption.appendChild(label);
         {
-          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button'; retry.className = 'pm-btn-primary';
+          const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button';
+          /* Se l'ultimo tentativo non ha completato nuovi controlli, riprovare non è
+             la strada: il bottone smette di sembrare quella principale. */
+          const ultimo = r.initial.retrySummary || r.initial.report?.retrySummary;
+          retry.className = ultimo?.targeted > 0 && ultimo.checked === 0 && ultimo.remaining > 0 ? 'pm-btn-cancel' : 'pm-btn-primary';
           retry.textContent = isFinal ? t('rv_context_retry_missing', 'Riprova il controllo automatico dei residui') : t('rv_retry_judge', 'Riprova il controllo automatico');
           retry.onclick = async () => {
             if (busy || invalidEditors.size) return;
@@ -1337,7 +1397,7 @@
       try {
         await pendingSave; if (saveError) throw saveError;
         const resume = !!options.onContinue || pendingOutputs(manifest);
-        if (getReview().initial.status !== 'approved' || resume) await R.approve(vaultPath, manifest, { final: isFinal, manualReview: manualConfirmed });
+        if (getReview().initial.status !== 'approved' || resume) await R.approve(vaultPath, manifest, { final: isFinal, manualReview: manualConfirmed || statoApprovazioni(getReview()).tutti });
         close(); busy = false;
         if (options.onContinue) await options.onContinue(manifest);
         else if (resume && window.MappAIPipelineCore.hasOutput(manifest.config)) await window.MappAIPipeline.run(manifest.config, { only: ['B', 'C', 'D', 'E'], vaultPath, manifest });

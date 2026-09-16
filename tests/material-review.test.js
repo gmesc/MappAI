@@ -1305,3 +1305,28 @@ test('empty retry needs no provider; absent original sources and invalid input n
     assert.equal(retry.checkStatus, 'incomplete'); assert.equal(retry.retrySummary.reused, 0);
     assert.notEqual((await r.checkRemaining(null)).checkStatus, 'completed');
 });
+
+/* Il caso vero di «Svizzera e 2a GM» (16/9/26): la sintesi inverte il soggetto
+   dell'elezione di Guisan, il controllo lo trova e cita la fonte ripulendo i segni
+   del PDF. Prima la segnalazione era scartata («la prova non coincide») e la
+   sezione restava senza esito per sempre. */
+test('a finding whose quote repairs PDF artefacts reaches the teacher instead of blocking the section', async () => {
+    const pagina = 'Il 30 agosto 1939 l’Assemblea Federale elesse   Henr i   Guisan Comandante in Capo dell’Esercito Svizzero e accordò pieni poteri al Consiglio Federale.';
+    const reference = G.buildInput({}, [], [{ id: 'dossier', title: 'Svizzera', pages: [{ n: 1, text: pagina }] }]);
+    const item = { id: 'synthesis-intro', kind: 'synthesis', text: 'Il governo ricevette pieni poteri e nominò il generale Henri Guisan a capo dell’esercito.' };
+    const r = runtime((batch, payload) => {
+        if (/^RECUPERO DI PROPOSTE/.test(payload.contents[0].parts[0].text)) return response({ decisions: recoveryRows(payload).map((_, n) => recoveryChoice(payload, n)) });
+        const claims = MR.claimUnits(batch);
+        return response({ checkedIds: batch.map(i => i.id), mcOptions: [],
+            checkedClaims: claims.map(c => ({ id: c.id, status: 'problem', sourceIds: [reference.sourcesArr[0].id] })),
+            issues: [{ id: item.id, field: 'text', problem: 'Il testo attribuisce la nomina al governo, la fonte all’Assemblea federale.',
+                evidenceKind: 'source', sourceId: reference.sourcesArr[0].id, claimIds: claims.map(c => c.id),
+                quote: "l'Assemblea Federale elesse Henri Guisan Comandante in Capo" }] });
+    });
+    const report = await r.check([item], { material: reference });
+    assert.deepEqual(plain(report.rejected), []);
+    assert.equal(report.issues.length, 1);
+    assert.equal(report.issues[0].evidence[0].text, 'l’Assemblea Federale elesse   Henr i   Guisan Comandante in Capo', 'la prova mostrata al docente è il testo archiviato');
+    assert.ok(report.coverage.claims.every(c => c.checked), 'l’affermazione ha un esito verificato');
+    assert.deepEqual(plain(report.coverage.checkedIds), ['synthesis-intro']);
+});

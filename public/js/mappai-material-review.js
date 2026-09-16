@@ -223,8 +223,11 @@
             grounding.amendmentText(d).map(text => ({ text, source: 'Decisione del docente', decisionId: d.issueId, verifiedAgainst: 'teacher-decision' })));
         if (raw.evidenceKind === 'item') pool = FIELDS.filter(f => f !== '$item').flatMap(field =>
             allText(item[field]).map(text => ({ text, field, source: 'Materiale da controllare', itemId: String(item.id), verifiedAgainst: 'item' })));
-        const found = pool.find(e => flat(e.text).includes(quote));
-        const excerpt = found && grounding && grounding.originalExcerpt(found.text, raw.quote);
+        /* Si cerca con `originalExcerpt`, non con un `includes` esatto: tollera gli
+           spazi e la tipografia dell'estrazione PDF (vedi mappai-grounding-core.js,
+           «la prova copiata in bella») e restituisce comunque il testo originale. */
+        const found = grounding && pool.find(e => grounding.originalExcerpt(e.text, raw.quote) !== null);
+        const excerpt = found && grounding.originalExcerpt(found.text, raw.quote);
         return typeof excerpt === 'string' ? Object.assign({}, found, { text: excerpt, quotationMatched: true }) : null;
     }
     function repeatedDecision(raw, item, decisions, evidence) {

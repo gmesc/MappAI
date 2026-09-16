@@ -48,7 +48,7 @@ const it_translations = {
     rv_coverage_excluded: "Hai scelto di escludere questo materiale.",
     rv_coverage_edit: "Rivedi",
     rv_coverage_item_missing: "Il materiale indicato dal rapporto non è disponibile nella bozza salvata.",
-    rv_coverage_examine: "Esamina i materiali rimasti",
+    rv_coverage_examine: "Rivedi e approva i materiali rimasti",
     rv_coverage_completed_now: "nuovi controlli completati",
     rv_coverage_remaining: "materiali ancora da verificare",
     rv_context_term: "Termine da verificare",

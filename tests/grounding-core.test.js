@@ -183,3 +183,16 @@ test('grounding: readable citation views round-trip known and unknown anchors wi
     assert.equal(source.text, 'Estratto originale.');
     assert.equal(G.referenceView('[[src-a]] [[src-unknown]]', [source], { sourceLabel: 'Source', unknownLabel: 'Source to verify' }).text, '[Source 1] [Source to verify 2]');
 });
+
+/* La prova copiata «in bella» (16/9/26): il PDF archiviato spezza le parole e usa
+   apostrofi curvi; il modello cita la frase pulita. Prima era «prova che non coincide». */
+test('grounding: una prova ripulita dai segni del PDF combacia, e si restituisce il testo originale', () => {
+    const pagina = 'Il 30 agosto 1939 l’Assemblea Federale elesse   Henr i   Guisan Comandante in Capo dell’Esercito Svizzero.';
+    assert.equal(G.originalExcerpt(pagina, "l'Assemblea Federale elesse Henri Guisan Comandante in Capo"),
+        'l’Assemblea Federale elesse   Henr i   Guisan Comandante in Capo');
+    assert.equal(G.originalExcerpt('La carica – speciale – esiste solo in guerra.', 'La carica - speciale - esiste solo in guerra.'),
+        'La carica – speciale – esiste solo in guerra.');
+    assert.equal(G.originalExcerpt(pagina, "l'assemblea federale elesse henri guisan"), null, 'le maiuscole restano distinte');
+    assert.equal(G.originalExcerpt(pagina, "l'Assemblea"), null, 'un pezzo corto combacerebbe ovunque: non basta');
+    assert.equal(G.originalExcerpt(pagina, "l'Assemblea Federale nominò Henri Guisan"), null, 'una parola diversa resta una prova diversa');
+});

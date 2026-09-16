@@ -360,3 +360,19 @@ test('duplicate IDs and prototype mutation targets are rejected at the boundary'
   ] } }), /duplicate_issue_id/);
   assert.equal({}.polluted, undefined);
 });
+
+// ── l'approvazione di un materiale che il controllo non ha coperto (16/9/26) ──
+test('manual approval of an unchecked material: added and removed without touching decisions, kept across a retry, safe ids', () => {
+  const base = accepted(), decisions = JSON.parse(JSON.stringify(base.initial.decisions));
+  const approvato = R.setManualCheck(base, 'synthesis-2', 'impronta-1', { now: '2026-09-16T12:00:00Z' });
+  assert.deepEqual(JSON.parse(JSON.stringify(approvato.initial.manualChecks)), { 'synthesis-2': { impronta: 'impronta-1', updatedAt: '2026-09-16T12:00:00Z' } });
+  assert.equal(base.initial.manualChecks, undefined, 'the original review is not mutated');
+  assert.deepEqual(JSON.parse(JSON.stringify(approvato.initial.decisions)), decisions);
+  assert.deepEqual(JSON.parse(JSON.stringify(R.setManualCheck(approvato, 'synthesis-2', null).initial.manualChecks)), {});
+  const insidioso = R.setManualCheck(base, '__proto__', 'x');
+  assert.equal(Object.getPrototypeOf(insidioso.initial.manualChecks), Object.prototype);
+  assert.ok(Object.prototype.hasOwnProperty.call(insidioso.initial.manualChecks, '__proto__'));
+  assert.throws(() => R.setManualCheck(base, '', 'x'), /unknown_item/);
+  const merged = R.mergeRetry(approvato, review());
+  assert.equal(merged.initial.manualChecks['synthesis-2'].impronta, 'impronta-1', 'a new automatic attempt keeps the teacher approvals');
+});

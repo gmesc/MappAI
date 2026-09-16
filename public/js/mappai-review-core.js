@@ -232,6 +232,8 @@
     }
     var r = clone(next), issues = clone(previous.initial.issues), known = new Set(issues.map(identity));
     r.initial.decisions = clone(previous.initial.decisions);
+    // Le approvazioni per materiale sopravvivono a un nuovo tentativo, come le decisioni.
+    if (previous.initial.manualChecks) r.initial.manualChecks = clone(previous.initial.manualChecks);
     function manualFinding(issue) {
       var data = JSON.parse(identity(issue));
       if (!data.quote || issue.target.kind !== 'node') return null;
@@ -277,6 +279,20 @@
     if (choice === 'manual') d.text = clone(opts.text);
     Object.defineProperty(r.initial.decisions, issueId, { value: d, enumerable: true, configurable: true, writable: true });
     r.updatedAt = opts.now || r.updatedAt;
+    return r;
+  }
+  /* L'approvazione di un materiale che il controllo automatico non ha coperto
+     (16/9/26). `impronta` identifica la versione letta dal docente; `null` la
+     toglie. Come per le decisioni, l'id si scrive con defineProperty: un id
+     «__proto__» non deve cambiare il prototipo dell'oggetto. */
+  function setManualCheck(review, itemId, impronta, opts) {
+    editable(review); opts = opts || {};
+    var id = String(itemId == null ? '' : itemId);
+    if (!id) fail('unknown_item');
+    var r = clone(review), fatte = clone(r.initial.manualChecks || {});
+    if (impronta) Object.defineProperty(fatte, id, { value: { impronta: String(impronta), updatedAt: opts.now || null }, enumerable: true, configurable: true, writable: true });
+    else delete fatte[id];
+    r.initial.manualChecks = fatte; r.updatedAt = opts.now || r.updatedAt;
     return r;
   }
   function decisionOutcome(issue, decision) {
@@ -431,6 +447,6 @@
   }
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
-    revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, decisionOutcome: decisionOutcome, textChange: textChange,
+    revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, setManualCheck: setManualCheck, decisionOutcome: decisionOutcome, textChange: textChange,
     preview: preview, beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
 }));

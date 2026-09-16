@@ -44,6 +44,38 @@
         const needle = flat(candidate);
         if (!needle) return null;
         const start = chars.join('').indexOf(needle);
+        return start < 0 ? looseExcerpt(value, candidate) : value.slice(offsets[start], offsets[start + needle.length - 1] + 1);
+    }
+
+    /* ── LA PROVA COPIATA «IN BELLA» (16/9/26) ───────────────────────────────
+       Il testo archiviato di un PDF porta i segni dell'estrazione: parole
+       spezzate («Henr i Guisan», «de lla»), apostrofi curvi («l’Assemblea»),
+       lineette tipografiche. Un modello che copia la frase la ripulisce quasi
+       sempre, e il confronto esatto la scartava come «prova che non coincide».
+       CHE COSA È COSTATO. «Svizzera e 2a GM», revisione del 16/9: il controllo
+       aveva trovato nella sintesi «Il governo ricevette pieni poteri e nominò il
+       generale Henri Guisan», mentre la fonte dice che fu l'Assemblea federale.
+       La segnalazione è stata scartata, l'errore non è mai arrivato al docente e
+       la sezione è rimasta «senza esito» per sei tentativi di fila.
+       Qui, solo se il confronto esatto fallisce, si confronta ignorando TUTTI
+       gli spazi e unificando apostrofi, virgolette e lineette. Restano distinte le
+       maiuscole (un altro test lo chiede: «Sostegno» non è «di sostegno») e
+       servono almeno 12 caratteri, perché un pezzo corto combacerebbe ovunque.
+       Ciò che si restituisce è sempre il testo ORIGINALE della fonte. */
+    const TIPOGRAFIA = { '\u2019': "'", '\u2018': "'", '\u201B': "'", '\u2032': "'", '\u00B4': "'", '`': "'",
+        '\u201C': '"', '\u201D': '"', '\u201E': '"', '\u00AB': '"', '\u00BB': '"',
+        '\u2013': '-', '\u2014': '-', '\u2212': '-', '\u2010': '-', '\u2011': '-', '\u00AD': '' };
+    const sciolto = ch => /\s/.test(ch) ? '' : (Object.prototype.hasOwnProperty.call(TIPOGRAFIA, ch) ? TIPOGRAFIA[ch] : ch);
+    function looseExcerpt(value, candidate) {
+        let needle = '';
+        for (const ch of text(candidate)) needle += sciolto(ch);
+        if (needle.length < 12) return null;
+        const chars = [], offsets = [];
+        for (let i = 0; i < value.length; i++) {
+            const n = sciolto(value[i]);
+            for (let k = 0; k < n.length; k++) { chars.push(n[k]); offsets.push(i); }
+        }
+        const start = chars.join('').indexOf(needle);
         return start < 0 ? null : value.slice(offsets[start], offsets[start + needle.length - 1] + 1);
     }
 

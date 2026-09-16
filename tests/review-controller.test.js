@@ -243,6 +243,46 @@ test('a stalled retry explains attempted vs completed checks and exposes the exa
   assert.deepEqual(clone(h.m), before); assert.equal(h.calls.manifest, 0);
 });
 
+/* «Svizzera e 2a GM», 16/9/26: esaminare i materiali rimasti non registrava niente e
+   l'unica uscita era una casella globale nascosta. Ora ognuno si approva da solo. */
+test('each remaining material is approved on its own; all approved unlocks completion, and a later change revokes that approval', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  const proceed = () => modal.querySelector('#mrv-continue');
+  const ids = Array.from({ length: 10 }, (_, i) => 'material-' + (240 + i));
+  assert.equal(proceed().hidden, true);
+  assert.equal(modal.querySelectorAll('[data-coverage-approve]').length, 10);
+  assert.equal(modal.querySelector('#mrv-retry-judge').className, 'pm-btn-cancel', 'a stalled retry is no longer the primary way out');
+  for (const id of ids.slice(0, 9)) await modal.querySelector('[data-coverage-approve="' + id + '"]').click();
+  assert.equal(proceed().hidden, true, 'nine out of ten is not enough');
+  await modal.querySelector('[data-coverage-approve="material-249"]').click();
+  assert.equal(proceed().hidden, false, 'no global checkbox needed once every material is approved');
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /10 · 10 approvati da te/);
+  assert.match(modal.querySelector('[data-coverage-item="material-245"] summary').textContent, /approvato/);
+  assert.ok(h.calls.manifest >= 10, 'every approval is saved');
+  await modal.querySelector('[data-coverage-approve="material-249"]').click();
+  assert.equal(proceed().hidden, true, 'undoing one approval locks completion again');
+  await modal.querySelector('[data-coverage-approve="material-249"]').click();
+  assert.equal(proceed().hidden, false);
+  // una correzione a un materiale approvato: la versione letta non è più quella che si consegnerebbe
+  await modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').click();
+  const card = currentCard(modal);
+  await card.querySelector('[data-review-choice="manual"]').click();
+  const input = card.querySelector('[data-editor] textarea'); input.value = 'Risposta corretta a mano.'; input.oninput(); await tick();
+  assert.equal(proceed().hidden, true);
+  await modal.querySelector('[data-review-filter="pending"]').click();
+  assert.match(modal.querySelector('[data-coverage-approve="material-240"]').textContent, /^Approva così com/);
+  await modal.querySelector('[data-coverage-approve="material-240"]').click();
+  assert.equal(proceed().hidden, false);
+  await proceed().click();
+  const fin = h.m.review.final.review.initial;
+  assert.equal(fin.status, 'approved');
+  assert.equal(fin.manualReview, true);
+  assert.equal(fin.checkStatus, 'incomplete', 'approving never rewrites the model verdict');
+  assert.equal(Object.keys(fin.manualChecks).length, 10);
+  assert.equal(h.m.review.final.items.find(i => i.id === 'material-240').answer, 'Risposta corretta a mano.');
+});
+
 test('reviewing a residual adds one field decision, previews its correction and requires a fresh personal confirmation before approval', async () => {
   const h = stalledMaterialFixture(), initialDecisions = clone(h.m.review.final.review.initial.decisions), report = clone(h.m.review.final.review.initial.report);
   const modal = h.R.open('/vault', h.m, { final: true });
