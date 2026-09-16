@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="it" class="ui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Disaccordi dell'àncora</title>
+<!-- Modello della pagina dei disaccordi (tools/disaccordi-ancora/prepara.mjs lo riempie, 16/9/26).
+     La pagina generata vive accanto ai dati che giudica, fuori da git e dalla rete.
+     Token e classi dal sistema unico della UI (regola 10). -->
+<link rel="stylesheet" href="../../../public/css/mappai-ui.css">
+<style>
+    @font-face { font-family: 'Space Mono'; src: url('../../../public/fonts/SpaceMono-Regular.ttf') format('truetype'); font-weight: 400; }
+    @font-face { font-family: 'Space Mono'; src: url('../../../public/fonts/SpaceMono-Bold.ttf') format('truetype'); font-weight: 700; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--ui-fondo); }
+    .ui { --colonna: 860px; }
+    .ui-testata { max-width: var(--colonna); flex-wrap: wrap; }
+    .colonna { max-width: var(--colonna); margin: 0 auto; padding: 8px 24px 72px; }
+    .istruzioni { max-width: none; font-size: var(--ui-fs-sotto); margin: 20px 0 0; }
+    .striscia { display: flex; flex-wrap: wrap; gap: 5px; margin: 24px 0 8px; }
+    .striscia button { width: 22px; height: 22px; padding: 0; border-radius: 5px; border: 1px solid var(--ui-bordo); background: var(--ui-pannello); cursor: pointer; }
+    .striscia button.fatto { background: var(--ui-ok); border-color: var(--ui-ok); }
+    .striscia button.nessuna { background: var(--ui-no); border-color: var(--ui-no); }
+    .striscia button[aria-current="true"] { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
+    .caso { margin-top: 28px; }
+    .caso h2 { font-size: 30px; line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
+    .desc { font-size: 17px; line-height: 1.6; margin: 0 0 22px; padding: 16px 20px; background: var(--ui-pannello); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); hyphens: auto; }
+    .desc small { display: block; font-size: var(--ui-fs-chip-eti); font-weight: 700; letter-spacing: var(--ui-ls-eti); text-transform: uppercase; color: var(--ui-testo-2); margin-bottom: 6px; }
+    .frasi { display: grid; gap: 10px; }
+    .frase { display: grid; grid-template-columns: 30px 1fr auto; column-gap: 12px; align-items: start; width: 100%; text-align: left;
+             font: 400 var(--ui-fs-sotto)/1.55 var(--ui-font); color: var(--ui-testo); background: var(--ui-pannello);
+             border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); padding: 14px 16px; cursor: pointer; }
+    .frase:hover { background: var(--ui-pannello-attivo); }
+    .frase .tasto { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--ui-testo-2); color: var(--ui-testo-2); font-size: 12px; font-weight: 700; }
+    .frase .pag { font-size: 12px; font-weight: 700; color: var(--ui-testo-2); white-space: nowrap; padding-top: 3px; }
+    .frase .stato { grid-column: 2; font-size: var(--ui-fs-chip-eti); font-weight: 700; letter-spacing: var(--ui-ls-eti); text-transform: uppercase; color: var(--ui-ok); margin-top: 6px; }
+    .frase[aria-pressed="true"] { border: 2px solid var(--ui-ok); padding: 13px 15px; background: var(--ui-pannello-attivo); }
+    .frase[aria-pressed="true"] .tasto { border-color: var(--ui-ok); color: var(--ui-ok); }
+    .riga-nessuna { display: flex; gap: var(--ui-gap); align-items: center; margin: 14px 0 0; flex-wrap: wrap; }
+    .ui-btn.nessuna[aria-pressed="true"] { border-color: var(--ui-no); color: var(--ui-no); background: var(--ui-pannello-attivo); }
+    .nota { flex: 1 1 280px; font: 400 16px var(--ui-font); color: var(--ui-testo); background: var(--ui-pannello); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); padding: 10px 12px; min-width: 0; }
+    .nota::placeholder { color: var(--ui-testo-2); }
+    .navigazione { display: flex; justify-content: space-between; gap: var(--ui-gap); margin-top: 28px; flex-wrap: wrap; }
+    .fine { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--ui-bordo); }
+    .fine h2 { font-size: 24px; margin: 0 0 12px; }
+    table.risultato { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 15px; margin-top: 12px; }
+    table.risultato th, table.risultato td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--ui-bordo); vertical-align: top; }
+    table.risultato th { font-size: var(--ui-fs-chip-eti); letter-spacing: var(--ui-ls-eti); text-transform: uppercase; color: var(--ui-testo-2); }
+    @media (max-width: 600px) { .ui { --ui-fs-titolo: 32px; } .caso h2 { font-size: 24px; } .colonna { padding: 8px 16px 64px; } .ui-testata { padding: 24px 16px 18px; } }
+</style>
+</head>
+<body>
+<header class="ui-testata">
+    <div>
+        <p class="ui-eyebrow">Àncora · prova sul dossier</p>
+        <h1 class="ui-titolo">Quale frase ne parla?</h1>
+        <p class="ui-sotto" id="sotto"></p>
+    </div>
+    <div class="ui-chip-fila">
+        <div class="ui-chip ok"><b id="n-fatti">0</b><small>fatti</small></div>
+        <div class="ui-chip"><b id="n-tot">0</b><small>nodi</small></div>
+    </div>
+</header>
+
+<main class="colonna">
+    <p class="istruzioni ui-corpo">Leggi titolo e descrizione. Segna una frase se, letta da sola, dice almeno un fatto preciso della descrizione (chi, che cosa, quando, quanto), anche con altre parole, per confermarlo o smentirlo. Basta un fatto. Non segnare le frasi che nominano solo lo stesso argomento o annunciano ciò che segue senza dirlo. Ignora le parti della descrizione che parlano del documento o della mappa. Se qualcosa non torna, anche nel titolo, scrivi in nota il numero della frase e che cosa. Se nessuna frase dice un fatto della descrizione, premi «Nessuna». Le frasi sono mescolate e non dicono chi le ha proposte. Le scelte restano in questo browser; «Esporta» le scarica. Tasti: 1–6 segna, N nessuna, ← → nodo.</p>
+
+    <nav class="striscia" id="striscia" aria-label="Nodi"></nav>
+
+    <section class="caso" id="caso" aria-live="polite">
+        <p class="ui-eyebrow" id="caso-eyebrow"></p>
+        <h2 id="caso-titolo"></h2>
+        <p class="desc"><small>La descrizione del nodo</small><span id="caso-desc"></span></p>
+        <div class="frasi" id="frasi"></div>
+        <div class="riga-nessuna">
+            <button type="button" class="ui-btn nessuna" id="btn-nessuna" aria-pressed="false">Nessuna</button>
+            <input class="nota" id="nota" type="text" placeholder="Nota facoltativa: numero della frase e che cosa non torna (anche nel titolo)" aria-label="Nota facoltativa">
+        </div>
+    </section>
+
+    <div class="navigazione">
+        <button type="button" class="ui-btn" id="btn-prec">← Precedente</button>
+        <button type="button" class="ui-btn" id="btn-esporta">Esporta le scelte</button>
+        <button type="button" class="ui-btn" id="btn-succ">Successivo →</button>
+    </div>
+
+    <section class="fine" id="fine" hidden>
+        <h2>Hai visto tutti i nodi</h2>
+        <button type="button" class="ui-btn" id="btn-risultato">Mostra il risultato</button>
+        <div id="risultato"></div>
+    </section>
+</main>
+
+<script>
+const DATI = __DATI__;
+// Una chiave per progetto: giudicarne un secondo non cancella le scelte del primo.
+const KEY = DATI.chiave || 'mappai_disaccordi_ancora_v1';
+const $ = id => document.getElementById(id);
+let scelte = {};
+try { scelte = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { scelte = {}; }
+const salva = () => { try { localStorage.setItem(KEY, JSON.stringify(scelte)); } catch (e) { /* resta in memoria: «Esporta» funziona lo stesso */ } };
+const stato = c => scelte[c.id] || (scelte[c.id] = { prove: [], nessuna: false, nota: '' });
+const fatto = c => { const s = scelte[c.id]; return !!s && (s.nessuna || s.prove.length > 0); };
+const N = DATI.casi.length;
+let pos = DATI.casi.findIndex(c => !fatto(c));
+if (pos < 0) pos = 0;
+
+$('sotto').textContent = DATI.fonte + ' — ' + N + ' nodi su ' + DATI.nodiTotali +
+    ': quelli dove àncora, BM25 e reranker scelgono frasi diverse. Sugli altri ' + DATI.concordi + ' i tre sono d\'accordo.';
+$('n-tot').textContent = N;
+
+function striscia() {
+    const nav = $('striscia');
+    if (!nav.children.length) DATI.casi.forEach((c, k) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.addEventListener('click', () => vai(k));
+        nav.appendChild(b);
+    });
+    DATI.casi.forEach((c, k) => {
+        const b = nav.children[k], s = scelte[c.id];
+        b.className = s && s.nessuna ? 'nessuna' : fatto(c) ? 'fatto' : '';
+        b.setAttribute('aria-current', k === pos ? 'true' : 'false');
+        b.setAttribute('aria-label', 'Nodo ' + (k + 1) + ': ' + c.label + (fatto(c) ? ', fatto' : ''));
+    });
+    const fatti = DATI.casi.filter(fatto).length;
+    $('n-fatti').textContent = fatti;
+    $('fine').hidden = fatti < N;
+}
+
+function aggiorna() {
+    const c = DATI.casi[pos], s = stato(c);
+    [...$('frasi').children].forEach((b, k) => {
+        const on = s.prove.includes(c.frasi[k].i);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.querySelector('.stato').hidden = !on;
+    });
+    $('btn-nessuna').setAttribute('aria-pressed', s.nessuna ? 'true' : 'false');
+    striscia();
+}
+
+function mostra() {
+    const c = DATI.casi[pos], s = stato(c);
+    $('caso-eyebrow').textContent = 'Ramo · ' + (c.ramo || 'radice') + ' · ' + (pos + 1) + ' / ' + N;
+    $('caso-titolo').textContent = c.label;
+    $('caso-desc').textContent = c.desc;
+    const box = $('frasi');
+    box.textContent = '';
+    c.frasi.forEach((f, k) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'frase';
+        const tasto = document.createElement('span'); tasto.className = 'tasto'; tasto.textContent = k + 1;
+        const testo = document.createElement('span'); testo.textContent = f.t;
+        const pag = document.createElement('span'); pag.className = 'pag'; pag.textContent = f.p ? 'p. ' + f.p : '';
+        const st = document.createElement('span'); st.className = 'stato'; st.textContent = 'Segnata';
+        b.append(tasto, testo, pag, st);
+        b.addEventListener('click', () => segna(f.i));
+        box.appendChild(b);
+    });
+    $('nota').value = s.nota || '';
+    $('btn-prec').disabled = pos === 0;
+    $('btn-succ').disabled = pos === N - 1;
+    aggiorna();
+}
+
+function segna(i) {
+    const s = stato(DATI.casi[pos]);
+    s.prove = s.prove.includes(i) ? s.prove.filter(x => x !== i) : s.prove.concat(i);
+    if (s.prove.length) s.nessuna = false;
+    s.quando = new Date().toISOString();
+    salva(); aggiorna();
+}
+function nessuna() {
+    const s = stato(DATI.casi[pos]);
+    s.nessuna = !s.nessuna;
+    if (s.nessuna) s.prove = [];
+    s.quando = new Date().toISOString();
+    salva(); aggiorna();
+}
+function vai(k) {
+    if (k < 0 || k >= N) return;
+    pos = k; mostra();
+    window.scrollTo({ top: $('striscia').offsetTop - 12 });
+}
+
+$('btn-nessuna').addEventListener('click', nessuna);
+$('btn-prec').addEventListener('click', () => vai(pos - 1));
+$('btn-succ').addEventListener('click', () => vai(pos + 1));
+$('nota').addEventListener('input', e => { stato(DATI.casi[pos]).nota = e.target.value; salva(); });
+$('btn-esporta').addEventListener('click', () => {
+    const out = { progetto: DATI.progetto, fonte: DATI.fonte, pagina: DATI.creato, esportato: new Date().toISOString(),
+        scelte: Object.fromEntries(Object.entries(scelte).filter(([, s]) => s.nessuna || s.prove.length || s.nota)) };
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+    a.download = 'scelte-disaccordi-' + (DATI.slug || 'ancora') + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('btn-risultato').addEventListener('click', () => {
+    const righe = DATI.metodi.map(([k, nome]) => ({ k, nome, p1: 0, p2: 0, solo: 0, giuste: 0, proposte: 0 }));
+    let conProva = 0, senza = 0;
+    DATI.casi.forEach(c => {
+        const s = scelte[c.id];
+        if (!s) return;
+        if (s.nessuna) { senza++; return; }
+        if (!s.prove.length) return;
+        conProva++;
+        righe.forEach(r => {
+            const sue = c.frasi.filter(f => f.da.some(x => x.m === r.k));
+            /* L'app mostra come Fonte TUTTE le frasi di un metodo, non solo la migliore:
+               «fra le prime due» da sola nasconderebbe la seconda citazione sbagliata. */
+            r.giuste += sue.filter(f => s.prove.includes(f.i)).length;
+            r.proposte += sue.length;
+            if (sue.some(f => f.da.find(x => x.m === r.k).rank === 1 && s.prove.includes(f.i))) r.p1++;
+            if (sue.some(f => s.prove.includes(f.i))) r.p2++;
+            r.solo += c.frasi.filter(f => s.prove.includes(f.i) && f.da.every(x => x.m === r.k)).length;
+        });
+    });
+    const box = $('risultato');
+    box.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'ui-corpo';
+    p.style.maxWidth = 'none';
+    const nodi = n => n + (n === 1 ? ' nodo' : ' nodi');
+    const conNota = DATI.casi.filter(c => ((scelte[c.id] || {}).nota || '').trim()).length;
+    p.textContent = 'Su ' + nodi(conProva) + ' con almeno una frase segnata. In ' + nodi(senza) + ' nessuna frase proposta dice un fatto della descrizione.' +
+        (conNota ? ' In ' + nodi(conNota) + ' c\'è una nota (smentite o dubbi): leggile prima di trarre conclusioni.' : '');
+    box.appendChild(p);
+    const t = document.createElement('table');
+    t.className = 'risultato';
+    t.innerHTML = '<colgroup><col style="width:32%"><col style="width:17%"><col style="width:17%"><col style="width:17%"><col style="width:17%"></colgroup>' +
+        '<thead><tr><th>Metodo</th><th>Prima frase giusta</th><th>Giusta fra le prime due</th><th>Frasi giuste su proposte</th><th>Trovate solo da lui</th></tr></thead>';
+    const tb = document.createElement('tbody');
+    righe.forEach(r => {
+        const tr = document.createElement('tr');
+        [r.nome, r.p1 + ' / ' + conProva, r.p2 + ' / ' + conProva, r.giuste + ' / ' + r.proposte, String(r.solo)].forEach(v => {
+            const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+        });
+        tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    box.appendChild(t);
+    const avviso = document.createElement('p');
+    avviso.className = 'ui-corpo';
+    avviso.style.maxWidth = 'none';
+    avviso.textContent = 'Questa tabella misura le citazioni del nodo, cioè le frasi che l\'app mostra come Fonti. Non misura i passaggi usati per scrivere le domande: lì una frase sullo stesso argomento con un fatto nuovo è utile, qui conta come non segnata.';
+    box.appendChild(avviso);
+});
+document.addEventListener('keydown', e => {
+    if (e.target.matches('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const c = DATI.casi[pos];
+    if (/^[1-9]$/.test(e.key) && +e.key <= c.frasi.length) { segna(c.frasi[+e.key - 1].i); e.preventDefault(); }
+    else if (e.key === 'n' || e.key === 'N') { nessuna(); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { vai(pos + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { vai(pos - 1); e.preventDefault(); }
+});
+
+mostra();
+</script>
+</body>
+</html>
