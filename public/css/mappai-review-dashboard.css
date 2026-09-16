@@ -232,3 +232,91 @@
 @media (prefers-reduced-motion: reduce) {
   #mappai-teacher-review #mrv-content { scroll-behavior: auto; }
 }
+
+/* ── LA PELLE DEL BANCO (16/9/26) ────────────────────────────────────────────
+   Dal Banco di validazione (branch codex, local-ai/review-layout.css): finestra
+   intera, la FONTE accanto alla scheda, barra laterale richiudibile, Aa.
+   Solo con `.mrv-banco` (mappai-review.js; kill-switch mappai_revisione_banco).
+   Nessun colore nuovo: token del modale e dello stesso foglio. */
+#mappai-teacher-review.mrv-banco { padding: 0; }
+#mappai-teacher-review.mrv-banco .mrv-dashboard { width: 100%; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
+/* Testata compatta (Giacomo, 16/9): solo titolo e fasi, su una riga; l'avanzamento su una riga sola. */
+#mappai-teacher-review.mrv-banco .mrv-header { padding: 6px 20px; gap: 16px; }
+#mappai-teacher-review.mrv-banco #mrv-title { font-size: 1.1rem; }
+#mappai-teacher-review.mrv-banco .mrv-stages { align-items: center; gap: 12px; }
+#mappai-teacher-review.mrv-banco .mrv-stages li { display: flex; align-items: center; gap: 6px; }
+#mappai-teacher-review.mrv-banco .mrv-stages span { width: 22px; height: 22px; font-size: .7rem; }
+#mappai-teacher-review.mrv-banco .mrv-heading { flex: 0 0 auto; }
+#mappai-teacher-review.mrv-banco .mrv-header .mrv-overview { flex: 1; min-width: 0; padding: 0; gap: 14px; background: none; border: 0; }
+#mappai-teacher-review.mrv-banco .mrv-header .mrv-overview progress { flex: 0 1 180px; min-width: 60px; }
+/* «0 da rivedere · 12 già decise» ripete l'etichetta «12 / 12 segnalazioni decise» e i
+   contatori dei filtri (Giacomo, 16/9). Sparisce alla vista ma resta ai lettori di
+   schermo: è la riga aria-live che annuncia ogni decisione presa. */
+#mappai-teacher-review.mrv-banco #mrv-filter-count { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* il piede: la frase su una riga accanto ai bottoni */
+#mappai-teacher-review.mrv-banco .mrv-footer { padding: 6px 20px; gap: 16px; }
+#mappai-teacher-review.mrv-banco #mrv-next-step { flex: 1; max-width: none; min-width: 0; }
+#mappai-teacher-review.mrv-banco .mrv-overview > div:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+#mappai-teacher-review.mrv-banco .mrv-workspace { position: relative; transition: grid-template-columns .28s ease; }
+#mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa { grid-template-columns: 0 minmax(0, 1fr); }
+#mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-sidebar { visibility: hidden; padding: 0; border: 0; overflow: hidden; }
+#mappai-teacher-review .mrv-maniglia {
+  position: absolute; top: 0; left: 300px; z-index: 3; width: 34px; height: 34px; margin-left: -1px;
+  display: grid; place-items: center; font-size: 1.25rem; line-height: 1; cursor: pointer;
+  border: 1px solid var(--mm-bordo, #e2e8f0); border-top: 0; border-radius: 0 0 10px 0;
+  background: #ede9fe; color: #4c1d95; transition: left .28s ease;
+}
+#mappai-teacher-review .mrv-maniglia:hover { background: #ddd6fe; }
+#mappai-teacher-review .mrv-maniglia:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: 2px; }
+#mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-maniglia { left: 0; margin-left: 0; }
+#mappai-teacher-review .mrv-colonne { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); flex: 1; min-height: 0; }
+#mappai-teacher-review .mrv-carte { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#mappai-teacher-review .mrv-carte #mrv-content { flex: 1; }
+#mappai-teacher-review .mrv-fonte { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; border-right: 1px solid var(--mm-bordo, #e2e8f0); }
+/* Una riga sola: «Fonte · ‹ Prova 2 / 17 › · Pag. 1 · ↔». `.pm-btn-cancel` porta `flex-1`
+   (index.html) e allargava i bottoni fino a spingere il resto a capo; il menu perdeva
+   contro la larghezza 100% dei campi del modale. */
+#mappai-teacher-review .mrv-fonte-testa { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px 5px 46px; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
+#mappai-teacher-review .mrv-fonte-testa h3 { flex: 0 0 auto; margin: 0; font-size: .875rem; font-weight: 700; }
+#mappai-teacher-review .mrv-fonte-prove { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
+#mappai-teacher-review .mrv-fonte-testa .pm-btn-cancel { flex: 0 0 auto; padding: 4px 10px; white-space: nowrap; }
+#mappai-teacher-review .mrv-fonte-prove [aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--mm-accent, #4f46e5); }
+#mappai-teacher-review .mrv-fonte-conta { align-self: center; font-size: .78rem; white-space: nowrap; padding: 0 4px; }
+#mappai-teacher-review .mrv-fonte-testa .mrv-fonte-pagina { flex: 0 0 auto; width: calc(8ch + 2.75rem); min-width: 0; padding: 4px 8px; font: inherit; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 8px; background: #fff; }
+#mappai-teacher-review .mrv-fonte-pdf { position: relative; flex: 1; min-height: 180px; overflow: hidden; background: var(--mm-fondo-sez, #f1f5f9); cursor: grab; touch-action: none; user-select: none; }
+#mappai-teacher-review .mrv-fonte-pdf[data-dragging] { cursor: grabbing; }
+#mappai-teacher-review .mrv-fonte-pdf:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: -3px; }
+#mappai-teacher-review .mrv-fonte-pdf canvas { position: absolute; left: 0; top: 0; display: block; max-width: none; transform-origin: 0 0; pointer-events: none; }
+#mappai-teacher-review .mrv-fonte-stato { position: absolute; inset: 12px 12px auto; padding: 12px; background: #fff; border-radius: 10px; overflow-wrap: anywhere; }
+#mappai-teacher-review .mrv-fonte-testo { flex-shrink: 0; max-height: 45%; overflow: auto; padding: 0 16px 10px; border-top: 1px solid var(--mm-bordo, #e2e8f0); }
+#mappai-teacher-review .mrv-fonte-testo > summary { padding: 10px 0; font-size: .78rem; font-weight: 700; cursor: pointer; }
+#mappai-teacher-review .mrv-fonte-righe { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; font-size: calc(.875rem * var(--mrv-testo, 1)); }
+#mappai-teacher-review .mrv-fonte-righe mark { background: #fef08a; color: inherit; padding: 1px 2px; border-radius: 3px; }
+#mappai-teacher-review .mrv-fonte--solo-testo .mrv-fonte-testo { flex: 1; max-height: none; border-top: 0; }
+#mappai-teacher-review .mrv-fonte-vuoto { padding: 16px; color: var(--mm-testo-3, #64748b); }
+/* Aa: il testo delle schede, non bottoni e titoli */
+#mappai-teacher-review.mrv-banco #mrv-content :is(.mrv-card, #mrv-material-coverage) :is(p, li, blockquote, textarea) { font-size: calc(.875rem * var(--mrv-testo, 1)); }
+/* «Precedente · 1 / 12 · Aa x1 · Successiva» su una riga: bottoni alla loro misura, non flex-1 */
+#mappai-teacher-review.mrv-banco #mrv-detail-nav { flex-wrap: nowrap; gap: 6px; padding: 5px 12px; }
+#mappai-teacher-review.mrv-banco #mrv-detail-nav .pm-btn-cancel { flex: 0 0 auto; padding: 4px 12px; white-space: nowrap; }
+#mappai-teacher-review.mrv-banco #mrv-position { flex: 1; text-align: center; white-space: nowrap; }
+@media (max-width: 1100px) {
+  #mappai-teacher-review.mrv-banco .mrv-workspace { grid-template-columns: 220px minmax(0, 1fr); }
+  #mappai-teacher-review .mrv-maniglia { left: 220px; }
+}
+@media (max-width: 900px) {
+  /* impilate: ogni riga alta quanto il suo contenuto, e scorre la colonna intera */
+  #mappai-teacher-review .mrv-colonne { grid-template-columns: 1fr; grid-auto-rows: max-content; overflow-y: auto; }
+  #mappai-teacher-review .mrv-fonte, #mappai-teacher-review .mrv-carte { min-height: auto; }
+  #mappai-teacher-review .mrv-fonte { border-right: 0; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
+  #mappai-teacher-review .mrv-fonte-pdf { flex: none; height: 55vh; }
+  #mappai-teacher-review .mrv-fonte-testo { max-height: none; }
+  #mappai-teacher-review .mrv-carte, #mappai-teacher-review .mrv-carte #mrv-content { overflow: visible; }
+}
+@media (max-width: 680px) {
+  #mappai-teacher-review .mrv-maniglia { display: none; }
+  #mappai-teacher-review .mrv-fonte-testa { padding-left: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mappai-teacher-review.mrv-banco .mrv-workspace, #mappai-teacher-review .mrv-maniglia { transition: none; }
+}

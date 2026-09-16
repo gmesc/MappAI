@@ -87,7 +87,7 @@ function runtime(opts = {}) {
   const ctx = vm.createContext({ window, appState: st, document: d.document, console, TextDecoder, Uint8Array,
     atob: value => Buffer.from(value, 'base64').toString('binary'),
     StorageManager: { currentProjectId: 'project', saveCurrentProject: () => { calls.cache++; } },
-    localStorage: { getItem: () => null } });
+    localStorage: opts.localStorage || { getItem: () => null } });
   vm.runInContext(fs.readFileSync(require.resolve('../public/js/mappai-review.js'), 'utf8'), ctx);
   return { R: window.MappAIReview, window, st, calls, saved, dom: d, opts };
 }
@@ -241,6 +241,32 @@ test('a stalled retry explains attempted vs completed checks and exposes the exa
   assert.match(modal.querySelector('.mrv-coverage-sources').textContent, /Un contesto più ampio/);
   assert.match(modal.querySelector('#mrv-material-coverage').textContent, /non sono valutate dal pulsante di ricontrollo/);
   assert.deepEqual(clone(h.m), before); assert.equal(h.calls.manifest, 0);
+});
+
+/* La pelle del Banco (16/9/26): finestra intera, fonte accanto alla scheda, maniglia, Aa.
+   Qui non c'è un DOM vero (niente canvas né pdf.js): si controlla che la struttura
+   ci sia, che l'interruttore la tolga e che i gesti del modale restino quelli. */
+test('the Banco skin adds the source column, handle and text size without changing decisions; the kill switch restores the old modal', async () => {
+  const h = stalledMaterialFixture();
+  h.window.MappAIReviewFonte = require('../public/js/mappai-review-fonte.js');
+  const modal = h.R.open('/vault', h.m, { final: true });
+  assert.match(modal.className, /mrv-banco/);
+  assert.ok(modal.querySelector('.mrv-colonne #mrv-fonte'), 'the source column sits beside the cards');
+  assert.ok(modal.querySelector('.mrv-carte #mrv-content'), 'cards keep their container and ids');
+  assert.equal(modal.querySelector('#mrv-maniglia').getAttribute('aria-controls'), 'mrv-sidebar');
+  assert.equal(modal.querySelector('#mrv-testo').textContent, 'Aa x1');
+  await modal.querySelector('#mrv-testo').click();
+  assert.equal(modal.querySelector('#mrv-testo').textContent, 'Aa x1,5');
+  for (let i = 240; i < 250; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false, 'approving still works in the new skin');
+  const spento = stalledMaterialFixture({ localStorage: { getItem: k => (k === 'mappai_revisione_banco' ? '0' : null), setItem() {} } });
+  spento.window.MappAIReviewFonte = require('../public/js/mappai-review-fonte.js');
+  const vecchio = spento.R.open('/vault', spento.m, { final: true });
+  assert.doesNotMatch(vecchio.className, /mrv-banco/);
+  assert.equal(vecchio.querySelector('#mrv-fonte'), null);
+  assert.equal(vecchio.querySelector('#mrv-maniglia'), null);
+  assert.equal(vecchio.querySelector('#mrv-testo'), null);
+  assert.ok(vecchio.querySelector('.mrv-detail > #mrv-content'), 'the old modal keeps its original structure');
 });
 
 /* «Svizzera e 2a GM», 16/9/26: esaminare i materiali rimasti non registrava niente e

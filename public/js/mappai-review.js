@@ -502,24 +502,38 @@
         Array.from(kinds).map(([key, label]) => '<span class="mrv-chip mrv-material-chip" data-material-chip="' + esc(key) + '">' + esc(label) +
           (key === 'synthesis' && contexts.some(c => c.materialKind === 'synthesis' && c.relation) ? ' · ' + esc(kindLabels.causal) : '') + '</span>').join('') + '</div>';
     }
+    /* ── LA PELLE DEL BANCO (16/9/26) ─────────────────────────────────────────
+       Il Banco di validazione del branch codex metteva la fonte accanto a ciò
+       che si valuta, in una finestra intera con la barra laterale richiudibile
+       e il testo ingrandibile. Giacomo ha chiesto di portarlo qui: la fatica
+       della revisione era cercare la frase nel PDF, non giudicarla. Il pannello
+       sta in mappai-review-fonte.js. Kill-switch: localStorage
+       `mappai_revisione_banco` = '0' → il modale di prima. */
+    const banco = !!window.MappAIReviewFonte && (() => { try { return localStorage.getItem('mappai_revisione_banco') !== '0'; } catch (e) { return true; } })();
     const modal = document.createElement('div');
     modal.id = 'mappai-teacher-review';
-    modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3400] flex items-center justify-center p-4';
+    modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3400] flex items-center justify-center p-4' + (banco ? ' mrv-banco' : '');
     modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-labelledby', 'mrv-title');
     const project = String(manifest.config?.nome || state().db.title || vaultPath.split(/[\\/]/).filter(Boolean).pop() || '');
     modal.innerHTML = '<div class="mrv-dashboard">' +
-      '<header class="mrv-header"><div class="mrv-heading"><p class="mrv-eyebrow">' + esc(project) + '</p><h2 id="mrv-title" class="pm-title" tabindex="-1">' + esc(isFinal ? t('rv_final_title', 'Rivedi i materiali') : t('rv_title', 'Rivedi i contenuti prima di creare i materiali')) +
-      '</h2><p class="pm-subtitle">' + esc(isFinal ? t('rv_dashboard_material_purpose', 'Verifica domande e risposte prima di consegnarle agli studenti. Le tue scelte aggiornano i materiali finali.') : t('rv_dashboard_map_purpose', 'Verifica i concetti di partenza. Le tue scelte guideranno la creazione dei materiali differenziati.')) +
-      '</p></div><ol class="mrv-stages" aria-label="' + esc(t('rv_dashboard_stages', 'Fasi del lavoro')) + '">' +
+      /* Nella pelle del Banco la testata è solo titolo e fasi: il nome del progetto e
+         la frase di spiegazione occupavano due righe (Giacomo, 16/9). */
+      '<header class="mrv-header"><div class="mrv-heading">' + (banco ? '' : '<p class="mrv-eyebrow">' + esc(project) + '</p>') + '<h2 id="mrv-title" class="pm-title" tabindex="-1">' + esc(isFinal ? t('rv_final_title', 'Rivedi i materiali') : t('rv_title', 'Rivedi i contenuti prima di creare i materiali')) +
+      '</h2>' + (banco ? '' : '<p class="pm-subtitle">' + esc(isFinal ? t('rv_dashboard_material_purpose', 'Verifica domande e risposte prima di consegnarle agli studenti. Le tue scelte aggiornano i materiali finali.') : t('rv_dashboard_map_purpose', 'Verifica i concetti di partenza. Le tue scelte guideranno la creazione dei materiali differenziati.')) + '</p>') +
+      '</div><ol class="mrv-stages" aria-label="' + esc(t('rv_dashboard_stages', 'Fasi del lavoro')) + '">' +
       [t('rv_dashboard_contents', 'Contenuti'), t('rv_dashboard_materials', 'Materiali'), t('rv_dashboard_ready', 'Pronti da usare')].map((label, i) => '<li' + (i === (isFinal ? 1 : 0) ? ' aria-current="step"' : '') + '><span>' + (i + 1) + '</span>' + esc(label) + '</li>').join('') + '</ol></header>' +
       '<div class="mrv-overview"><div><strong id="mrv-progress-label"></strong><p id="mrv-filter-count" aria-live="polite"></p></div><progress id="mrv-progress" max="100" value="0" aria-label="' + esc(t('rv_dashboard_progress', 'Avanzamento delle decisioni')) + '"></progress><p id="mrv-status" role="status" aria-live="polite"></p><button type="button" id="mrv-save-retry" hidden class="pm-btn-cancel">' + esc(t('rv_save_retry', 'Riprova il salvataggio')) + '</button></div>' +
-      '<div class="mrv-workspace"><aside class="mrv-sidebar" data-expanded="false" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"><button type="button" id="mrv-toggle-list" class="pm-btn-cancel" aria-expanded="false" aria-controls="mrv-list">' + esc(t('rv_dashboard_show_list', 'Elenco e ricerca')) + '</button><div id="mrv-list"><div id="mrv-filters" role="group" aria-label="' + esc(t('rv_filter_label', 'Mostra le decisioni')) + '"></div>' +
+      '<div class="mrv-workspace"><aside class="mrv-sidebar" id="mrv-sidebar" data-expanded="false" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"><button type="button" id="mrv-toggle-list" class="pm-btn-cancel" aria-expanded="false" aria-controls="mrv-list">' + esc(t('rv_dashboard_show_list', 'Elenco e ricerca')) + '</button><div id="mrv-list"><div id="mrv-filters" role="group" aria-label="' + esc(t('rv_filter_label', 'Mostra le decisioni')) + '"></div>' +
       '<label class="mrv-search-label" for="mrv-search">' + esc(t('rv_dashboard_search', 'Cerca nelle segnalazioni')) + '</label><input id="mrv-search" type="search" placeholder="' + esc(t('rv_dashboard_search_hint', 'Concetto, domanda o problema…')) + '">' +
       '<div class="mrv-facets"><label for="mrv-area">' + esc(t('rv_context_area', 'Macroarea')) + '<select id="mrv-area"></select></label><label for="mrv-kind"' + (isFinal ? '' : ' hidden') + '>' + esc(t('rv_context_kind', 'Materiale')) + '<select id="mrv-kind"></select></label>' +
       '<label for="mrv-reason">' + esc(t('rv_context_reason', 'Motivo')) + '<select id="mrv-reason"></select></label></div><button type="button" class="pm-btn-cancel" id="mrv-clear-filters" hidden>' + esc(t('rv_context_clear', 'Azzera i filtri')) + '</button>' +
       '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
-      '<div class="mrv-detail">' + (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span><button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div></div></div>' +
+      (banco ? '<button type="button" class="mrv-maniglia" id="mrv-maniglia" aria-controls="mrv-sidebar" aria-expanded="true" title="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '" aria-label="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '">‹</button>' : '') +
+      '<div class="mrv-detail">' + (banco ? '<div class="mrv-colonne"><section class="mrv-fonte" id="mrv-fonte"></section><div class="mrv-carte">' : '') +
+      (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span>' +
+      (banco ? '<button type="button" id="mrv-testo" class="pm-btn-cancel">Aa x1</button>' : '') +
+      '<button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div>' + (banco ? '</div></div>' : '') + '</div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
@@ -528,6 +542,57 @@
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
     const invalidEditors = new Set();
+    /* Il PDF della fonte si legge da `Allegati/` del vault, dove la generazione
+       lo salva col suo titolo. Nessun PDF → il pannello mostra il testo archiviato. */
+    let allegati = null;
+    async function leggiPdfDaAllegati(titolo) {
+      const api = window.electronAPI;
+      if (!api || !api.vaultMaterialsList || !api.readVaultFile) return null;
+      if (!allegati) allegati = Promise.resolve(api.vaultMaterialsList({ vaultPath, dir: 'Allegati' }))
+        .then(r => (r && r.ok !== false && Array.isArray(r.files) ? r.files.map(f => f && f.name).filter(Boolean) : [])).catch(() => []);
+      const nome = window.MappAIReviewFonte.trovaPdf(titolo, await allegati);
+      if (!nome) return null;
+      const letto = await api.readVaultFile({ vaultPath, relPath: 'Allegati/' + nome });
+      if (!letto || !letto.ok || !letto.base64) return null;
+      const bin = atob(letto.base64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+    let fonte = null;
+    if (banco) {
+      /* Una riga sola per titolo, avanzamento e fasi (Giacomo, 16/9: «estendi
+         orizzontalmente per salvare spazio verticale»). Si sposta il blocco
+         dell'avanzamento dentro la testata: gli id restano quelli. */
+      const testata = modal.querySelector('.mrv-header'), avanzamento = modal.querySelector('.mrv-overview');
+      if (testata && avanzamento && testata.insertBefore) testata.insertBefore(avanzamento, testata.querySelector('.mrv-stages'));
+      try { fonte = window.MappAIReviewFonte.monta(modal.querySelector('#mrv-fonte'), { sources: getReview().sources || [], t, leggiPdf: leggiPdfDaAllegati }); }
+      catch (e) { fonte = null; console.warn('[Revisione] pannello della fonte non disponibile:', e); }
+      const maniglia = modal.querySelector('#mrv-maniglia');
+      if (maniglia) maniglia.onclick = () => {
+        const area = modal.querySelector('.mrv-workspace'), chiusa = !area.classList.contains('is-nav-chiusa');
+        area.classList.toggle('is-nav-chiusa', chiusa);
+        modal.querySelector('#mrv-sidebar').inert = chiusa;
+        const etichetta = chiusa ? t('rv_nav_show', 'Mostra elenco e controlli') : t('rv_nav_hide', 'Nascondi elenco e controlli');
+        maniglia.setAttribute('aria-expanded', String(!chiusa)); maniglia.title = etichetta; maniglia.setAttribute('aria-label', etichetta);
+        maniglia.textContent = chiusa ? '›' : '‹';
+      };
+      /* Aa x1 → x1,5 → x2: ingrandisce il testo delle schede, non bottoni e titoli.
+         Si ricorda fra un'apertura e l'altra: è una preferenza di lettura. */
+      const aa = modal.querySelector('#mrv-testo');
+      if (aa) {
+        const scale = [1, 1.5, 2], etichette = ['1', '1,5', '2'];
+        let indice = 0;
+        try { indice = Math.max(0, scale.indexOf(Number(localStorage.getItem('mappai_revisione_testo')))); } catch (e) { indice = 0; }
+        const applica = () => {
+          const area = modal.querySelector('#mrv-content');
+          if (area && area.style && area.style.setProperty) area.style.setProperty('--mrv-testo', String(scale[indice]));
+          aa.textContent = 'Aa x' + etichette[indice];
+          aa.setAttribute('aria-label', t('rv_text_size', 'Dimensione del testo delle schede') + ': x' + etichette[indice]);
+        };
+        aa.onclick = () => { indice = (indice + 1) % scale.length; try { localStorage.setItem('mappai_revisione_testo', String(scale[indice])); } catch (e) { /* resta per questa apertura */ } applica(); };
+        applica();
+      }
+    }
     let activeFilter = 'pending', activeIssueId = null, search = '', visibleGroups = [], coverageWasPending = true, coverageExpanded = null;
     const individualIssues = new Set();
     const occurrenceSearch = { open: false, query: '', mode: 'words', searched: false, sourceIssueId: null, dirty: false };
@@ -624,7 +689,7 @@
       };
       filters.appendChild(button);
     }
-    function close() { closed = true; modal.remove(); if (previousFocus && previousFocus.isConnected) previousFocus.focus(); }
+    function close() { closed = true; if (fonte) fonte.smonta(); modal.remove(); if (previousFocus && previousFocus.isConnected) previousFocus.focus(); }
     function errorText(e) {
       return e && /^(persisted_revision_mismatch|applying_snapshot_mismatch)$/.test(e.code || e.message)
         ? t('rv_readback_failed', 'La copia salvata non coincide con le decisioni. La revisione resta in attesa.') : e.message;
@@ -907,6 +972,14 @@
               return save();
             };
             actions.appendChild(approva);
+            const citazioni = Array.isArray(item.citations) ? item.citations.filter(c => c && c.text) : [];
+            if (fonte && citazioni.length) {
+              const vedi = document.createElement('button'); vedi.type = 'button'; vedi.className = 'pm-btn-cancel';
+              vedi.setAttribute('data-coverage-source', row.id);
+              vedi.textContent = t('rv_source_show', 'Mostra le fonti citate');
+              vedi.onclick = () => fonte.mostra(citazioni);
+              actions.appendChild(vedi);
+            }
             canonicalFields(item).forEach(field => {
               const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
               button.setAttribute('data-coverage-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
@@ -1388,6 +1461,14 @@
       const resume = !!options.onContinue || pendingOutputs(manifest);
       proceed.textContent = approved && !resume ? t('rv_close', 'Chiudi') : approved ? t('rv_resume', 'Continua dai contenuti approvati') :
         isFinal ? t('rv_finalize', 'Salva le decisioni e completa i materiali') : t('rv_continue', 'Salva le decisioni e continua');
+      if (fonte) {
+        const attiva = r.initial.issues.find(i => i.id === activeIssueId);
+        if (attiva) fonte.mostra(evidenceRows(attiva.evidence));
+        /* Accanto alla fonte viene prima la scheda che la fonte sta mostrando: il
+           riquadro dei materiali rimasti, spesso lungo e aperto, va dopo. */
+        const rimasti = content.querySelector('#mrv-material-coverage');
+        if (rimasti && attiva) content.appendChild(rimasti);
+      }
     }
     render();
     modal.querySelector('#mrv-later').onclick = async () => { if (busy) return; await pendingSave; if (!saveError && !busy) close(); };
