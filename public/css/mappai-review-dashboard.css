@@ -260,13 +260,17 @@
 #mappai-teacher-review.mrv-banco .mrv-workspace { position: relative; transition: grid-template-columns .28s ease; }
 #mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa { grid-template-columns: 0 minmax(0, 1fr); }
 #mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-sidebar { visibility: hidden; padding: 0; border: 0; overflow: hidden; }
+/* La maniglia è quella di Elabora e Insegna (mappai-console-manifesto.css, .mm-console__man):
+   icona panel-right-close viola su bianco, 34px, solo l'angolo in basso a destra arrotondato;
+   aperta ruotata di 180°, chiusa dritta. */
 #mappai-teacher-review .mrv-maniglia {
-  position: absolute; top: 0; left: 300px; z-index: 3; width: 34px; height: 34px; margin-left: -1px;
-  display: grid; place-items: center; font-size: 1.25rem; line-height: 1; cursor: pointer;
-  border: 1px solid var(--mm-bordo, #e2e8f0); border-top: 0; border-radius: 0 0 10px 0;
-  background: #ede9fe; color: #4c1d95; transition: left .28s ease;
+  position: absolute; top: 0; left: 300px; z-index: 3; width: 34px; height: 34px;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  border: 0; border-radius: 0 0 8px 0; background: #fff; color: #ac72fe; transition: left .28s ease;
 }
 #mappai-teacher-review .mrv-maniglia:hover { background: #ddd6fe; }
+#mappai-teacher-review .mrv-maniglia svg { width: 18px; height: 18px; transform: rotate(180deg); transition: transform .28s ease; }
+#mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-maniglia svg { transform: rotate(0deg); }
 #mappai-teacher-review .mrv-maniglia:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: 2px; }
 #mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-maniglia { left: 0; margin-left: 0; }
 #mappai-teacher-review .mrv-colonne { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); flex: 1; min-height: 0; }
@@ -279,7 +283,10 @@
 #mappai-teacher-review .mrv-fonte-testa { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px 5px 46px; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
 #mappai-teacher-review .mrv-fonte-testa h3 { flex: 0 0 auto; margin: 0; font-size: .875rem; font-weight: 700; }
 #mappai-teacher-review .mrv-fonte-prove { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
-#mappai-teacher-review .mrv-fonte-testa .pm-btn-cancel { flex: 0 0 auto; padding: 4px 10px; white-space: nowrap; }
+#mappai-teacher-review .mrv-fonte-testa .pm-btn-cancel { flex: 0 0 auto; min-height: 32px; padding: 3px 10px; white-space: nowrap; }
+/* Bottoni a icona (chevron, adatta): quadrati da 32px con l'svg di Lucide */
+#mappai-teacher-review .mrv-icona { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-height: 32px; height: 32px; padding: 0 !important; }
+#mappai-teacher-review .mrv-icona svg { width: 18px; height: 18px; pointer-events: none; }
 #mappai-teacher-review .mrv-fonte-prove [aria-pressed=true] { box-shadow: inset 0 0 0 2px var(--mm-accent, #4f46e5); }
 #mappai-teacher-review .mrv-fonte-conta { align-self: center; font-size: .78rem; white-space: nowrap; padding: 0 4px; }
 #mappai-teacher-review .mrv-fonte-testa .mrv-fonte-pagina { flex: 0 0 auto; width: calc(8ch + 2.75rem); min-width: 0; padding: 4px 8px; font: inherit; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 8px; background: #fff; }
@@ -297,9 +304,14 @@
 /* Aa: il testo delle schede, non bottoni e titoli */
 #mappai-teacher-review.mrv-banco #mrv-content :is(.mrv-card, #mrv-material-coverage) :is(p, li, blockquote, textarea) { font-size: calc(.875rem * var(--mrv-testo, 1)); }
 /* «Precedente · 1 / 12 · Aa x1 · Successiva» su una riga: bottoni alla loro misura, non flex-1 */
-#mappai-teacher-review.mrv-banco #mrv-detail-nav { flex-wrap: nowrap; gap: 6px; padding: 5px 12px; }
-#mappai-teacher-review.mrv-banco #mrv-detail-nav .pm-btn-cancel { flex: 0 0 auto; padding: 4px 12px; white-space: nowrap; }
-#mappai-teacher-review.mrv-banco #mrv-position { flex: 1; text-align: center; white-space: nowrap; }
+#mappai-teacher-review.mrv-banco #mrv-detail-nav { flex-wrap: nowrap; justify-content: flex-start; gap: 6px; padding: 5px 12px; }
+#mappai-teacher-review.mrv-banco #mrv-detail-nav .pm-btn-cancel { flex: 0 0 auto; min-height: 32px; padding: 3px 10px; white-space: nowrap; }
+#mappai-teacher-review.mrv-banco #mrv-position { flex: 0 0 auto; min-width: 6ch; text-align: center; white-space: nowrap; }
+#mappai-teacher-review.mrv-banco #mrv-occorrenze { margin-left: auto; }
+#mappai-teacher-review.mrv-banco #mrv-occorrenze[aria-expanded=true] { box-shadow: inset 0 0 0 2px var(--mm-accent, #4f46e5); }
+/* la riga «Trova le occorrenze nei materiali» non c'è più: il pannello si apre dal bottone */
+#mappai-teacher-review.mrv-banco #mrv-occurrences > summary { display: none; }
+#mappai-teacher-review.mrv-banco #mrv-occurrences-host:has(#mrv-occurrences:not([open])) { display: none; }
 @media (max-width: 1100px) {
   #mappai-teacher-review.mrv-banco .mrv-workspace { grid-template-columns: 220px minmax(0, 1fr); }
   #mappai-teacher-review .mrv-maniglia { left: 220px; }

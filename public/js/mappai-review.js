@@ -529,11 +529,21 @@
       '<label for="mrv-reason">' + esc(t('rv_context_reason', 'Motivo')) + '<select id="mrv-reason"></select></label></div><button type="button" class="pm-btn-cancel" id="mrv-clear-filters" hidden>' + esc(t('rv_context_clear', 'Azzera i filtri')) + '</button>' +
       '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
-      (banco ? '<button type="button" class="mrv-maniglia" id="mrv-maniglia" aria-controls="mrv-sidebar" aria-expanded="true" title="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '" aria-label="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '">‹</button>' : '') +
+      (banco ? '<button type="button" class="mrv-maniglia" id="mrv-maniglia" aria-controls="mrv-sidebar" aria-expanded="true" title="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '" aria-label="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '"><i data-lucide="panel-right-close" aria-hidden="true"></i></button>' : '') +
       '<div class="mrv-detail">' + (banco ? '<div class="mrv-colonne"><section class="mrv-fonte" id="mrv-fonte"></section><div class="mrv-carte">' : '') +
-      (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '"><button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span>' +
-      (banco ? '<button type="button" id="mrv-testo" class="pm-btn-cancel">Aa x1</button>' : '') +
-      '<button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button></nav><div id="mrv-content"></div>' + (banco ? '</div></div>' : '') + '</div></div>' +
+      (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '">' +
+      /* Nella pelle del Banco una riga sola (Giacomo, 16/9): chevron Lucide al posto di
+         «Precedente/Successiva», «Occorrenze» al posto della riga «Trova le occorrenze
+         nei materiali», Aa. Gli id restano quelli: i gesti e i test non cambiano. */
+      (banco
+        ? '<button type="button" id="mrv-prev" class="pm-btn-cancel mrv-icona" aria-label="' + esc(t('rv_dashboard_prev', 'Precedente')) + '" title="' + esc(t('rv_dashboard_prev', 'Precedente')) + '"><i data-lucide="chevron-left" aria-hidden="true"></i></button>' +
+          '<span id="mrv-position" aria-live="polite"></span>' +
+          '<button type="button" id="mrv-next" class="pm-btn-cancel mrv-icona" aria-label="' + esc(t('rv_dashboard_next', 'Successiva')) + '" title="' + esc(t('rv_dashboard_next', 'Successiva')) + '"><i data-lucide="chevron-right" aria-hidden="true"></i></button>' +
+          (isFinal ? '<button type="button" id="mrv-occorrenze" class="pm-btn-cancel" aria-expanded="false" aria-controls="mrv-occurrences-host" title="' + esc(t('rv_occurrences_title', 'Trova le occorrenze nei materiali')) + '">' + esc(t('rv_occurrences_short', 'Occorrenze')) + '</button>' : '') +
+          '<button type="button" id="mrv-testo" class="pm-btn-cancel">Aa x1</button>'
+        : '<button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span>' +
+          '<button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button>') +
+      '</nav><div id="mrv-content"></div>' + (banco ? '</div></div>' : '') + '</div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
@@ -574,8 +584,13 @@
         modal.querySelector('#mrv-sidebar').inert = chiusa;
         const etichetta = chiusa ? t('rv_nav_show', 'Mostra elenco e controlli') : t('rv_nav_hide', 'Nascondi elenco e controlli');
         maniglia.setAttribute('aria-expanded', String(!chiusa)); maniglia.title = etichetta; maniglia.setAttribute('aria-label', etichetta);
-        maniglia.textContent = chiusa ? '›' : '‹';
       };
+      const occorrenze = modal.querySelector('#mrv-occorrenze');
+      if (occorrenze) occorrenze.onclick = () => {
+        occurrenceSearch.open = !occurrenceSearch.open; renderOccurrences();
+        if (occurrenceSearch.open) modal.querySelector('#mrv-occurrence-query')?.focus();
+      };
+      if (window.safeCreateIcons) window.safeCreateIcons();
       /* Aa x1 → x1,5 → x2: ingrandisce il testo delle schede, non bottoni e titoli.
          Si ricorda fra un'apertura e l'altra: è una preferenza di lettura. */
       const aa = modal.querySelector('#mrv-testo');
@@ -801,9 +816,12 @@
       host.replaceChildren();
       const box = document.createElement('details'); box.id = 'mrv-occurrences';
       if (occurrenceSearch.open) box.setAttribute('open', '');
+      const bottoneOccorrenze = modal.querySelector('#mrv-occorrenze');
+      if (bottoneOccorrenze) bottoneOccorrenze.setAttribute('aria-expanded', String(!!occurrenceSearch.open));
       box.ontoggle = () => {
         if (host.querySelector('#mrv-occurrences') !== box) return;
         occurrenceSearch.open = box.open;
+        if (bottoneOccorrenze) bottoneOccorrenze.setAttribute('aria-expanded', String(box.open));
         if (box.open && occurrenceSearch.dirty) renderOccurrences();
       };
       box.innerHTML = '<summary>' + esc(t('rv_occurrences_title', 'Trova le occorrenze nei materiali')) + '</summary>' +

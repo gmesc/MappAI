@@ -51,6 +51,7 @@ const en_translations = {
     rv_coverage_examine: "Review and approve the remaining materials",
     rv_coverage_approve: "Approve as is",
     rv_source_panel: "Source of the finding",
+    rv_occurrences_short: "Occurrences",
     rv_source_title: "Source",
     rv_source_proofs: "Evidence for the finding",
     rv_source_proof: "Evidence",

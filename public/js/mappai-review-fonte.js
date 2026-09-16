@@ -202,8 +202,10 @@
         const titolo = crea('h3', null, t('rv_source_title', 'Fonte'));
         const prove = crea('div', 'mrv-fonte-prove'); prove.setAttribute('role', 'group'); prove.setAttribute('aria-label', t('rv_source_proofs', 'Prove della segnalazione'));
         const scelta = crea('select', 'mrv-fonte-pagina'); scelta.setAttribute('aria-label', t('rv_source_page', 'Pagina della fonte'));
-        const adatta = crea('button', 'pm-btn-cancel mrv-fonte-adatta', '↔'); adatta.type = 'button';
-        adatta.setAttribute('aria-label', t('rv_source_fit', 'Adatta alla larghezza (0)'));
+        const icona = (el, nome) => { el.innerHTML = '<i data-lucide="' + nome + '" aria-hidden="true"></i>'; return el; };
+        const disegna = () => { if (typeof globalThis.safeCreateIcons === 'function') globalThis.safeCreateIcons(); };
+        const adatta = icona(crea('button', 'pm-btn-cancel mrv-icona mrv-fonte-adatta'), 'move-horizontal'); adatta.type = 'button';
+        adatta.setAttribute('aria-label', t('rv_source_fit', 'Adatta alla larghezza (0)')); adatta.title = t('rv_source_fit', 'Adatta alla larghezza (0)');
         testa.append(titolo, prove, scelta, adatta);
         const viewer = crea('div', 'mrv-fonte-pdf'); viewer.tabIndex = 0; viewer.setAttribute('role', 'region');
         viewer.setAttribute('aria-label', t('rv_source_pdf_help', 'PDF originale: rotellina per lo zoom, trascina per spostare. Tastiera: più, meno, frecce; zero adatta alla larghezza.'));
@@ -216,6 +218,7 @@
         note.append(riassunto, righe);
         const vuoto = crea('p', 'mrv-fonte-vuoto', t('rv_source_empty', 'Questa segnalazione non indica una pagina della fonte. Scegli una pagina dall’elenco.'));
         host.append(testa, viewer, note, vuoto);
+        disegna();
 
         // elenco delle pagine, raggruppato per documento
         const gruppi = new Map();
@@ -285,13 +288,14 @@
                    sintesi ne cita anche 17) uno scorritore, che non riempie la testata. */
                 if (lista.length > 4) {
                     let i = 0;
-                    const prima = crea('button', 'pm-btn-cancel', '‹'), dopo = crea('button', 'pm-btn-cancel', '›'), conta = crea('span', 'mrv-fonte-conta');
+                    const prima = icona(crea('button', 'pm-btn-cancel mrv-icona'), 'chevron-left'), dopo = icona(crea('button', 'pm-btn-cancel mrv-icona'), 'chevron-right'), conta = crea('span', 'mrv-fonte-conta');
                     prima.type = dopo.type = 'button';
                     prima.setAttribute('aria-label', t('rv_source_prev_proof', 'Prova precedente')); dopo.setAttribute('aria-label', t('rv_source_next_proof', 'Prova successiva'));
                     conta.setAttribute('aria-live', 'polite');
                     const vai = n => { i = (n + lista.length) % lista.length; conta.textContent = t('rv_source_proof', 'Prova') + ' ' + (i + 1) + ' / ' + lista.length; vaiA(lista[i].pagina, lista[i].prova.text); };
                     prima.onclick = () => vai(i - 1); dopo.onclick = () => vai(i + 1);
                     prove.append(prima, conta, dopo);
+                    disegna();
                     conta.textContent = t('rv_source_proof', 'Prova') + ' 1 / ' + lista.length;
                 } else if (lista.length > 1) lista.forEach((x, i) => {
                     const b = crea('button', 'pm-btn-cancel', t('rv_source_proof', 'Prova') + ' ' + (i + 1)); b.type = 'button';
