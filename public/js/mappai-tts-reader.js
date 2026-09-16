@@ -82,16 +82,28 @@
     }
 
     // ── Highlight (CSS Custom Highlight API) ───────────────────────────────
-    var _hl = null, _hlU = null, _hlLit = null, _hlSupported = false;
-    try {
-        if (window.CSS && CSS.highlights && typeof Highlight !== 'undefined') {
-            _hl = new Highlight(); CSS.highlights.set('mai-tts-read', _hl);
-            // registrate DOPO la frase: a parità di priorità vince l'ultima
-            _hlU = new Highlight(); CSS.highlights.set('mai-tts-word-u', _hlU);
-            _hlLit = new Highlight(); CSS.highlights.set('mai-tts-word-lit', _hlLit);
-            _hlSupported = true;
-        }
-    } catch (e) { _hlSupported = false; }
+    // Un registro per DOCUMENTO (17/9/26). Il testo da leggere può stare in un
+    // iframe — la sintesi nel dock di MappAI studente, i documenti di ELABORA —
+    // e lì i Range si dipingono solo se Highlight, `::highlight` e le classi
+    // del karaoke vivono in QUEL documento: registrati nella pagina dell'app
+    // non si vedeva niente.
+    function _hlOf(doc) {
+        doc = doc || document;
+        if (doc.__maiTtsHl) return doc.__maiTtsHl;
+        var w = doc.defaultView || window, h = { ok: false, read: null, u: null, lit: null };
+        try {
+            if (w.CSS && w.CSS.highlights && typeof w.Highlight !== 'undefined') {
+                h.read = new w.Highlight(); w.CSS.highlights.set('mai-tts-read', h.read);
+                // registrate DOPO la frase: a parità di priorità vince l'ultima
+                h.u = new w.Highlight(); w.CSS.highlights.set('mai-tts-word-u', h.u);
+                h.lit = new w.Highlight(); w.CSS.highlights.set('mai-tts-word-lit', h.lit);
+                h.ok = true;
+            }
+        } catch (e) { h.ok = false; }
+        if (doc !== document) _injectCss(doc);
+        try { doc.__maiTtsHl = h; } catch (e) {}
+        return h;
+    }
 
     // ── Pulizia testo ──────────────────────────────────────────────────────
     function _cleanLine(s) {
@@ -106,7 +118,7 @@
 
     // Testo + mappa dei nodi testuali di un blocco, saltando note/citazioni/controlli.
     function _blockPieces(block) {
-        var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+        var walker = (block.ownerDocument || document).createTreeWalker(block, NodeFilter.SHOW_TEXT, {
             acceptNode: function (n) {
                 var p = n.parentNode;
                 while (p && p !== block) {
@@ -226,7 +238,7 @@
         chunks: [], durations: [], starts: [], total: 0,
         idx: 0, subChar: 0, chunkT0: 0, playing: false,
         gapTimer: null, utter: null, ticker: null, blockEl: null, dragging: false,
-        wordIdx: -1, bnd: false, rsvpEl: null
+        wordIdx: -1, bnd: false, rsvpEl: null, hl: { ok: false }
     };
 
     function _recomputeTiming() {
@@ -242,6 +254,7 @@
     function _load(wrap) {
         E.wrap = wrap;
         E.bodyEl = wrap._resolveBody();
+        E.hl = _hlOf(E.bodyEl && E.bodyEl.ownerDocument);
         E.lang = _langFor(E.bodyEl);
         E.chunks = _buildChunks(E.bodyEl);
         E.idx = 0; E.subChar = 0;
@@ -259,7 +272,7 @@
 
     // ── Highlight karaoke ───────────────────────────────────────────────────
     function _clearHighlight() {
-        try { if (_hl) _hl.clear(); if (_hlU) _hlU.clear(); if (_hlLit) _hlLit.clear(); } catch (e) {}
+        try { if (E.hl.ok) { E.hl.read.clear(); E.hl.u.clear(); E.hl.lit.clear(); } } catch (e) {}
         if (E.blockEl) { try { E.blockEl.classList.remove('mai-tts-block'); } catch (e) {} E.blockEl = null; }
         try { if (E.bodyEl && E.bodyEl.classList) E.bodyEl.classList.remove('mai-tts-fx-parola'); } catch (e) {}
         E.wordIdx = -1;
@@ -279,12 +292,12 @@
         // «in chiaro solo la parola» senza Highlight API sarebbe tutto spento:
         // lì resta la frase evidenziata
         var fx = _effect();
-        if (fx === 'parola' && _hlSupported) {
+        if (fx === 'parola' && E.hl.ok) {
             if (E.bodyEl && E.bodyEl.classList) E.bodyEl.classList.add('mai-tts-fx-parola');
         } else {
             if (ch.srcNode && ch.srcNode.classList) { ch.srcNode.classList.add('mai-tts-block'); E.blockEl = ch.srcNode; }
-            if (_hlSupported && ch.r) {
-                try { var r = document.createRange(); r.setStart(ch.r.sN, ch.r.sO); r.setEnd(ch.r.eN, ch.r.eO); _hl.add(r); } catch (e) {}
+            if (E.hl.ok && ch.r) {
+                try { var r = ch.r.sN.ownerDocument.createRange(); r.setStart(ch.r.sN, ch.r.sO); r.setEnd(ch.r.eN, ch.r.eO); E.hl.read.add(r); } catch (e) {}
             }
         }
         if (fx !== 'rsvp') _rsvpHide();
@@ -302,11 +315,11 @@
         if (k === E.wordIdx) return;
         E.wordIdx = k;
         var fx = _effect(), wr = ch.words[k], range = null;
-        try { if (_hlU) _hlU.clear(); if (_hlLit) _hlLit.clear(); } catch (e) {}
+        try { if (E.hl.ok) { E.hl.u.clear(); E.hl.lit.clear(); } } catch (e) {}
         var a = _locate(ch.map, wr.s), b = _locate(ch.map, wr.e);
-        if (a && b) { try { range = document.createRange(); range.setStart(a.node, a.offset); range.setEnd(b.node, b.offset); } catch (e) { range = null; } }
-        if (range && _hlSupported) {
-            try { if (fx === 'sottolinea') _hlU.add(range); else if (fx === 'parola') _hlLit.add(range); } catch (e) {}
+        if (a && b) { try { range = a.node.ownerDocument.createRange(); range.setStart(a.node, a.offset); range.setEnd(b.node, b.offset); } catch (e) { range = null; } }
+        if (range && E.hl.ok) {
+            try { if (fx === 'sottolinea') E.hl.u.add(range); else if (fx === 'parola') E.hl.lit.add(range); } catch (e) {}
         }
         if (fx === 'rsvp') _rsvpShow(ch.spoken && ch.spoken[k] ? ch.spoken[k].w : _cleanLine(ch.text.split(' ')[k] || ''));
         if (range) _follow(range);
@@ -328,7 +341,7 @@
         var top = rb.top - bb.top + sc.scrollTop, lm = _lineMode();
         if (lm) {
             var lh = rb.height;
-            try { lh = parseFloat(getComputedStyle(range.startContainer.parentNode).lineHeight) || rb.height; } catch (e) {}
+            try { var pn = range.startContainer.parentNode; lh = parseFloat(pn.ownerDocument.defaultView.getComputedStyle(pn).lineHeight) || rb.height; } catch (e) {}
             var target = Math.max(0, Math.round(top - (lh - rb.height) / 2));
             var fuori = rb.top < bb.top - 1 || rb.bottom > bb.bottom + 1;
             if ((lm === 2 || fuori) && Math.abs(sc.scrollTop - target) > 2) sc.scrollTop = target;
@@ -709,8 +722,9 @@
     }
 
     // ── CSS (auto-iniettato) ────────────────────────────────────────────────
-    function _injectCss() {
-        if (document.getElementById('mai-tts-style')) return;
+    function _injectCss(doc) {
+        doc = doc || document;
+        if (!doc.head || doc.getElementById('mai-tts-style')) return;
         var css =
             '.mai-tts-slot{display:inline-flex;align-items:center;flex:1 1 auto;min-width:0;vertical-align:middle}' +
             '.mai-tts-wrap{display:inline-flex;align-items:center;gap:10px;max-width:100%;flex:1 1 auto;min-width:0;vertical-align:middle;font-family:"Space Mono",monospace}' +
@@ -763,7 +777,8 @@
             '.mai-tts-float--x2{width:calc(100vw - 24px);bottom:12px}' +
             '.mai-tts-float--x2 .mai-tts-float-body{max-height:calc(36px * 1.4);overflow:hidden;margin-right:0}' +
             '.mai-tts-float--x2 .mai-tts-float-body p{font-size:36px;line-height:1.4}' +
-            '.mai-tts-float--x2 .mai-rsvp{font-size:64px}' +
+            '.mai-tts-float--x2 .mai-rsvp{font-size:64px}';
+        var dark =
             '@media (prefers-color-scheme: dark){' +
             '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(148,163,184,.35) !important}::highlight(mai-tts-word-lit){color:#fff;background-color:rgba(202,138,4,.55)}' +
             '::highlight(mai-tts-word-u){text-decoration-color:#a5b4fc;background-color:rgba(67,56,202,.45)}' +
@@ -772,12 +787,15 @@
             '.mai-tts-progress{background:#334155}.mai-tts-time{color:#94a3b8}.mai-tts-sec{background:#312e81;color:#c7d2fe}' +
             '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}' +
             '.mai-tts-float{background:#1e293b;border-color:#334155}.mai-tts-float-body h4{color:#c7d2fe}.mai-tts-float-body p{color:#cbd5e1}.mai-tts-float-close:hover{background:#334155;color:#e2e8f0}}';
-        var st = document.createElement('style'); st.id = 'mai-tts-style'; st.textContent = css; document.head.appendChild(st);
+        var st = doc.createElement('style'); st.id = 'mai-tts-style';
+        st.textContent = doc === document ? css + dark : css;
+        doc.head.appendChild(st);
     }
 
     // ── Init ────────────────────────────────────────────────────────────────
     function _init() {
-        _injectCss();
+        _injectCss(document);
+        E.hl = _hlOf(document);
         scanSlots(document);
         try { var b = document.getElementById('btn-tts-tool'); if (b) b.classList.toggle('active', isEnabled()); } catch (e) {}
         try {
