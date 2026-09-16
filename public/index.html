@@ -1581,23 +1581,15 @@
 
             <!-- Modale A11y Tools (Standardizzato per tutte le modalità) -->
             <div id="modal-a11y-toolbar"
-                class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3 overflow-x-auto shrink-0">
-                <button id="btn-modal-ruler"
-                    onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('bg-indigo-100')"
-                    class="tts-button" title="Riga di Lettura" data-i18n-title="tt_reading_ruler"><i data-lucide="align-justify"></i></button>
+                class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-3 shrink-0">
                 <button id="btn-hyphenation" onclick="window.toggleHyphenation(this)" class="tts-button"
                     title="Attiva/Desattiva Sillabazione" data-i18n-title="tt_hyphenation"><i data-lucide="split-square-horizontal"></i></button>
                 <button
                     onclick="document.getElementById('source-modal-body').classList.toggle('tracking-[0.2em]'); this.classList.toggle('bg-indigo-100')"
                     class="tts-button" title="Aumenta Spaziatura Caratteri"><i data-lucide="space"></i></button>
                 <div class="w-px h-6 bg-slate-200 mx-1"></div>
-                <button id="btn-text-zoom-modal" onclick="window.cycleTextZoom()" class="tts-button"
-                    title="Zoom Testo"><i data-lucide="zoom-in"></i></button>
-                <button id="btn-modal-tts" onclick="window.MappAITTS && window.MappAITTS.playSlotNear(this)" class="tts-button"
-                    title="Leggi ad alta voce" aria-label="Leggi ad alta voce" data-i18n-title="tt_read_aloud"><i data-lucide="volume-2"></i></button>
-                <button id="btn-modal-rsvp" onclick="window.MappAILetturaVeloce && window.MappAILetturaVeloce.daScheda()" class="tts-button"
-                    title="Lettura veloce" aria-label="Lettura veloce" data-i18n-title="rsvp_titolo"><i data-lucide="gauge"></i></button>
-                <span class="mai-tts-slot" data-tts-body="#source-modal-body"></span>
+                <!-- la FILA di lettura (mappai-tts-reader.js → fila): voce ed effetti · Aa (zoom) · Riga · Lettura veloce -->
+                <span class="mai-tts-slot" data-tts-body="#source-modal-body" data-tts-fila></span>
             </div>
 
             <div lang="it" class="p-6 overflow-y-auto flex-grow text-slate-800 bg-white rounded-b-xl"

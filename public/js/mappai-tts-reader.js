@@ -595,6 +595,7 @@
     }
     function mountSlot(slot) {
         if (!slot || slot._maiMounted) return;
+        if (slot.hasAttribute('data-tts-fila')) { slot._maiMounted = true; _filaScheda(slot); return; }
         var wrap = _makeControl(_resolverForSlot(slot));
         slot.appendChild(wrap);
         slot._maiMounted = true;
@@ -613,6 +614,77 @@
         return wrap;
     }
     function scanSlots(root) { (root || document).querySelectorAll('.mai-tts-slot').forEach(mountSlot); }
+
+    // ── La FILA di lettura (17/9/26) ────────────────────────────────────────
+    // Gli stessi comandi, nello stesso ordine e con la stessa veste, dovunque si
+    // legge o si ascolta — scheda del nodo, pannello flottante, sintesi:
+    //   chip della voce (⟲10 · ▶ · 5⟳ · velocità · effetto) e avanzamento
+    //   · Aa ×1/×1.5/×2 · Riga · Lettura veloce · altro (es. Stampa)
+    // Che cosa fanno Aa e Riga lo dice la superficie; ciò che non passa non c'è.
+    //   opts.corpo  fn → l'elemento da leggere
+    //   opts.aa     { leggi: fn → '×1', premi: fn }
+    //   opts.riga   { leggi: fn → { t: 'no', on: false }, premi: fn }
+    //   opts.veloce fn
+    //   opts.altro  [{ etichetta, icona, azione }]
+    function fila(host, opts) {
+        opts = opts || {};
+        var row = document.createElement('div');
+        row.className = 'mai-fila';
+        host.appendChild(row);
+        var wrap = mountChip(row, opts.corpo);
+        if (wrap) wrap.style.display = ''; // qui è IL lettore: il cancello degli strumenti compensativi non vale
+        row._wrap = wrap;
+        function bt(etichetta, icona, azione) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'mai-fila-bt';
+            b.title = etichetta; b.setAttribute('aria-label', etichetta);
+            b.innerHTML = '<i data-lucide="' + icona + '"></i>';
+            b.addEventListener('click', azione);
+            row.appendChild(b);
+            return b;
+        }
+        // un bottone con stato: l'etichetta si rilegge DOPO il tocco (chi lo
+        // governa può aggiornarsi a timeout 0)
+        function conStato(etichetta, icona, conf, disegna) {
+            var b = bt(etichetta, icona, function () { conf.premi(); setTimeout(function () { disegna(b); }, 0); });
+            b.appendChild(document.createElement('span'));
+            disegna(b);
+        }
+        if (opts.aa) conStato(_t('tts_scale', 'Grandezza del testo'), 'a-large-small', opts.aa, function (b) {
+            b.querySelector('span').textContent = opts.aa.leggi();
+        });
+        if (opts.riga) conStato(_t('tts_riga', 'Riga di lettura'), 'align-justify', opts.riga, function (b) {
+            var st = opts.riga.leggi() || {};
+            b.querySelector('span').textContent = st.t || '';
+            b.setAttribute('aria-pressed', st.on ? 'true' : 'false');
+        });
+        if (opts.veloce) bt(_t('rsvp_titolo', 'Lettura veloce'), 'gauge', opts.veloce);
+        (opts.altro || []).forEach(function (a) { bt(a.etichetta, a.icona, a.azione); });
+        _icons();
+        return row;
+    }
+    // La fila della scheda del nodo: Aa è lo zoom del testo dell'app, Riga la
+    // riga di lettura dell'app, la lettura veloce prende il posto del corpo.
+    function _filaScheda(slot) {
+        fila(slot, {
+            corpo: _resolverForSlot(slot),
+            aa: {
+                leggi: function () {
+                    var i = 0; try { i = parseInt(localStorage.getItem('mappai-a11y-zoom') || '0', 10) || 0; } catch (e) {}
+                    return '×' + ([1, 1.5, 2][i] || 1);
+                },
+                premi: function () { if (window.cycleTextZoom) window.cycleTextZoom(); }
+            },
+            riga: {
+                leggi: function () {
+                    var r = document.getElementById('reading-ruler'), on = !!(r && r.classList.contains('active'));
+                    return { t: on ? _t('tts_si', 'sì') : _t('tts_no', 'no'), on: on };
+                },
+                premi: function () { var r = document.getElementById('reading-ruler'); if (r) r.classList.toggle('active'); }
+            },
+            veloce: function () { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.daScheda(); }
+        });
+    }
 
     // Pulsante ▶ "ascolta da qui" davanti a ogni titolo del corpo.
     function enableSectionPlay(bodyOrSel) {
@@ -650,20 +722,15 @@
         _mounted = _mounted.filter(function (h) { return h.wrap.isConnected; });
     }
     function isFloatingOpen() { return !!document.getElementById('mai-tts-float'); }
-    function _applyScale(f, btn) {
+    function _applyScale(f) {
         var sc = _scale();
         f.classList.toggle('mai-tts-float--x15', sc === 1.5);
         f.classList.toggle('mai-tts-float--x2', sc === 2);
-        if (btn) {
-            btn.querySelector('span').textContent = '×' + sc;
-            var l = _t('tts_scale', 'Grandezza del testo') + ' ×' + sc;
-            btn.title = l; btn.setAttribute('aria-label', l);
-        }
     }
-    function _cycleScale(f, btn) {
+    function _cycleScale(f) {
         var sc = SCALES[(SCALES.indexOf(_scale()) + 1) % SCALES.length];
         try { localStorage.setItem(LS_SCALE, String(sc)); } catch (e) {}
-        _applyScale(f, btn);
+        _applyScale(f);
         // cambiata la misura, la parola corrente torna in vista
         var k = E.wordIdx; if (k >= 0) { E.wordIdx = -1; _word(k); }
     }
@@ -677,38 +744,25 @@
         close.type = 'button'; close.className = 'mai-tts-float-close';
         close.setAttribute('aria-label', _t('tts_close', 'Chiudi')); close.textContent = '✕';
         close.addEventListener('click', _closeFloat);
-        var size = document.createElement('button');
-        size.type = 'button'; size.className = 'mai-tts-float-size';
-        size.innerHTML = '<i data-lucide="a-large-small"></i><span></span>';
-        size.addEventListener('click', function () { _cycleScale(f, size); });
-        // a ×2 il titolo esce dalla riga che scorre e sta qui
         var titleBar = document.createElement('div'); titleBar.className = 'mai-tts-float-t';
         titleBar.textContent = opts.title || '';
         var bodyEl = document.createElement('div'); bodyEl.className = 'mai-tts-float-body';
         if (opts.title) { var h = document.createElement('h4'); h.textContent = opts.title; bodyEl.appendChild(h); }
         var p = document.createElement('p'); p.textContent = opts.text || ''; bodyEl.appendChild(p);
         var ctrl = document.createElement('div'); ctrl.className = 'mai-tts-float-ctrl';
-        f.appendChild(close); f.appendChild(size); f.appendChild(titleBar); f.appendChild(bodyEl); f.appendChild(ctrl);
-        _applyScale(f, size);
+        f.appendChild(close); f.appendChild(titleBar); f.appendChild(bodyEl); f.appendChild(ctrl);
+        _applyScale(f);
         document.body.appendChild(f);
-        var wrap = _makeControl(function () { return bodyEl; });
+        var wrap = fila(ctrl, {
+            corpo: function () { return bodyEl; },
+            aa: { leggi: function () { return '×' + _scale(); }, premi: function () { _cycleScale(f); } },
+            veloce: function () {
+                if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.apri({ titolo: opts.title || '', testo: opts.text || '' });
+            }
+        })._wrap;
         wrap._floating = true;
-        ctrl.appendChild(wrap);
-        _mounted.push({ slot: ctrl, wrap: wrap });
-        _icons();
         _stop(); _load(wrap); _playFrom(0, 0); // avvio automatico
         return f;
-    }
-    // Bottone esplicito accanto allo slot (es. 🔊 nella barra a11y del modale
-    // nodo): mostra il chip anche col toggle compensativo spento e legge/pausa.
-    function playSlotNear(btn) {
-        var slot = btn && btn.parentElement && btn.parentElement.querySelector('.mai-tts-slot');
-        if (!slot) return;
-        mountSlot(slot);
-        var h = _mounted.filter(function (m) { return m.slot === slot; })[0];
-        if (!h) return;
-        h.wrap.style.display = '';
-        _togglePlay(h.wrap);
     }
     function toggle(btn) {
         var on = !isEnabled();
@@ -763,13 +817,20 @@
             '.mai-tts-rsvp{margin:10px 20px 0}' +
             '.mai-tts-float .mai-tts-rsvp{margin:0 0 10px}' +
             // grandezza del pannello flottante
-            '.mai-tts-float-size{position:absolute;top:7px;right:40px;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border:1px solid #e2e8f0;border-radius:9999px;background:#fff;color:#4f46e5;cursor:pointer;font:700 11px "Space Mono",monospace}' +
-            '.mai-tts-float-size svg,.mai-tts-float-size i{width:15px;height:15px}' +
+            // la fila di lettura: stessi pezzi, stessa veste, ovunque
+            '.mai-fila{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1 1 auto;min-width:0}' +
+            // il chip non si schiaccia sotto la sua misura: la fila va a capo
+            '.mai-fila .mai-tts-wrap{flex:1 1 390px;min-width:min(100%,390px)}' +
+            '.mai-fila .mai-tts-progress{min-width:80px}' +
+            '.mai-fila-bt{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:40px;padding:0 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#4338ca;cursor:pointer;white-space:nowrap;font:700 12px "Space Mono",monospace}' +
+            '.mai-fila-bt svg,.mai-fila-bt i{width:18px;height:18px;flex:0 0 auto}' +
+            '.mai-fila-bt span:empty{display:none}' +
+            '.mai-fila-bt[aria-pressed="true"]{background:#eef2ff;border-color:#c7d2fe}' +
             // la testata è una riga sua in tutte le grandezze: titolo a sinistra,
             // Aa e × a destra — la striscia RSVP ci finiva sopra (17/9)
             '.mai-tts-float:not(.mai-lv){padding-top:44px}' +
             '.mai-tts-float-body h4{display:none}' +
-            '.mai-tts-float-t{position:absolute;top:13px;left:18px;right:130px;margin:0;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.mai-tts-float-t{position:absolute;top:13px;left:18px;right:44px;margin:0;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.mai-tts-float--x15{width:min(880px,96vw)}' +
             '.mai-tts-float--x15 .mai-tts-float-body{max-height:calc(3 * 22px * 1.6);overflow:hidden;margin-right:0}' +
             '.mai-tts-float--x15 .mai-tts-float-body p{font-size:22px;line-height:1.6}' +
@@ -782,7 +843,7 @@
             '@media (prefers-color-scheme: dark){' +
             '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(148,163,184,.35) !important}::highlight(mai-tts-word-lit){color:#fff;background-color:rgba(202,138,4,.55)}' +
             '::highlight(mai-tts-word-u){text-decoration-color:#a5b4fc;background-color:rgba(67,56,202,.45)}' +
-            '.mai-rsvp{background:#0f172a;color:#f1f5f9}.mai-tts-float-size{background:#1e293b;border-color:#334155;color:#a5b4fc}.mai-tts-float-t{color:#c7d2fe}' +
+            '.mai-rsvp{background:#0f172a;color:#f1f5f9}.mai-fila-bt{background:#1e293b;border-color:#334155;color:#a5b4fc}.mai-fila-bt[aria-pressed="true"]{background:#312e81;border-color:#4338ca}.mai-tts-float-t{color:#c7d2fe}' +
             '.mai-tts-chip{background:#1e293b;border-color:#334155}.mai-tts-seg{color:#a5b4fc;border-left-color:#334155}.mai-tts-seg:hover{background:#334155}' +
             '.mai-tts-progress{background:#334155}.mai-tts-time{color:#94a3b8}.mai-tts-sec{background:#312e81;color:#c7d2fe}' +
             '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}' +
@@ -840,7 +901,7 @@
         isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle, invalidate: invalidate,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
-        playFloating: playFloating, playSlotNear: playSlotNear, effect: _effect, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
+        playFloating: playFloating, fila: fila, effect: _effect, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
         stop: function () { _stop(); }, _speeds: SPEEDS
     };
 
