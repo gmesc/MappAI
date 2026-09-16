@@ -30,6 +30,15 @@
     var BACK_SEC = 10;
     var FWD_SEC = 5;
     var CPS_BASE = 14.5; // caratteri/secondo stimati a rate 1.0 (italiano) — per la timeline
+    // Effetti karaoke (17/9/26): come si segue la lettura. `frase` è quello di
+    // sempre; gli altri lavorano PAROLA per parola.
+    var LS_EFFECT = 'mappai_tts_effetto';
+    var EFFECTS = ['frase', 'sottolinea', 'parola', 'rsvp'];
+    var FX_ICON = { frase: 'highlighter', sottolinea: 'underline', parola: 'sun-dim', rsvp: 'focus' };
+    // Grandezza del pannello flottante: ×1 com'era, ×1.5 più largo e meno righe,
+    // ×2 largo quanto lo schermo e UNA riga che scorre.
+    var LS_SCALE = 'mappai_tts_scala';
+    var SCALES = [1, 1.5, 2];
 
     function _t(k, f) { try { return (window.t ? window.t(k, f) : f) || f; } catch (e) { return f; } }
     function _icons() { try { if (window.safeCreateIcons) window.safeCreateIcons(); } catch (e) {} }
@@ -41,6 +50,16 @@
     }
     function _setRateIdx(i) { try { localStorage.setItem(LS_RATE_IDX, String(i)); } catch (e) {} }
     function _rate() { return SPEEDS[_rateIdx()]; }
+    function _effect() { try { var v = localStorage.getItem(LS_EFFECT); return EFFECTS.indexOf(v) >= 0 ? v : 'frase'; } catch (e) { return 'frase'; } }
+    function _scale() { try { var n = parseFloat(localStorage.getItem(LS_SCALE)); return SCALES.indexOf(n) >= 0 ? n : 1; } catch (e) { return 1; } }
+    function _fxLabel(fx) {
+        return ({
+            frase: _t('tts_fx_frase', 'Effetto: evidenzia la frase'),
+            sottolinea: _t('tts_fx_sottolinea', 'Effetto: sottolinea la parola'),
+            parola: _t('tts_fx_parola', 'Effetto: in chiaro solo la parola letta'),
+            rsvp: _t('tts_fx_rsvp', 'Effetto: una parola alla volta')
+        })[fx];
+    }
 
     var supported = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
 
@@ -63,10 +82,14 @@
     }
 
     // ── Highlight (CSS Custom Highlight API) ───────────────────────────────
-    var _hl = null, _hlSupported = false;
+    var _hl = null, _hlU = null, _hlLit = null, _hlSupported = false;
     try {
         if (window.CSS && CSS.highlights && typeof Highlight !== 'undefined') {
-            _hl = new Highlight(); CSS.highlights.set('mai-tts-read', _hl); _hlSupported = true;
+            _hl = new Highlight(); CSS.highlights.set('mai-tts-read', _hl);
+            // registrate DOPO la frase: a parità di priorità vince l'ultima
+            _hlU = new Highlight(); CSS.highlights.set('mai-tts-word-u', _hlU);
+            _hlLit = new Highlight(); CSS.highlights.set('mai-tts-word-lit', _hlLit);
+            _hlSupported = true;
         }
     } catch (e) { _hlSupported = false; }
 
@@ -113,6 +136,33 @@
         var last = map[map.length - 1];
         return last ? { node: last.node, offset: last.len } : null;
     }
+    // Le parole di una frase in DUE elenchi che combaciano uno a uno: gli
+    // intervalli nel testo del DOM (per evidenziare) e gli inizi nel testo
+    // PARLATO (per tradurre il `charIndex` della voce). Conta solo ciò che ha
+    // una lettera o una cifra DOPO la stessa pulizia del parlato: un `[1]` o un
+    // `**` isolati non spostano di una parola tutto quello che viene dopo.
+    var _PAROLA;
+    try { _PAROLA = new RegExp('[\\p{L}\\p{N}]', 'u'); } catch (e) { _PAROLA = /[0-9A-Za-z\u00C0-\u024F\u0370-\u03FF\u0400-\u04FF]/; }
+    function _isWord(w) { return _PAROLA.test(w); }
+    function _wordRanges(text, hs, he) {
+        var out = [], re = /\S+/g, seg = text.slice(hs, he), m;
+        while ((m = re.exec(seg))) {
+            var n = _cleanLine(m[0]).split(' ').filter(_isWord).length;
+            for (var k = 0; k < n; k++) out.push({ s: hs + m.index, e: hs + m.index + m[0].length });
+        }
+        return out;
+    }
+    function _spokenWords(speech) {
+        var out = [], re = /\S+/g, m;
+        while ((m = re.exec(speech))) { if (_isWord(m[0])) out.push({ at: m.index, w: m[0] }); }
+        return out;
+    }
+    function _spokenIndexAt(c, pos) {
+        var k = 0, sp = c.spoken || [];
+        for (var i = 0; i < sp.length; i++) { if (sp[i].at <= pos) k = i; else break; }
+        return k;
+    }
+
     // Divide un testo in intervalli-frase [start,end) preservando la punteggiatura.
     function _sentenceRanges(text) {
         var re = /[.!?…]+[)\]"'”’»]*\s*/g, res = [], last = 0, m;
@@ -162,7 +212,8 @@
                 chunks.push({
                     text: speech, kind: heading ? 'heading' : 'sentence',
                     endPause: pause, pitch: pitch, rateMul: rateMul, srcNode: block,
-                    r: (a && b) ? { sN: a.node, sO: a.offset, eN: b.node, eO: b.offset } : null
+                    r: (a && b) ? { sN: a.node, sO: a.offset, eN: b.node, eO: b.offset } : null,
+                    map: pieces.map, words: _wordRanges(pieces.text, hs, he), spoken: _spokenWords(speech)
                 });
             }
         }
@@ -174,7 +225,8 @@
         wrap: null, bodyEl: null, lang: 'it-IT',
         chunks: [], durations: [], starts: [], total: 0,
         idx: 0, subChar: 0, chunkT0: 0, playing: false,
-        gapTimer: null, utter: null, ticker: null, blockEl: null, dragging: false
+        gapTimer: null, utter: null, ticker: null, blockEl: null, dragging: false,
+        wordIdx: -1, bnd: false, rsvpEl: null
     };
 
     function _recomputeTiming() {
@@ -207,18 +259,102 @@
 
     // ── Highlight karaoke ───────────────────────────────────────────────────
     function _clearHighlight() {
-        try { if (_hl) _hl.clear(); } catch (e) {}
+        try { if (_hl) _hl.clear(); if (_hlU) _hlU.clear(); if (_hlLit) _hlLit.clear(); } catch (e) {}
         if (E.blockEl) { try { E.blockEl.classList.remove('mai-tts-block'); } catch (e) {} E.blockEl = null; }
+        try { if (E.bodyEl && E.bodyEl.classList) E.bodyEl.classList.remove('mai-tts-fx-parola'); } catch (e) {}
+        E.wordIdx = -1;
+    }
+    // A ×1.5 e ×2 il corpo mostra un numero ESATTO di righe (3 e 1): lo
+    // scorrimento va a righe intere, mai a metà.
+    function _lineMode() {
+        try {
+            var f = E.bodyEl && E.bodyEl.closest ? E.bodyEl.closest('.mai-tts-float') : null;
+            if (!f) return 0;
+            return f.classList.contains('mai-tts-float--x2') ? 2 : (f.classList.contains('mai-tts-float--x15') ? 1.5 : 0);
+        } catch (e) { return 0; }
     }
     function _highlight(i) {
         _clearHighlight();
         var ch = E.chunks[i]; if (!ch) return;
-        if (ch.srcNode && ch.srcNode.classList) { ch.srcNode.classList.add('mai-tts-block'); E.blockEl = ch.srcNode; }
-        if (_hlSupported && ch.r) {
-            try { var r = document.createRange(); r.setStart(ch.r.sN, ch.r.sO); r.setEnd(ch.r.eN, ch.r.eO); _hl.add(r); } catch (e) {}
+        // «in chiaro solo la parola» senza Highlight API sarebbe tutto spento:
+        // lì resta la frase evidenziata
+        var fx = _effect();
+        if (fx === 'parola' && _hlSupported) {
+            if (E.bodyEl && E.bodyEl.classList) E.bodyEl.classList.add('mai-tts-fx-parola');
+        } else {
+            if (ch.srcNode && ch.srcNode.classList) { ch.srcNode.classList.add('mai-tts-block'); E.blockEl = ch.srcNode; }
+            if (_hlSupported && ch.r) {
+                try { var r = document.createRange(); r.setStart(ch.r.sN, ch.r.sO); r.setEnd(ch.r.eN, ch.r.eO); _hl.add(r); } catch (e) {}
+            }
         }
+        if (fx !== 'rsvp') _rsvpHide();
+        if (_lineMode()) return; // le righe le allinea _follow, parola per parola
         try { if (ch.srcNode && ch.srcNode.scrollIntoView) ch.srcNode.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
     }
+
+    // ── La parola letta ─────────────────────────────────────────────────────
+    // Arriva dalla voce (`boundary`, quando il motore la manda) o dalla stima
+    // sul tempo (ticker): evidenzia secondo l'effetto, tiene la riga in vista,
+    // aggiorna la striscia «una parola alla volta».
+    function _word(k) {
+        var ch = E.chunks[E.idx]; if (!ch || !ch.words || !ch.words.length) return;
+        k = Math.max(0, Math.min(k, ch.words.length - 1));
+        if (k === E.wordIdx) return;
+        E.wordIdx = k;
+        var fx = _effect(), wr = ch.words[k], range = null;
+        try { if (_hlU) _hlU.clear(); if (_hlLit) _hlLit.clear(); } catch (e) {}
+        var a = _locate(ch.map, wr.s), b = _locate(ch.map, wr.e);
+        if (a && b) { try { range = document.createRange(); range.setStart(a.node, a.offset); range.setEnd(b.node, b.offset); } catch (e) { range = null; } }
+        if (range && _hlSupported) {
+            try { if (fx === 'sottolinea') _hlU.add(range); else if (fx === 'parola') _hlLit.add(range); } catch (e) {}
+        }
+        if (fx === 'rsvp') _rsvpShow(ch.spoken && ch.spoken[k] ? ch.spoken[k].w : _cleanLine(ch.text.split(' ')[k] || ''));
+        if (range) _follow(range);
+    }
+    function _estimateWord() {
+        var c = E.chunks[E.idx]; if (!c || !c.spoken || !c.spoken.length) return;
+        var dur = Math.max(0.2, (E.durations[E.idx] || 0) - (c.endPause || 0) / 1000);
+        var el = Math.max(0, (_now() - E.chunkT0) / 1000);
+        _word(_spokenIndexAt(c, Math.min(c.text.length - 1, Math.floor(el / dur * c.text.length))));
+    }
+    // Tiene in vista la riga della parola. A ×2 la riga è UNA e si allinea a
+    // ogni parola; a ×1.5 quando la parola esce dalle tre righe, la sua riga
+    // diventa la prima.
+    function _follow(range) {
+        var sc = E.bodyEl; if (!sc || sc.scrollHeight <= sc.clientHeight + 2) return;
+        var rb, bb;
+        try { rb = range.getBoundingClientRect(); bb = sc.getBoundingClientRect(); } catch (e) { return; }
+        if (!rb || (!rb.width && !rb.height)) return;
+        var top = rb.top - bb.top + sc.scrollTop, lm = _lineMode();
+        if (lm) {
+            var lh = rb.height;
+            try { lh = parseFloat(getComputedStyle(range.startContainer.parentNode).lineHeight) || rb.height; } catch (e) {}
+            var target = Math.max(0, Math.round(top - (lh - rb.height) / 2));
+            var fuori = rb.top < bb.top - 1 || rb.bottom > bb.bottom + 1;
+            if ((lm === 2 || fuori) && Math.abs(sc.scrollTop - target) > 2) sc.scrollTop = target;
+        } else if (rb.top < bb.top || rb.bottom > bb.bottom) {
+            var to = Math.max(0, top - bb.height / 3);
+            try { sc.scrollTo({ top: to, behavior: 'smooth' }); } catch (e) { sc.scrollTop = to; }
+        }
+    }
+    // La striscia RSVP: sopra il corpo che si legge (nel modale sotto la barra,
+    // nel pannello flottante sopra il testo).
+    function _rsvpShow(w) {
+        if (!E.bodyEl || !E.bodyEl.parentNode) return;
+        var st = E.rsvpEl;
+        if (!st || !st.isConnected || st.nextSibling !== E.bodyEl) {
+            _rsvpHide();
+            st = document.createElement('div');
+            st.className = 'mai-rsvp mai-tts-rsvp';
+            st.setAttribute('aria-hidden', 'true'); // la voce legge già: niente doppioni allo screen reader
+            E.bodyEl.parentNode.insertBefore(st, E.bodyEl);
+            E.rsvpEl = st;
+        }
+        var C = window.MappAIRsvpCore;
+        if (C && C.html) st.innerHTML = C.html(w);
+        else st.textContent = w;
+    }
+    function _rsvpHide() { if (E.rsvpEl) { try { E.rsvpEl.remove(); } catch (e) {} E.rsvpEl = null; } }
 
     // ── Riproduzione ────────────────────────────────────────────────────────
     function _speakCurrent() {
@@ -237,20 +373,27 @@
             E.gapTimer = setTimeout(function () { E.idx++; E.subChar = 0; _speakCurrent(); }, c.endPause || 180);
         };
         u.onerror = function () { if (E.playing && E.utter === u) { E.idx++; E.subChar = 0; _speakCurrent(); } };
-        E.utter = u;
+        var from = (E.subChar > 0 && E.subChar < c.text.length) ? E.subChar : 0;
+        u.onboundary = function (ev) {
+            if (E.utter !== u || (ev.name && ev.name !== 'word')) return;
+            E.bnd = true; // la voce dice dove è: la stima sul tempo si spegne
+            _word(_spokenIndexAt(c, from + (ev.charIndex || 0)));
+        };
+        E.utter = u; E.bnd = false;
         E.chunkT0 = _now() - (E.subChar > 0 ? (E.subChar / Math.max(1, c.text.length)) * (E.durations[E.idx] || 0) * 1000 : 0);
         _highlight(E.idx);
+        _word(_spokenIndexAt(c, from));
         try { window.speechSynthesis.cancel(); } catch (e) {}
         try { window.speechSynthesis.speak(u); } catch (e) {}
         _paint(true);
     }
     function _finish() {
-        _clearGap(); _stopTicker(); _clearHighlight();
+        _clearGap(); _stopTicker(); _clearHighlight(); _rsvpHide();
         E.playing = false; E.idx = 0; E.subChar = 0;
         _paint(false); _renderProgress(1);
     }
     function _stop(keepWrap) {
-        _clearGap(); _stopTicker(); _clearHighlight();
+        _clearGap(); _stopTicker(); _clearHighlight(); _rsvpHide();
         try { window.speechSynthesis.cancel(); } catch (e) {}
         E.playing = false; E.utter = null; E.idx = 0; E.subChar = 0;
         _paint(false); _renderProgress(0);
@@ -290,7 +433,13 @@
     }
 
     // ── Ticker barra di avanzamento ────────────────────────────────────────
-    function _startTicker() { _stopTicker(); E.ticker = setInterval(function () { if (!E.dragging) _renderProgress(E.total ? _globalTime() / E.total : 0); }, 100); }
+    function _startTicker() {
+        _stopTicker();
+        E.ticker = setInterval(function () {
+            if (!E.dragging) _renderProgress(E.total ? _globalTime() / E.total : 0);
+            if (E.playing && !E.bnd) _estimateWord(); // voci senza `boundary`
+        }, 100);
+    }
     function _stopTicker() { if (E.ticker) { clearInterval(E.ticker); E.ticker = null; } }
     function _fmt(sec) { sec = Math.max(0, Math.round(sec)); var m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
     function _renderProgress(ratio) {
@@ -324,6 +473,19 @@
             var t = _globalTime(); _recomputeTiming();
             if (E.playing) _seekToTime(t); else _renderProgress(E.total ? t / E.total : 0);
         }
+    }
+    function _cycleEffect() {
+        var fx = EFFECTS[(EFFECTS.indexOf(_effect()) + 1) % EFFECTS.length];
+        try { localStorage.setItem(LS_EFFECT, fx); } catch (e) {}
+        _mounted.forEach(function (h) {
+            var seg = h.wrap.querySelector('.mai-tts-fx'); if (!seg) return;
+            seg.innerHTML = '<i data-lucide="' + FX_ICON[fx] + '"></i>';
+            seg.title = _fxLabel(fx); seg.setAttribute('aria-label', _fxLabel(fx));
+        });
+        _icons();
+        if (E.playing && E.chunks.length) { var k = E.wordIdx; _highlight(E.idx); _word(Math.max(0, k)); }
+        if (fx !== 'rsvp') _rsvpHide();
+        try { window.showToast && window.showToast(_fxLabel(fx), 'info'); } catch (e) {}
     }
     // Avvio dell'ascolto da un titolo/sezione specifica del corpo.
     function playFromNode(bodyEl, node) {
@@ -361,6 +523,7 @@
                 '<button type="button" class="mai-tts-seg mai-tts-play" title="' + _t('tts_play', 'Ascolta / Pausa') + '" aria-label="' + _t('tts_play', 'Ascolta / Pausa') + '"><i data-lucide="play"></i></button>' +
                 '<button type="button" class="mai-tts-seg mai-tts-fwd" title="' + _t('tts_fwd', 'Avanti 5 secondi') + '" aria-label="' + _t('tts_fwd', 'Avanti 5 secondi') + '"><i data-lucide="rotate-cw"></i><span>5</span></button>' +
                 '<button type="button" class="mai-tts-seg mai-tts-rate" title="' + _t('tts_rate', 'Velocità di lettura') + '" aria-label="' + _t('tts_rate', 'Velocità di lettura') + '">×' + SPEEDS[_rateIdx()] + '</button>' +
+                '<button type="button" class="mai-tts-seg mai-tts-fx" title="' + _fxLabel(_effect()) + '" aria-label="' + _fxLabel(_effect()) + '"><i data-lucide="' + FX_ICON[_effect()] + '"></i></button>' +
             '</span>' +
             '<span class="mai-tts-progress" role="slider" aria-label="' + _t('tts_progress', 'Avanzamento lettura') + '" tabindex="0"><span class="mai-tts-fill"></span><span class="mai-tts-thumb"></span></span>' +
             '<span class="mai-tts-time">0:00</span>';
@@ -369,6 +532,7 @@
         wrap.querySelector('.mai-tts-play').addEventListener('click', function () { _togglePlay(wrap); });
         wrap.querySelector('.mai-tts-fwd').addEventListener('click', function () { _seek(wrap, FWD_SEC); });
         wrap.querySelector('.mai-tts-rate').addEventListener('click', function () { _cycleRate(wrap); });
+        wrap.querySelector('.mai-tts-fx').addEventListener('click', function () { _cycleEffect(); });
         _wireProgress(wrap);
         return wrap;
     }
@@ -471,9 +635,28 @@
         _mounted = _mounted.filter(function (h) { return h.wrap.isConnected; });
     }
     function isFloatingOpen() { return !!document.getElementById('mai-tts-float'); }
+    function _applyScale(f, btn) {
+        var sc = _scale();
+        f.classList.toggle('mai-tts-float--x15', sc === 1.5);
+        f.classList.toggle('mai-tts-float--x2', sc === 2);
+        if (btn) {
+            btn.querySelector('span').textContent = '×' + sc;
+            var l = _t('tts_scale', 'Grandezza del testo') + ' ×' + sc;
+            btn.title = l; btn.setAttribute('aria-label', l);
+        }
+    }
+    function _cycleScale(f, btn) {
+        var sc = SCALES[(SCALES.indexOf(_scale()) + 1) % SCALES.length];
+        try { localStorage.setItem(LS_SCALE, String(sc)); } catch (e) {}
+        _applyScale(f, btn);
+        // cambiata la misura, la parola corrente torna in vista
+        var k = E.wordIdx; if (k >= 0) { E.wordIdx = -1; _word(k); }
+    }
     function playFloating(opts) {
         opts = opts || {};
         _closeFloat();
+        // un lettore flottante alla volta (anche la lettura veloce usa .mai-tts-float)
+        try { document.querySelectorAll('.mai-tts-float').forEach(function (el) { el.remove(); }); } catch (e) {}
         var f = document.createElement('div');
         f.id = 'mai-tts-float'; f.className = 'mai-tts-float';
         f.setAttribute('lang', (opts.lang === 'en-US' || opts.lang === 'en') ? 'en' : 'it');
@@ -481,11 +664,19 @@
         close.type = 'button'; close.className = 'mai-tts-float-close';
         close.setAttribute('aria-label', _t('tts_close', 'Chiudi')); close.textContent = '✕';
         close.addEventListener('click', _closeFloat);
+        var size = document.createElement('button');
+        size.type = 'button'; size.className = 'mai-tts-float-size';
+        size.innerHTML = '<i data-lucide="a-large-small"></i><span></span>';
+        size.addEventListener('click', function () { _cycleScale(f, size); });
+        // a ×2 il titolo esce dalla riga che scorre e sta qui
+        var titleBar = document.createElement('div'); titleBar.className = 'mai-tts-float-t';
+        titleBar.textContent = opts.title || '';
         var bodyEl = document.createElement('div'); bodyEl.className = 'mai-tts-float-body';
         if (opts.title) { var h = document.createElement('h4'); h.textContent = opts.title; bodyEl.appendChild(h); }
         var p = document.createElement('p'); p.textContent = opts.text || ''; bodyEl.appendChild(p);
         var ctrl = document.createElement('div'); ctrl.className = 'mai-tts-float-ctrl';
-        f.appendChild(close); f.appendChild(bodyEl); f.appendChild(ctrl);
+        f.appendChild(close); f.appendChild(size); f.appendChild(titleBar); f.appendChild(bodyEl); f.appendChild(ctrl);
+        _applyScale(f, size);
         document.body.appendChild(f);
         var wrap = _makeControl(function () { return bodyEl; });
         wrap._floating = true;
@@ -545,7 +736,38 @@
             '.mai-tts-float-body h4{font-size:14px;font-weight:800;color:#4338ca;margin:0 0 6px}' +
             '.mai-tts-float-body p{font-size:13px;line-height:1.75;color:#334155;margin:0}' +
             '.mai-tts-float-ctrl{display:flex}' +
+            // effetti parola per parola
+            '::highlight(mai-tts-word-u){text-decoration:underline;text-decoration-color:#4f46e5;text-decoration-thickness:3px;text-underline-offset:5px;background-color:rgba(199,210,254,.55)}' +
+            '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(100,116,139,.35) !important}' +
+            '::highlight(mai-tts-word-lit){color:#0f172a;background-color:rgba(253,230,138,.6)}' +
+            // una parola alla volta: la lettera di fuoco ferma al centro, fra due tacche
+            '.mai-rsvp{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:1.9em;padding:.35em 0;margin:0 0 10px;border-radius:12px;background:#f8fafc;color:#0f172a;font-size:34px;font-weight:700;line-height:1.1;font-family:var(--app-font,"Space Mono",monospace);overflow:hidden}' +
+            '.mai-rsvp::before,.mai-rsvp::after{content:"";position:absolute;left:50%;width:2px;height:.3em;background:#ef4444;transform:translateX(-50%)}' +
+            '.mai-rsvp::before{top:4px}.mai-rsvp::after{bottom:4px}' +
+            '.mai-rsvp__w{display:grid;grid-template-columns:1fr auto 1fr;width:100%;white-space:pre}' +
+            '.mai-rsvp__b{text-align:right}.mai-rsvp__o{color:#ef4444}.mai-rsvp__a{text-align:left}' +
+            '.mai-tts-rsvp{margin:10px 20px 0}' +
+            '.mai-tts-float .mai-tts-rsvp{margin:2px 30px 10px 0}' +
+            // grandezza del pannello flottante
+            '.mai-tts-float-size{position:absolute;top:7px;right:40px;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border:1px solid #e2e8f0;border-radius:9999px;background:#fff;color:#4f46e5;cursor:pointer;font:700 11px "Space Mono",monospace}' +
+            '.mai-tts-float-size svg,.mai-tts-float-size i{width:15px;height:15px}' +
+            '.mai-tts-float:not(.mai-tts-float--x15):not(.mai-tts-float--x2) .mai-tts-float-body h4{padding-right:84px}' +
+            '.mai-tts-float-t{display:none;font-size:13px;font-weight:800;color:#4338ca;margin:0 130px 8px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+            '.mai-tts-float--x15,.mai-tts-float--x2{padding-top:42px}' +
+            '.mai-tts-float--x15{width:min(880px,96vw)}' +
+            '.mai-tts-float--x15 .mai-tts-float-body{max-height:calc(3 * 22px * 1.6);overflow:hidden;margin-right:0}' +
+            '.mai-tts-float--x15 .mai-tts-float-body p{font-size:22px;line-height:1.6}' +
+            '.mai-tts-float--x15 .mai-rsvp{font-size:48px}' +
+            '.mai-tts-float--x2{width:calc(100vw - 24px);bottom:12px}' +
+            '.mai-tts-float--x15 .mai-tts-float-t,.mai-tts-float--x2 .mai-tts-float-t{display:block;position:absolute;top:12px;left:18px;right:130px;margin:0}' +
+            '.mai-tts-float--x2 .mai-tts-float-body{max-height:calc(36px * 1.4);overflow:hidden;margin-right:0}' +
+            '.mai-tts-float--x15 .mai-tts-float-body h4,.mai-tts-float--x2 .mai-tts-float-body h4{display:none}' +
+            '.mai-tts-float--x2 .mai-tts-float-body p{font-size:36px;line-height:1.4}' +
+            '.mai-tts-float--x2 .mai-rsvp{font-size:64px}' +
             '@media (prefers-color-scheme: dark){' +
+            '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(148,163,184,.35) !important}::highlight(mai-tts-word-lit){color:#fff;background-color:rgba(202,138,4,.55)}' +
+            '::highlight(mai-tts-word-u){text-decoration-color:#a5b4fc;background-color:rgba(67,56,202,.45)}' +
+            '.mai-rsvp{background:#0f172a;color:#f1f5f9}.mai-tts-float-size{background:#1e293b;border-color:#334155;color:#a5b4fc}.mai-tts-float-t{color:#c7d2fe}' +
             '.mai-tts-chip{background:#1e293b;border-color:#334155}.mai-tts-seg{color:#a5b4fc;border-left-color:#334155}.mai-tts-seg:hover{background:#334155}' +
             '.mai-tts-progress{background:#334155}.mai-tts-time{color:#94a3b8}.mai-tts-sec{background:#312e81;color:#c7d2fe}' +
             '.mai-tts-block{background:rgba(202,138,4,.30);box-shadow:0 0 0 3px rgba(202,138,4,.30)}::highlight(mai-tts-read){background-color:#ca8a04;color:#fff}' +
@@ -598,7 +820,7 @@
         isEnabled: isEnabled, setEnabled: setEnabled, toggle: toggle, invalidate: invalidate,
         mountChip: mountChip, mountSlot: mountSlot, scanSlots: scanSlots,
         enableSectionPlay: enableSectionPlay, playFromNode: playFromNode,
-        playFloating: playFloating, playSlotNear: playSlotNear, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
+        playFloating: playFloating, playSlotNear: playSlotNear, effect: _effect, closeFloating: _closeFloat, isFloatingOpen: isFloatingOpen,
         stop: function () { _stop(); }, _speeds: SPEEDS
     };
 
