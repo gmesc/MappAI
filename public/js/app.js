@@ -548,7 +548,7 @@ const MARKER_END = String.fromCharCode(96, 96, 96);
    ========================================== */
 
 if (typeof pdfjsLib !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/vendor/pdf.worker.min.js';
 } else {
     console.warn("pdfjsLib non caricato correttamente. L'estrazione da PDF potrebbe non funzionare.");
 }
