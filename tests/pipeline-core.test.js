@@ -919,3 +919,74 @@ test('corretteTroppoLunghe: senza item riconoscibili non inventa numeri', () => 
   assert.strictEqual(r.quota, 0);
   assert.strictEqual(r.margineMediano, 1);
 });
+
+// ── IL BUDGET DALLA FONTE (16/9/2026) ───────────────────────────────────────
+// La prova che conta non è un caso inventato: è che la funzione classifichi i
+// TRE PROGETTI VERI come sono stati misurati sui loro dati.
+// Formula verificata su di essi: rami × per-ramo × (tipi singoli + tipi × angoli).
+
+const quiz7 = (perBranch) => ({ quiz: { types: ['mc', 'open'], perBranch,
+  multi: ['mc', 'open'], angoli: ['definizione', 'causa', 'conseguenza', 'esempio', 'confronto', 'eccezione', 'applicazione'] } });
+
+test('budget: Officina Elettrica — 120 frasi di contenuto, 16 domande → sostenibile', () => {
+  const b = PC.budgetDallaFonte(
+    { quiz: { types: ['mc', 'open'], perBranch: 1, multi: [], angoli: [] } },
+    { branches: 8, nodes: 53 }, { frasi: 120 });
+  assert.strictEqual(b.domande, 16);
+  assert.strictEqual(b.verdetto, 'ok');
+  assert.ok(b.frasiPerDomanda >= 7, `7,5 frasi per domanda, non ${b.frasiPerDomanda}`);
+});
+
+test('budget: Officina Project E — 120 frasi, 168 domande → eccessivo', () => {
+  const b = PC.budgetDallaFonte(quiz7(2), { branches: 6, nodes: 53 }, { frasi: 120 });
+  assert.strictEqual(b.domande, 168, 'la formula deve riprodurre il numero vero');
+  assert.strictEqual(b.verdetto, 'eccessivo');
+  assert.ok(b.frasiPerDomanda < 1.5);
+});
+
+test('budget: Svizzera e 2a GM — 47 frasi, 252 domande → il caso peggiore', () => {
+  const b = PC.budgetDallaFonte(quiz7(3), { branches: 6, nodes: 46 }, { frasi: 47 });
+  assert.strictEqual(b.verdetto, 'eccessivo');
+  assert.ok(b.frasiPerDomanda < 0.3, `${b.frasiPerDomanda} domande per frase`);
+  // 47 frasi ne reggono 15, non 252
+  assert.strictEqual(b.tetto, 15);
+});
+
+test('budget: la leva proposta sono gli ANGOLI, non la copertura dei rami', () => {
+  const b = PC.budgetDallaFonte(quiz7(2), { branches: 6, nodes: 53 }, { frasi: 120 });
+  assert.ok(b.angoliConsigliati < 7, 'deve proporre meno angoli');
+  assert.ok(b.angoliConsigliati >= 1, 'mai zero: si genera comunque qualcosa');
+  // con gli angoli consigliati si sta sotto il tetto
+  const dopo = 6 * 2 * (0 + 2 * b.angoliConsigliati);
+  assert.ok(dopo <= b.tetto, `${dopo} domande contro un tetto di ${b.tetto}`);
+});
+
+test('budget: quando gli angoli non bastano, scende il per-ramo', () => {
+  // fonte piccolissima: anche un angolo solo produce troppo
+  const b = PC.budgetDallaFonte(quiz7(5), { branches: 8, nodes: 40 }, { frasi: 20 });
+  assert.strictEqual(b.angoliConsigliati, 1);
+  assert.ok(b.perRamoConsigliato < 5, 'deve scendere anche il per-ramo');
+  assert.strictEqual(b.bastanoGliAngoli, false);
+});
+
+test('budget: il verdetto guarda le DOMANDE, non il foglio dei nodi', () => {
+  // il foglio dei nodi è 1:1 con la mappa: 53 fogli non competono per la materia
+  const soloFogli = PC.budgetDallaFonte({ nodesheet: { modes: ['card'] } },
+    { branches: 6, nodes: 53 }, { frasi: 47 });
+  assert.strictEqual(soloFogli.verdetto, 'ok');
+  assert.strictEqual(soloFogli.domande, 0);
+  assert.strictEqual(soloFogli.altri, 53, 'si contano lo stesso, per dire la massa');
+});
+
+test('budget: senza fonte misurata non inventa un verdetto', () => {
+  const b = PC.budgetDallaFonte(quiz7(3), { branches: 6, nodes: 46 }, {});
+  assert.strictEqual(b.verdetto, 'sconosciuto');
+  assert.strictEqual(b.frasiPerDomanda, null);
+  assert.strictEqual(b.tetto, 0);
+});
+
+test('budget: senza quiz non c\'e niente da limitare', () => {
+  const b = PC.budgetDallaFonte({}, { branches: 6, nodes: 46 }, { frasi: 47 });
+  assert.strictEqual(b.domande, 0);
+  assert.strictEqual(b.verdetto, 'ok');
+});

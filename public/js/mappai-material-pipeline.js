@@ -107,6 +107,30 @@
     if (!branches.length && nodes.length) branches = [nodes[0]];
     return branches;
   }
+  /* Quante frasi di CONTENUTO ha la fonte di questa generazione. Le conta
+     l'àncora coi suoi filtri di sempre (≥5 parole, via intestazioni ricorrenti e
+     consegne degli esercizi): è il denominatore del budget, e deve essere lo
+     stesso numero che l'àncora userà poi per la copertura — un secondo conteggio
+     scritto qui divergerebbe al primo ritocco (inv. 6).
+     Senza fonte leggibile torna {} e il budget dice «sconosciuto» invece di
+     inventare un verdetto. */
+  function _fonteStats() {
+    try {
+      const A = window.MappAIAnchorCore;
+      if (!A || typeof A.frasiDaPagine !== 'function') return {};
+      const src = (window.MappAIReview && window.MappAIReview.sources && window.MappAIReview.sources())
+        || _state()._generationSources || _state().sources || [];
+      const pagine = [];
+      (src || []).forEach(o => {
+        if (typeof o === 'string') { pagine.push({ n: 0, text: o }); return; }
+        const pp = (o && o.pages && o.pages.length) ? o.pages : [{ n: (o && o.page) || 0, text: (o && (o.content || o.text)) || '' }];
+        pp.forEach(pg => pagine.push({ n: pg.n || pg.page || 0, text: pg.text || pg.content || '' }));
+      });
+      if (!pagine.some(pg => String(pg.text || '').trim())) return {};
+      return { frasi: A.frasiDaPagine(pagine).length };
+    } catch (e) { return {}; }
+  }
+
   function _mapStats() {
     const nodes = (_state().db && _state().db.nodes) || [];
     return { branches: _branchNodes().length, nodes: nodes.length, willGenerateMap: true };
@@ -1925,8 +1949,47 @@
     if (!_hasOutput(cfg)) { el.innerHTML = _esc(_t('mp_pick_one', 'Attiva almeno una sezione di output.')); return; }
     const est = PC().estimateCalls(cfg, _mapStats());
     el.innerHTML = _esc(_t('mp_estimate', 'Stima chiamate AI') + ': ~' + est.total) +
-      ' <span style="opacity:.6">(A ' + est.perStep.A + ' · B ' + est.perStep.B + ' · C ' + est.perStep.C + ' · D ' + est.perStep.D + ')</span>' + (window.MappAIReview && window.MappAIReview.enabled() ? ' <span>' + _esc(_t('rv_estimate_checks', '+ controlli sui contenuti')) + '</span>' : '');
+      ' <span style="opacity:.6">(A ' + est.perStep.A + ' · B ' + est.perStep.B + ' · C ' + est.perStep.C + ' · D ' + est.perStep.D + ')</span>' + (window.MappAIReview && window.MappAIReview.enabled() ? ' <span>' + _esc(_t('rv_estimate_checks', '+ controlli sui contenuti')) + '</span>' : '')
+      + _budgetHtml(cfg);
   };
+
+  /* ── IL BUDGET, accanto alla stima ─────────────────────────────────────────
+     La stima dice quanto COSTA; questo dice se la fonte REGGE quello che si sta
+     per chiedere. Sta nello stesso elemento e nello stesso ciclo perché è la
+     stessa domanda in due metà, e perché un secondo riquadro sarebbe un secondo
+     posto da guardare.
+     NON blocca e non cambia le spunte: fa VEDERE il rapporto prima di generare.
+     Con 47 frasi e 252 domande il docente sa, e decide lui. */
+  /* «1 angolazioni» non si dice, e «una angolazione» nemmeno — in italiano
+     l'articolo si elide davanti a vocale. Una riga d'avviso che sgrammatica si
+     legge come un difetto dell'app prima ancora del suo contenuto. */
+  function _angoliDette(n) {
+    return n === 1 ? _t('mp_budget_ang_1', 'un\u2019angolazione') : n + ' ' + _t('mp_budget_ang_n', 'angolazioni');
+  }
+  // In italiano il decimale è la VIRGOLA: «2.4 per frase» è un numero inglese.
+  function _num(x) {
+    try { return Number(x).toLocaleString(window.appLang === 'en' ? 'en-US' : 'it-IT'); }
+    catch (e) { return String(x); }
+  }
+
+  function _budgetHtml(cfg) {
+    const b = PC().budgetDallaFonte(cfg, _mapStats(), _fonteStats());
+    if (b.verdetto === 'sconosciuto' || !b.domande) return '';
+    const riga = _t('mp_budget', 'La fonte ha {frasi} frasi di contenuto: {domande} domande sono {rapporto} per frase')
+      .replace('{frasi}', _num(b.frasi)).replace('{domande}', _num(b.domande))
+      .replace('{rapporto}', b.frasiPerDomanda >= 1
+        ? _t('mp_budget_ogni', 'una ogni ') + _num(b.frasiPerDomanda)
+        : _num(b.domandePerFrase) + _t('mp_budget_per', ''));
+    if (b.verdetto === 'ok') return '<div style="opacity:.6;margin-top:4px">' + _esc(riga) + '</div>';
+    const colore = b.verdetto === 'eccessivo' ? '#b91c1c' : '#b45309';
+    const consiglio = b.bastanoGliAngoli
+      ? _t('mp_budget_angoli', 'Con {n} invece di {tot} le domande poggiano su contenuto diverso.')
+        .replace('{n}', _angoliDette(b.angoliConsigliati)).replace('{tot}', _angoliDette(b.angoli))
+      : _t('mp_budget_meno', 'Questa fonte ne regge circa {tetto}: prova {n} e {per} per ramo.')
+        .replace('{tetto}', _num(b.tetto)).replace('{n}', _angoliDette(b.angoliConsigliati)).replace('{per}', b.perRamoConsigliato);
+    return '<div style="color:' + colore + ';margin-top:4px;font-weight:700">' + _esc(riga) + '</div>'
+      + '<div style="color:' + colore + ';opacity:.85">' + _esc(consiglio) + '</div>';
+  }
 
   // A new material job keeps the approved map and the previous delivery.
   Pipeline.runApprovedMaterials = async function (config, target, presetId) {

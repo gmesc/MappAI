@@ -694,6 +694,101 @@
 
   // ── Stima chiamate AI ───────────────────────────────────────────────────
   // mapStats = { branches, nodes, willGenerateMap?, keywordBatch?, audioBlocks? }
+  /* ── IL BUDGET DALLA FONTE (16 settembre 2026) ─────────────────────────────
+     `estimateCalls` qui sotto dice quanto COSTA una generazione. Questa dice
+     un'altra cosa, che finora nessuno chiedeva: quanta MATERIA c'è davvero
+     nella fonte per sostenerla.
+
+     IL FATTO DA CUI NASCE. Contati sui tre progetti veri, dai loro dati:
+
+       progetto              frasi di CONTENUTO   domande   frasi per domanda
+       Officina Elettrica           120                16            7,5
+       Officina Project E           120               168            0,71
+       Svizzera e 2a GM              47               252            0,19
+
+     Le frasi le conta `AnchorCore.frasiDaPagine` con i suoi filtri di sempre:
+     almeno cinque parole, via le intestazioni ricorrenti e le consegne degli
+     esercizi. È il denominatore onesto — CONTENUTO, non impaginazione.
+
+     Quarantasette frasi non contengono duecentocinquantadue domande diverse.
+     Il modello, messo davanti a quel compito, può solo parafrasare, duplicare o
+     inventare — ed è quello che gli audit hanno trovato (le aperte 1/6 e 2/4 che
+     chiedono la stessa cosa). Nessuno ha DECISO quel numero: esce da una
+     combinatoria, `rami × per-ramo × angoli`, dove gli angoli di default erano
+     sette. La formula qui sotto è verificata su quei tre casi:
+     Project E = 6 × 2 × (2 tipi × 7 angoli) = 168, esatto.
+
+     PERCHÉ IL VERDETTO GUARDA SOLO LE DOMANDE. Il foglio dei nodi è 1:1 con la
+     mappa, la sintesi è una per ramo: la loro quantità è governata dalla mappa,
+     non da una moltiplicazione, e non compete per la stessa materia. Sono le
+     domande a essere combinatorie, e solo loro.
+
+     LA SOGLIA NON È UNA LEGGE. Tre frasi per domanda è il punto sotto cui due
+     domande cominciano a poggiare sullo stesso contenuto. È un numero scelto,
+     dichiarato qui, e si cambia in un posto solo. Serve a far VEDERE il rapporto
+     prima di generare, non a vietare: chi vuole di più lo chiede sapendo che
+     cosa chiede. */
+  var FRASI_PER_DOMANDA = 3;
+
+  function budgetDallaFonte(config, mapStats, fonte) {
+    config = config || {}; mapStats = mapStats || {}; fonte = fonte || {};
+    var frasi = Math.max(0, parseInt(fonte.frasi, 10) || 0);
+    var rami = mapStats.branches || 0;
+    var nodi = mapStats.nodes || 0;
+
+    var domande = 0, perRamo = 0, nAng = 1, singoli = 0, nMulti = 0;
+    if (config.quiz) {
+      perRamo = Math.max(1, parseInt(config.quiz.perBranch, 10) || 1);
+      var multi = multiTypes(config.quiz);
+      nMulti = multi.length;
+      nAng = Math.max(1, angoliScelti(config.quiz).length);
+      singoli = (config.quiz.types || []).filter(function (t) { return multi.indexOf(t) < 0; }).length;
+      domande = rami * perRamo * (singoli + nMulti * nAng);
+    }
+    /* Gli altri materiali si contano per completezza — il docente vede la massa
+       totale che gli arriverà — ma non entrano nel verdetto. */
+    var altri = (config.nodesheet ? nodi : 0)
+      + (config.synthesis ? Math.max(1, rami) : 0)
+      + (config.causal ? Math.max(1, rami) : 0)
+      + (config.flashcards ? rami * perRamo : 0);
+
+    var perDomanda = domande > 0 ? frasi / domande : Infinity;
+    var verdetto = !frasi ? 'sconosciuto'
+      : !domande ? 'ok'
+        : perDomanda >= FRASI_PER_DOMANDA ? 'ok'
+          : perDomanda >= FRASI_PER_DOMANDA / 2 ? 'stretto' : 'eccessivo';
+
+    /* Che cosa reggerebbe questa fonte: il tetto, e la configurazione più ricca
+       che ci sta dentro. Si toglie prima dagli ANGOLI, che sono il moltiplicatore
+       più grosso e il meno scelto consapevolmente; solo dopo dal per-ramo. */
+    var tetto = frasi ? Math.floor(frasi / FRASI_PER_DOMANDA) : 0;
+    var perGiro = rami * perRamo * (singoli + nMulti);
+    var angoliConsigliati = nAng, perRamoConsigliato = perRamo;
+    if (frasi && domande > tetto) {
+      angoliConsigliati = nMulti && perGiro
+        ? Math.max(1, Math.min(nAng, Math.floor((tetto - rami * perRamo * singoli) / (rami * perRamo * nMulti))))
+        : 1;
+      var conAngoli = rami * perRamo * (singoli + nMulti * angoliConsigliati);
+      if (conAngoli > tetto && rami) {
+        perRamoConsigliato = Math.max(1, Math.floor(tetto / (rami * (singoli + nMulti * angoliConsigliati))));
+      }
+    }
+    return {
+      frasi: frasi, domande: domande, altri: altri, item: domande + altri,
+      frasiPerDomanda: domande > 0 && frasi ? Number(perDomanda.toFixed(2)) : null,
+      /* Il reciproco, calcolato QUI: sotto una frase per domanda il numero
+         leggibile è «quante domande per frase», e l'aritmetica non si rifà nella
+         UI — è dove si sbaglia un fattore dieci senza accorgersene. */
+      domandePerFrase: domande > 0 && frasi ? Number((domande / frasi).toFixed(1)) : null,
+      verdetto: verdetto, tetto: tetto, sogliaFrasiPerDomanda: FRASI_PER_DOMANDA,
+      angoli: nAng, angoliConsigliati: angoliConsigliati,
+      perRamo: perRamo, perRamoConsigliato: perRamoConsigliato,
+      /* `true` quando basta togliere angoli: è la leva che il docente capisce
+         («meno tagli della stessa cosa») e quella che non tocca la copertura. */
+      bastanoGliAngoli: angoliConsigliati < nAng && perRamoConsigliato === perRamo
+    };
+  }
+
   function estimateCalls(config, mapStats) {
     config = config || {}; mapStats = mapStats || {};
     var branches = mapStats.branches || 0;
@@ -1032,6 +1127,7 @@
     contaGraduazione: contaGraduazione,
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
+    budgetDallaFonte: budgetDallaFonte, FRASI_PER_DOMANDA: FRASI_PER_DOMANDA,
     semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, posizioniCorrette: posizioniCorrette,
     similitudine: similitudine, deduplicaDomande: deduplicaDomande,
     livelloVerificato: livelloVerificato, criteriDaItem: criteriDaItem,
