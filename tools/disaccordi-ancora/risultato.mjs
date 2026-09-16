@@ -57,13 +57,13 @@ function binomiale(k, n) {
     return n ? Math.min(1, 2 * p / Math.pow(2, n)) : 1;
 }
 console.log('\nPrima frase, nodo per nodo (conta solo dove uno dei due ha ragione e l\'altro no):');
-[['rerank', 'ancora'], ['rerank', 'bm25'], ['ancora', 'bm25']].forEach(([a, b]) => {
+M.flatMap((a, k) => M.slice(k + 1).map(b => [a, b])).forEach(([a, b]) => {
     let va = 0, vb = 0;
     Object.keys(primaGiusta[a]).forEach(id => { if (primaGiusta[a][id] && !primaGiusta[b][id]) va++; if (!primaGiusta[a][id] && primaGiusta[b][id]) vb++; });
     const p = binomiale(Math.min(va, vb), va + vb);
     console.log('  ' + nome[a] + ' contro ' + nome[b] + ': ' + va + ' a ' + vb + ' · p = ' + p.toFixed(3).replace('.', ',') + (p < 0.05 ? '' : '  (non ancora solido)'));
 });
 const tutti = C.casi.filter(c => S[c.id] && (S[c.id].prove || []).length && M.every(m => !primaGiusta[m][c.id])).map(c => c.label);
-if (tutti.length) console.log('\nNodi dove nessuno dei tre ha la prima frase giusta: ' + tutti.join(' · '));
+if (tutti.length) console.log('\nNodi dove nessun metodo ha la prima frase giusta: ' + tutti.join(' · '));
 const note = C.casi.filter(c => S[c.id] && String(S[c.id].nota || '').trim());
 if (note.length) { console.log('\nNote del docente:'); note.forEach(c => console.log('  «' + c.label + '»: ' + S[c.id].nota)); }
