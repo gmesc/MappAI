@@ -79,3 +79,10 @@ docs/archify/*.visual-check.*
 # La pagina dei disaccordi (16/9/26): misura come si scelgono le frasi di prova dei nodi.
 # Solo lo strumento: le pagine generate stanno in local-ai-data/, che resta fuori.
 !tools/disaccordi-ancora/**
+# Tre banchi di tools/smoke/ (moduli VERI con un finto window) e il loro LEGGIMI,
+# riparati il 15/9/26. Uno per uno, non la cartella: censimento-maniglia-cdp.js
+# porta un percorso del disco, review-dashboard-preview.js non è stato riletto.
+!tools/smoke/cornice-documenti.js
+!tools/smoke/pipeline-lucchetto.js
+!tools/smoke/visione-fogli.js
+!tools/smoke/LEGGIMI.md
