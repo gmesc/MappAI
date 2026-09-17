@@ -1340,7 +1340,10 @@
             const buttons = document.createElement('div'); buttons.className = 'mrv-relation-fields';
             fields.forEach(field => {
               const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel'; button.disabled = busy;
-              button.setAttribute('data-relation-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
+              button.setAttribute('data-relation-edit', field);
+              // come nei materiali (17/9/26): la parte già cambiata dalle decisioni è una proposta, l'altra è l'originale
+              const cambiata = (typeof result[field] === 'string' ? result[field] : '') !== item[field];
+              button.textContent = (cambiata ? t('rv_coverage_edit_proposal', 'Modifica proposta') : t('rv_coverage_edit_original', 'Modifica originale')) + ' · ' + fieldName(field, item);
               button.onclick = async () => {
                 if (busy) return;
                 const input = editor.querySelector('[data-review-field="' + field + '"]');

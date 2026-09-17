@@ -504,6 +504,10 @@ test('relationship editing previews every chosen field, offers the gerund fix ex
   assert.doesNotMatch(card.querySelector('[data-relation-sentence]').textContent, /src-water|→/);
   assert.ok(card.querySelector('[data-relation-hint]'));
   assert.deepEqual(m, untouched, 'the hint never edits the teacher’s text on its own');
+  // l'etichetta dice quale versione si modifica (17/9/26): il nesso accettato è una proposta, le altre parti l'originale
+  assert.match(card.querySelector('[data-relation-edit=text]').textContent, /^Modifica proposta · /);
+  assert.match(card.querySelector('[data-relation-edit=question]').textContent, /^Modifica originale · /);
+  assert.match(card.querySelector('[data-relation-edit=answer]').textContent, /^Modifica originale · /);
   await card.querySelector('[data-relation-edit=question]').click();
   card = currentCard(modal);
   const input = card.querySelector('[data-review-field=question]');
@@ -514,6 +518,7 @@ test('relationship editing previews every chosen field, offers the gerund fix ex
   assert.equal(card.querySelector('[data-relation-hint]'), null);
   assert.match(card.querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a/);
   assert.equal(card.querySelector('[data-relation-part=question]').getAttribute('data-changed'), 'true');
+  assert.match(card.querySelector('[data-relation-edit=question]').textContent, /^Modifica proposta · /, 'once edited, the part is a proposal');
   assert.equal(m.review.final.review.initial.decisions.wording.text, item.question.replace('con facendo', 'facendo'));
   assert.deepEqual(m.review.final.items, [item], 'approval, not an inline suggestion, updates the published draft');
 
