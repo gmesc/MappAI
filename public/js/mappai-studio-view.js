@@ -1092,6 +1092,9 @@
             const k = Math.min(MW / w, MH / h);
             const dw = w * k, dh = h * k;
             await doc.svg(clone, { x: MX + (MW - dw) / 2, y: MY + (MH - dh) / 2, width: dw, height: dh });
+            /* chi ospita la vista può salvare il PDF a modo suo: su iPad `doc.save` non
+               scrive nulla (MappAI studente, 17/9 — l'avviso verde senza file) */
+            if (typeof window.MappAISalvaPdf === 'function') { await window.MappAISalvaPdf(doc, fileName); return; }
             doc.save(fileName);
             if (window.showToast) window.showToast(t('sv_pdf_ok', 'PDF esportato'), 'success');
         } catch (e) {

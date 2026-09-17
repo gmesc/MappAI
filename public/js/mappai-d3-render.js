@@ -1418,6 +1418,7 @@ window.exportPDF = async function () {
         const meta = _studyMapPdfName();
         _archiveMapPdf(pdf, meta);   // salva nei Documenti di studio
 
+        if (typeof window.MappAISalvaPdf === 'function') { await window.MappAISalvaPdf(pdf, meta.name + '.pdf'); return; }   // l'ospite salva a modo suo (vedi mappai-studio-view)
         const isCapacitor = typeof window !== 'undefined' && window.Capacitor !== undefined;
         if (isCapacitor) {
             const blob = pdf.output('blob');

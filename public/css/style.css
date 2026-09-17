@@ -2745,3 +2745,24 @@ body.a11y-zoom-x2 #floating-actions-menu label {
 #edit-project-title-input {
     font-size: calc(18px * var(--app-zoom, 1)) !important;
 }
+
+/* ── IL CHIP DELLE LINEE DI SPLIT (17/9/26) ─────────────────────────────────
+   Ogni linea che divide due viste e si trascina porta un chip sottile parallelo
+   a lei, che all'apparire si scuote due volte: senza, quasi nessuno scopre che
+   la linea si sposta (Giacomo). Grigio a riposo, verde (--mm-ok) sotto il dito.
+   Linee verticali: `--mm-chip-asse: x`; orizzontali: aggiungere `.mm-chip-h`. */
+@keyframes mm-chip-nudge { 0%, 100% { translate: 0 0; } 25% { translate: -4px 0; } 75% { translate: 4px 0; } }
+@keyframes mm-chip-nudge-h { 0%, 100% { translate: 0 0; } 25% { translate: 0 -4px; } 75% { translate: 0 4px; } }
+#sidebar-resizer::after,
+#mappai-teacher-review .mrv-divisore::after {
+    content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 40px; margin: -20px 0 0 -2px;
+    border-radius: 4px; background: #94a3b8; pointer-events: none;
+    animation: mm-chip-nudge .45s ease-in-out .8s 2;
+}
+#sidebar-resizer:hover::after,
+#mappai-teacher-review .mrv-divisore:hover::after,
+#mappai-teacher-review .mrv-colonne.is-trascinando .mrv-divisore::after { background: var(--mm-ok, #059669); }
+#mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-divisore::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    #sidebar-resizer::after, #mappai-teacher-review .mrv-divisore::after { animation: none; }
+}
