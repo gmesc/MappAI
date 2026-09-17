@@ -2492,6 +2492,10 @@
     /* ELABORA solo sulle MindMap (come nel ramo storico): su un KG il suo
        empty-state finisce nella landing nascosta dietro la mappa. */
     if (!soloKg) az.push({ id: 'elabora', et: _t('lt_cons_elabora', 'Elabora'), forma: 'azione', icona: 'hexagon', aiuto: _t('lt_cons_tip_elab', 'Apre ELABORA sulla fonte e sui documenti di questa mappa.') });
+    /* «Allievi» (Giacomo, 17/9): UN clic, subito il QR del progetto per MappAI studente —
+       senza il menu dei materiali. Viaggia solo l'elenco chiuso (`relVaultStudente`):
+       mai Studio Attivo, Consegne, chat o i profili (che stanno fuori dal vault). */
+    if (_scambioOn()) az.push({ id: 'invia-allievi', et: _t('lt_cons_allievi', 'Allievi'), forma: 'azione', icona: 'send', chiude: false, aiuto: _t('lt_cons_tip_allievi', 'Un clic: il QR per mandare la mappa e i materiali all\'app MappAI studente.') });
     az.push({ id: 'qr', et: 'QR', forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Condivide un materiale di questa mappa con la classe via codice QR.') });
     az.push({ id: 'cartella', et: _t('lt_cons_cartella', 'Cartella'), forma: 'azione', icona: 'folder', chiude: false, aiuto: _t('lt_cons_tip_folder', 'Apre la cartella del vault nel Finder.') });
     var vuoto = _cons.materiali === null
@@ -3271,6 +3275,11 @@
       if (id === 'ind') { _cons.mat = null; rifai(); return; }
       if (id === 'stampa') return _consStampa();
       if (id === 'qr') return _consQr();
+      if (id === 'invia-allievi') {
+        var mpA = _consMappaScelta();
+        if (mpA && mpA.v && mpA.v.folderName && window.MappAILive && window.MappAILive.shareVaultZipQr) return window.MappAILive.shareVaultZipQr(mpA.v.folderName, mpA.nome);
+        return toast(_t('lt_no_vault', 'Nessuna cartella vault su disco'), 'warning');
+      }
       if (id === 'finder') {
         if (_cons.mat && !_cons.mat.archivio) openDiskFile(_cons.mat.id);
         else openMapsFolder();

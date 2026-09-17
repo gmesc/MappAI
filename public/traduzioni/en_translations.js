@@ -3150,6 +3150,8 @@ const en_translations = {
     lt_cons_apri_mappa: "Map",
     lt_cons_finder: "Finder",
     lt_cons_cartella: "Folder",
+    lt_cons_allievi: "Students",
+    lt_cons_tip_allievi: "One click: the QR that sends the map and materials to the MappAI student app.",
     lt_cons_tip_apri: "Opens the mind map view.",
     lt_cons_tip_elab: "Opens PROCESS on the source and documents of this map.",
     lt_cons_tip_qr: "Shares a material of this map with the class via QR code.",
