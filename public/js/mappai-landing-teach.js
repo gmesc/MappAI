@@ -2476,9 +2476,9 @@
      box `materiali` (le stesse `tabelle` del motore, IMPILATE in una colonna:
      a metà larghezza il nome del file si troncava). Il motore disegna da
      `s.bento`; il CONTENUTO dei materiali resta `s.tabelle`.
-     ⚠️ PUNTO FERMO (Giacomo, 13/8): questa forma resta. I comandi sono QUATTRO
-     — Mappa · Elabora · QR · Cartella — e diventano tre sui Knowledge Graph,
-     dove «Elabora» non ha un bersaglio. Le tabelle non tornano su due colonne. */
+     ⚠️ PUNTO FERMO (Giacomo, 13/8): questa forma resta. I comandi sono
+     Mappa · (Proietta) · Allievi · QR · Cartella («Elabora» tolto il 17/9);
+     le tabelle non tornano su due colonne. */
   function _consBentoMappa(s, p) {
     var soloKg = p.type === 'kg';
     var gen = p.dossier ? 'image' : (soloKg ? 'network' : 'git-merge');   /* icona del genere, come la sidebar */
@@ -2489,9 +2489,7 @@
        scheda o un set di domande. Solo sui dossier: sulle mappe non c'è una
        fotografia da proiettare. */
     if (p.dossier) az.push({ id: 'proietta', et: _t('lt_cons_proietta', 'Proietta'), forma: 'azione', icona: 'presentation', chiude: false, aiuto: _t('lt_cons_tip_proietta', 'La fotografia a tutto schermo per la lezione, con la scheda e le domande da affiancare.') });
-    /* ELABORA solo sulle MindMap (come nel ramo storico): su un KG il suo
-       empty-state finisce nella landing nascosta dietro la mappa. */
-    if (!soloKg) az.push({ id: 'elabora', et: _t('lt_cons_elabora', 'Elabora'), forma: 'azione', icona: 'hexagon', aiuto: _t('lt_cons_tip_elab', 'Apre ELABORA sulla fonte e sui documenti di questa mappa.') });
+    /* «Elabora» tolto dai comandi della mappa (Giacomo, 17/9): ELABORA resta dal suo segmento. */
     /* «Allievi» (Giacomo, 17/9): UN clic, subito il QR del progetto per MappAI studente —
        senza il menu dei materiali. Viaggia solo l'elenco chiuso (`relVaultStudente`):
        mai Studio Attivo, Consegne, chat o i profili (che stanno fuori dal vault). */
@@ -2603,7 +2601,7 @@
     if (p) {
       s.sottotitolo = p.nome + (cls ? ' · ' + cls.name : '');
       /* Col cablaggio bento la vista «mappa scelta» diventa il D1 dell'officina:
-         una riga di 4 comandi (Mappa · Elabora · QR · Cartella) al posto del
+         una riga di comandi (Mappa · Allievi · QR · Cartella) al posto del
          banner, e i materiali a due colonne. Il ramo storico resta sotto. */
       if (_bentoApp()) { _consBentoMappa(s, p); return s; }
       /* UNA riga di comandi, senza riquadro: aprire la mappa, la sua cartella,
