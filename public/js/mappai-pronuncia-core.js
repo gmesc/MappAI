@@ -39,15 +39,16 @@
             'approx.': 'approximately', 'B.C.': 'B C', 'A.D.': 'A D', 'km': 'kilometres', 'kg': 'kilograms'
         }
     };
-    /* Giorni e mesi abbreviati: con la maiuscola e SENZA punto sono quasi sempre
-       un nome (Cai Lun, Mar Nero). L'accento sulla vocale non cambia il suono e
-       toglie alla voce l'appiglio per scioglierli. */
+    /* Giorni e mesi abbreviati che la voce italiana di Apple SCIOGLIE anche quando
+       sono un nome («Cai Lun» → «Cai Lunedì»). Misurato il 17/9/26 con `say -v
+       Alice` (le stesse voci dell'iPad) e un trascrittore: Mar, Mer, Gio, Ven,
+       Gen, Ago, Set, Ott li legge già come parole e qui non stanno.
+       ⚠️ L'ACCENTO NON FUNZIONA: «Lùn» non è una parola e viene compitato
+       («elle u enne»), «Màr» diventa «M.A.R.». Raddoppiare la consonante finale
+       sì: «Lunn» dura quanto «Lum», una sillaba, e non si scioglie. Magg, Aprr e
+       Dicc uscivano compitati o storpiati: fuori, come nomi sono rarissimi. */
     var PROTETTI = {
-        it: {
-            'Lun': 'Lùn', 'Mar': 'Màr', 'Mer': 'Mèr', 'Gio': 'Giò', 'Ven': 'Vèn', 'Sab': 'Sàb', 'Dom': 'Dòm',
-            'Gen': 'Gèn', 'Feb': 'Fèb', 'Apr': 'Àpr', 'Mag': 'Màg', 'Giu': 'Giù', 'Lug': 'Lùg',
-            'Ago': 'Àgo', 'Set': 'Sèt', 'Ott': 'Òtt', 'Nov': 'Nòv', 'Dic': 'Dìc'
-        },
+        it: { 'Lun': 'Lunn', 'Sab': 'Sabb', 'Dom': 'Domm', 'Feb': 'Febb', 'Giu': 'Giù', 'Lug': 'Lugg', 'Nov': 'Novv' },
         en: {}
     };
 
@@ -63,15 +64,16 @@
         return { a: a, nucleo: s.slice(0, s.length - z.length), z: z };
     }
 
-    function _unaParola(parola, l) {
-        var p = _parti(parola), n = p.nucleo;
-        var sost = ESTESO[l][n] || PROTETTI[l][n];
-        return sost ? p.a + sost + p.z : parola;
-    }
-
     function perVoce(testo, lang) {
-        var l = _lingua(lang);
-        return String(testo == null ? '' : testo).replace(/\S+/g, function (w) { return _unaParola(w, l); });
+        var l = _lingua(lang), s = String(testo == null ? '' : testo);
+        return s.replace(/\S+/g, function (w, i) {
+            var p = _parti(w), n = p.nucleo;
+            if (ESTESO[l][n]) return p.a + ESTESO[l][n] + p.z;
+            // «Lun 3 marzo» è davvero un giorno: si protegge solo se dopo non c'è un numero.
+            // Una parola ne dà sempre UNA: i conti del karaoke non cambiano.
+            if (PROTETTI[l][n] && !/^\s*\d/.test(s.slice(i + w.length))) return p.a + PROTETTI[l][n] + p.z;
+            return w;
+        });
     }
 
     /* Il punto di questa parola chiude la frase? No, se è un'abbreviazione nota

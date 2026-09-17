@@ -5,17 +5,22 @@ const assert = require('node:assert');
 const P = require('../public/js/mappai-pronuncia-core.js');
 
 test('perVoce: le abbreviazioni di scuola per esteso, la punteggiatura resta', () => {
-    assert.strictEqual(P.perVoce('Nel 105 d.C., Cai Lun inventò la carta'), 'Nel 105 dopo Cristo, Cai Lùn inventò la carta');
+    assert.strictEqual(P.perVoce('Nel 105 d.C., Cai Lun inventò la carta'), 'Nel 105 dopo Cristo, Cai Lunn inventò la carta');
     assert.strictEqual(P.perVoce('(ca. 3000 a.C.)'), '(circa 3000 avanti Cristo)');
     assert.strictEqual(P.perVoce('libri, quaderni ecc.'), 'libri, quaderni eccetera');
     assert.strictEqual(P.perVoce('e.g. paper', 'en-US'), 'for example paper');
 });
 
-test('perVoce: i nomi che sembrano giorni o mesi restano nomi, le vere abbreviazioni no', () => {
-    assert.strictEqual(P.perVoce('Cai Lun'), 'Cai Lùn');
-    assert.strictEqual(P.perVoce('il Mar Nero'), 'il Màr Nero');
+test('perVoce: i nomi che la voce scioglierebbe in giorni o mesi restano nomi, le date no', () => {
+    assert.strictEqual(P.perVoce('Cai Lun'), 'Cai Lunn');
+    assert.strictEqual(P.perVoce('Cai Lun, funzionario'), 'Cai Lunn, funzionario');
+    assert.strictEqual(P.perVoce('il Mar Nero'), 'il Mar Nero', 'Mar la voce lo legge già bene: niente ritocchi');
+    assert.strictEqual(P.perVoce('Lun 3 marzo'), 'Lun 3 marzo', 'seguito da un numero è una data');
     assert.strictEqual(P.perVoce('Lun. 3 marzo'), 'Lun. 3 marzo', 'con il punto è davvero un giorno');
     assert.strictEqual(P.perVoce('la luna'), 'la luna');
+    for (const [k, v] of Object.entries(P._PROTETTI.it)) {
+        assert.ok(!/[àèéìòù]/i.test(v.slice(0, -1)), `${k} → ${v}: l'accento fa compitare la parola`);
+    }
 });
 
 test('perVoce: una parola alla volta dà lo stesso risultato della frase intera (il karaoke conta così)', () => {
