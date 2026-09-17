@@ -3386,14 +3386,21 @@ ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
         const JSZip = require('jszip');
         const zip = new JSZip();
         const root = zip.folder(safe);
-        const addDir = (absDir, zf) => {
+        /* ⚠️ SOLO l'elenco chiuso dello studente (17/9): lo zip portava TUTTO il vault —
+           Studio Attivo (padronanza), Consegne/<classe-numero> degli allievi, chat,
+           pipeline — a chiunque inquadrasse il QR. Ora passa la stessa regola del
+           manifest (`relVaultStudente`): mappa, nodi, materiali per l'allievo, Allegati. */
+        const addDir = (absDir, rel) => {
             for (const ent of fs.readdirSync(absDir, { withFileTypes: true })) {
-                const abs = path.join(absDir, ent.name);
-                if (ent.isDirectory()) addDir(abs, zf.folder(ent.name));
-                else if (ent.isFile()) { try { zf.file(ent.name, fs.readFileSync(abs)); } catch (e) { /* skip unreadable */ } }
+                const abs = path.join(absDir, ent.name), r = rel ? rel + '/' + ent.name : ent.name;
+                if (ent.isDirectory()) { if (ent.name.charAt(0) !== '.') addDir(abs, r); }
+                else if (ent.isFile()) {
+                    const ok = FilesCore.relVaultStudente(r); if (!ok) continue;
+                    try { root.file(ok, fs.readFileSync(abs)); } catch (e) { /* skip unreadable */ }
+                }
             }
         };
-        addDir(srcDir, root);
+        addDir(srcDir, '');
         const buf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
         const fileName = safe.replace(/[^a-zA-Z0-9._-]+/g, '_') + '.zip';
         fs.writeFileSync(path.join(liveMatInfo.filesDir, fileName), buf);
