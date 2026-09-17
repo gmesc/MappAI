@@ -71,6 +71,7 @@ function runtime(opts = {}) {
   const window = { MappAIReviewCore: Core, MappAIMaterialReview: Material, MappAIPipelineCore: Pipeline,
     MappAIReviewContext: require('../public/js/mappai-review-context'),
     MappAIGroundingCore: require('../public/js/mappai-grounding-core.js'),
+    MappAIConfrontoCore: require('../public/js/mappai-confronto-core.js'),
     t: (_key, fallback) => fallback, renderGraph() {}, getSystemKey: () => 'mock-key',
     MappAIPipeline: { run: async () => { calls.pipeline++; } },
     buildVaultMapData: () => ({ ...st.db, reviewRevision: st._reviewRevision, reviewCommit: st._reviewCommit }),
@@ -488,6 +489,14 @@ test('causal cards show the complete relationship and a no-proposal warning; kee
   assert.deepEqual(m.review.final.items, [item]);
   await modal.querySelector('[data-review-filter="decided"]').click();
   assert.match(modal.querySelector('[data-choice]').textContent, /Testo mantenuto senza modifiche/);
+});
+
+test('a proposal on one part of a relationship is compared word by word on the whole relationship', async () => {
+  const item = { id: 'hydraulic', kind: 'causal', step: 'D', question: 'L’acqua scorre nel tubo.', text: 'causa', answer: 'la corrente nel circuito.', citations: [] };
+  const m = finalManifest([item], [{ id: 'connector', target: { kind: 'item', id: item.id, field: 'text' }, after: 'è analogo a', problem: 'Rivedi il rapporto.' }]);
+  const modal = runtime().R.open('/vault', m, { final: true }), card = currentCard(modal);
+  assert.deepEqual(card.querySelectorAll('.mrv-proposal ins').map(x => x.textContent), ['è analogo a']);
+  assert.deepEqual(card.querySelectorAll('.mrv-before del').map(x => x.textContent), ['causa']);
 });
 
 test('relationship editing previews every chosen field, offers the gerund fix explicitly and persists the composed result', async () => {

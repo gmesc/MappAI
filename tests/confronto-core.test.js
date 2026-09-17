@@ -50,3 +50,14 @@ test('confronto: testo vuoto da una parte', () => {
     assert.deepEqual(r.righe[0].a, []);
     assert.equal(C.confronta('', '').righe.length, 0);
 });
+
+test('confronto in linea: i due testi interi, con i soli pezzi cambiati marcati e i paragrafi al loro posto', () => {
+    const r = C.inline('Titolo\nPrima del conflitto. Resta uguale.', 'Titolo\nDopo il conflitto. Resta uguale.');
+    assert.equal(unisci(r.a), 'Titolo\nPrima del conflitto. Resta uguale.');
+    assert.equal(unisci(r.b), 'Titolo\nDopo il conflitto. Resta uguale.');
+    assert.deepEqual(di(r.a, 'tolto'), ['Prima del']); assert.deepEqual(di(r.b, 'aggiunto'), ['Dopo il']);
+    // due modifiche lontane restano due segni, non un blocco unico che copre il testo in mezzo
+    const due = C.inline('Uno cambia. Due. Tre. Quattro cambia.', 'Uno varia. Due. Tre. Quattro varia.');
+    assert.deepEqual(di(due.a, 'tolto'), ['cambia.', 'cambia.']);
+    assert.ok(di(due.a, 'uguale').some(t => /Due\. Tre\./.test(t)));
+});

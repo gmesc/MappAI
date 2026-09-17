@@ -91,7 +91,7 @@
 #mappai-teacher-review [data-review-targets] li { margin-top: 10px; }
 #mappai-teacher-review [data-review-targets] .mrv-chips { margin-bottom: 4px; }
 #mappai-teacher-review .mrv-comparison mark { color: inherit; background: #fff0b3; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; border-radius: 2px; }
-#mappai-teacher-review .mrv-comparison [data-change=after] { background: #d9defe; }
+#mappai-teacher-review .mrv-comparison mark[data-change=after] { background: #d9defe; }
 #mappai-teacher-review .mrv-evidence-preview { margin-top: 14px; border-left: 3px solid var(--mm-bordo, #e2e8f0); padding: 10px 14px; background: var(--mm-fondo-sez, #f8fafc); }
 #mappai-teacher-review .mrv-evidence-preview blockquote { margin: 6px 0; font-size: .84rem; line-height: 1.55; white-space: pre-wrap; }
 #mappai-teacher-review .mrv-evidence-source { color: var(--mm-testo-2, #475569); font-size: .73rem; font-weight: 700; }
@@ -334,7 +334,7 @@
 }
 
 /* IL CONFRONTO AFFIANCATO (17/9/26) — bozza | anteprima, frase per frase.
-   Tolto: --mm-danger-soft + barrato. Aggiunto: verde tenue derivato da --mm-ok + sottolineato.
+   Tolto: --mm-danger-soft + barrato. Aggiunto: emerald-200 #a7f3d0 (famiglia di --mm-ok) + sottolineato; il #d1fae5 spariva sul fondo lilla della «Proposta».
    Il colore non è il solo segnale (barrato/sottolineato), il testo resta --mm-testo: contrasto > 4,5. */
 #mappai-teacher-review .mrv-cf-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
 #mappai-teacher-review .mrv-cf-conta { font-weight: 700; }
@@ -347,8 +347,8 @@
 #mappai-teacher-review .mrv-cf-tabella td + td, #mappai-teacher-review .mrv-cf-tabella th + th { border-left: 1px solid var(--mm-bordo, #e2e8f0); }
 #mappai-teacher-review .mrv-cf-par td { padding-top: 14px; }
 #mappai-teacher-review .mrv-cf-cambiata td { background: var(--mm-fondo, #fff); }
-#mappai-teacher-review .mrv-cf del { background: var(--mm-danger-soft, #fee2e2); color: inherit; text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 2px; }
-#mappai-teacher-review .mrv-cf ins { background: #d1fae5; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; border-radius: 2px; }
+#mappai-teacher-review .mrv-cf del, #mappai-teacher-review .mrv-comparison del { background: var(--mm-danger-soft, #fee2e2); color: inherit; text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 2px; }
+#mappai-teacher-review .mrv-cf ins, #mappai-teacher-review .mrv-comparison ins { background: #a7f3d0; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; border-radius: 2px; }
 #mappai-teacher-review .mrv-cf-salto td { color: var(--mm-testo-3, #64748b); font-size: .85rem; padding: 6px 8px; text-align: left; }
 #mappai-teacher-review .mrv-cf[data-vista="frasi"] .mrv-cf-uguale { display: none; }
 #mappai-teacher-review .mrv-cf[data-vista="intero"] .mrv-cf-salto { display: none; }

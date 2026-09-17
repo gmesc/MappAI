@@ -103,5 +103,26 @@
         return { righe, modifiche: righe.filter(r => r.tipo === 'cambiata').length };
     }
 
-    return { pulisci, frasi, confronta };
+    /* I due testi interi, per mostrarli in linea (la scheda di una segnalazione): i pezzi di
+       ogni lato in fila, con uno spazio fra le frasi e un a capo dove comincia un paragrafo. */
+    function inline(a, b) {
+        const A = [], B = [];
+        const spingi = (lista, t, tipo) => {
+            if (!t) return;
+            const ultimo = lista[lista.length - 1];
+            if (ultimo && ultimo.tipo === tipo) ultimo.t += t; else lista.push({ t, tipo });
+        };
+        const lato = (lista, pezzi, a_capo) => {
+            if (!pezzi.length) return;
+            if (lista.length) spingi(lista, a_capo ? '\n' : ' ', 'uguale');
+            pezzi.forEach(p => spingi(lista, p.t, p.tipo));
+        };
+        confronta(a, b).righe.forEach(r => {
+            if (r.tipo === 'uguale') { lato(A, [{ t: r.a, tipo: 'uguale' }], r.inizioParagrafo); lato(B, [{ t: r.b, tipo: 'uguale' }], r.inizioParagrafo); }
+            else { lato(A, r.a, r.inizioParagrafo); lato(B, r.b, r.inizioParagrafo); }
+        });
+        return { a: A, b: B };
+    }
+
+    return { pulisci, frasi, confronta, inline };
 }));

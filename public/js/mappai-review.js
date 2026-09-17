@@ -426,7 +426,20 @@
     const source = [row.title || (typeof row.source === 'string' ? row.source : '') || t('rv_source', 'Fonte'), row.page ? t('rv_page', 'Pagina') + ' ' + row.page : ''].filter(Boolean).join(' · ');
     return '<aside class="mrv-evidence-preview" data-evidence-excerpt><p class="mrv-field-label">' + esc(t('rv_context_evidence', 'Passaggio da confrontare')) + '</p><blockquote>' + esc(text) + '</blockquote><p class="mrv-evidence-source">' + esc(source) + '</p></aside>';
   }
+  // il segno di una parte tolta o aggiunta: lo spazio finale resta fuori, così barrato e sottolineato finiscono sulla parola
+  function segnoConfronto(tag, testo, lato) {
+    const m = testo.match(/^([\s\S]*?)(\s*)$/);
+    return '<' + tag + (lato ? ' data-change="' + lato + '"' : '') + '>' + esc(m[1]) + '</' + tag + '>' + esc(m[2]);
+  }
   function highlightedValues(before, after) {
+    /* Parola per parola (17/9/26): ogni pezzo cambiato ha il suo segno, invece di un blocco unico
+       dal primo all'ultimo carattere diverso, che con due correzioni lontane copriva quasi tutto. */
+    const C = window.MappAIConfrontoCore;
+    if (C && C.inline) {
+      const r = C.inline(before, after);
+      const html = (pezzi, tag, lato) => pezzi.map(p => p.tipo === 'uguale' ? esc(p.t) : segnoConfronto(tag, p.t, lato)).join('');
+      return [html(r.a, 'del', 'before'), html(r.b, 'ins', 'after')];
+    }
     const change = core().textChange(before, after);
     if (!change) return [esc(before), esc(after)];
     const tail = after.length - (before.length - change.end);
@@ -450,8 +463,7 @@
     if (!C) return null;
     const r = C.confronta(prima, dopo), vista = vistaConfronto();
     // lo spazio dopo l'ultima parola resta fuori dal segno: barrato e sottolineato finiscono sulla parola
-    const segno = (tag, t) => { const m = t.match(/^([\s\S]*?)(\s*)$/); return '<' + tag + '>' + esc(m[1]) + '</' + tag + '>' + esc(m[2]); };
-    const pezzi = lista => lista.map(p => p.tipo === 'tolto' ? segno('del', p.t) : p.tipo === 'aggiunto' ? segno('ins', p.t) : esc(p.t)).join('');
+    const pezzi = lista => lista.map(p => p.tipo === 'tolto' ? segnoConfronto('del', p.t) : p.tipo === 'aggiunto' ? segnoConfronto('ins', p.t) : esc(p.t)).join('');
     const righe = [];
     for (let k = 0; k < r.righe.length;) {
       if (r.righe[k].tipo === 'uguale') {
@@ -1281,7 +1293,9 @@
         const before = compact ? (left ? '…' : '') + issue.before.slice(left, right) + (right < issue.before.length ? '…' : '') : proposedItem ? item : issue.before;
         const after = compact ? (left ? '…' : '') + issue.before.slice(left, change.start) + change.after + issue.before.slice(change.end, right) + (right < issue.before.length ? '…' : '') : proposedItem || issue.after;
         const beforeText = displayValue(before, issue.target, item), afterText = issue.hasProposal ? displayValue(after, proposedItem ? { field: '$item' } : issue.target, item) : '';
-        const highlighted = issue.hasProposal && typeof before === 'string' && typeof after === 'string' ? highlightedValues(beforeText, afterText) : [esc(beforeText), esc(afterText)];
+        // con il motore di confronto si evidenzia anche la proposta che sostituisce un materiale intero (testi mostrati, non oggetti); un'esclusione (after null) no
+        const confrontabile = issue.hasProposal && after != null && (window.MappAIConfrontoCore || (typeof before === 'string' && typeof after === 'string'));
+        const highlighted = confrontabile ? highlightedValues(beforeText, afterText) : [esc(beforeText), esc(afterText)];
         card.innerHTML = chips(group) + '<p class="mrv-eyebrow">' + esc(t('rv_context_editing', 'Stai correggendo:')) + ' ' + esc(fieldName(issue.target.field, item)) + ' · ' + esc(issueTarget(issue)) + '</p>' +
           '<p class="mrv-reason" data-review-reason="' + esc(reasonFor(issue)) + '">' + esc(reasonLabels[reasonFor(issue)]) + '</p><h3' + (!card.hidden ? ' id="mrv-current-title"' : '') + ' tabindex="-1">' + esc(title) + '</h3>' +
           (itemContext ? '<details class="mrv-item-context"><summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary>' + itemContext + '</details>' : '') +
