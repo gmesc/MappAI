@@ -74,11 +74,56 @@
             .filter(s => s.t);
     }
 
+    /* La citazione SUL PDF (17/9/26). `items` sono i pezzi di `page.getTextContent()`,
+       `vt` la trasformazione del viewport a scala 1. I pezzi si uniscono con uno
+       spazio (a `originalExcerpt` gli spazi non contano, e pdf.js spezza anche a
+       metà parola), si cerca la citazione con la stessa tolleranza del testo
+       archiviato, e ogni pezzo toccato dà un rettangolo in punti della pagina,
+       tagliato in proporzione ai caratteri se la citazione comincia o finisce a
+       metà pezzo. Nessuna corrispondenza → []: la pagina resta senza segni. */
+    function rettangoli(items, citazione, vt) {
+        const pezzi = (items || []).filter(it => it && typeof it.str === 'string' && Array.isArray(it.transform));
+        if (!pezzi.length || !testo(citazione).trim() || !G || typeof G.originalExcerpt !== 'function') return [];
+        let unito = '';
+        const dove = [];   // per ogni carattere di `unito`: [pezzo, posizione] oppure null per il separatore
+        pezzi.forEach((it, k) => {
+            if (k) { unito += ' '; dove.push(null); }
+            for (let c = 0; c < it.str.length; c++) dove.push([k, c]);
+            unito += it.str;
+        });
+        const estratto = G.originalExcerpt(unito, testo(citazione));
+        const inizio = estratto ? unito.indexOf(estratto) : -1;
+        if (inizio < 0) return [];
+        const tratti = new Map();   // pezzo → [primo carattere, ultimo+1]
+        for (let i = inizio; i < inizio + estratto.length; i++) {
+            if (!dove[i]) continue;
+            const [k, c] = dove[i], t = tratti.get(k);
+            tratti.set(k, t ? [t[0], c + 1] : [c, c + 1]);
+        }
+        const m = vt || [1, 0, 0, 1, 0, 0];
+        const out = [];
+        tratti.forEach(([a, b], k) => {
+            const it = pezzi[k], s = it.transform, n = it.str.length || 1;
+            const tx = [m[0] * s[0] + m[2] * s[1], m[1] * s[0] + m[3] * s[1], m[0] * s[2] + m[2] * s[3], m[1] * s[2] + m[3] * s[3],
+                m[0] * s[4] + m[2] * s[5] + m[4], m[1] * s[4] + m[3] * s[5] + m[5]];
+            const alto = Math.hypot(tx[2], tx[3]) || (it.height || 10), largo = (it.width || 0) * Math.hypot(m[0], m[1]);
+            if (largo <= 0) return;
+            const r = { x: tx[4] + largo * a / n, y: tx[5] - alto * 0.9, w: largo * (b - a) / n, h: alto * 1.15 };
+            // Stessa riga del segno precedente (pdf.js dà spesso un pezzo per parola): una striscia sola, senza buchi fra le parole.
+            const prima = out[out.length - 1];
+            if (prima && Math.abs(prima.y - r.y) < Math.min(prima.h, r.h) * 0.3 && r.x >= prima.x) {
+                const fine = Math.max(prima.x + prima.w, r.x + r.w);
+                prima.y = Math.min(prima.y, r.y); prima.h = Math.max(prima.h, r.h); prima.w = fine - prima.x;
+            } else out.push(r);
+        });
+        return out;
+    }
+
     // ── il visore PDF (dal Banco) ───────────────────────────────────────────────
     function visore(viewer, canvas, stato, adatta, avvisa) {
         const C = globalThis.MappAIProiezioneCore;
         let page = null, width = 1, height = 1, state = { z: 1, x: 0, y: 0 }, fitted = true, drag = null;
-        let renderTask = null, renderVersion = 0, timer = null, rasterScale = 0;
+        let renderTask = null, renderVersion = 0, timer = null, rasterScale = 0, segni = [];
         function apply() {
             state = C.clampPan(state, width, height, viewer.clientWidth, viewer.clientHeight);
             canvas.style.transform = 'translate(' + state.x + 'px,' + state.y + 'px) scale(' + state.z + ')';
@@ -105,6 +150,12 @@
                 task = target.render({ canvasContext: buffer.getContext('2d'), viewport }); renderTask = task;
                 await task.promise;
                 if (version !== renderVersion || target !== page) return;
+                if (segni.length) {   // la citazione, nello stesso giallo del testo archiviato; «multiply» lascia leggere l'inchiostro
+                    const ctx = buffer.getContext('2d');
+                    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = '#fef08a';
+                    segni.forEach(r => ctx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale));
+                    ctx.restore();
+                }
                 canvas.width = buffer.width; canvas.height = buffer.height;
                 canvas.getContext('2d').drawImage(buffer, 0, 0);
                 rasterScale = scale; canvas.hidden = false; stato.hidden = true;
@@ -118,7 +169,9 @@
             if (!page) return;
             fitted = true;
             const z = C.clampZ(viewer.clientWidth / width);
-            state = { z, x: (viewer.clientWidth - width * z) / 2, y: 0 };
+            // Con una citazione, la vista si apre centrata sul suo primo rigo invece che in cima alla pagina.
+            const y = segni.length ? viewer.clientHeight / 2 - (segni[0].y + segni[0].h / 2) * z : 0;
+            state = { z, x: (viewer.clientWidth - width * z) / 2, y };
             apply(); programma();
         }
         function zoom(x, y, factor) {
@@ -171,13 +224,18 @@
                 page = null; rasterScale = 0; canvas.hidden = true; stato.hidden = false;
                 stato.textContent = avvisa('rv_source_loading', 'Apro la pagina del PDF originale…'); viewer.setAttribute('aria-busy', 'true');
             },
-            async mostra(pagina) {
-                page = pagina;
+            async mostra(pagina, rett) {
+                page = pagina; segni = rett || [];
                 const base = page.getViewport({ scale: 1 }); width = base.width; height = base.height;
                 canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
                 fit(); clearTimeout(timer); await render();
             },
             fallito,
+            /* Un'altra prova sulla stessa pagina: niente ricaricamento, solo i segni nuovi. */
+            evidenzia(rett) {
+                segni = rett || []; rasterScale = 0;
+                if (fitted) fit(); else { apply(); programma(); }
+            },
             smonta() {
                 fineTrascinamento(); clearTimeout(timer); renderVersion++;
                 if (renderTask) renderTask.cancel();
@@ -256,7 +314,10 @@
             righe.replaceChildren(...segmenti(pagina.text, citazione).map(s => s.segnato ? crea('mark', null, s.t) : document.createTextNode(s.t)));
             const segno = righe.querySelector('mark');
             if (!v) { soloTesto(true); if (segno && segno.scrollIntoView) segno.scrollIntoView({ block: 'center' }); return; }
-            if (corrente && corrente.id === pagina.id) return;
+            if (corrente && corrente.id === pagina.id) {
+                if (corrente.testoPdf) v.evidenzia(rettangoli(corrente.testoPdf.items, citazione, corrente.vt));
+                return;
+            }
             corrente = pagina;
             v.caricamento(); soloTesto(false); note.open = false;
             const doc = await documento(pagina.title);
@@ -265,8 +326,11 @@
             try {
                 const numero = Math.min(Math.max(1, pagina.page || 1), doc.numPages);
                 const p = await doc.getPage(numero);
+                const testoPdf = await p.getTextContent().catch(() => null);   // senza strato di testo: pagina senza segni
                 if (id !== richiesta || chiuso) return;
-                await v.mostra(p);
+                const vt = p.getViewport({ scale: 1 }).transform;
+                Object.assign(pagina, { testoPdf, vt });
+                await v.mostra(p, testoPdf ? rettangoli(testoPdf.items, citazione, vt) : []);
                 scelta.title = pagina.title + ' · ' + t('rv_page', 'Pagina') + ' ' + numero + ' / ' + doc.numPages;
             } catch (error) { if (id === richiesta) { v.fallito(error); note.open = true; } }
         }
@@ -310,5 +374,5 @@
         };
     }
 
-    return { indicePagine, trovaPdf, paginaPer, segmenti, monta };
+    return { indicePagine, trovaPdf, paginaPer, segmenti, rettangoli, monta };
 }));
