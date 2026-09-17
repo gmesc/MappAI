@@ -312,7 +312,11 @@ test('each remaining material is approved on its own; all approved unlocks compl
   const input = card.querySelector('[data-editor] textarea'); input.value = 'Risposta corretta a mano.'; input.oninput(); await tick();
   assert.equal(proceed().hidden, true);
   await modal.querySelector('[data-review-filter="pending"]').click();
-  assert.match(modal.querySelector('[data-coverage-approve="material-240"]').textContent, /^Approva così com/);
+  // l'etichetta dice QUALE versione si approva (17/9/26): corretta a mano → la proposta; intatta → l'originale
+  assert.match(modal.querySelector('[data-coverage-approve="material-240"]').textContent, /^Approva proposta/);
+  assert.match(modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').textContent, /^Modifica proposta · /);
+  assert.match(modal.querySelector('[data-coverage-approve="material-241"]').textContent, /^Invariato approvato · annulla/);
+  assert.match(modal.querySelector('[data-coverage-item="material-241"] [data-coverage-edit="answer"]').textContent, /^Modifica originale · /);
   await modal.querySelector('[data-coverage-approve="material-240"]').click();
   assert.equal(proceed().hidden, false);
   await proceed().click();

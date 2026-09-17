@@ -1076,6 +1076,13 @@
           const version = document.createElement('details'); version.className = 'mrv-coverage-version';
           const chosen = previewItems.get(row.id);
           const titoliConfronto = [t('rv_coverage_original', 'Bozza originale controllata'), t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')];
+          /* Quale versione si approva o si modifica (Giacomo, 17/9: «così com'è» non diceva se l'originale
+             o la proposta). Entrambi i bottoni agiscono sull'ANTEPRIMA con le decisioni (impronta di
+             statoApprovazioni, editor da chosenValue): se l'anteprima coincide con la bozza, quella è l'originale. */
+          const testoBozza = displayValue(item, { field: '$item' }, item);
+          const soloOriginale = preview.ok && !!chosen && (window.MappAIConfrontoCore
+            ? window.MappAIConfrontoCore.confronta(testoBozza, displayValue(chosen, { field: '$item' }, chosen)).modifiche === 0
+            : testoBozza === displayValue(chosen, { field: '$item' }, chosen));
           const confronto = preview.ok && chosen ? confrontoHtml(displayValue(item, { field: '$item' }, item), displayValue(chosen, { field: '$item' }, chosen), titoliConfronto) : null;
           if (confronto) {
             version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' + confronto;
@@ -1091,7 +1098,9 @@
             const approva = document.createElement('button'); approva.type = 'button';
             approva.className = approvato ? 'pm-btn-cancel' : 'pm-btn-primary';
             approva.setAttribute('data-coverage-approve', row.id); approva.setAttribute('aria-pressed', String(approvato));
-            approva.textContent = approvato ? t('rv_coverage_approved', 'Approvato così com’è · annulla') : t('rv_coverage_approve', 'Approva così com’è');
+            approva.textContent = soloOriginale
+              ? (approvato ? t('rv_coverage_approved_unchanged', 'Invariato approvato · annulla') : t('rv_coverage_approve_unchanged', 'Approva invariato'))
+              : (approvato ? t('rv_coverage_approved_proposal', 'Proposta approvata · annulla') : t('rv_coverage_approve_proposal', 'Approva proposta'));
             approva.onclick = async () => {
               if (busy || invalidEditors.size || closed) return;
               const impronta = approvazioni.impronte.get(row.id);
@@ -1112,7 +1121,8 @@
             }
             canonicalFields(item).forEach(field => {
               const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
-              button.setAttribute('data-coverage-edit', field); button.textContent = t('rv_coverage_edit', 'Rivedi') + ' · ' + fieldName(field, item);
+              button.setAttribute('data-coverage-edit', field);
+              button.textContent = (soloOriginale ? t('rv_coverage_edit_original', 'Modifica originale') : t('rv_coverage_edit_proposal', 'Modifica proposta')) + ' · ' + fieldName(field, item);
               button.onclick = () => openMaterialField(row.id, field);
               actions.appendChild(button);
             });
