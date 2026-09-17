@@ -332,3 +332,25 @@
 @media (prefers-reduced-motion: reduce) {
   #mappai-teacher-review.mrv-banco .mrv-workspace, #mappai-teacher-review .mrv-maniglia { transition: none; }
 }
+
+/* IL CONFRONTO AFFIANCATO (17/9/26) — bozza | anteprima, frase per frase.
+   Tolto: --mm-danger-soft + barrato. Aggiunto: verde tenue derivato da --mm-ok + sottolineato.
+   Il colore non è il solo segnale (barrato/sottolineato), il testo resta --mm-testo: contrasto > 4,5. */
+#mappai-teacher-review .mrv-cf-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+#mappai-teacher-review .mrv-cf-conta { font-weight: 700; }
+#mappai-teacher-review .mrv-cf-vista { display: inline-flex; gap: 6px; }
+#mappai-teacher-review .mrv-cf-vista .pm-btn-cancel { flex: 0 0 auto; }
+#mappai-teacher-review .mrv-cf-vista [aria-pressed="true"] { background: var(--mm-accent-soft, #eef2ff); border-color: var(--mm-accent, #4f46e5); color: var(--mm-accent, #4f46e5); }
+#mappai-teacher-review .mrv-cf-tabella { width: 100%; border-collapse: collapse; }
+#mappai-teacher-review .mrv-cf-tabella th { text-align: left; font-size: .8rem; font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); vertical-align: top; }
+#mappai-teacher-review .mrv-cf-tabella td { text-align: left; vertical-align: top; padding: 4px 8px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--mm-testo, #404040); }
+#mappai-teacher-review .mrv-cf-tabella td + td, #mappai-teacher-review .mrv-cf-tabella th + th { border-left: 1px solid var(--mm-bordo, #e2e8f0); }
+#mappai-teacher-review .mrv-cf-par td { padding-top: 14px; }
+#mappai-teacher-review .mrv-cf-cambiata td { background: var(--mm-fondo, #fff); }
+#mappai-teacher-review .mrv-cf del { background: var(--mm-danger-soft, #fee2e2); color: inherit; text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 2px; }
+#mappai-teacher-review .mrv-cf ins { background: #d1fae5; color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; border-radius: 2px; }
+#mappai-teacher-review .mrv-cf-salto td { color: var(--mm-testo-3, #64748b); font-size: .85rem; padding: 6px 8px; text-align: left; }
+#mappai-teacher-review .mrv-cf[data-vista="frasi"] .mrv-cf-uguale { display: none; }
+#mappai-teacher-review .mrv-cf[data-vista="intero"] .mrv-cf-salto { display: none; }
+#mappai-teacher-review .mrv-cf--uguale[data-vista="frasi"] .mrv-cf-tabella { display: none; }
+

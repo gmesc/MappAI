@@ -439,6 +439,52 @@
     }
     return [mark(before, change.end, 'before'), mark(after, tail, 'after')];
   }
+  /* IL CONFRONTO AFFIANCATO (17/9/26): bozza a sinistra, anteprima a destra, frase per
+     frase (mappai-confronto-core.js). «Solo le frasi cambiate» nasconde le righe uguali e
+     mette al loro posto «⋯ N frasi invariate»; «Testo intero» mostra tutto. La scelta vale
+     per tutti i confronti e resta ricordata (mappai_confronto_vista). */
+  const VISTA_CONFRONTO = 'mappai_confronto_vista';
+  function vistaConfronto() { try { return localStorage.getItem(VISTA_CONFRONTO) === 'intero' ? 'intero' : 'frasi'; } catch (_) { return 'frasi'; } }
+  function confrontoHtml(prima, dopo, titoli) {
+    const C = window.MappAIConfrontoCore;
+    if (!C) return null;
+    const r = C.confronta(prima, dopo), vista = vistaConfronto();
+    // lo spazio dopo l'ultima parola resta fuori dal segno: barrato e sottolineato finiscono sulla parola
+    const segno = (tag, t) => { const m = t.match(/^([\s\S]*?)(\s*)$/); return '<' + tag + '>' + esc(m[1]) + '</' + tag + '>' + esc(m[2]); };
+    const pezzi = lista => lista.map(p => p.tipo === 'tolto' ? segno('del', p.t) : p.tipo === 'aggiunto' ? segno('ins', p.t) : esc(p.t)).join('');
+    const righe = [];
+    for (let k = 0; k < r.righe.length;) {
+      if (r.righe[k].tipo === 'uguale') {
+        let n = 0;
+        while (k + n < r.righe.length && r.righe[k + n].tipo === 'uguale') n++;
+        righe.push('<tr class="mrv-cf-salto"><td colspan="2">⋯ ' + n + ' ' + esc(n === 1 ? t('rv_cf_same_one', 'frase invariata') : t('rv_cf_same_many', 'frasi invariate')) + '</td></tr>');
+        r.righe.slice(k, k + n).forEach(x => righe.push('<tr class="mrv-cf-uguale' + (x.inizioParagrafo ? ' mrv-cf-par' : '') + '"><td>' + esc(x.a) + '</td><td>' + esc(x.b) + '</td></tr>'));
+        k += n; continue;
+      }
+      const x = r.righe[k++];
+      righe.push('<tr class="mrv-cf-cambiata' + (x.inizioParagrafo ? ' mrv-cf-par' : '') + '"><td>' + pezzi(x.a) + '</td><td>' + pezzi(x.b) + '</td></tr>');
+    }
+    const conta = r.modifiche === 0 ? t('rv_cf_none', 'L’anteprima coincide con la bozza: nessuna differenza.')
+      : r.modifiche + ' ' + (r.modifiche === 1 ? t('rv_cf_change_one', 'frase cambiata') : t('rv_cf_change_many', 'frasi cambiate'));
+    const bottone = (v, testo) => '<button type="button" class="pm-btn-cancel" data-cf-vista="' + v + '" aria-pressed="' + (vista === v) + '">' + esc(testo) + '</button>';
+    return '<div class="mrv-cf' + (r.modifiche ? '' : ' mrv-cf--uguale') + '" data-vista="' + vista + '">' +
+      '<div class="mrv-cf-barra"><span class="mrv-cf-conta" aria-live="polite">' + esc(conta) + '</span><span class="mrv-cf-vista" role="group" aria-label="' + esc(t('rv_cf_view', 'Vista del confronto')) + '">' +
+      bottone('frasi', t('rv_cf_only_changed', 'Solo le frasi cambiate')) + bottone('intero', t('rv_cf_full', 'Testo intero')) + '</span></div>' +
+      '<table class="mrv-cf-tabella table-fixed"><colgroup><col style="width:50%"><col style="width:50%"></colgroup><thead><tr><th>' + esc(titoli[0]) + '</th><th>' + esc(titoli[1]) + '</th></tr></thead><tbody>' +
+      righe.join('') + '</tbody></table></div>';
+  }
+  function collegaConfronti(host) {
+    host.querySelectorAll('[data-cf-vista]').forEach(b => {
+      b.onclick = () => {
+        const v = b.getAttribute('data-cf-vista');
+        try { localStorage.setItem(VISTA_CONFRONTO, v); } catch (_) { /* resta per questa apertura */ }
+        document.querySelectorAll('#mappai-teacher-review .mrv-cf').forEach(cf => {
+          cf.setAttribute('data-vista', v);
+          cf.querySelectorAll('[data-cf-vista]').forEach(x => x.setAttribute('aria-pressed', String(x.getAttribute('data-cf-vista') === v)));
+        });
+      };
+    });
+  }
   function pendingOutputs(manifest) {
     if (manifest.review?.final && ['approved', 'finalizing'].includes(manifest.review.final.stage)) return true;
     return ['B', 'C', 'D', 'E'].some(k => ['pending', 'failed', 'running'].includes(manifest.steps?.[k]?.status));
@@ -968,7 +1014,12 @@
         if (item) {
           const version = document.createElement('details'); version.className = 'mrv-coverage-version';
           const chosen = previewItems.get(row.id);
-          version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' +
+          const titoliConfronto = [t('rv_coverage_original', 'Bozza originale controllata'), t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')];
+          const confronto = preview.ok && chosen ? confrontoHtml(displayValue(item, { field: '$item' }, item), displayValue(chosen, { field: '$item' }, chosen), titoliConfronto) : null;
+          if (confronto) {
+            version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' + confronto;
+            collegaConfronti(version);
+          } else version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' +
             '<h4>' + esc(t('rv_coverage_original', 'Bozza originale controllata')) + '</h4><p class="mrv-coverage-text">' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' +
             '<h4>' + esc(t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')) + '</h4><p class="mrv-coverage-text">' +
             esc(!preview.ok ? t('rv_coverage_preview_pending', 'Completa le decisioni e risolvi eventuali conflitti per vedere l’anteprima. Le modifiche salvate sono consultabili nelle segnalazioni.') :
