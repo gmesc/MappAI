@@ -107,13 +107,17 @@
 
     // ── Pulizia testo ──────────────────────────────────────────────────────
     function _cleanLine(s) {
-        return String(s || '')
+        var t = String(s || '')
             .replace(/\[\d+\]/g, ' ')
             .replace(/[*_`#]+/g, ' ')
             .replace(/ /g, ' ')
             .replace(/\s+/g, ' ')
             .replace(/\s+([.,;:!?…»)\]])/g, '$1')
             .trim();
+        // come va DETTO (17/9/26): «d.C.» → «dopo Cristo», «Cai Lun» non diventa
+        // «Cai Lunedì». Solo la voce: lo schermo resta com'è.
+        var P = window.MappAIPronunciaCore;
+        return P && P.perVoce ? P.perVoce(t, E.lang) : t;
     }
 
     // Testo + mappa dei nodi testuali di un blocco, saltando note/citazioni/controlli.
@@ -176,9 +180,19 @@
     }
 
     // Divide un testo in intervalli-frase [start,end) preservando la punteggiatura.
+    // Una frase finisce su . ! ? … seguiti da uno spazio o dalla fine: non dentro
+    // «3.14», e non dopo un'abbreviazione (d.C., ecc., J.) — prima «Nel 105 d.»
+    // era una frase da sola, letta e evidenziata a metà.
     function _sentenceRanges(text) {
-        var re = /[.!?…]+[)\]"'”’»]*\s*/g, res = [], last = 0, m;
-        while ((m = re.exec(text))) { var end = m.index + m[0].length; res.push({ start: last, end: end }); last = end; }
+        var re = /[.!?…]+[)\]"'”’»]*(?:\s+|$)/g, res = [], last = 0, m, P = window.MappAIPronunciaCore;
+        while ((m = re.exec(text))) {
+            var end = m.index + m[0].length;
+            if (P && P.abbreviazione && end < text.length) {
+                var da = m.index; while (da > 0 && !/\s/.test(text.charAt(da - 1))) da--;
+                if (P.abbreviazione(text.slice(da, m.index + m[0].replace(/\s+$/, '').length), E.lang)) continue;
+            }
+            res.push({ start: last, end: end }); last = end;
+        }
         if (last < text.length) res.push({ start: last, end: text.length });
         if (!res.length) res.push({ start: 0, end: text.length });
         return res;
