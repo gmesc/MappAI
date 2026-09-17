@@ -631,6 +631,67 @@
         const etichetta = chiusa ? t('rv_nav_show', 'Mostra elenco e controlli') : t('rv_nav_hide', 'Nascondi elenco e controlli');
         maniglia.setAttribute('aria-expanded', String(!chiusa)); maniglia.title = etichetta; maniglia.setAttribute('aria-label', etichetta);
       };
+      /* IL DIVISORE fra la fonte e le schede (Giacomo, 17/9): si trascina; spinto sotto il 10%
+         dell'area la fonte si chiude e resta una linguetta verde sul bordo sinistro, da
+         trascinare o cliccare per riaprirla. Frazione e stato restano ricordati
+         (mappai_revisione_fonte). Frecce ← → per spostarlo, Invio per chiudere/aprire.
+         Sotto i 900px le colonne sono impilate e il divisore non si vede (CSS). */
+      const colonne = modal.querySelector('.mrv-colonne'), fonteEl = modal.querySelector('#mrv-fonte');
+      if (colonne && fonteEl) {
+        const CHIAVE = 'mappai_revisione_fonte', MIN_FONTE = 280, MIN_CARTE = 360, SOGLIA = 0.1;
+        const stato = { frazione: 0.5, chiusa: false };
+        try { const letto = JSON.parse(localStorage.getItem(CHIAVE) || '{}'); if (letto.frazione > 0 && letto.frazione < 1) stato.frazione = letto.frazione; stato.chiusa = !!letto.chiusa; } catch (e) { /* valori predefiniti */ }
+        const divisore = document.createElement('div');
+        divisore.className = 'mrv-divisore'; divisore.tabIndex = 0;
+        divisore.setAttribute('role', 'separator'); divisore.setAttribute('aria-orientation', 'vertical');
+        divisore.setAttribute('aria-valuemin', '0'); divisore.setAttribute('aria-valuemax', '100');
+        colonne.appendChild(divisore);
+        const limita = f => { const W = colonne.clientWidth || 0; if (W < MIN_FONTE + MIN_CARTE) return f; return Math.min(Math.max(f, MIN_FONTE / W), 1 - MIN_CARTE / W); };   // area nascosta o stretta: nessun limite in px
+        const salva = () => { try { localStorage.setItem(CHIAVE, JSON.stringify(stato)); } catch (e) { /* resta per questa apertura */ } };
+        const applica = () => {
+          colonne.classList.toggle('is-fonte-chiusa', stato.chiusa);
+          colonne.style.setProperty('--mrv-fonte-w', stato.chiusa ? '0%' : (limita(stato.frazione) * 100).toFixed(2) + '%');
+          fonteEl.inert = stato.chiusa;
+          const etichetta = stato.chiusa ? t('rv_split_open', 'Riapri la fonte: trascina o fai clic') : t('rv_split_move', 'Sposta il confine fra fonte e schede; oltre il bordo sinistro la fonte si chiude');
+          divisore.title = etichetta; divisore.setAttribute('aria-label', etichetta);
+          divisore.setAttribute('aria-valuenow', String(stato.chiusa ? 0 : Math.round(limita(stato.frazione) * 100)));
+        };
+        let presa = null;
+        divisore.addEventListener('pointerdown', e => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          presa = { x: e.clientX, mosso: false, chiude: false, id: e.pointerId, frazione: stato.frazione, chiusa: stato.chiusa };
+          divisore.setPointerCapture(e.pointerId); colonne.classList.add('is-trascinando');
+        });
+        divisore.addEventListener('pointermove', e => {
+          if (!presa || presa.id !== e.pointerId) return;
+          if (Math.abs(e.clientX - presa.x) > 3) presa.mosso = true;
+          if (!presa.mosso) return;
+          const b = colonne.getBoundingClientRect(), x = e.clientX - b.left;
+          presa.chiude = x < b.width * SOGLIA;
+          colonne.classList.toggle('sta-chiudendo', presa.chiude);
+          if (!presa.chiude) { stato.chiusa = false; stato.frazione = x / b.width; applica(); }
+        });
+        const lascia = () => {
+          if (!presa) return;
+          const p = presa; presa = null;
+          colonne.classList.remove('is-trascinando', 'sta-chiudendo');
+          if (!p.mosso) { if (stato.chiusa) stato.chiusa = false; else return; }   // clic: riapre la linguetta, sul divisore aperto non fa nulla
+          else if (p.chiude) { stato.chiusa = true; if (!p.chiusa) stato.frazione = p.frazione; }   // chiudendo si riapre alla larghezza di prima, non a quella di passaggio
+          else stato.frazione = limita(stato.frazione);
+          applica(); salva();
+        };
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => divisore.addEventListener(n, lascia));
+        divisore.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') stato.chiusa = !stato.chiusa;
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            if (stato.chiusa) { if (e.key === 'ArrowLeft') return; stato.chiusa = false; }
+            else stato.frazione = limita(stato.frazione + (e.key === 'ArrowLeft' ? -0.05 : 0.05));
+          } else return;
+          e.preventDefault(); applica(); salva();
+        });
+        applica();
+      }
       const occorrenze = modal.querySelector('#mrv-occorrenze');
       if (occorrenze) occorrenze.onclick = () => {
         occurrenceSearch.open = !occurrenceSearch.open; renderOccurrences();

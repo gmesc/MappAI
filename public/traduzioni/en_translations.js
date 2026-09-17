@@ -52,6 +52,8 @@ const en_translations = {
     rv_cf_view: "Comparison view",
     rv_cf_only_changed: "Only changed sentences",
     rv_cf_full: "Full text",
+    rv_split_open: "Reopen the source: drag or click",
+    rv_split_move: "Move the border between source and cards; past the left edge the source closes",
     rv_coverage_preview_pending: "Complete decisions and resolve any conflicts to see the preview. Saved edits are available in the findings.",
     rv_coverage_excluded: "You chose to exclude this material.",
     rv_coverage_edit: "Review",

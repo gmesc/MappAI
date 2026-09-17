@@ -354,3 +354,21 @@
 #mappai-teacher-review .mrv-cf[data-vista="intero"] .mrv-cf-salto { display: none; }
 #mappai-teacher-review .mrv-cf--uguale[data-vista="frasi"] .mrv-cf-tabella { display: none; }
 
+/* IL DIVISORE fra fonte e schede (17/9/26): trascinabile; chiusa la fonte resta una linguetta
+   verde (--mm-ok) sul bordo sinistro. Solo con le colonne affiancate (sopra i 900px). */
+@media (min-width: 901px) {
+  #mappai-teacher-review .mrv-colonne { position: relative; grid-template-columns: var(--mrv-fonte-w, 50%) minmax(0, 1fr); transition: grid-template-columns .28s ease; }
+  #mappai-teacher-review .mrv-divisore { position: absolute; top: 0; bottom: 0; left: var(--mrv-fonte-w, 50%); z-index: 4; width: 12px; margin-left: -6px; cursor: col-resize; touch-action: none; transition: left .28s ease; }
+  #mappai-teacher-review .mrv-divisore::before { content: ''; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; background: transparent; transition: background .15s; }
+  #mappai-teacher-review .mrv-divisore:hover::before, #mappai-teacher-review .mrv-colonne.is-trascinando .mrv-divisore::before { background: var(--mm-ok, #059669); }
+  #mappai-teacher-review .mrv-divisore:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: -3px; }
+  #mappai-teacher-review .mrv-colonne.is-trascinando, #mappai-teacher-review .mrv-colonne.is-trascinando .mrv-divisore { transition: none; user-select: none; cursor: col-resize; }
+  #mappai-teacher-review .mrv-colonne.sta-chiudendo .mrv-fonte { opacity: .35; }
+  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-fonte { visibility: hidden; border: 0; }
+  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-divisore { top: 50%; bottom: auto; height: 72px; width: 14px; margin: -36px 0 0 0; border-radius: 0 8px 8px 0; background: var(--mm-ok, #059669); box-shadow: 1px 0 3px rgba(0, 0, 0, .15); }
+  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-divisore::before { left: 4px; width: 6px; top: 26px; bottom: 26px; background: repeating-linear-gradient(to bottom, #fff 0 2px, transparent 2px 5px); }
+  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa #mrv-detail-nav { padding-left: 46px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mappai-teacher-review .mrv-colonne, #mappai-teacher-review .mrv-divisore { transition: none; }
+}

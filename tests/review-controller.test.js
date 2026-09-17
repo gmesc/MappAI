@@ -36,6 +36,11 @@ function dom() {
       querySelectorAll(s) { return $(n).find(s).toArray().map(wrap); },
       focus() { active = this; }, getClientRects() { return this.hidden || $(n).parents('[hidden]').length ? [] : [{}]; },
       addEventListener(k, fn) { this.listeners[k] = fn; },
+      classList: {
+        toggle(c, on) { const v = on === undefined ? !$(n).hasClass(c) : !!on; $(n).toggleClass(c, v); return v; },
+        add(...c) { c.forEach(x => $(n).addClass(x)); }, remove(...c) { c.forEach(x => $(n).removeClass(x)); }, contains(c) { return $(n).hasClass(c); }
+      },
+      style: { setProperty(k, v) { $(n).css(k, v); } },
       async click() { if (!this.disabled && this.onclick) return this.onclick(); }
     };
     for (const name of ['id', 'className', 'type', 'rows', 'min', 'max', 'step']) Object.defineProperty(e, name, {
@@ -254,6 +259,16 @@ test('the Banco skin adds the source column, handle and text size without changi
   assert.ok(modal.querySelector('.mrv-colonne #mrv-fonte'), 'the source column sits beside the cards');
   assert.ok(modal.querySelector('.mrv-carte #mrv-content'), 'cards keep their container and ids');
   assert.equal(modal.querySelector('#mrv-maniglia').getAttribute('aria-controls'), 'mrv-sidebar');
+  // il divisore fra fonte e schede (17/9/26): un separatore da tastiera; Invio chiude la fonte e la riapre
+  const divisore = modal.querySelector('.mrv-colonne .mrv-divisore'), colonne = modal.querySelector('.mrv-colonne');
+  assert.equal(divisore.getAttribute('role'), 'separator');
+  const tasto = key => divisore.listeners.keydown({ key, preventDefault() {} });
+  tasto('Enter');
+  assert.ok(colonne.classList.contains('is-fonte-chiusa')); assert.equal(modal.querySelector('#mrv-fonte').inert, true);
+  assert.equal(divisore.getAttribute('aria-valuenow'), '0');
+  tasto('ArrowRight');
+  assert.ok(!colonne.classList.contains('is-fonte-chiusa'), 'freccia a destra riapre la fonte chiusa');
+  assert.equal(divisore.getAttribute('aria-valuenow'), '50');
   assert.equal(modal.querySelector('#mrv-testo').textContent, 'Aa x1');
   await modal.querySelector('#mrv-testo').click();
   assert.equal(modal.querySelector('#mrv-testo').textContent, 'Aa x1,5');
