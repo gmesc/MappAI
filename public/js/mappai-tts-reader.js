@@ -948,8 +948,11 @@
             // grandezza del pannello flottante
             // la fila di lettura: stessi pezzi, stessa veste, ovunque
             '.mai-fila{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1 1 auto;min-width:0}' +
+            // nella barra della scheda la fila va a capo TUTTA INTERA: non resta un
+            // bottone da solo su una riga (misurato a 1032 px, iPad in piedi)
+            '.mai-tts-slot[data-tts-fila]{flex:1 1 680px;min-width:min(100%,680px)}' +
             // il chip non si schiaccia sotto la sua misura: la fila va a capo
-            '.mai-fila .mai-tts-wrap{flex:1 1 390px;min-width:min(100%,390px)}' +
+            '.mai-fila .mai-tts-wrap{flex:1 1 420px;min-width:min(100%,420px)}' +
             '.mai-fila .mai-tts-progress{min-width:80px}' +
             '.mai-fila-bt{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:40px;padding:0 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#4338ca;cursor:pointer;white-space:nowrap;font:700 12px "Space Mono",monospace}' +
             '.mai-fila-bt svg,.mai-fila-bt i{width:18px;height:18px;flex:0 0 auto}' +
