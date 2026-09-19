@@ -746,9 +746,17 @@
         const itemIds = new Set(invalid.map(i => String(i.target?.id)));
         issues.filter(i => i.target.kind === 'item' && itemIds.has(String(i.target.id))).forEach(i => attention.add(i.id));
       }
-      const pending = issues.filter(i => attention.has(i.id) || !['accept', 'reject', 'manual'].includes(r.initial.decisions[i.id]?.choice));
+      const scelta = i => ['accept', 'reject', 'manual'].includes(r.initial.decisions[i.id]?.choice);
+      const pending = issues.filter(i => attention.has(i.id) || !scelta(i));
       const ids = new Set(pending.map(i => i.id));
-      return { pending, decided: issues.filter(i => !ids.has(i.id)), all: issues, conflicts: preview.conflicts };
+      /* BLOCCATE ≠ DA DECIDERE (Giacomo, 19/9/2026: «non capisco se devo riprendere
+         a rivalidare scelte già fatte»). Una segnalazione che HA già una scelta ma
+         che un conflitto o un materiale non valido rende inapplicabile torna dentro
+         `pending` — ed è giusto, perché un gesto serve ancora — ma contarla come
+         «da decidere» fa calare il numero delle decise e fa credere di aver perso
+         il lavoro fatto. Si separa per poterlo DIRE, senza toccare i filtri. */
+      const bloccate = pending.filter(scelta);
+      return { pending, bloccate, decided: issues.filter(i => !ids.has(i.id)), all: issues, conflicts: preview.conflicts };
     }
     function updateFilters() {
       const groups = decisionState();
@@ -759,14 +767,29 @@
         button.className = activeFilter === key ? 'pm-btn-primary' : 'pm-btn-cancel';
       });
       filterCount.textContent = groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') + ' · ' + groups.decided.length + ' ' + t('rv_count_decided', 'già decise');
-      modal.querySelector('#mrv-progress-label').textContent = groups.decided.length + ' / ' + groups.all.length + ' ' + t('rv_dashboard_decisions', 'segnalazioni decise');
+      /* Il numero delle decise non deve MAI tornare indietro senza spiegazione:
+         le bloccate si contano a parte e si nominano. */
+      modal.querySelector('#mrv-progress-label').textContent = groups.decided.length + ' / ' + groups.all.length + ' ' + t('rv_dashboard_decisions', 'segnalazioni decise') +
+        (groups.bloccate.length ? ' · ' + groups.bloccate.length + ' ' + t('rv_dashboard_blocked_short', 'da sbloccare') : '');
       modal.querySelector('#mrv-progress').setAttribute('value', groups.all.length ? Math.round(groups.decided.length / groups.all.length * 100) : 100);
       if (!groups.pending.length && coverageWasPending && getReview().initial.status === 'awaiting_review' && getReview().initial.checkStatus !== 'completed') modal.querySelector('#mrv-coverage-options').setAttribute('open', '');
       coverageWasPending = !!groups.pending.length;
+      /* CHE COSA MI MANCA PER CONCLUDERE (Giacomo, 19/9/2026: «non capisco se sto
+         proseguendo»). Prima questa riga diceva solo «decidi per ogni segnalazione»
+         e il bottone che conclude compariva o spariva senza un perché. Ora dice il
+         NUMERO che manca, distingue le bloccate dalle mai decise, e quando non
+         manca più niente lo dichiara invece di lasciarlo indovinare. */
+      const daDecidere = groups.pending.length - groups.bloccate.length;
+      const manca = [];
+      if (daDecidere > 0) manca.push(daDecidere + ' ' + (daDecidere === 1 ? t('rv_dashboard_left_one', 'segnalazione da decidere') : t('rv_dashboard_left_many', 'segnalazioni da decidere')));
+      if (groups.bloccate.length) manca.push(groups.bloccate.length + ' ' + (groups.bloccate.length === 1
+        ? t('rv_dashboard_blocked_one', 'già decisa ma bloccata da un conflitto')
+        : t('rv_dashboard_blocked_many', 'già decise ma bloccate da un conflitto')));
       modal.querySelector('#mrv-next-step').textContent = getReview().initial.status === 'approved' ? t('rv_dashboard_approved', 'La revisione è approvata e le decisioni sono salvate nel progetto.') :
-        groups.pending.length ? t('rv_dashboard_remaining', 'Decidi per ogni segnalazione. Puoi interrompere e riprendere in qualsiasi momento.') :
+        groups.pending.length ? t('rv_dashboard_left', 'Ti manca:') + ' ' + manca.join(' · ') + '. ' + t('rv_dashboard_resume', 'Puoi interrompere e riprendere: le decisioni sono già salvate.') :
         getReview().initial.checkStatus !== 'completed' && !manualConfirmed ? t('rv_dashboard_coverage_next', 'Le decisioni sono complete. Resta da completare il controllo: trovi le opzioni nel riquadro Copertura del controllo.') :
-        isFinal ? t('rv_dashboard_finish', 'Completa la revisione per aggiornare i materiali e preparare i percorsi per i tuoi studenti.') : t('rv_dashboard_generate', 'Continua per creare i materiali a partire dai contenuti approvati.');
+        t('rv_dashboard_can_finish', 'Hai deciso tutto: puoi concludere col bottone in fondo.') + ' ' +
+        (isFinal ? t('rv_dashboard_finish', 'Completa la revisione per aggiornare i materiali e preparare i percorsi per i tuoi studenti.') : t('rv_dashboard_generate', 'Continua per creare i materiali a partire dai contenuti approvati.'));
       return groups;
     }
     function issueTarget(issue) {
@@ -1153,6 +1176,12 @@
     }
     function render() {
       const r = getReview(), approved = r.initial.status === 'approved', editable = r.initial.status === 'awaiting_review';
+      /* Lo scorrimento non torna in cima a ogni ridisegno (Giacomo, 19/9/2026).
+         `render()` ricostruisce tutto da zero, quindi dopo OGNI decisione l'area
+         saltava all'inizio e si perdeva il punto in cui si stava leggendo. Si
+         riprende la posizione quando la segnalazione attiva è la stessa; se si è
+         cambiata voce, ripartire dall'alto è giusto. */
+      const scrollPrima = content.scrollTop, issuePrima = activeIssueId;
       content.replaceChildren(); invalidEditors.clear();
       const groups = updateFilters();
       renderOccurrences();
@@ -1210,7 +1239,13 @@
         (matchingIssues.length !== visibleGroups.length ? ' · ' + matchingIssues.length + ' ' + t('rv_context_findings', 'segnalazioni') : '') +
         (query || Object.values(facets).some(Boolean) ? ' · ' + t('rv_context_filtered', 'filtri attivi') : '');
       modal.querySelector('#mrv-detail-nav').hidden = !visibleGroups.length;
-      modal.querySelector('#mrv-position').textContent = selectedIndex >= 0 ? (selectedIndex + 1) + ' / ' + visibleGroups.length : '';
+      /* La posizione dice DENTRO CHE COSA conta (Giacomo, 19/9/2026). Con il filtro
+         «Da rivedere» una voce appena decisa esce dall'elenco, quindi il totale cala
+         e «4 / 9» diventa «4 / 8»: sembra di essere tornati indietro dopo aver fatto
+         un passo avanti. Il numero resta quello vero; a mancare era il nome
+         dell'insieme. */
+      modal.querySelector('#mrv-position').textContent = selectedIndex >= 0
+        ? (selectedIndex + 1) + ' / ' + visibleGroups.length + ' ' + t('rv_nav_within', 'in') + ' «' + filterLabels[activeFilter] + '»' : '';
       modal.querySelector('#mrv-prev').disabled = selectedIndex <= 0;
       modal.querySelector('#mrv-next').disabled = selectedIndex < 0 || selectedIndex === visibleGroups.length - 1;
       modal.querySelector('#mrv-coverage-status').textContent = checkMessage() + (approved && r.initial.manualReview ? ' ' + t('rv_dashboard_teacher_checked', 'La revisione è stata completata dal docente.') : '');
@@ -1387,8 +1422,17 @@
           openOther.onclick = async () => {
             if (busy || invalidEditors.size) return;
             await pendingSave; if (saveError || closed || busy) return;
-            activeFilter = 'all'; search = ''; modal.querySelector('#mrv-search').value = '';
-            Object.keys(facets).forEach(key => { facets[key] = ''; });
+            /* Non si azzerano filtro, ricerca e faccette a prescindere (Giacomo,
+               19/9/2026: «rimango incastrato in un loop»). Prima si buttava via
+               la selezione SEMPRE e senza dirlo, e tornando indietro non la si
+               ritrovava. Si allargano solo se l'altra decisione non sarebbe
+               visibile con i filtri attuali, e in quel caso lo si dichiara. */
+            const visibile = visibleGroups.some(g => g.some(i => i.id === otherIssue.id));
+            if (!visibile) {
+              activeFilter = 'all'; search = ''; modal.querySelector('#mrv-search').value = '';
+              Object.keys(facets).forEach(key => { facets[key] = ''; });
+              status.textContent = t('rv_conflict_widened', 'Filtri azzerati per mostrarti l’altra decisione.');
+            }
             return navigate(otherIssue.id);
           };
           box.appendChild(openOther); card.querySelector('[data-conflict]').appendChild(box);
@@ -1599,8 +1643,16 @@
                   (p.reused ? ' · ' + p.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
               } });
               else await R.retryJudge(vaultPath, manifest);
+              /* La spunta «completo io il controllo» si azzera, ed è corretto: il
+                 controllo è cambiato, quindi la conferma di prima non vale più.
+                 Ma prima si azzerava in SILENZIO, e con lei spariva il bottone che
+                 conclude: sembrava che il lavoro fosse stato annullato (Giacomo,
+                 19/9/2026). Ora lo si dice, e solo se c'era davvero qualcosa da
+                 azzerare. */
+              const eraConfermato = manualConfirmed;
               manualConfirmed = false; freeze(false); render(); modal.querySelector('#mrv-title').focus();
-              status.textContent = checkMessage() + ' ' + t('rv_saved', 'Decisioni salvate');
+              status.textContent = checkMessage() + ' ' + t('rv_saved', 'Decisioni salvate') +
+                (eraConfermato ? ' · ' + t('rv_manual_reset', 'Le tue decisioni restano; va rimessa la spunta «completo io il controllo», perché il controllo è cambiato.') : '');
             }
             catch (e) { status.textContent = errorText(e); }
             finally { if (busy) freeze(false); }
@@ -1626,6 +1678,7 @@
         const rimasti = content.querySelector('#mrv-material-coverage');
         if (rimasti && attiva) content.appendChild(rimasti);
       }
+      if (issuePrima && issuePrima === activeIssueId && scrollPrima) content.scrollTop = scrollPrima;
     }
     render();
     modal.querySelector('#mrv-later').onclick = async () => { if (busy) return; await pendingSave; if (!saveError && !busy) close(); };
