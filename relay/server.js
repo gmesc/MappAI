@@ -106,10 +106,23 @@ function createRelay(opts) {
     req.on('data', function (c) {
       total += c.length;
       if (total > L.reqBodyMax) {
+        /* Rifiuto con la RISPOSTA, non col silenzio (19/9/2026). Qui c'era
+           `req.destroy()` subito dopo `res.end()`, ed era una corsa persa una
+           volta su dieci: mentre il client sta ancora caricando, il RST del
+           socket SCARTA i byte del 413 già in viaggio, e chi chiama riceve un
+           errore di rete indistinguibile da una connessione caduta.
+           ⚠️ Misurato: `req.destroy()` nella callback di `res.end()` NON basta
+           (1 fallimento su 20) — la callback dice «consegnato al sistema», non
+           «arrivato», e il RST vince lo stesso. La cura è non distruggere:
+           si smette di leggere (`pause`) e si dichiara `Connection: close`, così
+           Node chiude con un FIN DOPO aver svuotato la risposta. 0 su 25.
+           Il gemello corretto è `live-server.js:945`, che risponde nel `close`
+           se le intestazioni non sono già partite.
+           Guardia: tests/relay-server.test.js «body oltre 1MB → 413». */
         aborted = true;
-        res.writeHead(413, { 'Content-Type': 'application/json' });
+        req.pause();
+        res.writeHead(413, { 'Content-Type': 'application/json', 'Connection': 'close' });
         res.end(JSON.stringify({ error: 'body-too-large' }));
-        req.destroy();
         return;
       }
       chunks.push(c);
