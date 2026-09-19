@@ -8,6 +8,11 @@
     'use strict';
     const BATCH_SIZE = 12;
     const KINDS = ['mc', 'open', 'flashcard', 'synthesis', 'nodesheet', 'causal'];
+    /* Tipi riconosciuti ma esenti dal controllo di CONTENUTO: restano in KINDS
+       (quindi `validate` li accetta e ne guarda la struttura) ma non entrano
+       nelle attese del rapporto né nei lotti del giudice. Il perché sta al
+       punto in cui si applica, dentro `check`. */
+    const ESENTI = ['nodesheet'];
     const FIELDS = ['question', 'options', 'correctIndex', 'answer', 'explanation', 'guide', 'criteria', 'text', 'lines', '$item'];
     const own = (o, k) => Object.prototype.hasOwnProperty.call(o || {}, k);
     const copy = value => value === undefined ? null : JSON.parse(JSON.stringify(value));
@@ -497,7 +502,7 @@ ${JSON.stringify(targets)}`;
         opts = opts || {};
         const env = typeof window !== 'undefined' ? window : root;
         const report = { issues: [], checkStatus: 'unavailable', coverage: { expectedIds: [], deterministicIds: [],
-            checkedIds: [], skipped: [], mcOptions: [], claims: [] }, batches: [], suppressed: [], rejected: [] };
+            checkedIds: [], skipped: [], exempt: [], mcOptions: [], claims: [] }, batches: [], suppressed: [], rejected: [] };
         let input;
         try { input = Array.isArray(items) ? copy(items) : []; }
         catch (_) { report.checkStatus = 'incomplete'; report.reason = 'Materiali non serializzabili'; return report; }
@@ -517,6 +522,26 @@ ${JSON.stringify(targets)}`;
         const valid = [];
         input.forEach((item, index) => {
             const id = String(item && item.id || '');
+            /* ESENTI dal controllo di contenuto (Giacomo, 19/9/2026). Una scheda
+               dei nodi non ha niente che questo controllo possa verificare:
+               a soli titoli non c'è corpo da confrontare con la fonte; con le
+               parole chiave è il docente a guardarle; con le descrizioni dei
+               nodi quelle descrizioni sono GIÀ state validate a monte, nella
+               revisione della mappa, e ricontrollarle qui le rimetterebbe in
+               discussione una seconda volta con un metro diverso.
+               Non è un'omissione silenziosa (che sarebbe contro la regola «un
+               controllo non eseguito resta incompleto»): l'esenzione è
+               dichiarata in `coverage.exempt` e resta leggibile nel rapporto.
+               ⚠️ Esenti da QUESTO controllo, non da `validate()`: la guardia
+               strutturale continua a valere, e una scheda `layout:"card"` col
+               corpo vuoto resta un difetto (tests/material-review.test.js:506).
+               Escluderle QUI e non da `final.items` è deliberato: quella lista
+               è anche la consegna, e toglierle di lì farebbe sparire il foglio. */
+            if (item && id && counts.get(id) === 1 && ESENTI.includes(item.kind)) {
+                report.coverage.exempt.push({ id, index, kind: item.kind,
+                    reason: 'La scheda dei nodi non richiede il controllo di contenuto' });
+                return;
+            }
             report.coverage.expectedIds.push(id);
             if (!item || !id || counts.get(id) !== 1 || !KINDS.includes(item.kind)) {
                 report.coverage.skipped.push({ id, index, reason: 'ID mancante/duplicato o tipo di materiale non riconosciuto' }); return;

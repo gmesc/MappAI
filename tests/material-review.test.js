@@ -482,7 +482,13 @@ test('deterministic checks survive unavailable AI without invented spelling corr
     ], { apiKey: '' });
     assert.equal(r.calls.length, 0);
     assert.equal(report.checkStatus, 'unavailable');
-    assert.equal(report.coverage.deterministicIds.length, 5);
+    // 4 e non 5: la scheda dei nodi è esente dal controllo di contenuto
+    // (Giacomo, 19/9/2026) e non entra nelle attese del rapporto.
+    assert.equal(report.coverage.deterministicIds.length, 4);
+    assert.equal(report.coverage.exempt.length, 1, 'la scheda dei nodi è dichiarata esente, non saltata in silenzio');
+    assert.equal(String(report.coverage.exempt[0].id), 'text');
+    assert.ok(!report.coverage.expectedIds.includes('text'), 'un esente non è atteso, quindi non risulta mai «da esaminare»');
+    assert.ok(!report.coverage.skipped.some(r => r.id === 'text'), 'esente ≠ saltato: non rende incompleto il controllo');
     assert.equal(report.coverage.checkedIds.length, 0);
     assert.equal(report.issues.find(i => i.target.field === 'lines').after, 12);
     assert.ok(report.issues.some(i => i.target.field === 'correctIndex'));
@@ -1329,4 +1335,31 @@ test('a finding whose quote repairs PDF artefacts reaches the teacher instead of
     assert.equal(report.issues[0].evidence[0].text, 'l’Assemblea Federale elesse   Henr i   Guisan Comandante in Capo', 'la prova mostrata al docente è il testo archiviato');
     assert.ok(report.coverage.claims.every(c => c.checked), 'l’affermazione ha un esito verificato');
     assert.deepEqual(plain(report.coverage.checkedIds), ['synthesis-intro']);
+});
+
+/* Le schede dei nodi non passano dal controllo di contenuto (Giacomo, 19/9/2026):
+   a soli titoli non c'è corpo da verificare; con le parole chiave le guarda il
+   docente; con le descrizioni dei nodi quelle sono già validate nella revisione
+   della mappa. L'esenzione NON deve diventare un «controllo incompleto», che è
+   ciò che le faceva comparire fra i materiali rimasti. */
+test('le schede dei nodi sono esenti dal controllo, e l\'esenzione non rende incompleto il rapporto', async () => {
+    const r = runtime();
+    const report = await r.check([
+        { id: 'ns-title', kind: 'nodesheet', layout: 'title', question: 'Oro e valuta', text: '' },
+        { id: 'ns-card', kind: 'nodesheet', layout: 'card', question: 'Neutralità', text: 'La Svizzera restò neutrale.' }
+    ], { apiKey: '' });
+    assert.equal(report.coverage.exempt.map(x => String(x.id)).sort().join(','), 'ns-card,ns-title');
+    assert.equal(report.coverage.expectedIds.length, 0, 'nessuna scheda è attesa dal controllo');
+    assert.equal(report.coverage.skipped.length, 0, 'nessuna scheda è «saltata»: sarebbe un controllo incompleto');
+    assert.equal(r.calls.length, 0, 'nessuna chiamata AI per le sole schede');
+    assert.equal(report.issues.length, 0, 'e nessuna segnalazione da esaminare');
+});
+
+/* Il confine dell'esenzione: `validate` è la guardia STRUTTURALE e resta intera.
+   Una scheda a soli titoli col corpo vuoto è corretta; una `card` col corpo
+   vuoto resta un difetto anche se la scheda è esente dal controllo di contenuto. */
+test('l\'esenzione non tocca la guardia strutturale di validate', () => {
+    const { validate } = require('../public/js/mappai-material-review.js');
+    assert.equal(validate([{ id: 'title', kind: 'nodesheet', layout: 'title', question: 'Oro e valuta', text: '' }]).ok, true);
+    assert.equal(validate([{ id: 'card', kind: 'nodesheet', layout: 'card', question: 'Oro e valuta', text: '' }]).ok, false);
 });
