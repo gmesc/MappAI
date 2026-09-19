@@ -65,6 +65,8 @@ una chiave Infomaniak se preferisci che i dati restino in Svizzera.
 
 ## Sviluppo
 
+Serve **Node 24** (`.nvmrc`; con nvm: `nvm use`), lo stesso major che Electron 41 incorpora.
+
 ```bash
 npm install
 npm start          # avvia l'app
