@@ -447,3 +447,24 @@ test('reranker: dai voti restano le prime due, anche su un sottoinsieme di frasi
     // voti mancanti o più corti degli indici non rompono niente
     assert.deepStrictEqual(A.citazioniDaVoti(frasi, [0, 1], undefined), []);
 });
+
+/* Una frase che si interrompe DENTRO un vuoto da riempire non prova niente: il
+   fatto è nel vuoto, cioè fuori dal testo. Misurato il 19/9/2026 sulla scheda
+   «La Svizzera nella seconda guerra mondiale»: una frase così era citata su due
+   nodi. Restano invece il vuoto CHIUSO dentro un periodo completo e la coda di
+   un vuoto in testa a una frase che poi un fatto lo dice.
+   ⚠️ Si scarta la frase, non si riscrive: le citazioni devono restare verbatim
+   o la verifica contro le pagine archiviate le rifiuta. */
+test('frasiDaPagine: via la frase che finisce dentro un vuoto da riempire', () => {
+  const pagine = A.paginePiatte([
+    'Dopo il 1940 la volontà di evitare conflitti con i nuovi padroni dell’Europa (.....................',
+    'La Svizzera fu accerchiata dalle forze naziste e dei loro alleati (...............).',
+    '............), la precaria situazione alimentare spinse le autorità a porre restrizioni all’afflusso.',
+    'Il razionamento alimentare limitò i consumi di pane e carne per tutta la durata della guerra…'
+  ]);
+  const testi = A.frasiDaPagine(pagine).map(f => f.text);
+  assert.ok(!testi.some(t => /padroni dell’Europa/.test(t)), 'la frase troncata nel vuoto non è una prova');
+  assert.ok(testi.some(t => /dei loro alleati/.test(t)), 'il vuoto chiuso dentro un periodo completo resta');
+  assert.ok(testi.some(t => /precaria situazione alimentare/.test(t)), 'la coda di un vuoto in testa non cancella il fatto che segue');
+  assert.ok(testi.some(t => /razionamento alimentare/.test(t)), 'i puntini di sospensione non sono un vuoto');
+});

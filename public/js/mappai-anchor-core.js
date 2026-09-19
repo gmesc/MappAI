@@ -194,6 +194,27 @@
            altro, e una regola larga mangerebbe del contenuto vero. */
         var ESERCIZIO = /(^|\bAttivit[àa]\s*\d{1,2}\s+)(esamina|osserva|completa|rispondi|leggi|indica|elenca|sottolinea|ricopia|collega|inserisci|scrivi|calcola|descrivi)\b/i;
 
+        /* ── LA FRASE CHE FINISCE DENTRO UN VUOTO (19/9/2026, sera) ───────────
+           Misurato sulla prima generazione col reranker acceso: 7 citazioni su
+           96 contenevano i puntini dei vuoti da riempire della scheda, e UNA
+           non provava niente — «Dopo il 1940 la volontà di evitare conflitti
+           con i nuovi padroni dell'Europa (.....................»: il predicato
+           è NEL vuoto, cioè non è nel testo. Era citata su due nodi diversi.
+           Sulla fonte vera la regola toglie 1 frase su 47.
+
+           ⚠️ Si SCARTA la frase, non si ripulisce il testo. Le citazioni sono
+           verificate carattere per carattere contro le pagine archiviate
+           (`mappai-grounding-core.js`, `verifiedAgainst: 'archived-source-text'`):
+           una frase riscritta non combacerebbe più e finirebbe in `unverified`.
+           Il verbatim È la garanzia che una prova stia nella fonte, e non si tocca.
+
+           ⚠️ Quattro punti minimo: «…» di sospensione è punteggiatura, non un
+           vuoto da riempire. E restano dentro — a ragione — la frase col vuoto
+           CHIUSO in mezzo a un periodo completo («…dei loro alleati (.......).»)
+           e quella che si apre con la coda di un vuoto ma poi un fatto lo dice:
+           brutte da leggere, ma il fatto c'è. */
+        var TRONCA_NEL_VUOTO = /\.{4,}\s*$/;
+
         var _chiave = function (t) {
             return String(t).toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').replace(/\s+/g, ' ').trim();
         };
@@ -209,6 +230,7 @@
             if (Object.keys(perTesto[k]).length >= 3) return;          // intestazione ricorrente
             if (/\?\s*$/.test(f.text)) return;                         // consegna dell'esercizio
             if (ESERCIZIO.test(f.text)) return;                        // consegna senza punto di domanda
+            if (TRONCA_NEL_VUOTO.test(f.text)) return;                 // frase troncata dentro un vuoto da riempire
             if (BP && typeof BP.isStructuralLine === 'function' && BP.isStructuralLine(f.text)) return;
             f.idx = out.length;
             out.push(f);
