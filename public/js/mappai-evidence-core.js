@@ -1,13 +1,17 @@
 /*
  * mappai-evidence-core.js — le evidenze: la frase VERA della fonte, con documento
  * e pagina, che un generatore riceve e cita per identificatore (ADR 0002,
- * invariante 22). Passo 1 del piano Evidence (docs/tasks/0001-evidence-core.md).
+ * invariante 22). Passi 1 e 2 del piano Evidence (docs/tasks/0001-evidence-core.md,
+ * docs/tasks/0002-evidence-indice.md).
  *
- * Tre funzioni, tutte pure (niente DOM, IPC, modelli, timer):
+ * Cinque funzioni, tutte pure (niente DOM, IPC, modelli, timer):
  *   · tipizza(unita)            → la stessa unità con un `genere`;
  *   · costruisciPacchetto(...)  → da una query, le unità che un generatore leggerà,
  *                                 con tetto e scarti contati;
- *   · formattaPerPrompt(p)      → il blocco di testo con gli id `[[ev-…]]`.
+ *   · formattaPerPrompt(p)      → il blocco di testo con gli id `[[ev-…]]`;
+ *   · costruisciIndice(fonti)   → `evidenze.json`: un record per pagina, con in
+ *                                 testa la revisione di ogni fonte (passo 2);
+ *   · indiceStantio(indice, f)  → se l'indice letto dal disco va rifatto.
  *
  * Che cosa NON si rifà qui (invariante 6, una verità una fonte):
  *   · il BM25 e il filtro delle frasi sono di `lexical()` (local-search-core →
@@ -153,5 +157,120 @@
     }).join('\n');
   }
 
-  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt };
+  /* ── L'INDICE DELLE EVIDENZE (passo 2) ─────────────────────────────────────
+     `evidenze.json` nella radice del vault: le pagine delle fonti che la
+     revisione conserva in pipeline.json, UN record per pagina, con in testa la
+     revisione di ogni fonte. È un derivato ricostruibile a costo zero
+     (invariante 7). Niente frasi e niente BM25 qui dentro: restano di
+     `lexical`, che `costruisciPacchetto` chiama sui `records` di questo indice. */
+  var SCHEMA_INDICE = 'mappai-evidenze@1';
+  var GENERI = ['domanda', 'consegna', 'didascalia', 'definizione', 'dato', 'concetto'];
+
+  /* Titolo e pagine come li legge `snapshot()` (local-search-core:20-21). Il
+     titolo serve solo alla fonte senza una riga di testo, che non lascia
+     record da cui rileggerlo; le pagine servono all'id derivato e ai generi. */
+  function titoloFonte(f) {
+    return f.title || f.nome || f.name || (f.file && f.file.name) || f.url || 'Documento';
+  }
+  function pagineFonte(f) {
+    return Array.isArray(f.pages) ? f.pages : [{ n: f.page || f.n || 0, text: f.content || f.text || '' }];
+  }
+  function testoPagina(p) { return String((p && (p.text || p.content)) || ''); }
+
+  /* Un id che non dipende dalla POSIZIONE. A chi non ha un id `snapshot()` dà
+     `source-<posizione>`, e la revisione ordina le fonti a modo suo
+     (review-core, sourceSnapshot): un id `ev-…` nato su quella base cambierebbe
+     aggiungendo o spostando una fonte, e un materiale che lo cita non
+     ritroverebbe più la sua prova. Se la fonte ha un id si tiene quello;
+     altrimenti l'impronta del PDF (`pdfHash|hash`) o, mancando anche quella,
+     titolo e testi delle pagine. Stesso hash di `idUnita`. */
+  function idFonte(f) {
+    var proprio = f.sourceId || f.docId || f.id;
+    if (proprio) return String(proprio);
+    var impronta = f.pdfHash || f.hash;
+    var value = impronta ? [String(impronta)] : [titoloFonte(f), pagineFonte(f).map(testoPagina)];
+    var h = RC.revision({ items: [{ id: 'fonte', value: value }] }, []);
+    return 'fonte-' + String(h).slice(3);
+  }
+
+  /* La copia su cui lavora `snapshot()`: le fonti della revisione sono il dato
+     di pipeline.json e non si toccano. Una stringa nuda diventa una fonte di
+     solo testo, come fa `snapshot()`; ciò che non è né stringa né oggetto non
+     è una fonte e si salta (il chiamante lo dichiara nella diagnostica). */
+  function copiaFonte(f) {
+    if (typeof f === 'string') f = { text: f };
+    if (!f || typeof f !== 'object') return null;
+    var copia = Object.assign({}, f);
+    copia.sourceId = idFonte(f);
+    return copia;
+  }
+
+  /* Che cosa contiene la fonte, riga per riga (le pagine spezzate su `\n`,
+     righe vuote saltate): una scheda di esercizi si vede dai numeri. È
+     diagnostica: il pacchetto non la legge. Tutti e sei i generi compaiono
+     sempre, anche a zero, così il JSON ha la stessa forma su ogni fonte. */
+  function contaGeneri(pagine) {
+    var conto = {};
+    GENERI.forEach(function (g) { conto[g] = 0; });
+    pagine.forEach(function (p) {
+      testoPagina(p).split('\n').forEach(function (riga) {
+        if (riga.trim()) conto[tipizza(riga).genere]++;
+      });
+    });
+    return conto;
+  }
+
+  /* Da ciò che `MappAIReview.sources()` restituisce all'indice. I `records`
+     sono quelli di `snapshot()` (invariante 6), tenuti solo se `original` o
+     `reference`: un generato non prova se stesso. `opts.adesso` (ISO) sostituisce
+     `new Date()` nei test. Mai un'eccezione: fonti vuote o non array danno un
+     indice con `fonti: []` e `records: []`. */
+  function costruisciIndice(sources, opts) {
+    var o = opts && typeof opts === 'object' ? opts : {};
+    var diagnostica = [], copie = [];
+    (Array.isArray(sources) ? sources : []).forEach(function (f, i) {
+      var c = copiaFonte(f);
+      if (c) copie.push(c); else diagnostica.push({ code: 'fonte_non_valida', posizione: i });
+    });
+    var snap = LS.snapshot({ db: { nodes: [], links: [] }, sources: copie });
+    var records = snap.records.filter(function (r) { return r.origin === 'original' || r.origin === 'reference'; });
+    var fonti = copie.map(function (c) {
+      var suoi = records.filter(function (r) { return r.sourceId === c.sourceId; });
+      return {
+        sourceId: c.sourceId,
+        title: suoi.length ? suoi[0].title : titoloFonte(c),
+        sourceRevision: suoi.length ? suoi[0].sourceRevision : '',
+        pdfHash: String(c.pdfHash || c.hash || ''),
+        pagine: suoi.length,
+        generi: contaGeneri(pagineFonte(c))
+      };
+    });
+    return {
+      schema: SCHEMA_INDICE,
+      creato: typeof o.adesso === 'string' && o.adesso ? o.adesso : new Date().toISOString(),
+      fonti: fonti,
+      records: records,
+      diagnostica: diagnostica.concat(snap.diagnostics || [])
+    };
+  }
+
+  /* La firma di un indice: `sourceId:sourceRevision` di ogni fonte, in ordine
+     alfabetico — l'ordine delle fonti non conta, il loro contenuto sì. */
+  function firmaFonti(fonti) {
+    return (Array.isArray(fonti) ? fonti : []).map(function (f) {
+      return String(f && f.sourceId) + ':' + String(f && f.sourceRevision);
+    }).sort().join('\n');
+  }
+
+  /* Stantio = da rifare. Non è un oggetto, non ha lo schema di qui, non ha le
+     liste che il lettore pretende, o le sue fonti non sono più quelle che
+     `costruisciIndice` ricaverebbe adesso dalle stesse `sources`. */
+  function indiceStantio(indice, sources) {
+    if (!indice || typeof indice !== 'object') return true;
+    if (indice.schema !== SCHEMA_INDICE) return true;
+    if (!Array.isArray(indice.fonti) || !Array.isArray(indice.records)) return true;
+    return firmaFonti(indice.fonti) !== firmaFonti(costruisciIndice(sources).fonti);
+  }
+
+  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt, costruisciIndice: costruisciIndice, indiceStantio: indiceStantio };
 }));

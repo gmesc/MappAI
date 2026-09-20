@@ -125,6 +125,8 @@
       await approveFinal(vaultPath, manifest, { review: manifest.review.final.review, db: { items: manifest.review.final.items } });
     }
     cache();
+    // Le evidenze (ADR 0002, passo 2): l'indice si costruisce o si rilegge dal vault. Non atteso, come ripristinaFontiDalVault: il disegno della mappa non aspetta il disco.
+    if (window.MappAIEvidence && window.MappAIEvidence.suApertura) window.MappAIEvidence.suApertura(vaultPath).catch(function () { });
     return true;
   };
   async function commit(vaultPath, manifest, result) {

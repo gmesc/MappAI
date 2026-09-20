@@ -88,4 +88,5 @@ docs/archify/*.visual-check.*
 !tools/smoke/cornice-documenti.js
 !tools/smoke/pipeline-lucchetto.js
 !tools/smoke/visione-fogli.js
+!tools/smoke/evidenze-da-pipeline.js
 !tools/smoke/LEGGIMI.md

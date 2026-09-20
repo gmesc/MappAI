@@ -322,3 +322,194 @@ test('la suite di local-search-core continua a passare', () => {
     assert.match(esito.stdout, /^(ℹ|#) fail 0$/m, 'senza riepilogo non si sa se la suite ha girato davvero');
     assert.match(esito.stdout, /^(ℹ|#) pass [1-9]\d*$/m, 'la suite deve aver eseguito almeno un test');
 });
+
+// ── 9. l'indice delle evidenze (passo 2, docs/tasks/0002-evidence-indice.md) ──
+
+/* Due fonti SENZA id, nella forma in cui pipeline.json le conserva (`nome` o
+   `title` + `pages`): è il caso in cui il sourceId va derivato. `statoBase`
+   ha invece `id: 'src-1'`, e serve al round-trip con snapshot() diretto. */
+const fontiSenzaId = () => ([
+    { nome: 'Elettricita.pdf', pages: [{ n: 4, text: FONTE }, { n: 5, text: FRASI_EXTRA.join(' ') }] },
+    { title: 'Appunti.pdf', pages: [{ n: 1, text: 'Un fusibile protegge il circuito dal sovraccarico.' }] },
+]);
+const ID_FONTE = /^fonte-[0-9a-f]{16}-\d+$/;
+const ID_EV = /^ev-[0-9a-f]{16}-\d+$/;
+const LARGO = { unita: 20, caratteri: 100000 };
+
+test('indice: il core esporta le cinque funzioni, nell ordine del packet', () => {
+    assert.deepStrictEqual(Object.keys(E), ['tipizza', 'costruisciPacchetto', 'formattaPerPrompt', 'costruisciIndice', 'indiceStantio']);
+});
+
+test('indice 1: due fonti con pages → due fonti, record solo original|reference, sourceId derivato e uguale in due costruzioni', () => {
+    const a = E.costruisciIndice(fontiSenzaId()), b = E.costruisciIndice(fontiSenzaId());
+    assert.strictEqual(a.schema, 'mappai-evidenze@1');
+    assert.strictEqual(a.fonti.length, 2);
+    assert.strictEqual(a.records.length, 3, 'un record per pagina');
+    for (const r of a.records) assert.ok(['original', 'reference'].includes(r.origin), `origin inatteso: ${r.origin}`);
+    for (const f of a.fonti) assert.match(f.sourceId, ID_FONTE);
+    assert.deepStrictEqual(a.fonti.map(f => f.sourceId), b.fonti.map(f => f.sourceId));
+    assert.notStrictEqual(a.fonti[0].sourceId, a.fonti[1].sourceId);
+    // la testa di ogni fonte descrive i suoi record
+    a.fonti.forEach(f => {
+        const suoi = a.records.filter(r => r.sourceId === f.sourceId);
+        assert.strictEqual(f.pagine, suoi.length);
+        assert.strictEqual(f.title, suoi[0].title);
+        assert.ok(suoi.every(r => r.sourceRevision === f.sourceRevision));
+        assert.match(f.sourceRevision, /^r1-[0-9a-f]{16}-\d+$/, 'la revisione è quella di snapshot()');
+        assert.strictEqual(f.pdfHash, '');
+    });
+    assert.deepStrictEqual(a.fonti.map(f => f.title), ['Elettricita.pdf', 'Appunti.pdf']);
+    assert.deepStrictEqual(a.records.map(r => r.page), [4, 5, 1]);
+    for (const r of a.records) {
+        assert.strictEqual(typeof r.text, 'string');
+        assert.ok(r.textHash && r.sourceRevision && r.title && r.sourceId, 'i campi che costruisciPacchetto consuma');
+    }
+    // la diagnostica di snapshot() è riportata, non scartata: due PDF senza impronta
+    assert.strictEqual(a.diagnostica.filter(d => d.code === 'legacy_pdf_identity_unverified').length, 2);
+});
+
+test('indice 2: il sourceId non dipende dalla posizione, e il pacchetto dai records dà gli stessi id ev-…', () => {
+    const dritte = fontiSenzaId(), inverse = fontiSenzaId().reverse();
+    const a = E.costruisciIndice(dritte), b = E.costruisciIndice(inverse);
+    assert.deepStrictEqual(a.fonti.map(f => f.sourceId), b.fonti.map(f => f.sourceId).reverse(), 'le fonti seguono l ordine di ingresso, gli id no');
+    const pa = E.costruisciPacchetto({ records: a.records, query: 'circuito', tetto: LARGO });
+    const pb = E.costruisciPacchetto({ records: b.records, query: 'circuito', tetto: LARGO });
+    assert.ok(pa.unita.length >= 3, `servono candidati da entrambe le fonti, trovati ${pa.unita.length}`);
+    assert.deepStrictEqual(pa.unita.map(u => u.id).sort(), pb.unita.map(u => u.id).sort());
+    for (const u of pa.unita) assert.match(u.id, ID_EV);
+    // per contrasto: snapshot() diretto dà source-<posizione>, e gli id cambiano — è il motivo del passo 2
+    const diretto = fonti => E.costruisciPacchetto({ records: LS.snapshot({ db: { nodes: [], links: [] }, sources: fonti }).records, query: 'circuito', tetto: LARGO });
+    assert.notDeepStrictEqual(diretto(dritte).unita.map(u => u.id).sort(), diretto(inverse).unita.map(u => u.id).sort());
+});
+
+test('indice 3: sourceId dalla fonte se c è (sourceId, docId, id), altrimenti derivato; con pdfHash la base è l hash, non il testo', () => {
+    const pagine = [{ n: 1, text: FONTE }];
+    const i = E.costruisciIndice([
+        { id: 'src-1', title: 'A', pages: pagine },
+        { docId: 'doc-2', title: 'B', pages: pagine },
+        { sourceId: 'S-3', id: 'ignorato', title: 'C', pages: pagine },
+        { title: 'D', pages: pagine },
+        'testo incollato senza niente',
+    ]);
+    assert.deepStrictEqual(i.fonti.slice(0, 3).map(f => f.sourceId), ['src-1', 'doc-2', 'S-3'], 'la stessa precedenza di snapshot()');
+    assert.match(i.fonti[3].sourceId, ID_FONTE);
+    assert.match(i.fonti[4].sourceId, ID_FONTE);
+    assert.strictEqual(i.fonti[4].title, 'Documento');
+    assert.strictEqual(i.records.find(r => r.sourceId === i.fonti[4].sourceId).page, 0, 'una stringa nuda è pagina 0, come per snapshot()');
+    assert.strictEqual(new Set(i.fonti.map(f => f.sourceId)).size, 5);
+    // con pdfHash: stesso hash e testo diverso → stesso id; la revisione invece segue le pagine
+    const conHash = t => E.costruisciIndice([{ title: 'X.pdf', pdfHash: 'abc123', pages: [{ n: 1, text: t }] }]).fonti[0];
+    assert.strictEqual(conHash(FONTE).sourceId, conHash(FONTE_LUNGA).sourceId);
+    assert.notStrictEqual(conHash(FONTE).sourceRevision, conHash(FONTE_LUNGA).sourceRevision);
+    assert.strictEqual(conHash(FONTE).pdfHash, 'abc123');
+    // `hash` (la chiave che sourceSnapshot conserva) vale come `pdfHash`
+    assert.strictEqual(E.costruisciIndice([{ title: 'X.pdf', hash: 'abc123', pages: [{ n: 1, text: FONTE }] }]).fonti[0].sourceId, conHash(FONTE).sourceId);
+    // senza impronta: testo diverso → id diverso; titolo diverso → id diverso; e la base non è quella dell impronta
+    const senza = (titolo, t) => E.costruisciIndice([{ title: titolo, pages: [{ n: 1, text: t }] }]).fonti[0].sourceId;
+    assert.notStrictEqual(senza('X.pdf', FONTE), senza('X.pdf', FONTE_LUNGA));
+    assert.notStrictEqual(senza('X.pdf', FONTE), senza('Y.pdf', FONTE));
+    assert.notStrictEqual(senza('X.pdf', FONTE), conHash(FONTE).sourceId);
+});
+
+test('indice 4: generi conta le righe per genere, righe vuote saltate', () => {
+    const testo = [
+        'Perche la batteria si scalda a circuito chiuso?',         // domanda
+        '',                                                        // saltata
+        'Completa la tabella con i valori misurati.',             // consegna
+        '   ',                                                     // saltata
+        'Fig. 1 Il circuito chiuso con la batteria.',             // didascalia
+        'La corrente elettrica è un flusso ordinato di cariche.', // definizione
+        'Nel 1827 Ohm formulo la sua legge.',                     // dato
+        'Un fusibile protegge il circuito dal sovraccarico.',     // concetto
+        'Il generatore spinge le cariche lungo il filo.',         // concetto
+    ].join('\n');
+    const i = E.costruisciIndice([{ id: 'g', title: 'Scheda', pages: [{ n: 1, text: testo }] }]);
+    assert.deepStrictEqual(i.fonti[0].generi, { domanda: 1, consegna: 1, didascalia: 1, definizione: 1, dato: 1, concetto: 2 });
+    assert.strictEqual(Object.values(i.fonti[0].generi).reduce((a, b) => a + b, 0), 7, 'sette righe piene, due vuote');
+    // una fonte senza pagine (testo incollato) si conta lo stesso, e i sei generi ci sono sempre
+    assert.deepStrictEqual(E.costruisciIndice([{ id: 't', text: 'Completa.\n\nPerche?' }]).fonti[0].generi,
+        { domanda: 1, consegna: 1, didascalia: 0, definizione: 0, dato: 0, concetto: 0 });
+});
+
+test('indice 5: indiceStantio — falso su fonti identiche; vero se cambia una lettera, una fonte in più o in meno, schema sconosciuto, null, stringa', () => {
+    const fonti = fontiSenzaId();
+    const indice = E.costruisciIndice(fonti);
+    assert.strictEqual(E.indiceStantio(indice, fonti), false);
+    assert.strictEqual(E.indiceStantio(JSON.parse(JSON.stringify(indice)), fontiSenzaId()), false, 'riletto dal disco, su fonti ricaricate');
+    assert.strictEqual(E.indiceStantio(indice, fontiSenzaId().reverse()), false, 'l ordine delle fonti non conta');
+    // una lettera cambiata in una pagina
+    const toccate = fontiSenzaId();
+    toccate[1].pages[0].text = toccate[1].pages[0].text.replace('fusibile', 'fusibila');
+    assert.strictEqual(E.indiceStantio(indice, toccate), true);
+    // una fonte in più / in meno
+    assert.strictEqual(E.indiceStantio(indice, fontiSenzaId().concat([{ title: 'Terza', pages: [{ n: 1, text: 'Altro testo.' }] }])), true);
+    assert.strictEqual(E.indiceStantio(indice, fontiSenzaId().slice(0, 1)), true);
+    // schema sconosciuto, null, stringa, undefined, oggetto vuoto, senza record
+    assert.strictEqual(E.indiceStantio({ ...indice, schema: 'mappai-evidenze@0' }, fonti), true);
+    assert.strictEqual(E.indiceStantio(null, fonti), true);
+    assert.strictEqual(E.indiceStantio('{"schema":"mappai-evidenze@1"}', fonti), true);
+    assert.strictEqual(E.indiceStantio(undefined, fonti), true);
+    assert.strictEqual(E.indiceStantio({}, fonti), true);
+    assert.strictEqual(E.indiceStantio({ ...indice, records: undefined }, fonti), true, 'senza record non c è niente da leggere');
+    // con un id proprio la firma segue la revisione delle pagine
+    const conId = [{ id: 'src-1', title: 'A', pages: [{ n: 1, text: FONTE }] }];
+    const ic = E.costruisciIndice(conId);
+    assert.strictEqual(E.indiceStantio(ic, conId), false);
+    assert.strictEqual(E.indiceStantio(ic, [{ id: 'src-1', title: 'A', pages: [{ n: 1, text: FONTE + ' Altro.' }] }]), true);
+});
+
+test('indice 6: le fonti passate non vengono mutate', () => {
+    const fonti = fontiSenzaId().concat(['testo nudo'], [{ id: 'src-1', title: 'A', pages: [{ n: 1, text: FONTE }] }]);
+    const prima = JSON.parse(JSON.stringify(fonti));
+    const i = E.costruisciIndice(fonti);
+    E.indiceStantio(i, fonti);
+    E.costruisciPacchetto({ records: i.records, query: 'circuito' });
+    assert.deepStrictEqual(fonti, prima);
+    assert.strictEqual(fonti[0].sourceId, undefined, 'il sourceId derivato sta sulla copia, non sulla fonte');
+    assert.ok(i.records.every(r => !fonti.some(f => f && f.pages && f.pages.includes(r))), 'nessun record è un oggetto della fonte');
+});
+
+test('indice 7: creato iniettabile con opts.adesso; JSON.stringify/parse restituisce un indice identico', () => {
+    const i = E.costruisciIndice(fontiSenzaId(), { adesso: '2026-09-20T10:00:00.000Z' });
+    assert.strictEqual(i.creato, '2026-09-20T10:00:00.000Z');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(i)), i, 'niente undefined, NaN o funzioni dentro');
+    assert.deepStrictEqual(Object.keys(i), ['schema', 'creato', 'fonti', 'records', 'diagnostica']);
+    assert.deepStrictEqual(Object.keys(i.fonti[0]), ['sourceId', 'title', 'sourceRevision', 'pdfHash', 'pagine', 'generi']);
+    const senza = E.costruisciIndice(fontiSenzaId());
+    assert.strictEqual(new Date(senza.creato).toISOString(), senza.creato, 'senza opts, creato è una data ISO');
+    // due costruzioni con lo stesso `adesso` sono identiche: nulla dipende dal caso
+    assert.deepStrictEqual(E.costruisciIndice(fontiSenzaId(), { adesso: 'x' }), E.costruisciIndice(fontiSenzaId(), { adesso: 'x' }));
+});
+
+test('indice 8: fonti vuote, undefined, null, stringa nuda → fonti: [] e records: [], mai un eccezione', () => {
+    for (const x of [[], undefined, null, 'testo nudo fuori da una lista', {}, 42]) {
+        const i = E.costruisciIndice(x, { adesso: 'x' });
+        assert.deepStrictEqual({ schema: i.schema, fonti: i.fonti, records: i.records }, { schema: 'mappai-evidenze@1', fonti: [], records: [] }, `input ${JSON.stringify(x)}`);
+        assert.ok(Array.isArray(i.diagnostica));
+        assert.strictEqual(E.indiceStantio(i, x), false, 'un indice vuoto su fonti vuote non è stantio');
+    }
+    // elementi non validi dentro la lista: saltati e dichiarati, gli altri restano
+    const i = E.costruisciIndice([null, undefined, 42, { id: 'src-1', title: 'A', pages: [{ n: 1, text: FONTE }] }]);
+    assert.strictEqual(i.fonti.length, 1);
+    assert.strictEqual(i.records.length, 1);
+    assert.deepStrictEqual(i.diagnostica.filter(d => d.code === 'fonte_non_valida').map(d => d.posizione), [0, 1, 2]);
+    // pagine senza testo: nessun record, ma la fonte resta in testa con 0 pagine
+    const v = E.costruisciIndice([{ id: 'v', title: 'Vuota.pdf', pages: [{ n: 1, text: '' }] }]);
+    assert.strictEqual(v.fonti[0].pagine, 0);
+    assert.strictEqual(v.fonti[0].sourceRevision, '');
+    assert.strictEqual(v.fonti[0].title, 'Vuota.pdf');
+    assert.strictEqual(v.records.length, 0);
+    assert.ok(v.diagnostica.some(d => d.code === 'empty_page'));
+});
+
+test('indice 9: round-trip — il pacchetto dai records dell indice ha gli stessi id di quello dai record di snapshot() diretti', () => {
+    const stato = statoLungo();   // la fonte ha `id: 'src-1'`: snapshot() e indice concordano sul sourceId
+    const dallIndice = E.costruisciPacchetto({ records: E.costruisciIndice(stato.sources).records, query: 'circuito' });
+    const diretto = E.costruisciPacchetto({ records: records(stato), query: 'circuito' });
+    assert.ok(dallIndice.unita.length >= 2);
+    assert.deepStrictEqual(dallIndice.unita.map(u => u.id), diretto.unita.map(u => u.id));
+    assert.deepStrictEqual(dallIndice, diretto, 'stesse unità, stesso ordine, stessi campi');
+    // e attraverso il disco: dal JSON riletto, gli stessi id
+    const riletto = JSON.parse(JSON.stringify(E.costruisciIndice(stato.sources)));
+    assert.deepStrictEqual(E.costruisciPacchetto({ records: riletto.records, query: 'circuito' }), diretto);
+});

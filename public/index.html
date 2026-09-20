@@ -3344,6 +3344,12 @@
     <script src="js/mappai-review-fonte.js?v=pdf-segni-20260917"></script>
     <script src="js/mappai-confronto-core.js?v=inline-20260917"></script>
     <script src="js/mappai-review.js?v=avanzamento-20260919"></script>
+    <!-- Le evidenze (ADR 0002, passo 2, 20/9/2026): alla riapertura di un progetto l'indice delle pagine
+         della fonte (evidenze.json nella radice del vault), da cui il passo 3 darà le prove ai generatori.
+         Dopo review.js (le pagine vengono da MappAIReview.sources()), prima della pipeline che lo consumerà.
+         Interruttore: localStorage `mappai_evidence` = '1' (spento di default). -->
+    <script src="js/mappai-evidence-core.js?v=evidence-20260920"></script>
+    <script src="js/mappai-evidence.js?v=evidence-20260920"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
     <script src="js/mappai-material-pipeline.js?v=budget-20260916b"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
