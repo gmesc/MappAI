@@ -2,12 +2,16 @@
 // MappAI — Evidenze (cucitura fra `mappai-evidence-core.js`, la revisione e il vault)
 // ══════════════════════════════════════════════════════════════════════════
 //
-// Passo 2 del piano Evidence (ADR 0002, docs/tasks/0002-evidence-indice.md).
+// Passi 2 e 3 del piano Evidence (ADR 0002, docs/tasks/0002-evidence-indice.md,
+// docs/tasks/0003-evidence-materiale-ramo.md).
 // Alla riapertura di un progetto — da `MappAIReview.restore`, che tutti e
 // quattro i percorsi di apertura attraversano — costruisce, o rilegge se non è
 // stantio, `evidenze.json` nella RADICE del vault: l'indice delle evidenze,
-// derivato dalle pagine che la revisione conserva in pipeline.json. Zero
-// chiamate a modelli, nessun reranker: `punteggi` resta vuoto fino al passo 3.
+// derivato dalle pagine che la revisione conserva in pipeline.json. Poi, quando
+// la pipeline dei materiali chiede il materiale di un ramo (`_branchMaterial`),
+// `materialeRamo` le dà il pacchetto di frasi vere della fonte al posto delle
+// desc. Zero chiamate a modelli, nessun reranker: `punteggi` resta vuoto finché
+// la misura del passo 6 non dice che serve.
 //
 // Qui vivono SOLO l'interruttore, l'IPC e lo stato in memoria; la logica è nel
 // core, provata in Node (invariante 4). Il file è dell'app, derivato e
@@ -19,6 +23,7 @@
 // c'è la spunta in Configurazione AI (passo 4):
 //   MappAIEvidence.accendi()  ·  MappAIEvidence.spegni()
 //   MappAIEvidence.indice()   ·  MappAIEvidence.pacchetto('neutralità')
+//   MappAIEvidence.ultimeTracce()   — i rami serviti alla pipeline, con gli id
 (function () {
     'use strict';
     if (typeof window === 'undefined') return;
@@ -126,5 +131,52 @@
         return _core().costruisciPacchetto({ records: i.records, query: query, tetto: o.tetto, punteggi: o.punteggi });
     }
 
-    window.MappAIEvidence = { FILE: FILE, acceso: _acceso, accendi: accendi, spegni: spegni, suApertura: suApertura, indice: indice, pacchetto: pacchetto };
+    /* ── IL MATERIALE DI UN RAMO PER LA PIPELINE (passo 3) ─────────────────────
+       Il tetto del pacchetto di un ramo: il doppio delle 8 frasi che
+       `_passaggiDelRamo` chiedeva a BM25, e lo stesso budget in caratteri del
+       taglio di `_branchMaterial` (12.000, mappai-material-pipeline.js:150) —
+       UN budget solo (invariante 6). Da tarare al passo 6, con un numero. */
+    var TETTO_RAMO = { unita: 16, caratteri: 12000 };
+    var TRACCE_MAX = 50;
+
+    function _pulisci(x) { return window.cleanLabel ? window.cleanLabel(x) : String(x || '').trim(); }
+
+    /* La traccia in memoria per la misura del passo 6: una voce per ramo servito,
+       le più vecchie escono oltre TRACCE_MAX. Niente disco. */
+    function _traccia(voce) {
+        var st = _state();
+        if (!st) return;
+        if (!Array.isArray(st._evidenzeTracce)) st._evidenzeTracce = [];
+        st._evidenzeTracce.push(voce);
+        while (st._evidenzeTracce.length > TRACCE_MAX) st._evidenzeTracce.shift();
+    }
+    function ultimeTracce() {
+        var st = _state();
+        return st && Array.isArray(st._evidenzeTracce) ? st._evidenzeTracce.slice() : [];
+    }
+
+    /* SINCRONA, come `_branchMaterial` che la chiama dentro un giro sincrono.
+       `nodi` = il ramo, radice per prima, come `all` nella pipeline. Spento, o
+       senza indice del vault attivo → null: la pipeline segue la strada vecchia.
+       La query è la STESSA di `_passaggiDelRamo` (riga 196): le etichette pulite
+       unite da uno spazio — una verità sola. Nessun `punteggi`: il reranker non
+       c'è. Un ramo di cui la fonte non parla dà `materiale: ''` e la pipeline lo
+       salta: è la fedeltà che si misura, non un guasto da coprire con le desc. */
+    function materialeRamo(nodi, opts) {
+        if (!_acceso()) return null;
+        var i = indice();
+        if (!i) return null;
+        var o = opts && typeof opts === 'object' ? opts : {};
+        var lista = (Array.isArray(nodi) ? nodi : []).filter(function (n) { return n && typeof n === 'object'; });
+        var puliti = lista.map(function (n) { return { label: _pulisci(n.label), desc: n.desc || n.content || '' }; });
+        var area = puliti.length ? puliti[0].label : '';
+        var query = puliti.map(function (n) { return n.label; }).join(' ');
+        var pacchetto = _core().costruisciPacchetto({ records: i.records, query: query, tetto: o.tetto || TETTO_RAMO });
+        var r = _core().materialeRamo({ area: area, nodi: puliti, pacchetto: pacchetto, conDesc: !!o.conDesc });
+        var ids = pacchetto.unita.map(function (u) { return u.id; });
+        _traccia({ quando: new Date().toISOString(), area: area, query: query, ids: ids, scartate: r.scartate, caratteri: r.caratteri });
+        return { materiale: r.materiale, unita: r.unita, scartate: r.scartate, caratteri: r.caratteri, query: query, ids: ids };
+    }
+
+    window.MappAIEvidence = { FILE: FILE, TETTO_RAMO: TETTO_RAMO, acceso: _acceso, accendi: accendi, spegni: spegni, suApertura: suApertura, indice: indice, pacchetto: pacchetto, materialeRamo: materialeRamo, ultimeTracce: ultimeTracce };
 })();

@@ -4,14 +4,17 @@
  * invariante 22). Passi 1 e 2 del piano Evidence (docs/tasks/0001-evidence-core.md,
  * docs/tasks/0002-evidence-indice.md).
  *
- * Cinque funzioni, tutte pure (niente DOM, IPC, modelli, timer):
+ * Sei funzioni, tutte pure (niente DOM, IPC, modelli, timer):
  *   · tipizza(unita)            → la stessa unità con un `genere`;
  *   · costruisciPacchetto(...)  → da una query, le unità che un generatore leggerà,
  *                                 con tetto e scarti contati;
  *   · formattaPerPrompt(p)      → il blocco di testo con gli id `[[ev-…]]`;
  *   · costruisciIndice(fonti)   → `evidenze.json`: un record per pagina, con in
  *                                 testa la revisione di ogni fonte (passo 2);
- *   · indiceStantio(indice, f)  → se l'indice letto dal disco va rifatto.
+ *   · indiceStantio(indice, f)  → se l'indice letto dal disco va rifatto;
+ *   · materialeRamo(...)        → il testo che la pipeline dà a un generatore per
+ *                                 un ramo: le etichette come struttura, le frasi
+ *                                 vere della fonte come contenuto (passo 3).
  *
  * Che cosa NON si rifà qui (invariante 6, una verità una fonte):
  *   · il BM25 e il filtro delle frasi sono di `lexical()` (local-search-core →
@@ -272,5 +275,57 @@
     return firmaFonti(indice.fonti) !== firmaFonti(costruisciIndice(sources).fonti);
   }
 
-  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt, costruisciIndice: costruisciIndice, indiceStantio: indiceStantio };
+  /* ── IL MATERIALE DI UN RAMO (passo 3, docs/tasks/0003-evidence-materiale-ramo.md) ─
+     Ciò che `_branchMaterial` (mappai-material-pipeline.js) consegna a un
+     generatore al posto delle desc con i passaggi: le ETICHETTE dei nodi come
+     struttura del ramo e le frasi VERE della fonte come contenuto, ciascuna col
+     suo id `[[ev-…]]` (invariante 22). Testo libero per il modello, nella forma:
+
+         AREA: <area>
+         CONCETTI DEL RAMO: <label1> · <label2> · <label3>
+
+         EVIDENZE DALLA FONTE (frasi verbatim, con pagina e id):
+         [[ev-…]] (p. N, Titolo · genere) testo
+         …
+
+     L'ultimo blocco è `formattaPerPrompt(pacchetto)`, identico riga per riga:
+     UNA funzione di formato (invariante 6). Nessuna istruzione al modello qui
+     dentro oltre quell'intestazione: le istruzioni stanno nel prompt (passo 4).
+     `conDesc` (default false) mette una riga `label: desc` per nodo al posto
+     del solo elenco, con la desc vuota che dà la sola etichetta: di default la
+     desc NON entra — è la parafrasi a cascata che il passo 3 chiude.
+     Le etichette vuote si saltano; se non ne resta nessuna la riga dei concetti
+     manca del tutto (una riga senza concetti sarebbe rumore, non struttura).
+     Pacchetto vuoto o assente → `materiale: ''`: la stringa vuota è il segnale
+     con cui il giro della pipeline SALTA il ramo (riga 831). Mai un'eccezione. */
+  function materialeRamo(input) {
+    var o = input && typeof input === 'object' ? input : {};
+    var pacchetto = o.pacchetto && typeof o.pacchetto === 'object' ? o.pacchetto : null;
+    var unita = pacchetto && Array.isArray(pacchetto.unita) ? pacchetto.unita : [];
+    var scartate = pacchetto && Number(pacchetto.scartate) > 0 ? Number(pacchetto.scartate) : 0;
+    if (!unita.length) return { materiale: '', unita: 0, scartate: scartate, caratteri: 0 };
+
+    var area = String(o.area == null ? '' : o.area).trim();
+    var nodi = (Array.isArray(o.nodi) ? o.nodi : []).map(function (n) {
+      var x = n && typeof n === 'object' ? n : {};
+      return { label: String(x.label == null ? '' : x.label).trim(), desc: String(x.desc == null ? '' : x.desc).trim() };
+    }).filter(function (n) { return n.label; });
+
+    var righe = ['AREA: ' + area];
+    if (nodi.length) {
+      if (o.conDesc) {
+        righe.push('CONCETTI DEL RAMO:');
+        nodi.forEach(function (n) { righe.push(n.desc ? n.label + ': ' + n.desc : n.label); });
+      } else {
+        righe.push('CONCETTI DEL RAMO: ' + nodi.map(function (n) { return n.label; }).join(' · '));
+      }
+    }
+    righe.push('');
+    righe.push('EVIDENZE DALLA FONTE (frasi verbatim, con pagina e id):');
+    righe.push(formattaPerPrompt(pacchetto));
+    var materiale = righe.join('\n');
+    return { materiale: materiale, unita: unita.length, scartate: scartate, caratteri: materiale.length };
+  }
+
+  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt, costruisciIndice: costruisciIndice, indiceStantio: indiceStantio, materialeRamo: materialeRamo };
 }));

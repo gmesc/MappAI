@@ -4,7 +4,8 @@
  * Copre: i sei generi e il loro ordine, il tetto del pacchetto con gli scarti
  * contati, gli id stabili, i voti esterni, il filtro dell'àncora che regge
  * attraverso `lexical`, i casi vuoti, il blocco per il prompt, e il contratto
- * di local-search-core che qui si USA e non si tocca.
+ * di local-search-core che qui si USA e non si tocca. Poi l'indice (passo 2)
+ * e il materiale di un ramo per la pipeline (passo 3, §10).
  */
 const { test } = require('node:test');
 const assert = require('node:assert');
@@ -336,8 +337,8 @@ const ID_FONTE = /^fonte-[0-9a-f]{16}-\d+$/;
 const ID_EV = /^ev-[0-9a-f]{16}-\d+$/;
 const LARGO = { unita: 20, caratteri: 100000 };
 
-test('indice: il core esporta le cinque funzioni, nell ordine del packet', () => {
-    assert.deepStrictEqual(Object.keys(E), ['tipizza', 'costruisciPacchetto', 'formattaPerPrompt', 'costruisciIndice', 'indiceStantio']);
+test('il core esporta le sei funzioni, nell ordine dei packet: materialeRamo ultima (passo 3)', () => {
+    assert.deepStrictEqual(Object.keys(E), ['tipizza', 'costruisciPacchetto', 'formattaPerPrompt', 'costruisciIndice', 'indiceStantio', 'materialeRamo']);
 });
 
 test('indice 1: due fonti con pages → due fonti, record solo original|reference, sourceId derivato e uguale in due costruzioni', () => {
@@ -512,4 +513,133 @@ test('indice 9: round-trip — il pacchetto dai records dell indice ha gli stess
     // e attraverso il disco: dal JSON riletto, gli stessi id
     const riletto = JSON.parse(JSON.stringify(E.costruisciIndice(stato.sources)));
     assert.deepStrictEqual(E.costruisciPacchetto({ records: riletto.records, query: 'circuito' }), diretto);
+});
+
+// ── 10. il materiale di un ramo (passo 3, docs/tasks/0003-evidence-materiale-ramo.md) ──
+
+/* Il pacchetto come lo costruisce la cucitura per un ramo: il tetto di
+   TETTO_RAMO (16 unità, 12.000 caratteri), nessun voto esterno. */
+const pacchettoRamo = () => E.costruisciPacchetto({ records: records(statoLungo()), query: 'circuito', tetto: { unita: 16, caratteri: 12000 } });
+const NODI = [
+    { label: 'Il circuito', desc: 'Un percorso chiuso per la corrente.' },
+    { label: 'Fusibile', desc: '' },
+    { label: 'Legge di Ohm', desc: 'La resistenza lega tensione e corrente.' },
+];
+const INTESTAZIONE = 'EVIDENZE DALLA FONTE (frasi verbatim, con pagina e id):';
+
+test('materialeRamo 1: formato — AREA, CONCETTI DEL RAMO con « · », l intestazione, poi le righe di formattaPerPrompt identiche', () => {
+    const p = pacchettoRamo();
+    assert.ok(p.unita.length >= 3, `servono unità per provare il formato, trovate ${p.unita.length}`);
+    const r = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p });
+    const righe = r.materiale.split('\n');
+    assert.strictEqual(righe[0], 'AREA: Il circuito');
+    assert.strictEqual(righe[1], 'CONCETTI DEL RAMO: Il circuito · Fusibile · Legge di Ohm');
+    assert.strictEqual(righe[2], '', 'una riga vuota separa la struttura dalle evidenze');
+    assert.strictEqual(righe[3], INTESTAZIONE);
+    assert.deepStrictEqual(righe.slice(4), E.formattaPerPrompt(p).split('\n'), 'l ultimo blocco è formattaPerPrompt, riga per riga');
+    assert.strictEqual(r.materiale, ['AREA: Il circuito', 'CONCETTI DEL RAMO: Il circuito · Fusibile · Legge di Ohm', '', INTESTAZIONE, E.formattaPerPrompt(p)].join('\n'));
+    assert.ok(!/istruzion|rispondi|genera/i.test(r.materiale.split('\n').slice(0, 4).join('\n')), 'nessuna istruzione al modello dentro il materiale');
+});
+
+test('materialeRamo 2: conDesc → una riga `label: desc` per nodo, desc vuota → sola etichetta; di default nessuna desc nel testo', () => {
+    const p = pacchettoRamo();
+    const senza = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p });
+    assert.ok(!senza.materiale.includes('Un percorso chiuso per la corrente.'), 'di default la desc NON entra (invariante 22)');
+    assert.ok(!senza.materiale.includes('La resistenza lega tensione e corrente.'));
+    const con = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p, conDesc: true });
+    const righe = con.materiale.split('\n');
+    assert.strictEqual(righe[0], 'AREA: Il circuito');
+    assert.strictEqual(righe[1], 'CONCETTI DEL RAMO:');
+    assert.strictEqual(righe[2], 'Il circuito: Un percorso chiuso per la corrente.');
+    assert.strictEqual(righe[3], 'Fusibile', 'desc vuota → sola etichetta, senza i due punti');
+    assert.strictEqual(righe[4], 'Legge di Ohm: La resistenza lega tensione e corrente.');
+    assert.strictEqual(righe[5], '');
+    assert.strictEqual(righe[6], INTESTAZIONE);
+    assert.deepStrictEqual(righe.slice(7), E.formattaPerPrompt(p).split('\n'));
+    assert.strictEqual(E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p, conDesc: false }).materiale, senza.materiale, 'conDesc falso esplicito = default');
+    // la desc è una riga sola anche con spazi attorno: si toglie il contorno, non il contenuto
+    const spazi = E.materialeRamo({ area: 'A', nodi: [{ label: '  Fusibile  ', desc: '  protegge  ' }], pacchetto: p, conDesc: true });
+    assert.strictEqual(spazi.materiale.split('\n')[2], 'Fusibile: protegge');
+});
+
+test('materialeRamo 3: etichette vuote saltate (vuota, spazi, null, nodo non oggetto); senza etichette la riga dei concetti manca', () => {
+    const p = pacchettoRamo();
+    const nodi = [{ label: 'Il circuito', desc: 'x' }, { label: '', desc: 'y' }, { label: '   ' }, { label: null }, null, 'stringa', 42, { label: 'Fusibile' }];
+    const r = E.materialeRamo({ area: 'Il circuito', nodi, pacchetto: p });
+    assert.strictEqual(r.materiale.split('\n')[1], 'CONCETTI DEL RAMO: Il circuito · Fusibile');
+    const con = E.materialeRamo({ area: 'Il circuito', nodi, pacchetto: p, conDesc: true });
+    assert.deepStrictEqual(con.materiale.split('\n').slice(1, 5), ['CONCETTI DEL RAMO:', 'Il circuito: x', 'Fusibile', ''], 'la desc «y» di un nodo senza etichetta non entra');
+    assert.ok(!con.materiale.includes('y'), 'nemmeno altrove');
+    // nessuna etichetta → niente riga dei concetti, il resto uguale
+    const nessuna = E.materialeRamo({ area: 'Il circuito', nodi: [{ label: '' }, null], pacchetto: p });
+    assert.deepStrictEqual(nessuna.materiale.split('\n').slice(0, 3), ['AREA: Il circuito', '', INTESTAZIONE]);
+    assert.strictEqual(E.materialeRamo({ area: 'Il circuito', pacchetto: p }).materiale, nessuna.materiale, 'nodi assenti = nessuna etichetta');
+    assert.strictEqual(E.materialeRamo({ area: 'Il circuito', nodi: 'non una lista', pacchetto: p }).materiale, nessuna.materiale);
+    // l area si ripulisce del contorno; area assente → «AREA: » e basta, mai un eccezione
+    assert.strictEqual(E.materialeRamo({ area: '  Il circuito ', nodi: NODI, pacchetto: p }).materiale.split('\n')[0], 'AREA: Il circuito');
+    assert.strictEqual(E.materialeRamo({ nodi: NODI, pacchetto: p }).materiale.split('\n')[0], 'AREA: ');
+});
+
+test('materialeRamo 4: pacchetto vuoto o assente → materiale vuoto, unita 0, scartate riportate, mai un eccezione', () => {
+    const vuoto = { materiale: '', unita: 0, scartate: 0, caratteri: 0 };
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: E.costruisciPacchetto({ records: [], query: 'circuito' }) }), vuoto);
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: { unita: [] } }), vuoto);
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: { unita: [], scartate: 5 } }), { ...vuoto, scartate: 5 }, 'gli scarti si riportano anche a pacchetto vuoto');
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI }), vuoto);
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: null }), vuoto);
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: 'non un pacchetto' }), vuoto);
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: { unita: 'non una lista', scartate: 2 } }), { ...vuoto, scartate: 2 });
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: { unita: [], scartate: 'tre' } }), vuoto, 'scarti non numerici → 0');
+    assert.deepStrictEqual(E.materialeRamo({}), vuoto);
+    assert.deepStrictEqual(E.materialeRamo(), vuoto);
+    assert.deepStrictEqual(E.materialeRamo(null), vuoto);
+    assert.deepStrictEqual(E.materialeRamo('x'), vuoto);
+    // un tetto che non lascia entrare nulla: pacchetto vuoto CON scarti, e il materiale li riporta
+    const p0 = E.costruisciPacchetto({ records: records(statoLungo()), query: 'circuito', tetto: { unita: 20, caratteri: 1 } });
+    assert.strictEqual(p0.unita.length, 0);
+    assert.ok(p0.scartate > 0, 'il tetto deve aver scartato qualcosa, o il caso non prova niente');
+    assert.deepStrictEqual(E.materialeRamo({ area: 'x', nodi: NODI, pacchetto: p0 }), { ...vuoto, scartate: p0.scartate });
+});
+
+test('materialeRamo 5: unita, scartate e caratteri coerenti col pacchetto e col testo', () => {
+    const r = records(statoLungo());
+    const tutte = E.costruisciPacchetto({ records: r, query: 'circuito', tetto: { unita: 20, caratteri: 100000 } });
+    const p = E.costruisciPacchetto({ records: r, query: 'circuito', tetto: { unita: 3, caratteri: 100000 } });
+    assert.strictEqual(p.unita.length, 3);
+    assert.strictEqual(p.scartate, tutte.unita.length - 3);
+    assert.ok(p.scartate > 0);
+    const m = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p });
+    assert.deepStrictEqual(Object.keys(m), ['materiale', 'unita', 'scartate', 'caratteri']);
+    assert.strictEqual(m.unita, 3, 'unita = pacchetto.unita.length');
+    assert.strictEqual(m.scartate, p.scartate, 'scartate = pacchetto.scartate');
+    assert.strictEqual(m.caratteri, m.materiale.length, 'caratteri = materiale.length');
+    assert.strictEqual(m.materiale.split('\n').length, 4 + 3, 'tre righe di evidenze dopo le quattro di testa');
+    // conDesc allunga il testo e `caratteri` lo segue; le unità no
+    const c = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p, conDesc: true });
+    assert.ok(c.caratteri > m.caratteri);
+    assert.strictEqual(c.caratteri, c.materiale.length);
+    assert.strictEqual(c.unita, m.unita);
+    assert.strictEqual(c.scartate, m.scartate);
+    // col tetto della cucitura (16 / 12.000) su questa fonte nulla si scarta
+    const largo = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: pacchettoRamo() });
+    assert.strictEqual(largo.unita, tutte.unita.length);
+    assert.strictEqual(largo.scartate, 0);
+});
+
+test('materialeRamo 6: il testo di ogni unità compare identico, con il suo [[ev-…]]; il pacchetto che entra non si tocca', () => {
+    const p = pacchettoRamo();
+    const m = E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p });
+    const righe = m.materiale.split('\n');
+    for (const u of p.unita) {
+        assert.match(u.id, ID_EV);
+        const riga = righe.find(x => x.startsWith('[[' + u.id + ']] '));
+        assert.ok(riga, `manca la riga di ${u.id}`);
+        assert.ok(riga.endsWith(') ' + u.text), `il testo di ${u.id} non è identico: «${riga}»`);
+        assert.ok(FONTE_LUNGA.includes(u.text), 'e viene dalla fonte, verbatim');
+        assert.ok(riga.includes('(p. 4, Elettricita.pdf · ' + u.genere + ')'), 'pagina, titolo e genere come in formattaPerPrompt');
+    }
+    assert.strictEqual((m.materiale.match(/\[\[ev-/g) || []).length, p.unita.length, 'un id per unità, né più né meno');
+    const prima = JSON.parse(JSON.stringify(p));
+    E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p, conDesc: true });
+    assert.deepStrictEqual(p, prima, 'materialeRamo legge il pacchetto, non lo modifica');
 });

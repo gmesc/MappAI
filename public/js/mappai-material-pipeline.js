@@ -42,6 +42,7 @@
      importante di questo modulo non si può provare dall'esterno senza una via
      d'accesso, e senza una prova torna a rompersi in silenzio. */
   Pipeline._sentinella = { identita: function () { return _identita(); }, controlla: function () { return _controllaIdentita(); } };
+  Pipeline._branchMaterial = _branchMaterial;   // per il banco tools/smoke/evidenze-ramo.js
   window.mappaiOccupato = function () {
     /* ⚠️ Anche una generazione MM/KG NUDA occupa l'app (14/8): non passa da
        `Pipeline._running` (la pipeline è un'altra cosa) e fino a ieri i sedici
@@ -150,6 +151,18 @@
     if (branch && typeof branch._materiale === 'string') return branch._materiale.slice(0, 12000);
     const kids = (window.getDescendants ? window.getDescendants(branch.id) : []) || [];
     const all = [branch].concat(kids);
+    /* Le evidenze (ADR 0002, passo 3): con l'interruttore acceso e un indice in memoria il
+       materiale del ramo è il pacchetto di frasi vere della fonte, non le desc con i passaggi.
+       Un ramo di cui la fonte non parla resta SENZA materiale e il giro lo salta (riga 831):
+       è la fedeltà che si misura al passo 6, non un guasto da coprire con le desc. */
+    const EV = window.MappAIEvidence;
+    if (EV && EV.acceso && EV.acceso() && EV.indice && EV.indice() && typeof EV.materialeRamo === 'function') {
+      const r = EV.materialeRamo(all);
+      if (r) {
+        console.info('[Evidenze] ' + _clean(branch.label) + ': ' + r.unita + ' unità, ' + r.scartate + ' scartate, ' + r.caratteri + ' car' + (r.unita ? '' : ' · ramo senza evidenze: salta'));
+        return r.materiale;
+      }
+    }
     const srcs = window.MappAIReview ? window.MappAIReview.sources() : _state().sources;
     if (window.MappAIGroundingCore) {
       const res = window.MappAIGroundingCore.buildInput(_state().db, all, srcs,

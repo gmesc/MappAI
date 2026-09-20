@@ -8,6 +8,7 @@ node tools/smoke/pipeline-lucchetto.js       # il lucchetto e la sentinella dell
 node tools/smoke/scelta-materiali.js         # le attività «a scelta» leggono i materiali
 node tools/smoke/visione-fogli.js            # dalla scheda al DOSSIER e ai materiali
 node tools/smoke/evidenze-da-pipeline.js "<vault>" [query]  # l'indice delle evidenze dalle pagine di pipeline.json (non scrive)
+node tools/smoke/evidenze-ramo.js            # il bivio di _branchMaterial: spento `label: desc`, acceso il pacchetto di evidenze
 ```
 
 ⚠️ **Il GLOSSARIO non è più fra i documenti provati** (15/9): `mappai-glossary.js` è
