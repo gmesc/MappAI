@@ -703,21 +703,17 @@ window.openSourceModal = function (nodeId) {
         });
         window.safeCreateIcons();
 
-        /* Gli strumenti di lettura nella scheda compaiono quando il carattere
-           dell'app NON è quello di default: chi ne ha scelto uno ad alta
-           leggibilità sta dicendo che leggere gli costa, e sono le altre leve
-           (riga di lettura, zoom, voce) che gli servono a portata di mano.
-           ⚠️ Era `body.font-dyslexic`, cioè la stessa intenzione scritta col
-           carattere che oggi non c'è più. Cancellando la condizione, il ramo
-           `else` sarebbe rimasto l'unico e la barra non sarebbe più comparsa a
-           nessuno — una pulizia che cambia il comportamento in silenzio
-           (trappola 32). */
+        /* LA FILA DI LETTURA DELLA SCHEDA STA SEMPRE (Giacomo, 20/9/2026).
+           Fino a ieri compariva solo a chi aveva scelto un carattere diverso dal
+           default: l'idea era che gli strumenti servissero a chi dichiara di
+           fare fatica. Ma lì dentro non ci sono solo sillabazione e spaziatura:
+           ci sono la VOCE, la riga di lettura e la lettura veloce, cioè i modi
+           di leggere una scheda — e legarli alla scelta di un carattere li
+           nascondeva a chi non l'ha mai toccata (sull'iPad dello studente,
+           nessuno). La classe `hidden` si toglie e basta: chi non li usa vede
+           una fila di bottoni in più, chi li usa non deve più scoprirli. */
         const a11yToolbar = document.getElementById('modal-a11y-toolbar');
-        if (a11yToolbar) {
-            const fontSpeciale = !!(window.MappAIFont && window.MappAIFontCore &&
-                window.MappAIFont.attivo() !== window.MappAIFontCore.DEFAULT);
-            a11yToolbar.classList.toggle('hidden', !fontSpeciale);
-        }
+        if (a11yToolbar) a11yToolbar.classList.remove('hidden');
 
         setTimeout(() => {
             sourceModal.classList.remove('opacity-0');
