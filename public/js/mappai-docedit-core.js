@@ -10,7 +10,9 @@
  * Contiene:
  *  - normalizzazione item quiz/flashcard (le forme storiche q/correct e front/back
  *    convivono nello stesso archivio: qui diventano una forma sola) e ritorno alla
- *    forma di storage senza perdere i campi non gestiti;
+ *    forma di storage senza perdere i campi non gestiti — né quelli del SET
+ *    (angle, quantity, _pipeline…, in `applyToSet`) né i campi di SERVIZIO
+ *    dell'item (`SERVICE_FIELDS`: la prova, il ramo, le chiavi della bozza);
  *  - operazioni di lista (aggiungi/elimina/sposta) immutabili;
  *  - modello a BLOCCHI della sintesi (h3/h4/p/li/blockquote): stessi tag del foglio
  *    stampato → il lettore TTS continua a trovare i suoi blocchi;
@@ -74,6 +76,55 @@
         return 'options';
     }
 
+    /* I campi di SERVIZIO di un item: non sono la domanda, ma dicono DA DOVE
+       viene e A CHE COSA appartiene. `normItem` ricostruisce l'item invece di
+       conservarlo, quindi senza questa lista un giro nell'editor li cancellava
+       tutti — e con loro la prova (invariante 22: l'identificatore è un dato del
+       prodotto, non uno scarto di generazione).
+
+       ⚠️ La whitelist è ESPLICITA, e va tenuta tale. L'alternativa comoda
+       («copia tutto ciò che non conosco») porterebbe dentro `q`, `front`, `a1`…
+       cioè proprio le forme storiche che `normItem` esiste per unificare: la
+       stessa domanda avrebbe due verità nello stesso oggetto, e la prossima
+       correzione ne aggiornerebbe una sola.
+
+       È una costante SOLA, letta da `normItem` e da `denormItem` (invariante 6):
+       un campo aggiunto di qua e dimenticato di là sopravvive all'apertura del
+       documento e muore al salvataggio, che è il modo peggiore di perderlo. */
+    var SERVICE_FIELDS = [
+        'evidenzaId',   // la PROVA: l'id dell'evidenza che rende vera la risposta (si verifica per uguaglianza)
+        'evidenza',     // la prova nella forma di ieri (frase copiata, o {page…}): i set nati prima del 21/9 portano questa
+        'ramo',         // la macro-area da cui la domanda viene: le attività di studio raggruppano per ramo
+        'id',           // identità dell'item nell'archivio
+        'kind',         // genere dell'item (quiz, nodesheet, causal…)
+        'draftKey',     // chiave della bozza in manifest.review.drafts
+        'step'          // passo della pipeline (B/C/D/E) da cui l'item viene
+        /* `id` + `kind` + `draftKey` + `step` sono le chiavi con cui la revisione
+           (mappai-review-context.js) risale dalla domanda alla bozza che l'ha
+           prodotta: ne basta una mancante e il legame si spezza. */
+    ];
+
+    /**
+     * Ricopia sull'oggetto di destinazione i soli campi di servizio PRESENTI.
+     * Un campo assente non compare: questi oggetti finiscono in JSON sul disco,
+     * e una chiave a `undefined` non è un dato — è rumore che il prossimo
+     * lettore deve imparare a ignorare.
+     * Il valore non si normalizza (niente `_s()`): `evidenza` può essere una
+     * frase, ma anche un oggetto `{page}` o un elenco di passaggi. Se è una
+     * struttura se ne copia una PROPRIA — il documento editabile non deve
+     * condividere memoria con il set d'origine, che qui è immutabile.
+     */
+    function _copyService(src, dst) {
+        for (var i = 0; i < SERVICE_FIELDS.length; i++) {
+            var k = SERVICE_FIELDS[i];
+            if (!src || !Object.prototype.hasOwnProperty.call(src, k)) continue;
+            var v = src[k];
+            if (v === undefined) continue;
+            dst[k] = (v !== null && typeof v === 'object') ? _clone(v) : v;
+        }
+        return dst;
+    }
+
     /** Un item qualsiasi (quiz o flashcard, forma storica o già stampabile) → forma unica. */
     function normItem(it) {
         it = it || {};
@@ -84,13 +135,17 @@
         var answer = (ci >= 0 && opts[ci] != null)
             ? _s(opts[ci])
             : _s(it.answer != null ? it.answer : (it.back != null ? it.back : it.correct));
-        return {
+        /* I cinque campi della forma unica restano quelli, con questi valori e in
+           quest'ordine: è il contratto che i builder di stampa e l'editor già
+           usano. I campi di servizio si AGGIUNGONO in coda — un item che non ne
+           porta nessuno esce identico a prima. */
+        return _copyService(it, {
             question: _s(it.question || it.q || it.stem || it.front || ''),
             options: opts,
             correctIndex: ci,
             answer: answer,
             explanation: _s(it.explanation || '')
-        };
+        });
     }
 
     function normItems(items) { return (Array.isArray(items) ? items : []).map(normItem); }
@@ -138,21 +193,29 @@
         };
     }
 
-    /** Item in forma unica → forma di STORAGE (kind + shape del set d'origine). */
+    /**
+     * Item in forma unica → forma di STORAGE (kind + shape del set d'origine).
+     *
+     * ⚠️ I campi di servizio si rimettono in TUTTI E TRE i rami, e si prendono
+     * da `n` — cioè dall'unico cancello, `normItem` — non dall'item grezzo: due
+     * letture della stessa whitelist divergono al primo campo aggiunto.
+     * Il ramo dimenticato non dà errore: dà un documento che si apre con la sua
+     * prova e la perde salvando, ed è il difetto del 21/9.
+     */
     function denormItem(it, kind, shape) {
         var n = normItem(it);
         if (kind === 'flashcards') {
-            return { front: n.question, back: n.answer, explanation: n.explanation };
+            return _copyService(n, { front: n.question, back: n.answer, explanation: n.explanation });
         }
         if (shape === 'aN') {
             var out2 = { q: n.question, correct: (n.correctIndex >= 0 ? n.correctIndex + 1 : 1) };
             n.options.slice(0, 6).forEach(function (o, i) { out2['a' + (i + 1)] = o; });
             if (n.explanation) out2.explanation = n.explanation;
-            return out2;
+            return _copyService(n, out2);
         }
         var out = { q: n.question, options: n.options.slice(), explanation: n.explanation };
         out.correct = (n.correctIndex >= 0 && n.options[n.correctIndex] != null) ? n.options[n.correctIndex] : n.answer;
-        return out;
+        return _copyService(n, out);
     }
 
     /**

@@ -123,6 +123,127 @@ test('applyToSet: flashcard tornano a front/back', () => {
     assert.strictEqual(out.items[0].back, 'Attività di viaggi e svago.');
 });
 
+// ── campi di servizio: la prova e il ramo sopravvivono all'editor (21/9/26) ──
+// Copia di un item vero del set «Officina Project E · Scelta Multipla»: sul
+// disco gli item portano ramo, q, correct, explanation, evidenzaId, options,
+// correctIndex, _mescolato, id, kind, question, draftKey, step. Fino al 21/9
+// `normItem` ne ricostruiva cinque e buttava via tutto il resto: aprire il
+// documento e salvarlo cancellava la PROVA (invariante 22) e il ramo.
+const ITEM_PIPELINE = {
+    ramo: 'Topologie Circuitali',
+    q: 'Quale collegamento scegli per spegnere una luce lasciando accese le altre?',
+    correct: 'Un circuito in parallelo.',
+    explanation: 'In parallelo ogni utilizzatore si comanda da solo.',
+    evidenzaId: 'ev-aa1fdbc9b96af5b7-211',
+    options: ['Un circuito in serie.', 'Un circuito in parallelo.', 'Un corto circuito.'],
+    correctIndex: 1,
+    id: 'quiz-mc-ripasso-3',
+    kind: 'quiz',
+    draftKey: 'mc-ripasso',
+    step: 'B'
+};
+
+test('normItem: i campi di servizio sopravvivono, la forma unica non cambia', () => {
+    const n = D.normItem(ITEM_PIPELINE);
+    // i cinque campi di sempre, con gli stessi valori
+    assert.strictEqual(n.question, ITEM_PIPELINE.q);
+    assert.deepStrictEqual(n.options, ITEM_PIPELINE.options);
+    assert.strictEqual(n.correctIndex, 1);
+    assert.strictEqual(n.answer, 'Un circuito in parallelo.');
+    assert.strictEqual(n.explanation, ITEM_PIPELINE.explanation);
+    // e in più la prova e il ramo
+    assert.strictEqual(n.evidenzaId, 'ev-aa1fdbc9b96af5b7-211', 'la prova è un dato del prodotto');
+    assert.strictEqual(n.ramo, 'Topologie Circuitali', 'le attività di studio raggruppano per ramo');
+});
+
+test('normItem: la whitelist è stretta — le forme storiche NON entrano', () => {
+    const n = D.normItem(ITEM_PIPELINE);
+    // q/front/a1 sono le forme che normItem esiste per unificare: se rientrassero,
+    // la stessa domanda avrebbe due verità nello stesso oggetto
+    assert.strictEqual(n.q, undefined);
+    assert.strictEqual(n.correct, undefined);
+    assert.strictEqual(D.normItem({ front: 'F', back: 'B' }).front, undefined);
+    assert.strictEqual(D.normItem({ q: 'x', a1: 'a', a2: 'b', correct: 1 }).a1, undefined);
+    // e nemmeno i campi che il set non dichiara come di servizio
+    assert.strictEqual(D.normItem({ q: 'x', _mescolato: true })._mescolato, undefined);
+});
+
+test('denormItem: la prova torna in tutti e tre i rami di storage', () => {
+    const opz = D.denormItem(ITEM_PIPELINE, 'quiz', 'options');
+    assert.strictEqual(opz.q, ITEM_PIPELINE.q);
+    assert.strictEqual(opz.correct, 'Un circuito in parallelo.');
+    assert.strictEqual(opz.evidenzaId, 'ev-aa1fdbc9b96af5b7-211');
+    assert.strictEqual(opz.ramo, 'Topologie Circuitali');
+
+    const aN = D.denormItem(ITEM_PIPELINE, 'quiz', 'aN');
+    assert.strictEqual(aN.a2, 'Un circuito in parallelo.');
+    assert.strictEqual(aN.correct, 2, 'indice 1-based, come sempre');
+    assert.strictEqual(aN.evidenzaId, 'ev-aa1fdbc9b96af5b7-211');
+    assert.strictEqual(aN.ramo, 'Topologie Circuitali');
+
+    const fc = D.denormItem({ front: 'Che cos\'è il parallelo?', back: 'Un collegamento.', evidenzaId: 'ev-1', ramo: 'Circuiti' }, 'flashcards');
+    assert.strictEqual(fc.front, 'Che cos\'è il parallelo?');
+    assert.strictEqual(fc.back, 'Un collegamento.');
+    assert.strictEqual(fc.evidenzaId, 'ev-1');
+    assert.strictEqual(fc.ramo, 'Circuiti');
+});
+
+test('normItem → denormItem: sui sei campi di servizio il giro non perde nulla', () => {
+    const out = D.denormItem(D.normItem(ITEM_PIPELINE), 'quiz', 'options');
+    ['evidenzaId', 'ramo', 'id', 'kind', 'draftKey', 'step'].forEach(k => {
+        assert.strictEqual(out[k], ITEM_PIPELINE[k], 'perso nel giro: ' + k);
+    });
+});
+
+test('il giro VERO dell\'editor (apri → correggi → salva) non cancella la prova', () => {
+    const set = { id: 'set_1789986793959_dykha', title: 'Elettricità — Scelta Multipla', mode: 'quiz',
+        type: 'Scelta Multipla', angle: 'ripasso', _pipeline: true, items: [ITEM_PIPELINE] };
+    const doc = D.docFromSet(set);
+    doc.items = D.setField(doc.items, 0, 'question', 'Domanda riscritta dal docente?');
+    const out = D.applyToSet(set, doc);
+    assert.strictEqual(out.items[0].q, 'Domanda riscritta dal docente?', 'la correzione c\'è');
+    assert.strictEqual(out.items[0].evidenzaId, 'ev-aa1fdbc9b96af5b7-211', 'e la prova pure');
+    assert.strictEqual(out.items[0].ramo, 'Topologie Circuitali');
+    assert.strictEqual(out.items[0].draftKey, 'mc-ripasso');
+    assert.strictEqual(out.items[0].step, 'B');
+    assert.strictEqual(out._pipeline, true, 'i campi del set restano preservati come prima');
+});
+
+test('un item senza campi di servizio esce ESATTAMENTE come prima, chiave per chiave', () => {
+    const nudo = { q: 'Dove si trovano spesso le industrie?', options: ['In centro.', 'In periferia.'], correct: 2, explanation: '' };
+    const n = D.normItem(nudo);
+    assert.deepStrictEqual(n, { question: 'Dove si trovano spesso le industrie?', options: ['In centro.', 'In periferia.'], correctIndex: 1, answer: 'In periferia.', explanation: '' });
+    assert.deepStrictEqual(Object.keys(n), ['question', 'options', 'correctIndex', 'answer', 'explanation'], 'stessi cinque campi, stesso ordine');
+    assert.deepStrictEqual(D.denormItem(nudo, 'quiz', 'options'), { q: 'Dove si trovano spesso le industrie?', options: ['In centro.', 'In periferia.'], explanation: '', correct: 'In periferia.' });
+    assert.deepStrictEqual(D.denormItem(nudo, 'flashcards'), { front: 'Dove si trovano spesso le industrie?', back: 'In periferia.', explanation: '' });
+});
+
+test('un campo assente non compare come undefined (questi oggetti finiscono in JSON)', () => {
+    const solo = D.normItem({ q: 'x', options: ['a', 'b'], correct: 1, ramo: 'Circuiti' });
+    assert.ok('ramo' in solo);
+    assert.ok(!('evidenzaId' in solo), 'niente chiave a undefined: sul disco non è un dato, è rumore');
+    assert.ok(!('draftKey' in solo));
+    const out = D.denormItem(solo, 'quiz', 'options');
+    assert.ok(!('step' in out));
+    assert.ok(!Object.values(out).includes(undefined));
+    // la prova: JSON.stringify non deve inventare né perdere chiavi
+    assert.deepStrictEqual(Object.keys(JSON.parse(JSON.stringify(out))), Object.keys(out));
+});
+
+test('evidenza (la prova nella forma di ieri) sopravvive se c\'era', () => {
+    // frase copiata: i set generati prima del 21/9 portano questa, non l'id
+    const vecchio = { q: 'Chi fu eletto generale?', options: ['Guisan', 'Dufour'], correct: 'Guisan', evidenza: 'Il 30 agosto 1939 Henri Guisan fu eletto generale.' };
+    assert.strictEqual(D.normItem(vecchio).evidenza, vecchio.evidenza);
+    assert.strictEqual(D.denormItem(vecchio, 'quiz', 'options').evidenza, vecchio.evidenza);
+    // e la forma strutturata (pagina, passaggi) si copia com'è, non stringificata
+    const strutt = { q: 'x', options: ['a', 'b'], correct: 1, evidenza: [{ sourceId: 'src-uno', page: 5, text: 'Fonte esatta.' }] };
+    const n = D.normItem(strutt);
+    assert.deepStrictEqual(n.evidenza, strutt.evidenza);
+    assert.notStrictEqual(n.evidenza, strutt.evidenza, 'copia propria: il documento editabile non condivide memoria col set');
+    n.evidenza[0].page = 99;
+    assert.strictEqual(strutt.evidenza[0].page, 5, 'il set d\'origine resta intatto');
+});
+
 // ── operazioni di lista ─────────────────────────────────────────────────────
 test('insert/remove/move sono immutabili', () => {
     const doc = D.docFromSet(QUIZ_SET);
