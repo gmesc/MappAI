@@ -205,6 +205,52 @@
             puo: function () { return !!window.MappAICreaQuiz; },
             perche: function () { return t('ec_quiz_no', 'Il percorso «crea un quiz» non è caricato.'); },
             apri: function () { window.MappAICreaQuiz.apri(); }
+        },
+        {
+            /* PIÙ MATERIALI INSIEME (21/9). Il pannello esisteva già — è quello
+               del bottone grande di COSTRUISCI (`index.html`,
+               `MappAIPipeline.openModal`) — ma aveva due soli ingressi, ed
+               entrambi vivono in un momento che da un progetto GIÀ generato non
+               si ripresenta: il form della generazione nuova, e la revisione
+               appena approvata (`mappai-review.js:309`). Da qui non c'era porta,
+               e intanto un toast della revisione diceva «usa Genera materiali»
+               senza darne una. Questa voce è quella porta: chiama la stessa
+               funzione, non ne duplica una seconda (invariante 6 e 21).
+               ⚠️ Il pannello che si apre è ancora HTML scritto a mano e non
+               conosce le taglie del motore: unificarlo davvero è il packet 0009.
+               Per toglierla: si cancella questa voce, e non resta niente. */
+            /* `ai` e non `misto`: nel pannello dei materiali multipli non si
+               scrive niente a mano, si genera — e il distintivo «tu o l'AI»
+               prometterebbe una strada che lì non c'è. (I fogli dei nodi nascono
+               dalla mappa senza AI, ma il gesto resta una generazione.) */
+            id: 'batch', da: 'ai', icona: 'package',
+            et: function () { return t('ec_batch', 'Più materiali insieme'); },
+            desc: function () { return t('ec_batch_d', 'Quiz, flashcard, domande aperte, fogli dei nodi e sintesi in un giro solo, per ogni ramo della mappa.'); },
+            /* ⚠️ `fromApproved: true` NON è un dettaglio: è ciò che distingue le
+               due strade di `_startFromModal` (material-pipeline.js:2254).
+               Con esso il pannello lavora sulla mappa CHE C'È —
+               `runApprovedMaterials`, solo i materiali. Senza, «Avvia» finisce
+               su `Pipeline.run` → `startGeneration`, che vuole generare anche la
+               MAPPA: chiede il nome del nodo centrale e rimbalza il docente
+               sulla schermata di CREA. Da un progetto già generato è l'ultima
+               cosa che si vuole. È la stessa chiamata che fa la revisione
+               approvata (mappai-review.js:309), e non a caso.
+               La strada vale solo se il progetto porta il manifesto della
+               revisione: senza, `_reviewTarget` resterebbe nullo e si
+               ricadrebbe nella generazione della mappa — quindi qui la voce si
+               spegne e DICE perché, invece di far partire la cosa sbagliata. */
+            puo: function () {
+                if (!(window.MappAIPipeline && window.MappAIPipeline.openModal)) return false;
+                var st = _appState() || {};
+                return !!(st.activeVaultPath && st._pipelineManifest && st._pipelineManifest.review);
+            },
+            perche: function () {
+                var st = _appState() || {};
+                if (!(window.MappAIPipeline && window.MappAIPipeline.openModal)) return t('ec_batch_no', 'Il motore dei materiali non è caricato.');
+                if (!st.activeVaultPath) return t('ec_batch_no_vault', 'Apri un progetto: i materiali si generano dalla sua mappa.');
+                return t('ec_batch_no_rev', 'Questo progetto non ha la revisione dei materiali: i materiali multipli si generano da CREA, insieme alla mappa.');
+            },
+            apri: function () { window.MappAIPipeline.openModal({ fromApproved: true }); }
         }
     ];
     /* `_vaiAlGeneratore` (il ponte verso l'hub «Materiali di studio») è stato
@@ -1893,7 +1939,13 @@
             };
         });
         MM().open({
-            titolo: t('ec_crea_t', 'Crea un documento'), icona: 'plus', taglia: 'm', invio: false,
+            /* `xl` (1160px, `--mm-xl` in mappai-modal-tokens.css:100) è la taglia
+               PIÙ LARGA che i token prevedono, e la usano già Cabina, la console
+               ELABORA, la landing e la scelta: qui serve perché le voci sono
+               cinque e la seconda riga di ognuna è una frase intera, che a 600px
+               veniva troncata con i puntini (richiesta di Giacomo, 21/9).
+               Nessun token nuovo: regola 17, prima `npm run stile -- --vicino`. */
+            titolo: t('ec_crea_t', 'Crea un documento'), icona: 'plus', taglia: 'xl', invio: false,
             sezioni: [{ voci: voci }]
         }).then(function (r) {
             if (!r || !r.azione || r.azione.indexOf('tipo:') !== 0) return;

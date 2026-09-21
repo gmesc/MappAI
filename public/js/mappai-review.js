@@ -611,6 +611,9 @@
     const content = modal.querySelector('#mrv-content'), status = modal.querySelector('#mrv-status');
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
+    /* Vero quando l'approvazione manuale è decaduta da un salvataggio all'altro:
+       lo alza `invalidateManualCheck`, lo consuma e lo azzera `save`. */
+    let approvazioneDecaduta = false;
     const invalidEditors = new Set();
     /* Il PDF della fonte si legge da `Allegati/` del vault, dove la generazione
        lo salva col suo titolo. Nessun PDF → il pannello mostra il testo archiviato. */
@@ -856,12 +859,34 @@
     function save() {
       status.textContent = t('rv_saving', 'Salvataggio…');
       pendingSave = R.writeManifest(vaultPath, manifest).then(() => {
-        saveError = null; retrySave.hidden = true; status.textContent = t('rv_saved', 'Decisioni salvate'); cache();
+        saveError = null; retrySave.hidden = true;
+        /* ⚠️ E SE L'APPROVAZIONE È DECADUTA, LO SI DICE QUI (21/9). Il messaggio
+           non può stare in `invalidateManualCheck`: `decide()` la chiama a OGNI
+           battuta sul campo di testo, e subito dopo `save()` riscrive questa
+           riga con «Decisioni salvate» — un avviso scritto là verrebbe
+           sovrascritto in un battito, e nel frattempo ne avrebbe stampato uno
+           per carattere. Appeso al salvataggio invece esce una volta sola, dove
+           il docente sta già guardando. Stessa medicina, stessa frase e stessa
+           chiave del percorso «Riprova il controllo» (riga ~1665): una verità,
+           una fonte. */
+        status.textContent = t('rv_saved', 'Decisioni salvate') +
+          (approvazioneDecaduta ? ' · ' + t('rv_manual_reset', 'Le tue decisioni restano; va rimessa la spunta «completo io il controllo», perché il controllo è tornato indietro.') : '');
+        approvazioneDecaduta = false;
+        cache();
       }).catch(e => { saveError = e; retrySave.hidden = false; status.textContent = errorText(e); });
       return pendingSave;
     }
     retrySave.onclick = () => { if (!busy) save(); };
+    /* L'approvazione di un materiale vale per la versione LETTA (vedi
+       `statoApprovazioni`): appena una decisione cambia l'anteprima, decade da
+       sé. Giusto — ma fino al 21/9 decadeva in SILENZIO: la spunta si toglieva,
+       «Procedi» spariva, e chi aveva appena corretto un refuso vedeva il suo
+       lavoro tornare «da rivedere» senza una parola (rilievo di Giacomo).
+       Si segna solo la DISCESA da confermato a non confermato: chiamarla con la
+       spunta già tolta non è una notizia, ed è il caso di quasi tutte le
+       chiamate, che arrivano da `decide()` una per battuta. */
     function invalidateManualCheck() {
+      if (manualConfirmed) approvazioneDecaduta = true;
       manualConfirmed = false;
       const input = modal.querySelector('#mrv-manual-confirm');
       if (input) { input.checked = false; proceed.hidden = true; }

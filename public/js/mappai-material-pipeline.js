@@ -22,6 +22,19 @@
   function _toast(m, t) { if (window.showToast) window.showToast(m, t || 'info'); }
   function _now() { try { return new Date().toISOString(); } catch (e) { return ''; } }
   function _icons() { if (window.safeCreateIcons) window.safeCreateIcons(); }
+  /* IL PIANO SI CHIEDE, NON SI SCRIVE (invariante 11). I tre pannelli di questo
+     file sono HTML scritto a mano e nascono a `z-[3200]`: bastava quando
+     l'unico ingresso era il form di COSTRUISCI, dove non c'è nient'altro sopra.
+     Dal 21/9 si entra anche dalla console ELABORA, che È un modale del motore e
+     vive da 12000 in su: il pannello si apriva DIETRO, e da fuori sembrava che
+     il clic non facesse niente. `prossimoZ()` dà il piano libero successivo.
+     Stesso gesto di `mappai-branch-synthesis.js:301` e `mappai-doc-editor.js:2297`. */
+  function _alza(el) {
+    try {
+      const MM = window.MappAIModal;
+      if (el && MM && MM.prossimoZ) el.style.zIndex = String(MM.prossimoZ());
+    } catch (e) { /* senza motore resta la classe Tailwind: il comportamento di prima */ }
+  }
   function _clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
 
   const Pipeline = { _running: false, _interno: false, _identita: null };
@@ -2002,6 +2015,7 @@
           '<button type="button" id="mp-start" class="pm-btn-primary" style="flex:1;justify-content:center"><i data-lucide="play" class="w-4 h-4"></i> ' + _esc(_t('mp_start', 'Avvia')) + '</button></div></div>' +
       '</div>';
     document.body.appendChild(modal);
+    _alza(modal);   /* invariante 11: sopra la console che lo ha aperto */
     _icons();
 
     modal.querySelector('#mp-close').onclick = () => modal.remove();
@@ -2367,6 +2381,7 @@
         '<button type="button" id="mps-ok" class="pm-btn-primary" style="flex:1;justify-content:center">' + _esc(_t('ui_ok', 'Chiudi')) + '</button></div>' +
       '</div>';
     document.body.appendChild(modal);
+    _alza(modal);   /* invariante 11: sopra la console che lo ha aperto */
     _icons();
     modal.querySelector('#mps-close').onclick = () => modal.remove();
     modal.querySelector('#mps-ok').onclick = () => modal.remove();
@@ -2413,6 +2428,7 @@
         '<button type="button" id="mpr-yes" class="pm-btn-primary" style="flex:1;justify-content:center"><i data-lucide="play" class="w-4 h-4"></i> ' + _esc(_t('mp_resume', 'Riprendi')) + '</button></div>' +
       '</div>';
     document.body.appendChild(modal);
+    _alza(modal);   /* invariante 11: sopra la console che lo ha aperto */
     _icons();
     modal.querySelector('#mpr-no').onclick = () => modal.remove();
     /* Tutti i passi tranne A (la mappa c'è già: è il vault che stiamo aprendo).

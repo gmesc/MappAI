@@ -149,7 +149,26 @@
     var rows = (report.issues || []).slice();
     (report.correzioni || []).concat(report.segnalati || []).forEach(function (r) {
       var n = (db.nodes || []).find(function (n) { return eid(n.id) === eid(r.id); });
-      var before = own(r, 'prima') ? r.prima : n && String(n.desc || n.content || '');
+      /* ⚠️ IL «PRIMA» DEL MODELLO NON È IL TESTO DEL NODO (21/9/2026).
+         `before` è ciò che la decisione dovrà SOSTITUIRE, e `preview` pretende
+         che coincida con il valore che il nodo ha adesso (`before_mismatch`).
+         Fino a oggi si prendeva per buono il campo `prima` scritto dal giudice
+         — e il giudice, quando il difetto è «il documento non dice questo»,
+         ci scrive il suo REFERTO invece del contenuto. Visto in «Officina
+         Elettrica · 02»: `before` diceva «Il documento cita le auto elettriche…
+         ma non contiene informazioni specifiche…», la desc vera diceva
+         «Oggigiorno auto e camion elettrici… garantire un buona spinta».
+         Due cose diverse, e nello stesso file della revisione. La segnalazione
+         nasceva INDECIDIBILE: ogni scelta — modifica, mantieni, annulla —
+         restava inapplicabile, «Riprova il controllo» non poteva aiutare perché
+         conserva le segnalazioni, e la revisione non si chiudeva più.
+         Ora comanda il nodo: se il nodo c'è, `before` è la sua desc. Il referto
+         del giudice non si perde — vive in `problem`, che è il suo posto. Il
+         `prima` resta solo come ripiego per un nodo che nella mappa non c'è
+         (un bersaglio sparito: lì non c'è una verità migliore da usare).
+         ⚠️ Vale anche per la forbice qui sotto: `brano` va cercato nel testo
+         VERO, o la sostituzione nascerebbe da una frase che il nodo non ha. */
+      var before = n ? String(n.desc || n.content || '') : (own(r, 'prima') ? r.prima : null);
       var row = { target: { kind: 'node', id: eid(r.id), field: 'desc' }, before: before,
         problem: r.problema, evidence: r.evidenze || r.prova, quote: r.prova, type: r.tipo };
       if (own(r, 'dopo')) row.after = r.dopo;

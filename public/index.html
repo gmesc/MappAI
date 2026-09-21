@@ -368,8 +368,19 @@
 
     <!-- ========================================================================================================================================== -->
 
-    <!-- TOAST CONTAINER -->
-    <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2"></div>
+    <!-- TOAST CONTAINER
+         ⚠️ 21/9: stava a z-[9999], cioè SOTTO i modali del motore, che partono da
+         12000 e salgono (mappai-modal.js:46). Ogni avviso mostrato mentre una
+         console o un modale è aperto finiva dietro di loro: il programma
+         spiegava perché si rifiutava di fare una cosa, e la spiegazione non si
+         vedeva — un rifiuto muto, che da fuori sembra un clic che non funziona.
+         Trovato perché «Genera materiali» aperto dalla console ELABORA non
+         compariva e non diceva niente.
+         Un avviso è come un fumetto: deve stare sopra TUTTO per definizione, e
+         non può dipendere da quanti modali sono aperti — per questo un numero
+         alto e fisso, non `prossimoZ()`, che sale e potrebbe essere superato.
+         Resta sotto i fumetti (2147483000), che hanno la precedenza. -->
+    <div id="toast-container" class="fixed top-4 right-4 flex flex-col gap-2" style="z-index: 2147482000"></div>
 
     <!-- RIGA DI LETTURA -->
     <div id="reading-ruler"></div>
@@ -3341,8 +3352,8 @@
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=rig2"></script>
-    <script src="js/mappai-review-core.js?v=review-conflicts-20260914-1"></script>
+    <script src="js/mappai-elabora-console.js?v=porta-materiali-20260921b"></script>
+    <script src="js/mappai-review-core.js?v=before-dal-nodo-20260921"></script>
     <script src="js/mappai-review-context.js?v=quality-lots-20260914-1"></script>
     <script src="js/mappai-material-drafts.js?v=review-teacher-20260913-4"></script>
     <!-- Cercare nella fonte (15/9/2026). DOPO review-context e material-drafts:
@@ -3354,7 +3365,7 @@
     <script src="js/mappai-material-review.js?v=esenti-nodesheet-20260919"></script>
     <script src="js/mappai-review-fonte.js?v=pdf-segni-20260917"></script>
     <script src="js/mappai-confronto-core.js?v=inline-20260917"></script>
-    <script src="js/mappai-review.js?v=avanzamento-20260919"></script>
+    <script src="js/mappai-review.js?v=decadenza-detta-20260921"></script>
     <!-- Le evidenze (ADR 0002, passo 2, 20/9/2026): alla riapertura di un progetto l'indice delle pagine
          della fonte (evidenze.json nella radice del vault), da cui il passo 3 darà le prove ai generatori.
          Dopo review.js (le pagine vengono da MappAIReview.sources()), prima della pipeline che lo consumerà.
@@ -3368,7 +3379,7 @@
          chiama. Niente interfaccia, nessun secondo interruttore: si scrive sempre. -->
     <script src="js/mappai-misura-evidenze.js?v=misura-20260921"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=prove-aperte-20260921"></script>
+    <script src="js/mappai-material-pipeline.js?v=porta-materiali-20260921"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>

@@ -376,3 +376,33 @@ test('manual approval of an unchecked material: added and removed without touchi
   const merged = R.mergeRetry(approvato, review());
   assert.equal(merged.initial.manualChecks['synthesis-2'].impronta, 'impronta-1', 'a new automatic attempt keeps the teacher approvals');
 });
+
+/* ── IL «PRIMA» DEL GIUDICE NON È IL TESTO DEL NODO (21/9/2026) ──────────────
+   Caso vero, da «Officina Elettrica · 02»: il giudice segnala «il documento non
+   dice questo» e scrive in `prima` il suo REFERTO invece del contenuto del nodo.
+   `before` finiva diverso dalla desc, e `preview` — che pretende l'uguaglianza —
+   bloccava la segnalazione con `before_mismatch` per sempre: nessuna scelta era
+   applicabile e la revisione non si poteva più chiudere. */
+test('il before di una segnalazione del giudice è la desc VERA del nodo, non il referto del modello', () => {
+  const DESC = 'Oggigiorno auto e camion elettrici da oltre 2000 chilogrammi hanno battery pack capaci di fornire la tensione.';
+  const REFERTO = 'Il documento cita le auto elettriche, ma non contiene informazioni sulla spinta per grandi masse.';
+  const db = { nodes: [{ id: 'N1', label: 'Spinta', desc: DESC }], links: [] };
+  const report = { segnalati: [{ id: 'N1', tipo: 'fatto-contraddetto', problema: 'Afferma ciò che la fonte non dice.', prima: REFERTO }] };
+  const review = R.createReview({ db: db, sources: [], report });
+  const issue = review.initial.issues[0];
+  assert.equal(issue.before, DESC, 'il before deve essere la desc del nodo');
+  assert.notEqual(issue.before, REFERTO);
+  assert.match(issue.problem, /non dice/, 'il referto del giudice resta in problem');
+  // e la decisione dev'essere APPLICABILE: è il punto di tutto
+  const deciso = R.setDecision(review, issue.id, 'manual', { text: 'Testo corretto a mano.' });
+  const p = R.preview(deciso, db, { sources: [] });
+  assert.equal(p.conflicts.length, 0, 'nessun conflitto: ' + JSON.stringify(p.conflicts));
+  assert.equal(p.ok, true);
+});
+
+test('senza il nodo in mappa il prima del modello resta il ripiego', () => {
+  const db = { nodes: [], links: [] };
+  const report = { segnalati: [{ id: 'SPARITO', tipo: 'fatto-contraddetto', problema: 'x', prima: 'testo di ripiego' }] };
+  const review = R.createReview({ db: db, sources: [], report });
+  assert.equal(review.initial.issues[0].before, 'testo di ripiego');
+});
