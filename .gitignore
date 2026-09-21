@@ -94,4 +94,6 @@ docs/archify/*.visual-check.*
 !tools/smoke/visione-fogli.js
 !tools/smoke/evidenze-da-pipeline.js
 !tools/smoke/evidenze-ramo.js
+!tools/smoke/vettori-magazzino.js
+!tools/smoke/modelli-per-fase.js
 !tools/smoke/LEGGIMI.md

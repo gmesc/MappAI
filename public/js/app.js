@@ -756,16 +756,35 @@ function _detectTruncation(response) {
     return { finishReason, truncated };
 }
 
-window.fetchModelAPI = async function (payload, apiKey) {
-    const provider = appState._reviewAIContext?.provider || appState.aiProvider;
-    const modelEl = document.getElementById('model-select');
-    let model = appState._reviewAIContext?.model || (modelEl ? modelEl.value : null);
-    if (!model) {
-        const storageKey = (provider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
-        model = localStorage.getItem(storageKey);
-    }
-    if (!model) {
-        model = (provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
+window.fetchModelAPI = async function (payload, apiKey, context) {
+    const explicit = context !== undefined;
+    let requestContext = null;
+    let provider, model;
+    if (explicit) {
+        try {
+            requestContext = window.MappAIModelliCore.contesto(context, 'chat');
+        } catch (_) {
+            throw new Error('Contesto AI esplicito non valido o non disponibile.');
+        }
+        if (typeof apiKey !== 'string' || !apiKey.trim()) throw new Error('Chiave API mancante per il contesto esplicito.');
+        try {
+            payload = structuredClone(payload);
+        } catch (_) {
+            throw new Error('Payload AI esplicito non valido.');
+        }
+        provider = requestContext.provider;
+        model = requestContext.model;
+    } else {
+        provider = appState._reviewAIContext?.provider || appState.aiProvider;
+        const modelEl = document.getElementById('model-select');
+        model = appState._reviewAIContext?.model || (modelEl ? modelEl.value : null);
+        if (!model) {
+            const storageKey = (provider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
+            model = localStorage.getItem(storageKey);
+        }
+        if (!model) {
+            model = (provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
+        }
     }
 
     // ── Gemini 2.5+: disabilita il thinking per fasi con budget ridotto ─────────
@@ -823,18 +842,22 @@ window.fetchModelAPI = async function (payload, apiKey) {
 
     // Registro consumi: snapshot del contesto ALL'ENTRATA (non dopo l'await:
     // un altro flusso potrebbe cambiare il contesto mentre la risposta arriva)
-    const _usageCtx = (window.MappAIUsage && window.MappAIUsage.current()) || null;
+    const _usageCtx = explicit ? { cat: 'pipeline', sub: requestContext.phase }
+        : (window.MappAIUsage && window.MappAIUsage.current()) || null;
 
     if (window.electronAPI) {
         try {
-            let response;
+            let response, actualModel = null;
             if (provider === 'infomaniak') {
-                const productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
+                const productId = explicit ? requestContext.productId
+                    : document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
                 if (!productId) throw new Error("Inserisci il Product ID di Infomaniak nel Setup.");
 
                 // Salva Product ID per persistenza
-                localStorage.setItem('infomaniak_product_id', productId);
-                appState.infomaniakProductId = productId;
+                if (!explicit) {
+                    localStorage.setItem('infomaniak_product_id', productId);
+                    appState.infomaniakProductId = productId;
+                }
 
                 // Translate payload using bridge
                 const translatedPayload = window.InfomaniakBridge.translatePayload(payload, model);
@@ -842,6 +865,18 @@ window.fetchModelAPI = async function (payload, apiKey) {
 
                 // Translate back to Gemini format for app compatibility
                 response = window.InfomaniakBridge.translateResponse(rawResponse);
+                if (explicit) {
+                    actualModel = typeof rawResponse?.model === 'string' && rawResponse.model.trim() ? rawResponse.model : null;
+                    // Il bridge legacy sintetizza zeri: il giro conserva solo i
+                    // conteggi effettivamente riportati, incluso uno zero reale.
+                    const usage = {};
+                    for (const [raw, name] of [['prompt_tokens', 'promptTokenCount'], ['completion_tokens', 'candidatesTokenCount'], ['total_tokens', 'totalTokenCount']]) {
+                        const count = rawResponse?.usage?.[raw];
+                        if (typeof count === 'number' && Number.isFinite(count) && count >= 0) usage[name] = count;
+                    }
+                    if (Object.keys(usage).length) response.usageMetadata = usage;
+                    else delete response.usageMetadata;
+                }
             } else {
                 // Rimuove i marker interni (_respectTemp e altri "_"-prefissi) da
                 // generationConfig prima dell'invio a Google: l'API Gemini rifiuta i campi
@@ -854,6 +889,16 @@ window.fetchModelAPI = async function (payload, apiKey) {
                     gPayload = { ...payload, generationConfig: gc };
                 }
                 response = await window.electronAPI.generateGemini({ apiKey, payload: gPayload, model });
+                if (explicit) actualModel = typeof response?.modelVersion === 'string' && response.modelVersion.trim() ? response.modelVersion : null;
+            }
+
+            if (explicit && response?.usageMetadata) {
+                const usage = { ...response.usageMetadata };
+                for (const name of ['promptTokenCount', 'candidatesTokenCount', 'totalTokenCount', 'thoughtsTokenCount']) {
+                    if (typeof usage[name] !== 'number' || !Number.isFinite(usage[name]) || usage[name] < 0) delete usage[name];
+                }
+                if (Object.keys(usage).length) response.usageMetadata = usage;
+                else delete response.usageMetadata;
             }
 
             /* ⚠️ LA RILEVAZIONE DEL TRONCAMENTO SALE QUI (12/9), sopra il registro
@@ -884,16 +929,20 @@ window.fetchModelAPI = async function (payload, apiKey) {
                    Sono tutti già calcolati poche righe più su: costano quattro
                    chiavi in più per riga e rendono ogni generazione leggibile
                    da sola, senza indovinare il troncamento dai valori ripetuti. */
-                if (window.MappAIUsage) window.MappAIUsage.record({
+                if (window.MappAIUsage && (!explicit ||
+                    (Number.isFinite(response.usageMetadata.promptTokenCount) && Number.isFinite(response.usageMetadata.candidatesTokenCount)))) window.MappAIUsage.record({
                     provider: provider,
                     model,
                     inTok: response.usageMetadata.promptTokenCount || 0,
                     outTok: response.usageMetadata.candidatesTokenCount || 0,
-                    thoughts: response.usageMetadata.thoughtsTokenCount || 0,
+                    ...(explicit
+                        ? (response.usageMetadata.thoughtsTokenCount !== undefined ? { thoughts: response.usageMetadata.thoughtsTokenCount } : {})
+                        : { thoughts: response.usageMetadata.thoughtsTokenCount || 0 }),
                     n: chiesti,
                     stop: finishReason,
                     tetto: requestedMax,
-                    ctx: _usageCtx
+                    ctx: _usageCtx,
+                    ...(explicit ? { project: requestContext.project, projectId: requestContext.projectId } : {})
                 });
             }
 
@@ -904,19 +953,35 @@ window.fetchModelAPI = async function (payload, apiKey) {
                 finishReason,
                 truncated,
                 requestedMax,
-                promptTokens: response?.usageMetadata?.promptTokenCount || 0,
-                candidateTokens: response?.usageMetadata?.candidatesTokenCount || 0
+                promptTokens: explicit ? (response?.usageMetadata?.promptTokenCount ?? null) : (response?.usageMetadata?.promptTokenCount || 0),
+                candidateTokens: explicit ? (response?.usageMetadata?.candidatesTokenCount ?? null) : (response?.usageMetadata?.candidatesTokenCount || 0)
             });
             // Annota il flag sulla response così salvageTruncatedJSON
             // può loggare con contesto se il parse fallisce.
             if (response && typeof response === 'object') {
                 response._mappaiTruncated = truncated;
                 response._mappaiFinishReason = finishReason;
+                if (explicit) response._mappaiAI = {
+                    provider, phase: requestContext.phase, requestedModel: model, actualModel,
+                    runId: requestContext.runId, vaultPath: requestContext.vaultPath,
+                    project: requestContext.project, projectId: requestContext.projectId
+                };
             }
 
             return response;
         } catch (error) {
-            throw new Error(`Errore Electron IPC API: ${error.message}`);
+            let message = explicit ? error?.message : error.message;
+            if (explicit) {
+                message = String(message || 'Richiesta AI non riuscita.');
+                const secrets = [apiKey, requestContext.productId].filter(Boolean);
+                secrets.slice().forEach(secret => {
+                    try { secrets.push(encodeURIComponent(secret), encodeURI(secret)); } catch (_) { /* mantieni il valore grezzo */ }
+                });
+                secrets.slice().forEach(secret => { secrets.push(secret.replace(/%[0-9A-F]{2}/g, code => code.toLowerCase())); });
+                secrets.sort((a, b) => b.length - a.length)
+                    .forEach(secret => { message = message.split(secret).join('«omesso»'); });
+            }
+            throw new Error(`Errore Electron IPC API: ${message}`);
         }
     } else {
         throw new Error("Electron API non disponibile. L'app non è avviata come Desktop App.");

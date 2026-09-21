@@ -9,6 +9,8 @@ node tools/smoke/scelta-materiali.js         # le attività «a scelta» leggono
 node tools/smoke/visione-fogli.js            # dalla scheda al DOSSIER e ai materiali
 node tools/smoke/evidenze-da-pipeline.js "<vault>" [query]  # l'indice delle evidenze dalle pagine di pipeline.json (non scrive)
 node tools/smoke/evidenze-ramo.js            # il bivio di _branchMaterial: spento `label: desc`, acceso il pacchetto di evidenze
+node tools/smoke/vettori-magazzino.js        # 60 hit + 40 miss, ordine, runtime nuovo e zero chiamate
+node tools/smoke/modelli-per-fase.js        # modelli per fase, due giri indipendenti, cache e vecchio trasporto
 ```
 
 ⚠️ **Il GLOSSARIO non è più fra i documenti provati** (15/9): `mappai-glossary.js` è
@@ -17,6 +19,67 @@ faceva morire il banco a metà — le prove dopo il glossario non venivano nemme
 eseguite. Il caso è stato tolto: restano QUIZ, DOMANDE APERTE, SINTESI, TIMELINE e
 CATENA DEI PERCHÉ, più gli helper della cornice del DOSSIER e il controllo privacy.
 Il modulo NON va ricreato.
+
+Il banco **vettori-magazzino** carica core, cucitura, trasporto renderer e handler
+Infomaniak veri, con risposte e disco simulati. Ricrea il renderer per verificare
+che gli hit dipendano dal file e non dalla memoria. Non prova permessi sul disco,
+riavvio Electron o disponibilità degli alias sul provider. La cache è OFF: per il
+gate 3 usare `MappAIVettori.accendi()`, ripetere il dedup, riavviare l'app dal
+Terminale di Giacomo e ripetere con gli stessi testi. `MappAIVettori.stato()` mostra
+il conto dell'ultima operazione; `svuota()` forza il prossimo ricalcolo.
+La cache non scopre sostituzioni remote di un alias quando tutte le righe sono hit:
+in quel caso svuotarla o usare un identificativo di versione preciso.
+
+Il banco **modelli-per-fase** usa il corpo vero di fetchModelAPI, il bridge Infomaniak,
+il tracker consumi e troncamenti, il core/cucitura dei modelli e il magazzino 0010.
+Solo DOM, disco e confine IPC/rete sono simulati; nessuna chiave vera o spesa AI.
+I modelli diversi del banco sono identificativi fittizi: dimostrano l'instradamento,
+non capacità/disponibilità dei modelli reali. Non prova l'integrazione dei motori, che
+è il seguito B2: i pulsanti dell'app non usano ancora il nuovo profilo.
+
+**Gate 3 di 0012, dal Terminale di Giacomo**: chiudere e riavviare MappAI dal proprio
+Terminale per caricare i nuovi moduli; aprire un vault, poi scegliere Infomaniak
+nel Setup AI e un modello chat disponibile nell'account. Il provider del profilo è
+esplicito: la scelta ripristinata dal vecchio progetto non lo può sostituire.
+Sulla mappa aperta il pulsante Cabina non è visibile: dalla console eseguire
+`openCabina('ai')` per aprire il Setup sopra il progetto. Chiudere solo la Cabina con
+la × dopo la scelta; il progetto rimane aperto. Usare lo stesso accesso anche per il
+successivo cambio provider, senza riaprire il vault o riavviare l'app.
+Nella console, senza copiare chiavi o Product ID:
+
+```js
+MappAIModelli.accendi();
+MappAIVettori.accendi();
+const chat0012 = document.getElementById('model-select').value;
+const giro0012 = MappAIModelli.creaGiro({
+  schema: 'mappai-modelli@1', provider: 'infomaniak',
+  modelli: { mappa: chat0012, materiali: chat0012, embeddings: 'bge_multilingual_gemma2' }
+});
+const domanda0012 = {
+  contents: [{ role: 'user', parts: [{ text: 'Rispondi solo OK.' }] }],
+  generationConfig: { maxOutputTokens: 128 }
+};
+```
+
+Ora cambiare provider/modello nel Setup, mantenendo lo stesso vault, quindi eseguire:
+
+```js
+console.log((await giro0012.chat('mappa', domanda0012))._mappaiAI);
+console.log((await giro0012.chat('materiali', domanda0012))._mappaiAI);
+await giro0012.embeddings(['Prova profilo Infomaniak 0012.']);
+console.log('PRIMA', MappAIVettori.stato());
+await giro0012.embeddings(['Prova profilo Infomaniak 0012.']);
+console.log('SECONDA', MappAIVettori.stato());
+```
+
+Entrambe le chat devono riportare Infomaniak, il modello catturato, lo stesso runId e
+le due fasi differenti; actualModel è null se il provider non lo ha restituito.
+Il secondo embedding deve essere un hit del magazzino. Lo stesso modello chat per
+due fasi è ammesso; nel banco sono distinti. Per provarne due reali, assegnare a
+`materiali` un secondo identificativo verificato nel proprio account prima di creaGiro.
+`giro0012.profilo()` mostra solo il profilo pubblico; JSON.stringify(giro0012) non
+espone segreti. `MappAIModelli.spegni()` impedisce nuovi giri; quello già creato conserva
+lo snapshot. La cache ha il suo interruttore indipendente.
 
 ⚠️ **`censimento-maniglia-cdp.js` non è di questa famiglia**: vuole l'APP VERA
 (`npx electron . --remote-debugging-port=9222` e poi lo script) perché misura il

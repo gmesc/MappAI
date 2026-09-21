@@ -489,7 +489,7 @@ ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId
 
 // IPC handler per embeddings Infomaniak (default: bge-multilingual-gemma2).
 // Endpoint: /openai/v1/embeddings (OpenAI-compatible, no streaming).
-ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, productId, model, texts }) => {
+ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, productId, model, texts, strictOrder }) => {
     const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/embeddings`;
     const payload = {
         model: model || 'bge-multilingual-gemma2',
@@ -504,7 +504,25 @@ ipcMain.handle('generate-embeddings-infomaniak', async (event, { apiKey, product
             timeout: 30000
         });
         const data = response.data || {};
-        const embeddings = (data.data || []).map(item => item.embedding);
+        let embeddings;
+        if (strictOrder === true) {
+            const rows = data.data;
+            if (!Array.isArray(rows) || rows.length !== payload.input.length) {
+                throw new Error('Risposta embeddings incompleta');
+            }
+            embeddings = new Array(payload.input.length);
+            const seen = new Set();
+            for (const item of rows) {
+                const index = item && item.index;
+                if (!Number.isInteger(index) || index < 0 || index >= embeddings.length || seen.has(index)) {
+                    throw new Error('Indici embeddings assenti, duplicati o fuori intervallo');
+                }
+                seen.add(index);
+                embeddings[index] = item.embedding;
+            }
+        } else {
+            embeddings = (data.data || []).map(item => item.embedding);
+        }
         return {
             embeddings,
             model: data.model || payload.model,

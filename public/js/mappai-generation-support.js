@@ -724,6 +724,32 @@ window.fetchEmbeddings = async function (texts, model) {
     return result?.embeddings || [];
 };
 
+// Trasporto del magazzino: usa solo lo snapshot ricevuto, senza rileggere stato o UI.
+// La cache valida numero e dimensioni dei vettori prima di conservarli.
+window.fetchEmbeddingsRequest = async function ({ provider, apiKey, productId, model, texts }) {
+    if (!Array.isArray(texts)) throw new Error('Testi embeddings non validi');
+    if (typeof model !== 'string' || !model.trim()) throw new Error('Modello embeddings mancante');
+    if (!apiKey) throw new Error('API key mancante');
+    if (provider !== 'google' && provider !== 'infomaniak') throw new Error('Provider embeddings non supportato');
+    if (texts.length === 0) return { embeddings: [], model, usage: null };
+
+    if (provider === 'google') {
+        if (!window.electronAPI?.generateEmbeddingsGoogle) {
+            throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
+        }
+        // batchEmbedContents conserva l'ordine delle richieste, anche nell'IPC.
+        return window.electronAPI.generateEmbeddingsGoogle({ apiKey, model, texts });
+    }
+
+    if (!productId) throw new Error('Infomaniak product ID mancante');
+    if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
+        throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
+    }
+    return window.electronAPI.generateEmbeddingsInfomaniak({
+        apiKey, productId, model, texts, strictOrder: true
+    });
+};
+
 // cosineSimilarity estratto in mappai-math.js (caricato PRIMA di app.js).
 window.cosineSimilarity = window.MappAIMath.cosineSimilarity;
 
