@@ -31,6 +31,17 @@
     function DEd() { return window.MappAIDocEditor; }
     function P() { return window.MappAIPipeline; }
     function toast(m, tipo) { if (window.showToast) window.showToast(m, tipo || 'info'); }
+    /* Il generatore risponde con un CODICE (`occupata`, `revisione-pendente`), non
+       con una frase, e per quei due la guardia che ha rifiutato ha già parlato:
+       `mappaiOccupato` e `requireStandalone` mostrano il loro avviso da sé. Un
+       secondo banner rosso col codice grezzo accanto a quello giusto si è visto
+       il 21/9 (gate 3 del passo 3): qui si tace, e un codice sconosciuto diventa
+       la frase generica. */
+    var CODICI_GIA_DETTI = { 'occupata': true, 'revisione-pendente': true, 'revisione-in-corso': true };
+    function _diciErrore(codice, tipo) {
+        if (codice && CODICI_GIA_DETTI[codice]) return;
+        toast(codice || t('cq_ko', 'Generazione non riuscita.'), tipo || 'error');
+    }
     function _st() {
         try { return (typeof appState !== 'undefined') ? appState : window.appState; }
         catch (e) { return window.appState; }
@@ -297,11 +308,22 @@
                         ]
                     }
                 ].filter(Boolean),
-                /* La stima si aggiorna mentre si sceglie: ridisegnare col valori
+                /* La stima si aggiorna mentre si sceglie: ridisegnare coi valori
                    correnti è la strada che il motore prevede (`__campo`), e
-                   rimette il fuoco dov'era. */
+                   rimette il fuoco dov'era.
+                   ⚠️ SOLO per ciò che la stima legge davvero — l'area e le
+                   angolazioni, che sono una tendina e delle caselle. Sui campi
+                   di TESTO no: `__campo` nasce da `change`, che lì scatta al
+                   BLUR, e il blur lo produce il clic su «Genera». Il modale si
+                   ridisegnava sotto il dito, il bottone spariva fra la pressione
+                   e il rilascio — niente clic — e il fuoco tornava al primo
+                   campo: bisognava premere due volte (Giacomo, 21/9). La stessa
+                   trappola è dichiarata in `mappai-doc-editor.js`, che la schiva
+                   passando da `suApertura`. */
                 suAzione: function (ev, box, ridisegna) {
-                    if (ev.azione === '__campo') ridisegna(schema(ev.valori));
+                    if (ev.azione !== '__campo') return;
+                    var c = String(ev.campo || '');
+                    if (c === 'area' || c.indexOf('ang_') === 0) ridisegna(schema(ev.valori));
                 },
                 azioni: [
                     { id: 'annulla', etichetta: t('mm_annulla', 'Annulla') },
@@ -375,6 +397,40 @@
         if (!P() || !P().generaSet) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
         var piu = angoli.length > 1;          // cambia solo il MESSAGGIO finale
         var fatti = [], falliti = [];
+        /* ── PIÙ ANGOLAZIONI SU UN PROGETTO REVISIONATO (21/9) ────────────────
+           Un foglio per angolo, generato in fila, qui non funziona più: il
+           primo passa dalla pipeline e apre il controllo dei materiali, e dal
+           secondo in poi quel giro è APERTO — due fogli su tre non nascevano, e
+           nemmeno lo si diceva (misurato dal vivo). La pipeline sa fare N set
+           in un giro: quando il documento passa di là, si chiede UNA volta
+           sola con tutte le angolazioni.
+           ⚠️ «Misto» non può essere una delle varianti (per la pipeline è
+           l'angolo BASE): se è spuntato insieme ad altri si generano gli altri,
+           e glielo si dice — una perdita silenziosa sarebbe peggio del giro
+           lungo che questo codice sostituisce. */
+        if (piu && P().viaRevisione && P().viaRevisione() && P()._angoliSpecifici) {
+            var specifici = P()._angoliSpecifici(angoli);
+            if (specifici.length > 1) {
+                if (specifici.length < angoli.length) {
+                    toast(t('cq_ang_misto_fuori', 'Genero {n} fogli, uno per angolazione. Il «misto» non fa un foglio a sé quando scegli angolazioni precise.')
+                        .replace('{n}', specifici.length), 'info');
+                }
+                var baseM = opts.nome || (opts.sorgente ? opts.sorgente.etichetta : '');
+                P().generaSet({
+                    tipo: tp.id, nome: baseM, nomeBase: baseM, quantita: opts.quantita,
+                    area: opts.area, angolo: 'auto', angoli: specifici, base: opts.base,
+                    sorgente: opts.sorgente || null, intro: opts.intro || null
+                }).then(function (r) {
+                    if (r && r.ok) { fatti.push({ angolo: specifici.join('·'), r: r }); }
+                    else { falliti.push({ angolo: specifici.join('·'), errore: (r && r.errore) || t('cq_ko', 'Generazione non riuscita.') }); }
+                    _fineVarianti(fatti, falliti, piu);
+                }, function (e) {
+                    falliti.push({ angolo: specifici.join('·'), errore: (e && e.message) ? e.message : String(e) });
+                    _fineVarianti(fatti, falliti, piu);
+                });
+                return;
+            }
+        }
 
         function passo(i) {
             if (i >= angoli.length) return _fineVarianti(fatti, falliti, piu);
@@ -431,8 +487,13 @@
        resta quello di sempre (dove si corregge, dove si stampa); con più fogli
        conta prima QUANTI, perché è la domanda che ci si fa. */
     function _fineVarianti(fatti, falliti, piu) {
+        /* ADR 0003: su un progetto revisionato il documento è passato dalla
+           pipeline, che ha già mostrato il velo e aperto da sé la revisione dei
+           materiali. Niente editor e niente esito qui: sarebbero un secondo
+           messaggio sopra una finestra già aperta. */
+        if (fatti.length && fatti.every(function (f) { return f.r && f.r.viaPipeline; })) return;
         if (!piu) {
-            if (!fatti.length) { toast(falliti[0] ? falliti[0].errore : t('cq_ko', 'Generazione non riuscita.'), 'error'); return; }
+            if (!fatti.length) { _diciErrore(falliti[0] ? falliti[0].errore : '', 'error'); return; }
             _diciEsito(fatti[0].r);
             _apriPrimo(fatti);
             return;
@@ -514,7 +575,7 @@
             if (tp.documento) {
                 if (!P() || !P().nuovoFoglioAperte) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
                 var f = P().nuovoFoglioAperte({ nome: nome });
-                if (!f || !f.ok) { toast((f && f.errore) || t('cq_ko', 'Generazione non riuscita.'), 'warning'); return; }
+                if (!f || !f.ok) { _diciErrore(f && f.errore, 'warning'); return; }
                 _casaDocumenti();
                 if (DEd() && DEd().openOpenQuestions) DEd().openOpenQuestions(f.docId);
                 else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');

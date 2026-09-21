@@ -823,12 +823,25 @@
         const quanti = PC().quantiPerTipo ? PC().quantiPerTipo(config.quiz, t, perBranch) : perBranch;
         const catT = (config.dossier && PC().categoriePerTipo) ? PC().categoriePerTipo(config.quiz, t) : null;
         const ramiT = catT ? branches.filter(b => catT.indexOf(String(b.id).replace(/^fonte_/, '')) >= 0) : branches;
+        /* ADR 0003: il documento singolo chiede UN'area (`quiz.area` = l'id del
+           ramo). Si filtra qui, senza toccare `ramiT`, che serve ancora al ramo
+           COMPAGNO delle domande aperte — come nel gesto singolo, che lo prende
+           fra tutti i rami. Senza area, il lotto di sempre. Con un'area che non
+           c'è più, `ramiA` è vuoto e il giro non genera nulla. */
+        const ramiA = (config.quiz && config.quiz.area) ? ramiT.filter(b => String(b.id) === String(config.quiz.area)) : ramiT;
         for (let ai = 0; ai < angoli.length; ai++) {
           const ang = angoli[ai];
           /* Il nome della variante è la CHIAVE dell'angolo, non l'etichetta a
              schermo: `Domande-aperte-<Mappa>-causa`. È la convenzione del gesto
              singolo (`_generaVarianti`) e quella che Giacomo usava a mano. */
           const nomeVar = (angoli.length > 1) ? PC().nomeAngolo(ang) : '';
+          /* ADR 0003: il nome scritto dal docente nel wizard si affianca
+             all'angolo. UNA costante per titolo, clone e nome file (inv. 6):
+             ELABORA ricava il nome atteso del file dal `clone` del set (e, per
+             le domande aperte, dal titolo d'archivio) — se divergessero, il
+             file resterebbe orfano nella console. Nei lotti di «Genera
+             materiali» `quiz.nome` non c'è, e resta il solo `nomeVar`. */
+          const etichetta = [nomeVar, config.quiz && config.quiz.nome].filter(Boolean).join(' · ');
           try {
           _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel +
             (nomeVar ? ' · ' + nomeVar + ' ' + (ai + 1) + '/' + angoli.length : '') + ')');
@@ -838,8 +851,8 @@
           if (finalizing && !cached) throw new Error('Bozza mancante: ' + draftKey);
           const raw = cached ? JSON.parse(JSON.stringify(cached.items)) : [];
           let requestedCount = 0;
-          for (let bi = 0; bi < (cached ? 0 : ramiT.length); bi++) {
-            const b = ramiT[bi];
+          for (let bi = 0; bi < (cached ? 0 : ramiA.length); bi++) {
+            const b = ramiA[bi];
             const material = _branchMaterial(b);
             if (!material.trim()) continue;
             requestedCount += quanti;
@@ -883,12 +896,12 @@
           if (!cached && raw.length < requestedCount) _toast(_t('mp_batch_short', '{f}: {n} domande utilizzabili sulle {t} richieste. Verifica gli obiettivi rimasti scoperti.')
             .replace('{f}', spec.typeLabel).replace('{n}', raw.length).replace('{t}', requestedCount), 'warning');
           const setId = cached ? cached.id : 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-          const setTitle = mapName + ' — ' + spec.typeLabel + (nomeVar ? ' · ' + nomeVar : '');
+          const setTitle = mapName + ' — ' + spec.typeLabel + (etichetta ? ' · ' + etichetta : '');
           /* Il DOCUMENTO segue la convenzione dei cloni («Domande Aperte -
              causa»), la stessa del gesto singolo: è da lì che ELABORA ricava il
              nome della variante. Con la forma della pipeline le sette varianti
              si leggevano tutte «Domande Aperte». */
-          const titoloDoc = _titoloDoc(spec, nomeVar, mapName);
+          const titoloDoc = _titoloDoc(spec, etichetta, mapName);
           raw.forEach((it, i) => { if (!it.id) it.id = setId + '-' + i; });
           if (manifest.review && !finalizing) {
             manifest.review.drafts.B[draftKey] = { id: setId, type: t, angle: ang, title: titoloDoc, items: raw,
@@ -910,7 +923,7 @@
             if (!pdfOq || !pdfOq.ok) throw new Error('PDF domande aperte non generato: ' + ((pdfOq && pdfOq.error) || '?'));
             const vOq = PC().validatePdfB64(pdfOq.base64);
             if (!vOq.ok) throw new Error(spec.typeLabel + ': ' + vOq.error);
-            const nomeOq = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: nomeVar });
+            const nomeOq = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: etichetta });
             const relOq = 'Materiale Studio/' + nomeOq;
             const wOq = await window.electronAPI.saveVaultFile({ vaultPath, relPath: relOq, base64: pdfOq.base64 });
             if (!wOq || !wOq.ok) throw new Error('Scrittura domande aperte fallita: ' + ((wOq && wOq.error) || '?'));
@@ -944,7 +957,7 @@
         /* ⚠️ `clone` è il campo da cui ELABORA legge il nome della variante (e
            `buildFileName` il nome del file): senza, i sette set per angolo si
            chiamavano tutti «Scelta Multipla». */
-        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: nomeVar, _pipeline: true,
+        const set = { id: setId, title: setTitle, mode: spec.mode, type: spec.typeLabel, items: raw, angle: ang, quantity: quanti, date: _now(), clone: etichetta, _pipeline: true,
           generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length } };
         _state().db.studySets = _state().db.studySets || [];
         set.reviewRevision = manifest.review && manifest.review.approvedRevision;
@@ -998,7 +1011,7 @@
            Forma esplicita `opts.mappa` invece del vecchio `label`: qui il
            risultato è identico, ma i cinque nomi della pipeline si leggono ora
            tutti allo stesso modo. */
-        const fileName = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: nomeVar });
+        const fileName = PC().buildFileName(spec.kind, null, config.tuned, { mappa: mapName, nome: etichetta });
         const rel = 'Materiale Studio/' + fileName;
         const w = await window.electronAPI.saveVaultFile({ vaultPath, relPath: rel, base64: pdf.base64 });
         if (!w || !w.ok) throw new Error('Scrittura quiz fallita: ' + ((w && w.error) || '?'));
@@ -2417,15 +2430,103 @@
     return { ok: true, docId: docId, titolo: titolo };
   };
 
+  /* ── ADR 0003: la config di un DOCUMENTO SINGOLO ──────────────────────────
+     Su un progetto con la revisione approvata «Crea un documento» non viene
+     più rifiutato: è un lotto di UN genere, e passa dalla pipeline (velo,
+     controllo dei contenuti, revisione dei materiali). Qui le scelte del
+     wizard di crea-quiz diventano la STESSA forma che `_readConfig` legge dal
+     modale e dal bento — una forma sola, così `Pipeline.run` e il passo B non
+     hanno un secondo lettore (inv. 6). `tf` la pipeline non lo conosce (uscito
+     dal bento il 19/8): null, e il gesto singolo resta quello di ieri.
+     `area` e `nome` sono i due campi in più, e li legge solo il passo B: il
+     filtro dei rami e l'etichetta di titolo e nome file. La classe: quella
+     scelta nel modale se è aperto, altrimenti la classe attiva della landing,
+     come fa `_classOptions`; se non c'è, stringa vuota — «senza classe». */
+  const GENERI_DOCUMENTO = { mc: 'mc', open: 'open', flashcards: 'flashcards' };
+  function _classeAttiva() {
+    const sel = _configElement('mp-class');
+    if (sel && sel.value) return String(sel.value);
+    try {
+      const CL = window.MappAIClasses, a = CL && CL.getActive ? CL.getActive() : null;
+      return (a && a.id) ? String(a.id) : '';
+    } catch (e) { return ''; }
+  }
+  /* Le angolazioni SPECIFICHE fra quelle spuntate nel wizard. «auto» resta
+     fuori per disegno del core (`angoliMulti()` lo esclude): è l'angolo BASE,
+     non una variante, e `nomeAngolo('auto')` lo chiama «misto». Chi chiama lo
+     sa e lo dice al docente, invece di far sparire un foglio in silenzio. */
+  function _angoliSpecifici(angoli) {
+    return (Array.isArray(angoli) ? angoli : []).filter(k => k && k !== 'auto');
+  }
+  Pipeline._angoliSpecifici = _angoliSpecifici;   // per il wizard e per il banco
+
+  /* La revisione di questo progetto, se è approvata: è la condizione che manda
+     un documento singolo dalla pipeline invece che dal gesto di ieri. UNA
+     funzione, usata dal bivio e dal wizard (`viaRevisione`): due copie della
+     stessa condizione divergerebbero al primo ritocco (inv. 6). */
+  function _revisioneChiusa() {
+    const R = window.MappAIReview, rv = R && R.current && R.current();
+    return (rv && rv.initial && rv.initial.status === 'approved') ? rv : null;
+  }
+  /* Il wizard lo chiede PRIMA di generare: se la risposta è sì, chiama una
+     volta sola con tutte le angolazioni, invece di una per angolo. */
+  Pipeline.viaRevisione = function () {
+    const rv = _revisioneChiusa();
+    return !!(rv && (!rv.final || rv.final.stage === 'done'));
+  };
+  function _configDaDocumento(opts, spec) {
+    opts = opts || {};
+    const genere = spec ? GENERI_DOCUMENTO[opts.tipo] : null;
+    if (!genere) return null;
+    /* PIÙ ANGOLAZIONI IN UN GIRO SOLO (21/9). Il wizard le generava una per
+       chiamata: con la revisione, la prima apriva il controllo dei materiali e
+       tutte le altre trovavano quel giro aperto — tre fogli chiesti, uno solo
+       fatto, e per giunta senza un avviso (misurato dal vivo). La pipeline sa
+       già fare N set in un giro (`angoli` + `multi`, passo B): qui si traduce,
+       non si reinventa. Un'angolazione sola torna a essere l'angolo base. */
+    const specifici = _angoliSpecifici(opts.angoli);
+    const multiplo = specifici.length > 1;
+    const quiz = {
+      types: [genere],
+      perBranch: Math.max(1, Math.min(10, parseInt(opts.quantita, 10) || 1)),
+      angle: multiplo ? 'auto' : (specifici.length === 1 ? specifici[0] : (opts.angolo || 'auto')),
+      angoli: multiplo ? specifici.slice() : [],
+      multi: multiplo ? [genere] : [],
+      area: (opts.area && opts.area !== 'all') ? opts.area : null,
+      /* col giro multiplo il nome dell'angolo lo mette il passo B (`nomeVar`):
+         qui va il nome NUDO del docente, o i fogli si chiamerebbero
+         «causa · prova - causa» */
+      nome: String((multiplo && opts.nomeBase != null ? opts.nomeBase : opts.nome) || '').trim()
+    };
+    /* la quota d'avvio delle domande aperte: il passo B la legge da
+       `quiz.base` — senza, il cursore del wizard sarebbe un comando inerte */
+    if (opts.base != null && Number.isFinite(Number(opts.base))) quiz.base = Number(opts.base);
+    return { classId: opts.classId || _classeAttiva() || '', levelTuned: false, tuned: !!opts.tuned, quiz };
+  }
+  Pipeline._configDaDocumento = _configDaDocumento;   // per il banco (pipeline-lucchetto)
+
   Pipeline.generaSet = async function (opts) {
     opts = opts || {};
     const explicitSource = !!(opts.sorgente && String(opts.sorgente.materiale || '').trim());
-    if (!explicitSource && window.MappAIReview && !await (window.MappAIReview.requireStandalone ? window.MappAIReview.requireStandalone() : window.MappAIReview.requireApproved())) return { ok: false, errore: 'revisione-pendente' };
     const spec = _QT[opts.tipo];
     if (!spec) return { ok: false, errore: 'tipo sconosciuto: ' + opts.tipo };
     if (window.mappaiOccupato && window.mappaiOccupato()) return { ok: false, errore: 'occupata' };
     const apiKey = window.getSystemKey ? window.getSystemKey() : '';
     if (!apiKey) return { ok: false, errore: _t('tst_need_key', "Inserisci un'API Key per continuare") };
+    /* ADR 0003: su un progetto revisionato il documento singolo è un lotto di un genere.
+       Passa dalla pipeline — velo, controllo dei contenuti, revisione — invece di essere
+       rifiutato. Con un giro finale ancora aperto si riapre quello, come prima. */
+    const R = window.MappAIReview, rv = _revisioneChiusa();
+    if (!explicitSource && rv) {
+      if (rv.final && rv.final.stage !== 'done') { await R.requireStandalone(); return { ok: false, errore: 'revisione-in-corso' }; }
+      const cfg = _configDaDocumento(opts, spec);
+      if (cfg) {
+        const target = { vaultPath: _state().activeVaultPath, revision: rv.approvedRevision };
+        await Pipeline.runApprovedMaterials(cfg, target);
+        return { ok: true, viaPipeline: true };
+      }
+    }
+    if (!explicitSource && window.MappAIReview && !await (window.MappAIReview.requireStandalone ? window.MappAIReview.requireStandalone() : window.MappAIReview.requireApproved())) return { ok: false, errore: 'revisione-pendente' };
 
     const vaultPath = _state().activeVaultPath || '';
     const mapName = _mapName();

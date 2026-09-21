@@ -263,6 +263,134 @@ ok(esito === 'nessun errore', 'più nodi ma stessa mappa → continua (è la pip
   const senzaSol = global.window.buildOpenQuestionsHtml(set, { mapName: 'x', includeBar: false, includeAnswers: false });
   ok(!/avvio/i.test(senzaSol), '…e NON nella copia degli allievi (dirlo sarebbe un giudizio, non un aiuto)');
 
+  /* ── 6. IL DOCUMENTO SINGOLO PASSA DALLA PIPELINE (ADR 0003, 21/9) ─────────
+     Su un progetto con la revisione approvata «Crea un documento» veniva
+     rifiutato («usa Genera materiali», modale del lotto, 21 ms). Ora è un
+     lotto di UN genere: `generaSet` traduce il wizard nella forma di
+     `_readConfig` e chiama `runApprovedMaterials` UNA volta. La pipeline vera
+     qui non gira (sarebbero chiamate all'AI e file su disco): la spia sta sul
+     namespace, che è dove `generaSet` la cerca. Con un giro finale ancora
+     aperto si riapre quello (`requireStandalone`, come ieri); senza revisione
+     le righe di ieri, riga per riga.                                          */
+  console.log('\n· il documento singolo passa dalla pipeline (ADR 0003)');
+  global.appState.db.nodes = [
+    { id: 'L1_0', label: 'Neutralità', level: 1, desc: 'La Svizzera resta neutrale.' },
+    { id: 'L1_1', label: 'Difesa', level: 1, desc: 'Il generale Guisan organizza il Ridotto.' }
+  ];
+  const CD = P._configDaDocumento;
+  ok(typeof CD === 'function', '`_configDaDocumento` è raggiungibile dal banco');
+  const specVera = { kind: 'quiz_mc' };
+  const c1 = CD({ tipo: 'mc', quantita: 1, area: 'all', angolo: 'auto', nome: 'x' }, specVera) || {};
+  ok(JSON.stringify(c1.quiz && c1.quiz.types) === '["mc"]', '(1) mc → quiz.types ["mc"]');
+  ok(c1.quiz && c1.quiz.perBranch === 1, '(1) quantità 1 → perBranch 1');
+  ok(c1.quiz && c1.quiz.area === null, '(1) area «all» → quiz.area null (tutti i rami)');
+  ok(c1.quiz && c1.quiz.nome === 'x', '(1) il nome del docente viaggia in quiz.nome → «' + (c1.quiz && c1.quiz.nome) + '»');
+  ok(!('nodesheet' in c1) && !('synthesis' in c1) && !('causal' in c1), '(1) niente nodesheet/synthesis/causal: gira solo il passo B');
+  ok(c1.classId === '' && c1.levelTuned === false && c1.tuned === false, '(1) senza modale né classe attiva → classId "", nessuna taratura');
+  ok(Array.isArray(c1.quiz.angoli) && !c1.quiz.angoli.length && Array.isArray(c1.quiz.multi) && !c1.quiz.multi.length, '(1) angoli [] e multi []: un set solo, come la forma di _readConfig');
+  const c2 = CD({ tipo: 'open', quantita: 3, area: 'L1_0', angolo: 'cause', nome: '' }, { kind: 'open_questions' }) || {};
+  ok(c2.quiz && c2.quiz.area === 'L1_0', '(2) area «L1_0» → quiz.area "L1_0"');
+  ok(c2.quiz && c2.quiz.perBranch === 3 && c2.quiz.angle === 'cause' && c2.quiz.nome === '', '(2) quantità, angolo e nome vuoto passano com\'erano');
+  ok(CD({ tipo: 'mc', quantita: 99 }, specVera).quiz.perBranch === 10 && CD({ tipo: 'mc' }, specVera).quiz.perBranch === 1, '(2) perBranch stretto fra 1 e 10, default 1');
+  ok(CD({ tipo: 'tf', quantita: 2, area: 'all' }, { kind: 'quiz_tf' }) === null, '(3) «Vero o Falso» → null: la pipeline non lo ha, resta il gesto di ieri');
+
+  /* la spia su runApprovedMaterials + la revisione finta.
+     ⚠️ Il ripristino sta in un `finally`: oggi questa è l'ultima sezione e
+     un'eccezione farebbe morire il processo, ma il giorno in cui qualcuno ne
+     aggiunge una sotto, una prova che lancia lascerebbe la spia al suo posto e
+     la sezione dopo proverebbe uno stub credendolo il modulo vero. */
+  const veraRAM = P.runApprovedMaterials;
+  try {
+  const spia = { ram: [], standalone: 0 };
+  P.runApprovedMaterials = async function (config, target, presetId) { spia.ram.push({ config, target, presetId }); };
+  let rv = { initial: { status: 'approved' }, approvedRevision: 'rev-7', final: { stage: 'done' } };
+  global.window.MappAIReview = {
+    current: () => rv,
+    /* la vera: con un giro finale aperto lo riapre e dice false; su un progetto
+       approvato apre il modale del lotto e dice false; senza revisione true */
+    requireStandalone: async () => { spia.standalone++; return !rv; },
+    requireApproved: async () => true,
+    sources: () => []          // il gesto di ieri le legge da qui (evidenze, budget)
+  };
+  global.window.getSystemKey = () => 'k';
+  chiamateAI = 0;
+  const veroFetch6 = global.window.fetchModelAPI;
+  global.window.fetchModelAPI = async function () { chiamateAI++; return veroFetch6.apply(null, arguments); };
+
+  const r6a = await P.generaSet({ tipo: 'mc', nome: 'prova adr3', quantita: 1, area: 'all', angolo: 'auto' });
+  ok(spia.ram.length === 1, '(4) revisione approvata, giro finale concluso → runApprovedMaterials chiamata UNA volta');
+  const ch = spia.ram[0] || {};
+  ok(ch.config && JSON.stringify(ch.config.quiz.types) === '["mc"]' && ch.config.quiz.nome === 'prova adr3' && ch.config.quiz.area === null,
+    '(4) …con QUEL config (mc, «prova adr3», tutte le aree)');
+  ok(ch.target && ch.target.revision === 'rev-7' && ch.target.vaultPath === global.appState.activeVaultPath,
+    '(4) …e un target con revision = rv.approvedRevision e il vault attivo → ' + JSON.stringify(ch.target));
+  ok(ch.presetId === undefined, '(4) nessun presetId: runApprovedMaterials non lo esige');
+  ok(r6a && r6a.ok === true && r6a.viaPipeline === true, '(4) risponde { ok:true, viaPipeline:true } → ' + JSON.stringify(r6a));
+  ok(spia.standalone === 0, '(4) requireStandalone NON viene chiamata: niente toast «usa Genera materiali»');
+  ok(chiamateAI === 0, '(4) e il gesto singolo non spende chiamate sue: le fa la pipeline');
+  ok(P.occupata() === false, '(4) il lucchetto non resta chiuso');
+
+  spia.ram.length = 0;
+  const r6b = await P.generaSet({ tipo: 'open', nome: 'solo difesa', quantita: 2, area: 'L1_1', angolo: 'auto' });
+  ok(spia.ram.length === 1 && spia.ram[0].config.quiz.area === 'L1_1' && JSON.stringify(spia.ram[0].config.quiz.types) === '["open"]',
+    '(4b) un\'area sola → il config porta quiz.area "L1_1" e il solo genere «open»');
+  ok(r6b && r6b.viaPipeline === true, '(4b) anche qui via pipeline');
+
+  spia.ram.length = 0; spia.standalone = 0;
+  rv = { initial: { status: 'approved' }, approvedRevision: 'rev-7', final: { stage: 'review' } };
+  const r6c = await P.generaSet({ tipo: 'mc', nome: 'x', quantita: 1, area: 'all', angolo: 'auto' });
+  ok(spia.ram.length === 0, '(5) giro finale ancora aperto → runApprovedMaterials NON chiamata');
+  ok(spia.standalone === 1, '(5) …si riapre quello: requireStandalone chiamata (come ieri)');
+  ok(r6c && r6c.ok === false && r6c.errore === 'revisione-in-corso', '(5) e il codice è «revisione-in-corso» → ' + JSON.stringify(r6c));
+
+  spia.ram.length = 0; spia.standalone = 0;
+  rv = { initial: { status: 'approved' }, approvedRevision: 'rev-7', final: { stage: 'done' } };
+  const r6d = await P.generaSet({ tipo: 'tf', nome: 'vf', quantita: 2, area: 'all', angolo: 'auto' });
+  ok(spia.ram.length === 0 && spia.standalone === 1, '(5b) «Vero o Falso» su progetto revisionato → le righe di ieri: requireStandalone, niente pipeline');
+  ok(r6d && r6d.ok === false && r6d.errore === 'revisione-pendente', '(5b) …col codice di ieri, «revisione-pendente» (avviso verde e modale del lotto li ha già fatti lei) → ' + JSON.stringify(r6d));
+  spia.ram.length = 0; spia.standalone = 0;
+  const r6e = await P.generaSet({ tipo: 'open', nome: 'foto', quantita: 2, area: 'all', angolo: 'auto',
+    sorgente: { etichetta: 'Miniatura', materiale: 'Un re incoronato fra due figure.' } });
+  ok(spia.ram.length === 0 && r6e && r6e.ok === true && !r6e.viaPipeline, '(5c) con una SORGENTE esplicita (foto) il progetto revisionato non c\'entra: gesto di ieri');
+
+  spia.ram.length = 0; spia.standalone = 0;
+  rv = null;                                  // nessuna revisione sul progetto
+  const r6f = await P.generaSet({ tipo: 'open', nome: 'y', quantita: 2, area: 'L1_zz', angolo: 'auto' });
+  ok(spia.ram.length === 0, '(6) senza revisione → runApprovedMaterials NON chiamata');
+  ok(r6f && r6f.ok === false && /aree da cui generare/.test(r6f.errore || ''), '(6) …e si prosegue come oggi: area inesistente → cq_no_area → «' + (r6f && r6f.errore) + '»');
+  const r6g = await P.generaSet({ tipo: 'open', nome: 'z', quantita: 2, area: 'L1_0', angolo: 'auto' });
+  ok(spia.ram.length === 0 && r6g && r6g.ok === true && !r6g.viaPipeline && chiamateAI > 0,
+    '(6) …o al giro di ieri: il foglio esce dal gesto singolo, con le SUE chiamate (' + chiamateAI + ')');
+  /* ── (7) PIÙ ANGOLAZIONI IN UN GIRO SOLO (21/9) ──────────────────────────
+     Il wizard chiedeva un foglio per angolo, in fila: col controllo dei
+     materiali di mezzo, dal secondo in poi trovavano il giro aperto e non
+     nascevano. Qui si prova la traduzione: N angolazioni → UN config con
+     `angoli` + `multi`, che il passo B sa già srotolare. */
+  console.log('\n· più angolazioni in un giro solo');
+  const cM = CD({ tipo: 'mc', quantita: 2, area: 'all', angolo: 'auto', angoli: ['causa', 'esempio'], nome: 'v - causa', nomeBase: 'v' }, specVera) || {};
+  ok(JSON.stringify(cM.quiz.angoli) === '["causa","esempio"]', '(7) due angolazioni → quiz.angoli ["causa","esempio"]');
+  ok(JSON.stringify(cM.quiz.multi) === '["mc"]', '(7) …e il genere entra in quiz.multi: il passo B fa un set per angolo');
+  ok(cM.quiz.angle === 'auto', '(7) …l\'angolo base resta «auto»: le varianti le dice `angoli`');
+  ok(cM.quiz.nome === 'v', '(7) …e il nome è quello NUDO del docente (l\'angolo lo mette il passo B) → «' + cM.quiz.nome + '»');
+  const cU = CD({ tipo: 'mc', quantita: 2, area: 'all', angoli: ['auto', 'causa'], nome: 'v' }, specVera) || {};
+  ok(cU.quiz.angle === 'causa' && !cU.quiz.angoli.length && !cU.quiz.multi.length,
+    '(7) «misto» + UNA angolazione → un giro solo su quella, niente multi');
+  const cA = CD({ tipo: 'mc', quantita: 2, area: 'all', angoli: ['auto'], nome: 'v' }, specVera) || {};
+  ok(cA.quiz.angle === 'auto' && !cA.quiz.multi.length, '(7) solo «misto» → il comportamento di sempre');
+  ok(JSON.stringify(P._angoliSpecifici(['auto', 'causa', 'esempio'])) === '["causa","esempio"]',
+    '(7) `_angoliSpecifici` toglie «misto»: per la pipeline è l\'angolo base, non una variante');
+  ok(JSON.stringify(P._angoliSpecifici(null)) === '[]', '(7) …e senza angolazioni è una lista vuota, non un errore');
+  /* `viaRevisione` è il predicato UNICO: lo chiede il wizard prima di generare
+     e lo usa il bivio. Se divergessero, il wizard chiederebbe N volte proprio
+     nel caso in cui una sola basta. */
+  rv = { initial: { status: 'approved' }, approvedRevision: 'rev-7', final: { stage: 'done' } };
+  ok(P.viaRevisione() === true, '(7) revisione approvata e giro chiuso → viaRevisione() vero');
+  rv = { initial: { status: 'approved' }, approvedRevision: 'rev-7', final: { stage: 'review' } };
+  ok(P.viaRevisione() === false, '(7) giro finale aperto → falso: il wizard non accorpa, la guardia riapre quello');
+  rv = null;
+  ok(P.viaRevisione() === false, '(7) senza revisione → falso: resta il gesto di ieri');
+  } finally { P.runApprovedMaterials = veraRAM; }
+
   console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'TUTTO OK'));
   process.exit(ko ? 1 : 0);
 })().catch(e => { console.log('  KO  eccezione fuori posto: ' + (e && e.message)); process.exit(1); });
