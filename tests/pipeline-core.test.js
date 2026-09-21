@@ -8,6 +8,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const PC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-pipeline-core.js'));
+/* Solo per COSTRUIRE un materiale vero nei casi degli identificatori (21/9/26):
+   il formato degli id ha una fonte sola (evidence-core, invariante 6), e la
+   regex di `idEvidenze` va misurata contro quella, non contro una riga scritta
+   a mano nel test — che invecchierebbe per conto suo. Il core della pipeline
+   NON dipende da questi due moduli: qui si leggono, di là no. */
+const EC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-evidence-core.js'));
+const LS = require(path.join(__dirname, '..', 'public', 'js', 'mappai-local-search-core.js'));
 
 const NOW = '2026-07-20T10:00:00.000Z';
 const fullConfig = {
@@ -787,6 +794,108 @@ test('verificaEvidenza: senza il campo evidenza tiene tutto (retrocompatibile)',
   const r = PC.verificaEvidenza([{ q: 'D' }, { q: 'E' }], 'qualunque materiale');
   assert.strictEqual(r.items.length, 2);
   assert.strictEqual(r.scartati.length, 0);
+});
+
+// ══ GLI IDENTIFICATORI DELLA PROVA (21/9/26, passo 4 del piano Evidence) ═════
+// Quando il materiale ELENCA le prove, la porta si rovescia: entra solo chi ne
+// porta una, e la si verifica per uguaglianza. Il materiale qui sotto è quello
+// vero, costruito dai due core che lo costruiscono nell'app.
+
+const FRASI_FONTE = [
+  'Un circuito e chiuso quando la corrente puo percorrere tutto il tragitto dal ' +
+  'generatore al ricevitore e tornare indietro senza interruzioni.',
+  'Puo anche capitare che un circuito sia perfettamente chiuso e collegato a dovere, ' +
+  'e tuttavia la batteria cominci a riscaldarsi in modo anomalo.',
+  'La resistenza di un conduttore si misura in ohm e cresce con la lunghezza del filo.'
+];
+
+function materialeConEvidenze() {
+  const stato = {
+    sources: [{ id: 'src-1', title: 'Elettricita.pdf', pages: [{ n: 4, text: FRASI_FONTE.join(' ') }] }],
+    db: { nodes: [], links: [] }
+  };
+  const pacchetto = EC.costruisciPacchetto({
+    records: LS.snapshot(stato).records, query: 'circuito chiuso corrente batteria'
+  });
+  return EC.materialeRamo({
+    area: 'Elettricita', nodi: [{ label: 'Corto circuito' }], pacchetto: pacchetto
+  }).materiale;
+}
+
+test('idEvidenze: gli id di un materiale vero, in ordine di comparsa e senza doppioni', () => {
+  const m = materialeConEvidenze();
+  const ids = PC.idEvidenze(m);
+  assert.ok(ids.length >= 2, 'il materiale di prova porta almeno due evidenze');
+  ids.forEach(x => assert.ok(/^ev-[0-9a-f]{16}-\d+$/.test(x), 'forma dell id: ' + x));
+  let prec = -1;
+  ids.forEach(x => { const i = m.indexOf('[[' + x + ']]'); assert.ok(i > prec, 'ordine di comparsa'); prec = i; });
+  // lo stesso materiale due volte non raddoppia l'elenco
+  assert.deepStrictEqual(PC.idEvidenze(m + '\n' + m), ids);
+});
+
+test('idEvidenze: vuoto, non stringa, o senza identificatori → elenco vuoto', () => {
+  ['', 'AREA: Elettricita\nCONCETTI DEL RAMO: Corto circuito', null, undefined, 42, {},
+    ['[[ev-626f5dbd6c6c4bff-206]]'],
+    '[[ev-626f5dbd6c6c4b-206]]',      // 14 esadecimali: non è la forma
+    '[[ev-NONESADECIMALE12-206]]',
+    '[[ev-626f5dbd6c6c4bff]]'         // senza il numero dell'unità
+  ].forEach(x => assert.deepStrictEqual(PC.idEvidenze(x), [], JSON.stringify(x)));
+});
+
+test('verificaEvidenza con id: tiene la domanda che porta un identificatore dell elenco', () => {
+  const m = materialeConEvidenze();
+  const ids = PC.idEvidenze(m);
+  const r = PC.verificaEvidenza([
+    { q: 'Quando un circuito e chiuso?', evidenzaId: ids[0] },
+    { q: 'Perche la batteria si scalda?', evidenzaId: '[[' + ids[1] + ']]' },  // parentesi riportate: forma, non dato
+    { q: 'In inglese il campo si chiama cosi', evidenceId: ids[0] }
+  ], m);
+  assert.strictEqual(r.items.length, 3);
+  assert.strictEqual(r.scartati.length, 0);
+});
+
+test('verificaEvidenza con id: senza identificatore la domanda è scartata e contata', () => {
+  const m = materialeConEvidenze();
+  const r = PC.verificaEvidenza([
+    { q: 'Domanda senza prova' },
+    { q: 'Domanda con il campo vuoto', evidenzaId: '   ' }
+  ], m);
+  assert.strictEqual(r.items.length, 0);
+  assert.strictEqual(r.scartati.length, 2);
+  r.scartati.forEach(x => assert.strictEqual(x.motivo, 'id-assente'));
+  assert.strictEqual(r.scartati[0].q, 'Domanda senza prova');
+});
+
+test('verificaEvidenza con id: un identificatore inventato non passa', () => {
+  const m = materialeConEvidenze();
+  const inventato = 'ev-0123456789abcdef-99';
+  assert.strictEqual(m.indexOf(inventato), -1, 'l id inventato non sta nel materiale');
+  const r = PC.verificaEvidenza([{ q: 'Domanda inventata', evidenzaId: inventato }], m);
+  assert.strictEqual(r.items.length, 0);
+  assert.strictEqual(r.scartati[0].motivo, 'id-sconosciuto');
+  assert.strictEqual(r.scartati[0].evidenza, inventato);
+});
+
+test('verificaEvidenza con id: la frase copiata al posto dell identificatore è uno scarto a sé', () => {
+  const m = materialeConEvidenze();
+  const r = PC.verificaEvidenza([{ q: 'Quando un circuito e chiuso?', evidenza: FRASI_FONTE[0] }], m);
+  assert.strictEqual(r.items.length, 0, 'la frase giusta senza id non basta più');
+  assert.strictEqual(r.scartati.length, 1);
+  assert.strictEqual(r.scartati[0].motivo, 'id-frase-copiata');
+  assert.ok(/circuito e chiuso/.test(r.scartati[0].evidenza));
+});
+
+test('verificaEvidenza senza id nel materiale: il contratto di oggi non cambia', () => {
+  const materiale = 'La Commissione Bergier pubblico il rapporto finale nel 2002 dopo anni di lavoro.';
+  const r = PC.verificaEvidenza([
+    { q: 'Senza campo', evidenzaId: 'ev-0123456789abcdef-1' },   // l id qui non è una prova: nessuno lo elenca
+    { q: 'Con la frase giusta', evidenza: 'La Commissione Bergier pubblico il rapporto finale nel 2002' },
+    { q: 'Con una frase inventata', evidenza: 'La Commissione Bergier fu formata nel 1996 con mandato parlamentare straordinario' }
+  ], materiale);
+  assert.strictEqual(r.items.length, 2, 'passa chi non ha il campo e chi cita davvero');
+  assert.strictEqual(r.scartati.length, 1);
+  assert.strictEqual(r.scartati[0].motivo, undefined, 'la strada vecchia conta la quota, non il motivo');
+  assert.ok(r.scartati[0].quota >= 0);
 });
 
 // ══ DOMANDE RIPETUTE · ETICHETTA «AVVIO» · CRITERI (11/9/26) ════════════

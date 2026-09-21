@@ -809,6 +809,8 @@ const it_translations = {
     ui_infomaniak_for_reranker: "Con Google Gemini il token e il Product ID di Infomaniak servono solo al reranker.",
     ui_reranker_title: "Reranker Infomaniak per le citazioni",
     ui_reranker_desc: "A fine generazione sceglie, per ogni nodo, le frasi della fonte che lo sostengono. Funziona anche con Google Gemini. Manda a Infomaniak le frasi della fonte e le descrizioni dei nodi.",
+    ui_evidence_title: "Evidenze dalla fonte nei quiz",
+    ui_evidence_desc: "Le domande nascono dalle frasi vere della fonte, e ognuna porta con sé il riferimento alla pagina da cui viene. Spenta, tutto resta come prima.",
     ui_how_create_it: "Come crearlo?",
     ph_infomaniak_token: "Inserisci token Infomaniak...",
     ui_merge_map_title: "Unisci Mappa",

@@ -322,7 +322,72 @@
      identica): il modello riformula sempre un po', e pretendere la citazione
      esatta scarterebbe anche le domande buone. Serve a fermare l'invenzione, non
      a certificare la verità. */
+  /* ══ GLI IDENTIFICATORI DELLE EVIDENZE (21/9/26, passo 4) ═══════════════════
+     Quando il materiale di un ramo nasce dal pacchetto di evidenze, ogni riga
+     porta in testa il suo identificatore fra doppie parentesi quadre:
+
+         [[ev-626f5dbd6c6c4bff-206]] (p. 4, Elettricita.pdf · concetto) testo…
+
+     L'identificatore lo conia `mappai-evidence-core.js` (`idUnita`: l'hash di
+     `revision()` senza il prefisso, forma `ev-<16 esadecimali>-<numero>`), e
+     quella resta l'unica FONTE del formato (invariante 6). Qui se ne riconosce
+     soltanto la FORMA, con la regex dichiarata qui sotto: questo file è copiato
+     byte per byte nell'app dello studente, dove `MappAIEvidence` non esiste, e
+     quindi non può chiedere a nessuno se le evidenze siano accese. Non serve
+     chiederlo — è il MATERIALE che si dichiara, perché porta gli identificatori.
+     Una funzione sola li estrae, e la usano tutti: il filtro qui sotto e il
+     blocco della prova di `mappai-study-session.js`. */
+  function idEvidenze(materiale) {
+    if (typeof materiale !== 'string' || !materiale) return [];
+    var re = /\[\[(ev-[0-9a-f]{16}-\d+)\]\]/g;   // nuova a ogni giro: `lastIndex` non si eredita
+    var out = [], visti = {}, m;
+    while ((m = re.exec(materiale)) !== null) {
+      if (!visti[m[1]]) { visti[m[1]] = 1; out.push(m[1]); }
+    }
+    return out;
+  }
+
+  /* Il valore che il modello ha scritto nel campo della prova, ripulito: può
+     aver riportato anche le parentesi, che sono forma e non dato. Si passa
+     dalla stessa estrazione di sopra, mai da una seconda regex. */
+  function _idDaCampo(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return '';
+    var dentro = idEvidenze(s);
+    return dentro.length ? dentro[0] : s.replace(/^\[+/, '').replace(/\]+$/, '').trim();
+  }
+
+  /* La porta rovesciata (invariante 22): quando il materiale ELENCA le prove,
+     una domanda entra solo se ne porta una, e un identificatore si verifica per
+     uguaglianza — non a somiglianza come la frase copiata. Chi non lo porta è
+     scartato e CONTATO, con il motivo: `id-assente` (campo vuoto),
+     `id-frase-copiata` (il modello ha copiato la frase invece dell'id, che è un
+     difetto d'istruzione, non un'invenzione) e `id-sconosciuto` (un id che nel
+     materiale non c'è: inventato, o preso da un altro ramo). */
+  function _verificaPerId(items, noti) {
+    var elenco = Object.create(null);   // niente prototipo: «__proto__» dal modello non deve risultare noto
+    noti.forEach(function (x) { elenco[x] = 1; });
+    var tenuti = [], scartati = [];
+    (items || []).forEach(function (it) {
+      var q = (it && (it.q || it.question || it.domanda)) || '';
+      var id = _idDaCampo(it && (it.evidenzaId || it.evidenceId));
+      if (!id) {
+        var copiata = String((it && (it.evidenza || it.evidence)) || '').trim();
+        scartati.push({ q: q, evidenza: copiata, motivo: copiata ? 'id-frase-copiata' : 'id-assente' });
+        return;
+      }
+      if (!elenco[id]) { scartati.push({ q: q, evidenza: id, motivo: 'id-sconosciuto' }); return; }
+      tenuti.push(it);
+    });
+    return { items: tenuti, scartati: scartati };
+  }
+
   function verificaEvidenza(items, materiale, opts) {
+    /* Con gli identificatori comanda l'uguaglianza; senza — ogni altra
+       superficie di studio, e l'app dello studente — si eseguono le righe di
+       sempre, compreso l'item senza campo che passa (invariante 1). */
+    var noti = idEvidenze(materiale);
+    if (noti.length) return _verificaPerId(items, noti);
     var o = Object.assign({ soglia: 0.6, minParole: 3 }, opts || {});
     var idx = _indiceParole(materiale);
     var tenuti = [], scartati = [];
@@ -1131,7 +1196,7 @@
     semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, posizioniCorrette: posizioniCorrette,
     similitudine: similitudine, deduplicaDomande: deduplicaDomande,
     livelloVerificato: livelloVerificato, criteriDaItem: criteriDaItem,
-    corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza,
+    corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza, idEvidenze: idEvidenze,
     angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     angoliPerTipo: angoliPerTipo, quantiPerTipo: quantiPerTipo, categoriePerTipo: categoriePerTipo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,

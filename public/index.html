@@ -2877,6 +2877,17 @@
                             </div>
                         </label>
                     </div>
+                    <!-- Le evidenze dalla fonte (21/9/26): spenta di default, era solo da console -->
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" id="evidence-toggle" class="mt-0.5 accent-indigo-600 w-4 h-4"
+                                onchange="try { localStorage.setItem('mappai_evidence', this.checked ? '1' : '0'); } catch (e) {}">
+                            <div>
+                                <span class="text-xs font-bold text-indigo-700" data-i18n="ui_evidence_title">Evidenze dalla fonte nei quiz</span>
+                                <p class="text-xs text-indigo-700 mt-0.5 leading-relaxed" data-i18n="ui_evidence_desc">Le domande nascono dalle frasi vere della fonte, e ognuna porta con sé il riferimento alla pagina da cui viene. Spenta, tutto resta come prima.</p>
+                            </div>
+                        </label>
+                    </div>
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -3146,8 +3157,8 @@
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
-    <script src="traduzioni/it_translations.js?v=privacy-katex-20260915"></script>
-    <script src="traduzioni/en_translations.js?v=allievi-20260917"></script>
+    <script src="traduzioni/it_translations.js?v=evidence-id-20260921"></script>
+    <script src="traduzioni/en_translations.js?v=evidence-id-20260921"></script>
     <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/infomaniak_bridge.js"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
@@ -3184,7 +3195,7 @@
     <script src="js/mappai-console-bento.js?v=dh13"></script>
     <script src="js/mappai-mm-triage.js"></script>
     <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=review-20260912-2"></script>
+    <script src="js/mappai-storage-lang.js?v=evidence-id-20260921"></script>
     <script src="js/mappai-d3-render.js?v=font1"></script>
     <script src="js/mappai-ui-canvas.js?v=riga1"></script>
     <!-- Moduli MappAI estesi -->
@@ -3308,7 +3319,7 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=budget-20260916"></script>
+    <script src="js/mappai-pipeline-core.js?v=evidence-id-20260921"></script>
     <script src="js/mappai-landing-teach.js?v=noelab1"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
@@ -3351,7 +3362,7 @@
     <script src="js/mappai-evidence-core.js?v=evidence-20260920b"></script>
     <script src="js/mappai-evidence.js?v=evidence-20260920b"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=evidence-20260920"></script>
+    <script src="js/mappai-material-pipeline.js?v=angolazioni-20260921"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>
@@ -3359,7 +3370,7 @@
          core, provata in Node; la vista si apre da INSEGNA («Proietta»). -->
     <script src="js/mappai-proiezione-core.js?v=dos3"></script>
     <script src="js/mappai-proiezione.js?v=dos3"></script>
-    <script src="js/mappai-crea-quiz.js?v=quality-lots-20260914-1"></script>
+    <script src="js/mappai-crea-quiz.js?v=un-clic-20260921"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
     <script src="js/mappai-bento-composizione.js?v=presets-flash-20260914-1"></script>
     <script src="js/mappai-costruisci-manifesto.js?v=presets-flash-20260914-1"></script>
@@ -3396,7 +3407,7 @@
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
     <script src="js/mappai-ai-tutor.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-study-session.js?v=quality-lots-20260914-1"></script>
+    <script src="js/mappai-study-session.js?v=evidence-id-20260921"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-rsvp-core.js"></script>
     <script src="js/mappai-pronuncia-core.js"></script>

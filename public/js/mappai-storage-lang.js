@@ -970,6 +970,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Interruttore del reranker Infomaniak (spento se mai toccato)
     const rerankToggle = document.getElementById('infomaniak-reranker-toggle');
     if (rerankToggle) { try { rerankToggle.checked = localStorage.getItem('mappai_reranker_infomaniak') === '1'; } catch (e) { rerankToggle.checked = false; } }
+    // Interruttore delle evidenze dalla fonte (21/9/26): stessa forma, spento se mai toccato
+    const evidenceToggle = document.getElementById('evidence-toggle');
+    if (evidenceToggle) { try { evidenceToggle.checked = localStorage.getItem('mappai_evidence') === '1'; } catch (e) { evidenceToggle.checked = false; } }
 
     // Load saved models on boot
     const isInfomaniak = (appState.aiProvider === 'infomaniak');

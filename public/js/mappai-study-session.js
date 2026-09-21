@@ -196,13 +196,28 @@ window.openQuestionsAngleBlock = function (angleKey, opts) {
     return righe.join('\n\n');
 };
 
-/* ── LA RICHIESTA DELLA PROVA (11/9) ──────────────────────────────────────────
+/* ── LA RICHIESTA DELLA PROVA (11/9; l'identificatore dal 21/9) ───────────────
    Il blocco sta FUORI dal template e PRIMA di esso, come l'angolo: chi ha un
    `prompts_config.json` personale non ha la variabile nuova e la lascerebbe
-   cadere in silenzio. Chiede la frase del materiale che rende vera la risposta —
-   che poi `verificaEvidenza` controlla davvero. */
-window.quizEvidenceBlock = function () {
+   cadere in silenzio. Chiede la prova della risposta — che poi
+   `verificaEvidenza` controlla davvero.
+
+   Due forme, e a scegliere è il MATERIALE, non un interruttore: se porta le
+   evidenze della fonte, ogni riga ha in testa il suo identificatore fra doppie
+   parentesi quadre, e allora si chiede QUELLO — un identificatore si verifica
+   per uguaglianza, una frase copiata solo a somiglianza (invariante 22). Senza
+   identificatori — ogni altra superficie di studio, e l'app dello studente, che
+   copia questo file e non conosce `MappAIEvidence` — resta la richiesta di
+   sempre, parola per parola. Chiamata senza argomenti: la forma di sempre. */
+window.quizEvidenceBlock = function (materiale) {
     var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    var PC = window.MappAIPipelineCore;
+    var ids = (PC && PC.idEvidenze) ? PC.idEvidenze(materiale) : [];
+    if (ids.length) {
+        return en
+            ? 'PROOF (mandatory for every question): every line of the MATERIAL below starts with its own identifier between double square brackets, in the form [[ev-…]]. In the "evidenzaId" field write ONE of the identifiers listed there: the one of the line that makes the correct answer true. Copy it exactly as it is, without the square brackets. Never invent an identifier, never write one that is not in the list, and do not copy the sentence instead. If no line of the material supports an answer, do NOT write that question: write one fewer.'
+            : 'LA PROVA (obbligatoria per ogni domanda): ogni riga del MATERIALE qui sotto comincia con il suo identificatore fra doppie parentesi quadre, nella forma [[ev-…]]. Nel campo "evidenzaId" scrivi UNO degli identificatori elencati lì: quello della riga che rende vera la risposta esatta. Copialo esatto com\'è, senza le parentesi quadre. Non inventare mai un identificatore, non scriverne uno che non sia nell\'elenco, e non copiare la frase al suo posto. Se nessuna riga del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
+    }
     return en
         ? 'PROOF (mandatory for every question): in the "evidenza" field copy the sentence from the MATERIAL below that makes the correct answer true. Copy it from the material, do not rewrite it and do not summarise it. If no sentence in the material supports an answer, do NOT write that question: write one fewer.'
         : 'LA PROVA (obbligatoria per ogni domanda): nel campo "evidenza" copia la frase del MATERIALE qui sotto che rende vera la risposta esatta. Copiala dal materiale, non riscriverla e non riassumerla. Se nessuna frase del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
@@ -250,7 +265,7 @@ window.generateDynamicQuiz = async function (opts) {
     }
     const nonce = opts.nonce || window.quizNonce();
     const angleBlock = window.quizAngleBlock ? window.quizAngleBlock(opts.angle || 'auto') : '';
-    const evBlock = window.quizEvidenceBlock ? window.quizEvidenceBlock() : '';
+    const evBlock = window.quizEvidenceBlock ? window.quizEvidenceBlock(material) : '';
     /* la regola sulla lunghezza vale solo dove ci sono opzioni da scegliere */
     const lenBlock = (window.quizLengthBlock && !/apert/i.test(String(quizType)))
         ? window.quizLengthBlock() : '';
@@ -272,21 +287,30 @@ window.generateDynamicQuiz = async function (opts) {
        budget e tronca (regola 05), e un campo obbligatorio in più rende quel
        rischio più vicino. */
     const _quante = Math.max(1, parseInt(quantity, 10) || 5);
+    /* Il campo della prova è UNO SOLO e cambia nome secondo il materiale: con le
+       evidenze è `evidenzaId` (l'identificatore, che si verifica per uguaglianza),
+       senza è `evidenza` come sempre. Si SOSTITUISCE, non si aggiunge: un campo di
+       prosa libera in più è la lezione dei `criteri` del 12/9 — ogni campo
+       obbligatorio avvicina il troncamento. */
+    const _conEvidenze = !!(window.MappAIPipelineCore && window.MappAIPipelineCore.idEvidenze
+        && window.MappAIPipelineCore.idEvidenze(material).length);
+    const _campoProva = _conEvidenze ? 'evidenzaId' : 'evidenza';
+    const _props = {
+        q: { type: "STRING" },
+        /* tre opzioni, quattro al massimo: un elenco aperto è la stessa
+           trappola dei `criteri` (vedi mappai-material-pipeline.js) */
+        options: { type: "ARRAY", maxItems: 4, items: { type: "STRING" } },
+        correct: { type: "STRING" },
+        explanation: { type: "STRING" }
+    };
+    _props[_campoProva] = { type: "STRING" };
     const schema = {
         type: "ARRAY",
         maxItems: _quante,
         items: {
             type: "OBJECT",
-            properties: {
-                q: { type: "STRING" },
-                /* tre opzioni, quattro al massimo: un elenco aperto è la stessa
-                   trappola dei `criteri` (vedi mappai-material-pipeline.js) */
-                options: { type: "ARRAY", maxItems: 4, items: { type: "STRING" } },
-                correct: { type: "STRING" },
-                explanation: { type: "STRING" },
-                evidenza: { type: "STRING" }
-            },
-            required: ["q", "correct", "explanation", "evidenza"]
+            properties: _props,
+            required: ["q", "correct", "explanation", _campoProva]
         }
     };
     try {
@@ -317,8 +341,15 @@ window.generateDynamicQuiz = async function (opts) {
         if (PC && PC.verificaEvidenza) {
             const v = PC.verificaEvidenza(arr, material);
             if (v.scartati.length) {
-                console.warn('[Quiz] ' + v.scartati.length + ' domande scartate: la prova citata non è nel materiale');
-                v.scartati.forEach(x => console.warn('   · «' + String(x.q).slice(0, 70) + '» → ' + String(x.evidenza).slice(0, 90)));
+                /* Il motivo si dice: con le evidenze uno scarto è `id-assente`,
+                   `id-frase-copiata` o `id-sconosciuto` (tre difetti diversi, tre
+                   cure diverse); senza, resta la prova lessicale che non regge. */
+                const _conta = {};
+                v.scartati.forEach(x => { const m = x.motivo || 'prova-non-nel-materiale'; _conta[m] = (_conta[m] || 0) + 1; });
+                console.warn('[Quiz] ' + v.scartati.length + ' domande scartate — ' +
+                    Object.keys(_conta).map(k => k + ': ' + _conta[k]).join(', '));
+                v.scartati.forEach(x => console.warn('   · «' + String(x.q).slice(0, 70) + '» → ' +
+                    (x.motivo || 'prova-non-nel-materiale') + ' · ' + String(x.evidenza).slice(0, 90)));
             }
             arr = v.items;
             const seme = opts.seme || (nodeLabel + '|' + quizType + '|' + (opts.angle || 'auto') + '|' + nonce);
