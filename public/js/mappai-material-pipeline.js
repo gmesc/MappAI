@@ -43,6 +43,13 @@
      d'accesso, e senza una prova torna a rompersi in silenzio. */
   Pipeline._sentinella = { identita: function () { return _identita(); }, controlla: function () { return _controllaIdentita(); } };
   Pipeline._branchMaterial = _branchMaterial;   // per il banco tools/smoke/evidenze-ramo.js
+  /* I due generatori che «Genera materiali» e «Crea un documento» si dividono:
+     aperti al banco per lo stesso motivo di `_branchMaterial` — la richiesta
+     della prova e la forma dello schema non si possono provare dall'esterno
+     senza una via d'accesso, e senza una prova tornano a rompersi in silenzio
+     (tests/prove-aperte-flashcard.test.js). */
+  Pipeline._genFlashcards = function () { return _genFlashcards.apply(null, arguments); };
+  Pipeline._genOpenQuestions = function () { return _genOpenQuestions.apply(null, arguments); };
   window.mappaiOccupato = function () {
     /* ⚠️ Anche una generazione MM/KG NUDA occupa l'app (14/8): non passa da
        `Pipeline._running` (la pipeline è un'altra cosa) e fino a ieri i sedici
@@ -394,6 +401,54 @@
   // ══════════════════════════════════════════════════════════════════════
   // STEP B — quiz / flashcard per ramo, un set (e un PDF) per tipo
   // ══════════════════════════════════════════════════════════════════════
+
+  /* ── LA PROVA, CONTATA E BASTA (21/9, packet 0008) ────────────────────────
+     Gli identificatori che il materiale di questo foglio elenca. Se ce ne sono,
+     il materiale è il pacchetto di evidenze (`_branchMaterial`, riga 150) e
+     allora la prova si può chiedere: è il MATERIALE a decidere, non un secondo
+     interruttore — la stessa regola del quiz a scelta multipla. */
+  function _idsDelMateriale(material) {
+    try { const P = PC(); return (P && P.idEvidenze) ? P.idEvidenze(material) : []; }
+    catch (e) { return []; }
+  }
+
+  /* ⚠️ QUI LA PORTA NON SI ROVESCIA. Il quiz a scelta multipla scarta chi non
+     porta una prova valida (`generateDynamicQuiz`); flashcard e domande aperte
+     no: `verificaEvidenza` si chiama per CONTARE, e il suo `items` filtrato
+     NON sostituisce l'array — il docente riceve tutte le carte e tutte le
+     domande che il modello ha mandato, esattamente come prima di oggi. Se
+     rovesciare la porta anche qui convenga si decide dopo, coi numeri.
+     Alla traccia del passo 6 si passa perciò un foglio OSSERVATO: `ricevute` e
+     `tenute` sono lo STESSO elenco e `scartati` è vuoto. Così il riassunto
+     classifica ogni pezzo in id/frase/assente e «con un identificatore valido»
+     esce giusto senza che nulla sia stato tolto — e «scartate 0» è il disegno,
+     non un punteggio pieno (`tools/misura-evidenze/LEGGIMI.md`).
+     La cucitura non esiste nell'app dello studente e fuori da Electron non
+     scrive niente: qui si chiama e basta. */
+  function _misuraProve(dati) {
+    try {
+      const items = Array.isArray(dati.items) ? dati.items : [];
+      if (!items.length) return;
+      const P = PC();
+      if (P && P.verificaEvidenza) {
+        const v = P.verificaEvidenza(items, dati.materiale);
+        if (v.scartati.length) {
+          const conta = {};
+          v.scartati.forEach(x => { const m = x.motivo || 'prova-non-nel-materiale'; conta[m] = (conta[m] || 0) + 1; });
+          console.info('[Evidenze] ' + dati.tipo + ' · ' + dati.area + ': ' + v.scartati.length + ' su ' +
+            items.length + ' senza una prova verificabile — TENUTE lo stesso (' +
+            Object.keys(conta).map(k => k + ': ' + conta[k]).join(', ') + ')');
+        }
+      }
+      if (window.MappAIMisuraEvidenze) {
+        window.MappAIMisuraEvidenze.foglio({
+          area: dati.area, tipo: dati.tipo, angolo: dati.angolo || 'auto',
+          materiale: dati.materiale, ricevute: items, tenute: items, scartati: []
+        });
+      }
+    } catch (e) { console.warn('[Evidenze] misura non registrata (non bloccante):', e && e.message); }
+  }
+
   async function _genFlashcards(material, nodeLabel, quantity, apiKey, opts) {
     opts = opts || {};
     const nonce = window.quizNonce ? window.quizNonce() : String(Date.now());
@@ -405,8 +460,18 @@
        per chi ha un prompts_config.json personale — e scavalca la riga
        «VARIA il tipo» che il template porta dentro (vedi flashcardAngleBlock). */
     const blocco = (opts.angolo && window.flashcardAngleBlock) ? window.flashcardAngleBlock(opts.angolo) : '';
+    /* LA PROVA (21/9): col materiale che porta gli identificatori si chiede a
+       ogni CARTA l'id della riga che la rende vera. Il blocco è quello del
+       quiz — `quizEvidenceBlock`, reso parametrico sul nome del campo e
+       sull'unità: una fonte sola per la richiesta della prova (invariante 6).
+       Senza identificatori (interruttore spento, o materiale dalle desc) qui
+       non cambia NIENTE: niente blocco, niente campo, come ieri. */
+    const idsEv = _idsDelMateriale(material);
+    const provaBlocco = (idsEv.length && window.quizEvidenceBlock)
+      ? window.quizEvidenceBlock(material, { campo: 'evidenzaId', unita: 'carta', unitaEn: 'card' }) : '';
     const prompt = (blocco ? blocco + '\n\n' : '') +
-      window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola;
+      window.fillPromptTemplate('FLASHCARD_GENERATOR', { quantity, nodeLabel, nonce }) + regola +
+      (provaBlocco ? '\n\n' + provaBlocco : '');
     /* ⚠️ `maxItems` E budget di uscita, tutti e due (regola 05). Uno schema array
        senza tetto fa riempire l'array fino al budget, e senza `maxOutputTokens`
        il budget è il massimo del modello. Misurato l'11/9 sul registro consumi di
@@ -418,13 +483,24 @@
        item è vincolato, il budget deve solo essere abbastanza largo da non
        tagliare. Vedi `_genOpenQuestions` per che cosa succede quando è stretto. */
     const quante = Math.max(1, parseInt(quantity, 10) || 5);
-    const schema = { type: 'ARRAY', maxItems: quante, items: { type: 'OBJECT', properties: { front: { type: 'STRING' }, back: { type: 'STRING' } }, required: ['front', 'back'] } };
-    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quante * 160 + 600), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
+    /* Il campo della prova si AGGIUNGE solo dove c'è una prova da chiedere, ed
+       è una stringa corta (un identificatore, ~25 caratteri): non è il campo
+       long-form che nelle domande aperte faceva esaurire il budget (vedi il
+       commento su `criteri`). Il budget per carta cresce di poco — quel tanto
+       che basta perché l'id non tagli la risposta. */
+    const props = { front: { type: 'STRING' }, back: { type: 'STRING' } };
+    const richiesti = ['front', 'back'];
+    if (idsEv.length) { props.evidenzaId = { type: 'STRING' }; richiesti.push('evidenzaId'); }
+    const schema = { type: 'ARRAY', maxItems: quante, items: { type: 'OBJECT', properties: props, required: richiesti } };
+    let payload = { contents: [{ parts: [{ text: prompt + '\n\nMateriale:\n' + material }] }], generationConfig: { temperature: window.QUIZ_TEMPERATURE || 0.7, maxOutputTokens: window.getMaxOutputTokens(quante * (idsEv.length ? 200 : 160) + 600), responseMimeType: 'application/json', responseSchema: schema, _respectTemp: true } };
     if (window.injectClassTuning) payload = window.injectClassTuning(payload);
     const resp = await window.fetchModelAPI(payload, apiKey);
     const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
     const arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
-    return Array.isArray(arr) ? arr.slice(0, quante) : [];
+    const carte = Array.isArray(arr) ? arr.slice(0, quante) : [];
+    /* si CONTA, non si scarta: escono tutte le carte che il modello ha mandato */
+    _misuraProve({ area: nodeLabel, tipo: _QT.flashcards.typeLabel, angolo: opts.angolo, materiale: material, items: carte });
+    return carte;
   }
 
   /* Le DOMANDE APERTE (11/8/26). Stesso schema di `_genFlashcards`: prompt dal
@@ -660,6 +736,18 @@
       ? 'For each question write in «angolo» the angle it takes, one of: ' + angoliOq.join(', ') + '.'
       : 'Per ogni domanda scrivi in «angolo» il taglio che prende, uno fra: ' + angoliOq.join(', ') + '.');
     prompt += '\n\n' + PC().questionRoleBlock('open', opts.complementary, window.getPromptLanguage && window.getPromptLanguage() === 'en');
+    /* LA PROVA (21/9): stesso blocco del quiz, reso parametrico (invariante 6).
+       Qui il campo è `prove` e gli identificatori chiesti sono DUE, perché il
+       materiale di questa chiamata viene da due rami — il ramo e il suo
+       compagno — e una prova sola tradirebbe il disegno delle domande che
+       collegano due macro-aree. Basta che UNO sia valido perché la domanda
+       risulti provata (`MappAIPipelineCore.idiDiProva`).
+       Senza identificatori nel materiale non si chiede niente: il foglio esce
+       come ieri. */
+    const idsEv = _idsDelMateriale(material);
+    if (idsEv.length && window.quizEvidenceBlock) {
+      prompt += '\n\n' + window.quizEvidenceBlock(material, { campo: 'prove', quanti: 2 });
+    }
     /* ⚠️ vedi `_genFlashcards`: senza `maxItems` e senza `maxOutputTokens` il
        modello riempie fino al massimo suo. È QUI che è successo per davvero —
        63.437 token in una chiamata sola.
@@ -708,14 +796,23 @@
           /* `enum` invece di una stringa libera: senza, arrivano «facile»,
              «medio», «base/ponte» — e chi conta non riconosce più niente. */
           livello: { type: 'STRING', enum: ['base', 'ponte'] },
+          /* LA PROVA (21/9): un array di identificatori CORTI, col suo tetto —
+             anche gli array annidati lo vogliono (vedi `aree` qui sopra). Due
+             perché il materiale viene da due rami. Non è un campo long-form:
+             è esattamente il contrario dei `criteri` che si sono dovuti
+             togliere, e il budget di uscita resta quello di ieri. */
+          ...(idsEv.length ? { prove: { type: 'ARRAY', maxItems: 2, items: { type: 'STRING' } } } : {}),
           ...(misto ? { angolo: { type: 'STRING', enum: angoliOq } } : {})
         },
         /* ⚠️ `livello` è OBBLIGATORIO, e la prima prova con l'AI vera dice
            perché: da opzionale il modello semplicemente non lo emetteva —
            l'istruzione «2 su 5 di avvio» veniva letta, e il campo che la rende
            verificabile spariva. Tutte le domande cadevano su «ponte» e la leva
-           sembrava non fare niente. */
-        required: misto ? ['domanda', 'traccia', 'livello', 'angolo'] : ['domanda', 'traccia', 'livello']
+           sembrava non fare niente. Per la stessa ragione `prove` è obbligatorio
+           dove esiste: un campo facoltativo il modello non lo scrive. */
+        required: ['domanda', 'traccia', 'livello']
+          .concat(misto ? ['angolo'] : [])
+          .concat(idsEv.length ? ['prove'] : [])
       }
     };
     let payload = {
@@ -736,7 +833,7 @@
     const ammesse = [nodeLabel].concat(areaB ? [areaB] : []);
     const etichette = _etichetteDaMateriale(material).concat(ammesse);
     const norm = (x) => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase();
-    return arr.filter(x => x && x.domanda).slice(0, quanteOq).map(x => {
+    const domande = arr.filter(x => x && x.domanda).slice(0, quanteOq).map(x => {
       let aree = Array.isArray(x.aree) ? x.aree : [];
       aree = aree.map(a => ammesse.find(v => norm(v) === norm(a))).filter(Boolean);
       /* mai più di due, ed è la regola dichiarata nel prompt: se il modello ne
@@ -757,7 +854,7 @@
         const PCv = PC();
         if (PCv && PCv.livelloVerificato) liv = PCv.livelloVerificato(x, etichette, liv);
       } catch (e) { /* resta la dichiarazione */ }
-      return {
+      const fuori = {
         question: String(x.domanda),
         guide: String(x.traccia || ''),
         criteri: (PC() && PC().criteriDaItem) ? PC().criteriDaItem({ guide: x.traccia }) : [],
@@ -767,7 +864,22 @@
         /* un angolo fuori elenco non si inventa: resta `auto`, e il reader lo tratta come misto */
         angle: misto ? (angoliOq.indexOf(String(x.angolo || '').trim().toLowerCase()) >= 0 ? String(x.angolo).trim().toLowerCase() : 'auto') : opts.angolo
       };
+      /* LA PROVA viaggia con la domanda (invariante 22: l'identificatore è un
+         dato del prodotto, non uno scarto di generazione — deve sopravvivere al
+         salvataggio e all'editor, dove lo tiene in vita `SERVICE_FIELDS`).
+         Si ripulisce dalle parentesi con l'unico lettore che c'è
+         (`idiDiProva`), e si scrive SOLO se c'è: un foglio generato senza
+         evidenze esce con la forma di ieri, campo per campo. */
+      try {
+        const PCv = PC();
+        const prove = (PCv && PCv.idiDiProva) ? PCv.idiDiProva(x) : [];
+        if (prove.length) fuori.prove = prove;
+      } catch (e) { /* senza prova la domanda resta, ed è il punto */ }
+      return fuori;
     });
+    /* si CONTA, non si scarta: il foglio esce con tutte le domande */
+    _misuraProve({ area: nodeLabel, tipo: _QT.open.typeLabel, angolo: opts.angolo, materiale: material, items: domande });
+    return domande;
   }
 
   /* Quante domande d'avvio, se nessuno lo dice. 40% = due su cinque: un foglio

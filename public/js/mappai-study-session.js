@@ -208,19 +208,48 @@ window.openQuestionsAngleBlock = function (angleKey, opts) {
    per uguaglianza, una frase copiata solo a somiglianza (invariante 22). Senza
    identificatori — ogni altra superficie di studio, e l'app dello studente, che
    copia questo file e non conosce `MappAIEvidence` — resta la richiesta di
-   sempre, parola per parola. Chiamata senza argomenti: la forma di sempre. */
-window.quizEvidenceBlock = function (materiale) {
+   sempre, parola per parola. Chiamata senza argomenti: la forma di sempre.
+
+   ⚠️ DAL 21/9 IL BLOCCO È PARAMETRICO, e resta UNO (invariante 6): la richiesta
+   della prova la chiedono anche le flashcard e le domande aperte, e una seconda
+   copia scritta nel loro generatore divergerebbe dalla prima al primo ritocco.
+   Le leve sono tre, tutte con il default del quiz a scelta multipla:
+     · `opz.campo`  — il nome del campo nello schema (`evidenzaId`; `prove` per
+                      le domande aperte, che ne portano un array);
+     · `opz.unita`/`opz.unitaEn` — l'unità del foglio: «domanda» per un quiz,
+                      «carta» per una flashcard;
+     · `opz.quanti` — quanti identificatori si chiedono: 1, oppure 2 per le
+                      domande aperte, che nascono dal materiale di DUE rami e
+                      con una prova sola tradirebbero il disegno.
+   Chiamato come prima — senza argomenti, o col solo materiale — restituisce lo
+   stesso testo di prima, carattere per carattere: lo prova
+   `tests/prove-aperte-flashcard.test.js`, ed è la condizione che protegge le
+   chiamate dell'app dello studente, che copia questo file byte per byte. */
+window.quizEvidenceBlock = function (materiale, opz) {
+    var o = (opz && typeof opz === 'object') ? opz : {};
     var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    var campo = o.campo || 'evidenzaId';
+    var quanti = (parseInt(o.quanti, 10) > 1) ? 2 : 1;
+    var unita = en ? (o.unitaEn || 'question') : (o.unita || 'domanda');
     var PC = window.MappAIPipelineCore;
     var ids = (PC && PC.idEvidenze) ? PC.idEvidenze(materiale) : [];
     if (ids.length) {
+        /* la richiesta del campo: è l'unico pezzo che cambia fra uno e due
+           identificatori (il verbo va al plurale, e il tetto è dichiarato) */
+        var chiedi = en
+            ? (quanti > 1
+                ? 'In the "' + campo + '" field write up to TWO of the identifiers listed there: those of the lines that make the expected answer true — one for each area the question draws on. Copy them exactly as they are, without the square brackets.'
+                : 'In the "' + campo + '" field write ONE of the identifiers listed there: the one of the line that makes the correct answer true. Copy it exactly as it is, without the square brackets.')
+            : (quanti > 1
+                ? 'Nel campo "' + campo + '" scrivi fino a DUE degli identificatori elencati lì: quelli delle righe che rendono vera la risposta attesa — uno per ogni area che la domanda chiama in causa. Copiali esatti come sono, senza le parentesi quadre.'
+                : 'Nel campo "' + campo + '" scrivi UNO degli identificatori elencati lì: quello della riga che rende vera la risposta esatta. Copialo esatto com\'è, senza le parentesi quadre.');
         return en
-            ? 'PROOF (mandatory for every question): every line of the MATERIAL below starts with its own identifier between double square brackets, in the form [[ev-…]]. In the "evidenzaId" field write ONE of the identifiers listed there: the one of the line that makes the correct answer true. Copy it exactly as it is, without the square brackets. Never invent an identifier, never write one that is not in the list, and do not copy the sentence instead. If no line of the material supports an answer, do NOT write that question: write one fewer.'
-            : 'LA PROVA (obbligatoria per ogni domanda): ogni riga del MATERIALE qui sotto comincia con il suo identificatore fra doppie parentesi quadre, nella forma [[ev-…]]. Nel campo "evidenzaId" scrivi UNO degli identificatori elencati lì: quello della riga che rende vera la risposta esatta. Copialo esatto com\'è, senza le parentesi quadre. Non inventare mai un identificatore, non scriverne uno che non sia nell\'elenco, e non copiare la frase al suo posto. Se nessuna riga del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
+            ? 'PROOF (mandatory for every ' + unita + '): every line of the MATERIAL below starts with its own identifier between double square brackets, in the form [[ev-…]]. ' + chiedi + ' Never invent an identifier, never write one that is not in the list, and do not copy the sentence instead. If no line of the material supports an answer, do NOT write that ' + unita + ': write one fewer.'
+            : 'LA PROVA (obbligatoria per ogni ' + unita + '): ogni riga del MATERIALE qui sotto comincia con il suo identificatore fra doppie parentesi quadre, nella forma [[ev-…]]. ' + chiedi + ' Non inventare mai un identificatore, non scriverne uno che non sia nell\'elenco, e non copiare la frase al suo posto. Se nessuna riga del materiale sostiene una risposta, NON scrivere quella ' + unita + ': scrivine una in meno.';
     }
     return en
-        ? 'PROOF (mandatory for every question): in the "evidenza" field copy the sentence from the MATERIAL below that makes the correct answer true. Copy it from the material, do not rewrite it and do not summarise it. If no sentence in the material supports an answer, do NOT write that question: write one fewer.'
-        : 'LA PROVA (obbligatoria per ogni domanda): nel campo "evidenza" copia la frase del MATERIALE qui sotto che rende vera la risposta esatta. Copiala dal materiale, non riscriverla e non riassumerla. Se nessuna frase del materiale sostiene una risposta, NON scrivere quella domanda: scrivine una in meno.';
+        ? 'PROOF (mandatory for every ' + unita + '): in the "evidenza" field copy the sentence from the MATERIAL below that makes the correct answer true. Copy it from the material, do not rewrite it and do not summarise it. If no sentence in the material supports an answer, do NOT write that ' + unita + ': write one fewer.'
+        : 'LA PROVA (obbligatoria per ogni ' + unita + '): nel campo "evidenza" copia la frase del MATERIALE qui sotto che rende vera la risposta esatta. Copiala dal materiale, non riscriverla e non riassumerla. Se nessuna frase del materiale sostiene una risposta, NON scrivere quella ' + unita + ': scrivine una in meno.';
 };
 
 /* ── LA LUNGHEZZA DELLA RISPOSTA GIUSTA (12/9) ────────────────────────────────
@@ -350,6 +379,18 @@ window.generateDynamicQuiz = async function (opts) {
                     Object.keys(_conta).map(k => k + ': ' + _conta[k]).join(', '));
                 v.scartati.forEach(x => console.warn('   · «' + String(x.q).slice(0, 70) + '» → ' +
                     (x.motivo || 'prova-non-nel-materiale') + ' · ' + String(x.evidenza).slice(0, 90)));
+            }
+            /* ── LA MISURA (21/9, passo 6) ────────────────────────────────────
+               Questo è l'unico punto che sa insieme che cosa il modello ha
+               mandato e che cosa è entrato nel foglio: il conto lo prende di
+               qui e lo scrive su disco la cucitura, che non c'è nell'app dello
+               studente (questo file è copiato là byte per byte) e fuori da
+               Electron non fa niente. Nessun numero si ricalcola qui. */
+            if (window.MappAIMisuraEvidenze) {
+                window.MappAIMisuraEvidenze.foglio({
+                    area: nodeLabel, tipo: quizType, angolo: opts.angle || 'auto',
+                    materiale: material, ricevute: arr, tenute: v.items, scartati: v.scartati
+                });
             }
             arr = v.items;
             const seme = opts.seme || (nodeLabel + '|' + quizType + '|' + (opts.angle || 'auto') + '|' + nonce);

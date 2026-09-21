@@ -885,6 +885,90 @@ test('verificaEvidenza con id: la frase copiata al posto dell identificatore è 
   assert.ok(/circuito e chiuso/.test(r.scartati[0].evidenza));
 });
 
+/* L'ARRAY `prove` (21/9, packet 0008). Le domande APERTE nascono dal materiale
+   di due rami — il ramo e il suo compagno — e portano fino a due identificatori,
+   uno per area. Basta che UNO sia nell'elenco perché la domanda risulti provata:
+   pretenderli entrambi vorrebbe dire scartare ogni domanda che tocca un'area di
+   cui la fonte parla poco, che è il contrario di ciò che si voleva. */
+
+test('verificaEvidenza con id: nell array prove basta UN identificatore valido', () => {
+  const m = materialeConEvidenze();
+  const ids = PC.idEvidenze(m);
+  const inventato = 'ev-0123456789abcdef-99';
+  const r = PC.verificaEvidenza([
+    { domanda: 'Due prove, una buona', prove: [ids[0], inventato] },
+    { domanda: 'Due prove buone', prove: [ids[0], ids[1]] },
+    { domanda: 'Una sola, buona', prove: [ids[1]] },
+    { domanda: 'Con le parentesi riportate', prove: ['[[' + ids[0] + ']]'] }
+  ], m);
+  assert.strictEqual(r.items.length, 4, 'una prova valida basta');
+  assert.strictEqual(r.scartati.length, 0);
+});
+
+test('verificaEvidenza con id: prove vuoto o tutto inventato non è una prova', () => {
+  const m = materialeConEvidenze();
+  const inventato = 'ev-0123456789abcdef-99';
+  const r = PC.verificaEvidenza([
+    { domanda: 'Array vuoto', prove: [] },
+    { domanda: 'Solo invenzioni', prove: [inventato, 'ev-0123456789abcdef-98'] }
+  ], m);
+  assert.strictEqual(r.items.length, 0);
+  assert.deepStrictEqual(r.scartati.map(x => x.motivo), ['id-assente', 'id-sconosciuto']);
+  assert.strictEqual(r.scartati[0].q, 'Array vuoto', 'il testo della domanda aperta si legge');
+  assert.ok(r.scartati[1].evidenza.indexOf(inventato) >= 0, 'lo scarto dice quali id erano');
+});
+
+/* IL FOGLIO OSSERVATO (21/9, packet 0008). Flashcard e domande aperte NON
+   scartano: `verificaEvidenza` le conta e basta, e alla traccia arriva un foglio
+   in cui `tenute` è lo stesso elenco di `ricevute` e `scartati` è vuoto. Il
+   riassunto deve classificare ogni pezzo lo stesso — «con un identificatore
+   valido» è il numero che porta il senso, e «scartate 0» è il disegno. */
+
+test('riassuntoScarti: un foglio OSSERVATO (niente scartato) classifica lo stesso ogni pezzo', () => {
+  const ID = (n) => 'ev-626f5dbd6c6c4bff-' + n;
+  const carte = [
+    { front: 'Con la prova', back: 'x', evidenzaId: ID(12) },
+    { front: 'Senza la prova', back: 'y' }
+  ];
+  const r = PC.riassuntoScarti({
+    interruttore: 'acceso', fogli: [{
+      area: 'Corto circuito', tipo: 'Flashcard', ids: [ID(12), ID(13)],
+      ricevute: carte, tenute: carte, scartati: []
+    }]
+  });
+  const c = r.totali;
+  assert.strictEqual(c.ricevute, 2);
+  assert.strictEqual(c.tenute, 2, 'niente è stato tolto');
+  assert.strictEqual(c.scartate, 0, 'zero scartate: la porta è aperta, non un punteggio pieno');
+  assert.strictEqual(c.conId, 1, 'e il numero che conta esce giusto lo stesso');
+  assert.strictEqual(c.prove.assente, 1);
+  assert.deepStrictEqual(c.perMotivo, {});
+  assert.strictEqual(c.idsServiti, 2);
+  assert.strictEqual(c.idsUsati, 1, 'un identificatore su due ha prodotto una carta');
+  assert.deepStrictEqual(r.fogli[0].tenute.map(t => t.q), ['Con la prova', 'Senza la prova'],
+    'il fronte della carta è il suo testo');
+});
+
+test('riassuntoScarti: nel foglio osservato la prova può venire dall array delle aperte', () => {
+  const ID = (n) => 'ev-626f5dbd6c6c4bff-' + n;
+  const domande = [
+    { question: 'Provata a meta', prove: ['ev-0123456789abcdef-99', ID(12)] },
+    { question: 'Provata per la seconda area', prove: [ID(13)] },
+    { question: 'Senza prova', prove: [] }
+  ];
+  const r = PC.riassuntoScarti({
+    interruttore: 'acceso', fogli: [{
+      area: 'Corto circuito', tipo: 'Domande aperte', ids: [ID(12), ID(13)],
+      ricevute: domande, tenute: domande, scartati: []
+    }]
+  });
+  assert.strictEqual(r.totali.ricevute, 3);
+  assert.strictEqual(r.totali.conId, 2, 'un id valido basta, anche se non è il primo');
+  assert.strictEqual(r.totali.prove.assente, 1);
+  assert.strictEqual(r.totali.idsUsati, 2);
+  assert.strictEqual(r.totali.scartate, 0);
+});
+
 test('verificaEvidenza senza id nel materiale: il contratto di oggi non cambia', () => {
   const materiale = 'La Commissione Bergier pubblico il rapporto finale nel 2002 dopo anni di lavoro.';
   const r = PC.verificaEvidenza([
@@ -896,6 +980,144 @@ test('verificaEvidenza senza id nel materiale: il contratto di oggi non cambia',
   assert.strictEqual(r.scartati.length, 1);
   assert.strictEqual(r.scartati[0].motivo, undefined, 'la strada vecchia conta la quota, non il motivo');
   assert.ok(r.scartati[0].quota >= 0);
+});
+
+// ══ LA MISURA (21/9/26, passo 6) ═════════════════════════════════════════
+// Il riassunto di un giro di domande e il confronto fra due giri. I dati che
+// entrano sono quelli che l'unico punto di scarto ha in mano: le domande
+// ricevute, quelle tenute, quelle scartate con il motivo che `_verificaPerId`
+// ha già scritto, e gli identificatori che il materiale elencava.
+
+const ID = (n) => 'ev-626f5dbd6c6c4bff-' + n;
+const foglioAcceso = (area, extra) => Object.assign({
+  area: area, tipo: 'Scelta Multipla', angolo: 'causa',
+  ids: [ID(12), ID(13), ID(14)], caratteri: 4210, query: 'query del ramo', unitaScartate: 2,
+  ricevute: [{ q: 'D1' }, { q: 'D2' }, { q: 'D3' }, { q: 'D4' }],
+  tenute: [{ q: 'D1', evidenzaId: ID(12) }, { q: 'D2', evidenzaId: ID(12) }],
+  scartati: [
+    { q: 'D3', evidenza: '', motivo: 'id-assente' },
+    { q: 'D4', evidenza: ID(99), motivo: 'id-sconosciuto' }
+  ]
+}, extra || {});
+const foglioSpento = (area, extra) => Object.assign({
+  area: area, tipo: 'Scelta Multipla', angolo: 'causa', ids: [], caratteri: 3120,
+  ricevute: [{ q: 'D1' }, { q: 'D2' }, { q: 'D3' }],
+  tenute: [{ q: 'D1', evidenza: 'una frase delle descrizioni' }, { q: 'D2' }],
+  scartati: [{ q: 'D3', evidenza: 'una frase che nel materiale non c e', quota: 0.3 }]
+}, extra || {});
+
+test('riassuntoScarti: conta ricevute, tenute e scartate per motivo, e classifica la prova', () => {
+  const r = PC.riassuntoScarti({
+    runId: 'giro-1', progetto: 'Svizzera e 2a GM', interruttore: 'acceso',
+    provider: 'infomaniak', modello: 'modello-finto', fogli: [foglioAcceso('Neutralità armata')]
+  });
+  assert.strictEqual(r.schema, PC.SCHEMA_MISURA);
+  assert.strictEqual(r.interruttore, 'acceso');
+  assert.strictEqual(r.progetto, 'Svizzera e 2a GM');
+  const t = r.totali;
+  assert.strictEqual(t.ricevute, 4);
+  assert.strictEqual(t.tenute, 2);
+  assert.strictEqual(t.scartate, 2);
+  assert.strictEqual(t.conId, 2, 'le due tenute portano un id dell elenco');
+  assert.deepStrictEqual(t.prove, { id: 2, frase: 0, assente: 0 });
+  assert.deepStrictEqual(t.perMotivo, { 'id-assente': 1, 'id-sconosciuto': 1 });
+  assert.strictEqual(t.idsServiti, 3);
+  assert.strictEqual(t.idsUsati, 1, 'due domande sulla stessa evidenza usano UNA evidenza');
+  assert.strictEqual(t.rami, 1);
+  assert.strictEqual(t.fogli, 1);
+  // la voce del foglio resta leggibile: chi è stato scartato, e perché
+  assert.strictEqual(r.fogli[0].scartate[1].motivo, 'id-sconosciuto');
+  assert.strictEqual(r.fogli[0].tenute[0].prova, 'id');
+  assert.strictEqual(r.fogli[0].pacchetto.unitaScartate, 2);
+});
+
+test('riassuntoScarti: lo scarto della strada vecchia ha una chiave sua, e la prova è una frase', () => {
+  const r = PC.riassuntoScarti({ interruttore: 'spento', fogli: [foglioSpento('Neutralità armata')] });
+  assert.strictEqual(r.interruttore, 'spento');
+  assert.strictEqual(r.totali.conId, 0, 'senza elenco nessuna domanda può portare un id');
+  assert.deepStrictEqual(r.totali.prove, { id: 0, frase: 1, assente: 1 });
+  assert.deepStrictEqual(r.totali.perMotivo, { [PC.MOTIVO_SOMIGLIANZA]: 1 });
+  assert.strictEqual(r.totali.idsServiti, 0);
+});
+
+test('riassuntoScarti: due fogli dello stesso ramo fanno UN nodo, e gli id serviti non si contano due volte', () => {
+  const r = PC.riassuntoScarti({
+    interruttore: 'acceso',
+    fogli: [foglioAcceso('Neutralità armata'), foglioAcceso('Neutralità armata', { tipo: 'Vero o Falso', angolo: 'effetto' })]
+  });
+  assert.strictEqual(r.nodi.length, 1);
+  assert.strictEqual(r.nodi[0].fogli, 2);
+  assert.deepStrictEqual(r.nodi[0].tipi, ['Scelta Multipla', 'Vero o Falso']);
+  assert.strictEqual(r.nodi[0].conto.ricevute, 8);
+  assert.strictEqual(r.nodi[0].conto.idsServiti, 3, 'i due fogli servono lo stesso pacchetto');
+  assert.strictEqual(r.totali.fogli, 2);
+  assert.strictEqual(r.totali.rami, 1);
+});
+
+test('riassuntoScarti: un giro vuoto o storto non lancia', () => {
+  [undefined, null, {}, { fogli: null }, { fogli: [null, 42] }].forEach(x => {
+    const r = PC.riassuntoScarti(x);
+    assert.strictEqual(r.schema, PC.SCHEMA_MISURA);
+    assert.strictEqual(r.totali.ricevute, 0);
+  });
+});
+
+test('confrontaGiri: i due numeri sui soli nodi in comune, e gli altri dichiarati', () => {
+  const spento = PC.riassuntoScarti({
+    progetto: 'Svizzera e 2a GM', interruttore: 'spento', modello: 'stesso',
+    fogli: [foglioSpento('Neutralità armata'), foglioSpento('Politica d asilo')]
+  });
+  const acceso = PC.riassuntoScarti({
+    progetto: 'Svizzera e 2a GM', interruttore: 'acceso', modello: 'stesso',
+    fogli: [foglioAcceso('Neutralità armata'), foglioAcceso('Oro della Reichsbank')]
+  });
+  const v = PC.confrontaGiri(spento, acceso);
+  assert.strictEqual(v.comuni, 1);
+  assert.deepStrictEqual(v.soloA, ['Politica d asilo']);
+  assert.deepStrictEqual(v.soloB, ['Oro della Reichsbank']);
+  // i totali NON comprendono i nodi fuori dal confronto
+  assert.strictEqual(v.totali.a.ricevute, 3);
+  assert.strictEqual(v.totali.b.ricevute, 4);
+  assert.strictEqual(v.totali.a.conId, 0);
+  assert.strictEqual(v.totali.b.conId, 2);
+  assert.strictEqual(v.totali.a.perMotivo[PC.MOTIVO_SOMIGLIANZA], 1);
+  assert.strictEqual(v.totali.b.perMotivo['id-assente'], 1);
+  assert.strictEqual(v.totali.fedelta.a.quota, 0, 'spento nessuna prova si verifica per uguaglianza');
+  assert.strictEqual(v.totali.fedelta.b.quota, 1);
+  assert.strictEqual(v.totali.copertura.a.serviti, 0);
+  assert.deepStrictEqual(v.totali.copertura.b, { usati: 1, serviti: 3, quota: Number((1 / 3).toFixed(3)) });
+  assert.strictEqual(v.nodi[0].area, 'Neutralità armata');
+  assert.deepStrictEqual(v.avvisi, [], 'niente da segnalare: stessa mappa, stesso modello, interruttori diversi');
+});
+
+test('confrontaGiri: l accento scomposto non fa perdere il nodo (trappola 25)', () => {
+  const a = PC.riassuntoScarti({ interruttore: 'spento', fogli: [foglioSpento('Neutralità armata'.normalize('NFC'))] });
+  const b = PC.riassuntoScarti({ interruttore: 'acceso', fogli: [foglioAcceso('Neutralità armata'.normalize('NFD'))] });
+  const v = PC.confrontaGiri(a, b);
+  assert.strictEqual(v.comuni, 1, 'NFC e NFD sono lo stesso nodo');
+  assert.deepStrictEqual(v.soloA, []);
+  assert.deepStrictEqual(v.soloB, []);
+});
+
+test('confrontaGiri: dice quando il confronto non misura ciò che sembra', () => {
+  const a = PC.riassuntoScarti({ progetto: 'Mappa A', interruttore: 'acceso', modello: 'uno', fogli: [foglioAcceso('Ramo')] });
+  const b = PC.riassuntoScarti({
+    progetto: 'Mappa B', interruttore: 'acceso', modello: 'due',
+    fogli: [foglioAcceso('Ramo'), foglioAcceso('Ramo', { tipo: 'Vero o Falso' })]
+  });
+  const detto = PC.confrontaGiri(a, b).avvisi.join(' | ');
+  assert.match(detto, /stesso stato \(acceso\)/);
+  assert.match(detto, /progetti diversi/);
+  assert.match(detto, /modelli diversi/);
+  assert.match(detto, /1 fogli nel primo giro e 2 nel secondo/);
+});
+
+test('confrontaGiri: senza nodi in comune lo dice invece di stampare zeri', () => {
+  const a = PC.riassuntoScarti({ interruttore: 'spento', fogli: [foglioSpento('Uno')] });
+  const b = PC.riassuntoScarti({ interruttore: 'acceso', fogli: [foglioAcceso('Due')] });
+  const v = PC.confrontaGiri(a, b);
+  assert.strictEqual(v.comuni, 0);
+  assert.match(v.avvisi.join(' | '), /nessun nodo in comune/);
 });
 
 // ══ DOMANDE RIPETUTE · ETICHETTA «AVVIO» · CRITERI (11/9/26) ════════════

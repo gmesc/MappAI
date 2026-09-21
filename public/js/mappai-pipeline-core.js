@@ -43,6 +43,23 @@
     return out || (fb || '');
   }
 
+  /* Stesso patto con teach-core, e per lo stesso motivo: confrontare due NOMI
+     (qui le etichette dei nodi dei due giri della misura) senza normalizzare è
+     la trappola 25 — «à» composta e «à» scomposta sono identiche a schermo e
+     diverse per `===`, e il sintomo è zero nodi in comune, che sembra una
+     risposta. La normalizzazione ha una fonte sola (`MappAITeachCore.nfc`). */
+  var TC = (function () {
+    try {
+      if (typeof require !== 'undefined' && typeof window === 'undefined') return require('./mappai-teach-core.js');
+    } catch (e) { /* noop */ }
+    return (typeof window !== 'undefined' && window.MappAITeachCore) ? window.MappAITeachCore : null;
+  })();
+  function _nfc(s) {
+    if (TC && TC.nfc) return TC.nfc(s);
+    var str = String(s == null ? '' : s);
+    try { return str.normalize('NFC'); } catch (e) { return str; }
+  }
+
   function clone(o) { return o == null ? o : JSON.parse(JSON.stringify(o)); }
   function nowIso(now) {
     if (now) return String(now);
@@ -357,26 +374,56 @@
     return dentro.length ? dentro[0] : s.replace(/^\[+/, '').replace(/\]+$/, '').trim();
   }
 
+  /* ── GLI IDENTIFICATORI CHE UN ITEM PORTA COME PROVA (21/9) ───────────────
+     Due forme, un lettore solo (invariante 6): `evidenzaId` è la prova di un
+     quiz a scelta multipla e di una flashcard — una riga della fonte rende vera
+     una risposta; `prove` è l'array delle domande APERTE, che nascono dal
+     materiale di DUE rami (il ramo e il suo compagno) e portano fino a due
+     identificatori, uno per area. Basta che UNO sia nell'elenco perché la
+     domanda risulti provata: le due aree non devono per forza essere
+     documentate entrambe.
+     Qui si RIPULISCE e si deduplica, non si giudica: chi verifica, chi conta e
+     chi genera passano tutti di qui, e l'uguaglianza la decide il chiamante. */
+  var MAX_PROVE = 2;                    // il tetto è quello dichiarato nel prompt e nello schema
+  function idiDiProva(it) {
+    var out = [], visti = Object.create(null);
+    if (!it || typeof it !== 'object') return out;
+    var metti = function (v) {
+      if (out.length >= MAX_PROVE) return;
+      var s = _idDaCampo(v);
+      if (s && !visti[s]) { visti[s] = 1; out.push(s); }
+    };
+    metti(it.evidenzaId != null ? it.evidenzaId : it.evidenceId);
+    if (Array.isArray(it.prove)) it.prove.forEach(metti);
+    else if (it.prove != null) metti(it.prove);
+    return out;
+  }
+
   /* La porta rovesciata (invariante 22): quando il materiale ELENCA le prove,
      una domanda entra solo se ne porta una, e un identificatore si verifica per
      uguaglianza — non a somiglianza come la frase copiata. Chi non lo porta è
      scartato e CONTATO, con il motivo: `id-assente` (campo vuoto),
      `id-frase-copiata` (il modello ha copiato la frase invece dell'id, che è un
      difetto d'istruzione, non un'invenzione) e `id-sconosciuto` (un id che nel
-     materiale non c'è: inventato, o preso da un altro ramo). */
+     materiale non c'è: inventato, o preso da un altro ramo).
+     ⚠️ La porta è rovesciata SOLO dove il chiamante la usa così: flashcard e
+     domande aperte chiamano questa funzione per CONTARE e tengono tutto (packet
+     0008). Qui non si decide chi la usa, si risponde. */
   function _verificaPerId(items, noti) {
     var elenco = Object.create(null);   // niente prototipo: «__proto__» dal modello non deve risultare noto
     noti.forEach(function (x) { elenco[x] = 1; });
     var tenuti = [], scartati = [];
     (items || []).forEach(function (it) {
-      var q = (it && (it.q || it.question || it.domanda)) || '';
-      var id = _idDaCampo(it && (it.evidenzaId || it.evidenceId));
-      if (!id) {
+      var q = _testoDomanda(it);
+      var ids = idiDiProva(it);
+      if (!ids.length) {
         var copiata = String((it && (it.evidenza || it.evidence)) || '').trim();
         scartati.push({ q: q, evidenza: copiata, motivo: copiata ? 'id-frase-copiata' : 'id-assente' });
         return;
       }
-      if (!elenco[id]) { scartati.push({ q: q, evidenza: id, motivo: 'id-sconosciuto' }); return; }
+      var buono = '';
+      for (var i = 0; i < ids.length && !buono; i++) if (elenco[ids[i]]) buono = ids[i];
+      if (!buono) { scartati.push({ q: q, evidenza: ids.join(' · '), motivo: 'id-sconosciuto' }); return; }
       tenuti.push(it);
     });
     return { items: tenuti, scartati: scartati };
@@ -403,6 +450,269 @@
       else scartati.push({ q: it.q || it.question || it.domanda || '', evidenza: ev, quota: Number(q.toFixed(2)) });
     });
     return { items: tenuti, scartati: scartati };
+  }
+
+  /* ══ LA MISURA (21/9/26, passo 6 del piano Evidence) ════════════════════════
+     `verificaEvidenza` sa, per ogni foglio di domande, che cosa il modello ha
+     mandato e che cosa è entrato — e finora lo diceva a una `console.warn`, che
+     al giro dopo non c'è più. Qui quel conto diventa un numero che sopravvive al
+     processo: `riassuntoScarti` riceve il giro grezzo dalla cucitura
+     (`mappai-misura-evidenze.js`) e restituisce il file che va su disco;
+     `confrontaGiri` mette due di quei file uno accanto all'altro.
+
+     Tre regole che questo blocco rispetta e non ridiscute:
+      · i MOTIVI di scarto hanno già una fonte — `_verificaPerId`, poche righe
+        più su (invariante 6): qui si contano, non si riscrivono. L'unico nome
+        coniato è quello dello scarto della strada VECCHIA, che un motivo non ce
+        l'ha (`MOTIVO_SOMIGLIANZA`);
+      · si confrontano IDENTIFICATORI, mai frasi (invariante 22): la prova di una
+        domanda tenuta è `id` quando porta un identificatore che il materiale
+        elencava, `frase` quando porta solo del testo — che si verifica a
+        somiglianza e non certifica niente;
+      · il confronto è sui NODI IN COMUNE, e dichiara quelli che stanno in un
+        giro solo: due generazioni della stessa fonte hanno in comune 15 etichette
+        su 48 (misurato il 19/9), quindi un totale su insiemi diversi di nodi
+        sarebbe un numero senza significato. */
+  var SCHEMA_MISURA = 'mappai-misura-evidenze@1';
+  /* Lo scarto della strada vecchia: la frase copiata non si ritrova nel
+     materiale. `verificaEvidenza` lo restituisce SENZA `motivo` (è l'unico
+     caso che c'era prima degli identificatori), e un conto per motivo ha
+     bisogno di una chiave: è questa. */
+  var MOTIVO_SOMIGLIANZA = 'prova-non-nel-materiale';
+  var PROVE = ['id', 'frase', 'assente'];
+
+  function _chiaveArea(s) { return _nfc(s).replace(/\s+/g, ' ').trim().toLowerCase(); }
+  function _corto(s, n) {
+    var str = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    n = n || 120;
+    return str.length > n ? str.slice(0, n - 1) + '…' : str;
+  }
+  /* `front` perché dal 21/9 nella traccia entrano anche le FLASHCARD, che una
+     domanda non ce l'hanno: il testo della carta è il suo fronte. È l'unico
+     estrattore del testo, e lo usa anche il filtro qui sopra (inv. 6). */
+  function _testoDomanda(it) { return (it && (it.q || it.question || it.domanda || it.front)) || ''; }
+
+  /* Come è provata una domanda TENUTA. `elenco` sono gli identificatori che il
+     materiale del foglio elencava: se è vuoto, nessuna domanda può portarne uno
+     (è il giro a interruttore spento) e la prova migliore resta la frase.
+     Con l'array `prove` delle domande aperte vale il PRIMO identificatore che
+     l'elenco riconosce: uno basta (vedi `idiDiProva`).
+     ⚠️ Un id che l'elenco non riconosce non è una prova, quindi la domanda
+     conta come `assente` — il motivo `id-sconosciuto` lo dice solo chi passa
+     dalla porta rovesciata, cioè i fogli che scartano davvero. */
+  function _provaDiItem(it, elenco) {
+    var ids = idiDiProva(it);
+    for (var i = 0; i < ids.length; i++) if (elenco[ids[i]]) return { prova: 'id', id: ids[i] };
+    if (String((it && (it.evidenza || it.evidence)) || '').trim()) return { prova: 'frase', id: '' };
+    return { prova: 'assente', id: '' };
+  }
+
+  function _contoVuoto() {
+    return {
+      ricevute: 0, tenute: 0, scartate: 0, conId: 0,
+      perMotivo: {}, prove: { id: 0, frase: 0, assente: 0 },
+      idsServiti: 0, idsUsati: 0
+    };
+  }
+  function _sommaConto(acc, c) {
+    acc.ricevute += c.ricevute; acc.tenute += c.tenute; acc.scartate += c.scartate; acc.conId += c.conId;
+    acc.idsServiti += c.idsServiti; acc.idsUsati += c.idsUsati;
+    PROVE.forEach(function (p) { acc.prove[p] += c.prove[p]; });
+    Object.keys(c.perMotivo).forEach(function (m) { acc.perMotivo[m] = (acc.perMotivo[m] || 0) + c.perMotivo[m]; });
+    return acc;
+  }
+
+  /* La voce di UN foglio: un ramo, un genere, un'angolazione. `f.ids` sono gli
+     identificatori che il materiale elencava (da `idEvidenze`, che è la sola
+     fonte del formato), `f.ricevute` ciò che il modello ha mandato, `f.tenute` e
+     `f.scartati` l'esito di `verificaEvidenza`. */
+  function _voceFoglio(f) {
+    var o = f && typeof f === 'object' ? f : {};
+    var ids = (Array.isArray(o.ids) ? o.ids : []).filter(function (x) { return !!x; });
+    var elenco = Object.create(null);
+    ids.forEach(function (x) { elenco[x] = 1; });
+    var ricevute = Array.isArray(o.ricevute) ? o.ricevute : [];
+    var tenute = Array.isArray(o.tenute) ? o.tenute : [];
+    var scartati = Array.isArray(o.scartati) ? o.scartati : [];
+
+    var conto = _contoVuoto();
+    conto.ricevute = ricevute.length; conto.tenute = tenute.length; conto.scartate = scartati.length;
+    conto.idsServiti = ids.length;
+
+    var usati = Object.create(null), elencoTenute = [];
+    tenute.forEach(function (it) {
+      var p = _provaDiItem(it, elenco);
+      conto.prove[p.prova]++;
+      if (p.id) usati[p.id] = 1;
+      elencoTenute.push({ q: _corto(_testoDomanda(it)), prova: p.prova, id: p.id });
+    });
+    conto.conId = conto.prove.id;
+    conto.idsUsati = Object.keys(usati).length;
+
+    var elencoScartate = scartati.map(function (x) {
+      var m = (x && x.motivo) || MOTIVO_SOMIGLIANZA;
+      conto.perMotivo[m] = (conto.perMotivo[m] || 0) + 1;
+      return { q: _corto(_testoDomanda(x) || (x && x.q)), motivo: m, prova: _corto(x && x.evidenza) };
+    });
+
+    return {
+      area: String(o.area == null ? '' : o.area),
+      chiave: _chiaveArea(o.area),
+      tipo: String(o.tipo == null ? '' : o.tipo),
+      angolo: String(o.angolo == null ? '' : o.angolo),
+      quando: o.quando || '',
+      conto: conto,
+      pacchetto: {
+        ids: ids,
+        caratteri: Number(o.caratteri) || 0,
+        query: String(o.query == null ? '' : o.query),
+        unitaScartate: Number(o.unitaScartate) || 0
+      },
+      tenute: elencoTenute,
+      scartate: elencoScartate
+    };
+  }
+
+  /* IL RIASSUNTO DI UN GIRO — l'oggetto che la cucitura scrive in
+     `userData/MappAI-Pipeline/<runId>/misura-evidenze.json`.
+     ⚠️ `idsServiti`/`idsUsati` di un NODO sono l'unione dei suoi fogli, ma il
+     totale del giro è la SOMMA dei nodi: un'evidenza che serve due rami è
+     contata due volte. È la lettura giusta per «quanto del pacchetto di QUESTO
+     ramo ha prodotto una domanda», che è la domanda del passo 6. */
+  function riassuntoScarti(giro) {
+    var g = giro && typeof giro === 'object' ? giro : {};
+    var fogli = (Array.isArray(g.fogli) ? g.fogli : []).map(_voceFoglio);
+
+    var nodi = [], indice = Object.create(null), totali = _contoVuoto();
+    totali.fogli = 0; totali.rami = 0;
+    fogli.forEach(function (v) {
+      var n = indice[v.chiave];
+      if (!n) {
+        n = indice[v.chiave] = {
+          area: v.area, chiave: v.chiave, fogli: 0, tipi: [],
+          conto: _contoVuoto(), _serviti: Object.create(null), _usati: Object.create(null)
+        };
+        nodi.push(n);
+      }
+      n.fogli++;
+      if (v.tipo && n.tipi.indexOf(v.tipo) < 0) n.tipi.push(v.tipo);
+      _sommaConto(n.conto, v.conto);
+      v.pacchetto.ids.forEach(function (x) { n._serviti[x] = 1; });
+      v.tenute.forEach(function (t) { if (t.id) n._usati[t.id] = 1; });
+    });
+    nodi.forEach(function (n) {
+      n.conto.idsServiti = Object.keys(n._serviti).length;
+      n.conto.idsUsati = Object.keys(n._usati).length;
+      delete n._serviti; delete n._usati;
+      _sommaConto(totali, n.conto);
+      totali.fogli += n.fogli; totali.rami++;
+    });
+
+    return {
+      schema: SCHEMA_MISURA,
+      runId: String(g.runId == null ? '' : g.runId),
+      progetto: String(g.progetto == null ? '' : g.progetto),
+      quando: g.quando || nowIso(),
+      interruttore: (g.interruttore === 'acceso' || g.interruttore === true) ? 'acceso' : 'spento',
+      provider: String(g.provider == null ? '' : g.provider),
+      modello: String(g.modello == null ? '' : g.modello),
+      totali: totali,
+      nodi: nodi,
+      fogli: fogli
+    };
+  }
+
+  function _giroPerConfronto(x) {
+    var g = x && typeof x === 'object' ? x : {};
+    return {
+      runId: String(g.runId == null ? '' : g.runId),
+      progetto: String(g.progetto == null ? '' : g.progetto),
+      quando: g.quando || '',
+      interruttore: g.interruttore === 'acceso' ? 'acceso' : 'spento',
+      modello: String(g.modello == null ? '' : g.modello),
+      provider: String(g.provider == null ? '' : g.provider),
+      nodi: Array.isArray(g.nodi) ? g.nodi : []
+    };
+  }
+  function _fedelta(c) {
+    return {
+      perUguaglianza: c.conId,
+      sopravvissute: c.tenute,
+      quota: c.tenute ? Number((c.conId / c.tenute).toFixed(3)) : 0
+    };
+  }
+  function _copertura(c) {
+    return {
+      usati: c.idsUsati, serviti: c.idsServiti,
+      quota: c.idsServiti ? Number((c.idsUsati / c.idsServiti).toFixed(3)) : 0
+    };
+  }
+
+  /* IL CONFRONTO FRA DUE GIRI, sui soli nodi presenti in entrambi.
+     Restituisce i due numeri del piano — quante domande portano un id valido e
+     quante sono scartate, per motivo — più la fedeltà sulle sopravvissute (la
+     quota di quelle la cui prova si verifica per UGUAGLIANZA: a interruttore
+     spento è zero per costruzione, perché il materiale non elenca prove) e la
+     copertura del pacchetto servito. Gli `avvisi` dicono quando il confronto NON
+     misura ciò che sembra: stesso interruttore, progetti diversi, modelli
+     diversi, un nodo servito da un numero di fogli diverso nei due giri. */
+  function confrontaGiri(a, b) {
+    var A = _giroPerConfronto(a), B = _giroPerConfronto(b);
+    var ia = Object.create(null), ib = Object.create(null);
+    A.nodi.forEach(function (n) { ia[n.chiave || _chiaveArea(n.area)] = n; });
+    B.nodi.forEach(function (n) { ib[n.chiave || _chiaveArea(n.area)] = n; });
+
+    var comuni = [], soloA = [], soloB = [];
+    A.nodi.forEach(function (n) {
+      var k = n.chiave || _chiaveArea(n.area);
+      if (ib[k]) comuni.push(k); else soloA.push(n.area);
+    });
+    B.nodi.forEach(function (n) {
+      var k = n.chiave || _chiaveArea(n.area);
+      if (!ia[k]) soloB.push(n.area);
+    });
+
+    var totA = _contoVuoto(), totB = _contoVuoto();
+    totA.fogli = 0; totB.fogli = 0;
+    var avvisi = [];
+    var nodi = comuni.map(function (k) {
+      var na = ia[k], nb = ib[k];
+      _sommaConto(totA, na.conto); totA.fogli += na.fogli || 0;
+      _sommaConto(totB, nb.conto); totB.fogli += nb.fogli || 0;
+      if ((na.fogli || 0) !== (nb.fogli || 0)) {
+        avvisi.push('«' + na.area + '»: ' + na.fogli + ' fogli nel primo giro e ' + nb.fogli +
+          ' nel secondo — su questo nodo il confronto non è appaiato');
+      }
+      return { area: na.area, chiave: k, a: na.conto, b: nb.conto, fogliA: na.fogli || 0, fogliB: nb.fogli || 0 };
+    });
+    totA.rami = nodi.length; totB.rami = nodi.length;
+
+    if (A.interruttore === B.interruttore) {
+      avvisi.push('i due giri hanno l\'interruttore nello stesso stato (' + A.interruttore +
+        '): il confronto non misura le evidenze');
+    }
+    if (_chiaveArea(A.progetto) !== _chiaveArea(B.progetto)) {
+      avvisi.push('progetti diversi: «' + A.progetto + '» e «' + B.progetto + '» — la misura si fa sulla STESSA mappa');
+    }
+    if (A.modello && B.modello && A.modello !== B.modello) {
+      avvisi.push('modelli diversi: «' + A.modello + '» e «' + B.modello + '»');
+    }
+    if (!nodi.length) avvisi.push('nessun nodo in comune: non c\'è niente da confrontare');
+
+    return {
+      giri: [A, B].map(function (g) {
+        return { runId: g.runId, progetto: g.progetto, quando: g.quando, interruttore: g.interruttore, modello: g.modello, provider: g.provider, nodi: g.nodi.length };
+      }),
+      comuni: nodi.length,
+      soloA: soloA, soloB: soloB,
+      totali: {
+        a: totA, b: totB,
+        fedelta: { a: _fedelta(totA), b: _fedelta(totB) },
+        copertura: { a: _copertura(totA), b: _copertura(totB) }
+      },
+      nodi: nodi,
+      avvisi: avvisi
+    };
   }
 
   /* ══ DOMANDE RIPETUTE (difetto 8, 11/9) ════════════════════════════════════
@@ -1197,6 +1507,9 @@
     similitudine: similitudine, deduplicaDomande: deduplicaDomande,
     livelloVerificato: livelloVerificato, criteriDaItem: criteriDaItem,
     corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza, idEvidenze: idEvidenze,
+    idiDiProva: idiDiProva, MAX_PROVE: MAX_PROVE,
+    riassuntoScarti: riassuntoScarti, confrontaGiri: confrontaGiri,
+    SCHEMA_MISURA: SCHEMA_MISURA, MOTIVO_SOMIGLIANZA: MOTIVO_SOMIGLIANZA,
     angoliMulti: angoliMulti, angoliScelti: angoliScelti, multiTypes: multiTypes, nomeAngolo: nomeAngolo,
     angoliPerTipo: angoliPerTipo, quantiPerTipo: quantiPerTipo, categoriePerTipo: categoriePerTipo,
     buildFileName: buildFileName, setFontEtichetta: setFontEtichetta, fontEtichetta: fontEtichetta,

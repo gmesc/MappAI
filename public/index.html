@@ -3206,7 +3206,7 @@
     <script src="js/mappai-timeline-core.js"></script>
     <script src="js/mappai-timeline.js?v=font1"></script>
     <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
-    <script src="js/mappai-docedit-core.js?v=campi-servizio-20260921"></script>
+    <script src="js/mappai-docedit-core.js?v=prove-aperte-20260921"></script>
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
          (mappai-quiz-print.js) sia i fogli PDF (mappai-print-dossier.js). -->
     <script src="js/mappai-print-layout.js?v=font1"></script>
@@ -3319,7 +3319,7 @@
     <script src="js/mappai-vista-core.js"></script>
     <script src="js/mappai-files-settings.js"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=evidence-id-20260921"></script>
+    <script src="js/mappai-pipeline-core.js?v=prove-aperte-20260921"></script>
     <script src="js/mappai-landing-teach.js?v=noelab1"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
@@ -3361,8 +3361,14 @@
          Interruttore: localStorage `mappai_evidence` = '1' (spento di default). -->
     <script src="js/mappai-evidence-core.js?v=evidence-20260920b"></script>
     <script src="js/mappai-evidence.js?v=evidence-20260920b"></script>
+    <!-- LA MISURA (passo 6, 21/9/2026): ogni foglio di domande lascia su disco il conto dei tenuti e
+         degli scartati col motivo (userData/MappAI-Pipeline/<runId>/misura-evidenze.json), e
+         `tools/misura-evidenze/confronta.mjs` mette due giri uno accanto all'altro. Dopo evidence.js,
+         di cui legge l'interruttore e la traccia dei rami serviti; prima di study-session.js, che la
+         chiama. Niente interfaccia, nessun secondo interruttore: si scrive sempre. -->
+    <script src="js/mappai-misura-evidenze.js?v=misura-20260921"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=angolazioni-20260921"></script>
+    <script src="js/mappai-material-pipeline.js?v=prove-aperte-20260921"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>
@@ -3407,7 +3413,7 @@
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
     <script src="js/mappai-ai-tutor.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-study-session.js?v=evidence-id-20260921"></script>
+    <script src="js/mappai-study-session.js?v=prove-aperte-20260921"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-rsvp-core.js"></script>
     <script src="js/mappai-pronuncia-core.js"></script>

@@ -82,6 +82,10 @@ docs/archify/*.visual-check.*
 # La pagina dei disaccordi (16/9/26): misura come si scelgono le frasi di prova dei nodi.
 # Solo lo strumento: le pagine generate stanno in local-ai-data/, che resta fuori.
 !tools/disaccordi-ancora/**
+# La misura delle evidenze (21/9/26, passo 6): confronta due giri di domande, uno a
+# interruttore spento e uno acceso. Solo lo strumento: le tracce dei giri stanno in
+# userData/MappAI-Pipeline/, fuori dal repo.
+!tools/misura-evidenze/**
 # Tre banchi di tools/smoke/ (moduli VERI con un finto window) e il loro LEGGIMI,
 # riparati il 15/9/26. Uno per uno, non la cartella: censimento-maniglia-cdp.js
 # porta un percorso del disco, review-dashboard-preview.js non è stato riletto.

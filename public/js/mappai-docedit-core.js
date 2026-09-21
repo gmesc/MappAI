@@ -93,6 +93,7 @@
        documento e muore al salvataggio, che è il modo peggiore di perderlo. */
     var SERVICE_FIELDS = [
         'evidenzaId',   // la PROVA: l'id dell'evidenza che rende vera la risposta (si verifica per uguaglianza)
+        'prove',        // la prova delle domande APERTE: fino a due id (nascono dal materiale di due rami)
         'evidenza',     // la prova nella forma di ieri (frase copiata, o {page…}): i set nati prima del 21/9 portano questa
         'ramo',         // la macro-area da cui la domanda viene: le attività di studio raggruppano per ramo
         'id',           // identità dell'item nell'archivio
