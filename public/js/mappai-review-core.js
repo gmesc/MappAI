@@ -314,6 +314,32 @@
     r.initial.manualChecks = fatte; r.updatedAt = opts.now || r.updatedAt;
     return r;
   }
+  function isItemExclusion(issue) {
+    return issue.origin === 'teacher' && issue.target.kind === 'item' && issue.target.field === '$item' &&
+      issue.id === 'teacher-exclude-' + issue.target.id && issue.hasProposal && issue.after === null;
+  }
+  function setItemExcluded(review, itemId, excluded, opts) {
+    editable(review); opts = opts || {};
+    var id = eid(itemId), target = { kind: 'item', id: id, field: '$item' };
+    var found = locate(review.baseSnapshot, target);
+    if (found.error) fail(found.error);
+    if (!excluded) {
+      // Older exclusions can be accepted judge proposals or manual nulls.
+      // Restore every active exclusion for this item, leaving edits untouched.
+      return review.initial.issues.filter(function (i) {
+        return i.target.kind === 'item' && i.target.id === id &&
+          decisionOutcome(i, review.initial.decisions[i.id]) === 'excluded';
+      }).reduce(function (r, i) { return setDecision(r, i.id, 'reject', opts); }, clone(review));
+    }
+    var issueId = 'teacher-exclude-' + id;
+    var existing = review.initial.issues.find(function (i) { return i.id === issueId; });
+    if (existing && (!isItemExclusion(existing) || stable(existing.before) !== stable(found.value))) fail('duplicate_issue_id');
+    var r = existing ? review : addIssue(review, { id: issueId, target: target, after: null,
+      origin: 'teacher', problem: String(opts.problem || '') });
+    // The dedicated issue suspends, never overwrites, earlier choices. Rejecting
+    // it restores the same decisions, checks and base content after a reload.
+    return setDecision(r, issueId, 'accept', opts);
+  }
   function decisionOutcome(issue, decision) {
     var d = decision || {}, value;
     if (!issue || ['accept', 'reject', 'manual'].indexOf(d.choice) < 0) return 'pending';
@@ -358,7 +384,14 @@
       if (review.initial.status === 'approved') conflict(null, 'stale_revision');
     }
     if (!matchesSnapshot(db, sources, review.baseSnapshot, review.baseRevision, review.sources)) conflict(null, 'stale_revision');
+    var excluded = new Set();
     review.initial.issues.forEach(function (i) {
+      if (!isItemExclusion(i) || decisionOutcome(i, review.initial.decisions[i.id]) !== 'excluded') return;
+      var found = locate(db, i.target);
+      if (!found.error && stable(found.value) === stable(i.before)) excluded.add(i.target.id);
+    });
+    review.initial.issues.forEach(function (i) {
+      if (i.target.kind === 'item' && excluded.has(i.target.id) && !isItemExclusion(i)) return;
       var d = review.initial.decisions[i.id] || { choice: 'pending' };
       if (d.choice === 'pending') { if (i.blocking) unresolved.push(i.id); return; }
       if (['accept', 'reject', 'manual'].indexOf(d.choice) < 0) return conflict(i.id, 'invalid_decision');
@@ -426,6 +459,21 @@
     return { ok: !conflicts.length && !unresolved.length, db: work, conflicts: conflicts,
       unresolved: unresolved, revision: revision(work, sources), overrides: overrides, alreadyApplied: false };
   }
+  function previewItem(review, db, itemId, opts) {
+    if (!review || review.schema !== SCHEMA || !review.initial) fail('invalid_review');
+    var id = eid(itemId), ids = new Set((db.items || []).concat(review.baseSnapshot.items || []).map(function (i) { return eid(i.id); }));
+    if (!ids.has(id)) fail('unknown_item');
+    // Keep the complete snapshot and sources: an external change anywhere is
+    // still global. Only decisions attributable to another known item are local.
+    var local = Object.assign({}, review, { initial: Object.assign({}, review.initial, {
+      issues: review.initial.issues.filter(function (i) {
+        return i.target.kind !== 'item' || !ids.has(i.target.id) || i.target.id === id;
+      })
+    }) });
+    var result = preview(local, db, opts);
+    result.excluded = result.ok && !result.db.items.some(function (i) { return eid(i.id) === id; });
+    return result;
+  }
   function beginApproval(review, db, opts) {
     opts = opts || {};
     var result = preview(review, db, opts), r = clone(review);
@@ -467,5 +515,6 @@
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
     revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, setManualCheck: setManualCheck, decisionOutcome: decisionOutcome, textChange: textChange,
-    preview: preview, beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
+    preview: preview, previewItem: previewItem, setItemExcluded: setItemExcluded,
+    beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
 }));

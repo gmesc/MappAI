@@ -168,6 +168,20 @@
         return Array.from(rows.values(), row => ({ ...row, reason: row.reason || String(report.reason || ''),
             error: row.error || String(report.requestError?.message || '') }));
     }
+    // Explain only diagnostics already recorded by the judge. In particular,
+    // validation failures say nothing about the network or the provider's cause.
+    function coverageFailure(row) {
+        row = row || {};
+        const diagnostics = [row.error, row.reason].map(labelKey);
+        if (diagnostics.some(text => text.includes('gli elenchi di controllo contengono id estranei al lotto'))) return 'foreign_ids';
+        if (diagnostics.some(text => text.includes('una o più affermazioni non hanno un esito verificabile'))) return 'unverified_claims';
+        if (diagnostics.some(text => text.includes('una segnalazione non è verificabile'))) return 'unverified_issues';
+        // Legacy rows may retain only claim diagnostics. Never inspect their
+        // free text: a quotation is not an error code.
+        if (!diagnostics.some(Boolean) && list(row.claims).some(claim => claim &&
+            ['uncertain', 'missing', 'unverified'].includes(claim.status))) return 'unverified_claims';
+        return 'unknown';
+    }
     // Search the saved teacher choices even while unrelated issues are pending.
     // ReviewCore remains the sole patch/conflict authority. The temporary
     // rejects below mean “keep the original in this preview”, never a decision.
@@ -260,5 +274,5 @@
         });
         return result;
     }
-    return { createIndex, incompleteMaterials, occurrenceSnapshot, searchOccurrences };
+    return { createIndex, incompleteMaterials, coverageFailure, occurrenceSnapshot, searchOccurrences };
 }));

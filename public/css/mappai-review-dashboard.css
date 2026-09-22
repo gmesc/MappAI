@@ -372,3 +372,10 @@
 @media (prefers-reduced-motion: reduce) {
   #mappai-teacher-review .mrv-colonne, #mappai-teacher-review .mrv-divisore { transition: none; }
 }
+
+/* Approvazione docente: forma, nome e spiegazione restano leggibili senza il colore. */
+#mappai-teacher-review .mrv-teacher-approved { display: inline-flex; position: relative; vertical-align: middle; padding: 3px; border-radius: 50%; color: #166534; background: #dcfce7; }
+#mappai-teacher-review .mrv-teacher-approved svg { width: 20px; height: 20px; }
+#mappai-teacher-review .mrv-approval-help { display: none; position: absolute; z-index: 5; top: 100%; right: 0; width: min(230px, 65vw); padding: 8px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: .8rem; font-weight: 400; }
+#mappai-teacher-review .mrv-teacher-approved:is(:hover, :focus) .mrv-approval-help { display: block; }
+#mappai-teacher-review [data-editor] > button { margin: 10px 8px 0 0; }

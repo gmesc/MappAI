@@ -8,6 +8,117 @@ const R = require('../public/js/mappai-review-core.js');
 const BEFORE = 'La Svizzera scambia oro con la Germania per ottenere franchi.';
 const AFTER = 'La Germania scambia oro con la Svizzera per ottenere franchi.';
 const SOURCES = [{ id: 'pdf-1', title: 'Svizzera', pages: [{ n: 4, text: AFTER }] }];
+test('material preview isolates pending and conflicting decisions without weakening global guards', () => {
+  const data = { items: [{ id: 'a', text: 'Prima A' }, { id: 'b', text: 'Prima B' }] };
+  const issue = (id, target, after) => ({ id, target: { kind: 'item', id: target, field: 'text' }, after });
+  let r = R.createReview({ db: data, sources: SOURCES, report: { checkStatus: 'completed',
+    issues: [issue('a-edit', 'a', 'Dopo A'), issue('b-edit', 'b', 'Dopo B')] } });
+  r = R.setDecision(r, 'a-edit', 'accept');
+  const saved = JSON.stringify(r);
+  assert.equal(R.preview(r, data).ok, false);
+  const local = R.previewItem(r, data, 'a');
+  assert.equal(local.ok, true);
+  assert.equal(local.db.items[0].text, 'Dopo A');
+  assert.equal(R.previewItem(r, data, 'b').ok, false);
+  r = R.setDecision(r, 'b-edit', 'accept');
+  r = R.addIssue(r, issue('b-clash', 'b', 'Altro B'));
+  r = R.setDecision(r, 'b-clash', 'accept');
+  assert.equal(R.previewItem(r, data, 'a').ok, true);
+  assert.equal(R.previewItem(r, data, 'b').conflicts[0].code, 'conflicting_decisions');
+  assert.equal(R.beginApproval(r, data).ok, false);
+  assert.equal(R.previewItem(r, data, 'a', { sources: [] }).conflicts[0].code, 'stale_revision');
+  const changed = { items: [data.items[0], { ...data.items[1], text: 'Esterno' }] };
+  assert.equal(R.previewItem(r, changed, 'a').conflicts[0].code, 'stale_revision');
+  assert.equal(JSON.parse(saved).initial.decisions['b-edit'], undefined);
+  const unknown = R.addIssue(r, issue('lost', 'missing', 'Altro'));
+  assert.equal(R.previewItem(unknown, data, 'a').ok, false, 'unattributable pending targets remain global');
+});
+
+test('direct exclusion and restore preserve earlier choices, checks and immutable base across reload', () => {
+  const data = { items: [{ id: 'a', text: 'Prima' }, { id: 'b', text: 'Intatto' }] };
+  let r = R.createReview({ db: data, sources: SOURCES, report: { checkStatus: 'completed', issues: [
+    { id: 'edit', target: { kind: 'item', id: 'a', field: 'text' }, after: 'Corretto' },
+    { id: 'pending', target: { kind: 'item', id: 'a', field: 'text' }, problem: 'Da verificare' }
+  ] } });
+  r = R.setDecision(r, 'edit', 'accept');
+  r = R.setManualCheck(r, 'a', 'versione-approvata');
+  const before = JSON.stringify(r);
+  let excluded = R.setItemExcluded(freeze(r), 'a', true, { problem: 'Scelta docente', now: 'oggi' });
+  assert.deepEqual(excluded.initial.decisions.edit, r.initial.decisions.edit);
+  assert.equal(excluded.initial.decisions.pending, undefined);
+  assert.deepEqual(excluded.initial.manualChecks, r.initial.manualChecks);
+  assert.deepEqual(excluded.baseSnapshot, r.baseSnapshot);
+  assert.equal(JSON.stringify(r), before);
+  excluded = JSON.parse(JSON.stringify(excluded));
+  assert.equal(R.preview(excluded, data).ok, true);
+  assert.deepEqual(R.preview(excluded, data).db.items, [data.items[1]]);
+  assert.equal(R.previewItem(excluded, data, 'a').excluded, true);
+  const restored = R.setItemExcluded(excluded, 'a', false);
+  assert.equal(R.preview(restored, data).ok, false, 'prior pending decision becomes required again');
+  const resolved = R.setDecision(restored, 'pending', 'reject');
+  assert.equal(R.preview(resolved, data).db.items[0].text, 'Corretto');
+  assert.equal(R.setItemExcluded(R.setItemExcluded(resolved, 'a', true), 'a', false).initial.issues.length, 3);
+  assert.equal(R.preview(excluded, data, { sources: [] }).ok, false);
+  const independent = R.setItemExcluded(R.createReview({ db: data }), 'b', true);
+  assert.equal(R.preview(independent, data).ok, true, 'no existing issue is needed for direct exclusion');
+});
+
+test('only a valid explicit teacher exclusion suspends sibling conflicts', () => {
+  const data = { items: [{ id: 'a', text: 'Prima' }] };
+  const issues = ['Uno', 'Due'].map((after, n) => ({ id: 'edit-' + n,
+    target: { kind: 'item', id: 'a', field: 'text' }, after }));
+  let r = R.createReview({ db: data, report: { checkStatus: 'completed', issues } });
+  issues.forEach(i => { r = R.setDecision(r, i.id, 'accept'); });
+  const excluded = R.setItemExcluded(r, 'a', true);
+  assert.equal(R.preview(excluded, data).ok, true);
+  assert.equal(R.preview(R.setItemExcluded(excluded, 'a', false), data).conflicts[0].code, 'conflicting_decisions');
+  const invalid = JSON.parse(JSON.stringify(excluded));
+  invalid.initial.issues.find(i => i.id === 'teacher-exclude-a').before.text = 'Stale';
+  assert.equal(R.preview(invalid, data).ok, false);
+  const ai = R.addIssue(r, { id: 'teacher-exclude-a', target: { kind: 'item', id: 'a', field: '$item' }, after: null });
+  assert.equal(R.preview(R.setDecision(ai, 'teacher-exclude-a', 'accept'), data).ok, false);
+  assert.throws(() => R.setItemExcluded(ai, 'a', true), /duplicate_issue_id/);
+});
+test('approved history projects excluded base materials while validating the persisted snapshot', () => {
+  const data = { items: [{ id: 'a', text: 'Escluso' }, { id: 'b', text: 'Conservato' }] };
+  const r = R.setItemExcluded(R.createReview({ db: data, sources: SOURCES, checkStatus: 'completed' }), 'a', true);
+  const applying = R.beginApproval(r, data);
+  const approved = R.completeApproval(applying.review, applying.revision);
+  const history = R.previewItem(approved, applying.db, 'a');
+  assert.equal(history.ok, true);
+  assert.equal(history.excluded, true);
+  assert.equal(history.alreadyApplied, true);
+  assert.deepEqual(history.db.items, [data.items[1]]);
+  assert.equal(R.previewItem(approved, applying.db, 'b').excluded, false);
+  assert.equal(R.previewItem(approved, applying.db, 'a', { sources: [] }).ok, false);
+  assert.equal(R.previewItem(approved, { items: [] }, 'a').ok, false);
+  assert.throws(() => R.previewItem(approved, applying.db, 'missing'), /unknown_item/);
+});
+test('restore handles legacy and simultaneous exclusions without discarding other decisions', () => {
+  const data = { items: [{ id: 'a', text: 'Prima' }, { id: 'b', text: 'Altro' }] };
+  let r = R.createReview({ db: data, report: { checkStatus: 'completed', issues: [
+    { id: 'exclude', target: { kind: 'item', id: 'a', field: '$item' }, after: null },
+    { id: 'manual-exclude', target: { kind: 'item', id: 'a', field: '$item' } },
+    { id: 'other', target: { kind: 'item', id: 'b', field: 'text' }, after: 'Corretto' }
+  ] } });
+  r = R.setDecision(r, 'exclude', 'accept');
+  r = R.setDecision(r, 'manual-exclude', 'manual', { text: null });
+  r = R.setDecision(r, 'other', 'accept');
+  r = R.setManualCheck(r, 'a', 'versione');
+  assert.equal(R.previewItem(r, data, 'a').excluded, true);
+  const restored = R.setItemExcluded(r, 'a', false);
+  assert.equal(restored.initial.issues.length, r.initial.issues.length);
+  assert.equal(restored.initial.decisions.exclude.choice, 'reject');
+  assert.equal(restored.initial.decisions['manual-exclude'].choice, 'reject');
+  assert.deepEqual(restored.initial.decisions.other, r.initial.decisions.other);
+  assert.deepEqual(restored.initial.manualChecks, r.initial.manualChecks);
+  assert.equal(R.preview(restored, data).db.items.length, 2);
+  const direct = R.setItemExcluded(r, 'a', true);
+  assert.equal(R.previewItem(R.setItemExcluded(direct, 'a', false), data, 'a').excluded, false);
+  const legacyAgain = R.setDecision(R.setItemExcluded(direct, 'a', false), 'exclude', 'accept');
+  assert.equal(legacyAgain.initial.decisions['teacher-exclude-a'].choice, 'reject');
+  assert.equal(R.previewItem(R.setItemExcluded(legacyAgain, 'a', false), data, 'a').excluded, false);
+});
 test('retry preserves legacy decisions when only the explanation changes, while retaining new evidence', () => {
   const report = { stato: 'parziale', segnalati: [{ id: 'N1', tipo: 'fatto-contraddetto', problema: 'Soggetto invertito.',
     prova: 'La Germania', evidenze: [{ text: AFTER, page: 4 }] }] };

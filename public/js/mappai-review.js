@@ -733,6 +733,7 @@
       }
     }
     let activeFilter = 'pending', activeIssueId = null, search = '', visibleGroups = [], coverageWasPending = true, coverageExpanded = null;
+    let editingIssue = null;
     const individualIssues = new Set();
     const occurrenceSearch = { open: false, query: '', mode: 'words', searched: false, sourceIssueId: null, dirty: false };
     const facets = { area: '', kind: '', reason: '' };
@@ -752,7 +753,7 @@
         issues.filter(i => i.target.kind === 'item' && itemIds.has(String(i.target.id))).forEach(i => attention.add(i.id));
       }
       const scelta = i => ['accept', 'reject', 'manual'].includes(r.initial.decisions[i.id]?.choice);
-      const pending = issues.filter(i => attention.has(i.id) || !scelta(i));
+      const pending = issues.filter(i => attention.has(i.id) || (!scelta(i) && preview.unresolved.includes(i.id)));
       const ids = new Set(pending.map(i => i.id));
       /* BLOCCATE ≠ DA DECIDERE (Giacomo, 19/9/2026: «non capisco se devo riprendere
          a rivalidare scelte già fatte»). Una segnalazione che HA già una scelta ma
@@ -805,7 +806,7 @@
     async function navigate(issueId) {
       if (busy || invalidEditors.size) return;
       await pendingSave; if (saveError || closed || busy) return;
-      activeIssueId = issueId; render(); modal.querySelector('#mrv-current-title')?.focus();
+      editingIssue = null; activeIssueId = issueId; render(); modal.querySelector('#mrv-current-title')?.focus();
     }
     modal.querySelector('#mrv-toggle-list').onclick = () => {
       const sidebar = modal.querySelector('.mrv-sidebar'), expanded = sidebar.getAttribute('data-expanded') !== 'true';
@@ -824,7 +825,7 @@
       const input = modal.querySelector('#mrv-search'), query = input.value;
       if (busy || invalidEditors.size) { input.value = search; return; }
       await pendingSave; if (saveError || closed || query !== input.value) return;
-      search = query; activeIssueId = null; render(); input.focus();
+      editingIssue = null; search = query; activeIssueId = null; render(); input.focus();
     };
     for (const key of Object.keys(facets)) {
       const input = modal.querySelector('#mrv-' + key);
@@ -832,7 +833,7 @@
         const value = input.value;
         if (busy || invalidEditors.size) { input.value = facets[key]; return; }
         await pendingSave; if (saveError || closed || busy) { input.value = facets[key]; return; }
-        facets[key] = value; activeIssueId = null; render(); input.focus();
+        editingIssue = null; facets[key] = value; activeIssueId = null; render(); input.focus();
       };
     }
     modal.querySelector('#mrv-clear-filters').onclick = async () => {
@@ -847,7 +848,7 @@
       button.onclick = async () => {
         if (busy || invalidEditors.size) return;
         await pendingSave; if (saveError || closed) return;
-        activeFilter = key; activeIssueId = null; render(); button.focus();
+        editingIssue = null; activeFilter = key; activeIssueId = null; render(); button.focus();
       };
       filters.appendChild(button);
     }
@@ -908,23 +909,33 @@
       return (n >>> 0).toString(36);
     }
     function statoApprovazioni(r) {
-      const vuoto = { residui: [], impronte: new Map(), approvati: new Set(), tutti: false };
+      const vuoto = { residui: [], impronte: new Map(), approvati: new Set(), esclusi: new Set(), previews: new Map(), tutti: false };
       if (!isFinal || !r || r.initial.checkStatus === 'completed' || !window.MappAIReviewContext) return vuoto;
       const residui = window.MappAIReviewContext.incompleteMaterials(r.initial.report || {}, r.baseSnapshot.items);
       if (!residui.length) return vuoto;
-      const anteprima = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
-      const perId = new Map((anteprima.ok ? anteprima.db.items : []).map(item => [String(item.id), item]));
-      const fatte = r.initial.manualChecks || {};
-      const impronte = new Map(residui.map(row => [row.id, anteprima.ok ? improntaTesto(JSON.stringify(perId.get(row.id) || null)) : '']));
-      const approvati = new Set(residui.filter(row => impronte.get(row.id) && Object.prototype.hasOwnProperty.call(fatte, row.id) &&
-        fatte[row.id] && fatte[row.id].impronta === impronte.get(row.id)).map(row => row.id));
-      return { residui, impronte, approvati, tutti: anteprima.ok && approvati.size === residui.length };
+      const fatte = r.initial.manualChecks || {}, impronte = new Map(), approvati = new Set(), esclusi = new Set(), previews = new Map();
+      residui.forEach(row => {
+        const result = row.item ? core().previewItem(r, { items: manifest.review.final.items }, row.id, { sources: r.sources })
+          : { ok: false, db: { items: [] }, conflicts: [{ issueId: null, code: 'missing_item' }], unresolved: [] };
+        previews.set(row.id, result);
+        const item = result.ok && result.db.items.find(item => String(item.id) === row.id);
+        if (result.ok && !item) { esclusi.add(row.id); return; }
+        const impronta = item ? improntaTesto(JSON.stringify(item)) : '';
+        impronte.set(row.id, impronta);
+        if (impronta && own(fatte, row.id) && fatte[row.id]?.impronta === impronta) approvati.add(row.id);
+      });
+      const globale = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
+      return { residui, impronte, approvati, esclusi, previews, tutti: globale.ok && approvati.size + esclusi.size === residui.length };
     }
+
     function decide(group, choice, value) {
       if (busy || getReview().initial.status !== 'awaiting_review') return;
       invalidateManualCheck();
       let r = getReview();
-      group.forEach(issue => { r = core().setDecision(r, issue.id, choice, { text: value }); });
+      group.forEach(issue => {
+        if (!r.initial.issues.some(saved => saved.id === issue.id)) r = core().addIssue(r, issue);
+        r = core().setDecision(r, issue.id, choice, { text: value });
+      });
       setReview(r); updateFilters(); updateSummary();
       // una decisione può far decadere un'approvazione per materiale: si ricalcola
       if (isFinal && getReview().initial.checkStatus !== 'completed' && modal.querySelector('#mrv-manual-confirm')) proceed.hidden = !statoApprovazioni(getReview()).tutti;
@@ -967,17 +978,25 @@
         sameItem.find(issue => issue.target.field === field && decided(issue)) ||
         sameItem.find(issue => issue.target.field === field) || sameItem.find(issue => issue.target.field === '$item');
       if (!existing) {
-        next = core().addIssue(next, { target: { kind: 'item', id: String(itemId), field }, origin: 'teacher', blocking: true,
+        const draft = core().addIssue(next, { target: { kind: 'item', id: String(itemId), field }, origin: 'teacher', blocking: true,
           problem: t('rv_teacher_edit', 'Modifica del docente') + ': ' + fieldName(field, item) });
-        existing = next.initial.issues[next.initial.issues.length - 1];
-        invalidateManualCheck(); setReview(next); await save();
+        existing = draft.initial.issues[draft.initial.issues.length - 1];
       }
-      if (closed || saveError) return;
-      individualIssues.add(existing.id);
-      activeIssueId = existing.id; activeFilter = 'all'; search = ''; coverageExpanded = false; occurrenceSearch.open = false;
-      modal.querySelector('#mrv-search').value = ''; Object.keys(facets).forEach(key => { facets[key] = ''; });
-      render(); modal.querySelector('#mrv-current-title')?.focus();
+      editingIssue = existing;
+      individualIssues.add(existing.id); activeIssueId = existing.id;
+      render(); (modal.querySelector('.mrv-card:not([hidden]) [data-editor] textarea, .mrv-card:not([hidden]) [data-editor] select, .mrv-card:not([hidden]) [data-editor] input') || modal.querySelector('#mrv-current-title'))?.focus();
     }
+    async function excludeMaterial(ids, excluded) {
+      if (busy || invalidEditors.size || getReview().initial.status !== 'awaiting_review') return;
+      await pendingSave; if (saveError || closed) return;
+      let next = getReview();
+      ids.forEach(id => { next = core().setItemExcluded(next, id, excluded, { problem: t('rv_teacher_exclusion', 'Esclusione decisa dal docente') }); });
+      invalidateManualCheck(); editingIssue = null; setReview(next);
+      await save(); render();
+      const selector = excluded ? 'data-coverage-restore' : 'data-coverage-exclude';
+      (modal.querySelector('[' + selector + '="' + ids[0] + '"]') || modal.querySelector('#mrv-title'))?.focus();
+    }
+
     function renderOccurrences() {
       const host = modal.querySelector('#mrv-occurrences-host'), helper = window.MappAIReviewContext;
       if (!host || !helper?.searchOccurrences || !helper?.occurrenceSnapshot) return;
@@ -1085,14 +1104,29 @@
       occurrenceSearch.sourceIssueId = issue.id; occurrenceSearch.open = true;
       renderOccurrences(); modal.querySelector('#mrv-occurrence-query')?.focus();
     }
+    function coverageFailureText(row) {
+      const cause = window.MappAIReviewContext.coverageFailure(row);
+      const messages = {
+        foreign_ids: t('rv_failure_foreign_ids', 'La risposta del controllo contiene identificativi che non corrispondono ai materiali inviati.'),
+        unverified_claims: t('rv_failure_claims', 'Il controllo non ha restituito un esito verificabile per tutte le affermazioni.'),
+        unverified_issues: t('rv_failure_issues', 'La risposta contiene una segnalazione che non è stato possibile verificare.'),
+        unknown: t('rv_failure_unknown', 'Il controllo automatico non è completo. Il rapporto non permette di precisare la causa.')
+      };
+      return messages[cause] + ' ' + t('rv_failure_saved', 'Il materiale è conservato: puoi confrontarlo con la fonte e revisionarlo manualmente.');
+    }
     function renderMaterialCoverage(r, rows, editable, pending, approvazioni) {
       approvazioni = approvazioni || statoApprovazioni(r);
+      rows.forEach(row => {
+        if (!approvazioni.previews.has(row.id)) approvazioni.previews.set(row.id, core().previewItem(r, { items: manifest.review.final.items }, row.id, { sources: r.sources }));
+        if (approvazioni.previews.get(row.id).excluded) approvazioni.esclusi.add(row.id);
+      });
+      const onlyExcluded = rows.every(row => approvazioni.esclusi.has(row.id));
       const box = document.createElement('details'); box.id = 'mrv-material-coverage';
       const retry = r.initial.retrySummary || r.initial.report?.retrySummary;
       const stalled = retry?.targeted > 0 && retry.checked === 0 && retry.remaining > 0;
       if (coverageExpanded ?? (!pending || stalled)) box.setAttribute('open', '');
       box.ontoggle = () => { coverageExpanded = box.open; };
-      box.innerHTML = '<summary id="mrv-coverage-heading" tabindex="-1">' + esc(t('rv_coverage_materials', 'Materiali con controllo incompleto')) + ' (' + rows.length + ')</summary>' +
+      box.innerHTML = '<summary id="mrv-coverage-heading" tabindex="-1">' + esc(onlyExcluded ? t('rv_excluded_materials', 'Materiali esclusi') : t('rv_coverage_materials', 'Materiali con controllo incompleto')) + ' (' + (onlyExcluded ? rows.length : rows.filter(row => !approvazioni.esclusi.has(row.id)).length) + ')</summary>' +
         (stalled ? '<p id="mrv-no-progress" role="status">' + esc(t('rv_coverage_stalled', 'L’ultimo tentativo non ha completato nuovi controlli. Esamina le frasi qui sotto: riprovare può recuperare una risposta mancante, ma non aggiunge prove alla fonte.')) + '</p>' : '') +
         '<p>' + esc(t('rv_coverage_count_help', 'Questo numero conta i materiali con almeno una verifica automatica incompleta, non gli errori. Ogni tentativo riesamina tutti i residui e conserva i controlli validi.')) + '</p>' +
         '<p>' + esc(t('rv_coverage_version', 'Le frasi segnalate appartengono alle bozze originali controllate. Le correzioni scelte qui vengono applicate quando completi la revisione: non sono valutate dal pulsante di ricontrollo e non abbassano questo conteggio.')) + '</p>';
@@ -1113,10 +1147,9 @@
       });
       if (!pages) sources.innerHTML += '<p>' + esc(t('rv_coverage_no_sources', 'Il testo delle fonti non è disponibile in questo archivio. Per la verifica personale consulta il documento originale.')) + '</p>';
       box.appendChild(sources);
-      const preview = core().preview(r, { items: manifest.review.final.items }, { sources: r.sources });
-      const previewItems = new Map((preview.ok ? preview.db.items : []).map(item => [String(item.id), item]));
+      const activeCount = rows.filter(row => !approvazioni.esclusi.has(row.id)).length;
       if (approvazioni.approvati.size) {
-        box.querySelector('#mrv-coverage-heading').textContent = t('rv_coverage_materials', 'Materiali con controllo incompleto') + ' (' + rows.length + ' · ' +
+        box.querySelector('#mrv-coverage-heading').textContent = t('rv_coverage_materials', 'Materiali con controllo incompleto') + ' (' + activeCount + ' · ' +
           approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') + ')';
       }
       const labels = {
@@ -1125,18 +1158,22 @@
         unverified: t('rv_coverage_unverified', 'Esito non validato')
       };
       rows.forEach((row, index) => {
+        const preview = approvazioni.previews.get(row.id) || core().previewItem(r, { items: manifest.review.final.items }, row.id, { sources: r.sources });
+        const excluded = preview.ok && !preview.db.items.some(item => String(item.id) === row.id);
         const item = row.item, issue = { target: { kind: 'item', id: row.id } };
         const detail = document.createElement('details'); detail.className = 'mrv-coverage-material'; detail.setAttribute('data-coverage-item', row.id);
         const approvato = approvazioni.approvati.has(row.id);
         detail.innerHTML = '<summary>' + (index + 1) + '. ' + esc(issueTarget(issue)) +
-          (approvato ? ' · ' + esc(t('rv_coverage_approved_short', 'approvato')) : '') + '</summary>' + chips([issue]) +
+          (approvato ? ' <span class="mrv-teacher-approved" data-teacher-approved role="img" tabindex="0" aria-label="' + esc(t('rv_teacher_approved', 'Approvato dal docente')) + '" title="' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg><span class="mrv-approval-help">' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '</span></span>' : '') +
+          (excluded ? ' · ' + esc(t('rv_material_excluded', 'Escluso')) : '') + '</summary>' + chips([issue]) +
+          (row.claims.length && (row.error || row.reason) ? '<p>' + esc(coverageFailureText(row)) + '</p>' : '') +
           (row.claims.length ? '<ul class="mrv-coverage-claims">' + row.claims.map(claim => '<li><strong>' + esc(fieldName(claim.field, item)) + ' · ' + esc(labels[claim.status]) +
             '</strong><p class="mrv-coverage-text">' + esc(referenceView(claim.text).text) + '</p></li>').join('') + '</ul>' :
-            '<p>' + esc(row.error ? t('rv_coverage_technical', 'Il controllo si è interrotto per un problema tecnico.') : t('rv_coverage_no_verdict', 'Il rapporto non contiene un controllo completo per questo materiale. Non indica quali frasi siano state verificate.')) + '</p>') +
+            '<p>' + esc(row.error || row.reason ? coverageFailureText(row) : t('rv_coverage_no_verdict', 'Il rapporto non contiene un controllo completo per questo materiale. Non indica quali frasi siano state verificate.')) + '</p>') +
           (row.error || row.reason ? '<details class="mrv-coverage-technical"><summary>' + esc(t('rv_coverage_detail', 'Dettaglio del controllo')) + '</summary><p>' + esc(row.error || row.reason) + '</p></details>' : '');
         if (item) {
           const version = document.createElement('details'); version.className = 'mrv-coverage-version';
-          const chosen = previewItems.get(row.id);
+          const chosen = preview.ok && preview.db.items.find(item => String(item.id) === row.id);
           const titoliConfronto = [t('rv_coverage_original', 'Bozza originale controllata'), t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')];
           /* Quale versione si approva o si modifica (Giacomo, 17/9: «così com'è» non diceva se l'originale
              o la proposta). Entrambi i bottoni agiscono sull'ANTEPRIMA con le decisioni (impronta di
@@ -1152,11 +1189,23 @@
           } else version.innerHTML = '<summary>' + esc(t('rv_coverage_versions', 'Leggi il materiale e l’anteprima delle tue scelte')) + '</summary>' +
             '<h4>' + esc(t('rv_coverage_original', 'Bozza originale controllata')) + '</h4><p class="mrv-coverage-text">' + esc(displayValue(item, { field: '$item' }, item)) + '</p>' +
             '<h4>' + esc(t('rv_coverage_chosen', 'Anteprima con le decisioni attuali · non ricontrollata automaticamente')) + '</h4><p class="mrv-coverage-text">' +
-            esc(!preview.ok ? t('rv_coverage_preview_pending', 'Completa le decisioni e risolvi eventuali conflitti per vedere l’anteprima. Le modifiche salvate sono consultabili nelle segnalazioni.') :
+            esc(!preview.ok ? (preview.conflicts.some(c => !c.issueId || c.code === 'stale_revision') ? t('rv_coverage_preview_global', 'I materiali o le fonti non corrispondono alla versione di questa revisione. Le approvazioni restano salvate, ma prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.') : t('rv_coverage_preview_local', 'Questo materiale ha decisioni da completare o in conflitto. Apri la decisione per risolverle; gli altri materiali restano disponibili.')) :
               chosen ? displayValue(chosen, { field: '$item' }, chosen) : t('rv_coverage_excluded', 'Hai scelto di escludere questo materiale.')) + '</p>';
           detail.appendChild(version);
           if (editable) {
             const actions = document.createElement('div'); actions.className = 'mrv-coverage-actions';
+            const exclusion = document.createElement('button'); exclusion.type = 'button'; exclusion.className = 'pm-btn-cancel';
+            exclusion.setAttribute(excluded ? 'data-coverage-restore' : 'data-coverage-exclude', row.id);
+            exclusion.textContent = excluded ? t('rv_material_restore', 'Ripristina') : t('rv_material_exclude', 'Escludi');
+            exclusion.onclick = () => excludeMaterial([row.id], !excluded); actions.appendChild(exclusion);
+            if (!preview.ok) {
+              const blockedId = preview.unresolved?.[0] || preview.conflicts.find(c => c.issueId)?.issueId;
+              if (blockedId) {
+                const resolve = document.createElement('button'); resolve.type = 'button'; resolve.className = 'pm-btn-cancel';
+                resolve.setAttribute('data-coverage-resolve', row.id); resolve.textContent = t('rv_material_resolve', 'Apri la decisione da risolvere');
+                resolve.onclick = () => { activeFilter = 'all'; search = ''; Object.keys(facets).forEach(key => { facets[key] = ''; }); return navigate(blockedId); }; actions.appendChild(resolve);
+              }
+            }
             const approva = document.createElement('button'); approva.type = 'button';
             approva.className = approvato ? 'pm-btn-cancel' : 'pm-btn-primary';
             approva.setAttribute('data-coverage-approve', row.id); approva.setAttribute('aria-pressed', String(approvato));
@@ -1172,7 +1221,8 @@
               const di = modal.querySelector('[data-coverage-approve="' + row.id + '"]'); if (di) di.focus();
               return save();
             };
-            actions.appendChild(approva);
+            approva.disabled = !preview.ok;
+            if (!excluded) actions.appendChild(approva);
             const citazioni = Array.isArray(item.citations) ? item.citations.filter(c => c && c.text) : [];
             if (fonte && citazioni.length) {
               const vedi = document.createElement('button'); vedi.type = 'button'; vedi.className = 'pm-btn-cancel';
@@ -1181,7 +1231,7 @@
               vedi.onclick = () => fonte.mostra(citazioni);
               actions.appendChild(vedi);
             }
-            canonicalFields(item).forEach(field => {
+            if (!excluded) canonicalFields(item).forEach(field => {
               const button = document.createElement('button'); button.type = 'button'; button.className = 'pm-btn-cancel';
               button.setAttribute('data-coverage-edit', field);
               button.textContent = (soloOriginale ? t('rv_coverage_edit_original', 'Modifica originale') : t('rv_coverage_edit_proposal', 'Modifica proposta')) + ' · ' + fieldName(field, item);
@@ -1197,7 +1247,7 @@
       });
       content.appendChild(box);
       const show = document.createElement('button'); show.type = 'button'; show.id = 'mrv-show-unchecked'; show.className = 'pm-btn-primary';
-      show.textContent = t('rv_coverage_examine', 'Esamina i materiali rimasti') + ' (' + rows.length + ')';
+      show.textContent = (onlyExcluded ? t('rv_excluded_materials', 'Materiali esclusi') : t('rv_coverage_examine', 'Esamina i materiali rimasti')) + ' (' + (onlyExcluded ? rows.length : activeCount) + ')';
       show.onclick = () => { coverageExpanded = true; box.setAttribute('open', ''); modal.querySelector('#mrv-coverage-heading').focus(); };
       modal.querySelector('#mrv-coverage-details').appendChild(show);
     }
@@ -1209,7 +1259,7 @@
          riprende la posizione quando la segnalazione attiva è la stessa; se si è
          cambiata voce, ripartire dall'alto è giusto. */
       const scrollPrima = content.scrollTop, issuePrima = activeIssueId;
-      content.replaceChildren(); invalidEditors.clear();
+      content.replaceChildren(); invalidEditors.clear(); proceed.disabled = false;
       const groups = updateFilters();
       renderOccurrences();
       filters.hidden = filterCount.hidden = !r.initial.issues.length;
@@ -1245,6 +1295,7 @@
         // field has the same suggested correction in several materials.
         return decisions.size > 1 || group.some(issue => individualIssues.has(issue.id) || itemFor(issue, r)?.kind === 'causal') ? group.map(issue => [issue]) : [group];
       });
+      if (editingIssue && !visibleGroups.some(group => group.some(i => i.id === editingIssue.id))) visibleGroups.push([editingIssue]);
       modal.querySelector('#mrv-clear-filters').hidden = !query && !Object.values(facets).some(Boolean);
       if (!visibleGroups.some(group => group.some(issue => issue.id === activeIssueId))) activeIssueId = visibleGroups[0]?.[0].id || null;
       const selectedIndex = visibleGroups.findIndex(group => group.some(issue => issue.id === activeIssueId));
@@ -1319,17 +1370,28 @@
         empty.textContent = query || Object.values(facets).some(Boolean) ? t('rv_context_no_results', 'Nessuna segnalazione corrisponde ai filtri. Cambia la selezione o usa Azzera i filtri.') : activeFilter === 'pending' ? t('rv_no_pending', 'Non ci sono decisioni da rivedere. Puoi consultare quelle già prese con il filtro Già decise.') : t('rv_no_decided', 'Non ci sono ancora decisioni già prese.');
         content.appendChild(empty);
       }
+      const exclusionIds = new Set(isFinal ? r.initial.issues.filter(i => i.target.kind === 'item' && core().decisionOutcome(i, r.initial.decisions[i.id]) === 'excluded').map(i => String(i.target.id)) : []);
+      const excludedItems = isFinal ? r.baseSnapshot.items.filter(item => exclusionIds.has(String(item.id)) && core().previewItem(r, { items: manifest.review.final.items }, String(item.id), { sources: r.sources }).excluded) : [];
       if (r.initial.checkStatus !== 'completed') {
         const report = r.initial.report || {}, coverage = report.copertura || {};
         const residuals = isFinal ? window.MappAIReviewContext.incompleteMaterials(report, r.baseSnapshot.items) : [];
         const approvazioni = statoApprovazioni(r);
-        const unchecked = isFinal ? residuals.length : (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length;
+        const unchecked = isFinal ? residuals.filter(row => !approvazioni.esclusi.has(row.id)).length : (coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length;
         const box = document.createElement('div'); box.id = 'mrv-unchecked';
         box.innerHTML = (unchecked ? '<p>' + esc(t('rv_remaining_checks', 'Parti ancora da controllare:')) + ' ' + unchecked +
           (approvazioni.approvati.size ? ' · ' + approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') : '') + '.</p>' : '') +
           '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
         modal.querySelector('#mrv-coverage-details').appendChild(box);
-        if (isFinal && residuals.length) renderMaterialCoverage(r, residuals, editable, groups.pending.length, approvazioni);
+        if (isFinal) {
+          const ids = new Set(residuals.map(row => row.id));
+          const extra = excludedItems.filter(item => !ids.has(String(item.id)))
+            .map(item => ({ id: String(item.id), item, claims: [], reason: '', error: '' }));
+          if (residuals.length || extra.length) renderMaterialCoverage(r, residuals.concat(extra), editable, groups.pending.length, approvazioni);
+        }
+      }
+      if (isFinal && r.initial.checkStatus === 'completed') {
+        const excludedRows = excludedItems.map(item => ({ id: String(item.id), item, claims: [], reason: '', error: '' }));
+        if (excludedRows.length) renderMaterialCoverage(r, excludedRows, editable, groups.pending.length, statoApprovazioni(r));
       }
       for (const group of visibleGroups) {
         const issue = group[0], item = itemFor(issue, r);
@@ -1375,10 +1437,16 @@
         const occurrenceButton = card.querySelector('[data-find-occurrences]');
         if (occurrenceButton) occurrenceButton.onclick = () => findOccurrences(issue);
         const actions = card.querySelector('[data-actions]'), editor = card.querySelector('[data-editor]'), choiceLabel = card.querySelector('[data-choice]');
+        let localEditValue, hasLocalEdit = false;
         function renderRelation() {
           if (item?.kind !== 'causal') return;
           const box = card.querySelector('[data-relation-preview]'); box.className = 'mrv-relation-preview';
-          const currentReview = getReview();
+          let currentReview = getReview();
+          if (hasLocalEdit) {
+            if (!currentReview.initial.issues.some(i => i.id === issue.id)) currentReview = core().addIssue(currentReview, issue);
+            currentReview = core().setDecision(currentReview, issue.id, 'manual', { text: localEditValue });
+          }
+          currentReview = { ...currentReview, initial: { ...currentReview.initial, issues: currentReview.initial.issues.filter(i => i.target.kind !== 'item' || String(i.target.id) === String(item.id)) } };
           const preview = window.MappAIReviewContext.occurrenceSnapshot(currentReview, manifest.review.final.items, core());
           const conflicts = !preview.ok;
           const result = preview.items?.find(i => String(i.id) === String(item.id) && !preview.excludedIds.includes(String(i.id)));
@@ -1493,10 +1561,20 @@
             decision?.choice === 'accept' && issue.hasProposal ? issue.after : issue.before;
         }
         function editBox(focus) {
-          editor.replaceChildren();
+          editor.replaceChildren(); hasLocalEdit = false;
           let current = clone(chosenValue());
+          const originalValue = clone(current);
+          let draftValue = clone(current);
           if (current == null && issue.target.field === '$item') current = clone(item);
           function changed(value) {
+            if (isFinal) {
+              draftValue = clone(value); localEditValue = clone(value); hasLocalEdit = true; renderRelation();
+              if (canonical(value) === canonical(originalValue)) invalidEditors.delete(issue.id + ':draft');
+              else invalidEditors.add(issue.id + ':draft');
+              status.textContent = t('rv_edit_draft', 'Modifica non salvata. Salva oppure annulla prima di continuare.');
+              proceed.disabled = invalidEditors.size > 0;
+              return;
+            }
             proceed.disabled = invalidEditors.size > 0;
             decide(group, 'manual', value); showChoice();
           }
@@ -1541,7 +1619,7 @@
             input.oninput = input.onchange = () => {
               const number = field === 'correctIndex' || field === 'lines';
               if (number && (input.value === '' || !Number.isInteger(Number(input.value)))) {
-                invalidateManualCheck();
+                if (!isFinal) invalidateManualCheck();
                 invalidEditors.add(errorKey); proceed.disabled = true; status.textContent = t('rv_invalid_edit', 'Completa il campo della modifica prima di continuare.'); return;
               }
               invalidEditors.delete(errorKey);
@@ -1555,6 +1633,26 @@
           } else if (issue.target.field === '$link') {
             ['source', 'rel', 'target'].forEach(field => control(editor, field, current[field], value => { current[field] = value; changed(clone(current)); }, current));
           } else control(editor, issue.target.field, current, changed, item);
+          if (isFinal) {
+            const finish = () => {
+              Array.from(invalidEditors).filter(k => k.startsWith(issue.id + ':')).forEach(k => invalidEditors.delete(k));
+              editingIssue = null; coverageExpanded = true; render();
+              (modal.querySelector('[data-coverage-item="' + issue.target.id + '"] summary') || modal.querySelector('#mrv-current-title'))?.focus();
+            };
+            const saveEdit = document.createElement('button'); saveEdit.type = 'button'; saveEdit.className = 'pm-btn-primary';
+            saveEdit.setAttribute('data-edit-save', ''); saveEdit.textContent = t('rv_edit_save', 'Salva modifica');
+            saveEdit.onclick = async () => {
+              if (busy || Array.from(invalidEditors).some(k => k !== issue.id + ':draft')) return;
+              if (canonical(draftValue) !== canonical(originalValue)) {
+                invalidEditors.delete(issue.id + ':draft');
+                await decide(group, 'manual', draftValue);
+              }
+              if (!saveError) finish();
+            };
+            const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'pm-btn-cancel';
+            cancel.setAttribute('data-edit-cancel', ''); cancel.textContent = t('rv_edit_cancel', 'Annulla modifica'); cancel.onclick = finish;
+            editor.appendChild(saveEdit); editor.appendChild(cancel);
+          }
           renderRelation();
           if (focus) editor.querySelector('textarea,select,input')?.focus();
         }
@@ -1564,9 +1662,13 @@
           button.setAttribute('data-review-choice', choice);
           button.textContent = choice === 'pending' ? t('rv_undo', 'Annulla decisione') : labels[choice];
           button.onclick = async () => {
+            if (isFinal && choice === 'manual' && editor.querySelector('[data-edit-save]')) { editor.querySelector('textarea,select,input')?.focus(); return; }
+            if (isFinal && invalidEditors.size) { status.textContent = t('rv_edit_draft', 'Modifica non salvata. Salva oppure annulla prima di continuare.'); return; }
             Array.from(invalidEditors).filter(k => k.startsWith(issue.id + ':')).forEach(k => invalidEditors.delete(k));
+            hasLocalEdit = false;
+            if (choice !== 'manual') editingIssue = null;
             const current = chosenValue();
-            const saved = decide(group, choice, choice === 'manual' ? current : undefined); showChoice();
+            const saved = isFinal && choice === 'manual' ? undefined : decide(group, choice, choice === 'manual' ? current : undefined); showChoice();
             if (choice === 'manual') editBox(true); else {
               editor.replaceChildren(); proceed.disabled = invalidEditors.size > 0;
               await saved;
@@ -1581,22 +1683,11 @@
         }
         if (isFinal && issue.target.kind === 'item' && editable && !(issue.hasProposal && issue.target.field === '$item' && issue.after === null)) {
           const exclude = document.createElement('button'); exclude.type = 'button'; exclude.className = 'pm-btn-cancel'; exclude.textContent = t('rv_exclude_material', 'Escludi dagli esercizi');
-          exclude.onclick = () => {
-            invalidateManualCheck();
-            let next = getReview();
-            const ids = new Set(group.map(i => String(i.target.id)));
-            next.initial.issues.filter(i => i.target.kind === 'item' && ids.has(String(i.target.id))).forEach(i => { next = core().setDecision(next, i.id, 'reject'); });
-            ids.forEach(id => {
-              const exclusion = { id: 'teacher-exclude-' + id, target: { kind: 'item', id, field: '$item' }, after: null, hasProposal: true,
-                problem: t('rv_teacher_exclusion', 'Esclusione decisa dal docente'), origin: 'teacher' };
-              next = core().addIssue(next, exclusion); next = core().setDecision(next, exclusion.id, 'accept');
-            });
-            setReview(next); save(); render(); modal.querySelector('#mrv-title').focus();
-          };
+          exclude.onclick = () => excludeMaterial(Array.from(new Set(group.map(i => String(i.target.id)))), true);
           actions.appendChild(exclude);
         }
         showChoice();
-        if ((r.initial.decisions[issue.id] || {}).choice === 'manual') editBox(false);
+        if ((r.initial.decisions[issue.id] || {}).choice === 'manual' || editingIssue?.id === issue.id) editBox(false);
         if (!editable) editor.querySelectorAll('button,input,textarea,select').forEach(el => { el.disabled = true; });
         content.appendChild(card);
       }
@@ -1708,7 +1799,7 @@
       if (issuePrima && issuePrima === activeIssueId && scrollPrima) content.scrollTop = scrollPrima;
     }
     render();
-    modal.querySelector('#mrv-later').onclick = async () => { if (busy) return; await pendingSave; if (!saveError && !busy) close(); };
+    modal.querySelector('#mrv-later').onclick = async () => { if (busy || invalidEditors.size) { status.textContent = t('rv_edit_draft', 'Modifica non salvata. Salva oppure annulla prima di continuare.'); return; } await pendingSave; if (!saveError && !busy) close(); };
     proceed.onclick = async () => {
       if (closed || busy || committing || invalidEditors.size || proceed.hidden) return;
       freeze(true);

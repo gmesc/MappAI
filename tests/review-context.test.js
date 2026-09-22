@@ -48,6 +48,33 @@ test('coverage supports older reports, absent items and contradictory completion
     assert.equal(rows.length, 2); assert.equal(rows[0].item, null); assert.equal(rows[1].id, 'a');
 });
 
+test('coverage failure explains the recorded judge validations without rewriting the report', () => {
+    const items = ['foreign', 'claims', 'issue', 'unknown'].map(id => ({ id, kind: 'flashcard' }));
+    const report = { coverage: { expectedIds: items.map(item => item.id), checkedIds: [], skipped: [
+        { id: 'foreign', reason: 'Gli elenchi di controllo contengono ID estranei al lotto' },
+        { id: 'claims', reason: 'Una o più affermazioni non hanno un esito verificabile' },
+        { id: 'issue', reason: 'Una segnalazione non è verificabile' },
+        { id: 'unknown', reason: 'Risposta priva degli elenchi di controllo previsti' }
+    ], claims: [{ itemId: 'claims', field: 'answer', text: 'Una citazione.', checked: false, status: 'supported' }] },
+    batches: [{ ids: ['foreign'], reason: 'Gli elenchi di controllo contengono ID estranei al lotto' }] };
+    const saved = JSON.stringify(report);
+    assert.deepEqual(Context.incompleteMaterials(report, items).map(Context.coverageFailure),
+        ['foreign_ids', 'unverified_claims', 'unverified_issues', 'unknown']);
+    assert.equal(JSON.stringify(report), saved);
+    assert.equal(Context.coverageFailure({ error: 'IPC: Gli elenchi di controllo contengono ID estranei al lotto', reason: 'Controllo non riuscito' }), 'foreign_ids');
+});
+
+test('coverage failure never guesses a network cause or interprets claim text as diagnostics', () => {
+    for (const error of ['HTTP 400 INVALID_ARGUMENT', 'Failed to fetch', 'Risposta troncata o interrotta', 'Controllo non riuscito']) {
+        assert.equal(Context.coverageFailure({ error, claims: [{ status: 'missing' }] }), 'unknown');
+    }
+    for (const status of ['uncertain', 'missing', 'unverified']) {
+        assert.equal(Context.coverageFailure({ claims: [{ status }] }), 'unverified_claims');
+    }
+    assert.equal(Context.coverageFailure({ claims: [{ status: 'supported', text: 'Gli elenchi di controllo contengono ID estranei al lotto' }] }), 'unknown');
+    assert.equal(Context.coverageFailure(), 'unknown');
+});
+
 test('map nodes use their L1 group and custom map colours, including light grey', () => {
     const describe = Context.createIndex(db(), {}, palette).describe;
     const result = describe({ target: { kind: 'node', id: 'n1' } });

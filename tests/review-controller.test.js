@@ -311,6 +311,7 @@ test('each remaining material is approved on its own; all approved unlocks compl
   const card = currentCard(modal);
   await card.querySelector('[data-review-choice="manual"]').click();
   const input = card.querySelector('[data-editor] textarea'); input.value = 'Risposta corretta a mano.'; input.oninput(); await tick();
+  await card.querySelector('[data-edit-save]').click();
   assert.equal(proceed().hidden, true);
   await modal.querySelector('[data-review-filter="pending"]').click();
   // l'etichetta dice QUALE versione si approva (17/9/26): corretta a mano → la proposta; intatta → l'originale
@@ -335,14 +336,15 @@ test('reviewing a residual adds one field decision, previews its correction and 
   let confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
   assert.equal(modal.querySelector('#mrv-continue').hidden, false);
   await modal.querySelector('[data-coverage-item="material-240"] [data-coverage-edit="answer"]').click();
-  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
-  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
-  assert.equal(h.m.review.final.review.initial.issues.length, 7);
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, true);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  assert.equal(h.m.review.final.review.initial.issues.length, 6);
   let card = currentCard(modal);
   assert.doesNotMatch(card.textContent, /Il giudice segnala un problema|La prova non è disponibile/);
   assert.match(card.textContent, /Hai aperto questa scheda/);
   await card.querySelector('[data-review-choice="manual"]').click();
   const input = card.querySelector('[data-editor] textarea'); input.value = 'Risposta verificata personalmente.'; input.oninput(); await tick();
+  await card.querySelector('[data-edit-save]').click();
   await modal.querySelector('[data-review-filter="pending"]').click();
   const version = modal.querySelector('[data-coverage-item="material-240"] .mrv-coverage-version');
   assert.match(version.textContent, /Risposta 240\./); assert.match(version.textContent, /Risposta verificata personalmente/);
@@ -352,8 +354,10 @@ test('reviewing a residual adds one field decision, previews its correction and 
   assert.equal(h.m.review.final.review.initial.issues.length, 7, 'opening the same field reuses its saved decision');
   assert.equal(currentCard(modal).querySelector('[data-editor] textarea').value, 'Risposta verificata personalmente.');
   confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
-  // Even a later edit in the already open editor invalidates the confirmation.
+  // Saving a later edit invalidates the confirmation; a local draft does not.
   const edit = currentCard(modal).querySelector('[data-editor] textarea'); edit.value = 'Versione definitiva verificata.'; edit.oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  confirmation = modal.querySelector('#mrv-manual-confirm');
   assert.equal(confirmation.checked, false); assert.equal(modal.querySelector('#mrv-continue').hidden, true);
   confirmation.checked = true; confirmation.onchange();
   await modal.querySelector('#mrv-continue').click();
@@ -374,12 +378,14 @@ test('a residual edit reopens an existing decision without resetting it, and blo
   assert.equal(currentCard(modal).getAttribute('data-review-card'), 'existing');
   assert.deepEqual(clone(final.review), before); assert.equal(h.calls.manifest, 0);
   h.opts.failSave = true;
+  const input = currentCard(modal).querySelector('textarea'); input.value = 'Correzione da conservare.'; input.oninput();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
   await modal.querySelector('[data-coverage-item="material-241"] [data-coverage-edit="answer"]').click();
   assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
   assert.equal(currentCard(modal).getAttribute('data-review-card'), 'existing');
   h.opts.failSave = false; await modal.querySelector('#mrv-save-retry').click(); await tick();
   await modal.querySelector('[data-coverage-item="material-241"] [data-coverage-edit="answer"]').click();
-  assert.equal(final.review.initial.issues.length, 8, 'retrying a failed save does not duplicate the field decision');
+  assert.equal(final.review.initial.issues.length, 7, 'retrying the save does not duplicate the decision, and opening another field adds no issue');
 });
 
 test('manual corrections for two residuals with identical text never share a decision group', () => {
@@ -437,8 +443,10 @@ test('MC alternatives use separate fields and preserve commas, arrays and decisi
   const fields = modal.querySelectorAll('[data-editor] textarea');
   assert.equal(fields.length, 2); assert.equal(fields[0].value, 'Germania, nel 1940');
   fields[0].value = 'Germania, prima della guerra'; fields[0].oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
   assert.deepEqual(clone(m.review.final.review.initial.decisions.options.text), ['Germania, prima della guerra', 'Svizzera']);
-  await buttons.find(b => b.textContent === 'Annulla decisione').click(); await tick();
+  await modal.querySelector('[data-review-filter=decided]').click();
+  await currentCard(modal).querySelector('[data-review-choice=pending]').click(); await tick();
   assert.equal(m.review.final.review.initial.decisions.options.choice, 'pending');
   assert.equal(m.review.final.items[0].options[0], 'Germania, nel 1940');
 });
@@ -528,14 +536,18 @@ test('relationship editing previews every chosen field, offers the gerund fix ex
   assert.match(card.querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a/);
   assert.equal(card.querySelector('[data-relation-part=question]').getAttribute('data-changed'), 'true');
   assert.match(card.querySelector('[data-relation-edit=question]').textContent, /^Modifica proposta · /, 'once edited, the part is a proposal');
+  await card.querySelector('[data-edit-save]').click();
   assert.equal(m.review.final.review.initial.decisions.wording.text, item.question.replace('con facendo', 'facendo'));
   assert.deepEqual(m.review.final.items, [item], 'approval, not an inline suggestion, updates the published draft');
 
+  await modal.querySelector('[data-review-filter=decided]').click();
+  card = currentCard(modal);
   await card.querySelector('[data-relation-edit=answer]').click();
   card = currentCard(modal);
   const second = card.querySelector('[data-review-field=answer]');
   second.value = 'ciò che accade nel circuito elettrico.'; second.oninput(); await tick();
   assert.match(card.querySelector('[data-relation-sentence]').textContent, /scorre facendo.*è analogo a ciò che accade/);
+  await card.querySelector('[data-edit-save]').click();
   await modal.querySelector('#mrv-later').click();
   const reopened = h.R.open('/vault', h.saved.manifest, { final: true });
   await reopened.querySelector('[data-review-filter=decided]').click();
@@ -573,11 +585,14 @@ test('relationship previews do not group different sentences or claim a result f
   assert.equal(modal.querySelectorAll('[data-review-card]').length, 2);
   await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   const input = currentCard(modal).querySelector('textarea'); input.value = 'Premessa scelta'; input.oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
   assert.equal(m.review.final.review.initial.decisions['fix-two']?.choice || 'pending', 'pending');
   await modal.querySelector('#mrv-later').click();
   m.review.final.review = Core.addIssue(m.review.final.review, { id: 'overlap', target: { kind: 'item', id: 'one', field: 'question' }, after: 'Altra scelta' });
   m.review.final.review = Core.setDecision(m.review.final.review, 'overlap', 'accept');
   const conflict = h.R.open('/vault', m, { final: true });
+  await conflict.querySelector('[data-review-filter=all]').click();
+  await conflict.querySelector('[data-review-issue=fix-one]').click();
   assert.match(currentCard(conflict).querySelector('[data-relation-preview]').textContent, /decisioni in conflitto/);
   assert.equal(currentCard(conflict).querySelector('[data-relation-sentence]'), null);
   await conflict.querySelector('#mrv-later').click();
@@ -602,6 +617,7 @@ test('review references and editor use reversible source labels, leaving origina
   const input = modal.querySelector('[data-editor] textarea');
   assert.doesNotMatch(input.value, /src-/);
   input.value = input.value.replace('Il governo', 'L’Assemblea'); input.oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
   assert.equal(m.review.final.review.initial.decisions['intro-issue'].text,
     'L’Assemblea agì [[src-one]]. Un altro fatto [[src-missing]].');
   assert.deepEqual(m.review.final.items, [item], 'drafts change only on final approval');
@@ -992,7 +1008,8 @@ test('G2 exposes every unchecked material without creating findings or modifying
   assert.equal(details.querySelectorAll('[data-coverage-item]').length, 105);
   assert.match(details.textContent, /Domanda salvata 104/);
   assert.match(details.textContent, /HTTP 400: schema non valido/);
-  assert.match(details.textContent, /problema tecnico/);
+  assert.match(details.textContent, /Il controllo automatico non è completo/);
+  assert.doesNotMatch(details.textContent, /interrotto per un problema tecnico/);
   assert.equal(details.querySelector('.mrv-coverage-technical').getAttribute('open'), undefined);
   assert.doesNotMatch(h.dom.text(), /Nessuna proposta di correzione\. Puoi leggere i contenuti e continuare\./);
   assert.equal(modal.querySelector('#mrv-filters').hidden, true);
@@ -1021,14 +1038,14 @@ test('G2 retry preserves an unfinished invalid numeric edit and does not call th
   await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Modifica il testo').click(); await tick();
   const input = modal.querySelector('[data-editor] input[type="number"]');
   input.value = '4.5'; input.oninput();
-  const savedBeforeRetry = clone(h.saved.manifest), writesBeforeRetry = h.calls.manifest;
+  const savedBeforeRetry = h.saved.manifest && clone(h.saved.manifest), writesBeforeRetry = h.calls.manifest;
   await modal.querySelector('#mrv-retry-judge').click();
   assert.equal(judgeCalls, 0); assert.equal(h.calls.manifest, writesBeforeRetry);
   assert.equal(modal.querySelector('[data-editor] input[type="number"]'), input);
   assert.equal(input.isConnected, true); assert.equal(input.value, '4.5');
   assert.equal(modal.querySelector('#mrv-continue').disabled, true);
   assert.match(modal.querySelector('#mrv-status').textContent, /Completa il campo/);
-  assert.deepEqual(clone(h.saved.manifest), savedBeforeRetry);
+  assert.deepEqual(h.saved.manifest && clone(h.saved.manifest), savedBeforeRetry);
   assert.equal(m.review.final.items[0].lines, 8);
 });
 
@@ -1232,10 +1249,12 @@ test('changing facets preserves a saved manual draft and does not reset the curr
   kind.value = 'mc'; await kind.onchange();
   await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   const input = currentCard(modal).querySelector('textarea'); input.value = 'Rettifica scelta dal docente.'; input.oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
   kind.value = 'flashcard'; await kind.onchange();
   assert.equal(currentCard(modal).getAttribute('data-review-card'), 'context-card');
   await modal.querySelector('[data-review-filter=decided]').click();
   kind.value = 'mc'; await kind.onchange();
+  await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   assert.equal(currentCard(modal).querySelector('textarea').value, input.value);
   assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, input.value);
 });
@@ -1316,7 +1335,11 @@ test('individual decisions remain separate after closing and reopening the revie
   await h.modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
   await currentCard(h.modal).querySelector('[data-review-choice=manual]').click();
   const input = currentCard(h.modal).querySelector('textarea'); input.value = 'Correzione individuale MC.'; input.oninput(); await tick();
-  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'context-open', 'reject');
+  await currentCard(h.modal).querySelector('[data-edit-save]').click();
+  await h.modal.querySelector('[data-review-filter=pending]').click();
+  await h.modal.querySelector('[data-review-issue=context-open]').click();
+  await currentCard(h.modal).querySelector('[data-review-choice=reject]').click();
+  await h.modal.querySelector('#mrv-later').click();
   const reopened = h.R.open('/vault', h.m, { final: true });
   await reopened.querySelector('[data-review-filter=decided]').click();
   assert.equal(reopened.querySelectorAll('[data-review-issue]').length, 2);
@@ -1334,12 +1357,18 @@ test('reopening occurrence results refreshes edited text without replacing the a
   await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   const input = currentCard(modal).querySelector('textarea'); input.value = 'Scelta individuale.'; input.oninput(); await tick();
   const details = modal.querySelector('#mrv-occurrences'); details.open = true; details.ontoggle();
-  assert.equal(modal.querySelector('[data-occurrence-item=mc]'), null);
+  assert.ok(modal.querySelector('[data-occurrence-item=mc]'), 'search still uses saved text while the editor contains a local draft');
   assert.ok(modal.querySelector('[data-occurrence-item=open]'));
-  assert.equal(currentCard(modal).querySelector('textarea'), input);
-  input.value = 'Il conflitto spiegato.'; input.oninput(); await tick();
+  assert.ok(currentCard(modal).querySelector('textarea') === input);
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  assert.equal(modal.querySelector('[data-occurrence-item=mc]'), null);
+  await searchMaterials(modal, 'individuale');
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=explanation]').click();
+  const second = currentCard(modal).querySelector('textarea'); second.value = 'Il conflitto spiegato.'; second.oninput(); await tick();
+  assert.ok(currentCard(modal).querySelector('textarea') === second);
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  await searchMaterials(modal, 'conflitto');
   assert.ok(modal.querySelector('[data-occurrence-item=mc]'));
-  assert.equal(currentCard(modal).querySelector('textarea'), input);
 });
 
 test('full material context shows canonical criteria and MC options without stale aliases', async () => {
@@ -1399,6 +1428,7 @@ test('editing a found occurrence isolates a previously grouped proposal and keep
   assert.equal(card.querySelector('[data-review-targets]'), null, 'an individual edit must not inherit a shared action');
   await card.querySelector('[data-review-choice=manual]').click();
   const input = card.querySelector('textarea'); input.value = 'Spiegazione rettificata dal docente.'; input.oninput(); await tick();
+  await card.querySelector('[data-edit-save]').click();
   assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, input.value);
   assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-open'], undefined);
   assert.equal(h.m.review.final.items[0].explanation, 'Prima del conflitto.');
@@ -1419,7 +1449,8 @@ test('moving from an accepted occurrence to manual editing starts from the chose
   assert.deepEqual(clone(h.m.review.final.review), before, 'opening an existing field is read-only');
   await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   assert.equal(currentCard(modal).querySelector('textarea').value, 'Dopo il conflitto.');
-  assert.equal(h.saved.manifest.review.final.review.initial.decisions['context-mc'].text, 'Dopo il conflitto.');
+  assert.deepEqual(clone(h.m.review.final.review), before, 'opening the manual editor does not replace the accepted decision');
+  assert.equal(h.calls.manifest, 0);
   assert.equal(h.m.review.final.review.initial.decisions['context-open'], undefined);
 });
 
@@ -1430,9 +1461,11 @@ test('an occurrence edit invalidates personal confirmation, persists once and ex
   await searchMaterials(modal, 'Risposta 240');
   assert.equal(confirmation.checked, true, 'looking for matches is not a new decision');
   await modal.querySelector('[data-occurrence-item="material-240"] [data-occurrence-edit=answer]').click();
-  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, true);
   await currentCard(modal).querySelector('[data-review-choice=manual]').click();
   const input = currentCard(modal).querySelector('textarea'); input.value = 'Risposta controllata.'; input.oninput(); await tick();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
   confirmation = modal.querySelector('#mrv-manual-confirm'); confirmation.checked = true; confirmation.onchange();
   await modal.querySelector('#mrv-continue').click();
   assert.equal(m.review.final.items.find(item => item.id === 'material-240').answer, 'Risposta controllata.');
@@ -1459,8 +1492,13 @@ test('failed saves and unfinished numeric edits block occurrence navigation with
   await searchMaterials(modal, 'Domanda');
   h.opts.failSave = true;
   await modal.querySelector('[data-occurrence-item=open] [data-occurrence-edit=question]').click();
+  assert.equal(h.calls.manifest, 0, 'opening an occurrence needs no save');
+  const question = currentCard(modal).querySelector('textarea'); question.value = 'Domanda corretta.'; question.oninput();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  const failedCard = currentCard(modal).getAttribute('data-review-card');
+  await modal.querySelector('[data-occurrence-item=mc] [data-occurrence-edit=question]').click();
   assert.match(modal.querySelector('#mrv-status').textContent, /Disco non disponibile/);
-  assert.equal(currentCard(modal).getAttribute('data-review-card'), 'context-mc');
+  assert.equal(currentCard(modal).getAttribute('data-review-card'), failedCard);
   h.opts.failSave = false; await modal.querySelector('#mrv-save-retry').click(); await tick();
   await modal.querySelector('[data-occurrence-item=open] [data-occurrence-edit=question]').click();
   assert.equal(h.m.review.final.review.initial.issues.length, 4);
@@ -1474,4 +1512,119 @@ test('failed saves and unfinished numeric edits block occurrence navigation with
   assert.equal(currentCard(reopened).getAttribute('data-review-card'), 'line-edit');
   assert.equal(currentCard(reopened).querySelector('input[type=number]'), input);
   assert.equal(input.value, '');
+});
+
+test('0015 opening or cancelling an editor preserves approvals and creates no persisted issue', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  for (let i = 240; i < 245; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  const before = clone(h.m.review.final.review), writes = h.calls.manifest;
+  await modal.querySelector('[data-coverage-item="material-245"] [data-coverage-edit="answer"]').click();
+  assert.deepEqual(clone(h.m.review.final.review), before, 'opening must not persist a pending issue');
+  assert.equal(h.calls.manifest, writes);
+  assert.equal(modal.querySelectorAll('[data-coverage-approve][aria-pressed="true"]').length, 5);
+  await currentCard(modal).querySelector('[data-edit-cancel]').click();
+  assert.deepEqual(clone(h.m.review.final.review), before);
+  assert.equal(modal.querySelectorAll('[data-teacher-approved]').length, 5);
+});
+
+test('0015 direct exclusion is conclusive and restore preserves previous approvals', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  for (let i = 240; i < 250; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  const checks = clone(h.m.review.final.review.initial.manualChecks);
+  await modal.querySelector('[data-coverage-exclude="material-245"]').click();
+  assert.equal(modal.querySelector('[data-coverage-approve="material-245"]'), null);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  assert.ok(modal.querySelector('[data-coverage-restore="material-245"]'));
+  assert.deepEqual(clone(h.m.review.final.review.initial.manualChecks), checks);
+  await modal.querySelector('[data-coverage-restore="material-245"]').click();
+  assert.equal(modal.querySelectorAll('[data-coverage-approve][aria-pressed="true"]').length, 10);
+});
+
+test('0015 only a saved change revokes the matching approval and a draft cannot be accidentally reset', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  for (let i = 240; i < 246; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  const before = clone(h.m.review.final.review);
+  const open = () => modal.querySelector('[data-coverage-item="material-245"] [data-coverage-edit="answer"]').click();
+  await open();
+  await currentCard(modal).querySelector('[data-edit-save]').click();
+  assert.deepEqual(clone(h.m.review.final.review), before, 'save unchanged does not add an issue');
+  await open();
+  let card = currentCard(modal), input = card.querySelector('textarea');
+  input.value = 'Correzione in bozza.'; input.oninput();
+  await card.querySelector('[data-review-choice="manual"]').click();
+  assert.equal(card.querySelector('textarea').value, 'Correzione in bozza.');
+  await card.querySelector('[data-review-choice="reject"]').click();
+  assert.deepEqual(clone(h.m.review.final.review), before, 'another choice cannot discard an unsaved draft');
+  assert.equal(modal.querySelectorAll('[data-teacher-approved]').length, 6);
+  await card.querySelector('[data-edit-save]').click();
+  assert.equal(modal.querySelectorAll('[data-teacher-approved]').length, 5);
+  assert.equal(h.m.review.final.review.initial.checkStatus, 'incomplete');
+  const reloaded = clone(h.saved.manifest);
+  await modal.querySelector('#mrv-later').click();
+  const again = h.R.open('/vault', reloaded, { final: true });
+  assert.equal(again.querySelectorAll('[data-teacher-approved]').length, 5);
+  assert.match(again.querySelector('[data-coverage-item="material-245"] .mrv-coverage-version').textContent, /Correzione in bozza/);
+});
+
+test('0015 local pending/conflicts leave other previews and checks valid but block final approval', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  for (let i = 240; i < 246; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  const final = h.m.review.final;
+  final.review = Core.addIssue(final.review, {id:'local-pending',target:{kind:'item',id:'material-245',field:'answer'},after:'Una scelta.'});
+  await modal.querySelector('[data-review-filter="all"]').click();
+  assert.equal(modal.querySelectorAll('[data-teacher-approved]').length, 5);
+  assert.equal(modal.querySelector('[data-coverage-approve="material-245"]').disabled, true);
+  assert.ok(modal.querySelector('[data-coverage-resolve="material-245"]'));
+  assert.match(modal.querySelector('[data-coverage-item="material-244"] .mrv-coverage-version').textContent, /Risposta 244/);
+  final.review = Core.setDecision(final.review,'local-pending','accept');
+  final.review = Core.addIssue(final.review,{id:'collision',target:{kind:'item',id:'material-245',field:'answer'},after:'Scelta incompatibile.'});
+  final.review = Core.setDecision(final.review,'collision','accept');
+  await modal.querySelector('[data-review-filter="all"]').click();
+  assert.equal(modal.querySelectorAll('[data-teacher-approved]').length, 5);
+  assert.equal(Core.beginApproval(final.review,{items:final.items},{manualReview:true}).ok,false);
+  await modal.querySelector('[data-coverage-exclude="material-245"]').click();
+  assert.equal(modal.querySelector('[data-coverage-approve="material-245"]'),null);
+  const persisted = clone(h.saved.manifest);
+  await modal.querySelector('#mrv-later').click();
+  const again = h.R.open('/vault',persisted,{final:true});
+  await again.querySelector('[data-coverage-restore="material-245"]').click();
+  assert.equal(again.querySelector('[data-coverage-approve="material-245"]').disabled,true,'restoring exposes the previous conflict');
+  assert.equal(again.querySelectorAll('[data-teacher-approved]').length,5);
+});
+
+test('0015 recorded validation causes remain distinct from network failures in the 95-item case', () => {
+  const items = Array.from({length:95},(_,i)=>({id:'n'+i,kind:i<38?'nodesheet':'flashcard',question:'Domanda '+i,answer:'Risposta '+i}));
+  const m=finalManifest(items,[]),h=runtime(),r=m.review.final.review;
+  const reasons=['Gli elenchi di controllo contengono ID estranei al lotto','Una o più affermazioni non hanno un esito verificabile','Una segnalazione non è verificabile'];
+  r.initial.checkStatus='incomplete';
+  r.initial.report={checkStatus:'incomplete',coverage:{expectedIds:items.slice(38).map(i=>i.id),checkedIds:[],skipped:items.slice(38).map((i,n)=>({id:i.id,reason:reasons[n<36?0:n<54?1:2]}))}};
+  const before=clone(r.initial.report),modal=h.R.open('/vault',m,{final:true});
+  assert.equal(modal.querySelectorAll('[data-coverage-item]').length,57);
+  assert.match(modal.querySelector('[data-coverage-item="n38"]').textContent,/identificativi che non corrispondono/);
+  assert.match(modal.querySelector('[data-coverage-item="n74"]').textContent,/esito verificabile per tutte le affermazioni/);
+  assert.match(modal.querySelector('[data-coverage-item="n92"]').textContent,/segnalazione che non è stato possibile verificare/);
+  assert.doesNotMatch(modal.textContent,/interrotto per un problema tecnico|errore di rete/);
+  assert.equal(modal.querySelector('#mrv-continue').hidden,true);
+  assert.deepEqual(clone(r.initial.report),before);
+});
+
+test('0015 stale global content explains the global block without erasing saved checks', async () => {
+  const h=stalledMaterialFixture(),modal=h.R.open('/vault',h.m,{final:true});
+  await modal.querySelector('[data-coverage-approve="material-240"]').click();
+  h.m.review.final.items[0].answer='Modifica esterna';
+  await modal.querySelector('[data-review-filter="all"]').click();
+  assert.match(modal.querySelector('[data-coverage-item="material-240"] .mrv-coverage-version').textContent,/non corrispondono alla versione/);
+  assert.doesNotMatch(modal.querySelector('[data-coverage-item="material-240"] .mrv-coverage-version').textContent,/altri materiali restano disponibili/);
+  assert.ok(h.m.review.final.review.initial.manualChecks['material-240']);
+  assert.equal(modal.querySelector('[data-coverage-approve="material-240"]').disabled,true);
+});
+
+
+test('0015 a report referring to a missing material remains readable and cannot be approved', () => {
+  const h=stalledMaterialFixture(),r=h.m.review.final.review;
+  r.initial.report.coverage.skipped.push({id:'unknown-item',reason:'Esito mancante'});
+  const modal=h.R.open('/vault',h.m,{final:true});
+  assert.match(modal.querySelector('[data-coverage-item="unknown-item"]').textContent,/non è disponibile nella bozza salvata/);
+  assert.equal(modal.querySelector('[data-coverage-approve="unknown-item"]'),null);
+  assert.equal(modal.querySelector('#mrv-continue').hidden,true);
 });
