@@ -3444,4 +3444,8 @@ const en_translations = {
     ec_an_fatto: "Grid corrected: archive and PDF updated.",
     ec_an_pdf_ko: "Grid saved, but the PDF could not be rebuilt: ",
     ec_an_solo_arch: "Grid corrected and saved to the archive.",
+    le_none: "None",
+    le_none_preview: "Connection without words",
+    le_none_notice: "With “None”, the line and hierarchy remain, without words on the connection. This choice is not an automatic check.",
+    le_empty_review_choice: "Write a relation or choose “None” as the relation type.",
 };

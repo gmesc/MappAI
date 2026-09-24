@@ -60,6 +60,29 @@ function mainHandlers() {
   return handlers;
 }
 
+test('explicit Nessuna survives actual review commit and main save/load', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mappai-none-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const h = mainHandlers(), editor = require('../public/js/mappai-link-editor-core');
+  const data = { nodes: [{ id: 'root', label: 'Titolo', desc: 'Contesto.', level: 0, group: 0 }, { id: 'a', label: 'Ramo', desc: 'Dettaglio.', level: 1, group: 1, parentId: 'root' }],
+    links: [{ id: 'l', source: 'root', target: 'a', rel: 'comprende', isCross: false }], sourcesDict: {} };
+  const initial = R.createReview({ db: data, report: { checkStatus: 'completed' } });
+  const edited = editor.decision(initial, data, editor.reference(data.links[0]), '', { relNone: true });
+  const result = R.beginApproval(edited, data); assert.equal(result.ok, true);
+  S.saveManifest(dir, { review: result.review }, 0);
+  const save = await h['save-vault']({}, { folderPath: dir, mapData: { ...result.db, rootNodeLabel: 'Titolo',
+    reviewRevision: initial.baseRevision, reviewCommit: result.revision } });
+  assert.equal(save.success, true, save.error);
+  const loaded = await h['load-vault']({}, dir); assert.equal(loaded.success, true, loaded.error);
+  assert.equal(loaded.data.links[0].rel, ''); assert.equal(loaded.data.links[0].relNone, true);
+  assert.equal(loaded.data.nodes.find(n => n.id === 'a').parentId, 'root');
+  assert.deepEqual(JSON.parse(JSON.stringify(R.semanticSnapshot(loaded.data))), result.review.approvedSnapshot);
+  const approved = R.completeApproval(result.review, R.revision(loaded.data, []));
+  assert.equal(R.gate(approved, loaded.data, []).allowed, true);
+  const restored = editor.withLabel(loaded.data, editor.reference(loaded.data.links[0]), 'comprende');
+  assert.equal(restored.links[0].relNone, undefined);
+});
+
 test('actual main save/load roundtrip preserves authored fields, links and original citation metadata', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mappai-roundtrip-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

@@ -128,6 +128,63 @@ function runtime(opts = {}) {
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
+test('Nessuna is explicit in review, survives approval and can be changed back', () => {
+    const data = db(), ref = Core.reference(data.links[0]);
+    const original = Review.createReview({ db: data, sources: [], report: { checkStatus: 'completed' } });
+    const edited = Core.decision(original, data, ref, '', { relNone: true, problem: 'Nessuna' });
+    assert.equal(Core.draft(edited, ref), ''); assert.equal(Core.draftNone(edited, ref), true);
+    assert.equal(data.links[0].rel, ref.rel);
+    const result = Review.beginApproval(edited, data, { sources: [] });
+    assert.equal(result.ok, true, JSON.stringify(result.conflicts));
+    assert.equal(result.db.links[0].rel, ''); assert.equal(result.db.links[0].relNone, true);
+    assert.equal(result.review.approvedSnapshot.links[0].rel, '');
+    const approved = Review.completeApproval(result.review, result.revision);
+    assert.equal(Review.gate(approved, result.db, []).allowed, true);
+    const back = Core.decision(edited, data, ref, 'comprende', { problem: 'Rinomina' });
+    assert.equal(back.initial.issues.length, 1); assert.equal(Core.draftNone(back, ref), false);
+    assert.equal(Review.beginApproval(back, data, { sources: [] }).db.links[0].relNone, undefined);
+    const legacy = copy(data); legacy.links[0].rel = '';
+    const legacyInclude = copy(legacy); legacyInclude.links[0].rel = 'include';
+    assert.equal(Review.revision(legacy, []), Review.revision(legacyInclude, []));
+    assert.notEqual(Review.revision(result.db, []), Review.revision(legacy, []));
+});
+
+test('Nessuna UI persists, reopens, restores a word, and both Undo steps restore their states', async () => {
+    const h = runtime(); let renders = 0;
+    h.window.MappAIStudioView = { refreshLinks: () => renders++ };
+    const first = h.open(), select = h.box().querySelector('[data-campo="family"]');
+    select.value = 'none'; select.listeners.change();
+    assert.equal(h.box().querySelector('[data-campo="relation"]').value, '');
+    assert.match(h.text(), /Collegamento senza parole/);
+    h.save(); await tick(); await first;
+    assert.equal(h.calls[0].mapData.links[0].relNone, true); assert.equal(h.st.db.links[0].relNone, true);
+    const second = h.open(); assert.equal(h.box().querySelector('[data-campo="family"]').value, 'none');
+    h.input('comprende'); h.save(); await tick(); await second;
+    assert.equal(h.st.db.links[0].relNone, undefined);
+    await h.window.undoLastAction();
+    assert.equal(h.st.db.links[0].rel, ''); assert.equal(h.st.db.links[0].relNone, true);
+    await h.window.undoLastAction();
+    assert.equal(h.st.db.links[0].rel, 'avviene in'); assert.equal(h.st.db.links[0].relNone, undefined);
+    assert.equal(renders, 4);
+});
+
+test('empty input is blocked in review; explicit Nessuna uses a decision and preserves the map', async () => {
+    const h = runtime(); let review = Review.createReview({ db: h.st.db, report: { checkStatus: 'partial' } });
+    h.window.MappAIReview.current = () => review;
+    h.window.MappAIReview.editLinkLabel = async (ref, value, opts) => {
+        const prev = review; review = Core.decision(review, h.st.db, ref, value, opts);
+        return () => { review = prev; };
+    };
+    const pending = h.open(); h.input(''); h.save(); await tick();
+    assert.match(h.text(), /scegli «Nessuna»/); assert.equal(review.initial.issues.length, 0);
+    const select = h.box().querySelector('[data-campo="family"]'); select.value = 'none'; select.listeners.change();
+    h.save(); await tick(); await pending;
+    assert.equal(h.calls.length, 0); assert.equal(h.st.db.links[0].rel, 'avviene in');
+    const reopened = h.open(); assert.equal(h.box().querySelector('[data-campo="family"]').value, 'none');
+    h.cancel(); await reopened;
+    await h.window.undoLastAction(); assert.equal(review.initial.issues.length, 0);
+});
+
 test('UI preview, cancel and unchanged save have no side effects', async () => {
     const h = runtime(), done = h.open();
     h.input('<img src=x> influenza'); assert.ok(h.text().includes('<img src=x> influenza'));

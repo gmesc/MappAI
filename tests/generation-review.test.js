@@ -38,6 +38,21 @@ test('JSONL: empty MERGES never consumes the adjacent CROSSLINKS header', () => 
 const GOLD = 'La Germania vende oro alla Svizzera e riceve valuta dalla Banca Nazionale Svizzera.';
 const WRONG = 'La Svizzera vende oro alla Germania e riceve valuta dalla Banca Nazionale Svizzera.';
 const FOOD = 'Il razionamento distribuisce una quantità limitata di alimenti alla popolazione durante la guerra.';
+
+test('judge does not request or count a relation-free link as checked', async () => {
+    const { window: w, appState: st } = runtime(); setMap(st);
+    st.db.links = [{ source: 'A', target: 'B', rel: '', relNone: true }];
+    w.fetchModelAPI = async payload => {
+        const properties = payload.generationConfig.responseSchema.properties;
+        assert.equal(properties.link.maxItems, 0, 'no assertions about relation-free edges');
+        return response({ nodi: [], link: [] });
+    };
+    const r = await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+    assert.equal(r.copertura.linkEsaminati.length, 0);
+    assert.equal(r.copertura.linkSaltati.length, 0);
+    assert.equal(r.copertura.nodiSaltati.length, 0, JSON.stringify(r.copertura));
+    assert.equal(st.db.links[0].relNone, true);
+});
 function setMap(st) {
     const a = { id: 'A', label: 'Valuta', group: 1, level: 1, desc: WRONG, aiDesc: WRONG };
     const b = { id: 'B', label: 'Alimenti', group: 2, level: 1, desc: FOOD };

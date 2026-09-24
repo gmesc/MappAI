@@ -229,12 +229,12 @@
   R.isBusy = () => busy || committing;
   // An open review keeps its base map intact. The editor adds a teacher
   // decision through the same core and writer used by the review surface.
-  R.editLinkLabel = async function (ref, value) {
+  R.editLinkLabel = async function (ref, value, opts) {
     const s = state(), vaultPath = s.activeVaultPath;
     const previous = R.current();
     if (!previous || previous.initial.status !== 'awaiting_review') throw new Error('stale_revision');
     const next = window.MappAILinkEditorCore.decision(previous, s.db, ref, value, {
-      problem: t('le_manual_change', 'Parole del collegamento modificate dal docente.'), now: new Date().toISOString()
+      problem: t('le_manual_change', 'Parole del collegamento modificate dal docente.'), now: new Date().toISOString(), relNone: opts?.relNone === true
     });
     async function persist(expected, review) {
       assertProject(vaultPath);
@@ -413,6 +413,7 @@
       const l = typeof value === 'object' ? value : Object.assign({}, target, { rel: value });
       const matches = l.id != null ? (state().db.links || []).filter(link => String(link.id) === String(l.id)) : [];
       const saved = matches.length === 1 ? matches[0] : {};
+      if (l.rel === '') return nodeLabel(l.source ?? saved.source) + ' — ' + nodeLabel(l.target ?? saved.target) + ' · ' + t('le_none_preview', 'Collegamento senza parole');
       return nodeLabel(l.source ?? saved.source) + ' → ' + String(l.rel || '') + ' → ' + nodeLabel(l.target ?? saved.target);
     }
     if (target && target.field === 'correctIndex') {

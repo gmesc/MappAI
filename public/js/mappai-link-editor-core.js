@@ -9,12 +9,14 @@
     function reference(link) {
         const ref = { source: id(link.source), target: id(link.target), rel: String(link.rel || '') };
         if (link.id != null) ref.id = id(link.id);
+        if (link.relNone === true && !ref.rel) ref.relNone = true;
         return ref;
     }
     function find(db, ref) {
         const matches = (db.links || []).filter(l =>
             (ref.id == null || id(l.id) === ref.id) && id(l.source) === ref.source &&
-            id(l.target) === ref.target && String(l.rel || '') === ref.rel);
+            id(l.target) === ref.target && String(l.rel || '') === ref.rel &&
+            (l.relNone === true && !l.rel) === (ref.relNone === true));
         if (matches.length !== 1) throw new Error('link_changed');
         return matches[0];
     }
@@ -25,12 +27,23 @@
             return String(node.label || key);
         });
     }
-    function withLabel(db, ref, value) {
+    function withLabel(db, ref, value, opts) {
         const link = find(db, ref);
-        const next = Object.assign({}, db, { links: db.links.map(l => Object.assign({}, l, {
-            source: id(l.source), target: id(l.target), rel: l === link ? String(value).trim() : l.rel
-        })) });
-        try { find(next, Object.assign({}, ref, { rel: String(value).trim() })); }
+        const next = Object.assign({}, db, { links: db.links.map(l => {
+            const row = Object.assign({}, l, {
+                source: id(l.source), target: id(l.target), rel: l === link ? String(value).trim() : l.rel
+            });
+            if (l === link) {
+                if (!row.rel && opts?.relNone === true) row.relNone = true;
+                else delete row.relNone;
+            }
+            return row;
+        }) });
+        const after = next.links[db.links.indexOf(link)];
+        // Even differently marked empty labels are visually indistinguishable.
+        if (next.links.some(l => l !== after && id(l.source) === ref.source && id(l.target) === ref.target && l.rel === after.rel &&
+            (after.id == null || id(l.id) === id(after.id)))) throw new Error('ambiguous_label');
+        try { find(next, reference(after)); }
         catch (_) { throw new Error('ambiguous_label'); }
         return next;
     }
@@ -39,10 +52,15 @@
         const decision = review && review.initial && review.initial.decisions[issueId(ref)];
         return decision && decision.choice === 'manual' ? decision.text : ref.rel;
     }
+    function draftNone(review, ref) {
+        const decision = review && review.initial && review.initial.decisions[issueId(ref)];
+        return decision?.choice === 'manual' ? decision.relNone === true : ref.relNone === true;
+    }
     function decision(review, db, ref, value, opts) {
         const link = find(db, ref);
-        if (!String(value).trim()) throw new Error('empty_review_label');
-        withLabel(db, ref, value);
+        opts = opts || {};
+        if (!String(value).trim() && opts.relNone !== true) throw new Error('empty_review_label');
+        withLabel(db, ref, value, opts);
         if (Review.revision(db, review.sources) !== review.baseRevision) throw new Error('stale_revision');
         const key = issueId(ref), target = Object.assign({ kind: 'link', field: 'rel' }, ref);
         if (link.rel == null) delete target.rel;
@@ -50,7 +68,7 @@
         const next = existing ? review : Review.addIssue(review, {
             id: key, target, origin: 'teacher', problem: opts.problem
         }, db);
-        return Review.setDecision(next, key, 'manual', { text: String(value).trim(), now: opts.now });
+        return Review.setDecision(next, key, 'manual', { text: String(value).trim(), relNone: opts.relNone, now: opts.now });
     }
-    return { reference, find, labels, withLabel, draft, decision };
+    return { reference, find, labels, withLabel, draft, draftNone, decision };
 }));

@@ -244,6 +244,8 @@
             desc: String(n.desc || n.content || '').slice(0, 260)
         }));
         const links = (appState.db.links || []).map(l => ({
+            ...(l.id != null ? { id: l.id } : {}),
+            ...(l.relNone === true && !l.rel ? { relNone: true } : {}),
             source: (typeof l.source === 'object' && l.source) ? l.source.id : l.source,
             target: (typeof l.target === 'object' && l.target) ? l.target.id : l.target,
             rel: l.rel || '', isCross: !!l.isCross
@@ -361,7 +363,7 @@
             custom: (appState.db && appState.db.customColors) || {},
             fsNode: +p.fsNode, fsRel: +p.fsRel,
             labels: p.labels, hier: p.hier, bands: p.bands, hover: p.hl,
-            onNodeContext: openNodeMenu
+            onNodeContext: openNodeMenu, onLinkContext: openLinkMenu
         });
         handle.fit('read');
         S.handle = handle;
@@ -935,7 +937,7 @@
             custom: (appState.db && appState.db.customColors) || {},
             fsNode: +fp.fsNode, fsRel: +fp.fsRel,
             labels: p.labels, hier: p.hier, bands: p.bands, hover: p.hl, evidenzia: id,
-            onNodeContext: openNodeMenu
+            onNodeContext: openNodeMenu, onLinkContext: openLinkMenu
         });
         handle.fit('all');
         S.focus.res = res; S.focus.handle = handle;
@@ -1285,7 +1287,26 @@
         if (typeof window.exportPDF === 'function') window.exportPDF();
     };
 
+    function openLinkMenu(ev, edge) {
+        if (!edge.ref || !window.MappAILinkEditor?.enabled()) return;
+        try {
+            const link = window.MappAILinkEditorCore.find(appState.db, edge.ref);
+            window.showContextMenu(ev, 'link', link);
+        } catch (_) {
+            window.showToast?.(t('le_changed', 'Il progetto o il collegamento è cambiato. Riapri il collegamento per modificarlo.'), 'warning');
+        }
+    }
+    function refreshLinks() {
+        render();
+        if (S.focus) {
+            const ids = new Set(S.focus.nodes.map(n => n.id)), d = dataset();
+            S.focus.nodes = d.nodes.filter(n => ids.has(n.id));
+            S.focus.links = d.links.filter(l => ids.has(l.source) && ids.has(l.target));
+            renderFocus();
+        }
+    }
     window.MappAIStudioView = {
+        refreshLinks,
         enter, exit, riprendi, render, openFocus, closeFocus, renderFocus, buildControls,
         openDescModal, profile, focusProfile: fprofile, _state: S,
         setMotore, ripristina, nomeMotore, salvaProfilo: scriviUtente,

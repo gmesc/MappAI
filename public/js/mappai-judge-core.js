@@ -180,7 +180,7 @@
         (c.links || []).forEach(function (l) { vivi[chiave(l) + '|' + l.rel] = l; });
         var tolti = [], scartati = [];
         var esaminati = [], saltati = [], accettati = [];
-        var richiesti = Object.values(vivi).filter(function (l) { return !NEUTRI[String(l.rel || '').toLowerCase()]; });
+        var richiesti = Object.values(vivi).filter(function (l) { return !(l.relNone === true && l.rel === '') && !NEUTRI[String(l.rel || '').toLowerCase()]; });
         richiesti.forEach(function (l) {
             var k = chiave(l), paralleli = richiesti.filter(function (x) { return chiave(x) === k; }).length;
             var candidati = (verdetti || []).filter(function (v) {

@@ -125,6 +125,22 @@ test('link decision Undo refuses later decisions; disk failure does not change r
   assert.equal(h.R.current(), before); assert.equal(h.R.isBusy(), false);
 });
 
+test('Nessuna is passed through the real review writer and stays explicit after restore', async () => {
+  const h = runtime(), m = manifest(Core.setDecision(initial(), 'issue', 'reject'));
+  h.st._pipelineManifest = m;
+  const ref = h.window.MappAILinkEditorCore.reference(h.st.db.links[0]);
+  await assert.rejects(h.R.editLinkLabel(ref, ''), /empty_review_label/);
+  const undo = await h.R.editLinkLabel(ref, '', { relNone: true });
+  assert.equal(h.calls.manifest, 1); assert.equal(h.calls.map, 0);
+  assert.equal(h.saved.manifest.review.initial.decisions.issue.choice, 'reject');
+  assert.equal(h.window.MappAILinkEditorCore.draftNone(h.saved.manifest.review, ref), true);
+  const preview = Core.preview(h.saved.manifest.review, h.st.db);
+  assert.equal(preview.ok, true); assert.equal(preview.db.links[0].rel, '');
+  assert.equal(preview.db.links[0].relNone, true);
+  await undo(); assert.equal(h.calls.manifest, 2);
+  assert.deepEqual(h.saved.manifest.review.initial.decisions, m.review.initial.decisions);
+});
+
 test('G1 commit verifies actual persisted content and uses lexical StorageManager', async () => {
   const h = runtime(), r = initial(), m = manifest(Core.setDecision(r, 'issue', 'accept'));
   await h.R.approve('/vault', m);

@@ -2429,6 +2429,7 @@ window.executeJudgePass = async function (apiKey, opts, giro) {
     const archiPerRamo = new Map(rami.map(r => [r.id, []]));
     (appState.db.links || []).forEach(l => {
         if (/^(include|includes|correlato a|related to|dettagli|approfondisce)$/i.test(String(l.rel || ''))) return;
+        if (l.relNone === true && l.rel === '') return; // Nessuna affermazione: non è un verdetto positivo.
         const source = eid(l.source), target = eid(l.target), owner = proprietario.get(source);
         if (!owner || !frammenti[source] || !frammenti[target]) {
             esito.copertura.linkSaltati.push({ source, target, rel: l.rel, motivo: 'ramo o evidenze degli estremi mancanti' });

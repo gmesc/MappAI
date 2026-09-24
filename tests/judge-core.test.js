@@ -10,6 +10,15 @@ const assert = require('node:assert');
 const path = require('path');
 const J = require(path.join(__dirname, '..', 'public', 'js', 'mappai-judge-core.js'));
 
+test('Nessuna is not a positive verdict and rejects unsolicited judgments', () => {
+  const link = { source: 'A', target: 'B', rel: '', relNone: true };
+  const result = J.validaLink([{ source: 'A', target: 'B', rel: '', valido: true }], { links: [link] });
+  assert.strictEqual(result.esaminati.length, 0); assert.strictEqual(result.saltati.length, 0);
+  assert.strictEqual(result.tolti.length, 0); assert.strictEqual(result.scartati.length, 1);
+  assert.strictEqual(J.validaLink([], { links: [{ ...link, rel: 'causa' }] }).saltati.length, 1,
+    'a malformed none flag cannot silence a real relation');
+});
+
 const FRASI = [
   'Per comprare merci dalle altre nazioni, la Germania aveva assolutamente bisogno di divise privilegiate, cioè di moneta svizzera o americana.',
   'Tramite la sua Banca Nazionale, la Svizzera avviò il commercio di oro con la Germania nazista.'

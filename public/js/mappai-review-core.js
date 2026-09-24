@@ -58,6 +58,8 @@
     if (r.id != null) r.id = eid(r.id);
     r.source = eid(l.source); r.target = eid(l.target);
     r.rel = l.rel || 'include'; r.isCross = !!l.isCross;
+    // Explicit teacher choice; unmarked legacy blanks keep their old hash.
+    if (l.relNone === true && l.rel === '') { r.rel = ''; r.relNone = true; }
     return r;
   }
   function uniqueIds(rows) {
@@ -123,7 +125,7 @@
     var row = matches[0], whole = t.field === '$item' || t.field === '$link';
     var value = whole ? (t.kind === 'link' ? linkSnapshot(row) : clone(row)) :
       t.kind === 'node' && t.field === 'desc' ? String(row.desc || row.content || '') :
-        t.kind === 'link' ? row.rel || 'include' : row[t.field];
+        t.kind === 'link' ? linkSnapshot(row).rel : row[t.field];
     return { key: key, row: row, value: value, whole: whole };
   }
   function normalizeIssue(raw, db) {
@@ -296,6 +298,11 @@
     if (choice === 'manual' && !own(opts, 'text')) fail('manual_text_required');
     var r = clone(review), d = { choice: choice, reason: String(opts.reason || ''), updatedAt: opts.now || null };
     if (choice === 'manual') d.text = clone(opts.text);
+    if (choice === 'manual' && opts.relNone === true) {
+      var target = r.initial.issues.find(function (i) { return i.id === issueId; }).target;
+      if (target.kind !== 'link' || target.field !== 'rel' || opts.text !== '') fail('invalid_replacement');
+      d.relNone = true;
+    }
     Object.defineProperty(r.initial.decisions, issueId, { value: d, enumerable: true, configurable: true, writable: true });
     r.updatedAt = opts.now || r.updatedAt;
     return r;
@@ -354,8 +361,10 @@
     return revision(db, sources) === expected && stable(semanticSnapshot(db)) === stable(snapshot) &&
       stable(sourceSnapshot(sources)) === stable(expectedSources);
   }
-  function replacementValid(found, t, value) {
-    if (!found.whole) return t.kind === 'item' ? value !== undefined : typeof value === 'string' && value.trim().length > 0;
+  function replacementValid(found, t, value, decision) {
+    if (!found.whole) return t.kind === 'item' ? value !== undefined : typeof value === 'string' &&
+      (value.trim().length > 0 || t.kind === 'link' && value === '' &&
+        (decision.relNone === true || found.row.relNone === true && decision.choice === 'reject'));
     if (value === null) return true;
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     return t.kind === 'item' ? eid(value.id) === eid(found.row.id) : !!(eid(value.source) && eid(value.target));
@@ -400,7 +409,7 @@
       if (stable(found.value) !== stable(i.before)) return conflict(i.id, 'before_mismatch');
       if (d.choice === 'accept' && !i.hasProposal) return conflict(i.id, 'proposal_missing');
       var value = d.choice === 'manual' ? d.text : d.choice === 'accept' ? i.after : i.before;
-      if (!replacementValid(found, i.target, value)) return conflict(i.id, 'invalid_replacement');
+      if (!replacementValid(found, i.target, value, d)) return conflict(i.id, 'invalid_replacement');
       if (i.target.field === '$link' && value !== null && !(db.nodes || []).some(function (n) { return eid(n.id) === eid(value.source); })) return conflict(i.id, 'missing_link_endpoint');
       if (i.target.field === '$link' && value !== null && !(db.nodes || []).some(function (n) { return eid(n.id) === eid(value.target); })) return conflict(i.id, 'missing_link_endpoint');
       overrides.push({ issueId: i.id, target: clone(i.target), before: clone(i.before), after: clone(value),
@@ -449,6 +458,10 @@
           f.row.citations = extended.citations;
         }
         f.row[p.target.field] = value;
+        if (p.target.kind === 'link' && p.target.field === 'rel') {
+          if (value === '') f.row.relNone = true;
+          else delete f.row.relNone;
+        }
         if (p.target.kind === 'node') {
           f.row.hasCustomText = true;
           if (p.target.field === 'desc') { f.row.content = value; if (!own(f.row, 'aiDesc')) f.row.aiDesc = p.row.desc || p.row.content || ''; }

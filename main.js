@@ -1567,6 +1567,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const _mapLink = l => ({
             ...(l.id != null ? { id: l.id } : {}),
             ...(l.bidirectional != null ? { bidirectional: l.bidirectional } : {}),
+            ...(l.relNone === true && l.rel === '' ? { relNone: true } : {}),
             source: typeof l.source === 'object' ? l.source.id : l.source,
             target: typeof l.target === 'object' ? l.target.id : l.target,
             rel: l.rel || "",
@@ -1910,7 +1911,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 ...(l.bidirectional != null ? { bidirectional: l.bidirectional } : {}),
                 source: l.source,
                 target: l.target,
-                rel: l.rel || "include",
+                rel: l.relNone === true && l.rel === '' ? '' : l.rel || "include",
+                ...(l.relNone === true && l.rel === '' ? { relNone: true } : {}),
                 isCross: !!l.isCross
             }));
         }

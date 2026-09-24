@@ -58,10 +58,13 @@
         links.forEach(l => {
             const s = l.source, t = l.target;
             if (s === t) return;
-            const k = s + SEP + t;
+            const k = JSON.stringify([s, t, l.rel || '', l.id == null ? null : String(l.id)]);
             if (seen.has(k)) return;
             seen.add(k);
-            out.push({ s, t, rel: l.rel || '', isCross: !!l.isCross, _uid: out.length });
+            const ref = { source: s, target: t, rel: l.rel || '' };
+            if (l.id != null) ref.id = String(l.id);
+            if (l.relNone === true && !ref.rel) ref.relNone = true;
+            out.push({ s, t, rel: ref.rel, isCross: !!l.isCross, _uid: out.length, ref });
         });
         return out;
     }

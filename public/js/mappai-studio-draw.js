@@ -224,6 +224,17 @@
 
         // raccolte per l'evidenziazione al passaggio (opts.hover)
         const nodeEls = [], edgeEls = [], hopEls = [], labelEls = [];
+        function linkContext(el, edge) {
+            if (!el || !edge.ref || edge._path || !opts.onLinkContext || !['td', 'dag'].includes(res.kind)) return;
+            el.on('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); opts.onLinkContext(ev, edge); });
+        }
+        function linkHit(e) {
+            if (!e.edge.ref || e.edge._path || !opts.onLinkContext || !['td', 'dag'].includes(res.kind)) return;
+            const hit = gEdge.append('path').attr('d', line(e.pts)).attr('fill', 'none')
+                .attr('stroke', 'transparent').attr('stroke-width', 14).attr('pointer-events', 'stroke')
+                .attr('data-link-hit', e.edge._uid);
+            linkContext(hit, e.edge);
+        }
 
         // archi principali. Nei fasci il colore segue la macro-area di
         // partenza, così i fasci si distinguono; il filo del percorso è indigo
@@ -242,8 +253,10 @@
             if (e.edge.reversed) p.attr('stroke-dasharray', '5 4');
             p.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: p, edge: e.edge });
+            linkContext(p, e.edge); linkHit(e);
             if (res.kind !== 'fasci') {
                 const ah = arrowHead(gArrow, e.pts, col, sw);
+                linkContext(ah, e.edge);
                 if (ah) edgeEls.push({ el: ah, edge: e.edge });
             }
         });
@@ -257,8 +270,10 @@
                 .attr('d', line(e.pts));
             q.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: q, edge: e.edge });
+            linkContext(q, e.edge); linkHit(e);
             if (res.kind !== 'fasci') {
                 const ah = arrowHead(gArrow, e.pts, INK_SOFT, 1.1);
+                linkContext(ah, e.edge);
                 if (ah) edgeEls.push({ el: ah, edge: e.edge });
             }
         });
@@ -271,6 +286,7 @@
                     .attr('stroke', hp.edge.reversed ? ROSSO : INK)
                     .attr('stroke-width', 1.6).attr('stroke-linecap', 'round').attr('d', line(hp.pts));
                 hopEls.push({ els: [c1, c2], edge: hp.edge });
+                linkContext(c1, hp.edge); linkContext(c2, hp.edge);
             });
         }
 
@@ -301,6 +317,7 @@
                     .attr('stroke-width', 3).attr('stroke-linejoin', 'round')
                     .text(testo(e.edge));
                 labelEls.push({ el: lt, edge: e.edge });
+                linkContext(lt, e.edge);
             });
         }
 
