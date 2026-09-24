@@ -72,6 +72,14 @@ docs/archify/*.visual-check.*
 !docs/ricontrollo-sintesi-2026-09-15.md
 !tools/stile/**
 !tools/dove.js
+# Il motore della contabilita' del Done (ADR 0005). Entra nella whitelist perche' e' l'unico
+# pezzo dell'harness che deve avere storia, diff e colpa: i packet e gli hook restano locali,
+# e di una spunta non esiste `git blame`.
+!tools/contabilita/**
+# ...ma non la sua prova a secco: e' il test di uno strumento di sviluppo, non dell'app (come
+# tests/perimetro-hook.test.js). Gira lo stesso in `npm test`, quindi il hook di fine turno la
+# copre. ⚠️ Questa riga deve stare DOPO la whitelist: in .gitignore vince l'ultima che combacia.
+tools/contabilita/*.test.js
 # I due script che GENERANO i caratteri committati in public/fonts/: senza di
 # loro quegli asset non si rifanno dal repo, e THIRD-PARTY-NOTICES.md cita
 # prepara-font.py come la fonte delle modifiche ai font (15/9/2026).
@@ -96,4 +104,5 @@ docs/archify/*.visual-check.*
 !tools/smoke/evidenze-ramo.js
 !tools/smoke/vettori-magazzino.js
 !tools/smoke/modelli-per-fase.js
+!tools/smoke/modelli-nei-flussi.js
 !tools/smoke/LEGGIMI.md

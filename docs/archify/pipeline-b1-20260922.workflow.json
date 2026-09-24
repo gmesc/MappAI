@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI · dal PDF ai materiali Evidence",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "lettura",
+      "label": "Lettura locale"
+    },
+    {
+      "id": "mappa",
+      "label": "Mappa e controlli"
+    },
+    {
+      "id": "evidenze",
+      "label": "Fonte e recupero"
+    },
+    {
+      "id": "materiali",
+      "label": "Materiali didattici"
+    }
+  ],
+  "mainPath": [
+    "pdf",
+    "testo",
+    "grafo",
+    "controlli",
+    "indice",
+    "recupero",
+    "generatore",
+    "uscita"
+  ],
+  "nodes": [
+    {
+      "id": "pdf",
+      "lane": "lettura",
+      "col": 0,
+      "type": "external",
+      "label": "1 · PDF",
+      "sublabel": "Documento caricato"
+    },
+    {
+      "id": "testo",
+      "lane": "lettura",
+      "col": 1,
+      "type": "backend",
+      "label": "2 · Testo e pagine",
+      "sublabel": "PDF.js · nessun LLM",
+      "width": 160
+    },
+    {
+      "id": "grafo",
+      "lane": "mappa",
+      "col": 1,
+      "type": "cloud",
+      "label": "3 · Mappa JSON",
+      "sublabel": "Chat · modello del Setup",
+      "width": 160
+    },
+    {
+      "id": "controlli",
+      "lane": "mappa",
+      "col": 2,
+      "type": "security",
+      "label": "4 · Qualità",
+      "sublabel": "Àncora e fasi abilitate",
+      "width": 160
+    },
+    {
+      "id": "indice",
+      "lane": "evidenze",
+      "col": 2,
+      "type": "database",
+      "label": "5 · Indice fonti",
+      "sublabel": "Pagine originali nel vault",
+      "width": 160
+    },
+    {
+      "id": "recupero",
+      "lane": "evidenze",
+      "col": 3,
+      "type": "backend",
+      "label": "6 · Pacchetto",
+      "sublabel": "BM25 locale · frasi con ID",
+      "width": 160
+    },
+    {
+      "id": "generatore",
+      "lane": "materiali",
+      "col": 3,
+      "type": "cloud",
+      "label": "7 · Materiali",
+      "sublabel": "Chat · modello del Setup",
+      "width": 160
+    },
+    {
+      "id": "uscita",
+      "lane": "materiali",
+      "col": 4,
+      "type": "database",
+      "label": "8 · Progetto",
+      "sublabel": "Controllo prove e salvataggio",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "from": "pdf",
+      "to": "testo"
+    },
+    {
+      "from": "testo",
+      "to": "grafo",
+      "label": "testo estratto"
+    },
+    {
+      "from": "grafo",
+      "to": "controlli"
+    },
+    {
+      "from": "controlli",
+      "to": "indice",
+      "label": "fonte conservata"
+    },
+    {
+      "from": "indice",
+      "to": "recupero",
+      "label": "query del ramo"
+    },
+    {
+      "from": "recupero",
+      "to": "generatore",
+      "label": "frasi originali"
+    },
+    {
+      "from": "generatore",
+      "to": "uscita"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Embeddings: già separati",
+      "items": [
+        "Deduplica ed entità, se richiesti.",
+        "BGE su Infomaniak; vettori.json se cache e vault disponibili."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Due usi del recupero",
+      "items": [
+        "Citazioni della mappa: reranker opzionale.",
+        "Materiali Evidence: BM25, ancora senza reranker né vettori."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Profilo per fase: B1 pronto",
+      "items": [
+        "Chat ed embeddings provati su Infomaniak.",
+        "B2 deve collegare il profilo ai pulsanti; misura completa ancora da fare."
+      ]
+    }
+  ]
+}

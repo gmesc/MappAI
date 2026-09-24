@@ -17,12 +17,33 @@
   R.current = () => state()._pipelineManifest && state()._pipelineManifest.review;
   R.sources = () => {
     const review = R.current();
-    return review ? review.sources : (Array.isArray(state()._generationSources) && state()._generationSources.length ? state()._generationSources :
+    return review ? review.sources : (state()._pipelineManifest && state()._pipelineManifest.sources) || (Array.isArray(state()._generationSources) && state()._generationSources.length ? state()._generationSources :
       state()._pdfPagine && state()._pdfPagine.length ? state()._pdfPagine : state().sources || []);
   };
   function sourceSnapshot() {
     return core().sourceSnapshot(R.sources());
   }
+  R.prepareEvidence = async function (vaultPath, manifest, giro) {
+    if (!giro) return;
+    giro.verifica();
+    const E = window.MappAIEvidence;
+    if (!E || !E.acceso) {
+      if (localStorage.getItem('mappai_evidence') === '1') throw new Error(t('modelli_no_index', 'Evidence non è pronto: i materiali non sono stati generati.'));
+      return;
+    }
+    if (!E.acceso()) return;
+    const sources = manifest.review ? manifest.review.sources : (manifest.sources || sourceSnapshot());
+    if (!sources || !sources.length) throw new Error(t('modelli_no_sources', 'Mancano le fonti originali per Evidence. Aggiungi una fonte prima di generare i materiali.'));
+    if (!manifest.review && !manifest.sources) {
+      manifest.sources = sources;
+      await R.writeManifest(vaultPath, manifest);
+      giro.verifica();
+    }
+    const result = await E.suApertura(vaultPath, sources);
+    giro.verifica();
+    if (!E.indice() || ['errore', 'senza fonti', 'non disponibile', 'progetto cambiato'].includes(result.stato)) throw new Error(t('modelli_no_index', 'Evidence non è pronto: i materiali non sono stati generati.'));
+    if (result.stato === 'non scritto' && window.showToast) window.showToast(t('modelli_index_memory', 'Indice Evidence disponibile in memoria. Verrà ricostruito dalle fonti al prossimo avvio.'), 'warning');
+  };
   R.writeManifest = function (vaultPath, manifest) {
     const text = JSON.stringify(manifest, null, 2);
     const work = writes.then(async () => {
@@ -125,8 +146,8 @@
       await approveFinal(vaultPath, manifest, { review: manifest.review.final.review, db: { items: manifest.review.final.items } });
     }
     cache();
-    // Le evidenze (ADR 0002, passo 2): l'indice si costruisce o si rilegge dal vault. Non atteso, come ripristinaFontiDalVault: il disegno della mappa non aspetta il disco.
-    if (window.MappAIEvidence && window.MappAIEvidence.suApertura) window.MappAIEvidence.suApertura(vaultPath).catch(function () { });
+    // L’attesa richiesta da B2 avviene prima dei materiali, in prepareEvidence.
+    if (window.MappAIEvidence && window.MappAIEvidence.suApertura) window.MappAIEvidence.suApertura(vaultPath);
     return true;
   };
   async function commit(vaultPath, manifest, result) {
@@ -206,25 +227,49 @@
     } finally { committing = false; }
   };
   R.isBusy = () => busy || committing;
+  // An open review keeps its base map intact. The editor adds a teacher
+  // decision through the same core and writer used by the review surface.
+  R.editLinkLabel = async function (ref, value) {
+    const s = state(), vaultPath = s.activeVaultPath;
+    const previous = R.current();
+    if (!previous || previous.initial.status !== 'awaiting_review') throw new Error('stale_revision');
+    const next = window.MappAILinkEditorCore.decision(previous, s.db, ref, value, {
+      problem: t('le_manual_change', 'Parole del collegamento modificate dal docente.'), now: new Date().toISOString()
+    });
+    async function persist(expected, review) {
+      assertProject(vaultPath);
+      if (busy || committing) throw new Error('link_busy');
+      if (R.current() !== expected || core().revision(state().db, expected.sources) !== expected.baseRevision) throw new Error('stale_revision');
+      committing = true;
+      try {
+        await R.writeManifest(vaultPath, Object.assign({}, state()._pipelineManifest, { review }));
+        assertProject(vaultPath); cache();
+      } finally { committing = false; }
+    }
+    await persist(previous, next);
+    return () => persist(next, previous);
+  };
   R.retryJudge = async function (vaultPath, manifest) {
     assertProject(vaultPath);
     const old = manifest.review, s = state();
     if (old.initial.status !== 'awaiting_review' || core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
-    const key = window.getSystemKey && window.getSystemKey();
-    if (!key || !window.executeJudgePass) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
+    const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath, giudice: true });
+    const key = giro ? null : window.getSystemKey && window.getSystemKey();
+    if ((!key && !giro) || !window.executeJudgePass) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
     const pages = s._pdfPagine, sources = s.sources, generationSources = s._generationSources;
     let report;
     try {
       s._pdfPagine = old.sources.filter(x => Array.isArray(x.pages));
       s._generationSources = old.sources;
       s.sources = old.sources.map(x => Object.assign({}, x, { content: x.content || x.text || '' }));
-      report = await window.executeJudgePass(key, { enabled: true, apply: false });
+      report = await window.executeJudgePass(key, { enabled: true, apply: false }, giro);
       assertProject(vaultPath);
       if (core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
     } finally { s._pdfPagine = pages; s.sources = sources; s._generationSources = generationSources; }
     const next = core().mergeRetry(old, core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
       projectId: old.projectId, vaultPath, config: old.config }));
     manifest.review = next;
+    if (giro) manifest.modelliGiro = giro.riepilogo();
     await R.persistQuality(vaultPath); await R.writeManifest(vaultPath, manifest); cache();
     return next;
   };
@@ -244,18 +289,19 @@
     const judge = window.MappAIMaterialReview, grounding = window.MappAIGroundingCore;
     if (!judge || !judge.check || !grounding || !grounding.buildInput) throw new Error(t('rv_validator_missing', 'Il controllo dei campi non è disponibile. Le bozze sono conservate.'));
     const previousContext = s._reviewAIContext;
+    const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath, giudice: true });
     let report;
     try {
-      s._reviewAIContext = clone(manifest.config.aiContext || previousContext || { provider: s.aiProvider });
-      const apiKey = window.getSystemKey && window.getSystemKey();
-      if (!apiKey) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
+      if (!giro) s._reviewAIContext = clone(manifest.config.aiContext || previousContext || { provider: s.aiProvider });
+      const apiKey = giro ? null : window.getSystemKey && window.getSystemKey();
+      if (!apiKey && !giro) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
       const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review, { includeOriginalPages: true });
       // Coverage describes the saved drafts. Teacher choices stay separate until
       // approval, so a retry cannot silently replace or rebase those choices.
       report = await (judge.checkRemaining || judge.check)(clone(final.items), { review, apiKey, material,
-        previousReport: old.initial.report, aiContext: clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
+        previousReport: old.initial.report, giro, aiContext: giro ? giro.fase('giudice') : clone(s._reviewAIContext), onProgress: opts && opts.onProgress });
       assertCurrent();
-    } finally { s._reviewAIContext = previousContext; }
+    } finally { if (!giro) s._reviewAIContext = previousContext; }
     const next = core().mergeRetry(old, core().createReview({ db: { items: final.items }, sources: old.sources, report,
       generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config }));
     const previousIds = new Set(old.initial.issues.map(i => i.id));
@@ -263,6 +309,7 @@
       newIssueIds: next.initial.issues.filter(i => !previousIds.has(i.id)).map(i => i.id),
       decisionsPreserved: Object.values(old.initial.decisions).filter(d => ['accept', 'manual', 'reject'].includes(d.choice)).length };
     final.review = next;
+    if (giro) manifest.modelliGiro = giro.riepilogo();
     try { await R.writeManifest(vaultPath, manifest); }
     catch (e) { final.review = old; throw e; }
     cache();
@@ -279,8 +326,11 @@
       // A real content edit needs a fresh review; keep the previous decisions.
       const manifest = s._pipelineManifest;
       const previous = clone(review);
-      const report = window.executeJudgePass && window.getSystemKey && window.getSystemKey()
-        ? await window.executeJudgePass(window.getSystemKey(), { enabled: true, apply: false }) : {};
+      const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath: s.activeVaultPath, giudice: true });
+      const key = giro ? null : window.getSystemKey && window.getSystemKey();
+      const report = window.executeJudgePass && (giro || key)
+        ? await window.executeJudgePass(key, { enabled: true, apply: false }, giro) : {};
+      if (giro) manifest.modelliGiro = giro.riepilogo();
       manifest.review = core().createReview({ db: s.db, sources: review.sources, report,
         generationId: s._generationId, vaultPath: s.activeVaultPath, config: manifest.config });
       manifest.review.previous = previous;
@@ -331,15 +381,18 @@
     const final = manifest.review.final;
     R.open(s.activeVaultPath, manifest, { final: !!(final && final.review) });
   };
-  R.finishMapOnly = async function () {
-    if (!R.enabled() || !state().db.nodes.length) return;
+  R.finishMapOnly = async function (giro) {
+    if ((!R.enabled() && !giro) || !state().db.nodes.length) return;
     const saved = await window.ensureProjectVault({ reason: 'generation' });
     const vaultPath = (saved && saved.folderPath) || state().activeVaultPath;
     if (!vaultPath) throw new Error('Cartella della revisione non disponibile');
-    const manifest = window.MappAIPipelineCore.createManifest({}, { vaultPath });
+    if (giro) giro = giro.conVault(vaultPath);
+    const manifest = window.MappAIPipelineCore.createManifest(giro ? { modelli: giro.profilo() } : {}, { vaultPath });
+    if (giro) manifest.modelliGiro = giro.riepilogo();
     manifest.steps.A.status = 'done';
     await R.checkpoint(vaultPath, manifest);
-    R.open(vaultPath, manifest);
+    if (giro) { await R.prepareEvidence(vaultPath, manifest, giro); await R.writeManifest(vaultPath, manifest); }
+    if (manifest.review) R.open(vaultPath, manifest);
   };
   const fieldLabels = { question: ['rv_question', 'Domanda'], answer: ['rv_answer', 'Risposta'],
     options: ['rv_options', 'Alternative'], correctIndex: ['rv_correct', 'Risposta corretta'], explanation: ['rv_explanation', 'Spiegazione'],
@@ -1382,6 +1435,17 @@
           (approvazioni.approvati.size ? ' · ' + approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') : '') + '.</p>' : '') +
           '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
         modal.querySelector('#mrv-coverage-details').appendChild(box);
+        if (!isFinal && (coverage.linkSaltati || []).length) {
+          const list = document.createElement('ul');
+          const labels = new Map((r.baseSnapshot.nodes || []).map(n => [n.id, n.label || n.id]));
+          coverage.linkSaltati.forEach(link => {
+            const row = document.createElement('li');
+            row.textContent = (labels.get(link.source) || link.source) + ' → ' + (link.rel || '') + ' → ' +
+              (labels.get(link.target) || link.target) + ': ' + (link.motivo || t('rv_link_unchecked', 'Controllo non completato.'));
+            list.appendChild(row);
+          });
+          box.appendChild(list);
+        }
         if (isFinal) {
           const ids = new Set(residuals.map(row => row.id));
           const extra = excludedItems.filter(item => !ids.has(String(item.id)))

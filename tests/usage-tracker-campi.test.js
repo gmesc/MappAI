@@ -43,6 +43,16 @@ function caricaTracker() {
 
 const BASE = { provider: 'google', model: 'gemini-3.8-flash', inTok: 1000, outTok: 500 };
 
+test('usage mancante resta nel registro con null e senza segreti o contenuti', () => {
+    const { U, righe } = caricaTracker();
+    U.record({provider:'infomaniak',model:'test',requestedModel:'test',actualModel:null,usageKnown:false,
+        apiKey:'segreto',productId:'prodotto-privato',texts:['testo privato'],embeddings:[[1,2]]});
+    const r=righe()[0]; assert.strictEqual(r.usageKnown,false);
+    assert.strictEqual(r.inTok,null); assert.strictEqual(r.outTok,null);
+    assert.strictEqual(r.actualModel,null);
+    for(const key of ['apiKey','productId','texts','embeddings']) assert.ok(!(key in r));
+});
+
 test('una chiamata troncata scrive n, stop, tetto e thoughts', () => {
     const { U, righe } = caricaTracker();
     U.record(Object.assign({}, BASE, {

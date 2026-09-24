@@ -257,7 +257,10 @@ window.resetA11yTools = function () {
 // tornare indietro. Quindi gli effetti si SOSPENDONO all'uscita e si RIPRISTINANO
 // al rientro — lo stato scelto non si perde, semplicemente non agisce dove non serve.
 //
-// Kill-switch: localStorage `mappai_a11y_everywhere = '1'` → comportamento storico.
+// ⚠️ Dal 19/9/2026 il BOTTONE non c'è su nessuna superficie: la regola di contesto
+// qui sotto governa ormai solo gli EFFETTI (riga di lettura e zoom, che si accendono
+// dalla fila del modale della fonte). Il perché e i due interruttori — `mappai_a11y_bottone`
+// e `mappai_a11y_everywhere` — stanno sopra a `sync()`, in fondo al file.
 (function () {
     'use strict';
 
@@ -328,19 +331,49 @@ window.resetA11yTools = function () {
         return isNaN(v) ? 0 : v;
     }
 
-    function sync() {
-        if (localStorage.getItem('mappai_a11y_everywhere') === '1') return;
+    function mostraBottone(ok) {
         const btn = document.getElementById('a11y-panel-toggle');
-        const ok = inReadingContext();
-        if (btn) {
-            // `!important` con `!important`: la regola in style.css impone
-            // display:flex, un inline normale non la batte.
-            if (ok) btn.style.removeProperty('display');
-            else btn.style.setProperty('display', 'none', 'important');
-            // Nascosto NON basta per la tastiera: fuori contesto esce dal giro del TAB.
-            if (ok) btn.removeAttribute('tabindex'); else btn.setAttribute('tabindex', '-1');
-            btn.setAttribute('aria-hidden', ok ? 'false' : 'true');
+        if (!btn) return;
+        // `!important` con `!important`: la regola in style.css impone
+        // display:flex, un inline normale non la batte.
+        if (ok) btn.style.removeProperty('display');
+        else btn.style.setProperty('display', 'none', 'important');
+        // Nascosto NON basta per la tastiera: fuori contesto esce dal giro del TAB.
+        if (ok) btn.removeAttribute('tabindex'); else btn.setAttribute('tabindex', '-1');
+        btn.setAttribute('aria-hidden', ok ? 'false' : 'true');
+    }
+
+    /* ── IL BOTTONE NON STA PIÙ SU NESSUNA SUPERFICIE (Giacomo, 19/9/2026) ──────
+       Il cerchio giallo era `position: fixed` in alto a destra con z-index 999999:
+       galleggiava sopra QUALUNQUE cosa, compresa la testata del Banco di revisione,
+       dove copriva la fase «Pronti da usare». Gli strumenti di lettura restano dove
+       si legge davvero e non se ne va nessuno di quelli: la fila del modale della
+       fonte (#modal-a11y-toolbar: sillabazione, spaziatura, voce, Aa, riga di
+       lettura, lettura veloce) e Cabina › Aspetto e leggibilità per il carattere.
+       Escono di scena i quattro filtri che vivevano SOLO nel pannello del bottone:
+       inverti colori, riduci contrasti, contrasti elevati, scala di grigi (più
+       l'interlinea).
+       ⚠️ Si nasconde il BOTTONE, non si spengono gli effetti: la riga di lettura e
+       lo zoom del testo si accendono anche dalla fila del modale e continuano a
+       valere dove si legge, con la regola di contesto dell'11/9.
+       Reversibile: localStorage `mappai_a11y_bottone = '1'` lo rimette (con quella
+       stessa regola di contesto); in più `mappai_a11y_everywhere = '1'` torna a
+       mostrarlo ovunque, come prima dell'11/9. Serve una riapertura della finestra. */
+    function bottoneAcceso() {
+        try { return localStorage.getItem('mappai_a11y_bottone') === '1'; } catch (e) { return false; }
+    }
+
+    function sync() {
+        const acceso = bottoneAcceso();
+        if (!acceso) {
+            mostraBottone(false);
+            // il pannello non si può più aprire: se era rimasto aperto, si chiude
+            const panel = document.getElementById('a11y-panel');
+            if (panel) panel.classList.add('hidden-panel');
         }
+        if (localStorage.getItem('mappai_a11y_everywhere') === '1') return;
+        const ok = inReadingContext();
+        if (acceso) mostraBottone(ok);
         if (ok) restore(); else suspend();
     }
     window.syncA11yVisibility = sync;

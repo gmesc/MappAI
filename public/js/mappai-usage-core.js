@@ -74,6 +74,7 @@
             label: 'Pipeline materiali',
             subs: {
                 map: 'Mappa',
+                mappa: 'Mappa', materiali: 'Materiali', giudice: 'Revisione AI', embeddings: 'Embeddings',
                 quiz_mc: 'Quiz a scelta multipla',
                 quiz_tf: 'Quiz Vero/Falso',
                 quiz_open: 'Domande aperte',
@@ -85,7 +86,7 @@
         },
         other: {
             label: 'Altro',
-            subs: { admin_test: 'Test prompt (admin)', misc: 'Non classificato' }
+            subs: { admin_test: 'Test prompt (admin)', embeddings: 'Embeddings', misc: 'Non classificato' }
         }
     };
 
@@ -125,6 +126,14 @@
         if (Number(o.thoughts) > 0) rec.thoughts = Number(o.thoughts);
         if (o.stop) rec.stop = String(o.stop);
         if (Number(o.tetto) > 0) rec.tetto = Number(o.tetto);
+        if (typeof o.usageKnown === 'boolean') rec.usageKnown = o.usageKnown;
+        if (o.requestedModel) rec.requestedModel = String(o.requestedModel);
+        if (Object.prototype.hasOwnProperty.call(o, 'actualModel')) {
+            rec.actualModel = typeof o.actualModel === 'string' && o.actualModel.trim() ? o.actualModel : null;
+            if (rec.actualModel) rec.model = rec.actualModel;
+        }
+        if (o.phase) rec.phase = String(o.phase);
+        if (o.runId) rec.runId = String(o.runId);
         return rec;
     }
 
@@ -133,20 +142,30 @@
     // usdChf = tasso di conversione USD→CHF (usato solo per google)
     function costOf(rec, kb, usdChf) {
         const rate = rec.provider === 'infomaniak' ? 1 : ((Number(usdChf) > 0) ? Number(usdChf) : 1);
-        const kIn = kb ? (Number(kb.inputCost) || 0) : 0;
-        const kOut = kb ? (Number(kb.outputCost) || 0) : 0;
+        const priceKnown = !!kb && kb.priceKnown !== false && (!kb.unit || kb.unit === 'million_tokens') &&
+            typeof kb.inputCost === 'number' && Number.isFinite(kb.inputCost) && kb.inputCost >= 0 &&
+            typeof kb.outputCost === 'number' && Number.isFinite(kb.outputCost) && kb.outputCost >= 0;
+        const known = priceKnown && rec.usageKnown !== false;
+        const kIn = known ? kb.inputCost : 0;
+        const kOut = known ? kb.outputCost : 0;
         const inCost = (rec.inTok / 1e6) * kIn * rate;
-        const outCost = (rec.outTok / 1e6) * kOut * rate;
-        return { inCost, outCost, total: inCost + outCost, known: !!kb };
+        // Gemini separa il pensiero dai candidates; completion_tokens Infomaniak lo include.
+        const billedOut = rec.outTok + (rec.provider === 'google' ? Math.max(0, Number(rec.thoughts) || 0) : 0);
+        const outCost = (billedOut / 1e6) * kOut * rate;
+        return { inCost, outCost, total: inCost + outCost, known, priceKnown };
     }
 
     function _bucket(label) {
-        return { label: label || '', calls: 0, inTok: 0, outTok: 0, inCost: 0, outCost: 0, total: 0 };
+        return { label: label || '', calls: 0, inTok: 0, outTok: 0, inCost: 0, outCost: 0, total: 0,
+            unpriced: 0, missingUsage: 0, assumedModel: 0 };
     }
     function _acc(b, rec, c) {
         b.calls += 1;
         b.inTok += rec.inTok; b.outTok += rec.outTok;
         b.inCost += c.inCost; b.outCost += c.outCost; b.total += c.total;
+        if (!c.known) b.unpriced += 1;
+        if (rec.usageKnown === false) b.missingUsage += 1;
+        if (rec.actualModel === null && rec.requestedModel) b.assumedModel += 1;
     }
 
     // ── Aggregazione (una passata) ───────────────────────────────────────────
@@ -161,18 +180,26 @@
         };
         (records || []).forEach(function (raw) {
             const rec = normalizeRecord(raw);
-            if (!rec.inTok && !rec.outTok) return;
+            if (!rec.inTok && !rec.outTok && rec.usageKnown === undefined) return;
             const kb = kbLookup(rec.model, rec.provider);
             const c = costOf(rec, kb, usdChf);
-            if (!c.known && out.unknownModels.indexOf(rec.model) < 0) out.unknownModels.push(rec.model);
+            if (!c.priceKnown && out.unknownModels.indexOf(rec.model) < 0) out.unknownModels.push(rec.model);
             _acc(out.totals, rec, c);
             if (!out.byCat[rec.cat]) { out.byCat[rec.cat] = _bucket(catLabel(rec.cat)); out.byCat[rec.cat].bySub = {}; }
             _acc(out.byCat[rec.cat], rec, c);
             const subs = out.byCat[rec.cat].bySub;
             if (!subs[rec.sub]) subs[rec.sub] = _bucket(subLabel(rec.cat, rec.sub));
             _acc(subs[rec.sub], rec, c);
-            if (!out.byModel[rec.model]) { out.byModel[rec.model] = _bucket(rec.model); out.byModel[rec.model].provider = rec.provider; }
-            _acc(out.byModel[rec.model], rec, c);
+            // Conserva le chiavi legacy finché un ID non è usato da due provider.
+            let modelKey = rec.model;
+            const previous = out.byModel[modelKey];
+            if (previous && previous.provider !== rec.provider) {
+                out.byModel[previous.provider + ': ' + rec.model] = previous;
+                delete out.byModel[modelKey];
+            }
+            if (out.byModel['google: ' + rec.model] || out.byModel['infomaniak: ' + rec.model]) modelKey = rec.provider + ': ' + rec.model;
+            if (!out.byModel[modelKey]) { out.byModel[modelKey] = _bucket(rec.model); out.byModel[modelKey].provider = rec.provider; }
+            _acc(out.byModel[modelKey], rec, c);
             if (!out.byProvider[rec.provider]) out.byProvider[rec.provider] = _bucket(rec.provider === 'infomaniak' ? 'Infomaniak (Svizzera)' : 'Google (Gemini)');
             _acc(out.byProvider[rec.provider], rec, c);
         });
@@ -188,7 +215,7 @@
         const map = {};
         (records || []).forEach(function (raw) {
             const rec = normalizeRecord(raw);
-            if (!rec.inTok && !rec.outTok) return;
+            if (!rec.inTok && !rec.outTok && rec.usageKnown === undefined) return;
             const key = projectKey(rec);
             if (!map[key]) map[key] = { key: key, label: rec.project, calls: 0, lastTs: '' };
             map[key].calls += 1;
@@ -200,6 +227,58 @@
     function filterByProject(records, key) {
         if (!key) return records || [];
         return (records || []).filter(function (r) { return projectKey(r) === key; });
+    }
+
+    // Elenco dal disco, consumi collegati solo tramite un'identità locale univoca.
+    // I record non attribuibili restano consultabili nello storico, senza modificarli.
+    function vaultProjects(records, vaults, projects) {
+        records = records || [];
+        projects = Array.isArray(projects) ? projects.filter(Boolean) : [];
+        const n = x => String(x == null ? '' : x).normalize('NFC');
+        const id = x => x != null && String(x).trim() ? String(x) : null;
+        const visti = new Set();
+        const presenti = (vaults || []).filter(v => {
+            if (!v || !v.fullPath || visti.has(v.fullPath)) return false;
+            visti.add(v.fullPath); return true;
+        });
+        const candidati = presenti.map(v => projects.filter(p =>
+            p.vault && n(p.vault) === n(v.folderName) &&
+            n(p.classDir) === n(v.classDir) && n(p.discDir) === n(v.discDir) &&
+            n(p.studentDir) === n(v.studentDir)));
+        const usati = new Set();
+        const righe = presenti.map((v, i) => {
+            let p = candidati[i].length === 1 ? candidati[i][0] : null;
+            if (p && (candidati.filter(c => c.includes(p)).length !== 1 ||
+                !id(p.id) || projects.filter(x => id(x.id) === id(p.id)).length !== 1)) p = null;
+            const chiamate = [];
+            if (p) records.forEach((r, j) => {
+                if (id(r && r.projectId) === id(p.id)) { chiamate.push(r); usati.add(j); }
+            });
+            return {
+                key: 'vault:' + v.fullPath, label: v.rootNodeLabel || v.folderName,
+                nelVault: true, projectId: p ? id(p.id) : null, created: p ? p.created : null,
+                classe: (v.classDir || v.classeDichiarata || '').replace(/_/g, ' '),
+                materia: (v.discDir || v.materiaDichiarata || '').replace(/_/g, ' '), allievo: v.studentDir || '',
+                records: chiamate
+            };
+        });
+        const storico = new Map();
+        records.forEach((r, j) => {
+            if (usati.has(j)) return;
+            const rec = normalizeRecord(r);
+            const pid = id(rec.projectId);
+            const key = 'storico:' + JSON.stringify(pid ? ['id', pid] : ['nome', rec.project || '']);
+            if (!storico.has(key)) {
+                const ps = pid ? projects.filter(p => id(p.id) === pid) : [];
+                const p = ps.length === 1 ? ps[0] : null;
+                storico.set(key, { key: key, label: rec.project || '—', nelVault: false,
+                    projectId: pid, created: p ? p.created : null,
+                    classe: p ? p.cls || p.classDir || '' : '', materia: p ? p.disc || p.discDir || '' : '',
+                    allievo: '', records: [] });
+            }
+            storico.get(key).records.push(r);
+        });
+        return righe.concat(Array.from(storico.values()));
     }
 
     // ── Dati per le ciambelle ────────────────────────────────────────────────
@@ -336,6 +415,7 @@
         projectKey: projectKey,
         listProjects: listProjects,
         filterByProject: filterByProject,
+        vaultProjects: vaultProjects,
         donutByCat: donutByCat,
         donutBySub: donutBySub,
         donutByModel: donutByModel,

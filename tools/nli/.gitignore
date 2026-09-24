@@ -1,0 +1,15 @@
+!.gitignore
+!banco.py
+!esporta.js
+!esporta.test.js
+!test_banco.py
+!prova_modello.py
+!index.html
+!requirements.txt
+!LEGGIMI.md
+!Apri banco NLI.command
+.venv/
+cache/
+runs/
+__pycache__/
+*.log

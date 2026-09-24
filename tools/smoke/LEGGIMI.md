@@ -11,6 +11,7 @@ node tools/smoke/evidenze-da-pipeline.js "<vault>" [query]  # l'indice delle evi
 node tools/smoke/evidenze-ramo.js            # il bivio di _branchMaterial: spento `label: desc`, acceso il pacchetto di evidenze
 node tools/smoke/vettori-magazzino.js        # 60 hit + 40 miss, ordine, runtime nuovo e zero chiamate
 node tools/smoke/modelli-per-fase.js        # modelli per fase, due giri indipendenti, cache e vecchio trasporto
+node tools/smoke/modelli-nei-flussi.js      # B2: avvio MM/KG reale → Evidence → materiali, con IPC simulati
 ```
 
 ⚠️ **Il GLOSSARIO non è più fra i documenti provati** (15/9): `mappai-glossary.js` è
@@ -34,8 +35,7 @@ Il banco **modelli-per-fase** usa il corpo vero di fetchModelAPI, il bridge Info
 il tracker consumi e troncamenti, il core/cucitura dei modelli e il magazzino 0010.
 Solo DOM, disco e confine IPC/rete sono simulati; nessuna chiave vera o spesa AI.
 I modelli diversi del banco sono identificativi fittizi: dimostrano l'instradamento,
-non capacità/disponibilità dei modelli reali. Non prova l'integrazione dei motori, che
-è il seguito B2: i pulsanti dell'app non usano ancora il nuovo profilo.
+non capacità/disponibilità dei modelli reali. Il banco B1 prova il contratto separato; il collegamento dei pulsanti è verificato dal banco B2 descritto sotto.
 
 **Gate 3 di 0012, dal Terminale di Giacomo**: chiudere e riavviare MappAI dal proprio
 Terminale per caricare i nuovi moduli; aprire un vault, poi scegliere Infomaniak
@@ -80,6 +80,65 @@ due fasi è ammesso; nel banco sono distinti. Per provarne due reali, assegnare 
 `giro0012.profilo()` mostra solo il profilo pubblico; JSON.stringify(giro0012) non
 espone segreti. `MappAIModelli.spegni()` impedisce nuovi giri; quello già creato conserva
 lo snapshot. La cache ha il suo interruttore indipendente.
+
+
+## B2 — packet 0013, implementato; gate 3 da fare
+
+`modelli-nei-flussi.js` avvia l’orchestratore con i cinque motori reali: MindMap
+iterativa/multi-pass e KG single/multi-pass/comunità. Usa l’estrazione PDF simulata,
+poi i moduli reali per mappa, fonti archiviate, indice Evidence e flashcard. Non legge
+PDF reali né chiama servizi remoti. `tests/modelli-flussi.test.js` e
+`tests/modelli-ripresa.test.js` aggiungono documento singolo, aperte/quiz/sintesi/parole
+chiave, giudici, consumatori embeddings, cambio Setup e progetto, ripresa, credenziali
+rinnovate, errori di persistenza e strada legacy. Modelli sentinella diversi provano
+l’instradamento; non la qualità dei modelli dell’account.
+
+**Prima prova in Electron, dal Terminale di Giacomo:**
+
+1. Riavviare MappAI dal proprio Terminale. Nel progetto aperto premere **Setup AI**,
+   oppure aprire lo stesso pannello dalla Cabina.
+2. Scegliere Infomaniak e verificare token/Product ID nelle sedi già esistenti.
+   Attivare **Usa un modello per ogni fase**. Inserire gli identificativi per Mappa,
+   Materiali, Analisi semantica e Giudice se la revisione è attiva. Si può usare lo
+   stesso modello chat nelle tre caselle; embeddings propone `bge_multilingual_gemma2`.
+   Premere **Salva assegnazioni**, poi chiudere la Cabina con la ×.
+3. Aprire un vecchio progetto Google: il Setup resta Infomaniak. Da **Genera materiali**
+   provare un documento singolo. Nel Setup il riepilogo indica fase, provider, modello
+   richiesto e modello dichiarato nella risposta, oppure «non dichiarato».
+4. Provare un progetto nuovo da PDF testuale con Evidence acceso e materiali scelti.
+   L’indice viene preparato prima dei materiali. Conservare le pause della revisione;
+   il giudice usa l’assegnazione dedicata solo dove era già previsto.
+5. Durante una chiamata cambiare modello/provider nel Setup: il giro in corso mantiene
+   le proprie assegnazioni. Riaprendo il progetto, una ripresa mantiene il profilo
+   salvato e usa le credenziali attuali di quel provider. B2 spento blocca una ripresa
+   B2; un manifesto legacy riprende il percorso storico, dichiarandolo.
+
+Per il magazzino, su una mappa con almeno quattro nodi di livello 2 o superiore,
+questo consumatore già esistente legge gli embeddings senza modificare la mappa.
+Le assegnazioni si scelgono sempre nel Setup; la console serve qui solo alla misura:
+
+```js
+MappAIVettori.accendi();
+await MappAIEntityBackbone.analyzeCurrentMap();
+MappAIVettori.stato();
+await MappAIEntityBackbone.analyzeCurrentMap();
+MappAIVettori.stato();
+```
+
+Ripetere dopo il riavvio sullo stesso vault e con testi invariati: la seconda richiesta
+e quella dopo il riavvio devono riusare i vettori. Non chiamare «stesso input» una
+mappa cambiata da una deduplica. Gli embeddings non vengono richiesti artificialmente
+durante ogni generazione: Evidence continua a recuperare con BM25 locale.
+
+Il preflight segnala giudice senza modello, reranker delle citazioni ancora esterno
+al giro e audio Google richiesto con Infomaniak. Non cambia queste opzioni per conto
+proprio. Nessuna scelta di profilo richiede comandi in console. Nessuna chiave o
+Product ID entra nel manifesto: `config.modelli` e `modelliGiro` descrivono il giro;
+`ultimoDocumentoModelli` descrive il documento autonomo senza cambiare una pipeline
+pendente. I token mancanti e il modello effettivo non dichiarato restano mancanti.
+
+Questa prova **non chiude la misura Evidence OFF/ON su Infomaniak**. Reranking Evidence,
+recupero denso, visione e TTS Infomaniak restano passi successivi.
 
 ⚠️ **`censimento-maniglia-cdp.js` non è di questa famiglia**: vuole l'APP VERA
 (`npx electron . --remote-debugging-port=9222` e poi lo script) perché misura il

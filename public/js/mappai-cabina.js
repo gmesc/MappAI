@@ -88,7 +88,7 @@
     function _vuoto() {
         return {
             voce: 'profilo', profilo: null, rid: null,
-            ud: { stato: 'vuoto', records: [], ctx: null, sel: '', fCtx: '', fMat: '', drill: null },
+            ud: { stato: 'vuoto', records: [], catalogo: [], vaultDisponibile: false, storico: false, ctx: null, sel: '', fCtx: '', fMat: '', drill: null, tabella: {} },
             err: { stato: 'vuoto', records: [], totale: 0, file: '', disco: false },
             cart: { stato: 'vuoto', organizzata: false, root: '', documenti: '' },
             /* la segnalazione che si sta scrivendo: sopravvive al cambio di
@@ -244,17 +244,27 @@
         var U = _st.ud;
         if (U.stato !== 'vuoto') return;
         U.stato = 'carico';
+        U.catalogo = [];
+        U.vaultDisponibile = false;
         var UD = window.MappAIUsageDash;
         var pRec = (UD && UD.readAll) ? UD.readAll() : Promise.resolve([]);
         var api = window.electronAPI;
         var pVault = (api && api.getAllVaults)
-            ? api.getAllVaults().catch(function () { return []; })
-            : Promise.resolve([]);
+            ? api.getAllVaults().catch(function () { return null; })
+            : Promise.resolve(null);
         Promise.all([pRec, pVault]).then(function (r) {
             U.records = r[0] || [];
-            U.ctx = (window.MappAITeach && window.MappAITeach.contestoDelleMappe)
-                ? window.MappAITeach.contestoDelleMappe(r[1] || [])
-                : { byKey: {}, classi: [], materie: [], allievi: [] };
+            U.vaultDisponibile = Array.isArray(r[1]);
+            var projects = [];
+            try { projects = JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]'); } catch (e) { }
+            U.catalogo = _UC().vaultProjects(U.records, r[1] || [], projects);
+            U.ctx = { byKey: {}, classi: [], materie: [], allievi: [] };
+            U.catalogo.forEach(function (p) {
+                U.ctx.byKey[p.key] = p;
+                [['classe', 'classi'], ['materia', 'materie'], ['allievo', 'allievi']].forEach(function (c) {
+                    if (p[c[0]] && U.ctx[c[1]].indexOf(p[c[0]]) < 0) U.ctx[c[1]].push(p[c[0]]);
+                });
+            });
         }).catch(function () {
             U.ctx = { byKey: {}, classi: [], materie: [], allievi: [] };
         }).then(function () {
@@ -269,13 +279,11 @@
     }
     /* `conSel` false = i record che alimentano l'ELENCO delle mappe: le due
        tendine restringono l'elenco, la riga scelta restringe il cruscotto. */
-    function _recordFiltrati(conSel) {
-        var U = _st.ud, C = _UC();
-        if (!C) return [];
-        return (U.records || []).filter(function (r) {
-            var k = C.projectKey(r);
-            if (conSel && U.sel && k !== U.sel) return false;
-            var c = _ctxDi(k);
+    function _progettiConsumi(conSel) {
+        var U = _st.ud;
+        return U.catalogo.filter(function (c) {
+            if (!U.storico && !c.nelVault) return false;
+            if (conSel && U.sel && c.key !== U.sel) return false;
             if (U.fCtx) {
                 if (U.fCtx.indexOf('cls:') === 0 && c.classe !== U.fCtx.slice(4)) return false;
                 if (U.fCtx.indexOf('all:') === 0 && c.allievo !== U.fCtx.slice(4)) return false;
@@ -283,6 +291,9 @@
             if (U.fMat && c.materia !== U.fMat) return false;
             return true;
         });
+    }
+    function _recordFiltrati(conSel) {
+        return _progettiConsumi(conSel).reduce(function (out, p) { return out.concat(p.records); }, []);
     }
 
     /* Le tendine elencano i PROFILI (è la domanda del docente: «quanto ho speso
@@ -316,7 +327,7 @@
     function _tabellaMappe() {
         var C = _UC();
         var recs = _recordFiltrati(false);
-        var progetti = C ? C.listProjects(recs) : [];
+        var progetti = _progettiConsumi(false);
         var tasso = (window.MappAIUsageDash && window.MappAIUsageDash.rate) ? window.MappAIUsageDash.rate() : 1;
         var kb = function (m) { try { return (typeof matchModelKB === 'function') ? matchModelKB(m) : null; } catch (e) { return null; } };
         var costo = function (lista) {
@@ -325,23 +336,31 @@
         };
         var tot = costo(recs);
         var righe = [_riga('udp:', [
-            { testo: t('cb_ud_tutte_mappe', 'Tutte le mappe'), bollino: _st.ud.sel ? '' : 'attivo', titolo: t('cb_ud_sel', 'Selezione corrente') },
-            '', '', tot.chiamate, tot.chf
+            { testo: _st.ud.storico ? t('cb_ud_tutte_storico', 'Tutti i progetti e lo storico') : t('cb_ud_tutte_vault', 'Tutti i progetti nel vault'), bollino: _st.ud.sel ? '' : 'attivo', titolo: t('cb_ud_sel', 'Selezione corrente') },
+            '', '', '', tot.chiamate, tot.chf
         ])];
+        righe[0].fissa = true;
         progetti.forEach(function (p) {
             var c = _ctxDi(p.key);
-            var q = costo(C.filterByProject(recs, p.key));
+            var q = costo(p.records);
+            var creata = p.created;
+            var data = creata ? new Date(creata) : null;
+            var ultima = data && !isNaN(data.getTime())
+                ? data.toLocaleString(window.currentLang || 'it', { dateStyle: 'short', timeStyle: 'short' }) : '—';
             righe.push(_riga('udp:' + p.key, [
-                { testo: p.label, bollino: _st.ud.sel === p.key ? 'attivo' : '', titolo: t('cb_ud_sel', 'Selezione corrente') },
-                c.allievo || c.classe || '—', c.materia || '—', q.chiamate, q.chf
+                { testo: p.label + (p.nelVault ? '' : ' · ' + t('cb_ud_storico_tag', 'Storico non associato al vault')), bollino: _st.ud.sel === p.key ? 'attivo' : '', titolo: t('cb_ud_sel', 'Selezione corrente') },
+                c.allievo || c.classe || '—', c.materia || '—',
+                { testo: ultima, ordine: data && !isNaN(data.getTime()) ? data.getTime() : null }, q.chiamate, p.records.length ? q.chf : '—'
             ]));
         });
         return {
             id: 'ud-mappe', titolo: t('cb_ud_mappe', 'Mappe'), collassabile: true,
+            colonneIndipendenti: true, statoColonne: _st.ud.tabella,
             colonne: [
                 { etichetta: t('cb_ud_c_mappa', 'Mappa'), larghezza: '300px' },
-                { etichetta: t('cb_ud_c_ctx', 'Classe o allievo'), larghezza: '160px' },
+                { etichetta: t('cb_ud_c_ctx_short', 'Classe/Allievo'), larghezza: '160px' },
                 { etichetta: t('cb_ud_c_mat', 'Materia'), larghezza: '150px' },
+                { etichetta: t('cb_ud_c_created', 'Data di creazione'), larghezza: '165px' },
                 { etichetta: t('ud_calls', 'Chiamate AI'), larghezza: '110px' },
                 { etichetta: t('ud_cost_total', 'Totale') }
             ],
@@ -353,7 +372,30 @@
     /* Il cruscotto lo disegna la dashboard: è lo stesso che apre il bottone
        della landing. Due copie diverse degli stessi numeri divergono al primo
        ritocco, quindi qui si riempie soltanto la tela. */
+    var _consumiResize = null;
+    function _fermaMisuraConsumi() {
+        if (_consumiResize) _consumiResize.disconnect();
+        _consumiResize = null;
+    }
+    function _limitaListaConsumi(box) {
+        var wrap = box.querySelector('[data-sez="ud-mappe"] .mm-tab-wrap');
+        var table = wrap && wrap.querySelector('table');
+        if (!table) return;
+        function misura() {
+            // Intestazione, riepilogo e fino a 15 progetti: dimensioni non scalate dallo zoom.
+            var scala = table.getBoundingClientRect().width / table.offsetWidth;
+            if (!scala) return;
+            var altezza = table.tHead ? table.tHead.getBoundingClientRect().height / scala : 0;
+            wrap.style.setProperty('--cb-consumi-testa', altezza + 'px');
+            Array.from(table.tBodies[0].rows).slice(0, 16).forEach(function (r) { altezza += r.getBoundingClientRect().height / scala; });
+            if (altezza) wrap.style.setProperty('--cb-consumi-lista', altezza + 'px');
+        }
+        misura();
+        _consumiResize = new ResizeObserver(misura);
+        _consumiResize.observe(table);
+    }
     function _riempiTela(box) {
+        _fermaMisuraConsumi();
         if (!box) return;
         if (_st.voce === 'ai') {
             var hAi = box.querySelector('[data-tela="ai"]');
@@ -363,6 +405,7 @@
         if (_st.voce !== 'consumi') return;
         var host = box.querySelector('[data-tela="ud"]');
         if (!host) return;
+        _limitaListaConsumi(box);
         var UD = window.MappAIUsageDash;
         if (!UD || !UD.contentHtml) {
             host.textContent = t('cb_ud_no_dash', 'Il cruscotto dei consumi non è caricato.');
@@ -918,6 +961,13 @@
             id: 'ud-filtri', colonna: 'filtri',
             campi: [
                 {
+                    id: 'ud-vista', tipo: 'scelta', valore: _st.ud.storico ? 'storico' : 'vault',
+                    etichetta: t('cb_ud_vista', 'Mostra'), opzioni: [
+                        { valore: 'vault', etichetta: t('cb_ud_vault', 'Progetti nel vault') },
+                        { valore: 'storico', etichetta: t('cb_ud_storico', 'Mostra anche lo storico') }
+                    ]
+                },
+                {
                     id: 'ud-ctx', tipo: 'scelta', valore: _st.ud.fCtx,
                     etichetta: t('cb_ud_f_ctx', 'Classe o allievo'), opzioni: _opzioniContesto()
                 },
@@ -937,12 +987,16 @@
             ],
             azioni: [
                 { id: 'ud-stampa', etichetta: t('ud_print', 'Stampa'), icona: 'printer', chiude: false },
+                { id: 'ud-aggiorna', etichetta: t('cb_ud_aggiorna', 'Aggiorna elenco'), icona: 'refresh-cw', chiude: false },
                 { id: 'ud-cartella', etichetta: t('ud_tip_folder', 'Apri la cartella del registro su disco'), icona: 'folder-open', soloIcona: true, chiude: false }
             ]
         });
+        if (!_st.ud.vaultDisponibile) s.sezioni.push({ id: 'ud-vault-errore', nuda: true,
+            testo: t('cb_ud_vault_errore', 'Elenco dei vault non disponibile. Premi Aggiorna elenco nell’app oppure scegli Mostra anche lo storico.') });
         s.tabelle = [_tabellaMappe()];
         s.tela = { id: 'ud', segnaposto: '' };
-        s.nota = t('cb_ud_nota', 'I costi si calcolano qui dalle tariffe dei modelli: il registro salva solo i token, quindi correggere il tasso o un prezzo aggiorna anche lo storico.');
+        s.nota = t('cb_ud_associazione', 'Sono inclusi solo i consumi associabili con certezza ai progetti elencati. “—” indica nessun consumo associato; le chiamate non attribuibili restano nello storico.') + ' ' +
+            t('cb_ud_nota', 'I costi si calcolano qui dalle tariffe dei modelli: il registro salva solo i token, quindi correggere il tasso o un prezzo aggiorna anche lo storico.');
         return s;
     }
 
@@ -1245,6 +1299,7 @@
                     ['ruolo-materia', 'ruolo-sostegno', 'ora-classe'].indexOf(ev.campo) >= 0) _ridisegna();
                 if (_st.voce === 'consumi') {
                     var v2 = ev.valori || {};
+                    if (ev.campo === 'ud-vista') { _st.ud.storico = v2['ud-vista'] === 'storico'; _st.ud.sel = ''; _st.ud.drill = null; _st.ud.tabella = {}; }
                     if (ev.campo === 'ud-ctx') { _st.ud.fCtx = v2['ud-ctx'] || ''; _st.ud.sel = ''; _st.ud.drill = null; }
                     if (ev.campo === 'ud-mat') { _st.ud.fMat = v2['ud-mat'] || ''; _st.ud.sel = ''; _st.ud.drill = null; }
                     if (ev.campo === 'ud-tasso' && window.MappAIUsageDash) window.MappAIUsageDash.setRate(v2['ud-tasso']);
@@ -1325,6 +1380,10 @@
             }
 
             // ── Consumi ────────────────────────────────────────────────────
+            if (id === 'ud-aggiorna') {
+                _st.ud.stato = 'vuoto'; _st.ud.sel = ''; _st.ud.drill = null;
+                _caricaConsumi(); _ridisegna(); return;
+            }
             if (id.indexOf('udp:') === 0) {
                 var k = id.slice(4);
                 _st.ud.sel = (_st.ud.sel === k) ? '' : k;   // secondo clic = torna a tutte
@@ -1470,14 +1529,13 @@
                 return;
             }
         };
-        MM().open(s).then(function () { _restituisciAi(); }, function () { _restituisciAi(); });
+        MM().open(s).then(function () { _fermaMisuraConsumi(); _restituisciAi(); }, function () { _fermaMisuraConsumi(); _restituisciAi(); });
     }
 
     function _etichettaSelezione() {
-        var U = _st.ud, C = _UC();
-        if (!U.sel || !C) return t('ud_all_maps', 'Tutte le mappe');
-        var p = C.listProjects(U.records).filter(function (x) { return x.key === U.sel; })[0];
-        return (p && p.label) || t('ud_all_maps', 'Tutte le mappe');
+        var U = _st.ud;
+        var p = U.catalogo.filter(function (x) { return x.key === U.sel; })[0];
+        return (p && p.label) || (U.storico ? t('cb_ud_tutte_storico', 'Tutti i progetti e lo storico') : t('cb_ud_tutte_vault', 'Tutti i progetti nel vault'));
     }
 
     /* `_ridisegna` non fa niente a console chiusa (il `ridisegna` del motore si

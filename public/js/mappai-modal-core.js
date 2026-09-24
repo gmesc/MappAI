@@ -318,11 +318,13 @@
                    il colore è un canale che non tutti leggono, quindi porta
                    sempre un titolo che dice cosa significa */
                 if (x && typeof x === 'object' && x.testo !== undefined) {
-                    return {
+                    var cella = {
                         testo: String(x.testo),
                         bollino: x.bollino ? String(x.bollino) : '',
                         titolo: x.titolo ? String(x.titolo) : ''
                     };
+                    if (Object.prototype.hasOwnProperty.call(x, 'ordine')) cella.ordine = typeof x.ordine === 'number' && isFinite(x.ordine) ? x.ordine : null;
+                    return cella;
                 }
                 /* cella di COMANDI: come i comandi di una voce, non concludono */
                 if (x && typeof x === 'object' && Array.isArray(x.azioni)) {
@@ -338,6 +340,7 @@
             });
             out.id = meta && meta.id ? String(meta.id) : '';
             out.chiude = meta ? meta.chiude !== false : true;
+            if (r && r.fissa) out.fissa = true;
             return out;
         });
         return {
@@ -349,7 +352,9 @@
                tabelle senza che nessuno li riscriva. Si spengono dove non
                avrebbero senso (un elenco già ordinato per costruzione). */
             ordinabile: t.ordinabile !== false,
-            ridimensionabile: t.ridimensionabile !== false
+            ridimensionabile: t.ridimensionabile !== false,
+            colonneIndipendenti: t.colonneIndipendenti === true,
+            statoColonne: t.statoColonne || null
         };
     }
 

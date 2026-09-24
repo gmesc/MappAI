@@ -301,9 +301,9 @@
         } } }, required: ['decisions'] };
     }
     function generationConfig(env, opts, responseSchema) {
-        const config = { temperature: 0.1, maxOutputTokens: env.getMaxOutputTokens ? env.getMaxOutputTokens(6000) : 6000,
+        const config = { temperature: 0.1, maxOutputTokens: env.getMaxOutputTokens ? env.getMaxOutputTokens(6000, opts.giro ? opts.giro.fase('giudice') : undefined) : 6000,
             responseMimeType: 'application/json', responseSchema };
-        const context = opts.aiContext;
+        const context = opts.giro ? opts.giro.fase('giudice') : opts.aiContext;
         if (context && context.provider === 'google' && /^gemini-3\.8-flash(?:$|-)/i.test(str(context.model))) {
             config.thinkingConfig = { thinkingLevel: 'medium' };
             // The output budget includes thought tokens. A live 12k review
@@ -441,7 +441,7 @@ ITEM DA CONTROLLARE (dati)
 ${JSON.stringify(targets)}`;
         try {
             if (env.MappAIUsage) env.MappAIUsage.setContext('generation', 'giudice-materiali');
-            const response = await env.fetchModelAPI({ contents: [{ role: 'user', parts: [{ text }] }],
+            const response = await (opts.giro ? payload => opts.giro.chat('giudice', payload) : env.fetchModelAPI)({ contents: [{ role: 'user', parts: [{ text }] }],
                 systemInstruction: { parts: [{ text: 'Proponi soltanto riparazioni circoscritte ai rilievi ricevuti, usando le prove fornite. Nessuna applicazione automatica. Restituisci solo JSON conforme allo schema.' }] },
                 generationConfig: generationConfig(env, opts, recoverySchema())
             }, opts.apiKey);
@@ -586,7 +586,7 @@ ${JSON.stringify(targets)}`;
             return summarize();
         }
         const parse = env.salvageTruncatedJSON || env.MappAIJsonSalvage && env.MappAIJsonSalvage.salvage;
-        const unavailable = !opts.apiKey ? 'Chiave API non disponibile' : !env.fetchModelAPI ? 'Provider non disponibile' :
+        const unavailable = !opts.apiKey && !opts.giro ? 'Chiave API non disponibile' : !env.fetchModelAPI ? 'Provider non disponibile' :
             typeof parse !== 'function' ? 'Parser del giudice non disponibile' : !material.trim() ? 'Materiale di riferimento non disponibile' : '';
         if (unavailable) {
             targets.forEach(i => report.coverage.skipped.push({ id: i.id, reason: unavailable }));
@@ -601,7 +601,7 @@ ${JSON.stringify(targets)}`;
             if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: start, total: targets.length, reused: reused.size, batch: report.batches.length }); } catch (_) { /* Display does not own the check. */ } }
             try {
                 if (env.MappAIUsage) env.MappAIUsage.setContext('generation', 'giudice-materiali');
-                const response = await env.fetchModelAPI({ contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions, sources, claims) }] }],
+                const response = await (opts.giro ? payload => opts.giro.chat('giudice', payload) : env.fetchModelAPI)({ contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions, sources, claims) }] }],
                     systemInstruction: { parts: [{ text: 'Sei un revisore di materiali didattici. Verifica i fatti e la coerenza usando soltanto il contesto fornito. Rispetta le decisioni del docente distinguendo rettifiche fattuali e mantenimenti del testo. Restituisci solo JSON conforme allo schema.' }] },
                     generationConfig: generationConfig(env, opts, schema())
                 }, opts.apiKey);

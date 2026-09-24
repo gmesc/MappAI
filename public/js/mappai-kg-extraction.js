@@ -40,8 +40,8 @@ function extractResponseText(response) {
 //
 // Fasi 2 e 3 rimangono schema-OFF perché è dove il vocabolario relazionale vive
 // (Causa C risolta: generic relations 36%→0%, relTypes diversi).
-function _kgGenerationConfig(base, schema, phase = null) {
-    if (appState.aiProvider === 'infomaniak') {
+function _kgGenerationConfig(base, schema, phase = null, giro) {
+    if ((giro ? giro.fase('mappa').provider : appState.aiProvider) === 'infomaniak') {
         // Fase 1: reintroduce schema per JSON compatto/validato
         if (phase === 1) return { ...base, responseMimeType: "application/json", responseSchema: schema };
         // Fasi 2+: schema OFF (Causa C già vinta lì)
@@ -51,7 +51,10 @@ function _kgGenerationConfig(base, schema, phase = null) {
     return { ...base, responseMimeType: "application/json", responseSchema: schema };
 }
 
-async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
+async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey, giro) {
+    if (giro) giro.verifica();
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     window.resetVaultState();
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_single');
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
@@ -90,13 +93,13 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
     const payload = {
         contents: [{ parts: [...fileParts, { text: promptText }] }],
         systemInstruction: { parts: [{ text: buildSystemInstruction(KNOWLEDGE_GRAPH_SYSTEM_INSTRUCTION) }] },
-        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: maxOutputTokens(8192) }, schema, 1, giro)
     };
 
 
     try {
-        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
-        const data = await window.fetchModelAPI(payload, apiKey);
+        window.showLoadingOverlay(true, `${(giro ? giro.fase('mappa').provider : appState.aiProvider) === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi e formattazione Knowledge Graph...`);
+        const data = await callModelAPI(payload, apiKey);
         let rawText = extractResponseText(data);
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
 
@@ -168,6 +171,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         }
 
         appState.db = rawData;
+        if (giro) giro.iniziaMappa();
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         // Filtra link con nodi inesistenti, self-loop e duplicati bidirezionali
         const _spSeen = new Set();
@@ -186,8 +190,8 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
         // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Mode-agnostico: agisce su appState.db.nodes (level >= 1 → tutti i nodi KG).
         try {
-            await window.enrichThinDescs(textParts, apiKey);
-        } catch (e) {
+            await window.enrichThinDescs(textParts, apiKey, giro);
+        } catch (e) { if (giro) giro.verifica();
             console.warn('[enrichThinDescs] errore non bloccante (KG single-pass):', e.message);
         }
 
@@ -205,7 +209,7 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
            disegna solo se il canvas si vede davvero. */
         if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
         setTimeout(() => { window.showGenerationReport(); }, 1500);
-    } catch (err) {
+    } catch (err) { if (giro) giro.verifica();
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Graph", err.message);
     }
@@ -234,7 +238,10 @@ async function extractKnowledgeGraphSinglePass(textParts, fileParts, apiKey) {
 // Infomaniak (in single-pass un JSON malformato perde TUTTO: la pulizia del
 // JSON ha priorità sul rischio di qualche relazione generica dal bridge).
 // ============================================================================
-async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey) {
+async function extractKnowledgeGraphCommunity(textParts, fileParts, apiKey, giro) {
+    if (giro) giro.verifica();
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     window.resetVaultState();
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_community');
 
@@ -319,12 +326,12 @@ REGOLE:
         // di accessibilità desc (glossa tecnicismi, causa-effetto; '' se registro ricco o kill-switch).
         systemInstruction: { parts: [{ text: systemPrompt + (window.accessibleDescRules ? window.accessibleDescRules() : '') }] },
         // phase=1 → schema ON anche su Infomaniak: in single-pass la pulizia JSON è prioritaria.
-        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(8192) }, schema, 1)
+        generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: maxOutputTokens(8192) }, schema, 1, giro)
     };
 
     try {
-        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Knowledge Graph a comunità (GraphRAG)...`, 'kg');
-        const data = await window.fetchModelAPI(payload, apiKey);
+        window.showLoadingOverlay(true, `${(giro ? giro.fase('mappa').provider : appState.aiProvider) === 'google' ? 'Google Studio' : 'Infomaniak'}: Knowledge Graph a comunità (GraphRAG)...`, 'kg');
+        const data = await callModelAPI(payload, apiKey);
         let rawText = extractResponseText(data);
         let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         const parsed = salvageTruncatedJSON(cleanText);
@@ -415,11 +422,12 @@ REGOLE:
         });
 
         appState.db = { nodes: finalNodes, links: finalLinks, sourcesDict: {}, customColors: {} };
+        if (giro) giro.iniziaMappa();
         window.markKgCrossLinks(appState.db.nodes, appState.db.links);
 
         // Arricchimento desc sottili (gated) + freeze chunk (gated) — come gli altri path
-        try { await window.enrichThinDescs(textParts, apiKey); }
-        catch (e) { console.warn('[enrichThinDescs] errore non bloccante (KG community):', e.message); }
+        try { await window.enrichThinDescs(textParts, apiKey, giro); }
+        catch (e) { if (giro) giro.verifica(); console.warn('[enrichThinDescs] errore non bloccante (KG community):', e.message); }
         window.stripChunksIfFrozen(appState.db.nodes);
 
         // Popola sourcesDict dalle desc (arricchite o originali).
@@ -439,13 +447,16 @@ REGOLE:
            disegna solo se il canvas si vede davvero. */
         if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
         setTimeout(() => { window.showGenerationReport(); }, 1500);
-    } catch (err) {
+    } catch (err) { if (giro) giro.verifica();
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Graph (Community)", err.message);
     }
 }
 
-async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey) {
+async function extractKnowledgeGraphMultiPass(textParts, fileParts, apiKey, giro) {
+    if (giro) giro.verifica();
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     window.resetVaultState();
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'kg_multipass');
     let kgKeywords = Array.from(document.querySelectorAll('.l1-topic-input')).map(i => i.value.trim()).filter(v => v).join(', ');
@@ -517,10 +528,10 @@ ${textParts.join('\n\n')}`;
         const p1Payload = {
             contents: [{ parts: [...fileParts, { text: p1PromptText }] }],
             systemInstruction: { parts: [{ text: "Sei un analizzatore di testi accademico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(2000) }, p1Schema, 1)
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: maxOutputTokens(2000) }, p1Schema, 1, giro)
         };
 
-        const p1Response = await window.fetchModelAPI(p1Payload, apiKey);
+        const p1Response = await callModelAPI(p1Payload, apiKey);
         let p1Raw = extractResponseText(p1Response);
         let p1Clean = p1Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p1Data = salvageTruncatedJSON(p1Clean);
@@ -590,10 +601,10 @@ ${textParts.join('\n\n')}`;
             // 4096 invece di 3000: la Fase 2 deve generare ≥2 link per nodo.
             // Su 35 nodi × 2 link × ~15 token/link ≈ 1050 token minimi, ma
             // GEMMA su Infomaniak è verboso nel JSON → serve margine abbondante.
-            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(4096) }, p2Schema, 2)
+            generationConfig: _kgGenerationConfig({ temperature: 0.15, maxOutputTokens: maxOutputTokens(4096) }, p2Schema, 2, giro)
         };
 
-        const p2Response = await window.fetchModelAPI(p2Payload, apiKey);
+        const p2Response = await callModelAPI(p2Payload, apiKey);
         let p2Raw = extractResponseText(p2Response);
         let p2Clean = p2Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let p2Data = salvageTruncatedJSON(p2Clean);
@@ -691,11 +702,11 @@ ${textParts.join('\n\n')}`;
             const p3Payload = {
                 contents: [{ parts: [...fileParts, { text: p3PromptText }] }],
                 systemInstruction: { parts: [{ text: "Sei un redattore accademico e divulgatore didattico. Rispondi solo in JSON puro conforme allo schema richiesto." }] },
-                generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(5000) }, p3Schema, 3)
+                generationConfig: _kgGenerationConfig({ temperature: 0.2, maxOutputTokens: maxOutputTokens(5000) }, p3Schema, 3, giro)
             };
 
             try {
-                const p3Response = await window.fetchModelAPI(p3Payload, apiKey);
+                const p3Response = await callModelAPI(p3Payload, apiKey);
                 let p3Raw = extractResponseText(p3Response);
                 let p3Clean = p3Raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
                 let p3Data = salvageTruncatedJSON(p3Clean);
@@ -705,7 +716,7 @@ ${textParts.join('\n\n')}`;
                         enrichedNodesMap[node.id] = node;
                     });
                 }
-            } catch (batchErr) {
+            } catch (batchErr) { if (giro) giro.verifica();
                 console.error(`Errore nel batch ${batchIdx + 1}:`, batchErr);
                 // Auto-healing fallback per questo batch
                 batchNodes.forEach(node => {
@@ -829,12 +840,13 @@ ${textParts.join('\n\n')}`;
             sourcesDict: {},
             customColors: {}
         };
+        if (giro) giro.iniziaMappa();
 
         // Arricchimento desc sottili ancorato alla fonte (gated, default OFF).
         // Va dopo l'assemblaggio finale: agisce sul set di nodi consolidato.
         try {
-            await window.enrichThinDescs(textParts, apiKey);
-        } catch (e) {
+            await window.enrichThinDescs(textParts, apiKey, giro);
+        } catch (e) { if (giro) giro.verifica();
             console.warn('[enrichThinDescs] errore non bloccante (KG multi-pass):', e.message);
         }
 
@@ -850,7 +862,7 @@ ${textParts.join('\n\n')}`;
         if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
         setTimeout(() => { window.showGenerationReport(); }, 1500);
 
-    } catch (err) {
+    } catch (err) { if (giro) giro.verifica();
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Graph HD", err.message);
     }

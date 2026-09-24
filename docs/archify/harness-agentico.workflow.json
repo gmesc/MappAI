@@ -1,0 +1,313 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "L'harness agentico di MappAI",
+    "quality_profile": "showcase",
+    "output": "docs/archify/harness-agentico.workflow.html",
+    "viewBox": [
+      1062,
+      676
+    ]
+  },
+  "lanes": [
+    {
+      "id": "giacomo",
+      "label": "Giacomo — i tre gate"
+    },
+    {
+      "id": "interprete",
+      "label": "Interprete e skill"
+    },
+    {
+      "id": "agenti",
+      "label": "Agenti"
+    },
+    {
+      "id": "guardie",
+      "label": "Guardie deterministiche",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "smistare",
+      "label": "Smistare",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "decidere",
+      "label": "Decidere e pianificare",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "eseguire",
+      "label": "Eseguire e verificare",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "skill_piano",
+      "label": "Skill di piano",
+      "lane": "interprete",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "esecuzione",
+      "label": "Un packet alla volta",
+      "lane": "agenti",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "prompt",
+    "intake",
+    "scelta",
+    "architetto",
+    "packet",
+    "vai",
+    "implementer",
+    "reviewer",
+    "electron"
+  ],
+  "nodes": [
+    {
+      "id": "prompt",
+      "lane": "giacomo",
+      "col": 0,
+      "type": "external",
+      "label": "Il tuo prompt",
+      "sublabel": "idee, bug, domande",
+      "width": 136
+    },
+    {
+      "id": "scelta",
+      "lane": "giacomo",
+      "col": 2,
+      "type": "security",
+      "label": "Decisione",
+      "sublabel": "quale ramo, quali bivi",
+      "tag": "gate 1",
+      "width": 136
+    },
+    {
+      "id": "vai",
+      "lane": "giacomo",
+      "col": 3,
+      "type": "security",
+      "label": "«Vai»",
+      "sublabel": "approvi il packet",
+      "tag": "gate 2",
+      "width": 136
+    },
+    {
+      "id": "electron",
+      "lane": "giacomo",
+      "col": 5,
+      "type": "security",
+      "label": "Prova in Electron",
+      "sublabel": "HANDOFF, commit, push",
+      "tag": "gate 3",
+      "width": 136
+    },
+    {
+      "id": "intake",
+      "lane": "interprete",
+      "col": 1,
+      "type": "backend",
+      "label": "Interprete",
+      "sublabel": "separa e classifica",
+      "tag": "non decide",
+      "width": 136
+    },
+    {
+      "id": "architetto",
+      "lane": "interprete",
+      "col": 2,
+      "type": "backend",
+      "label": "Architetto",
+      "sublabel": "piano contro invarianti",
+      "tag": "+ potatura",
+      "width": 136
+    },
+    {
+      "id": "packet",
+      "lane": "interprete",
+      "col": 3,
+      "type": "backend",
+      "label": "Task packet",
+      "sublabel": "file, prove, Done",
+      "width": 136
+    },
+    {
+      "id": "implementer",
+      "lane": "agenti",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Agente esecutore",
+      "sublabel": "solo il packet",
+      "tag": "si ferma",
+      "width": 136
+    },
+    {
+      "id": "reviewer",
+      "lane": "agenti",
+      "col": 5,
+      "type": "messagebus",
+      "label": "Agente revisore",
+      "sublabel": "un difetto per riga",
+      "width": 136
+    },
+    {
+      "id": "parcheggio",
+      "lane": "guardie",
+      "col": 1,
+      "type": "database",
+      "label": "La coda",
+      "sublabel": "rami non scelti",
+      "width": 136
+    },
+    {
+      "id": "adr",
+      "lane": "guardie",
+      "col": 2,
+      "type": "database",
+      "label": "Le decisioni",
+      "sublabel": "alternative e motivo",
+      "tag": "firma tua",
+      "width": 136
+    },
+    {
+      "id": "deny",
+      "lane": "guardie",
+      "col": 4,
+      "type": "security",
+      "label": "Guardia dei file",
+      "sublabel": "fissi + per packet",
+      "tag": "senza giudizio",
+      "width": 136
+    },
+    {
+      "id": "test",
+      "lane": "guardie",
+      "col": 5,
+      "type": "security",
+      "label": "Suite + diff",
+      "sublabel": "passa o non passa",
+      "tag": "senza giudizio",
+      "width": 136
+    }
+  ],
+  "edges": [
+    {
+      "id": "prompt-intake",
+      "from": "prompt",
+      "to": "intake",
+      "variant": "default"
+    },
+    {
+      "id": "intake-scelta",
+      "from": "intake",
+      "to": "scelta",
+      "label": "una domanda",
+      "variant": "emphasis"
+    },
+    {
+      "id": "intake-parcheggio",
+      "from": "intake",
+      "to": "parcheggio",
+      "label": "i rami non scelti",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "scelta-architetto",
+      "from": "scelta",
+      "to": "architetto",
+      "variant": "default"
+    },
+    {
+      "id": "architetto-adr",
+      "from": "architetto",
+      "to": "adr",
+      "label": "se tocca un invariante",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "architetto-packet",
+      "from": "architetto",
+      "to": "packet",
+      "label": "piano potato",
+      "variant": "default"
+    },
+    {
+      "id": "packet-vai",
+      "from": "packet",
+      "to": "vai",
+      "variant": "emphasis"
+    },
+    {
+      "id": "vai-implementer",
+      "from": "vai",
+      "to": "implementer",
+      "variant": "default"
+    },
+    {
+      "id": "implementer-deny",
+      "from": "implementer",
+      "to": "deny",
+      "label": "ogni scrittura",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "implementer-reviewer",
+      "from": "implementer",
+      "to": "reviewer",
+      "label": "diff + prove",
+      "variant": "default"
+    },
+    {
+      "id": "reviewer-test",
+      "from": "reviewer",
+      "to": "test",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "reviewer-electron",
+      "from": "reviewer",
+      "to": "electron",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Il principio",
+      "items": [
+        "L'agente propone ed esegue; la direzione è di Giacomo",
+        "Se tocca un invariante, prima l'ADR"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Le guardie",
+      "items": [
+        "Non giudicano: o passa o non passa",
+        "Il giudizio sta negli agenti, dentro il packet"
+      ]
+    }
+  ]
+}

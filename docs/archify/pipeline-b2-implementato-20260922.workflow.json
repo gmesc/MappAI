@@ -1,0 +1,169 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MappAI · B2 collegato · modelli per fase",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "avvio",
+      "label": "Configurazione e avvio"
+    },
+    {
+      "id": "mappa",
+      "label": "Generazione della mappa"
+    },
+    {
+      "id": "fonti",
+      "label": "Vault e fonti originali"
+    },
+    {
+      "id": "materiali",
+      "label": "Materiali e continuità"
+    }
+  ],
+  "mainPath": [
+    "setup",
+    "snapshot",
+    "mappa_json",
+    "qualita",
+    "vault",
+    "evidence",
+    "materiali_chat",
+    "manifesto"
+  ],
+  "nodes": [
+    {
+      "id": "setup",
+      "lane": "avvio",
+      "col": 0,
+      "type": "frontend",
+      "label": "1 · Setup AI",
+      "sublabel": "Modello per ogni fase",
+      "width": 160
+    },
+    {
+      "id": "snapshot",
+      "lane": "avvio",
+      "col": 1,
+      "type": "security",
+      "label": "2 · Avvia il giro",
+      "sublabel": "Profilo e credenziali fissi",
+      "width": 160
+    },
+    {
+      "id": "mappa_json",
+      "lane": "mappa",
+      "col": 1,
+      "type": "cloud",
+      "label": "3 · Mappa JSON",
+      "sublabel": "Testo PDF → modello mappa",
+      "width": 160
+    },
+    {
+      "id": "qualita",
+      "lane": "mappa",
+      "col": 2,
+      "type": "security",
+      "label": "4 · Controlli",
+      "sublabel": "Giudice solo se abilitato",
+      "width": 160
+    },
+    {
+      "id": "vault",
+      "lane": "fonti",
+      "col": 2,
+      "type": "database",
+      "label": "5 · Vault del giro",
+      "sublabel": "Associazione esplicita",
+      "width": 160
+    },
+    {
+      "id": "evidence",
+      "lane": "fonti",
+      "col": 3,
+      "type": "backend",
+      "label": "6 · Evidence pronto",
+      "sublabel": "Se acceso · indice atteso",
+      "width": 160
+    },
+    {
+      "id": "materiali_chat",
+      "lane": "materiali",
+      "col": 3,
+      "type": "cloud",
+      "label": "7 · Materiali",
+      "sublabel": "Modello materiali assegnato",
+      "width": 160
+    },
+    {
+      "id": "manifesto",
+      "lane": "materiali",
+      "col": 4,
+      "type": "database",
+      "label": "8 · Salva e riprendi",
+      "sublabel": "Profilo pubblico e provenienza",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "from": "setup",
+      "to": "snapshot"
+    },
+    {
+      "from": "snapshot",
+      "to": "mappa_json",
+      "label": "contesto B1"
+    },
+    {
+      "from": "mappa_json",
+      "to": "qualita"
+    },
+    {
+      "from": "qualita",
+      "to": "vault",
+      "label": "mappa salvabile"
+    },
+    {
+      "from": "vault",
+      "to": "evidence"
+    },
+    {
+      "from": "evidence",
+      "to": "materiali_chat",
+      "label": "frasi con ID"
+    },
+    {
+      "from": "materiali_chat",
+      "to": "manifesto"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "B2 implementato · 22/09",
+      "items": [
+        "Suite: 1.841 pass, 0 fail, 2 skip; tre banchi verdi.",
+        "Gate 3 da fare; modifiche locali, nessun commit B2."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Magazzino collegato",
+      "items": [
+        "Analisi entità e deduplica → embeddings del profilo.",
+        "Cache nel vault corretto, riusata anche al riavvio simulato."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Ripresa e prossime prove",
+      "items": [
+        "Profilo salvato, credenziali attuali; i gate restano attivi.",
+        "Da fare: gate 3 reale e misura Evidence OFF/ON Infomaniak."
+      ]
+    }
+  ]
+}

@@ -208,18 +208,26 @@ window.directLoadVault = async function (folderPath) {
             window.setTutorState(loadRes.data.tutorState || null);
 
             // Ripristina AI Provider e Modello se presenti
-            if (loadRes.data.aiProvider) {
+            const profiloAttivo = window.MappAIModelli && window.MappAIModelli.acceso();
+            if (loadRes.data.aiProvider && !profiloAttivo) {
                 appState.aiProvider = loadRes.data.aiProvider;
                 localStorage.setItem('ai_provider', appState.aiProvider);
                 if (window.switchAIProvider) window.switchAIProvider(appState.aiProvider);
             }
-            if (loadRes.data.aiModel) {
+            if (loadRes.data.aiModel && !profiloAttivo) {
                 const storageKey = (appState.aiProvider === 'infomaniak') ? 'infomaniak_selected_model' : 'gemini_selected_model';
                 localStorage.setItem(storageKey, loadRes.data.aiModel);
             }
             if (loadRes.data.generationUsage) {
                 appState.generationUsage = loadRes.data.generationUsage;
                 if (window.updateCostDisplay) window.updateCostDisplay();
+            }
+            if (profiloAttivo) {
+                // La provenienza della mappa viaggia separata dal Setup del prossimo giro.
+                appState.generationUsage = Object.assign({}, loadRes.data.generationUsage || {}, {
+                    provenienzaMappa: { provider: loadRes.data.aiProvider || loadRes.data.generationUsage?.usedProvider || '',
+                        model: loadRes.data.generationUsage?.usedModel || loadRes.data.aiModel || '' }
+                });
             }
             // Forza il refresh dei modelli per popolare la tendina e selezionare quello corretto
             if (window.refreshGeminiModels) window.refreshGeminiModels();

@@ -117,7 +117,7 @@ window.showContextMenu = function (e, type, data) {
                 '<div class="ctx-item text-emerald-600" onclick="window.ctxAction(\'ratify_bridge\')"><i data-lucide="check-circle"></i> ' + window.t('ctx_ratify_bridge', 'Ratifica ponte') + '</div>' +
                 '<div class="ctx-item danger" onclick="window.ctxAction(\'reject_bridge\')"><i data-lucide="x-circle"></i> ' + window.t('ctx_reject_bridge', 'Rifiuta ponte') + '</div>' +
                 '<hr class="my-1 border-slate-200">' +
-                '<div class="ctx-item" onclick="window.ctxAction(\'rename_link\')"><i data-lucide="type"></i> ' + window.t('ctx_rename_rel', 'Rinomina Relazione') + '</div>' +
+                '<div class="ctx-item" onclick="window.ctxAction(\'rename_link\')"><i data-lucide="type"></i> ' + window.t('le_title', 'Modifica collegamento') + '</div>' +
                 '<div class="ctx-item danger" onclick="window.ctxAction(\'delete_link\')"><i data-lucide="trash-2"></i> ' + window.t('ctx_delete_bridge', 'Elimina Ponte') + '</div>';
             window.safeCreateIcons();
             menu.classList.remove('hidden');
@@ -141,7 +141,7 @@ window.showContextMenu = function (e, type, data) {
                     `;
         } else {
             menu.innerHTML = `
-                        <div class="ctx-item" onclick="window.ctxAction('rename_link')"><i data-lucide="type"></i> ${window.t('ctx_rename_rel', "Rinomina Relazione")}</div>
+                        <div class="ctx-item" onclick="window.ctxAction('rename_link')"><i data-lucide="type"></i> ${window.t('le_title', "Modifica collegamento")}</div>
                         <hr class="my-1 border-slate-200">
                         <div class="ctx-item danger" onclick="window.ctxAction('delete_link')"><i data-lucide="trash-2"></i> ${window.t('ctx_delete_link', "Elimina Link")}</div>
                     `;
@@ -338,6 +338,7 @@ window.ctxAction = function (action) {
     }
     else if (action === 'rename_link') {
         if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWriteLink(data, 'rinomina link')) return;
+        if (window.MappAILinkEditor && window.MappAILinkEditor.enabled()) return window.MappAILinkEditor.open(data);
         window.showPrompt("Etichetta relazione (lascia vuoto per nascondere la label):", data.rel || '', (newRel) => {
             data.rel = newRel; // stringa vuota = link senza label visibile
             renderGraph();

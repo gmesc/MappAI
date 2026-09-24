@@ -68,6 +68,17 @@ test('costOf: google converte USD→CHF, infomaniak resta CHF', () => {
     assert.ok(Math.abs(t.inCost - 1.0) < 1e-9);
 });
 
+test('pensiero separato Google, già incluso Infomaniak; modello effettivo e provider distinti', () => {
+    const kb={inputCost:1,outputCost:2};
+    assert.strictEqual(U.costOf({provider:'infomaniak',inTok:0,outTok:1e6,thoughts:5e5},kb,1).total,2);
+    assert.strictEqual(U.costOf({provider:'google',inTok:0,outTok:1e6,thoughts:5e5},kb,1).total,3);
+    const agg=U.aggregate([
+        {provider:'google',model:'requested',actualModel:'shared',requestedModel:'requested',inTok:1e6,outTok:0},
+        {provider:'infomaniak',model:'shared',inTok:1e6,outTok:0}
+    ],{kbLookup:(_id,provider)=>({inputCost:provider==='google'?1:2,outputCost:0}),usdChf:1});
+    assert.strictEqual(agg.totals.total,3); assert.strictEqual(Object.keys(agg.byModel).length,2);
+});
+
 // ── aggregate ───────────────────────────────────────────────────────────
 const RECS = [
     { ts: '2026-07-15T10:00:00Z', provider: 'google', model: 'gemini-2.5-flash', inTok: 1000, outTok: 500, cat: 'map', sub: 'mm_phase1', project: 'Fotosintesi', projectId: 'p1' },

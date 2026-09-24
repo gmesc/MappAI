@@ -281,12 +281,14 @@ window.quizLengthBlock = function () {
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
+    const giro = opts.giro;
+    const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
     const nodeLabel = opts.nodeLabel || 'Globale';
     const material = (opts.material || '').trim();
     const quizType = opts.quizType || 'Scelta Multipla';
     const quantity = opts.quantity || 3;
-    const apiKey = opts.apiKey || (window.getSystemKey && window.getSystemKey());
-    if (!apiKey || !material) return [];
+    const apiKey = opts.apiKey || (!giro && window.getSystemKey && window.getSystemKey());
+    if ((!apiKey && !giro) || !material) return [];
     if (window.MappAIUsage) {
         const qt = String(quizType).toLowerCase();
         window.MappAIUsage.setContext(opts.usageCat || 'study',
@@ -343,13 +345,13 @@ window.generateDynamicQuiz = async function (opts) {
         }
     };
     try {
-        const resp = await window.fetchModelAPI(window.injectClassTuning({
+        const resp = await callModelAPI(window.injectClassTuning({
             contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + material }] }],
             /* budget largo: il numero di domande lo tiene `maxItems`, questo serve
                solo a non far troncare una risposta verbosa (misurato il 12/9 sulle
                domande aperte: un budget stretto ha perso metà del foglio). Le
                chiamate vere stanno sotto i 900 token. */
-            generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, maxOutputTokens: window.getMaxOutputTokens(_quante * 450 + 1200), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
+            generationConfig: { temperature: opts.temperature || window.QUIZ_TEMPERATURE, maxOutputTokens: window.getMaxOutputTokens(_quante * 450 + 1200, giro ? giro.fase('materiali') : undefined), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
         }), apiKey);
         const raw = resp && resp.candidates && resp.candidates[0] && resp.candidates[0].content.parts[0].text || '';
         let arr = window.salvageTruncatedJSON(raw.split('```json').join('').split('```').join('').trim());
@@ -389,7 +391,7 @@ window.generateDynamicQuiz = async function (opts) {
             if (window.MappAIMisuraEvidenze) {
                 window.MappAIMisuraEvidenze.foglio({
                     area: nodeLabel, tipo: quizType, angolo: opts.angle || 'auto',
-                    materiale: material, ricevute: arr, tenute: v.items, scartati: v.scartati
+                    materiale: material, ricevute: arr, tenute: v.items, scartati: v.scartati, ai: resp._mappaiAI
                 });
             }
             arr = v.items;
@@ -405,7 +407,7 @@ window.generateDynamicQuiz = async function (opts) {
             }
         }
         return arr;
-    } catch (e) { console.warn('[generateDynamicQuiz]', e && e.message); return []; }
+    } catch (e) { if (giro) giro.verifica(); console.warn('[generateDynamicQuiz]', e && e.message); return []; }
 };
 
 window.startStudySession = async function () {

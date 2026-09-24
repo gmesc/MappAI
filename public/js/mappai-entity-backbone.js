@@ -92,6 +92,7 @@
      * Restituisce un report; NON modifica appState.
      */
     async function analyzeCurrentMap(options = {}) {
+        const giro = options.giro || (window.MappAIModelli && window.MappAIModelli.avvia());
         const cfg = { ...CONFIG, ...options };
         const report = { clusters: [], stats: { nodesAnalyzed: 0, clustersFound: 0, transversalClusters: 0 }, errors: [] };
 
@@ -121,8 +122,9 @@
 
         let embs;
         try {
-            embs = await window.fetchEmbeddings(texts);
+            embs = giro ? await giro.embeddings(texts) : await window.fetchEmbeddings(texts);
         } catch (e) {
+            if (giro) giro.verifica();
             console.warn('[EntityBackbone] Fetch embeddings fallito:', e.message);
             report.errors.push(e.message);
             return report;

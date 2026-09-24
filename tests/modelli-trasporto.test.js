@@ -76,7 +76,9 @@ test('metadati distinguono modello richiesto/effettivo; usage assente non invent
     const result = await g.chat('mappa', payload());
     assert.equal(result._mappaiAI.requestedModel, 'mappa-test'); assert.equal(result._mappaiAI.actualModel, null);
     assert.equal(result._mappaiTruncated, true); assert.equal(result._mappaiFinishReason, 'length');
-    assert.equal(result.usageMetadata, undefined); assert.equal(h.usage.length, 0);
+    assert.equal(result.usageMetadata, undefined); assert.equal(h.usage.length, 1);
+    assert.equal(h.usage[0].usageKnown, false);
+    assert.equal(h.usage[0].inTok, null); assert.equal(h.usage[0].outTok, null);
     assert.equal(h.window.MappAITruncationTracker.summary().truncated, 1);
     const withUsage = harness({ on: true });
     const actual = await withUsage.window.MappAIModelli.creaGiro(profile()).chat('materiali', payload());
@@ -84,7 +86,9 @@ test('metadati distinguono modello richiesto/effettivo; usage assente non invent
     assert.equal(withUsage.usage[0].inTok, 7); assert.equal(withUsage.usage[0].outTok, 3);
     const google = harness({ on: true, chat: call => reply(call, { modelVersion: undefined, usageMetadata: undefined }) });
     const gr = await google.window.MappAIModelli.creaGiro(profile('google')).chat('mappa', payload());
-    assert.equal(gr._mappaiAI.actualModel, null); assert.equal(google.usage.length, 0);
+    assert.equal(gr._mappaiAI.actualModel, null); assert.equal(google.usage.length, 1);
+    assert.equal(google.usage[0].usageKnown, false);
+    assert.equal(google.usage[0].inTok, null); assert.equal(google.usage[0].outTok, null);
 });
 
 test('usage parziale: solo valori restituiti, zero resta zero e contatori mancanti restano null nel tracker', async () => {
@@ -98,7 +102,10 @@ test('usage parziale: solo valori restituiti, zero resta zero e contatori mancan
         const h = harness({ on: true, chat: call => reply(call, provider === 'infomaniak' ? { usage: c.info } : { usageMetadata: c.google }) });
         const result = await h.window.MappAIModelli.creaGiro(profile(provider)).chat('mappa', payload());
         assert.deepEqual(plain(result.usageMetadata), c.google);
-        assert.equal(h.usage.length, c.records);
+        assert.equal(h.usage.length, 1);
+        assert.equal(h.usage[0].usageKnown, c.records === 1);
+        assert.equal(h.usage[0].inTok, c.records ? c.prompt : null);
+        assert.equal(h.usage[0].outTok, c.records ? c.candidate : null);
         const event = h.window.MappAITruncationTracker.currentRun[0];
         assert.equal(event.promptTokens, c.prompt); assert.equal(event.candidateTokens, c.candidate);
     }

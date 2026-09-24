@@ -16,6 +16,7 @@
     "dist": "electron-builder",
     "test": "node --test",
     "dove": "node tools/dove.js",
+    "contabilita": "node tools/contabilita/packet.js --rapporto",
     "stile": "node tools/stile/censimento.js",
     "stile:banco": "node tools/stile/banco.js",
     "ui": "node tools/stile/anatomia.js"

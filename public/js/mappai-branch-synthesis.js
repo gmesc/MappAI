@@ -414,7 +414,8 @@
     // ── Generazione AI ─────────────────────────────────────────────────────
     // Una passata di sintesi su un insieme di nodi (un ramo, o l'intera mappa
     // se piccola). Ritorna { rawText, sourcesArr } o null se niente contenuti.
-    async function _synthesizeOnce(nodes, label, apiKey) {
+    async function _synthesizeOnce(nodes, label, apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
         const version = _sourceVersion();
         const input = _buildSourcesAndContent(nodes);
         const { nodesListText, sourcesArr } = input;
@@ -427,7 +428,7 @@
         let causalTriples = [];
         try {
             if (window.MappAICausal && window.MappAICausal.triplesFor) causalTriples = window.MappAICausal.triplesFor(nodes) || [];
-        } catch (e) { causalTriples = []; }
+        } catch (e) { if (giro) giro.verifica(); causalTriples = []; }
         const causalScaffold = (causalTriples.length && window.MappAICausal.promptBlockFromTriples)
             ? window.MappAICausal.promptBlockFromTriples(causalTriples) : '';
 
@@ -441,13 +442,13 @@
             contents: [{ role: 'user', parts: [{ text: promptText }] }],
             generationConfig: {
                 temperature: 0.4,
-                maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(3000) : 3000)
+                maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(3000, giro ? giro.fase('materiali') : undefined) : 3000)
             }
         };
 
         if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
         if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se MappAITune non armato
-        const response = await window.fetchModelAPI(payload, apiKey);
+        const response = await callModelAPI(payload, apiKey);
         _requireSameVersion(version);
         let rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (!rawText.trim()) throw new Error('Risposta AI vuota');
@@ -465,7 +466,7 @@
                     console.log('[Sintesi] tolte ' + _m.tolte.length + ' frasi di metatesto');
                 }
             }
-        } catch (e) { /* ripiego: si stampa il testo come è arrivato */ }
+        } catch (e) { if (giro) giro.verifica(); /* ripiego: si stampa il testo come è arrivato */ }
         const citations = window.MappAIGroundingCore.resolveCitations(rawText, sourcesArr);
         return { rawText: citations.text, sourcesArr, causalTriples,
             grounding: { unverified: input.unverified, unknownCitationIds: citations.unknownIds,
@@ -535,7 +536,8 @@
     // aggiunge nulla per lo studente. Un ramo fallito non azzera gli altri.
     const WHOLE_SINGLE_MAX = 30;
 
-    async function _generateWholeMapSynthesis(apiKey) {
+    async function _generateWholeMapSynthesis(apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
         const version = _sourceVersion();
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
         const allNodes = appState.db.nodes || [];
@@ -544,7 +546,7 @@
             if (allNodes.length <= WHOLE_SINGLE_MAX) {
                 _ovl(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
                 const out = await _synthesizeOnce(
-                    [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey);
+                    [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey, giro);
                 _requireSameVersion(version);
                 _ovl(false);
                 if (!out) {
@@ -569,9 +571,9 @@
                 _ovl(true,
                     window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
                 try {
-                    const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey);
+                    const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey, giro);
                     if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr, grounding: out.grounding, causalTriples: out.causalTriples || [] });
-                } catch (e) {
+                } catch (e) { if (giro) giro.verifica();
                     if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                     console.warn('[BranchSynthesis] Ramo fallito:', label, e);
                     sections.push({ branchLabel: label, failed: true });
@@ -600,17 +602,17 @@
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     generationConfig: {
                         temperature: 0.4,
-                        maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(1200) : 1200)
+                        maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(1200, giro ? giro.fase('materiali') : undefined) : 1200)
                     }
                 };
                 if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'synthesis');
                 if (window.injectClassTuning) window.injectClassTuning(payload);
-                const resp = await window.fetchModelAPI(payload, apiKey);
+                const resp = await callModelAPI(payload, apiKey);
                 _requireSameVersion(version);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
                 introSources = _sourcesForMarkers(intro, input.sourcesArr);
                 introGrounding = { unknownCitationIds: window.MappAIGroundingCore.resolveCitations(intro, introSources).unknownIds };
-            } catch (e) {
+            } catch (e) { if (giro) giro.verifica();
                 if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                 console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);
             }
@@ -620,7 +622,7 @@
             _lastSynthesis = { whole: true, branchLabel: mapName, mapName, intro, introSources, introGrounding, sections, tuned: !!(window.MappAITune && window.MappAITune.armed) };
             _maybeResultModal(_lastSynthesis);
             return _lastSynthesis;
-        } catch (err) {
+        } catch (err) { if (giro) giro.verifica();
             _ovl(false);
             console.error('[BranchSynthesis] Errore sintesi mappa:', err);
             if (_silent) throw err;   // pipeline: propaga per far fallire lo step
@@ -2136,15 +2138,16 @@ ${_bsPie(data.mapName)}
     window.MappAISynthesis = {
         runWholeMap: async function (opts) {
             opts = opts || {};
+            const giro = opts.giro;
             if (window.MappAIReview?.requireApproved && !await window.MappAIReview.requireApproved()) return null;
-            const apiKey = opts.apiKey || (window.getSystemKey ? window.getSystemKey() : '');
-            if (!apiKey) throw new Error(window.t('tst_need_key', "Inserisci un'API Key per continuare"));
+            const apiKey = opts.apiKey || (!giro && window.getSystemKey ? window.getSystemKey() : '');
+            if (!apiKey && !giro) throw new Error(window.t('tst_need_key', "Inserisci un'API Key per continuare"));
             const _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
             const _prevSilent = _silent;
             if (window.MappAITune) window.MappAITune.armed = !!opts.tuned;
             _silent = !!opts.silent;
             try {
-                return (await _generateWholeMapSynthesis(apiKey)) || null;
+                return (await _generateWholeMapSynthesis(apiKey, giro)) || null;
             } finally {
                 _silent = _prevSilent;
                 if (window.MappAITune) window.MappAITune.armed = _prevArmed;

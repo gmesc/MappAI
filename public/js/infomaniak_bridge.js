@@ -93,6 +93,7 @@ window.InfomaniakBridge = {
                 if (geminiPayload.generationConfig.responseSchema) {
                     const schemaStr = window.InfomaniakBridge._schemaToExample(geminiPayload.generationConfig.responseSchema);
                     lastMsg.content += `\n\nSTRUTTURA JSON ATTESA (rispetta ESATTAMENTE chiavi e nidificazione):\n${schemaStr}`;
+                    lastMsg.content += '\nVINCOLI DELLO SCHEMA (enum e campi obbligatori):\n' + JSON.stringify(window.InfomaniakBridge._geminiSchemaToJsonSchema(geminiPayload.generationConfig.responseSchema));
                 }
                 lastMsg.content +=
                     "\n\nREGOLE DI OUTPUT TASSATIVE:" +
@@ -119,6 +120,9 @@ window.InfomaniakBridge = {
         if (!schema) return {};
         const typeMap = { OBJECT: 'object', ARRAY: 'array', STRING: 'string', INTEGER: 'integer', NUMBER: 'number', BOOLEAN: 'boolean' };
         const result = { type: typeMap[schema.type] || 'object' };
+        for (const key of ['enum', 'minItems', 'maxItems', 'minLength', 'maxLength', 'minimum', 'maximum', 'description']) {
+            if (schema[key] !== undefined) result[key] = schema[key];
+        }
         if (schema.type === 'OBJECT' && schema.properties) {
             result.properties = {};
             for (const [key, val] of Object.entries(schema.properties)) {
@@ -148,10 +152,11 @@ window.InfomaniakBridge = {
             lines.push(`${indent}}`);
             return lines.join("\n");
         } else if (schema.type === "ARRAY") {
+            if (schema.maxItems === 0) return '[]';
             const val = window.InfomaniakBridge._schemaToExample(schema.items, nextIndent);
             return `[\n${nextIndent}${val}\n${indent}]`;
         } else if (schema.type === "STRING") {
-            return '"<string>"';
+            return schema.enum && schema.enum.length ? JSON.stringify(schema.enum[0]) : '"<string>"';
         } else if (schema.type === "INTEGER" || schema.type === "NUMBER") {
             return '0';
         } else if (schema.type === "BOOLEAN") {

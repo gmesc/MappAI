@@ -1,0 +1,67 @@
+{
+  "diagram_type": "workflow",
+  "status": "proposta B2, non implementata",
+  "date": "2026-09-22",
+  "packet": "docs/tasks/0013-modelli-per-fase-nei-flussi.md",
+  "specification": {
+    "sha256": "ce2ce697a3d5238bc4f759137aa129a6ce760fc8cb3e370cf500361bfd1f7dbd",
+    "bytes": 2877
+  },
+  "artifact": {
+    "sha256": "e2022a0842ea839fe8afd2f500f1f82455d4b7959e2746ea181c605015b7223b",
+    "bytes": 806859
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "browser_evidence": {
+    "status": "pass",
+    "receipt": "pipeline-b2-proposta-20260922.visual-check.json",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "theme": "light",
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "theme": "light",
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "theme": "light",
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "theme": "light",
+        "overflowX": false,
+        "overflowY": false
+      }
+    ]
+  },
+  "visual_review": {
+    "status": "passed",
+    "reviewer": "Codex, ispezione delle immagini",
+    "screenshots": [
+      "pipeline-b2-proposta-20260922.visual-check.1440x900.light.png",
+      "pipeline-b2-proposta-20260922.visual-check.2048x1320.dark.png"
+    ],
+    "notes": "Nodi e frecce distinguibili, nessuna sovrapposizione; composizione completa e bilanciata a entrambe le dimensioni. Zoom disponibile per il testo secondario."
+  },
+  "correction_rounds": 0,
+  "locale_note": "Contenuti italiani; UI fissa e html lang inglesi."
+}

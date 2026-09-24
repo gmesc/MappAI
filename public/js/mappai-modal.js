@@ -362,7 +362,15 @@
            in cui erano, così ordinare due volte non le rimescola */
         righe.forEach(function (r, k) { r._k = k; });
         righe.sort(function (a, b) {
+            var af = a.hasAttribute('data-fissa'), bf = b.hasAttribute('data-fissa');
+            if (af || bf) return af === bf ? a._k - b._k : af ? -1 : 1;
             var ca = a.cells[i], cb = b.cells[i];
+            // Valore dichiarato dal chiamante: le date localizzate non si riparsano.
+            if (ca && cb && ca.hasAttribute('data-ordine') && cb.hasAttribute('data-ordine')) {
+                var va = ca.getAttribute('data-ordine'), vb = cb.getAttribute('data-ordine');
+                if (va === '' || vb === '') return va === vb ? a._k - b._k : va === '' ? 1 : -1;
+                return (Number(va) - Number(vb)) * verso || a._k - b._k;
+            }
             var ka = chiaveOrdine(ca ? ca.textContent : ''), kb = chiaveOrdine(cb ? cb.textContent : '');
             var d;
             if (ka.n !== undefined && kb.n !== undefined) d = ka.n - kb.n;
@@ -376,22 +384,85 @@
 
     /* ogni tabella della vista si aggancia da sé: con più elenchi nella stessa
        area, agganciare solo il primo lasciava gli altri senza ordinamento */
-    function attaccaTabelle(box) {
-        [].forEach.call(box.querySelectorAll('.mm-tab'), function (t) { attaccaTabella(box, t); });
+    function attaccaTabelle(box, schema) {
+        [].forEach.call(box.querySelectorAll('.mm-tab'), function (t) {
+            var gruppo = t.closest('[data-sez]');
+            var spec = gruppo && (schema.tabelle || []).find(function (s) { return s.id === gruppo.getAttribute('data-sez'); });
+            attaccaTabella(box, t, spec || schema.tabella || {});
+        });
     }
 
-    function attaccaTabella(box, tab) {
+    function attaccaTabella(box, tab, spec) {
         if (!tab) return;
+        var indipendenti = spec.colonneIndipendenti;
+        var stato = spec.statoColonne || {};
+        function applicaLarghezze(larghezze) {
+            [].forEach.call(tab.querySelectorAll('col'), function (c, i) { c.style.width = larghezze[i] + 'px'; });
+            tab.style.width = larghezze.reduce(function (a, b) { return a + b; }, 0) + 'px';
+        }
+        if (indipendenti) {
+            function aggiornaLarghezze(ripristina) {
+                if (!tab.isConnected) return;
+                var larghezze = ripristina ? null : stato.larghezze;
+                if (!larghezze) {
+                    var ctx = document.createElement('canvas').getContext('2d');
+                    larghezze = [].map.call(tab.querySelectorAll('th'), function (th, i) {
+                        var max = 0;
+                        [].forEach.call(tab.rows, function (r) {
+                            var c = r.cells[i]; if (!c) return;
+                            var testo = c.querySelector('.mm-tab__ord') || c;
+                            var stile = getComputedStyle(testo), cella = getComputedStyle(c);
+                            ctx.font = stile.font;
+                            var s = testo.textContent.trim();
+                            if (stile.textTransform === 'uppercase') s = s.toLocaleUpperCase();
+                            var lettere = parseFloat(stile.letterSpacing) || 0;
+                            var w = ctx.measureText(s).width + Math.max(0, s.length - 1) * lettere;
+                            var extra = parseFloat(cella.paddingLeft) + parseFloat(cella.paddingRight);
+                            if (c.tagName === 'TH' || c.querySelector('.mm-bollino')) extra += 24;
+                            max = Math.max(max, Math.ceil(w * 1.1 + extra));
+                        });
+                        return Math.max(70, max);
+                    });
+                    stato.larghezze = larghezze;
+                }
+                applicaLarghezze(larghezze);
+            }
+            // Il render precede il montaggio: misurare solo quando font e celle sono sullo schermo.
+            requestAnimationFrame(function () { aggiornaLarghezze(false); });
+            tab.addEventListener('dblclick', function (e) {
+                if (!e.target.closest || !e.target.closest('th')) return;
+                e.preventDefault();
+                aggiornaLarghezze(true);
+            });
+        }
+        if (stato.ordine) {
+            ordinaTabella(tab, stato.ordine.colonna, stato.ordine.verso);
+            tab.querySelectorAll('th')[stato.ordine.colonna].setAttribute('aria-sort', stato.ordine.verso === 1 ? 'ascending' : 'descending');
+        }
 
         /* ordinamento: un clic ordina, un altro inverte */
+        var primaDelClic = null;
         tab.addEventListener('click', function (e) {
             var b = e.target.closest && e.target.closest('[data-ord]'); if (!b) return;
+            // Il doppio clic è un ripristino: annulla l'ordinamento del primo clic.
+            if (indipendenti && e.detail === 2 && primaDelClic) {
+                primaDelClic.righe.forEach(function (r) { tab.tBodies[0].appendChild(r); });
+                [].forEach.call(tab.querySelectorAll('th'), function (h, k) { h.setAttribute('aria-sort', primaDelClic.sort[k]); });
+                stato.ordine = primaDelClic.ordine;
+                primaDelClic = null;
+                return;
+            }
+            if (indipendenti && e.detail === 1) primaDelClic = {
+                righe: [].slice.call(tab.tBodies[0].rows), ordine: stato.ordine,
+                sort: [].map.call(tab.querySelectorAll('th'), function (h) { return h.getAttribute('aria-sort') || 'none'; })
+            };
             var i = Number(b.getAttribute('data-ord'));
             var th = b.closest('th');
             var verso = th.getAttribute('aria-sort') === 'ascending' ? -1 : 1;
             [].forEach.call(tab.querySelectorAll('th[aria-sort]'), function (x) { x.setAttribute('aria-sort', 'none'); });
             th.setAttribute('aria-sort', verso === 1 ? 'ascending' : 'descending');
             ordinaTabella(tab, i, verso);
+            if (indipendenti) stato.ordine = { colonna: i, verso: verso };
         });
 
         /* ridimensionamento: si tira il confine fra due colonne */
@@ -403,8 +474,14 @@
             var th = g.closest('th');
             TRASCINA = {
                 cols: cols, i: Number(g.getAttribute('data-grip')),
-                x0: e.clientX, w0: th.getBoundingClientRect().width
+                x0: e.clientX, w0: th.getBoundingClientRect().width,
+                indipendenti: indipendenti, stato: stato, applica: applicaLarghezze,
+                scala: tab.getBoundingClientRect().width / tab.offsetWidth || 1
             };
+            if (indipendenti) {
+                stato.larghezze = [].map.call(cols, function (c) { return parseFloat(c.style.width); });
+                TRASCINA.w0 = stato.larghezze[TRASCINA.i];
+            }
             /* le colonne senza larghezza dichiarata la prendono ADESSO: senza,
                al primo trascinamento tutte le altre salterebbero */
             [].forEach.call(tab.querySelectorAll('th'), function (h, k) {
@@ -422,8 +499,11 @@
     if (typeof document !== 'undefined') {
         document.addEventListener('mousemove', function (e) {
             if (!TRASCINA) return;
-            var w = Math.max(70, Math.round(TRASCINA.w0 + (e.clientX - TRASCINA.x0)));
-            if (TRASCINA.cols[TRASCINA.i]) TRASCINA.cols[TRASCINA.i].style.width = w + 'px';
+            var w = Math.max(70, Math.round(TRASCINA.w0 + (e.clientX - TRASCINA.x0) / (TRASCINA.indipendenti ? TRASCINA.scala : 1)));
+            if (TRASCINA.indipendenti) {
+                TRASCINA.stato.larghezze[TRASCINA.i] = w;
+                TRASCINA.applica(TRASCINA.stato.larghezze);
+            } else if (TRASCINA.cols[TRASCINA.i]) TRASCINA.cols[TRASCINA.i].style.width = w + 'px';
         });
         document.addEventListener('mouseup', function () {
             if (!TRASCINA) return;
@@ -515,7 +595,7 @@
                 : esc(c.etichetta);
             /* la maniglia sta sul bordo DESTRO: si tira il confine fra questa
                colonna e la prossima, che è il gesto che tutti conoscono */
-            var grip = (t.ridimensionabile && i < t.colonne.length - 1)
+            var grip = (t.ridimensionabile && (t.colonneIndipendenti || i < t.colonne.length - 1))
                 ? '<span class="mm-tab__grip" data-grip="' + i + '" role="separator" aria-hidden="true"></span>' : '';
             return '<th' + all(c) + (ord ? ' aria-sort="none"' : '') + '>' + dentro + grip + '</th>';
         }).join('') + '</tr></thead>';
@@ -524,7 +604,7 @@
                 /* riga che si sceglie: in un elenco di materiali si apre quello
                    che si legge, non un bottone in fondo alla riga */
                 var apre = r.id ? ' data-azione="' + esc(r.id) + '" tabindex="0" role="button"' : '';
-                return '<tr' + (r.id ? ' class="mm-tab__riga"' : '') + apre + '>' + r.map(function (cel, i) {
+                return '<tr' + (r.id ? ' class="mm-tab__riga"' : '') + (r.fissa ? ' data-fissa="true"' : '') + apre + '>' + r.map(function (cel, i) {
                     /* cella di scelte: ogni voce è una scorciatoia (le
                        discipline di una classe attivano quella coppia) */
                     var dentro;
@@ -545,7 +625,10 @@
                     } else {
                         dentro = esc(cel);
                     }
-                    return '<td' + all(t.colonne[i] || {}) + '>' + dentro + '</td>';
+                    var ordine = cel && typeof cel === 'object' && Object.prototype.hasOwnProperty.call(cel, 'ordine')
+                        ? ' data-ordine="' + (cel.ordine === null ? '' : esc(cel.ordine)) + '"' : '';
+                    var titolo = t.colonneIndipendenti ? ' title="' + esc(cel && typeof cel === 'object' ? cel.testo || '' : cel) + '"' : '';
+                    return '<td' + all(t.colonne[i] || {}) + ordine + titolo + '>' + dentro + '</td>';
                 }).join('') + '</tr>';
             }).join('') + '</tbody>'
             : '<tbody><tr><td colspan="' + t.colonne.length + '" class="mm-tab__vuota">' +
@@ -782,7 +865,7 @@
                 if (b) { e.stopPropagation(); box.classList.toggle('is-nav-chiusa'); }
             });
         }
-        attaccaTabelle(box);
+        attaccaTabelle(box, s);
         attaccaTip(box);
         return box;
     }

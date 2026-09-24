@@ -68,7 +68,7 @@ function dom() {
 function runtime(opts = {}) {
   const d = dom(), calls = { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 }, saved = { manifest: null, map: clone(DB), version: 0 };
   const st = { activeVaultPath: '/vault', db: clone(DB), sources: [], _pdfPagine: [], _reviewRevision: null };
-  const window = { MappAIReviewCore: Core, MappAIMaterialReview: Material, MappAIPipelineCore: Pipeline,
+  const window = { MappAIReviewCore: Core, MappAILinkEditorCore: require('../public/js/mappai-link-editor-core'), MappAIMaterialReview: Material, MappAIPipelineCore: Pipeline,
     MappAIReviewContext: require('../public/js/mappai-review-context'),
     MappAIGroundingCore: require('../public/js/mappai-grounding-core.js'),
     MappAIConfrontoCore: require('../public/js/mappai-confronto-core.js'),
@@ -98,6 +98,32 @@ function runtime(opts = {}) {
   return { R: window.MappAIReview, window, st, calls, saved, dom: d, opts };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('link editor saves a manual decision and Undo persists without changing the base map', async () => {
+  const h = runtime(), m = manifest(Core.setDecision(initial(), 'issue', 'reject'));
+  h.st._pipelineManifest = m;
+  const before = clone(h.st.db), ref = h.window.MappAILinkEditorCore.reference(h.st.db.links[0]);
+  const undo = await h.R.editLinkLabel(ref, 'influenza');
+  assert.equal(h.calls.manifest, 1); assert.equal(h.calls.map, 0);
+  assert.deepEqual(h.st.db, before);
+  assert.equal(h.saved.manifest.review.initial.decisions.issue.choice, 'reject');
+  assert.equal(h.window.MappAILinkEditorCore.draft(h.R.current(), ref), 'influenza');
+  await undo();
+  assert.equal(h.calls.manifest, 2);
+  assert.deepEqual(h.saved.manifest.review.initial.decisions, m.review.initial.decisions);
+});
+
+test('link decision Undo refuses later decisions; disk failure does not change review', async () => {
+  const h = runtime(); h.st._pipelineManifest = manifest();
+  const ref = h.window.MappAILinkEditorCore.reference(h.st.db.links[0]);
+  const undo = await h.R.editLinkLabel(ref, 'influenza');
+  h.st._pipelineManifest.review = Core.setDecision(h.R.current(), 'issue', 'reject');
+  await assert.rejects(undo(), /stale_revision/);
+  assert.equal(h.R.current().initial.decisions.issue.choice, 'reject');
+  h.opts.failSave = true; const before = h.R.current();
+  await assert.rejects(h.R.editLinkLabel(ref, 'precede'), /Disco/);
+  assert.equal(h.R.current(), before); assert.equal(h.R.isBusy(), false);
+});
 
 test('G1 commit verifies actual persisted content and uses lexical StorageManager', async () => {
   const h = runtime(), r = initial(), m = manifest(Core.setDecision(r, 'issue', 'accept'));
@@ -811,8 +837,9 @@ test('all decisions made retains a compact check warning and optional manual con
   assert.match(h.dom.text(), /Tutte le segnalazioni hanno una decisione/);
   const unchecked = modal.querySelector('#mrv-unchecked');
   assert.match(unchecked.textContent, /2/);
-  assert.doesNotMatch(unchecked.textContent, /Germania|Svizzera|Fuori dal controllo|Prova mancante/);
-  assert.equal(unchecked.querySelectorAll('li,details').length, 0);
+  assert.match(unchecked.textContent, /Germania → richiede → Svizzera: Prova mancante/);
+  assert.doesNotMatch(unchecked.textContent, /Fuori dal controllo/);
+  assert.equal(unchecked.querySelectorAll('li').length, 1, 'il nesso residuo espone il motivo senza riaprire le decisioni');
   assert.equal(modal.querySelector('#mrv-manual-option').getAttribute('open'), undefined);
   assert.equal(modal.querySelector('#mrv-filters').hidden, false, 'existing resolved decisions remain accessible through the filters');
   assert.equal(m.review.initial.status, 'awaiting_review');

@@ -3,6 +3,11 @@
   position: fixed; inset: 0; z-index: 3400; display: flex; align-items: center;
   justify-content: center; padding: 20px; background: rgb(15 23 42 / .58);
   color: var(--mm-testo, #404040); line-height: 1.5;
+  /* ⚠️ L'AREA NON COMINCIA AL SUO BORDO SINISTRO: la maniglia occupa l'angolo in
+     alto a sinistra, sopra qualunque cosa ci sia (GUIDA-ARCHITETTO §8.19,
+     HANDOFF-maniglia-layout). Il posto che le si riserva è DERIVATO dalla sua
+     taglia, non scritto a mano: se la maniglia cresce, il respiro la segue. */
+  --mrv-man: 34px; --mrv-man-posto: calc(var(--mrv-man) + 12px);
 }
 #mappai-teacher-review [hidden] { display: none !important; }
 #mappai-teacher-review * { box-sizing: border-box; }
@@ -264,7 +269,7 @@
    icona panel-right-close viola su bianco, 34px, solo l'angolo in basso a destra arrotondato;
    aperta ruotata di 180°, chiusa dritta. */
 #mappai-teacher-review .mrv-maniglia {
-  position: absolute; top: 0; left: 300px; z-index: 3; width: 34px; height: 34px;
+  position: absolute; top: 0; left: 300px; z-index: 3; width: var(--mrv-man); height: var(--mrv-man);
   display: grid; place-items: center; padding: 0; cursor: pointer;
   border: 0; border-radius: 0 0 8px 0; background: #fff; color: #ac72fe; transition: left .28s ease;
 }
@@ -280,7 +285,7 @@
 /* Una riga sola: «Fonte · ‹ Prova 2 / 17 › · Pag. 1 · ↔». `.pm-btn-cancel` porta `flex-1`
    (index.html) e allargava i bottoni fino a spingere il resto a capo; il menu perdeva
    contro la larghezza 100% dei campi del modale. */
-#mappai-teacher-review .mrv-fonte-testa { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px 5px 46px; border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
+#mappai-teacher-review .mrv-fonte-testa { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px 5px var(--mrv-man-posto); border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
 #mappai-teacher-review .mrv-fonte-testa h3 { flex: 0 0 auto; margin: 0; font-size: .875rem; font-weight: 700; }
 #mappai-teacher-review .mrv-fonte-prove { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
 #mappai-teacher-review .mrv-fonte-testa .pm-btn-cancel { flex: 0 0 auto; min-height: 32px; padding: 3px 10px; white-space: nowrap; }
@@ -367,7 +372,13 @@
   #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-fonte { visibility: hidden; border: 0; }
   #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-divisore { top: 50%; bottom: auto; height: 72px; width: 14px; margin: -36px 0 0 0; border-radius: 0 8px 8px 0; background: var(--mm-ok, #059669); box-shadow: 1px 0 3px rgba(0, 0, 0, .15); }
   #mappai-teacher-review .mrv-colonne.is-fonte-chiusa .mrv-divisore::before { left: 4px; width: 6px; top: 26px; bottom: 26px; background: repeating-linear-gradient(to bottom, #fff 0 2px, transparent 2px 5px); }
-  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa #mrv-detail-nav { padding-left: 46px; }
+  /* ⚠️ Chiusa la fonte, la colonna delle schede comincia al bordo dell'area — cioè
+     SOTTO la maniglia. Il posto era riservato ai soli bottoni della navigazione: se
+     quella riga è nascosta (nessuna segnalazione da mostrare) tocca a #mrv-content, e
+     la prima lettera della riga d'aiuto spariva — «Le decisioni sono state salvate…»
+     letto «e decisioni sono…» (Giacomo, 19/9/26). Si riserva a tutti e tre i pezzi che
+     possono capitare per primi, con lo STESSO token della maniglia. */
+  #mappai-teacher-review .mrv-colonne.is-fonte-chiusa :is(#mrv-detail-nav, #mrv-content, #mrv-occurrences-host) { padding-left: var(--mrv-man-posto); }
 }
 @media (prefers-reduced-motion: reduce) {
   #mappai-teacher-review .mrv-colonne, #mappai-teacher-review .mrv-divisore { transition: none; }

@@ -610,53 +610,27 @@ ipcMain.handle('generate-embeddings-google', async (event, { apiKey, model, text
 
 // IPC handler for listing available Infomaniak models
 ipcMain.handle('list-infomaniak-models', async (event, { apiKey, productId }) => {
-    return new Promise((resolve, reject) => {
-        const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/models`;
-        console.log(`[MappAI] Fetching Infomaniak models from: ${url}`);
-
-        const req = https.request(url, {
-            method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json' 
-            }
-        }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                console.log(`[MappAI] Infomaniak response status: ${res.statusCode}`);
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    try {
-                        const parsed = JSON.parse(data);
-                        console.log(`[MappAI] Infomaniak parsed models count:`, parsed.data ? parsed.data.length : 'no data array');
-                        const models = (parsed.data || []).map(m => ({
-                            id: m.id,
-                            displayName: m.id + ' (Swiss AI)',
-                            kb: { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], free: false, inputCost: 0, outputCost: 0, note: 'Infomaniak Cloud' }
-                        }));
-                        resolve(models);
-                    } catch(e) {
-                        console.error(`[MappAI] Infomaniak JSON parsing error. Raw data:`, data);
-                        reject(new Error("Errore parsing lista modelli Infomaniak"));
-                    }
-                } else {
-                    console.error(`[MappAI] Infomaniak server error ${res.statusCode}. Raw data:`, data);
-                    reject(new Error(`Errore Server Infomaniak ${res.statusCode}: ${data}`));
-                }
-            });
+    const catalogue = require('./public/js/mappai-catalogo-core.js');
+    const base = 'https://api.infomaniak.com';
+    const endpoint = suffix => '/1/ai/models?has_endpoint=' + encodeURIComponent('post/2/ai/{product_id}/openai/v1/' + suffix);
+    const paths = [`/2/ai/${encodeURIComponent(productId)}/openai/v1/models`, '/1/ai/models', endpoint('chat/completions'), endpoint('embeddings')];
+    try {
+        const responses = await Promise.all(paths.map(path => axios.get(base + path, {
+            headers: { Authorization: `Bearer ${apiKey}` }, timeout: 30000
+        })));
+        const rows = responses.map(response => {
+            if (!Array.isArray(response.data?.data)) throw new Error('invalid_catalogue');
+            return response.data.data;
         });
-
-        req.on('error', (e) => {
-            console.error(`[MappAI] Infomaniak request error:`, e);
-            reject(e);
-        });
-        req.setTimeout(30000, () => { 
-            console.error(`[MappAI] Infomaniak request timeout`);
-            req.abort(); 
-            reject(new Error("Timeout API Infomaniak")); 
-        });
-        req.end();
-    });
+        if (rows[0].some(m => typeof m.id !== 'string') || rows.slice(1).some(list => list.some(m => typeof m.name !== 'string'))) {
+            throw new Error('invalid_catalogue');
+        }
+        return catalogue.catalogue(rows[0], { all: rows[1], chat: rows[2], embeddings: rows[3] });
+    } catch (error) {
+        // Non propagare errori Axios con URL, credenziali o corpo della risposta.
+        const status = Number(error.response?.status);
+        throw new Error('Catalogo Infomaniak non aggiornato' + (status ? ` (HTTP ${status})` : '') + '.');
+    }
 });
 
 // IPC handler for listing available Gemini models

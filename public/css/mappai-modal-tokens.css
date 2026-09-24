@@ -1513,6 +1513,29 @@ button.mm-ctx__p:focus-visible {
     padding: 12px 0 0;
 }
 
+/* Consumi: spazio per la maniglia su tutta la console, anche a nav chiusa. */
+.mm-box--piena .mm-console__area:has([data-tela="ud"]),
+html.manifesto .mm-box--console.mm-box--piena .mm-console__area.mm-console__area--scorre:has([data-tela="ud"]) {
+    padding: 12px var(--mm-pad) var(--mm-pad) calc(var(--mnc-man-x, 0px) + var(--mnc-man-size, 34px) + 20px);
+}
+
+[data-sez="ud-mappe"] .mm-tab-wrap {
+    max-height: min(var(--cb-consumi-lista, 65vh), 65vh);
+    overflow: auto;
+}
+
+[data-sez="ud-mappe"] .mm-tab {
+    min-width: 0;
+    max-width: none;
+}
+
+[data-sez="ud-mappe"] tbody tr[data-fissa] td {
+    position: sticky;
+    top: var(--cb-consumi-testa, 34px);
+    z-index: 1;
+    background: var(--mm-bg, #fff);
+}
+
 .mm-box--piena:has(.mm-tela) .mm-console__area>.mm-schede-riga {
     padding: 0 var(--mm-pad);
 }

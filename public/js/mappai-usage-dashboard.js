@@ -38,9 +38,26 @@
         const v = parseFloat(localStorage.getItem(RATE_KEY));
         return (isFinite(v) && v > 0) ? v : RATE_DEFAULT;
     }
-    function _kbLookup(model) {
-        try { if (typeof matchModelKB === 'function') return matchModelKB(model); } catch (e) { /* noop */ }
+    function _kbLookup(model, provider) {
+        try { if (typeof matchModelKB === 'function') return matchModelKB(model, provider); } catch (e) { /* noop */ }
         return null;
+    }
+    function _cost(bucket, field) {
+        if (bucket.calls && bucket.calls === bucket.unpriced) return '—';
+        return Core().fmtChf(bucket[field || 'total']) + (bucket.unpriced ? ' *' : '');
+    }
+    function _tokens(bucket, field) {
+        if (bucket.calls && bucket.calls === bucket.missingUsage) return '—';
+        return Core().fmtTok(bucket[field]) + (bucket.missingUsage ? ' *' : '');
+    }
+    function _coverageHtml(agg) {
+        const notes = [];
+        if (agg.byProvider.infomaniak && window.MappAICatalogo) notes.push(t('catalog_rates', 'Tariffe CHF, IVA esclusa, listino del') + ' ' + window.MappAICatalogo.DATE);
+        if (agg.totals.unpriced) notes.push('* ' + t('usage_partial_note', 'Subtotale noto: chiamate escluse per prezzo o token mancanti:') + ' ' + agg.totals.unpriced);
+        if (agg.totals.missingUsage) notes.push(t('usage_missing_tokens', 'Chiamate senza conteggio token:') + ' ' + agg.totals.missingUsage);
+        if (agg.totals.assumedModel) notes.push(t('usage_assumed_note', 'Stima sul modello richiesto perché quello effettivo non è dichiarato:') + ' ' + agg.totals.assumedModel);
+        if (agg.unknownModels.length) notes.push(t('catalog_price_unknown', 'Prezzo non disponibile') + ': ' + agg.unknownModels.join(', '));
+        return notes.length ? '<p class="mt-2 text-xs text-amber-700">' + notes.map(_esc).join('<br>') + '</p>' : '';
     }
     function _agg(records) {
         return Core().aggregate(records, { kbLookup: _kbLookup, usdChf: _rate() });
@@ -113,15 +130,15 @@
         const models = Object.keys(agg.byModel).join(', ') || '—';
         return `<div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">` +
             _tile(t('ud_calls', 'Chiamate AI'), C.fmtTok(tt.calls)) +
-            _tile(t('ud_tok_in', 'Token input'), C.fmtTok(tt.inTok)) +
-            _tile(t('ud_tok_out', 'Token output'), C.fmtTok(tt.outTok)) +
-            _tile(t('ud_cost_in', 'Costo input'), C.fmtChf(tt.inCost)) +
-            _tile(t('ud_cost_out', 'Costo output'), C.fmtChf(tt.outCost)) +
-            _tile(t('ud_cost_total', 'Totale'), C.fmtChf(tt.total)) +
+            _tile(t('ud_tok_in', 'Token input'), _tokens(tt, 'inTok')) +
+            _tile(t('ud_tok_out', 'Token output'), _tokens(tt, 'outTok')) +
+            _tile(t('ud_cost_in', 'Costo input'), _cost(tt, 'inCost')) +
+            _tile(t('ud_cost_out', 'Costo output'), _cost(tt, 'outCost')) +
+            _tile(t('ud_cost_total', 'Totale'), _cost(tt, 'total')) +
             `</div>` +
             `<div class="mt-3 text-xs text-slate-500"><span class="font-bold text-slate-600">${t('ud_providers', 'Provider')}:</span> ${_esc(provs)}` +
             ` &nbsp;·&nbsp; <span class="font-bold text-slate-600">${t('ud_models', 'Modelli')}:</span> <span style="font-family:'Space Mono',monospace">${_esc(models)}</span></div>` +
-            (agg.unknownModels.length ? `<div class="mt-2 text-xs text-amber-600 flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> ${t('ud_unknown_kb', 'Prezzo sconosciuto (costo 0) per:')} ${_esc(agg.unknownModels.join(', '))}</div>` : '');
+            _coverageHtml(agg);
     }
 
     // ── Grafici ──────────────────────────────────────────────────────────────
@@ -138,12 +155,11 @@
             catData = C.donutByCat(agg);
             catTitle = t('ud_by_category', 'Per categoria');
         }
-        const catTotal = catData.reduce((s, d) => s + d.value, 0);
-        const dc = _donutSvg(catData, { clickable: !S.drillCat, centerValue: C.fmtChf(catTotal), centerTitle: t('ud_total', 'totale') });
+        const dc = _donutSvg(catData, { clickable: !S.drillCat, centerValue: _cost(S.drillCat ? agg.byCat[S.drillCat] : agg.totals), centerTitle: t('ud_total', 'totale') });
         const modData = C.donutByModel(agg);
-        const dm = _donutSvg(modData, { centerValue: C.fmtChf(agg.totals.total), centerTitle: t('ud_total', 'totale') });
+        const dm = _donutSvg(modData, { centerValue: _cost(agg.totals, 'total'), centerTitle: t('ud_total', 'totale') });
 
-        const empty = `<div class="text-sm text-slate-400 italic p-6">${t('ud_no_cost', 'Nessun costo da mostrare (tutti i valori a zero).')}</div>`;
+        const empty = `<div class="text-sm text-slate-400 italic p-6">${t('usage_no_known_cost', 'Nessun costo noto da mostrare.')}</div>`;
         return `<div class="flex flex-wrap gap-5 mt-5">` +
             `<div class="flex-1 min-w-[300px] bg-white border border-slate-200 rounded-2xl p-4" id="ud-chart-cat">` +
             `${crumbs}<h3 class="text-sm font-black text-slate-800 mb-1">${_esc(catTitle)}</h3>` +
@@ -165,20 +181,20 @@
             const c = agg.byCat[cat];
             rows += `<tr class="bg-slate-50 font-bold"><td class="px-3 py-1.5">${_esc(c.label)}</td>` +
                 `<td class="px-3 py-1.5 text-right">${C.fmtTok(c.calls)}</td>` +
-                `<td class="px-3 py-1.5 text-right">${C.fmtTok(c.inTok)}</td>` +
-                `<td class="px-3 py-1.5 text-right">${C.fmtTok(c.outTok)}</td>` +
-                `<td class="px-3 py-1.5 text-right">${C.fmtChf(c.inCost)}</td>` +
-                `<td class="px-3 py-1.5 text-right">${C.fmtChf(c.outCost)}</td>` +
-                `<td class="px-3 py-1.5 text-right">${C.fmtChf(c.total)}</td></tr>`;
+                `<td class="px-3 py-1.5 text-right">${_tokens(c, 'inTok')}</td>` +
+                `<td class="px-3 py-1.5 text-right">${_tokens(c, 'outTok')}</td>` +
+                `<td class="px-3 py-1.5 text-right">${_cost(c, 'inCost')}</td>` +
+                `<td class="px-3 py-1.5 text-right">${_cost(c, 'outCost')}</td>` +
+                `<td class="px-3 py-1.5 text-right">${_cost(c, 'total')}</td></tr>`;
             Object.keys(c.bySub).forEach(sub => {
                 const s = c.bySub[sub];
                 rows += `<tr class="text-slate-600"><td class="px-3 py-1 pl-7">${_esc(s.label)}</td>` +
                     `<td class="px-3 py-1 text-right">${C.fmtTok(s.calls)}</td>` +
-                    `<td class="px-3 py-1 text-right">${C.fmtTok(s.inTok)}</td>` +
-                    `<td class="px-3 py-1 text-right">${C.fmtTok(s.outTok)}</td>` +
-                    `<td class="px-3 py-1 text-right">${C.fmtChf(s.inCost)}</td>` +
-                    `<td class="px-3 py-1 text-right">${C.fmtChf(s.outCost)}</td>` +
-                    `<td class="px-3 py-1 text-right">${C.fmtChf(s.total)}</td></tr>`;
+                    `<td class="px-3 py-1 text-right">${_tokens(s, 'inTok')}</td>` +
+                    `<td class="px-3 py-1 text-right">${_tokens(s, 'outTok')}</td>` +
+                    `<td class="px-3 py-1 text-right">${_cost(s, 'inCost')}</td>` +
+                    `<td class="px-3 py-1 text-right">${_cost(s, 'outCost')}</td>` +
+                    `<td class="px-3 py-1 text-right">${_cost(s, 'total')}</td></tr>`;
             });
         });
         if (!rows) return '';
@@ -205,7 +221,7 @@
         html += btn('', t('ud_all_maps', 'Tutte le mappe'), S.records.length + ' record', !S.selKey);
         projects.forEach(p => {
             const agg = _agg(C.filterByProject(S.records, p.key));
-            html += btn(p.key, p.label, C.fmtChf(agg.totals.total) + ' · ' + p.calls + ' ' + t('ud_calls_short', 'chiamate'), S.selKey === p.key);
+            html += btn(p.key, p.label, _cost(agg.totals, 'total') + ' · ' + p.calls + ' ' + t('ud_calls_short', 'chiamate'), S.selKey === p.key);
         });
         return html;
     }
@@ -249,7 +265,7 @@
         const recs = recsIn || _selRecords();
         const agg = _agg(recs);
         const catData = C.donutByCat(agg);
-        const dc = _donutSvg(catData, { clickable: false, centerValue: C.fmtChf(agg.totals.total), centerTitle: 'totale' });
+        const dc = _donutSvg(catData, { clickable: false, centerValue: _cost(agg.totals, 'total'), centerTitle: 'totale' });
         const docLabel = labelIn != null ? labelIn
             : (S.selKey ? (C.listProjects(recs)[0] || {}).label || '' : t('ud_all_maps', 'Tutte le mappe'));
         const today = new Date().toLocaleDateString('it-CH');
@@ -257,18 +273,18 @@
         Object.keys(agg.byCat).forEach(cat => {
             const c = agg.byCat[cat];
             const subData = C.donutBySub(agg, cat);
-            const ds = subData.length > 1 ? _donutSvg(subData, { size: 170, thick: 34, centerValue: C.fmtChf(c.total), centerTitle: '' }) : null;
-            subTables += `<div class="cat-block"><h3>${_esc(c.label)} — ${C.fmtChf(c.total)}</h3><div class="cat-flex">` +
+            const ds = subData.length > 1 ? _donutSvg(subData, { size: 170, thick: 34, centerValue: _cost(c, 'total'), centerTitle: '' }) : null;
+            subTables += `<div class="cat-block"><h3>${_esc(c.label)} — ${_cost(c, 'total')}</h3><div class="cat-flex">` +
                 (ds ? `<div>${ds.svg}</div>` : '') +
                 `<table><thead><tr><th>Voce</th><th>Chiamate</th><th>Tok in</th><th>Tok out</th><th>Costo</th></tr></thead><tbody>` +
                 Object.keys(c.bySub).map(sub => {
                     const s = c.bySub[sub];
-                    return `<tr><td>${_esc(s.label)}</td><td>${C.fmtTok(s.calls)}</td><td>${C.fmtTok(s.inTok)}</td><td>${C.fmtTok(s.outTok)}</td><td>${C.fmtChf(s.total)}</td></tr>`;
+                    return `<tr><td>${_esc(s.label)}</td><td>${C.fmtTok(s.calls)}</td><td>${_tokens(s, 'inTok')}</td><td>${_tokens(s, 'outTok')}</td><td>${_cost(s, 'total')}</td></tr>`;
                 }).join('') + `</tbody></table></div></div>`;
         });
         const modelRows = Object.keys(agg.byModel).map(m => {
             const b = agg.byModel[m];
-            return `<tr><td>${_esc(m)}</td><td>${b.provider === 'infomaniak' ? 'Infomaniak' : 'Google'}</td><td>${C.fmtTok(b.inTok)}</td><td>${C.fmtTok(b.outTok)}</td><td>${C.fmtChf(b.total)}</td></tr>`;
+            return `<tr><td>${_esc(m)}</td><td>${b.provider === 'infomaniak' ? 'Infomaniak' : 'Google'}</td><td>${_tokens(b, 'inTok')}</td><td>${_tokens(b, 'outTok')}</td><td>${_cost(b, 'total')}</td></tr>`;
         }).join('');
         const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Consumi AI — ${_esc(docLabel)}</title>
@@ -297,13 +313,14 @@ ${_fontDoc()}
 <main>
  <div class="meta">${t('ud_doc', 'Documento')}: <b>${_esc(docLabel)}</b> · ${t('ud_generated', 'Generato il')} ${today} · ${t('ud_rate', 'Tasso USD→CHF')}: ${_rate()}</div>
  <h2>${t('ud_summary', 'Riepilogo')}</h2>
+ ${_coverageHtml(agg)}
  <table><tbody>
   <tr><td>${t('ud_calls', 'Chiamate AI')}</td><td>${C.fmtTok(agg.totals.calls)}</td></tr>
-  <tr><td>${t('ud_tok_in', 'Token input')}</td><td>${C.fmtTok(agg.totals.inTok)}</td></tr>
-  <tr><td>${t('ud_tok_out', 'Token output')}</td><td>${C.fmtTok(agg.totals.outTok)}</td></tr>
-  <tr><td>${t('ud_cost_in', 'Costo input')}</td><td>${C.fmtChf(agg.totals.inCost)}</td></tr>
-  <tr><td>${t('ud_cost_out', 'Costo output')}</td><td>${C.fmtChf(agg.totals.outCost)}</td></tr>
-  <tr><td><b>${t('ud_cost_total', 'Totale')}</b></td><td><b>${C.fmtChf(agg.totals.total)}</b></td></tr>
+  <tr><td>${t('ud_tok_in', 'Token input')}</td><td>${_tokens(agg.totals, 'inTok')}</td></tr>
+  <tr><td>${t('ud_tok_out', 'Token output')}</td><td>${_tokens(agg.totals, 'outTok')}</td></tr>
+  <tr><td>${t('ud_cost_in', 'Costo input')}</td><td>${_cost(agg.totals, 'inCost')}</td></tr>
+  <tr><td>${t('ud_cost_out', 'Costo output')}</td><td>${_cost(agg.totals, 'outCost')}</td></tr>
+  <tr><td><b>${t('ud_cost_total', 'Totale')}</b></td><td><b>${_cost(agg.totals, 'total')}</b></td></tr>
  </tbody></table>
  ${catData.length ? `<div class="donut-wrap">${dc.svg}</div>` : ''}
  <h2>${t('ud_by_category', 'Per categoria')}</h2>

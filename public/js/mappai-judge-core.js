@@ -177,12 +177,34 @@
             return id(l.source) + '→' + id(l.target);
         };
         var vivi = {};
-        (c.links || []).forEach(function (l) { vivi[chiave(l)] = l; });
+        (c.links || []).forEach(function (l) { vivi[chiave(l) + '|' + l.rel] = l; });
         var tolti = [], scartati = [];
+        var esaminati = [], saltati = [], accettati = [];
+        var richiesti = Object.values(vivi).filter(function (l) { return !NEUTRI[String(l.rel || '').toLowerCase()]; });
+        richiesti.forEach(function (l) {
+            var k = chiave(l), paralleli = richiesti.filter(function (x) { return chiave(x) === k; }).length;
+            var candidati = (verdetti || []).filter(function (v) {
+                return v && chiave(v) === k && (v.rel === l.rel || (v.rel == null && paralleli === 1));
+            });
+            var motivo = '', v = candidati[0];
+            if (!v) motivo = 'nessun verdetto ricevuto per il nesso';
+            else if (candidati.some(function (x) { return x.valido !== v.valido || _norm(x.prova_source) !== _norm(v.prova_source) || _norm(x.prova_target) !== _norm(v.prova_target); })) motivo = 'verdetti duplicati discordanti';
+            else if (typeof v.valido !== 'boolean') motivo = 'verdetto privo di esito valido';
+            else if (c.frammenti && (!provaContraria(v.prova_source, c.frammenti[v.source], '').ok || !provaContraria(v.prova_target, c.frammenti[v.target], '').ok)) motivo = 'prova degli estremi mancante o non presente nelle frasi mostrate';
+            var riga = { source: (l.source && l.source.id) || l.source, target: (l.target && l.target.id) || l.target, rel: l.rel };
+            if (motivo) {
+                saltati.push(Object.assign({}, riga, { motivo: motivo }));
+                if (v) scartati.push(Object.assign({}, v, { perche: motivo }));
+            } else { esaminati.push(riga); accettati.push(Object.assign({}, v, { rel: l.rel })); }
+        });
         (verdetti || []).forEach(function (v) {
+            if (!v || !richiesti.some(function (l) { return chiave(l) === chiave(v) && (v.rel == null || v.rel === l.rel); }))
+                scartati.push(Object.assign({}, v, { perche: v && Object.values(vivi).some(function (l) { return chiave(l) === chiave(v) && NEUTRI[String(l.rel || '').toLowerCase()]; }) ? 'arco già neutro: niente da togliere' : 'arco inesistente o non richiesto' }));
+        });
+        accettati.forEach(function (v) {
             if (!v || v.valido !== false) return;                       // solo i «non regge»
             var k = v.source + '→' + v.target;
-            var l = vivi[k];
+            var l = vivi[k + '|' + v.rel];
             if (!l) { scartati.push({ k: k, perche: 'arco inesistente' }); return; }
             if (NEUTRI[String(l.rel || '').toLowerCase()]) {
                 scartati.push({ k: k, perche: 'arco già neutro: niente da togliere' }); return;
@@ -198,7 +220,7 @@
             tolti.push({ source: v.source, target: v.target, rel: l.rel, problema: v.problema || '', isCross: !!l.isCross,
                 prova_source: _norm(v.prova_source), prova_target: _norm(v.prova_target) });
         });
-        return { tolti: tolti, scartati: scartati };
+        return { tolti: tolti, scartati: scartati, esaminati: esaminati, saltati: saltati };
     }
 
     return {

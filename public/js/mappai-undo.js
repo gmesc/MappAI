@@ -15,6 +15,15 @@
 
     // Stack condiviso — accessibile da console per debug
     window.undoStack = [];
+    let actionPending = false;
+
+    // A narrow asynchronous edit can undo through its original writer instead
+    // of restoring an entire graph snapshot (and unrelated metadata).
+    window.pushUndoAction = function (label, undo) {
+        window.undoStack.push({ label, undo });
+        if (window.undoStack.length > MAX_UNDO) window.undoStack.shift();
+        _updateUndoUI();
+    };
 
     // Chiamata PRIMA di ogni operazione distruttiva.
     // label: stringa breve che descrive l'azione (es. "Elimina Nodo: Economia")
@@ -45,11 +54,24 @@
 
     // Ripristina l'ultimo snapshot e ri-renderizza.
     window.undoLastAction = function () {
+        if (actionPending) return;
         if (window.undoStack.length === 0) {
             if (typeof window.showToast === 'function') window.showToast('Nulla da annullare', 'info');
             return;
         }
-        const snapshot = window.undoStack.pop();
+        const snapshot = window.undoStack[window.undoStack.length - 1];
+        if (typeof snapshot.undo === 'function') {
+            actionPending = true; _updateUndoUI();
+            return Promise.resolve().then(snapshot.undo).then(ok => {
+                if (ok !== false && window.undoStack[window.undoStack.length - 1] === snapshot) {
+                    window.undoStack.pop();
+                    if (window.showToast) window.showToast('Annullato: ' + snapshot.label, 'success');
+                }
+            }).catch(e => {
+                if (window.showToast) window.showToast(e.message, 'error');
+            }).finally(() => { actionPending = false; _updateUndoUI(); });
+        }
+        window.undoStack.pop();
         const state = _getAppState();
         if (!state || !state.db) return;
         state.db.nodes = snapshot.nodes;
@@ -73,7 +95,7 @@
         const btn = document.getElementById('undo-action-btn');
         if (!btn) return;
         const n = window.undoStack.length;
-        btn.disabled = n === 0;
+        btn.disabled = n === 0 || actionPending;
         btn.style.opacity = n === 0 ? '0.4' : '1';
         const countEl = btn.querySelector('.undo-count');
         if (countEl) countEl.textContent = n > 0 ? ' (' + n + ')' : '';
@@ -89,6 +111,7 @@
         if (!(e.ctrlKey || e.metaKey) || e.key !== 'z' || e.shiftKey) return;
         const tag = document.activeElement ? document.activeElement.tagName : '';
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (document.activeElement?.closest?.('[data-link-editor]')) return;
         e.preventDefault();
         window.undoLastAction();
     });

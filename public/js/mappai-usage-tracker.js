@@ -50,7 +50,7 @@
             const e = entry || {};
             const inTok = Number(e.inTok) || 0;
             const outTok = Number(e.outTok) || 0;
-            if (!inTok && !outTok) return; // risposta senza usage: niente riga
+            if (!inTok && !outTok && typeof e.usageKnown !== 'boolean') return; // compatibilità chiamanti legacy
             const c = e.ctx || (e.cat ? { cat: e.cat, sub: e.sub } : _ctx);
             const p = _project();
             const rec = {
@@ -62,6 +62,14 @@
                 project: e.project || p.project,
                 projectId: e.projectId != null ? e.projectId : p.projectId
             };
+            if (typeof e.usageKnown === 'boolean') {
+                rec.usageKnown = e.usageKnown;
+                if (!e.usageKnown) { rec.inTok = null; rec.outTok = null; }
+            }
+            if (e.requestedModel) {
+                rec.requestedModel = String(e.requestedModel);
+                rec.actualModel = typeof e.actualModel === 'string' && e.actualModel.trim() ? e.actualModel : null;
+            }
             /* I QUATTRO CAMPI DIAGNOSTICI (12/9) — vedi il commento in
                `fetchModelAPI`. Si scrivono solo quando dicono qualcosa:
                `n` e `thoughts` mancano dove non esistono (una chiamata senza
@@ -71,6 +79,11 @@
                ⚠️ Chi legge il registro deve reggere le righe VECCHIE, che non
                hanno nessuno dei quattro: il file è append-only dal 24 luglio. */
             const stop = e.stop != null ? String(e.stop) : null;
+            if (e.phase && e.runId) {
+                rec.phase = String(e.phase); rec.runId = String(e.runId);
+                rec.requestedModel = String(e.requestedModel || e.model || '');
+                rec.actualModel = typeof e.actualModel === 'string' ? e.actualModel : null;
+            }
             const tetto = Number(e.tetto) || 0;
             const thoughts = Number(e.thoughts) || 0;
             const n = Number(e.n) || 0;

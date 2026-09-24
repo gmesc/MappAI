@@ -93,8 +93,8 @@ window.buildVaultMapData = function () {
         // la sezione Fonti rimane leggibile nel Markdown.
         userProfile: appState.userProfile,
         tutorState: serializeTutorState(tutorState),
-        aiProvider: appState.aiProvider,
-        aiModel: document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
+        aiProvider: appState.generationUsage?.provenienzaMappa?.provider || (appState.generationUsage?.modelli && appState.generationUsage?.usedProvider) || appState.aiProvider,
+        aiModel: appState.generationUsage?.provenienzaMappa?.model || (appState.generationUsage?.modelli && appState.generationUsage?.usedModel) || document.getElementById('model-select')?.value || localStorage.getItem(appState.aiProvider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model'),
         generationUsage: appState.generationUsage,
         customColors: appState.db.customColors || {},
         /* vista.json (15/8): Vista studio · focus · timeline · foglio nodi —

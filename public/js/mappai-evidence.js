@@ -84,14 +84,14 @@
        console, tranne «spento», che tace. Dopo ogni await si ricontrolla che il
        progetto sia ancora quello (invariante 20-bis): la memoria è del vault
        attivo, e un indice arrivato in ritardo non deve sostituirla. */
-    async function suApertura(vaultPath) {
+    async function suApertura(vaultPath, fontiEsplicite) {
         try {
             if (!_acceso()) return { stato: 'spento' };
             var st = _state();
             if (!st || st.activeVaultPath !== vaultPath) { console.log('[Evidenze] progetto cambiato: indice non costruito'); return { stato: 'progetto cambiato' }; }
             var C = _core(), R = window.MappAIReview;
             if (!C || !R || typeof R.sources !== 'function') { console.log('[Evidenze] core o revisione non caricati: indice non costruito'); return { stato: 'non disponibile' }; }
-            var fonti = R.sources();
+            var fonti = fontiEsplicite === undefined ? R.sources() : fontiEsplicite;
             if (!Array.isArray(fonti) || !fonti.length) { console.log('[Evidenze] senza fonti: niente da indicizzare'); return { stato: 'senza fonti' }; }
 
             var letto = await _leggi(vaultPath);

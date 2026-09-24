@@ -593,10 +593,10 @@ window.MM_FIDELITY_RULES_IT = `
 // Feature flag — abilita JSONL solo per Infomaniak e solo se opt-in via localStorage.
 // Attivazione: localStorage.setItem('mappai_jsonl_enabled', '1')
 // Disattivazione: localStorage.removeItem('mappai_jsonl_enabled')
-window.isJSONLEnabled = function () {
+window.isJSONLEnabled = function (context) {
     try {
         return localStorage.getItem('mappai_jsonl_enabled') === '1'
-            && appState?.aiProvider === 'infomaniak';
+            && (context ? context.provider : appState?.aiProvider) === 'infomaniak';
     } catch (e) { return false; }
 };
 
@@ -694,66 +694,55 @@ window.isSemanticDedupEnabled = function () {
 
 window.fetchEmbeddings = async function (texts, model) {
     if (!Array.isArray(texts) || texts.length === 0) return [];
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) throw new Error('API key mancante');
-
-    if (appState.aiProvider === 'google') {
-        if (!window.electronAPI?.generateEmbeddingsGoogle) {
-            throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
-        }
-        const result = await window.electronAPI.generateEmbeddingsGoogle({
-            apiKey,
-            model: model || 'gemini-embedding-001',
-            texts
-        });
-        return result?.embeddings || [];
-    }
-
-    if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
-        throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
-    }
-    const productId = appState.infomaniakProductId
-        || document.getElementById('infomaniak-product-id')?.value
-        || localStorage.getItem('infomaniak_product_id');
-    if (!productId) throw new Error('Infomaniak product ID mancante');
-    const result = await window.electronAPI.generateEmbeddingsInfomaniak({
-        apiKey, productId,
-        model: model || 'bge_multilingual_gemma2',
-        texts
+    const provider = appState.aiProvider;
+    const result = await window.fetchEmbeddingsRequest({
+        provider, texts, model: model || (provider === 'google' ? 'gemini-embedding-001' : 'bge_multilingual_gemma2'),
+        apiKey: window.getSystemKey ? window.getSystemKey() : null,
+        productId: appState.infomaniakProductId || document.getElementById('infomaniak-product-id')?.value || localStorage.getItem('infomaniak_product_id'),
+        strictOrder: false
     });
     return result?.embeddings || [];
 };
 
-// Trasporto del magazzino: usa solo lo snapshot ricevuto, senza rileggere stato o UI.
-// La cache valida numero e dimensioni dei vettori prima di conservarli.
-window.fetchEmbeddingsRequest = async function ({ provider, apiKey, productId, model, texts }) {
+// Chiamato SOLO per le richieste remote: un hit della cache non passa qui.
+window.fetchEmbeddingsRequest = async function ({ provider, apiKey, productId, model, texts, strictOrder = true, ...context }) {
     if (!Array.isArray(texts)) throw new Error('Testi embeddings non validi');
     if (typeof model !== 'string' || !model.trim()) throw new Error('Modello embeddings mancante');
     if (!apiKey) throw new Error('API key mancante');
     if (provider !== 'google' && provider !== 'infomaniak') throw new Error('Provider embeddings non supportato');
     if (texts.length === 0) return { embeddings: [], model, usage: null };
-
+    const usageTarget = appState.generationUsage;
+    const project = context.project !== undefined ? context.project : appState.rootNodeLabel;
+    const projectId = context.projectId !== undefined ? context.projectId : (typeof StorageManager !== 'undefined' ? StorageManager.currentProjectId : null);
+    let result;
     if (provider === 'google') {
-        if (!window.electronAPI?.generateEmbeddingsGoogle) {
-            throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
-        }
-        // batchEmbedContents conserva l'ordine delle richieste, anche nell'IPC.
-        return window.electronAPI.generateEmbeddingsGoogle({ apiKey, model, texts });
+        if (!window.electronAPI?.generateEmbeddingsGoogle) throw new Error('generateEmbeddingsGoogle IPC non disponibile (restart app richiesto?)');
+        result = await window.electronAPI.generateEmbeddingsGoogle({ apiKey, model, texts });
+    } else {
+        if (!productId) throw new Error('Infomaniak product ID mancante');
+        if (!window.electronAPI?.generateEmbeddingsInfomaniak) throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
+        result = await window.electronAPI.generateEmbeddingsInfomaniak({ apiKey, productId, model, texts, ...(strictOrder ? { strictOrder: true } : {}) });
     }
-
-    if (!productId) throw new Error('Infomaniak product ID mancante');
-    if (!window.electronAPI?.generateEmbeddingsInfomaniak) {
-        throw new Error('generateEmbeddingsInfomaniak IPC non disponibile (restart app richiesto?)');
+    const input = result?.usage?.prompt_tokens ?? result?.usage?.total_tokens;
+    const usageKnown = typeof input === 'number' && Number.isFinite(input) && input >= 0;
+    const actualModel = typeof result?.model === 'string' && result.model.trim() ? result.model : null;
+    const entry = { provider, model: actualModel || model, requestedModel: model, actualModel,
+        inTok: usageKnown ? input : null, outTok: usageKnown ? 0 : null, usageKnown,
+        project, projectId, ctx: { cat: 'other', sub: 'embeddings' }, phase: 'embeddings',
+        ...(context.runId ? { runId: context.runId } : {}) };
+    if (window.MappAIUsage) window.MappAIUsage.record(entry);
+    if (usageTarget) {
+        (usageTarget.costRecords || (usageTarget.costRecords = [])).push(entry);
+        if (appState.generationUsage === usageTarget && window.updateCostDisplay) window.updateCostDisplay();
     }
-    return window.electronAPI.generateEmbeddingsInfomaniak({
-        apiKey, productId, model, texts, strictOrder: true
-    });
+    return result;
 };
 
 // cosineSimilarity estratto in mappai-math.js (caricato PRIMA di app.js).
 window.cosineSimilarity = window.MappAIMath.cosineSimilarity;
 
 window.executeSemanticDedup = async function (options = {}) {
+    const giro = options.giro || (window.MappAIModelli && window.MappAIModelli.avvia());
     const { threshold = 0.85, maxMerges = 15 } = options;
     const report = { embeddingsRequested: 0, candidatesFound: 0, applied: 0, skipped: 0, errors: [] };
 
@@ -771,8 +760,9 @@ window.executeSemanticDedup = async function (options = {}) {
 
     let embs;
     try {
-        embs = await window.fetchEmbeddings(texts);
+        embs = giro ? await giro.embeddings(texts) : await window.fetchEmbeddings(texts);
     } catch (e) {
+        if (giro) giro.verifica();
         console.warn('[SemanticDedup] Fetch embeddings fallito:', e.message);
         report.errors.push(e.message);
         return report;
@@ -945,12 +935,14 @@ Se non trovi nodi mal classificati, restituisci una sola riga:
 //   1. Rimuove il link parent_attuale → node
 //   2. Aggiunge il link nuovo_L1 → node
 //   3. Aggiorna il group del nodo (e propaga al sottoalbero se serve)
-window.executePhase5Reclassification = async function () {
+window.executePhase5Reclassification = async function (giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase5');
     const report = { applied: 0, skipped: 0, errors: [], parser: null };
 
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) {
+    const apiKey = giro ? null : (window.getSystemKey ? window.getSystemKey() : null);
+    if ((!apiKey && !giro)) {
         console.warn('[Phase5] API key non disponibile — skip');
         return report;
     }
@@ -967,13 +959,13 @@ window.executePhase5Reclassification = async function () {
     const payload = {
         contents: [{ parts: [{ text: prompt }] }],
         systemInstruction: { parts: [{ text: 'Sei un validatore di classificazione. Rispondi SOLO in JSONL sezionato come richiesto, default = nessuna riclassificazione.' }] },
-        generationConfig: { temperature: 0.15, maxOutputTokens: window.getMaxOutputTokens(1500) }
+        generationConfig: { temperature: 0.15, maxOutputTokens: maxOutputTokens(1500) }
     };
 
     let response;
     try {
-        response = await window.fetchModelAPI(payload, apiKey);
-    } catch (e) {
+        response = await callModelAPI(payload, apiKey);
+    } catch (e) { if (giro) giro.verifica();
         console.warn('[Phase5] Chiamata AI fallita:', e.message);
         report.errors.push(e.message);
         return report;
@@ -994,7 +986,7 @@ window.executePhase5Reclassification = async function () {
                 if (obj && typeof obj.node_id === 'string' && typeof obj.to === 'string') {
                     reclassifyOps.push(obj);
                 }
-            } catch (e) { /* riga rotta, skip */ }
+            } catch (e) { if (giro) giro.verifica(); /* riga rotta, skip */ }
         }
     }
     report.parser = { found: reclassifyOps.length };
@@ -1086,7 +1078,7 @@ window.executePhase5Reclassification = async function () {
             node.group = toL1.group;
 
             report.applied++;
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             report.errors.push(e.message);
             report.skipped++;
         }
@@ -1107,13 +1099,15 @@ window.executePhase5Reclassification = async function () {
 // Arricchisce i nodi L1 con desc narrativa e confini espliciti tramite una
 // micro-chiamata AI separata. Attivo solo se BranchBoundaries è ON e almeno
 // un nodo ha ancora il desc placeholder (cioè il modello non l'ha generato da solo).
-window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
+window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (!window.isBranchBoundariesEnabled || !window.isBranchBoundariesEnabled()) return;
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'enrich');
     const needsEnrich = l1NodesData.some(
         n => !n.confini || n.desc.startsWith('Categoria principale:')
     );
-    if (!needsEnrich || !apiKey) return;
+    if (!needsEnrich || (!apiKey && !giro)) return;
 
     window.showLoadingOverlay(true, 'Mappa HD - Arricchimento descrizioni rami L1...');
 
@@ -1137,12 +1131,12 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
+            maxOutputTokens: window.getMaxOutputTokens ? maxOutputTokens(2048) : 2048
         }
     });
 
     try {
-        const data = await window.fetchModelAPI(payload, apiKey);
+        const data = await callModelAPI(payload, apiKey);
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
         const enriched = window.salvageTruncatedJSON(cleanText);
@@ -1189,7 +1183,7 @@ window.enrichL1Descs = async function (l1NodesData, rootNodeLabel, apiKey) {
         }
         console.log(`[enrichL1Descs] ${applied}/${l1NodesData.length} nodi arricchiti` +
             (placeholdersLeft ? ` — ⚠️ ${placeholdersLeft} L1 ancora con desc placeholder` : ''));
-    } catch (e) {
+    } catch (e) { if (giro) giro.verifica();
         console.warn('[enrichL1Descs] errore non bloccante:', e.message);
     }
 };
@@ -1219,9 +1213,11 @@ window._descWordCount = function (s) {
     return s.trim().split(/\s+/).filter(Boolean).length;
 };
 
-window.enrichThinDescs = async function (textParts, apiKey) {
+window.enrichThinDescs = async function (textParts, apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (!window.isEnrichDescsEnabled || !window.isEnrichDescsEnabled()) return;
-    if (!apiKey) return;
+    if ((!apiKey && !giro)) return;
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'enrich');
 
     const THRESHOLD = 35;       // parole minime perché una desc sia "ricca"
@@ -1283,12 +1279,12 @@ window.enrichThinDescs = async function (textParts, apiKey) {
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
                 temperature: 0.2,
-                maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(2048) : 2048
+                maxOutputTokens: window.getMaxOutputTokens ? maxOutputTokens(2048) : 2048
             }
         });
 
         try {
-            const data = await window.fetchModelAPI(payload, apiKey);
+            const data = await callModelAPI(payload, apiKey);
             const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
             const arr = window.salvageTruncatedJSON(cleanText);
@@ -1311,7 +1307,7 @@ window.enrichThinDescs = async function (textParts, apiKey) {
                     }
                 }
             }
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn(`[enrichThinDescs] batch ${Math.floor(i / BATCH) + 1} fallito:`, e.message);
         }
     }
@@ -1321,11 +1317,13 @@ window.enrichThinDescs = async function (textParts, apiKey) {
         'color:#10b981;font-weight:bold');
 };
 
-window.validateL1Categories = async function (l1Data, rootLabel) {
+window.validateL1Categories = async function (l1Data, rootLabel, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (!Array.isArray(l1Data) || l1Data.length < 3) return l1Data;
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'l1_validation');
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) return l1Data;
+    const apiKey = giro ? null : (window.getSystemKey ? window.getSystemKey() : null);
+    if ((!apiKey && !giro)) return l1Data;
 
     const listStr = l1Data
         .map((c, i) => `${i + 1}. "${c.label}" (rel: ${c.rel || 'include'})`)
@@ -1374,15 +1372,15 @@ Se la lista era già perfetta, restituiscila identica. Questa è la risposta COR
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
             systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
-            generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(1500) }
+            generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(1500) }
         };
-        const response = await window.fetchModelAPI(payload, apiKey);
+        const response = await callModelAPI(payload, apiKey);
         const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
         const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
         let refined;
         try {
             refined = salvageTruncatedJSON(cleanText);
-        } catch (parseErr) {
+        } catch (parseErr) { if (giro) giro.verifica();
             console.warn('[Phase 1.5] Parse fallito, mantengo L1 originali:', parseErr.message);
             return l1Data;
         }
@@ -1437,7 +1435,7 @@ Se la lista era già perfetta, restituiscila identica. Questa è la risposta COR
             console.log(`%c[Phase 1.5] L1 già coerenti, nessuna modifica`, 'color:#6366f1');
         }
         return valid;
-    } catch (e) {
+    } catch (e) { if (giro) giro.verifica();
         console.warn('[Phase 1.5] Errore non bloccante:', e.message);
         return l1Data;
     }
@@ -1458,7 +1456,9 @@ window._isCompoundLabel = function (label) {
 // che ritorna 2 aree atomiche (con label/rel/ambito/desc/confini) oppure 1 sola se la
 // nozione è inscindibile. Degrada in modo sicuro: se l'output non è valido, tiene l'L1
 // originale. Rispetta il tetto massimo di macro-aree (MAX_L1 = 7).
-window.splitCompoundL1s = async function (l1Data, rootLabel) {
+window.splitCompoundL1s = async function (l1Data, rootLabel, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (!Array.isArray(l1Data) || l1Data.length === 0) return l1Data;
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'l1_split');
     const MAX_L1 = 7;
@@ -1467,8 +1467,8 @@ window.splitCompoundL1s = async function (l1Data, rootLabel) {
         console.log('%c[Phase 1.6] Nessuna macro-area composta da spezzare', 'color:#6366f1');
         return l1Data;
     }
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) return l1Data;
+    const apiKey = giro ? null : (window.getSystemKey ? window.getSystemKey() : null);
+    if ((!apiKey && !giro)) return l1Data;
 
     let result = [...l1Data];
     for (const comp of compounds) {
@@ -1498,13 +1498,13 @@ Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Nie
                 systemInstruction: { parts: [{ text: 'Sei un consulente di organizzazione concettuale. Rispondi SOLO con un array JSON, nessun testo extra.' }] },
                 // Phase 1.6 split: base 3000 → 6000 per gemini-2.5-flash.
                 // Output atteso: 1-2 oggetti JSON L1 — non tronca mai.
-                generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(3000) }
+                generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(3000) }
             };
-            const response = await window.fetchModelAPI(payload, apiKey);
+            const response = await callModelAPI(payload, apiKey);
             const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             const cleanText = text.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
             let parts;
-            try { parts = salvageTruncatedJSON(cleanText); } catch (e) { parts = null; }
+            try { parts = salvageTruncatedJSON(cleanText); } catch (e) { if (giro) giro.verifica(); parts = null; }
             if (!Array.isArray(parts)) {
                 console.warn(`[Phase 1.6] Output non valido per "${comp.label}", lo tengo intero`);
                 continue;
@@ -1524,7 +1524,7 @@ Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Nie
             }
             result.splice(idx, 1, ...replacement);
             console.log(`%c[Phase 1.6] "${comp.label}" → ${replacement.map(r => `"${r.label}"`).join(' + ')}`, 'color:#10b981;font-weight:bold');
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn(`[Phase 1.6] split "${comp.label}" non bloccante:`, e.message);
         }
     }
@@ -1620,14 +1620,16 @@ ${compact}`;
 
 // Esegue la Fase 4: chiama l'AI, parse, applica merge e cross-link.
 // Restituisce un report con cosa è stato applicato e cosa scartato.
-window.executePhase4Consolidation = async function () {
+window.executePhase4Consolidation = async function (giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase4');
     const report = { merges: { applied: 0, skipped: 0, errors: [] },
                      crosslinks: { applied: 0, skipped: 0, errors: [] },
                      parser: null };
 
-    const apiKey = window.getSystemKey ? window.getSystemKey() : null;
-    if (!apiKey) {
+    const apiKey = giro ? null : (window.getSystemKey ? window.getSystemKey() : null);
+    if ((!apiKey && !giro)) {
         console.warn('[Phase4] API key non disponibile — skip');
         return report;
     }
@@ -1647,13 +1649,13 @@ window.executePhase4Consolidation = async function () {
         // (run 9/6: 58 merge su 57 nodi → mappa collassata a 25).
         // Base 6500 → doubled = 13000 per gemini-2.5 → 13000 > soglia 12288
         // → thinking preservato automaticamente (consume ~3842 tok, output ~9158).
-        generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(6500) }
+        generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(6500) }
     };
 
     let response;
     try {
-        response = await window.fetchModelAPI(payload, apiKey);
-    } catch (e) {
+        response = await callModelAPI(payload, apiKey);
+    } catch (e) { if (giro) giro.verifica();
         console.warn('[Phase4] Chiamata AI fallita:', e.message);
         report.parser = { error: e.message };
         return report;
@@ -1692,7 +1694,7 @@ window.executePhase4Consolidation = async function () {
             consumedDrops.add(dropId);
             report._dropToKeep.set(dropId, keepId);
             report.merges.applied++;
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             report.merges.errors.push(e.message);
             report.merges.skipped++;
         }
@@ -1806,9 +1808,11 @@ window.computeBranchDepths = function () {
     return { depthByBranch, labelByBranch, histogram };
 };
 
-window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
+window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (!window.isDeepeningEnabled()) return;
-    if (!apiKey || appState.extractionMode === 'kg') return;
+    if ((!apiKey && !giro) || appState.extractionMode === 'kg') return;
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'deepen');
     const target = parseInt(maxMapLevel);
     if (isNaN(target) || target < 3) return;
@@ -1817,7 +1821,7 @@ window.executeDeepeningPass = async function (textParts, apiKey, maxMapLevel) {
     // Modalità residuo (P1+P2): default ON, richiede il core. Se il core manca o
     // il flag è spento, si torna al comportamento legacy (materiale = desc padre).
     let residueMode = false;
-    try { residueMode = !!DC && localStorage.getItem('mappai_deepen_residue') !== 'false'; } catch (e) { residueMode = !!DC; }
+    try { residueMode = !!DC && localStorage.getItem('mappai_deepen_residue') !== 'false'; } catch (e) { if (giro) giro.verifica(); residueMode = !!DC; }
 
     // Corpus fonte per il residuo: le fonti testuali di questa generazione.
     const corpus = (Array.isArray(textParts) ? textParts : [textParts]).filter(Boolean).join('\n\n');
@@ -1965,10 +1969,10 @@ Rispondi SOLO con JSON puro:
 {"expansions":[{"parent":"<id del nodo>","children":[{"label":"...","desc":"...","children":[{"label":"...","desc":"..."}]}]}]}`;
 
         try {
-            const response = await window.fetchModelAPI({
+            const response = await callModelAPI({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un estrattore di sotto-concetti fedele alla fonte. Rispondi solo JSON conforme.') }] },
-                generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(3000), responseMimeType: 'application/json' }
+                generationConfig: { temperature: 0.25, maxOutputTokens: maxOutputTokens(3000), responseMimeType: 'application/json' }
             }, apiKey);
             const raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
@@ -2028,7 +2032,7 @@ Rispondi SOLO con JSON puro:
             if (branchParaphrase) skips.push(`${branchParaphrase} parafrasi`);
             if (branchDupes) skips.push(`${branchDupes} duplicati globali`);
             console.info(`[Deepening] ramo "${labelByBranch[l1Id]}": depth ${depthByBranch[l1Id]}→${after}, +${branchAdded} nodi${skips.length ? `, scartati: ${skips.join(' + ')}` : ''}`);
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn(`[Deepening] ramo "${labelByBranch[l1Id]}" fallito (non bloccante):`, e.message);
         }
     }
@@ -2169,7 +2173,9 @@ window.isCoveragePassEnabled = function () {
     try { return localStorage.getItem('mappai_copertura_enabled') !== '0'; } catch (e) { return true; }
 };
 
-window.executeCoveragePass = async function (apiKey, opts) {
+window.executeCoveragePass = async function (apiKey, opts, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     const o = opts || {};
     const A = window.MappAIAnchorCore;
     const rep = appState._qualityReport;
@@ -2178,7 +2184,7 @@ window.executeCoveragePass = async function (apiKey, opts) {
     const salta = motivo => { esito.motivoSkip = motivo; return esito; };
     if (!A || !rep || !rep.copertura) return salta('misura della copertura non disponibile');
     if (!window.isCoveragePassEnabled()) return salta('recupero disattivato');
-    if (!apiKey) return salta('chiave del provider non disponibile');
+    if ((!apiKey && !giro)) return salta('chiave del provider non disponibile');
     const sel = A.orfanePerPassaggio(rep.copertura);
     esito.frasiSelezionate = sel.frasi;
     esito.pagine = sel.pagine;
@@ -2238,12 +2244,12 @@ window.executeCoveragePass = async function (apiKey, opts) {
             systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un recuperatore di concetti fedele alla fonte. Rispondi solo JSON conforme allo schema.') }] },
             generationConfig: {
                 temperature: 0.2,
-                maxOutputTokens: window.getMaxOutputTokens(2500),
+                maxOutputTokens: maxOutputTokens(2500),
                 responseMimeType: 'application/json',
                 responseSchema: schema
             }
         };
-        const resp = await window.fetchModelAPI(payload, apiKey);
+        const resp = await callModelAPI(payload, apiKey);
         const raw = resp?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
         const data = salvageTruncatedJSON(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
         const proposte = (data && Array.isArray(data.nodi)) ? data.nodi : [];
@@ -2292,7 +2298,7 @@ window.executeCoveragePass = async function (apiKey, opts) {
         esito.scartate = v.scartate;
         if (!n) esito.motivoSkip = 'nessuna proposta accettata dai controlli';
         return esito;
-    } catch (e) {
+    } catch (e) { if (giro) giro.verifica();
         console.warn('[Copertura] errore non bloccante:', e.message);
         esito.stato = 'errore';
         esito.motivoSkip = e.message;
@@ -2343,7 +2349,9 @@ window.isJudgeApplyEnabled = function () {
     try { return localStorage.getItem('mappai_giudice_applica') === '1'; } catch (e) { return false; }
 };
 
-window.executeJudgePass = async function (apiKey, opts) {
+window.executeJudgePass = async function (apiKey, opts, giro) {
+    const callModelAPI = giro ? payload => giro.chat('giudice', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('giudice') : undefined);
     const o = opts || {};
     const J = window.MappAIJudgeCore, A = window.MappAIAnchorCore;
     const revisione = !!appState._reviewRequested;
@@ -2361,7 +2369,7 @@ window.executeJudgePass = async function (apiKey, opts) {
     const salta = motivo => { esito.stato = 'saltato'; esito.motivoSkip = motivo; return esito; };
     if (!abilitato) return salta('giudice non richiesto');
     if (!J || !A) return salta('modulo del giudice o della fonte non disponibile');
-    if (!apiKey) return salta('chiave del provider non disponibile');
+    if ((!apiKey && !giro)) return salta('chiave del provider non disponibile');
     if (!rami.length) return salta('nessun ramo da esaminare');
 
     /* Tutte le frasi della fonte, con la loro pagina: servono a dare al giudice
@@ -2381,7 +2389,7 @@ window.executeJudgePass = async function (apiKey, opts) {
             documenti.push(doc);
             A.frasiDaPagine(pages).forEach(frase => tutte.push(Object.assign({}, frase, { docId: doc.docId, title: doc.title })));
         });
-    } catch (e) { tutte = []; }
+    } catch (e) { if (giro) giro.verifica(); tutte = []; }
     if (!tutte.length) return salta('testo della fonte non disponibile');
 
     const eid = x => (x && typeof x === 'object') ? x.id : x;
@@ -2442,12 +2450,20 @@ window.executeJudgePass = async function (apiKey, opts) {
         const blocchi = Array.from(contesto.values()).map(n =>
             '### ' + n.id + ' — "' + (window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '"\n' +
             'DESCRIZIONE: ' + n.desc + '\n' +
-            'FRASI DELLA FONTE:\n' + evidenze[n.id].map(e => '  · [' + [e.title, e.source].filter(Boolean).join(' — ') + '] ' + e.text).join('\n')
+            'FRASI DELLA FONTE:\n' + evidenze[n.id].map(e =>
+                '  RIFERIMENTO (non citare): ' + [e.title, e.source].filter(Boolean).join(' — ') + '\n' +
+                '  TESTO CITABILE: ' + JSON.stringify(e.text)).join('\n')
         ).join('\n\n');
-        const bloccoArchi = archi.length
-            ? '\n\nNESSI DICHIARATI (anche FRA RAMI DIVERSI):\n' + archi.map(l =>
-                '· ' + eid(l.source) + ' → ' + l.rel + ' → ' + eid(l.target)).join('\n')
-            : '';
+        const nessi = Array.from(new Map(archi.map(l => {
+            const item = { source: eid(l.source), target: eid(l.target), rel: l.rel };
+            return [JSON.stringify(item), item];
+        })).values());
+        const bloccoArchi = '\n\nNESSI DA CONTROLLARE (anche FRA RAMI DIVERSI):\n' +
+            JSON.stringify(nessi) + '\nCopia esattamente ciascuna terna source/target/rel; aggiungi soltanto il verdetto e le prove.';
+        const identitaNesso = (campo, description) => Object.assign({ type: 'STRING', description },
+            nessi.length ? { enum: Array.from(new Set(nessi.map(l => l[campo]))) } : {});
+        const citazione = { type: 'STRING', maxLength: 300,
+            description: 'Copia solo il testo di un estratto continuo dal TESTO CITABILE del nodo indicato, senza riferimento, titolo, pagina, virgolette esterne o ellissi aggiunte.' };
 
         const tetto = Math.max(1, Math.min(4, Math.ceil(giudicabili.length / 3)));
         const schema = {
@@ -2461,7 +2477,7 @@ window.executeJudgePass = async function (apiKey, opts) {
                             id: { type: 'STRING', enum: giudicabili.map(n => n.id) },
                             tipo: { type: 'STRING', enum: J.TIPI },
                             problema: { type: 'STRING', maxLength: 220 },
-                            prova: { type: 'STRING', maxLength: 300 },
+                            prova: citazione,
                             brano_errato: { type: 'STRING', maxLength: 120 },
                             con: { type: 'STRING', maxLength: 160 }
                         },
@@ -2469,19 +2485,22 @@ window.executeJudgePass = async function (apiKey, opts) {
                     }
                 },
                 link: {
-                    type: 'ARRAY', maxItems: Math.max(5, archi.length),
+                    type: 'ARRAY', minItems: nessi.length, maxItems: nessi.length,
+                    description: 'Un esito per ogni terna richiesta, compresi i nessi sostenuti; nessun duplicato. I difetti dei nodi appartengono esclusivamente a nodi.',
                     items: {
                         type: 'OBJECT',
                         properties: {
-                            source: { type: 'STRING' }, target: { type: 'STRING' },
+                            source: identitaNesso('source', 'ID del nodo sorgente copiato dalla terna richiesta, non una frase della fonte.'),
+                            target: identitaNesso('target', 'ID del nodo destinazione copiato dalla stessa terna richiesta.'),
+                            rel: identitaNesso('rel', 'Verbo del collegamento copiato dalla stessa terna; non una categoria di difetto dei nodi.'),
                             valido: { type: 'BOOLEAN' }, problema: { type: 'STRING', maxLength: 180 },
-                            prova_source: { type: 'STRING', maxLength: 300 }, prova_target: { type: 'STRING', maxLength: 300 }
+                            prova_source: citazione, prova_target: citazione
                         },
-                        required: ['source', 'target', 'valido', 'prova_source', 'prova_target']
+                        required: ['source', 'target', 'rel', 'valido', 'prova_source', 'prova_target']
                     }
                 }
             },
-            required: ['nodi']
+            required: ['nodi', 'link']
         };
 
         const prompt =
@@ -2500,6 +2519,10 @@ CHE COSA CERCARE — sono errori di SENSO, non di parole. Le parole vengono quas
 
 CHE COSA NON È UN ERRORE, e non va segnalato: una semplificazione, una parola più facile, una frase più corta, un termine spiegato fra virgole, un dettaglio che qui non compare. Queste descrizioni sono scritte apposta per una quarta media. Se una descrizione non è contraddetta da queste frasi, non dire niente di quel nodo: si segnalano SOLO le eccezioni, e una lista vuota è una risposta giusta e frequente.
 
+FORMATO: restituisci un oggetto con due elenchi distinti, "nodi" e "link". SOLO IN "nodi", "tipo" deve essere uno dei valori ammessi: ${J.TIPI.join(', ')}; "problema" è la spiegazione, non il tipo. Non usare "errore" come tipo. In "link" restituisci esattamente ${nessi.length} elementi, uno per ogni terna source/target/rel elencata, con valido booleano e le due prove. Le categorie di difetto dei nodi non sono valori di rel. Non mettere frasi in source/target e non aggiungere virgolette dentro gli identificativi. Non omettere i nessi sostenuti. Senza nessi restituisci link: [].
+
+CITAZIONI: nei campi prova, prova_source e prova_target copia un estratto continuo del TESTO CITABILE dell'estremo pertinente. Escludi RIFERIMENTO, titolo del documento, pagina e le virgolette esterne usate per delimitare il testo. Non aggiungere (...) o altre parole e non unire frasi distanti. Non parafrasare e non correggere il testo della fonte.
+
 PER OGNI SEGNALAZIONE:
 · "prova": copia il pezzo di frase della fonte che dimostra l'errore, parola per parola, da una delle frasi qui sopra. Può usare le stesse parole della descrizione: confronta chi compie l’azione, su chi, quando e con quale grado di certezza. La somiglianza lessicale non prova né esclude un errore.
 · "brano_errato" e "con": SOLO per soggetto-invertito, data-attribuita-male e termine-sostituito, e solo se bastano poche parole. "brano_errato" è la porzione ESATTA della descrizione da cambiare, copiata parola per parola; "con" è che cosa metterci. Non riscrivere la frase: cambia il pezzo sbagliato e basta. Se servono più di una decina di parole, lascia i due campi vuoti e segnala soltanto.
@@ -2508,12 +2531,12 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
 
         try {
             if (window.MappAIUsage) window.MappAIUsage.setContext('generation', 'giudice');
-            const resp = await window.fetchModelAPI({
+            const resp = await callModelAPI({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: buildSystemInstruction('Sei un revisore che confronta un testo con la sua fonte. Segnali solo le differenze di SENSO, mai di stile. Rispondi solo JSON conforme allo schema.') }] },
                 generationConfig: {
                     temperature: 0.1,
-                    maxOutputTokens: window.getMaxOutputTokens(2000),
+                    maxOutputTokens: maxOutputTokens(2000),
                     responseMimeType: 'application/json',
                     responseSchema: schema
                 }
@@ -2524,19 +2547,14 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
             esito.rami++;
             statoRamo.stato = 'completato';
             giudicabili.forEach(n => letti.add(n.id));
-            archi.forEach(l => {
-                const source = eid(l.source), target = eid(l.target);
-                const ricevuto = (data.link || []).some(v => v && v.source === source && v.target === target && typeof v.valido === 'boolean');
-                if (ricevuto) esito.copertura.linkEsaminati.push({ source, target, rel: l.rel });
-                else {
-                    esito.copertura.linkSaltati.push({ source, target, rel: l.rel, motivo: 'nessun verdetto ricevuto per il nesso' });
-                    statoRamo.stato = 'parziale';
-                    statoRamo.motivo = 'risposta senza verdetto per alcuni nessi';
-                }
-            });
-
             const v = J.validaVerdetti((data && data.nodi) || [], { nodi: giudicabili, frammenti: frammenti, opts: { proposalOnly: !applica } });
             const vl = J.validaLink((data && data.link) || [], { links: archi, frammenti: frammenti });
+            esito.copertura.linkEsaminati.push(...vl.esaminati);
+            esito.copertura.linkSaltati.push(...vl.saltati);
+            if (vl.saltati.length || v.scartati.length) {
+                statoRamo.stato = 'parziale';
+                statoRamo.motivo = 'risposta incompleta o verdetti non validi';
+            }
 
             v.applicati.forEach(r => {
                 r.ramo = ramo.label;
@@ -2572,7 +2590,7 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
                 }
                 esito.linkTolti.push(t);
             });
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             statoRamo.stato = 'errore';
             statoRamo.motivo = e.message;
             archi.forEach(l => esito.copertura.linkSaltati.push({ source: eid(l.source), target: eid(l.target), rel: l.rel,
@@ -2596,21 +2614,21 @@ NESSI: per ciascuno dei nessi elencati, dimmi se la fonte lo sostiene. "valido":
 
 // Fine comune dei due estrattori MM: le misure descrivono il testo finale,
 // con al massimo due recuperi di fonte e un solo passaggio del giudice.
-window.finalizeMindMapQuality = async function (textParts, apiKey) {
+window.finalizeMindMapQuality = async function (textParts, apiKey, giro) {
     const report = { passaggi: [], arricchimento: { stato: 'in-corso' }, prima: null, dopoArricchimento: null, dopo: null };
     appState._coverageReport = report;
     appState._qualityReport = null;
     const misura = () => {
         try {
             if (window.applyAnchor) window.applyAnchor();
-        } catch (e) { report.erroreMisura = e.message; }
+        } catch (e) { if (giro) giro.verifica(); report.erroreMisura = e.message; }
         return appState._qualityReport && appState._qualityReport.copertura
             ? JSON.parse(JSON.stringify(appState._qualityReport.copertura)) : null;
     };
     const recupera = async opts => {
         let r;
-        try { r = await window.executeCoveragePass(apiKey, opts); }
-        catch (e) { r = { fase: opts.phase, stato: 'errore', motivoSkip: e.message, aggiunti: 0 }; }
+        try { r = await window.executeCoveragePass(apiKey, opts, giro); }
+        catch (e) { if (giro) giro.verifica(); r = { fase: opts.phase, stato: 'errore', motivoSkip: e.message, aggiunti: 0 }; }
         if (r.aggiunti) {
             if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
             r.conservati = (r.idsAggiunti || []).filter(id => appState.db.nodes.some(n => n.id === id));
@@ -2623,20 +2641,20 @@ window.finalizeMindMapQuality = async function (textParts, apiKey) {
     const iniziale = await recupera({ phase: 'iniziale' });
     const descPrima = new Map(appState.db.nodes.map(n => [n.id, n.desc]));
     try {
-        await window.enrichThinDescs(textParts, apiKey);
+        await window.enrichThinDescs(textParts, apiKey, giro);
         report.arricchimento.stato = 'completato';
-    } catch (e) { report.arricchimento = { stato: 'errore', motivo: e.message }; }
+    } catch (e) { if (giro) giro.verifica(); report.arricchimento = { stato: 'errore', motivo: e.message }; }
     report.arricchimento.nodiCambiati = appState.db.nodes.filter(n => descPrima.get(n.id) !== n.desc).map(n => n.id);
     report.dopoArricchimento = misura();
     await recupera({ phase: 'dopo-arricchimento', previous: iniziale });
     /* Il reranker Infomaniak (se acceso) sceglie le citazioni qui: le descrizioni
        sono definitive, la copertura non è ancora fotografata e il giudice, che le
        legge, viene dopo. Un errore lascia le citazioni dell'àncora. */
-    try { if (window.applyRerankerCitations) await window.applyRerankerCitations(); }
-    catch (e) { console.warn('[Reranker] errore, restano le citazioni dell\'àncora:', e); }
+    try { if (giro) giro.verifica(); if (window.applyRerankerCitations) await window.applyRerankerCitations(); }
+    catch (e) { if (giro) giro.verifica(); console.warn('[Reranker] errore, restano le citazioni dell\'àncora:', e); }
     report.dopo = appState._qualityReport && appState._qualityReport.copertura
         ? JSON.parse(JSON.stringify(appState._qualityReport.copertura)) : null;
     if (appState._qualityReport) appState._qualityReport.recuperoCopertura = report;
-    await window.executeJudgePass(apiKey, appState._reviewRequested ? { enabled: true, apply: false } : undefined);
+    await window.executeJudgePass(apiKey, appState._reviewRequested ? { enabled: true, apply: false } : undefined, giro);
     return report;
 };

@@ -129,7 +129,7 @@
         var C = _core();
         if (!C || typeof C.riassuntoScarti !== 'function') return Promise.resolve({ success: false, error: 'core assente' });
         var riassunto;
-        try { riassunto = C.riassuntoScarti(giro); }
+        try { riassunto = C.riassuntoScarti(giro); if (giro.modelli) riassunto.modelli = JSON.parse(JSON.stringify(giro.modelli)); }
         catch (e) { console.warn('[Misura evidenze] riassunto fallito (non bloccante):', e && e.message); return Promise.resolve({ success: false }); }
         try {
             var api = window.electronAPI;
@@ -188,6 +188,13 @@
             var materiale = typeof d.materiale === 'string' ? d.materiale : '';
             var progetto = _progetto(), acceso = _acceso();
             if (!_giroBuono(progetto, acceso)) _apri(progetto, acceso);
+            if (d.ai && d.ai.runId) {
+                giro.provider = d.ai.provider;
+                giro.modello = d.ai.requestedModel;
+                if (!giro.modelli) giro.modelli = [];
+                giro.modelli.push({ runId: d.ai.runId, phase: d.ai.phase, provider: d.ai.provider,
+                    requestedModel: d.ai.requestedModel, actualModel: d.ai.actualModel || null });
+            }
             var traccia = _pacchettoDelRamo(d.area);
             giro.fogli.push({
                 area: d.area, tipo: d.tipo, angolo: d.angolo,
@@ -223,7 +230,9 @@
     function riassunto() {
         var C = _core();
         if (!giro || !C || typeof C.riassuntoScarti !== 'function') return null;
-        return C.riassuntoScarti(giro);
+        var r = C.riassuntoScarti(giro);
+        if (giro.modelli) r.modelli = JSON.parse(JSON.stringify(giro.modelli));
+        return r;
     }
 
     function stato() {

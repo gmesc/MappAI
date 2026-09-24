@@ -13,7 +13,10 @@
 // showGenerationReport, fetchModelAPI, getMaxOutputTokens, fillPromptTemplate, ...
 // Chiamato solo da startGeneration (routing) a runtime. Schemi (schemaL1/schemaBranch)
 // sono locali alle funzioni e si spostano col blocco.
-async function extractMindMapIterative(textParts, fileParts, apiKey) {
+async function extractMindMapIterative(textParts, fileParts, apiKey, giro) {
+    if (giro) giro.verifica();
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     try {
         const rootId = "ROOT";
 
@@ -25,21 +28,22 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             sourcesDict: {},
             customColors: {}
         };
+        if (giro) giro.iniziaMappa();
 
         if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_iterative');
-        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi introduttiva dell'argomento principale...`);
+        window.showLoadingOverlay(true, `${(giro ? giro.fase('mappa').provider : appState.aiProvider) === 'google' ? 'Google Studio' : 'Infomaniak'}: Analisi introduttiva dell'argomento principale...`);
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: maxOutputTokens(512) }
             };
-            const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
+            const dataL0 = await callModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
             if (l0Text) {
                 appState.db.nodes[0].content = l0Text.trim();
                 appState.db.nodes[0].desc = l0Text.trim();
             }
-        } catch (e) { console.log("L0 fallito", e); }
+        } catch (e) { if (giro) giro.verifica(); console.log("L0 fallito", e); }
 
         let l1Data = Array.from(document.querySelectorAll('.l1-topic-input'))
             .map(i => i.value.trim())
@@ -51,7 +55,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const maxBranches = parseInt(document.getElementById('branches-slider')?.value) || 0;
 
         if (l1Data.length === 0 || autoGenerateL1) {
-            window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Individuazione delle Macro-Categorie...`);
+            window.showLoadingOverlay(true, `${(giro ? giro.fase('mappa').provider : appState.aiProvider) === 'google' ? 'Google Studio' : 'Infomaniak'}: Individuazione delle Macro-Categorie...`);
             let promptL1 = window.fillPromptTemplate("L1_MACRO_CATEGORIES", {
                 rootNodeLabel: appState.rootNodeLabel,
                 optionalL1Labels: l1Data.length > 0 ? `Devi ASSOLUTAMENTE includere le seguenti categorie richieste dall'utente: ${JSON.stringify(l1Data.map(x => x.label))}.\\n` : '',
@@ -90,17 +94,17 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
             // (il bridge li converte in un reminder testuale che spesso manda in confusione
             // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
-            const payloadL1 = appState.aiProvider === 'infomaniak'
+            const payloadL1 = (giro ? giro.fase('mappa').provider : appState.aiProvider) === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
-            const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
+            const dataL1 = await callModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
             if (candidateL1 && candidateL1.content && candidateL1.content.parts) {
                 let rawL1 = candidateL1.content.parts[0].text;
@@ -127,8 +131,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
-                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
-            } catch (e) {
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel, giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase 1.5] errore non bloccante:', e.message);
             }
         }
@@ -138,8 +142,8 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
-                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
-            } catch (e) {
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel, giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase 1.6] split non bloccante:', e.message);
             }
         }
@@ -186,7 +190,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
-        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey, giro);
         const schemaBranch = {
             type: "OBJECT",
             properties: {
@@ -224,7 +228,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
 
         let l1LabelsStr = l1NodesData.map(n => `- ID: ${n.id} | Etichetta: "${n.label}"`).join('\n');
 
-        window.showLoadingOverlay(true, `${appState.aiProvider === 'google' ? 'Google Studio' : 'Infomaniak'}: Generazione dell'intero albero della mappa in corso...`);
+        window.showLoadingOverlay(true, `${(giro ? giro.fase('mappa').provider : appState.aiProvider) === 'google' ? 'Google Studio' : 'Infomaniak'}: Generazione dell'intero albero della mappa in corso...`);
 
         let userProfileStr = '';
         if (window.MappAITune && window.MappAITune.armed && appState.userProfile && appState.userProfile.nickname) {
@@ -250,11 +254,11 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         const payloadTree = {
             contents: [{ parts: [...fileParts, { text: promptFullTree }] }],
             systemInstruction: { parts: [{ text: buildSystemInstruction(MIND_MAP_SYSTEM_INSTRUCTION) }] },
-            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(8192) }
+            generationConfig: { temperature: 0.3, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: maxOutputTokens(8192) }
         };
 
         try {
-            const dataTree = await window.fetchModelAPI(payloadTree, apiKey);
+            const dataTree = await callModelAPI(payloadTree, apiKey);
             const cand = dataTree.candidates && dataTree.candidates[0];
             if (cand && cand.content && cand.content.parts) {
                 let rawText = cand.content.parts[0].text;
@@ -500,7 +504,7 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
                     }
                 });
             }
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn("Errore durante la generazione single-pass:", e);
             window.showToast(window.t('tst_tree_error', "Errore durante la generazione dell'albero."), "error");
         }
@@ -513,8 +517,9 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         }
 
         try {
-            await window.finalizeMindMapQuality(textParts, apiKey);
-        } catch (e) { console.warn('[Qualità] errore non bloccante:', e.message); }
+            if (giro) await window.finalizeMindMapQuality(textParts, apiKey, giro);
+            else await window.finalizeMindMapQuality(textParts, apiKey);
+        } catch (e) { if (giro) giro.verifica(); console.warn('[Qualità] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -529,13 +534,16 @@ async function extractMindMapIterative(textParts, fileParts, apiKey) {
         // Show Generation Report
         setTimeout(() => { window.showGenerationReport(); }, 1500);
 
-    } catch (err) {
+    } catch (err) { if (giro) giro.verifica();
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Mappa", err.message);
     }
 }
 
-async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
+async function extractMindMapMultiPass(textParts, fileParts, apiKey, giro) {
+    if (giro) giro.verifica();
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     try {
         const rootId = "ROOT";
         window.resetVaultState();
@@ -546,6 +554,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             sourcesDict: {},
             customColors: {}
         };
+        if (giro) giro.iniziaMappa();
 
         // Fase 1: Introduzione L0
         if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase1');
@@ -553,15 +562,15 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         try {
             const payloadL0 = {
                 contents: [{ parts: [{ text: `Analizza le fonti testuali e scrivi un chiaro ed esaustivo paragrafo introduttivo in Italiano (max 40 parole) che spieghi a livello generale il tema: "${appState.rootNodeLabel}".\n\nFONTI:\n${textParts.slice(0, 3).join('\n')}` }] }],
-                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: window.getMaxOutputTokens(512) }
+                generationConfig: { temperature: 0.2, responseMimeType: "text/plain", maxOutputTokens: maxOutputTokens(512) }
             };
-            const dataL0 = await window.fetchModelAPI(payloadL0, apiKey);
+            const dataL0 = await callModelAPI(payloadL0, apiKey);
             const l0Text = dataL0.candidates && dataL0.candidates[0] && dataL0.candidates[0].content && dataL0.candidates[0].content.parts && dataL0.candidates[0].content.parts[0].text;
             if (l0Text) {
                 appState.db.nodes[0].content = l0Text.trim();
                 appState.db.nodes[0].desc = l0Text.trim();
             }
-        } catch (e) { console.warn("L0 fallito", e); }
+        } catch (e) { if (giro) giro.verifica(); console.warn("L0 fallito", e); }
 
         // Fase 2: Macro-Categorie L1
         let l1Data = Array.from(document.querySelectorAll('.l1-topic-input'))
@@ -611,17 +620,17 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             // Su Infomaniak responseMimeType + responseSchema non sono supportati nativamente
             // (il bridge li converte in un reminder testuale che spesso manda in confusione
             // i modelli come Kimi-K2.6 → risposta vuota). Su Google si usa lo schema.
-            const payloadL1 = appState.aiProvider === 'infomaniak'
+            const payloadL1 = (giro ? giro.fase('mappa').provider : appState.aiProvider) === 'infomaniak'
                 ? {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [{ text: promptL1 }] }],
-                    generationConfig: { temperature: 0.2, maxOutputTokens: window.getMaxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
+                    generationConfig: { temperature: 0.2, maxOutputTokens: maxOutputTokens(4096), responseMimeType: "application/json", responseSchema: schemaL1 }
                   };
 
-            const dataL1 = await window.fetchModelAPI(payloadL1, apiKey);
+            const dataL1 = await callModelAPI(payloadL1, apiKey);
             const candidateL1 = dataL1.candidates && dataL1.candidates[0];
             if (candidateL1 && candidateL1.content && candidateL1.content.parts) {
                 let rawL1 = candidateL1.content.parts[0].text;
@@ -647,8 +656,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         if (window.isL1ValidationEnabled && window.isL1ValidationEnabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Fase 1.5: validazione macro-categorie...');
-                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel);
-            } catch (e) {
+                l1Data = await window.validateL1Categories(l1Data, appState.rootNodeLabel, giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase 1.5] errore non bloccante:', e.message);
             }
         }
@@ -658,8 +667,8 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
         if (window.isL1SplitEnabled && window.isL1SplitEnabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Fase 1.6: macro-aree atomiche...');
-                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel);
-            } catch (e) {
+                l1Data = await window.splitCompoundL1s(l1Data, appState.rootNodeLabel, giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase 1.6] split non bloccante:', e.message);
             }
         }
@@ -705,7 +714,7 @@ async function extractMindMapMultiPass(textParts, fileParts, apiKey) {
             appState.db.links.push({ source: rootId, target: l1Id, rel: item.rel || "include" });
         });
 
-        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey);
+        await window.enrichL1Descs(l1NodesData, appState.rootNodeLabel, apiKey, giro);
         // Fase 3: Generazione dei rami Branch-by-Branch (Multi-Pass HD)
         const schemaBranch = {
             type: "OBJECT",
@@ -819,7 +828,7 @@ Quando un concetto è davvero al confine tra due rami, scegli quello che lo desc
             // ── Strategia 1A — JSONL per Infomaniak (gated da feature flag) ──
             // Quando attivo: prompt JSONL sezionato + parser tollerante al troncamento.
             // Altrimenti: prompt JSON monolitico originale + salvageTruncatedJSON.
-            const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled();
+            const useJSONL = window.isJSONLEnabled && window.isJSONLEnabled(giro ? giro.fase('mappa') : undefined);
 
             // Strategia A — calcola il catalogo dei rami fratelli per questo branch
             const siblingCatalog = buildSiblingL1Catalog(branch.id, completedBranchL2s);
@@ -881,17 +890,17 @@ ${textParts.join('\n\n')}`;
                 ? {
                     contents: [{ parts: [...fileParts, { text: promptBranch }] }],
                     systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi in JSONL sezionato come richiesto, una riga per oggetto.") }] },
-                    generationConfig: { temperature: 0.25, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.25, maxOutputTokens: maxOutputTokens(4096) }
                   }
                 : {
                     contents: [{ parts: [...fileParts, { text: promptBranch }] }],
                     systemInstruction: { parts: [{ text: buildSystemInstruction("Sei un ordinatore gerarchico di concetti per mappe mentali. Rispondi solo in JSON conforme allo schema.") }] },
-                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: window.getMaxOutputTokens(4096) }
+                    generationConfig: { temperature: 0.25, responseMimeType: "application/json", responseSchema: schemaBranch, maxOutputTokens: maxOutputTokens(4096) }
                   };
 
             try {
                 if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase3');
-                const dataBranch = await window.fetchModelAPI(payloadBranch, apiKey);
+                const dataBranch = await callModelAPI(payloadBranch, apiKey);
                 const cand = dataBranch.candidates && dataBranch.candidates[0];
                 if (cand && cand.content && cand.content.parts) {
                     let rawText = cand.content.parts[0].text;
@@ -1032,7 +1041,7 @@ ${textParts.join('\n\n')}`;
                 completedBranchL2s[branch.id] = appState.db.nodes
                     .filter(n => n.level === 2 && appState.db.links.some(l => l.source === branch.id && l.target === n.id))
                     .map(n => window.cleanLabel ? window.cleanLabel(n.label) : n.label);
-            } catch (branchErr) {
+            } catch (branchErr) { if (giro) giro.verifica();
                 console.error(`Errore nel ramo ${branch.label}:`, branchErr);
                 // Fallback auto-healing per questo ramo
                 const fallbackL2Id = `${branch.id}_L2_FALLBACK`;
@@ -1167,8 +1176,8 @@ ${textParts.join('\n\n')}`;
         if (window.isPhase4Enabled && window.isPhase4Enabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Consolidamento finale (Fase 4)...');
-                await window.executePhase4Consolidation();
-            } catch (e) {
+                await window.executePhase4Consolidation(giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase4] Errore non bloccante:', e.message);
             }
         }
@@ -1179,8 +1188,8 @@ ${textParts.join('\n\n')}`;
         if (window.isPhase5Enabled && window.isPhase5Enabled()) {
             try {
                 window.showLoadingOverlay(true, 'Mappa HD - Riclassificazione (Fase 5)...');
-                await window.executePhase5Reclassification();
-            } catch (e) {
+                await window.executePhase5Reclassification(giro);
+            } catch (e) { if (giro) giro.verifica();
                 console.warn('[Phase5] Errore non bloccante:', e.message);
             }
         }
@@ -1204,11 +1213,11 @@ ${textParts.join('\n\n')}`;
                 try {
                     const et = appState.mmTriage && parseInt(appState.mmTriage.essentialDepth);
                     if (et >= 2 && et <= 5) deepTarget = Math.min(maxMapLevel, et);
-                } catch (e) { /* verdetto assente → tetto utente */ }
-                await window.executeDeepeningPass(textParts, apiKey, deepTarget);
+                } catch (e) { if (giro) giro.verifica(); /* verdetto assente → tetto utente */ }
+                await window.executeDeepeningPass(textParts, apiKey, deepTarget, giro);
                 if (window.sanitizeMindMapTree) window.sanitizeMindMapTree();
             }
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn('[Deepening] errore non bloccante:', e.message);
         }
 
@@ -1221,8 +1230,9 @@ ${textParts.join('\n\n')}`;
         }
 
         try {
-            await window.finalizeMindMapQuality(textParts, apiKey);
-        } catch (e) { console.warn('[Qualità] errore non bloccante:', e.message); }
+            if (giro) await window.finalizeMindMapQuality(textParts, apiKey, giro);
+            else await window.finalizeMindMapQuality(textParts, apiKey);
+        } catch (e) { if (giro) giro.verifica(); console.warn('[Qualità] errore non bloccante:', e.message); }
 
         const validNodeIds = new Set(appState.db.nodes.map(n => n.id));
         appState.db.links = appState.db.links.filter(l => validNodeIds.has(l.source) && validNodeIds.has(l.target));
@@ -1235,7 +1245,7 @@ ${textParts.join('\n\n')}`;
         if (window.mappaPronta()) setTimeout(() => { initD3Visualization(); }, 200);
         setTimeout(() => { window.showGenerationReport(); }, 1500);
 
-    } catch (err) {
+    } catch (err) { if (giro) giro.verifica();
         window.showLoadingOverlay(false);
         window.showAlert("Errore Generazione Mappa HD", err.message);
     }

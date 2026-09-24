@@ -326,15 +326,16 @@ window.printAllNodeLabels = async function (opts) {
     // sui figli/desc se la chiamata fallisce o non c'è una API key)
     var keywordsMap = {};
     if (!editedCards && layout === 'keywords') {
-        var kwApiKey = window.getSystemKey ? window.getSystemKey() : '';
-        if (kwApiKey) {
+        var kwApiKey = opts.giro ? null : (window.getSystemKey ? window.getSystemKey() : '');
+        if (kwApiKey || opts.giro) {
             window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi…');
             var _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
             if (window.MappAITune) window.MappAITune.armed = nlTuneOn;
             try {
-                keywordsMap = await _generateNodeKeywords(nodes, kwApiKey) || {};
+                keywordsMap = await _generateNodeKeywords(nodes, kwApiKey, opts.giro) || {};
                 tuned = nlTuneOn; // keyword generate con taratura → file [VERDE]
             } catch (kwErr) {
+                if (opts.giro) opts.giro.verifica();
                 console.warn('[Labels] Generazione keyword AI fallita, uso fallback:', kwErr);
             } finally {
                 if (window.MappAITune) window.MappAITune.armed = _prevArmed;
@@ -1052,7 +1053,8 @@ function _cleanKeywords(node, arr) {
     return out.slice(0, 7);
 }
 
-async function _kwCallBatch(nodesChunk, apiKey) {
+async function _kwCallBatch(nodesChunk, apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
     var byId = {};
     var items = nodesChunk.map(function (n) {
         byId[n.id] = n;
@@ -1085,18 +1087,18 @@ async function _kwCallBatch(nodesChunk, apiKey) {
         },
         generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(8192) : 8192)
+            maxOutputTokens: (window.getMaxOutputTokens ? window.getMaxOutputTokens(8192, giro ? giro.fase('materiali') : undefined) : 8192)
         }
     };
 
     if (window.MappAIUsage) window.MappAIUsage.setContext('materials', 'nodesheet');
     if (window.injectClassTuning) window.injectClassTuning(payload); // taratura [VERDE]: no-op se non armato
-    var response = await window.fetchModelAPI(payload, apiKey);
+    var response = await callModelAPI(payload, apiKey);
     var raw = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!raw) return {};
 
     var parsed;
-    try { parsed = salvageTruncatedJSON(raw); } catch (e) { return {}; }
+    try { parsed = salvageTruncatedJSON(raw); } catch (e) { if (giro) giro.verifica(); return {}; }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
 
     var out = {};
@@ -1111,7 +1113,7 @@ async function _kwCallBatch(nodesChunk, apiKey) {
     return out;
 }
 
-async function _generateNodeKeywords(nodes, apiKey) {
+async function _generateNodeKeywords(nodes, apiKey, giro) {
     var chunks = [];
     for (var i = 0; i < nodes.length; i += _KW_BATCH) chunks.push(nodes.slice(i, i + _KW_BATCH));
 
@@ -1121,9 +1123,9 @@ async function _generateNodeKeywords(nodes, apiKey) {
             window.showLoadingOverlay(true, 'Genero le parole chiave dei nodi… (' + (c + 1) + '/' + chunks.length + ')');
         }
         try {
-            var part = await _kwCallBatch(chunks[c], apiKey);
+            var part = await _kwCallBatch(chunks[c], apiKey, giro);
             Object.keys(part).forEach(function (id) { merged[id] = part[id]; });
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn('[Labels] Batch keyword ' + (c + 1) + ' fallito:', e);
         }
     }

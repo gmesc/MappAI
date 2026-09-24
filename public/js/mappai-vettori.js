@@ -85,7 +85,8 @@
     async function richiedi(ctx, texts) {
         var result = await window.fetchEmbeddingsRequest({
             provider: ctx.provider, apiKey: ctx.apiKey, productId: ctx.productId,
-            model: ctx.model, texts: texts
+            model: ctx.model, texts: texts,
+            project: ctx.project, projectId: ctx.projectId, runId: ctx.runId
         });
         // Errori del fornitore non sono errori di cache e non vengono assorbiti.
         var dimensions = core().validateBatch(result && result.embeddings, texts.length);

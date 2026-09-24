@@ -62,7 +62,7 @@
     <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
          Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
          modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
-    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=bar3">
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=consumi-0017-20260923-5">
 
     <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
          Ogni regola è scoped sotto html.manifesto: senza quella classe questo
@@ -370,7 +370,7 @@
 
     <!-- TOAST CONTAINER
          ⚠️ 21/9: stava a z-[9999], cioè SOTTO i modali del motore, che partono da
-         12000 e salgono (mappai-modal.js:46). Ogni avviso mostrato mentre una
+         12000 e salgono (mappai-modal.js?v=consumi-0019-20260923-1:46). Ogni avviso mostrato mentre una
          console o un modale è aperto finiva dietro di loro: il programma
          spiegava perché si rifiutava di fare una cosa, e la spiegazione non si
          vedeva — un rifiuto muto, che da fuori sembra un clic che non funziona.
@@ -1448,6 +1448,9 @@
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
                         <i data-lucide="rotate-ccw"></i> <span data-i18n="ui_undo">Annulla</span><span class="undo-count"></span>
+                    </button>
+                    <button type="button" onclick="window.openCabina && window.openCabina('ai')">
+                        <span data-i18n="modelli_setup">Setup AI</span>
                     </button>
                     <button onclick="window.backToLanding()" title="Nuovo Progetto" data-i18n-title="tt_new_project">
                         <i data-lucide="arrow-left"></i> <span data-i18n="back_to_home">Torna alla Home</span>
@@ -2924,6 +2927,7 @@
                         class="mt-3 p-3 bg-slate-50 border border-slate-200/60 rounded-xl hidden"></div>
                     <p id="models-status" class="text-[10px] text-slate-400 mt-1.5 italic hidden"></p>
                 </div>
+                <div id="modelli-setup" class="border border-slate-200 rounded-xl p-4"></div>
                 <!-- Pricing Legend -->
                 <div id="pricing-legend"
                     class="bg-indigo-50/60 border border-indigo-200/50 p-4 rounded-xl text-[11px] text-slate-600 space-y-1.5 min-h-[80px]">
@@ -3168,10 +3172,10 @@
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
-    <script src="traduzioni/it_translations.js?v=review-0015-20260922-2"></script>
-    <script src="traduzioni/en_translations.js?v=review-0015-20260922-2"></script>
+    <script src="traduzioni/it_translations.js?v=giudice-0020-20260924-1"></script>
+    <script src="traduzioni/en_translations.js?v=link-editor-0021-20260924-2"></script>
     <script src="traduzioni/i18n-helper.js"></script>
-    <script src="js/infomaniak_bridge.js"></script>
+    <script src="js/infomaniak_bridge.js?v=giudice-0020-20260924-2"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
     <script src="js/storageAdapter.js"></script>
 
@@ -3185,7 +3189,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js"></script>
 
-    <script src="js/app.js?v=modelli-20260922-1"></script>
+    <script src="js/app.js?v=catalogo-20260922-1"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3193,9 +3197,9 @@
     <script src="js/mappai-font.js?v=font6"></script>
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
-         bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css. -->
-    <script src="js/mappai-modal-core.js?v=bar3"></script>
-    <script src="js/mappai-modal.js?v=dos3"></script>
+         bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css?v=consumi-0017-20260923-5 -->
+    <script src="js/mappai-modal-core.js?v=consumi-0017-20260923-5"></script>
+    <script src="js/mappai-modal.js?v=consumi-0019-20260923-1"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
@@ -3204,9 +3208,10 @@
          mostra elenchi (9/8). Presto, perché chiunque può segnalare. -->
     <script src="js/mappai-vaults-bus.js?v=man2"></script>
     <script src="js/mappai-console-bento.js?v=dh13"></script>
-    <script src="js/mappai-mm-triage.js"></script>
-    <script src="js/mappai-ui-modals.js?v=dh12"></script>
-    <script src="js/mappai-storage-lang.js?v=evidence-id-20260921"></script>
+    <script src="js/mappai-mm-triage.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-catalogo-core.js?v=catalogo-20260922-2"></script>
+    <script src="js/mappai-ui-modals.js?v=catalogo-20260922-1"></script>
+    <script src="js/mappai-storage-lang.js?v=provider-0013-20260924-1"></script>
     <script src="js/mappai-d3-render.js?v=font1"></script>
     <script src="js/mappai-ui-canvas.js?v=riga1"></script>
     <!-- Moduli MappAI estesi -->
@@ -3247,7 +3252,7 @@
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
-    <script src="js/mappai-entity-backbone.js"></script>
+    <script src="js/mappai-entity-backbone.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-suggestions-panel.js"></script>
     <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
     <script src="js/mappai-study-export-core.js?v=dos1"></script>
@@ -3257,7 +3262,7 @@
     <script src="js/mappai-causal-core.js"></script>
     <script src="js/mappai-causal-chains.js?v=font1"></script>
     <script src="js/mappai-grounding-core.js?v=review-teacher-20260913-4"></script>
-    <script src="js/mappai-branch-synthesis.js?v=review-teacher-20260913-3"></script>
+    <script src="js/mappai-branch-synthesis.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
@@ -3268,7 +3273,7 @@
     <script src="js/mappai-chat-analysis.js"></script>
     <script src="js/mappai-meta-analysis.js"></script>
     <script src="js/mappai-multiselect.js"></script>
-    <script src="js/mappai-undo.js"></script>
+    <script src="js/mappai-undo.js?v=link-editor-0021-20260924-2"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-desc-fidelity.js"></script>
     <script src="js/mappai-deepen-core.js"></script>
@@ -3278,7 +3283,7 @@
     <script src="js/mappai-anchor-core.js?v=vuoti-20260919"></script>
     <!-- Il giudice: che cosa si accetta di un verdetto. Puro e testato in Node;
          dipende da desc-fidelity per le parole-contenuto. -->
-    <script src="js/mappai-judge-core.js?v=review-20260912-2"></script>
+    <script src="js/mappai-judge-core.js?v=giudice-0020-20260924-1"></script>
     <script src="js/mappai-anchor.js"></script>
     <!-- #1: rilevamento intestazioni/piè ricorrenti (ELABORA + corpus generazione) -->
     <script src="js/mappai-boilerplate-core.js"></script>
@@ -3362,24 +3367,26 @@
          Interruttore: localStorage `mappai_local_search_enabled` = '0'. -->
     <script src="js/mappai-local-search-core.js?v=bm25-20260915"></script>
     <script src="js/mappai-local-search.js?v=bm25-20260915b"></script>
-    <script src="js/mappai-material-review.js?v=esenti-nodesheet-20260919"></script>
+    <script src="js/mappai-material-review.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-review-fonte.js?v=pdf-segni-20260917"></script>
     <script src="js/mappai-confronto-core.js?v=inline-20260917"></script>
-    <script src="js/mappai-review.js?v=review-0015-20260922-2"></script>
+    <script src="js/mappai-review.js?v=link-editor-0021-20260924-2"></script>
+    <script src="js/mappai-link-editor-core.js?v=link-editor-0021-20260924-2"></script>
+    <script src="js/mappai-link-editor.js?v=link-editor-0021-20260924-2"></script>
     <!-- Le evidenze (ADR 0002, passo 2, 20/9/2026): alla riapertura di un progetto l'indice delle pagine
          della fonte (evidenze.json nella radice del vault), da cui il passo 3 darà le prove ai generatori.
          Dopo review.js (le pagine vengono da MappAIReview.sources()), prima della pipeline che lo consumerà.
          Interruttore: localStorage `mappai_evidence` = '1' (spento di default). -->
     <script src="js/mappai-evidence-core.js?v=evidence-20260920b"></script>
-    <script src="js/mappai-evidence.js?v=evidence-20260920b"></script>
+    <script src="js/mappai-evidence.js?v=modelli-b2-20260922-1"></script>
     <!-- LA MISURA (passo 6, 21/9/2026): ogni foglio di domande lascia su disco il conto dei tenuti e
          degli scartati col motivo (userData/MappAI-Pipeline/<runId>/misura-evidenze.json), e
          `tools/misura-evidenze/confronta.mjs` mette due giri uno accanto all'altro. Dopo evidence.js,
          di cui legge l'interruttore e la traccia dei rami serviti; prima di study-session.js, che la
          chiama. Niente interfaccia, nessun secondo interruttore: si scrive sempre. -->
-    <script src="js/mappai-misura-evidenze.js?v=misura-20260921"></script>
+    <script src="js/mappai-misura-evidenze.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=porta-materiali-20260921"></script>
+    <script src="js/mappai-material-pipeline.js?v=giudice-0013-20260924-1"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
     <script src="js/mappai-visione.js?v=bar3"></script>
@@ -3391,9 +3398,9 @@
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
     <script src="js/mappai-bento-composizione.js?v=presets-flash-20260914-1"></script>
     <script src="js/mappai-costruisci-manifesto.js?v=presets-flash-20260914-1"></script>
-    <script src="js/mappai-usage-core.js?v=dh12"></script>
-    <script src="js/mappai-usage-tracker.js"></script>
-    <script src="js/mappai-usage-dashboard.js?v=font1"></script>
+    <script src="js/mappai-usage-core.js?v=consumi-0018-20260923-2"></script>
+    <script src="js/mappai-usage-tracker.js?v=catalogo-20260922-1"></script>
+    <script src="js/mappai-usage-dashboard.js?v=catalogo-20260922-1"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
     <script src="js/mappai-mastery-view.js?v=sf1"></script>
@@ -3410,25 +3417,26 @@
     <script src="js/mappai-errori.js?v=dh23"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=dos1"></script>
+    <script src="js/mappai-cabina.js?v=consumi-0018-20260923-2"></script>
     <script src="js/mappai-search-finder.js"></script>
-    <script src="js/mappai-vault-manager.js?v=review-20260912-2"></script>
+    <script src="js/mappai-vault-manager.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-contextual-ai.js?v=dh15"></script>
-    <script src="js/mappai-generation-support.js?v=vettori-20260921-1"></script>
+    <script src="js/mappai-generation-support.js?v=giudice-0020-20260924-2"></script>
     <script src="js/mappai-vettori-core.js?v=vettori-20260921-1"></script>
-    <script src="js/mappai-vettori.js?v=modelli-20260922-1"></script>
+    <script src="js/mappai-vettori.js?v=catalogo-20260922-1"></script>
     <script src="js/mappai-modelli-core.js?v=modelli-20260922-1"></script>
-    <script src="js/mappai-modelli.js?v=modelli-20260922-1"></script>
-    <script src="js/mappai-kg-extraction.js"></script>
-    <script src="js/mappai-mm-extraction.js?v=review-20260912-2"></script>
-    <script src="js/mappai-vault-io.js?v=review-20260912-2"></script>
+    <script src="js/mappai-modelli.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-modelli-ui.js?v=catalogo-20260922-1"></script>
+    <script src="js/mappai-kg-extraction.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-mm-extraction.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-vault-io.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-merge-validate.js?v=dh15"></script>
-    <script src="js/mappai-print-dossier.js?v=review-20260912-2"></script>
-    <script src="js/mappai-context-menu.js?v=dh26"></script>
+    <script src="js/mappai-print-dossier.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-context-menu.js?v=link-editor-0021-20260924-2"></script>
     <script src="js/mappai-edit-modal.js"></script>
     <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
     <script src="js/mappai-ai-tutor.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-study-session.js?v=prove-aperte-20260921"></script>
+    <script src="js/mappai-study-session.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-a11y.js"></script>
     <script src="js/mappai-rsvp-core.js"></script>
     <script src="js/mappai-pronuncia-core.js"></script>

@@ -1,0 +1,14 @@
+{
+  "diagram_type": "workflow",
+  "output": "/Users/giacomomeschini/.codex/visualizations/2026/09/21/01a0c46d-a39d-7481-9a71-eb722d3a83d7/pdf-evidence.html",
+  "specification_sha256": "605d5d3e97d62dd71483b395f2896bf55e4f720b07424179ede3e0a86fbe73e0",
+  "artifact_sha256": "8235c2cc0eda695a4f9c52bde4539d89747fbc769beec4fe294bc0aa5071f675",
+  "validation": "9/9 showcase, 0 errors, 0 warnings",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 2,
+  "visual_review_scope": "Ispezionate le immagini 1440x900 light e 2048x1320 dark: testi e frecce leggibili, nessun incrocio ambiguo o contenuto tagliato. Contenimento verificato automaticamente a 1440x900, 1600x1000, 1920x1080, 2048x1320.",
+  "repository_commit": "c23f282",
+  "interpretation": "Mappa di orientamento, non elenco esaustivo delle chiamate. I passi 5-7 richiedono Evidence accesa e indice pronto nel vault; la fonte resta il testo originale. Il profilo per fase è provato tramite console, ancora da collegare ai flussi B2. Embeddings su richiesta, reranking delle citazioni distinto dal futuro reranking Evidence. La voce naturale usa il percorso Google esistente.",
+  "viewer_language": "Contenuti in italiano; interfaccia fissa e attributo html lang in inglese, limite del renderer."
+}

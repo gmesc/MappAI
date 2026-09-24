@@ -31,7 +31,7 @@
 
     function _getAppState() {
         try { return (typeof appState !== 'undefined') ? appState : window.appState; }
-        catch (e) { return window.appState; }
+        catch (e) { if (giro) giro.verifica(); return window.appState; }
     }
 
     const SAMPLE_CAP = 12000;   // il triage basta su un campione: costo/latenza minimi
@@ -47,7 +47,7 @@
     }
     function _cacheGet(hash) {
         try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); return c[hash] || null; }
-        catch (e) { return null; }
+        catch (e) { if (giro) giro.verifica(); return null; }
     }
     function _cachePut(hash, v) {
         try {
@@ -56,7 +56,7 @@
             const keys = Object.keys(c);
             if (keys.length > CACHE_MAX) delete c[keys[0]];
             localStorage.setItem(CACHE_KEY, JSON.stringify(c));
-        } catch (e) { /* localStorage pieno/assente → nessuna cache, non bloccante */ }
+        } catch (e) { if (giro) giro.verifica(); /* localStorage pieno/assente → nessuna cache, non bloccante */ }
     }
 
     // Schema del verdotto (Google: responseSchema nativo; Infomaniak: solo prompt).
@@ -97,14 +97,16 @@
     ].join('\n');
 
     // API: async, ritorna il verdetto {contentType, essentialDepth, ...} o null.
-    window.runMindMapTriage = async function (textParts, apiKey) {
+    window.runMindMapTriage = async function (textParts, apiKey, giro) {
+    const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
+    const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
         try {
             // Gate: parte con «Adattiva» (logica MM) O con «Profondità automatica»
             // (toggle vicino al menu gen-depth). Entrambi consumano essentialDepth.
             if (localStorage.getItem('mappai_mm_triage_enabled') !== '1' &&
                 localStorage.getItem('mappai_auto_depth') !== '1') return null;   // default OFF
             const S = _getAppState();
-            if (!apiKey || !S || S.extractionMode !== 'mindmap') return null;             // gate modalità
+            if ((!apiKey && !giro) || !S || S.extractionMode !== 'mindmap') return null;             // gate modalità
             if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'triage');
 
             const corpus = (Array.isArray(textParts) ? textParts : [textParts])
@@ -116,9 +118,9 @@
             const cached = _cacheGet(hash);
             if (cached) { console.info('[MMTriage] cache', cached.contentType, 'essentialDepth=' + cached.essentialDepth); return cached; }
 
-            const base = { temperature: 0, maxOutputTokens: window.getMaxOutputTokens ? window.getMaxOutputTokens(1000) : 2000 };
+            const base = { temperature: 0, maxOutputTokens: window.getMaxOutputTokens ? maxOutputTokens(1000) : 2000 };
             // responseMimeType/responseSchema SOLO su Google (regola nota: Infomaniak li rompe).
-            const gcfg = (S.aiProvider === 'infomaniak')
+            const gcfg = ((giro ? giro.fase('mappa').provider : S.aiProvider) === 'infomaniak')
                 ? Object.assign({}, base)
                 : Object.assign({}, base, { responseMimeType: 'application/json', responseSchema: TRIAGE_SCHEMA });
 
@@ -129,14 +131,14 @@
             };
             if (window.injectClassTuning) window.injectClassTuning(payload);              // no-op senza classe attiva
 
-            const response = await window.fetchModelAPI(payload, apiKey);
+            const response = await callModelAPI(payload, apiKey);
             const rawText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             if (!rawText) return null;
 
             const clean = rawText.replace(/```json?/gi, '').replace(/```/g, '').trim();
             let v = null;
             try { v = window.salvageTruncatedJSON ? window.salvageTruncatedJSON(clean) : JSON.parse(clean); }
-            catch (e) { return null; }                                                    // JSON irrecuperabile → fallback silenzioso
+            catch (e) { if (giro) giro.verifica(); return null; }                                                    // JSON irrecuperabile → fallback silenzioso
             if (Array.isArray(v)) v = v[0];
             if (!v || typeof v !== 'object') return null;
 
@@ -147,7 +149,7 @@
             console.info('[MMTriage]', v.contentType || '?', 'essentialDepth=' + ed,
                 v.hasOrderedChains ? '· catene ordinate' : '', '·', v.rationale || '');
             return v;
-        } catch (e) {
+        } catch (e) { if (giro) giro.verifica();
             console.warn('[MMTriage] errore non bloccante:', e && e.message);
             return null;                                                                  // MAI bloccare la generazione
         }

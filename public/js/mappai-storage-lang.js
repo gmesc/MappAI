@@ -367,6 +367,18 @@ const StorageManager = {
             // ciclo ripartirebbe desincronizzato. Si normalizza al default.
             if (loadedState.layoutMode === 'studio') loadedState.layoutMode = 'default';
 
+            // Lo snapshot descrive il progetto, non il provider del prossimo giro B2.
+            if (window.MappAIModelli && window.MappAIModelli.acceso()) {
+                const usage = loadedState.generationUsage || {};
+                loadedState.generationUsage = Object.assign({}, usage, {
+                    provenienzaMappa: usage.provenienzaMappa || {
+                        provider: usage.usedProvider || loadedState.aiProvider || '',
+                        model: usage.usedModel || loadedState.aiModel || ''
+                    }
+                });
+                loadedState.aiProvider = appState.aiProvider || localStorage.getItem('ai_provider') || 'google';
+            }
+
             // Overwrite global appState
             loadedState._reviewRestoring = true;
             delete loadedState._reviewRestoreError;

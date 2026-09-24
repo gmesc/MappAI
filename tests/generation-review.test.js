@@ -67,7 +67,7 @@ test('judge: the central node owns its verdict and every outgoing relation, with
         links.push(...verdicts.map(l => l.source + '>' + l.target));
         if (ids.includes('ROOT')) {
             assert.equal(ids.length, 1);
-            assert.match(payload.contents[0].parts[0].text, /ROOT → riguarda → A/);
+            assert.ok(payload.contents[0].parts[0].text.includes(JSON.stringify({ source: 'ROOT', target: 'A', rel: 'riguarda' })));
             assert.ok(payload.contents[0].parts[0].text.includes(FOOD));
         }
         return response({ nodi: [], link: verdicts });
@@ -110,13 +110,16 @@ for (const provider of ['google', 'infomaniak']) {
             let answer = { nodi: [], link: [] };
             if (ids.includes('A')) {
                 assert.ok(prompt.includes(FOOD), 'the other branch has its source evidence in the same request');
-                assert.ok(prompt.includes('A → causa → B'));
+                assert.ok(prompt.includes(JSON.stringify({ source: 'A', target: 'B', rel: 'causa' })));
                 answer = { nodi: [{ id: 'A', tipo: 'soggetto-invertito', problema: 'Il venditore è invertito.', prova: GOLD,
                     brano_errato: 'La Svizzera vende oro alla Germania', con: 'La Germania vende oro alla Svizzera' }],
                     link: [{ source: 'A', target: 'B', valido: false, problema: 'I testi non sostengono questa causa.', prova_source: GOLD, prova_target: FOOD }] };
-            } else assert.ok(!prompt.includes('A → causa → B'), 'cross-group link is not reviewed twice');
+            } else assert.ok(!prompt.includes(JSON.stringify({ source: 'A', target: 'B', rel: 'causa' })), 'cross-group link is not reviewed twice');
             if (provider === 'infomaniak') {
                 const translated = w.InfomaniakBridge.translatePayload(payload, 'google/gemma-4-31B-it');
+                const schema = translated.response_format.json_schema.schema;
+                assert.ok(schema.required.includes('link'));
+                assert.deepEqual(plain(schema.properties.nodi.items.properties.tipo.enum), J.TIPI);
                 assert.ok(translated.messages.some(m => m.content.includes('FRASI DELLA FONTE')));
                 return w.InfomaniakBridge.translateResponse({ choices: [{ message: { content: JSON.stringify(answer) }, finish_reason: 'stop' }] });
             }
@@ -141,6 +144,58 @@ for (const provider of ['google', 'infomaniak']) {
         assert.equal(r.stato, 'completato');
     });
 }
+
+test('judge: schema finale vincola ID e relazioni e separa i riferimenti dal testo citabile', async () => {
+    const { window: w, appState: st } = runtime(); setMap(st);
+    const requests = [];
+    w.fetchModelAPI = async payload => {
+        requests.push(payload);
+        return response({ nodi: [], link: [] });
+    };
+    await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+    assert.equal(requests.length, 2, 'stesso numero di chiamate, nessun retry aggiunto');
+    for (const payload of requests) {
+        const schema = payload.generationConfig.responseSchema;
+        const hasLink = schema.properties.nodi.items.properties.id.enum.includes('A');
+        const final = w.InfomaniakBridge.translatePayload(payload, 'mistralai/Mistral-Small-4-119B-2603');
+        const links = final.response_format.json_schema.schema.properties.link;
+        assert.equal(links.minItems, hasLink ? 1 : 0);
+        assert.equal(links.maxItems, hasLink ? 1 : 0);
+        if (hasLink) {
+            assert.deepEqual(plain(links.items.properties.source.enum), ['A']);
+            assert.deepEqual(plain(links.items.properties.target.enum), ['B']);
+            assert.deepEqual(plain(links.items.properties.rel.enum), ['causa']);
+            assert.match(links.items.properties.prova_source.description, /solo il testo/i);
+            const prompt = payload.contents[0].parts[0].text;
+            assert.match(prompt, /RIFERIMENTO \(non citare\):/);
+            assert.ok(prompt.includes('TESTO CITABILE: ' + JSON.stringify(GOLD)));
+            assert.ok(prompt.includes(JSON.stringify({ source: 'A', target: 'B', rel: 'causa' })));
+        }
+        assert.equal(payload.generationConfig.maxOutputTokens, 2000);
+    }
+});
+
+test('judge: positive verdict without real evidence remains unchecked', async () => {
+    const { window: w, appState: st } = runtime();
+    setMap(st);
+    w.fetchModelAPI = async payload => {
+        assert.ok(payload.generationConfig.responseSchema.required.includes('link'));
+        return response({ nodi: [], link: [{ source: 'A', target: 'B', valido: true, prova_source: 'inventata', prova_target: 'inventata' }] });
+    };
+    const r = await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+    assert.equal(r.copertura.linkEsaminati.length, 0);
+    assert.equal(r.copertura.linkSaltati.length, 1);
+    assert.match(r.copertura.linkSaltati[0].motivo, /prova/);
+});
+
+test('judge: malformed JSON cannot complete coverage', async () => {
+    const { window: w, appState: st } = runtime(); setMap(st);
+    w.fetchModelAPI = async () => ({ candidates: [{ content: { parts: [{ text: 'risposta non JSON' }] } }] });
+    const r = await w.executeJudgePass('mock-key', { enabled: true, apply: false });
+    assert.equal(r.copertura.linkEsaminati.length, 0);
+    assert.equal(r.copertura.linkSaltati.length, 1);
+    assert.equal(r.stato, 'parziale');
+});
 
 test('judge: explicit enable/apply:false works without persistent flags; failures and omitted link verdicts are visible', async () => {
     const { window: w, appState: st } = runtime({ mappai_giudice_applica: '1' });

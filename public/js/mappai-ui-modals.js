@@ -962,31 +962,18 @@ const MODEL_KB = {
     'gemini-2.0-flash-lite': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.05, outputCost: 0.20, free: true, deprecated: true, note: 'Discontinued — usa gemini-2.5-flash-lite' },
     'gemini-1.5-flash': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 0.075, outputCost: 0.30, free: true, deprecated: true, note: 'Legacy — usa gemini-3-flash' },
     'gemini-1.5-pro': { tier: '📦 Legacy', caps: ['text', 'pdf', 'url', 'audio', 'youtube', 'json'], inputCost: 1.25, outputCost: 5.00, free: false, deprecated: true, note: 'Legacy — usa gemini-2.5-pro' },
-    // ── Infomaniak ──
-    // Mistral Small — prefix matches mistral-small-4-119b-2603, mistralai/mistral-small-*, ecc.
-    'mistralai/mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
-    'mistral-small': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM ottimo (58+ nodi), 200K ctx (test 2/6/26)' },
-    'ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
-    'mistralai/ministral': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.10, outputCost: 0.30, free: false, note: 'Infomaniak · MM buono (49 nodi), leggero/veloce' },
-    'qwen': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 200K ctx · reasoning inadatto per MM/KG' },
-    'kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
-    'moonshotai/kimi': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.15, outputCost: 0.60, free: false, note: 'Infomaniak · 256K ctx · non testato' },
-    'google/gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
-    'google/gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa google/gemma-4 (versione specifica)' },
-    'gemma-4': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · KG density ~1.4 (ceiling), MM ok (test 2/6/26)' },
-    'gemma': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, deprecated: true, note: 'Usa gemma-4 (versione specifica)' },
-    'apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
-    'swiss-ai/apertus': { tier: '🇨🇭 Swiss Made', caps: ['text', 'json'], inputCost: 0.20, outputCost: 0.40, free: false, note: 'Infomaniak · solo MM (no KG), contesto 65K' },
+
 };
 
 // Match a model ID to its KB entry (best fuzzy match or dynamic fallback)
-function matchModelKB(modelId) {
+function matchModelKB(modelId, provider) {
     if (!modelId) return null;
     const id = modelId.toLowerCase().replace('models/', '');
+    const currentProvider = provider || (typeof appState !== 'undefined' ? appState.aiProvider : window.appState?.aiProvider);
+    if (currentProvider === 'infomaniak') return window.MappAICatalogo ? window.MappAICatalogo.kb(modelId) : null;
 
     // 1. Try to find in currently available models (stored in localStorage)
-    const isInfomaniak = (window.appState && window.appState.aiProvider === 'infomaniak');
-    const storageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
+    const storageKey = 'gemini_available_models';
     const savedModelsStr = localStorage.getItem(storageKey);
     if (savedModelsStr) {
         try {
@@ -1053,6 +1040,9 @@ const CAP_LABELS = {
 
 function renderModelSelect(models, selectEl, currentValue) {
     if (!selectEl) return;
+    const isInfo = typeof appState !== 'undefined' && appState.aiProvider === 'infomaniak';
+    if (isInfo && window.MappAICatalogo) models = window.MappAICatalogo.forPhase(models, 'mappa')
+        .map(m => ({ ...m, kb: window.MappAICatalogo.kb(m.id) }));
     selectEl.innerHTML = '';
 
     const tierOrder = ['🇨🇭 Swiss Made', '⚡ Veloce', '💎 Potente', '🟢 Economico', '📦 Legacy', 'Nuovi Modelli'];
@@ -1080,7 +1070,9 @@ function renderModelSelect(models, selectEl, currentValue) {
             opt.value = m.id;
             const kb = m.kb || { free: false, inputCost: 0, outputCost: 0, note: '', caps: ['text'] };
             let costStr = '';
-            if (kb.free) {
+            if (isInfo && window.MappAICatalogo) {
+                costStr = window.MappAICatalogo.priceLabel(m.id, window.t);
+            } else if (kb.free) {
                 costStr = '🆓 Gratis';
             } else if (kb.inputCost > 0) {
                 const mapCost = (kb.inputCost * 5 / 1000) + (kb.outputCost * 4 / 1000);
@@ -1089,7 +1081,7 @@ function renderModelSelect(models, selectEl, currentValue) {
                 costStr = 'Costo Variabile';
             }
             opt.textContent = `${m.displayName || m.id.replace('models/', '')} — ${costStr}`;
-            opt.title = `${kb.note} | Input: $${kb.inputCost}/1M tok | Output: $${kb.outputCost}/1M tok\nFormati: ${kb.caps.map(c => CAP_LABELS[c]?.split(' ')[1] || c).join(', ')}`;
+            opt.title = isInfo ? costStr + ' · ' + kb.priceDate : `${kb.note} | Input: $${kb.inputCost}/1M tok | Output: $${kb.outputCost}/1M tok\nFormati: ${kb.caps.map(c => CAP_LABELS[c]?.split(' ')[1] || c).join(', ')}`;
             optgroup.appendChild(opt);
         });
         selectEl.appendChild(optgroup);
@@ -1097,6 +1089,10 @@ function renderModelSelect(models, selectEl, currentValue) {
 
     if (currentValue && [...selectEl.options].some(o => o.value === currentValue)) {
         selectEl.value = currentValue;
+    } else if (isInfo && currentValue) {
+        const missing = document.createElement('option'); missing.value = currentValue;
+        missing.textContent = currentValue + ' — ' + window.t('catalog_not_available', 'Non disponibile nel catalogo aggiornato');
+        selectEl.appendChild(missing); selectEl.value = currentValue;
     } else if (selectEl.options.length > 0) {
         // Saved model not found in list (e.g. model removed from API): pick first available
         // but DON'T overwrite localStorage — the saved model might reappear next fetch
@@ -1165,13 +1161,11 @@ window.refreshGeminiModels = async function () {
 
         let filteredModels = [];
         if (isInfomaniak) {
-            // Default (All Models): mostra tutto eccetto embed. Modalità BETA: solo Gemma/Apertus.
-            filteredModels = rawModels.filter(m => {
-                const id = m.id.toLowerCase();
-                if (id.includes('embed')) return false;
-                if (appState.infomaniakAllModels) return true;
-                return (id.includes('gemma') || id.includes('google') || id.includes('apertus'));
-            });
+            // Il deposito contiene TUTTO il catalogo; ciascun selettore filtra per funzione.
+            localStorage.setItem('infomaniak_available_models', JSON.stringify(rawModels));
+            localStorage.setItem('infomaniak_catalogue_state', JSON.stringify({ fetchedAt: new Date().toISOString(), stale: false }));
+            filteredModels = window.MappAICatalogo.forPhase(rawModels, 'mappa');
+            if (window.MappAIModelliUI) window.MappAIModelliUI.aggiornaCatalogo();
         } else {
             // Filter out unsupported models for Gemini
             const excludePatterns = ['tts', 'live', 'embed', 'image', 'nano-banana', 'veo', 'lyria', 'imagen', 'robotics', 'deep-research', 'computer-use'];
@@ -1197,7 +1191,7 @@ window.refreshGeminiModels = async function () {
         const tierOrder = ['⚡ Veloce', '💎 Potente', '🟢 Economico', '📦 Legacy', 'Nuovi Modelli'];
 
         filteredModels.forEach(m => {
-            const kb = matchModelKB(m.id);
+            const kb = matchModelKB(m.id, isInfomaniak ? 'infomaniak' : 'google');
             if (!kb) return;
             m.kb = kb;
             const tier = kb.tier;
@@ -1218,14 +1212,18 @@ window.refreshGeminiModels = async function () {
         if (selectEl) {
             renderModelSelect(filteredModels, selectEl, currentValue);
             const availableModelsKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
-            localStorage.setItem(availableModelsKey, JSON.stringify(filteredModels.map(m => ({ id: m.id, displayName: m.displayName, kb: m.kb }))));
+            if (!isInfomaniak) localStorage.setItem(availableModelsKey, JSON.stringify(filteredModels.map(m => ({ id: m.id, displayName: m.displayName, kb: m.kb }))));
         }
 
         if (statusEl) { statusEl.innerText = `${filteredModels.length} modelli compatibili trovati.`; }
 
     } catch (err) {
-        console.error('Error fetching models:', err);
-        if (statusEl) { statusEl.innerText = "Errore nel caricamento. Usa i modelli preimpostati."; }
+        if (isInfomaniak) {
+            let old = {}; try { old = JSON.parse(localStorage.getItem('infomaniak_catalogue_state') || '{}'); } catch (_) { /* cache precedente */ }
+            localStorage.setItem('infomaniak_catalogue_state', JSON.stringify({ ...old, stale: true }));
+            if (window.MappAIModelliUI) window.MappAIModelliUI.aggiornaCatalogo();
+        }
+        if (statusEl) statusEl.innerText = window.t('catalog_refresh_failed', 'Catalogo non aggiornato. Le ultime scelte sono conservate.');
     } finally {
         if (refreshIcon) refreshIcon.style.animation = '';
     }
@@ -1246,7 +1244,9 @@ function updateModelCapabilities() {
         return;
     }
 
-    const costStr = kb.free
+    const costStr = (typeof appState !== 'undefined' && appState.aiProvider === 'infomaniak' && window.MappAICatalogo)
+        ? '<span class="text-violet-600 font-bold">' + window.MappAICatalogo.priceLabel(modelId, window.t) + '</span>'
+        : kb.free
         ? '<span class="text-emerald-600 font-bold">🆓 Gratuito (con limiti)</span>'
         : `<span class="text-violet-600 font-bold">💰 ~${((kb.inputCost * 5 / 1000 + kb.outputCost * 4 / 1000) * 100).toFixed(0)} cent/mappa</span>`;
 

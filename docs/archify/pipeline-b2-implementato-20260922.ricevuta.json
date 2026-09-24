@@ -1,0 +1,57 @@
+{
+  "diagram_type": "workflow",
+  "date": "2026-09-22",
+  "implementation_status": "implementato; gate 3 in attesa; non committato",
+  "baseline_commit": "c23f282",
+  "delivery": {
+    "schemaVersion": 1,
+    "ok": true,
+    "command": "deliver",
+    "type": "workflow",
+    "input": "/Users/giacomomeschini/Claude/MappAI re/docs/archify/pipeline-b2-implementato-20260922.workflow.json",
+    "output": "/Users/giacomomeschini/Claude/MappAI re/docs/archify/pipeline-b2-implementato-20260922.html",
+    "specification": {
+      "sha256": "df659bee2db66c30380488f603feed752004252441d974a7994f69b65fd40e6c",
+      "bytes": 3570
+    },
+    "artifact": {
+      "sha256": "f74f3319497f853d5ac161a8b16925e163e811926c7e533df33083056ca3cfb3",
+      "bytes": 806788
+    },
+    "validation": {
+      "checksPassed": 9,
+      "checkCount": 9,
+      "compositionProfile": "showcase",
+      "compositionStatus": "pass",
+      "errors": 0,
+      "warnings": 0
+    }
+  },
+  "browser_evidence": "passed",
+  "browser_receipt": "pipeline-b2-implementato-20260922.visual-check.json",
+  "visual_review": {
+    "status": "passed",
+    "reviewer": "Codex: ispezione delle immagini con view_image",
+    "viewports_themes": [
+      "1440x900 light",
+      "2048x1320 light",
+      "2048x1320 dark"
+    ],
+    "artifact_sha256": "f74f3319497f853d5ac161a8b16925e163e811926c7e533df33083056ca3cfb3",
+    "notes": "Percorso principale leggibile, nessun taglio o sovrapposizione rilevata, stato del gate distinto dalle prove automatiche."
+  },
+  "application_tests": {
+    "tests": 1843,
+    "pass": 1841,
+    "fail": 0,
+    "skip": 2,
+    "new_b2_cases": 23,
+    "smoke_banks": 3,
+    "gate3": "pending"
+  },
+  "notes": [
+    "I diagrammi B1 e B2 proposto sono conservati.",
+    "Contenuti in italiano; comandi fissi del visualizzatore e html lang in inglese.",
+    "Il browser della pipeline e il banco usano dati/IPC simulati, nessuna prova live Infomaniak."
+  ]
+}
