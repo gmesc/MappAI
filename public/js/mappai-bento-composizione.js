@@ -32,15 +32,17 @@
 }(typeof self !== 'undefined' ? self : this, function () {
     'use strict';
 
+    /* 13/10/26 (0087 lotto 11, Giacomo: «B per tutto il bento»): titolo 14 → 15 (--mm-fs-titolo),
+       voce 12 → 13 (--mm-fs-testo). Il titolo coincide con l'azione: i corpi diventano DUE, 13 e 15. */
     var SCALA = {
-        titolo: { px: 14, peso: 700, uso: 'titolo del modulo' },
+        titolo: { px: 15, peso: 700, uso: 'titolo del modulo' },
         /* ⚠️ `pesoTitolo` non è un quarto corpo: è lo stesso 12px col peso del
            titolo. Il titolo di una RIGA di strumento («MindMap», «Profondità»)
            è un titolo, ma sta dentro una riga alta 30px e i 14px del titolo del
            riquadro non ci stanno. Dichiarato qui perché l'officina misura le
            coppie px/peso e senza questa riga segnalerebbe come «fuori scala» un
            grassetto voluto. */
-        voce: { px: 12, peso: 600, pesoTitolo: 700, uso: 'opzioni, etichette di campo, campi, riga di esito' },
+        voce: { px: 13, peso: 600, pesoTitolo: 700, uso: 'opzioni, etichette di campo, campi, riga di esito' },
         azione: { px: 15, peso: 700, uso: 'le due card che concludono' }
     };
 
@@ -99,7 +101,7 @@
           seFuori: 'la classe la dà «Chi» (o, senza quello, il CHIP dell\'header): il modulo monta un campo nascosto col contesto attivo, quindi i materiali finiscono comunque nella cartella giusta' },
         { id: 'mp-preset', aiuto: 'Salva questa configurazione di opzioni e la richiama la prossima volta. La classe non viene salvata nel preset.', et: 'Preset (salva e richiama)', tipo: 'preset', chiave: 'preset',
           seFuori: 'le opzioni si scelgono ma non si conservano: ogni volta si riparte da capo' },
-        { id: 'mp-adapt-on', aiuto: 'Applica al testo generato il registro e le note della classe attiva (semplice · standard · ricco).', et: 'Adatta alla classe', tipo: 'spunta', chiave: 'levelTuned/tuned', master: true,
+        { id: 'mp-adapt-on', aiuto: 'Applica al testo generato il registro e le note della classe attiva (semplice · standard · complesso).', et: 'Adatta alla classe', tipo: 'spunta', chiave: 'levelTuned/tuned', master: true,
           seFuori: 'la taratura della CLASSE ATTIVA si applica lo stesso (preset + note): il modulo monta una spunta nascosta accesa. Scelta di Giacomo (4/8) — chi ha assegnato un preset a una classe non deve riconfermarlo a ogni generazione' },
         { id: 'mp-adapt-scope', aiuto: 'Se la taratura vale solo per la mappa, solo per i materiali o per entrambi.', et: 'Ambito dell\'adattamento', tipo: 'radio', chiave: 'levelTuned/tuned', figlioDi: 'mp-adapt-on',
           seFuori: 'la pipeline usa «Entrambi» (mappa + materiali): è il default, non una perdita' },
@@ -484,6 +486,12 @@
        l'etichetta o fissare la larghezza di un campo; `stile` e `altezza`
        governano l'aspetto del riquadro. */
     var CHIARO = { bg: '#f1f4f8', testo: '#404040', bordoCol: '#f1f4f8' };
+    /* i sotto-box del box unico dei materiali (13/10, lotto 11): bianchi nel grigio, come i
+       percorsi della Lettura (--mm-fondo) */
+    var BIANCO = { bg: '#ffffff', testo: '#404040', bordoCol: '#ffffff' };
+    /* i riquadri che raccolgono moduli consecutivi (`m.gruppo`): il titolo che il renderer
+       scrive in testa. Sta nel dato, non nel renderer: si corregge senza toccare il codice. */
+    var GRUPPI = { materiali: { titolo: 'Materiali da generare', chiave: 'mn_gruppo_materiali' } };
 
     /* ── I box NASCONDIBILI: li dichiara il loro FONDO ────────────────────────
        Composizione di Giacomo (5/8): i moduli col fondo scuro del progetto
@@ -540,6 +548,72 @@
            scelto «Analisi iconografica», finché il guscio non monta foto e scheda vere */
         { id: 'foto-attesa', titolo: '', icona: '', span: 1, nuda: true, voci: ['mn-foto-attesa'] },
         { id: 'scheda-attesa', titolo: '', icona: '', span: 3, nuda: true, voci: ['mn-scheda-attesa'] },
+        /* ══ IL BOX UNICO DEI MATERIALI (13/10/26, 0087 lotto 11) ═════════════════
+           Giacomo: «I box 'Output automatici', 'Preset', 'Quiz', 'Fogli nodi', 'Fonte e sintesi'
+           e 'Più set per angoli' devono essere raccolti in un box unico con lo stile del box
+           delle opzioni per le attività di Lettura […] 'Output automatici' e 'Più set per
+           angoli' devono avere larghezza 2 colonne […] sempre visibile e apparire sotto la
+           seconda riga del bento». Sta DOPO la Lettura e i posti d'attesa, che con
+           Differenziazione sono nascosti: a schermo viene subito sotto la riga del genere.
+           Sempre visibile con Output = Differenziazione: con
+           Metacomprensione e Analisi iconografica il posto è dei loro box (il foglio lo
+           nasconde da `html[data-crea-output]`).
+           I sei moduli restano SEI nel dato — l'officina, `valida` e `_readConfig()` li vedono
+           come prima — e portano `gruppo: 'materiali'`: il renderer avvolge i moduli
+           consecutivi dello stesso gruppo in un riquadro grigio col titolo di `GRUPPI` e una
+           griglia interna a 4 colonne (2+1+1 · 1+1+2: Output automatici · Quiz · Preset, poi
+           Fogli nodi · Fonte & Sintesi · Più set per angolo). Il fondo BIANCO li toglie dai
+           nascondibili (il marcatore è il fondo scuro) e li fa sotto-box bianchi nel grigio,
+           come i percorsi della Lettura. Niente `altezza`: la riga prende il più alto.
+           I commenti qui sotto sono la storia dei sei box (vista estesa dall'11/8 al 13/10). */
+        /* ══ I QUATTRO BOX DELLE OPZIONI STANNO NELLA VISTA ESTESA (11/8) ══════
+           Decisione di Giacomo: «meno box, meno attrito». Preset · Quiz · Fogli
+           nodi · Fonte & Sintesi non sono più nella schermata d'ingresso: si
+           rivelano con la combo SHIFT+CTRL+L,K,J,H, come gli altri strumenti.
+           ⚠️ Il marcatore è il FONDO SCURO, non un flag: `nascondibile()` legge
+           lo stile, e un riquadro scuro in mezzo a quelli chiari è già la sua
+           etichetta nell'officina. Togliere `stile: CHIARO` è quindi il gesto
+           che li sposta — non c'è una seconda lista da tenere allineata.
+           ⚠️ RESTANO MONTATI nel DOM (solo nascosti): `_readConfig()` legge i
+           loro campi, ed è ciò che permette al preset «Default» di governare la
+           generazione senza che nessuno apra la vista estesa. Se un giorno li si
+           smontasse davvero, la configurazione tornerebbe ai default del markup
+           e le domande aperte sparirebbero in silenzio. */
+        { id: 'output', titolo: 'Output automatici', icona: 'package-check', span: 2, stile: BIANCO, gruppo: 'materiali',
+          layout: { colonneVoci: 3 },
+          voci: ['mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
+              { id: 'mp-syn-on', et: 'Sintesi' }, { id: 'mp-syn-audio', et: 'Voce naturale' }] },
+        /* ══ OUTPUT AUTOMATICI (20/8, richiesta di Giacomo) ═════════════════════
+           Le spunte di CHE COSA la generazione produce, raccolte in un box a
+           tutta riga: erano sparse fra «Quiz» e «Fonte & Sintesi», e per un
+           DOSSIER da immagine sono l'unica cosa da decidere.
+           ⚠️ SPOSTATE, non duplicate (inv. 6): gli id restano quelli che
+           `_readConfig()` legge. Il master `mp-quiz-on` NON si monta: è un
+           master DERIVATO (spuntare «Flashcard» lo accende da sé, e il
+           renderer lo tiene nascosto nel DOM per `_readConfig`).
+           ⚠️ La voce naturale resta SPENTA di default (`synthesis.audio:
+           false` nella pipeline): l'opzione vive anche nell'editor della
+           sintesi di ELABORA (bottone «Voce», 17/8). */
+        { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1, stile: BIANCO, gruppo: 'materiali',
+          voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-fc-count', w: 70 }] },
+        /* 13/10 (Giacomo): «inverti la posizione dei sotto-box quiz e preset» — il Preset dopo il Quiz */
+        { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, stile: BIANCO, gruppo: 'materiali',
+          voci: [{ id: 'mp-preset', w: 190 }] },
+        { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1, stile: BIANCO, gruppo: 'materiali',
+          /* «Titolo» montato dal 7/9: il master «Fogli nodi» si accende dai figli
+             montati, e il preset Default chiede proprio il foglio dei soli titoli —
+             senza questa spunta a schermo nessun foglio nasceva. */
+          voci: [{ id: 'mp-ns-title', et: 'Titolo' }, 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
+              { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
+        { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1, stile: BIANCO, gruppo: 'materiali',
+          voci: [{ id: 'mp-src-pdf', et: 'Manda la fonte all\'allievo' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
+        /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
+           sta nel box «Quiz» sopra, quindi le sta sotto e non dentro — dentro
+           sarebbe una spunta come le altre, e non lo è (sette generazioni). */
+        { id: 'multi', titolo: 'Più set per angolo', icona: 'layers', span: 2, stile: BIANCO, gruppo: 'materiali',
+          layout: { colonneVoci: 3 },
+          voci: ['mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
+              'mp-ang-confronto', 'mp-ang-eccezione', 'mp-ang-applicazione'] },
 
         /* ══ IL MEGA-BENTO — sempre a schermo, anche in vista compatta ══════════
            Composizione di Giacomo (5/8). Le prime due righe sono la vista compatta
@@ -590,53 +664,6 @@
            griglia nel momento in cui la combo lo rivela — il test
            «i box extra stanno DOPO il mega-bento» esiste per questo, e l'ha
            colto appena li ho resi nascondibili senza spostarli. */
-        /* ══ I QUATTRO BOX DELLE OPZIONI STANNO NELLA VISTA ESTESA (11/8) ══════
-           Decisione di Giacomo: «meno box, meno attrito». Preset · Quiz · Fogli
-           nodi · Fonte & Sintesi non sono più nella schermata d'ingresso: si
-           rivelano con la combo SHIFT+CTRL+L,K,J,H, come gli altri strumenti.
-           ⚠️ Il marcatore è il FONDO SCURO, non un flag: `nascondibile()` legge
-           lo stile, e un riquadro scuro in mezzo a quelli chiari è già la sua
-           etichetta nell'officina. Togliere `stile: CHIARO` è quindi il gesto
-           che li sposta — non c'è una seconda lista da tenere allineata.
-           ⚠️ RESTANO MONTATI nel DOM (solo nascosti): `_readConfig()` legge i
-           loro campi, ed è ciò che permette al preset «Default» di governare la
-           generazione senza che nessuno apra la vista estesa. Se un giorno li si
-           smontasse davvero, la configurazione tornerebbe ai default del markup
-           e le domande aperte sparirebbero in silenzio. */
-        { id: 'output', titolo: 'Output automatici', icona: 'package-check', span: 4, altezza: 130,
-          layout: { colonneVoci: 3 },
-          voci: ['mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open',
-              { id: 'mp-syn-on', et: 'Sintesi' }, { id: 'mp-syn-audio', et: 'Voce naturale' }] },
-        { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, altezza: 130,
-          voci: [{ id: 'mp-preset', w: 190 }] },
-        /* ══ OUTPUT AUTOMATICI (20/8, richiesta di Giacomo) ═════════════════════
-           Le spunte di CHE COSA la generazione produce, raccolte in un box a
-           tutta riga: erano sparse fra «Quiz» e «Fonte & Sintesi», e per un
-           DOSSIER da immagine sono l'unica cosa da decidere.
-           ⚠️ SPOSTATE, non duplicate (inv. 6): gli id restano quelli che
-           `_readConfig()` legge. Il master `mp-quiz-on` NON si monta: è un
-           master DERIVATO (spuntare «Flashcard» lo accende da sé, e il
-           renderer lo tiene nascosto nel DOM per `_readConfig`).
-           ⚠️ La voce naturale resta SPENTA di default (`synthesis.audio:
-           false` nella pipeline): l'opzione vive anche nell'editor della
-           sintesi di ELABORA (bottone «Voce», 17/8). */
-        { id: 'quiz', titolo: 'Quiz', icona: 'activity', span: 1,
-          voci: [{ id: 'mp-perbranch', w: 70, et: 'Domande a ramo' }, { id: 'mp-fc-count', w: 70 }] },
-        { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1,
-          /* «Titolo» montato dal 7/9: il master «Fogli nodi» si accende dai figli
-             montati, e il preset Default chiede proprio il foglio dei soli titoli —
-             senza questa spunta a schermo nessun foglio nasceva. */
-          voci: [{ id: 'mp-ns-title', et: 'Titolo' }, 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
-              { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
-        { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
-          voci: [{ id: 'mp-src-pdf', et: 'Manda la fonte all\'allievo' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
-        /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
-           sta nel box «Quiz» sopra, quindi le sta sotto e non dentro — dentro
-           sarebbe una spunta come le altre, e non lo è (sette generazioni). */
-        { id: 'multi', titolo: 'Più set per angolo', icona: 'layers', span: 4, altezza: 130,
-          layout: { colonneVoci: 3 },
-          voci: ['mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
-              'mp-ang-confronto', 'mp-ang-eccezione', 'mp-ang-applicazione'] },
         { id: 'modalita', titolo: 'Modalità', icona: 'book-open', span: 1, altezza: 260,
           bottoni: { bg: '#f1f4f8', testo: '#404040', hoverBg: '#41e6aa', hoverTesto: '#404040' },
           layout: { colonneVoci: 'colonna' },
@@ -1107,8 +1134,28 @@
         return out;
     }
 
+    /* 13/10 (0087 lotto 11): un layout salvato in Officina ha ancora i sei box delle opzioni dei
+       materiali scuri e in coda (vista estesa). Li porta nel box unico: stessi id, le VOCI scelte
+       dal docente restano, larghezze, fondo e `gruppo` vengono dalla composizione; il posto è
+       subito prima del box giallo (dove sta in `MODULI`). Pura. */
+    var IDS_MATERIALI = ['output', 'quiz', 'preset', 'ns', 'src', 'multi'];
+    function withGruppoMateriali(moduli) {
+        if ((moduli || []).some(function (m) { return m.gruppo === 'materiali'; })) return moduli;
+        var salvati = {}, resto = [];
+        moduli.forEach(function (m) { if (IDS_MATERIALI.indexOf(m.id) >= 0) salvati[m.id] = m; else resto.push(m); });
+        var nuovi = IDS_MATERIALI.filter(function (id) { return salvati[id]; }).map(function (id) {
+            var base = MODULI.find(function (x) { return x.id === id; });
+            return Object.assign({}, base, { voci: (salvati[id].voci || base.voci).slice() });
+        });
+        if (!nuovi.length) return moduli;
+        var i = resto.findIndex(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-chi'; }); });
+        if (i < 0) i = resto.findIndex(nascondibile);
+        if (i < 0) i = resto.length;
+        return resto.slice(0, i).concat(nuovi, resto.slice(i));
+    }
+
     function withMaterialControls(moduli) {
-        var out = withOutput(withMixedOutput(moduli));
+        var out = withGruppoMateriali(withOutput(withMixedOutput(moduli)));
         if (!out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-fc-count'; }); })) {
             out = out.slice();
             var quizIndex = out.findIndex(function (m) { return m.id === 'quiz'; });
@@ -1129,9 +1176,9 @@
     }
 
     return {
-        SCALA: SCALA, VOCI: VOCI, MODULI: MODULI, COLONNE: COLONNE, ICONE: ICONE, STILE_BASE: STILE_BASE,
+        SCALA: SCALA, VOCI: VOCI, MODULI: MODULI, GRUPPI: GRUPPI, COLONNE: COLONNE, ICONE: ICONE, STILE_BASE: STILE_BASE,
         voce: voce, vociDi: vociDi, soloAzioni: soloAzioni, stileDi: stileDi, contrasto: contrasto,
-        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate, withMixedOutput: withMixedOutput, withMaterialControls: withMaterialControls, withOutput: withOutput,
+        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate, withMixedOutput: withMixedOutput, withMaterialControls: withMaterialControls, withOutput: withOutput, withGruppoMateriali: withGruppoMateriali,
         RIGHE: RIGHE, riga: riga, validaRighe: validaRighe, nascondibile: nascondibile,
         firma: firma, FORME: FORME, formaDi: formaDi,
         /* i controlli granulari (5/8): layout delle voci e colori dei bottoni interni */

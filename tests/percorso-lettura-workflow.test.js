@@ -3512,3 +3512,62 @@ test('§35: nuove consegne senza lettore immaginario; domande dirette e vecchie 
   const legacy = await G.acceptGeneration(p, d, output); legacy.activities[0].question = 'Un lettore afferma che Ada torna. Quali indizi trovi?';
   assert.equal(C.validateDraft(legacy), true, 'Nessuna cancellazione o migrazione implicita delle vecchie attività');
 });
+
+/* ── 0094 (ADR 0021): la lettura nasce col titolo del racconto, e si ritrova dopo una
+   rinomina dal Finder ─────────────────────────────────────────────────────────────── */
+const NomeCartellaCore = require('../public/js/mappai-nome-cartella-core');
+
+test('0094: con il core la cartella della lettura prende il titolo; omonima fra i fratelli → « · 02»; con «0» Lettura-<id>', async () => {
+  const opts = readingVaultOptions();
+  const h = readingVaultHarness(); h.g.MappAINomeCartellaCore = NomeCartellaCore;
+  const r = await h.g.createReadingVault(opts);
+  assert.ok(r.folderPath.endsWith('/Italiano/Il racconto'), r.folderPath);
+  const madre = r.folderPath.slice(0, r.folderPath.lastIndexOf('/'));
+  const h2 = readingVaultHarness(); h2.g.MappAINomeCartellaCore = NomeCartellaCore;
+  h2.g.electronAPI.getAllVaults = async () => [{ folderName: 'Il racconto', fullPath: madre + '/Il racconto' },
+    { folderName: 'Il racconto', fullPath: '/Mappe/Lugano-2B/Italiano/Il racconto' }];
+  const r2 = await h2.g.createReadingVault(opts);
+  assert.ok(r2.folderPath.endsWith('/Il racconto · 02'), r2.folderPath);
+  const h3 = readingVaultHarness(); h3.g.MappAINomeCartellaCore = NomeCartellaCore;
+  h3.g.electronAPI.getAllVaults = async () => [{ folderName: 'Il racconto', fullPath: '/Mappe/Lugano-2B/Italiano/Il racconto' }];
+  assert.ok((await h3.g.createReadingVault(opts)).folderPath.endsWith('/Italiano/Il racconto'), 'un\'omonima in un\'altra classe non conta');
+  const h4 = readingVaultHarness(); h4.g.MappAINomeCartellaCore = NomeCartellaCore;
+  h4.g.localStorage = { getItem: k => (k === 'mappai_nome_da_cartella' ? '0' : null), setItem() {} };
+  assert.ok((await h4.g.createReadingVault(opts)).folderPath.endsWith('/Lettura-' + opts.projectId));
+  const h5 = readingVaultHarness(); h5.g.MappAINomeCartellaCore = NomeCartellaCore;
+  h5.g.electronAPI.getAllVaults = async () => [{ projectId: opts.projectId, folderName: 'Altro', fullPath: '/x/Altro' }];
+  await assert.rejects(h5.g.createReadingVault(opts), { code: 'reading_vault_exists' });
+});
+
+test('0094: una lettura rinominata dal Finder si riapre dalla cartella nuova; senza il core no', async () => {
+  const h = readingRuntimeHarness(); await h.create(); const saved = h.saved();
+  const nuovo = saved.path.slice(0, saved.path.lastIndexOf('/')) + '/Il lupo rinominato';
+  const disco = new Map([[nuovo, h.folders.get(saved.path)]]);
+  const senza = readingRuntimeHarness({ disk: disco });
+  const in0 = await senza.g.electronAPI.loadVault(nuovo);
+  await assert.rejects(senza.g.MappAIPercorsoLettura.openVault({ folderPath: nuovo, data: in0.data }));
+  const con = readingRuntimeHarness({ disk: disco }); con.g.MappAINomeCartellaCore = NomeCartellaCore;
+  const in1 = await con.g.electronAPI.loadVault(nuovo);
+  await con.g.MappAIPercorsoLettura.openVault({ folderPath: nuovo, data: in1.data });
+  assert.equal(con.g.appState.activeVaultPath, nuovo);
+  assert.equal(con.g.appState._pipelineManifest.review.vaultPath, nuovo);
+  assert.ok(con.frames.length > 0, 'la lettura si apre');
+});
+
+test('0094: l\'indice della lettura non si rifiuta per un\'omonima di un\'altra classe; con la stessa posizione sì; con «0» come prima', async () => {
+  for (const [classDir, nome, atteso] of [['Lugano-2B', 'altra classe', true], ['Lugano-1A', 'stessa posizione', false]]) {
+    for (const spento of [false, true]) {
+      const h = readingRuntimeHarness(), storage = installReadingStorage(h);
+      h.g.MappAINomeCartellaCore = NomeCartellaCore;
+      if (spento) h.local.set('mappai_nome_da_cartella', '0');
+      h.g.MappAIVistaCore = { statoSnello() { throw new Error('Lettura non deve serializzare appState.'); } };
+      await h.create();
+      const saved = h.saved(), vault = saved.path.split('/').pop();
+      h.local.set('tutor_ai_projects', JSON.stringify([{ id: 'proj_1700000000000', type: 'mindmap', vault, classDir, discDir: 'Italiano' }]));
+      const r = JSON.parse(JSON.stringify(storage.saveCurrentProject()));
+      const ok = spento ? false : atteso;
+      assert.equal(r.ok, ok, nome + (spento ? ' (spento)' : '') + ': ' + JSON.stringify(r));
+      if (!ok) assert.equal(r.error, 'reading_identity_collision');
+    }
+  }
+});

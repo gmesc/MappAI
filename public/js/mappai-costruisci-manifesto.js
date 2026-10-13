@@ -423,7 +423,8 @@
     function opzioniChi() {
         var cur = chiCorrente();
         var sel = function (v) { return v === cur ? ' selected' : ''; };
-        var out = '<option value="">' + esc(t('mn_chi_vuoto', '— scegli —')) + '</option>';
+        /* «scegli» senza lineette, come i segnaposto di «Cosa:» (0093, Giacomo) */
+        var out = '<option value="">' + esc(t('mn_chi_vuoto', 'scegli')) + '</option>';
         var CL = window.MappAIClasses;
         var classi = [];
         try { classi = (CL && CL.list) ? CL.list() : []; } catch (e) { }
@@ -875,6 +876,30 @@
         } catch (e) { }
     }
 
+    /* ── I GRUPPI (13/10/26, 0087 lotto 11) ──────────────────────────────────
+       I moduli consecutivi con lo stesso `gruppo` stanno in un riquadro solo: il box
+       unico delle opzioni dei materiali, con la veste del box della Lettura (grigio, titolo,
+       sotto-box bianchi). Il riquadro occupa tutte le colonne e ha la sua griglia a
+       `COLONNE`: gli span dei moduli valgono lì dentro come fuori. Il titolo lo dà
+       `GRUPPI` del dato. ⚠️ Le card di un gruppo non sono più figlie DIRETTE di `#mn-bento`:
+       chi le cerca con `#mn-bento > .mn-card` (la modalità iconografica) non le trova —
+       con quella modalità il riquadro è nascosto. */
+    function raggruppa(moduli, pezzi) {
+        var B = window.MappAIBento, G = (B && B.GRUPPI) || {};
+        var out = '', i = 0;
+        while (i < moduli.length) {
+            var g = moduli[i].gruppo;
+            if (!g) { out += pezzi[i]; i++; continue; }
+            var dentro = '';
+            while (i < moduli.length && moduli[i].gruppo === g) { dentro += pezzi[i]; i++; }
+            var d = G[g] || {};
+            out += '<section class="mn-gruppo mn-gruppo--' + esc(g) + '" style="grid-column: 1 / -1;">' +
+                (d.titolo ? '<h2 class="mn-gruppo__t">' + esc(d.chiave ? t(d.chiave, d.titolo) : d.titolo) + '</h2>' : '') +
+                '<div class="mn-gruppo__b">' + dentro + '</div></section>';
+        }
+        return out;
+    }
+
     function montaBento() {
         var host = document.getElementById('generation-details-card');
         var B = window.MappAIBento;
@@ -891,7 +916,7 @@
 
         var b = document.createElement('div');
         b.id = 'mn-bento';
-        b.innerHTML = moduli.map(function (m) {
+        var pezzi = moduli.map(function (m) {
             /* ⚠️ La condizione è `soloAzioni`, non più `m.nuda`: dal 5/8 `nuda`
                vuol dire «senza riquadro», e i quattro moduli della prima sezione
                sono nudi ma NON sono bottoni. Il modulo di sole azioni resta il
@@ -942,7 +967,8 @@
             var nuda = m.nuda ? ' mn-card--nuda' : '';
             return '<div class="mn-card' + extra + str + cre + nuda + '"' + stileAttr(m) + '>' +
                 testata + '<div class="mn-card__b"' + idCorpo + '>' + corpo + '</div></div>';
-        }).join('') + classeNascosta(moduli) + adattaNascosta(moduli) + masterNascosti(moduli);
+        });
+        b.innerHTML = raggruppa(moduli, pezzi) + classeNascosta(moduli) + adattaNascosta(moduli) + masterNascosti(moduli);
 
         host.appendChild(b);
         raccogliRighe();
@@ -1086,13 +1112,17 @@
         var CL = window.MappAIClasses;
         var att = '';
         try { att = (CL && CL.activeDiscipline) ? CL.activeDiscipline() : ''; } catch (e) { }
+        /* 13/10 (0087, Giacomo): «togliendo dal testo placeholder i due '-'» — i segnaposto di «Cosa:»
+           senza le lineette (quello di «Chi:», in `opzioniChi`, aspetta lo 0093); e «prima «Chi»»
+           invece di «scegli prima «Chi»»: la tendina nativa lascia al testo ~138px, e la frase
+           lunga ne chiedeva 143 (misurato a 13px) */
         if (!val) {
-            disc.innerHTML = '<option value="">' + esc(t('mn_disc_prima', '— scegli prima «Chi» —')) + '</option>';
+            disc.innerHTML = '<option value="">' + esc(t('mn_disc_prima', 'prima «Chi»')) + '</option>';
             disc.disabled = true;
             return;
         }
         if (!mat.length) {
-            disc.innerHTML = '<option value="">' + esc(t('mn_disc_nessuna', '— nessuna materia nel profilo —')) + '</option>';
+            disc.innerHTML = '<option value="">' + esc(t('mn_disc_nessuna', 'nessuna materia nel profilo')) + '</option>';
             disc.disabled = true;
             return;
         }
@@ -1100,7 +1130,7 @@
         /* una materia sola non è una scelta: si preseleziona, così il gate si apre
            senza chiedere di confermare l'unica risposta possibile */
         var scelto = mat.indexOf(att) >= 0 ? att : (mat.length === 1 ? mat[0] : '');
-        disc.innerHTML = '<option value="">' + esc(t('mn_disc_vuoto', '— scegli —')) + '</option>' +
+        disc.innerHTML = '<option value="">' + esc(t('mn_disc_vuoto', 'scegli')) + '</option>' +
             mat.map(function (d) {
                 return '<option value="' + esc(d) + '"' + (d === scelto ? ' selected' : '') + '>' + esc(d) + '</option>';
             }).join('');
@@ -1323,6 +1353,11 @@
            cambiando classe e materia dalla console. */
         document.addEventListener('mappai-active-class-changed', riallineaContesto);
         document.addEventListener('mappai-active-discipline-changed', riallineaContesto);
+        /* …e un TERZO (0093, A): creare, rinominare o eliminare una classe in
+           Cabina non cambia la classe attiva, quindi i due eventi sopra tacciono
+           e «Chi» restava senza la classe nuova fino al riavvio dell'app.
+           `STORE.save()` di mappai-live-classes.js annuncia ogni scrittura. */
+        document.addEventListener('mappai-profili-cambiati', riallineaContesto);
         /* ⚠️ DOPO `montaBento`: il preset scrive nei campi della pipeline, e
            quei campi esistono solo quando il bento li ha montati.
            Dall'11/8 i quattro box delle opzioni stanno nella vista estesa, e la

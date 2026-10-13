@@ -296,6 +296,31 @@
                 records: chiamate
             };
         });
+        /* 0093 (D): le chiamate della MAPPA nascono prima del progetto e nel registro hanno
+           `projectId` vuoto; il loro giro (`runId`) è diverso da quello dei materiali, ma la
+           cartella lo conosce: `index.yaml` tiene i `costRecords` della generazione, e
+           get-all-vaults (main.js) ne porta i giri in `v.runIds`. Una riga senza id va al
+           progetto della cartella che dichiara il suo giro, se quel progetto ha un'identità
+           (`pid`) e se nessun'altra cartella dichiara lo stesso giro. Il registro non si
+           riscrive: il legame si legge. */
+        const giroDi = new Map();
+        presenti.forEach((v, k) => {
+            if (!righe[k].projectId || !Array.isArray(v.runIds)) return;
+            new Set(v.runIds.map(id).filter(Boolean)).forEach(g => giroDi.set(g, giroDi.has(g) ? -1 : k));
+        });
+        const aggiunte = new Set();
+        records.forEach((r, j) => {
+            if (usati.has(j) || id(r && r.projectId)) return;
+            const k = giroDi.get(id(normalizeRecord(r).runId));
+            if (k == null || k < 0) return;
+            usati.add(j); aggiunte.add(k);
+        });
+        /* nell'ordine del registro, come le altre */
+        aggiunte.forEach(k => {
+            const pid = righe[k].projectId;
+            righe[k].records = records.filter((r, j) => usati.has(j) && (id(r && r.projectId) === pid ||
+                (!id(r && r.projectId) && giroDi.get(id(normalizeRecord(r).runId)) === k)));
+        });
         const storico = new Map();
         records.forEach((r, j) => {
             if (usati.has(j)) return;

@@ -292,16 +292,29 @@ window.createReadingVault = async function (opts) {
     const allievo = window.MappAIClasses && window.MappAIClasses.activeStudentName ? window.MappAIClasses.activeStudentName() : '';
     const classDir = cls && cls.name ? FC.mapClassFolder(cls.sede, cls.name) : null;
     const discDir = classDir ? FC.disciplineFolder(o.context ? ctx.materia : appState.generationDiscipline || '') : '';
-    const name = 'Lettura-' + projectId;
+    /* 0094 (ADR 0021): la cartella nasce col TITOLO del racconto, non più `Lettura-<id>`;
+       omonima fra i fratelli (stessa cartella madre) → « · 0N». Interruttore
+       `mappai_nome_da_cartella` a '0': il nome di prima. */
+    const NC = window.MappAINomeCartellaCore;
+    let daTitolo = false;
+    try { daTitolo = !!(NC && NC.acceso(window.localStorage)); } catch (e) { daTitolo = false; }
+    let name = 'Lettura-' + projectId;
     const info = await api.filesRootGet();
     check();
     if (!info || !info.mapsBaseDir) fail('reading_vault_unavailable');
     const root = FC.mapVaultRoot({ maps: info.mapsBaseDir, students: info.studentsBaseDir }, allievo);
-    const folderPath = [root].concat(FC.mapVaultParentsFor(allievo, classDir, discDir), [name]).join('/');
+    const madre = [root].concat(FC.mapVaultParentsFor(allievo, classDir, discDir)).join('/');
     const vaults = await api.getAllVaults();
     check();
     if (!Array.isArray(vaults)) fail('reading_vault_unavailable');
-    if (vaults.some(v => v && (String(v.folderName || '').toLowerCase() === name.toLowerCase() || v.projectId === projectId))) fail('reading_vault_exists');
+    if (daTitolo) {
+        const forma = s => String(s || '').replace(/\\/g, '/').replace(/\/+$/, '');
+        const fratelli = vaults.filter(v => v && v.fullPath && forma(v.fullPath).slice(0, forma(v.fullPath).lastIndexOf('/')) === forma(madre))
+            .map(v => v.folderName);
+        name = NC.nomeLibero(FC.vaultFolderName(title), fratelli).nome;
+        if (vaults.some(v => v && v.projectId === projectId)) fail('reading_vault_exists');
+    } else if (vaults.some(v => v && (String(v.folderName || '').toLowerCase() === name.toLowerCase() || v.projectId === projectId))) fail('reading_vault_exists');
+    const folderPath = madre + '/' + name;
     /* Anche una cartella senza index.yaml può contenere lavoro: si crea solo
        quando il canale dichiara assente il VAULT, non il solo file. */
     const existing = await api.readVaultFile({ vaultPath: folderPath, relPath: 'index.yaml' });
@@ -552,6 +565,17 @@ window.loadMapVault = async function () {
         const result = await window.electronAPI.pickFolder({ importOnly: true });
         if (result.canceled) return;
 
+        /* 0095 (ADR 0021): la cartella scelta non si apre più dov'è: si COPIA in
+           Mappe/<classe>/<materia>/ e si apre la copia (l'originale resta com'è).
+           Una cartella già in Mappe/ o in Allievi/ torna com'è (D3). Spento con
+           `mappai_nome_da_cartella = '0'`, e senza il modulo (reader): come prima. */
+        let imp = null;
+        if (window.MappAIImportVault && window.MappAIImportVault.attivo()) {
+            imp = await window.MappAIImportVault.importa(result.folderPath);
+            if (!imp || imp.annullato || !imp.folderPath) return;
+            result.folderPath = imp.folderPath;
+        }
+
         window.showLoadingOverlay(true, "Caricamento Vault...");
 
         const loadRes = await window.electronAPI.loadVault(result.folderPath);
@@ -745,6 +769,14 @@ window.loadMapVault = async function () {
             window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
             // 011: pipeline materiali incompleta su questo vault → proponi la ripresa.
             if (window.MappAIPipeline && window.MappAIPipeline.checkResume) window.MappAIPipeline.checkResume(result.folderPath);
+            /* 0095, D9 e D11 (Giacomo, gate del 13/10): un dossier da foto aperto da qui va
+               in «Proietta», la vista affiancata di foto e scheda, sopra INSEGNA aperta sul
+               progetto: uscendo da «Proietta» si torna lì, come quando lo si proietta da
+               INSEGNA. La scheda la cerca per titolo nell'archivio di questo computer: per
+               un vault arrivato da un altro si vede la foto. */
+            if (imp && imp.dossier && window.MappAIImportVault && window.MappAIImportVault.apriDossier) {
+                await window.MappAIImportVault.apriDossier(result.folderPath, appState.rootNodeLabel);
+            }
         } else {
             window.showAlert("Errore Caricamento", loadRes.error);
         }

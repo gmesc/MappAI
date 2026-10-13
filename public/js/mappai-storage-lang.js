@@ -22,6 +22,28 @@ const StorageManager = {
        nuova SUBITO, così nemmeno un salvataggio parte con l'identità altrui.
        Allinea anche classDir/discDir di appState: erano il residuo della mappa
        precedente, e l'autosave li congelava nella voce sbagliata. */
+    /* 0094 (lotto D, ADR 0021): la cartella che dichiara questo `projectId`, se è UNA
+       sola nell'elenco del disco; altrimenti null (anche a interruttore spento). */
+    _cartellaDaId: async function (id) {
+        try {
+            const NC = window.MappAINomeCartellaCore;
+            if (!NC || !NC.acceso(localStorage) || !id || !window.electronAPI || !window.electronAPI.getAllVaults) return null;
+            const sue = ((await window.electronAPI.getAllVaults()) || []).filter(v => v && v.projectId === id && v.fullPath);
+            return sue.length === 1 ? sue[0] : null;
+        } catch (e) { return null; }
+    },
+    /* La padronanza segue la cartella: `mappai_mastery::<vecchio>` → `::<nuovo>` se la
+       nuova non c'è; la vecchia si toglie solo se la nuova si rilegge uguale. */
+    _padronanzaSegue: function (vecchio, nuovo) {
+        try {
+            if (!vecchio || !nuovo || vecchio === nuovo) return;
+            const kv = 'mappai_mastery::' + vecchio, kn = 'mappai_mastery::' + nuovo, pv = localStorage.getItem(kv);
+            if (pv && !localStorage.getItem(kn)) {
+                localStorage.setItem(kn, pv);
+                if (localStorage.getItem(kn) === pv) localStorage.removeItem(kv);
+            }
+        } catch (e) { }
+    },
     adottaVault: async function (folderPath, stato, opts) {
         /* 0061 (29/09) — CREARE NON È APRIRE (ADR 0013). Questa funzione serviva sia
            a chi riapre una cartella sia a chi la crea (fine generazione, pipeline,
@@ -140,9 +162,16 @@ const StorageManager = {
                 if (!Array.isArray(listed) || listed.some(p => !p || typeof p !== 'object')) return { ok: false, error: 'reading_index_invalid' };
                 const sameId = listed.filter(p => p && p.id === this.currentProjectId);
                 const vaultName = String(appState.activeVaultPath).split(/[\\/]/).filter(Boolean).pop().normalize('NFC');
+                /* 0094 (lotto B): le letture nascono col titolo, quindi un'omonima in
+                   un'altra classe o materia è normale; reclama la cartella solo chi ha lo
+                   stesso nome E la stessa posizione. Interruttore a '0': il solo nome. */
+                let posizioneConta = false;
+                try { posizioneConta = !!(window.MappAINomeCartellaCore && window.MappAINomeCartellaCore.acceso(localStorage)); } catch (e) { posizioneConta = false; }
+                const pos = (ic && ic.posizione) || { classDir: appState.activeVaultClassDir, discDir: appState.activeVaultDiscDir };
+                const stessaPos = p => !posizioneConta || ((p.classDir || null) === (pos.classDir || null) && (p.discDir || null) === (pos.discDir || null));
                 if (sameId.length > 1 || sameId.some(p => p.type !== 'lettura') || listed.some(p => p &&
                     p.id !== this.currentProjectId && (p.vaultPath === appState.activeVaultPath ||
-                        typeof p.vault === 'string' && p.vault.normalize('NFC') === vaultName))) {
+                        typeof p.vault === 'string' && p.vault.normalize('NFC') === vaultName && stessaPos(p)))) {
                     return { ok: false, error: 'reading_identity_collision' };
                 }
             } catch (error) { return { ok: false, error: 'reading_index_invalid' }; }
@@ -175,6 +204,12 @@ const StorageManager = {
             const dallaCartella = !!(ic && ic.percorso === appState.activeVaultPath && ic.id === this.currentProjectId);
             if (attivo && prev && prev.vault && nfc(prev.vault) !== nfc(attivo) && !dallaCartella) {
                 this.currentProjectId = 'proj_' + Date.now();
+            }
+            /* 0094 (lotto D): la cartella si è rinominata (dal Finder) nella stessa madre:
+               la padronanza scritta col percorso vecchio segue la cartella */
+            else if (attivo && prev && prev.vault && nfc(prev.vault) !== nfc(attivo) && dallaCartella && window.MappAINomeCartellaCore && window.MappAINomeCartellaCore.acceso(localStorage)) {
+                const madre = String(appState.activeVaultPath).replace(/[\\/][^\\/]+[\\/]?$/, '');
+                this._padronanzaSegue(madre + '/' + prev.vault, appState.activeVaultPath);
             }
         } catch (e) { /* best-effort: peggio bloccare un salvataggio che coniare un id */ }
 
@@ -987,7 +1022,15 @@ const StorageManager = {
                 const previousState = appState, previousDb = appState.db, previousPath = appState.activeVaultPath, previousId = this.currentProjectId;
                 let disk;
                 this._apreDallaCartella = true;
-                try { disk = await window.electronAPI.loadVault(readingMeta.vaultPath); }
+                let percorsoLettura = readingMeta.vaultPath;
+                try {
+                    disk = await window.electronAPI.loadVault(percorsoLettura);
+                    /* 0094 (lotto D): la lettura rinominata dal Finder si ritrova dal suo id */
+                    if (!disk || !disk.success) {
+                        const sua = await this._cartellaDaId(id);
+                        if (sua) { percorsoLettura = sua.fullPath; disk = await window.electronAPI.loadVault(percorsoLettura); }
+                    }
+                }
                 finally { this._apreDallaCartella = false; }
                 if (appState !== previousState || appState.db !== previousDb || appState.activeVaultPath !== previousPath || this.currentProjectId !== previousId) {
                     throw new Error(window.t('pl_stale', 'Il progetto è cambiato. Riapri il percorso prima di continuare.'));
@@ -995,7 +1038,7 @@ const StorageManager = {
                 const ptr = disk && disk.data && disk.data._pipelineManifest && disk.data._pipelineManifest.reading;
                 if (!disk || !disk.success || disk.data.extractionMode !== 'lettura' || disk.data.projectId !== id || !ptr || ptr.projectId !== id ||
                     ptr.percorsoId !== readingMeta.reading.percorsoId || ptr.sourceId !== readingMeta.reading.sourceId || ptr.sourcePath !== readingMeta.reading.sourcePath) fail();
-                await window.MappAIPercorsoLettura.openVault({ folderPath: readingMeta.vaultPath, data: disk.data });
+                await window.MappAIPercorsoLettura.openVault({ folderPath: percorsoLettura, data: disk.data });
                 return true;
             }
             const data = localStorage.getItem(id);
@@ -1277,10 +1320,26 @@ const StorageManager = {
             // bozza locale viene riconciliata dal controller prima di render e
             // autosave; una revisione di un altro progetto non viene ereditata.
             if (appState.activeVaultPath && window.electronAPI && window.electronAPI.loadVault) {
-                const vaultPath = appState.activeVaultPath;
+                let vaultPath = appState.activeVaultPath;
                 /* 0076: dalla cartella (residuo, «superata») la lettura è già stata
                    fatta e controllata qui sopra: non se ne fa una seconda */
-                const disk = letto ? letto.disk : await window.electronAPI.loadVault(vaultPath);
+                let disk = letto ? letto.disk : await window.electronAPI.loadVault(vaultPath);
+                /* 0094 (lotto D, ADR 0021): la cartella rinominata o spostata dal Finder si
+                   ritrova dal `projectId` della voce (una sola cartella che lo dichiara),
+                   mai dal nome. Solo sul cammino che oggi fallisce: nessuna attesa in più
+                   quando la cartella c'è. */
+                if ((!disk || !disk.success) && !letto) {
+                    const sua = await this._cartellaDaId(id);
+                    if (sua) {
+                        const prima = vaultPath;
+                        vaultPath = sua.fullPath;
+                        appState.activeVaultPath = sua.fullPath;
+                        appState.activeVaultClassDir = sua.classDir || null;
+                        appState.activeVaultDiscDir = sua.discDir || null;
+                        this._padronanzaSegue(prima, sua.fullPath);
+                        disk = await window.electronAPI.loadVault(vaultPath);
+                    }
+                }
                 if (!disk || !disk.success) throw new Error((disk && disk.error) || 'Impossibile leggere la cartella del progetto');
                 /* 0061 (29/09, ADR 0013) — il gesto `voce`: la voce riaperta porta con sé
                    la sua cartella, e l'id resta quello della voce. Ma se la cartella
@@ -1972,7 +2031,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const modelsStorageKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
     const selectionStorageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const defaultModel = isInfomaniak ? 'mistral-small-4-119B-2603' : 'gemini-2.0-flash';
+    /* 0093: su Infomaniak nessun nome fisso — il modello lo sceglie il docente dal catalogo;
+       finché non sceglie, la tendina dice «— scegli un modello —» (renderModelSelect) */
+    const defaultModel = isInfomaniak ? '' : 'gemini-2.0-flash';
 
     const savedModelsStr = localStorage.getItem(modelsStorageKey);
     const selectEl = document.getElementById('model-select');

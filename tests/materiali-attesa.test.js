@@ -150,6 +150,7 @@ function console0090(manifest, valori = {}) {
         async open() { g.MappAIElaboraConsole.open({}); await settle(); },
         tabelle() { return json(g.MappAIElaboraConsole.schema().tabelle); },
         async action(id) { schema.suAzione({ azione: id }, box, draw); await settle(); },
+        async navVoce(v) { schema.suAzione({ azione: '__nav', voce: v }, box, draw); await settle(); },
         async close() { closeModal(); await settle(); } };
 }
 
@@ -358,4 +359,86 @@ test('D: il profilo della classe non si tocca dal modale', () => {
     const src = js('mappai-material-pipeline.js');
     const parte = src.slice(src.indexOf('function _tarAcceso()'), src.indexOf('function _scriviTaratura()') + 600);
     assert.ok(!/MappAIClasses\.(save|update|set|upsert)/.test(parte));
+});
+
+// ── 0094, lotto F: il difetto 9 della guida (ELABORA giudicava «in attesa» il progetto sbagliato) ─────
+
+test('F2 core: il manifesto conta solo per il suo progetto (id o cartella); senza progetto come prima', () => {
+    const m = (pid, vp) => Object.assign(manifesto(MC_FC_SYN), { vaultPath: vp, review: Object.assign(manifesto(MC_FC_SYN).review, { projectId: pid, vaultPath: vp }) });
+    const el = { projectId: 'proj_1791852544512', vaultPath: '/Mappe/4R/Scienze/Elettricità' };
+    assert.equal(C.diQuestoProgetto(m('proj_1791886237327', '/Mappe/4R/Scienze/Circuiti e grandezze'), el), false, 'il manifesto di «Circuiti» non è di «Elettricità»');
+    assert.equal(C.g2InAttesa(m('proj_1791886237327', '/Mappe/4R/Scienze/Circuiti e grandezze'), el), false);
+    assert.equal(C.righe(m('proj_1791886237327', '/Mappe/4R/Scienze/Circuiti e grandezze'), el).length, 0);
+    assert.equal(C.diQuestoProgetto(m('proj_1791852544512', '/Mappe/4R/Scienze/Vecchio nome'), el), true, 'rinominata dal Finder: l\'id basta');
+    assert.equal(C.diQuestoProgetto(m('proj_altro', '/Mappe/4R/Scienze/Elettricità/'), el), true, 'copia di prova: la cartella basta');
+    assert.equal(C.diQuestoProgetto(manifesto(MC_FC_SYN), el), true, 'manifesto vecchio, senza id né cartella');
+    assert.equal(C.g2InAttesa(m('x', '/y')), true, 'senza progetto: come prima');
+});
+
+function due(opz) {
+    /* «Circuiti e grandezze» caricato (G2 aperta), «Elettricità» scelta (G2 chiusa sul disco) */
+    const CIRC = '/Mappe/4R/Scienze/Circuiti e grandezze', EL = '/Mappe/4R/Scienze/Elettricità';
+    const mCirc = Object.assign(manifesto(MC_FC_SYN), { vaultPath: CIRC }); mCirc.review.projectId = 'proj_circ'; mCirc.review.vaultPath = CIRC;
+    const mEl = Object.assign(manifesto(MC_FC_SYN, 'done'), { vaultPath: EL }); mEl.review.projectId = 'proj_el'; mEl.review.vaultPath = EL;
+    const h = console0090(opz.memoria === 'circ' ? mCirc : mEl);
+    h.state.activeVaultPath = opz.attiva === 'el' ? EL : CIRC;
+    h.g.StorageManager = { currentProjectId: opz.attiva === 'el' ? 'proj_el' : 'proj_circ' };
+    vm.runInNewContext('var StorageManager = window.StorageManager;', h.g);
+    h.g.electronAPI.vaultMaterialsList = async ({ vaultPath }) => ({ files: [], manifest: vaultPath === EL ? mEl : mCirc });
+    const mappe = [{ id: 'v:' + CIRC, nome: 'Circuiti e grandezze', v: { fullPath: CIRC, extractionMode: 'mindmap', folderName: 'Circuiti e grandezze' } },
+        { id: 'v:' + EL, nome: 'Elettricità', v: { fullPath: EL, extractionMode: 'mindmap', folderName: 'Elettricità' } }];
+    h.g.MappAITeach.mappeDelContesto = async () => mappe;
+    h.g.MappAITeach.apriMappa = opz.apriMappa || (() => false);
+    let spec = null;
+    h.g.MappAIConsoleBento = { specContesto: () => [{ et: 'Elabora' }, { et: '4R' }, { et: 'Scienze' }], montaPercorso: (_box, s) => { spec = s; } };
+    return Object.assign(h, { EL, CIRC, mappe, spec: () => spec });
+}
+
+test('F2: «Elettricità» aperta col manifesto di «Circuiti» rimasto in memoria → nessuna riga in attesa, «Più materiali insieme» libero', async () => {
+    const h = due({ attiva: 'el', memoria: 'circ' });
+    await h.open();
+    const ids = h.tabelle().flatMap(t => t.righe.map(r => r.id));
+    assert.ok(!ids.some(id => /att:/.test(id)), ids.join(' '));
+    assert.match(h.g.MappAIElaboraConsole.tipi.find(x => x.id === 'batch').desc(), /in un giro solo/);
+    await h.close();
+});
+
+test('F2: «Circuiti» aperta col suo manifesto → le righe in attesa ci sono ancora', async () => {
+    const h = due({ attiva: 'circ', memoria: 'circ' });
+    await h.open();
+    const ids = h.tabelle().flatMap(t => t.righe.map(r => r.id));
+    assert.ok(ids.includes('m:att:syn'), ids.join(' '));
+    await h.close();
+});
+
+test('F2: il modale «Genera materiali» non si spegne per il manifesto di un altro progetto', () => {
+    const m = manifesto(MC_FC_SYN); m.review.projectId = 'proj_circ'; m.vaultPath = '/circuiti';
+    const h = pipeline({ manifest: m });
+    h.P.openModal({ fromApproved: true });
+    assert.equal(!!h.dom.document.getElementById('mp-g2-attesa'), false, 'nessun avviso: il manifesto è di «Circuiti», aperta è «/vault»');
+});
+
+test('F3: se il caricamento del progetto scelto non riesce, la briciola torna al progetto davvero aperto', async () => {
+    const h = due({ attiva: 'circ', memoria: 'circ' });
+    await h.open();
+    const ultimo = () => { const l = h.spec().livelli; return l[l.length - 1]; };
+    assert.equal(ultimo().et || ultimo().statico, 'Circuiti e grandezze');
+    /* il clic su «Elettricità» nella colonna: apriMappa dice di no */
+    const sch = h.g.MappAIElaboraConsole.schema();
+    assert.ok(sch.nav.some(v => v.id === 'prog:v:' + h.EL));
+    await h.navVoce('prog:v:' + h.EL);
+    assert.equal(ultimo().et || ultimo().statico, 'Circuiti e grandezze', 'la briciola dice il progetto aperto, non quello rifiutato');
+    await h.close();
+});
+
+test('0094 S7: la briciola del progetto in ELABORA porta «Rinomina…» in fondo, ma non per una lettura', async () => {
+    for (const lettura of [false, true]) {
+        const h = due({ attiva: 'circ', memoria: 'circ' });
+        h.g.MappAITeach.perRinomina = m => ({ vaultPath: m.v.fullPath, nome: m.v.folderName, lettura });
+        await h.open();
+        const l = h.spec().livelli, ultimo = l[l.length - 1];
+        if (lettura) assert.equal(!!(ultimo.menu && ultimo.menu.nuovo), false, 'lettura: niente «Rinomina…»');
+        else assert.equal(ultimo.menu.nuovo.et, 'Rinomina…');
+        await h.close();
+    }
 });

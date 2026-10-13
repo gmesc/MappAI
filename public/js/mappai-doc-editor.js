@@ -2518,7 +2518,13 @@
                momento sia lei a ospitare l'editor. */
             (_inConsole() ? '' :
                 '<button type="button" class="de-btn de-ghost" onclick="MappAIDocEditor.backToList()">‹ ' + esc(t('de_back', 'Documenti')) + '</button>') +
-            '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>' +
+            /* …e per la stessa ragione, dentro la console, nemmeno il TITOLO (0093, G, Giacomo):
+               il documento aperto è marcato nella colonna e il titolo sta in testa al foglio.
+               A 1470 i suoi 120px mandavano a capo «Salva ed Esci» (121px) e la tendina con
+               Atkinson. Le modifiche in sospeso le dice già il bottone («Salva ed Esci»);
+               `_paintDirty` regge l'assenza del pallino. */
+            (_inConsole() ? '' :
+                '<div class="de-bar-t">' + esc(title) + '<span class="de-dirty" id="de-dirty">•</span></div>') +
             (isSyn ? _styleBar() : '') +
             '<div class="de-spacer"></div>' +
             _sezioniBar() +
@@ -2538,16 +2544,18 @@
                anche se è stata generata giorni fa. Prima si poteva solo nel
                modale che compariva subito dopo la generazione: riaperta
                dall'archivio, la sintesi non aveva più modo di avere l'audio. */
+            /* «Voce» e «HTML» solo icona, come la stampante (0093, G, Giacomo): la parola
+               resta nel fumetto e nell'aria-label. A 1470 la barra della sintesi andava a capo. */
             (isSyn
                 ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.voceNaturale()" title="' +
-                  esc(t('de_voce_tip', 'Registra la lettura ad alta voce con la voce naturale di Google: resta dentro l\'HTML e nel PDF. Utile agli allievi dislessici.')) +
-                  '"><i data-lucide="headphones" class="w-4 h-4"></i> ' + esc(t('de_voce', 'Voce')) + '</button>'
+                  esc(t('de_voce', 'Voce') + ' — ' + t('de_voce_tip', 'Registra la lettura ad alta voce con la voce naturale di Google: resta dentro l\'HTML e nel PDF. Utile agli allievi dislessici.')) +
+                  '" aria-label="' + esc(t('de_voce', 'Voce')) + '"><i data-lucide="headphones" class="w-4 h-4"></i></button>'
                 : '') +
             ((isSyn || isCc)
                 ? '<button type="button" class="de-btn" onclick="MappAIDocEditor.exportHtml()" title="' +
                   esc(isCc ? t('de_cc_html_tip', 'Scarica la pagina HTML: dentro c\'è anche la modalità esercizio')
                            : t('de_html_tip', 'Scarica la pagina HTML: conserva il lettore audio')) +
-                  '"><i data-lucide="file-code-2" class="w-4 h-4"></i> HTML</button>'
+                  '" aria-label="HTML"><i data-lucide="file-code-2" class="w-4 h-4"></i></button>'
                 : '') +
             /* «Nel vault» NON c'è più (Giacomo, 9/8): faceva la stessa cosa di
                «Stampa» senza dirlo — due bottoni per un gesto solo, e il docente
@@ -2595,8 +2603,10 @@
         if (!C || !window.MappAIFont || !window.MappAIFont.accesa()) return '';
         const scelto = _fontCorrente();
         const dellApp = C.font(window.MappAIFont.attivo()).etichetta;
+        /* «Space Mono · app» e non «Come l'app · Space Mono» (0093, G): ~70px in meno, e a
+           1470 «PDF» ed «Esci» tornano sulla prima riga della barra della sintesi */
         let o = '<option value=""' + (scelto ? '' : ' selected') + '>' +
-            esc(t('de_font_app', 'Come l’app')) + ' · ' + esc(dellApp) + '</option>';
+            esc(dellApp) + ' · ' + esc(t('de_font_app_breve', 'app')) + '</option>';
         C.elenco().forEach(function (f) {
             o += '<option value="' + esc(f.id) + '"' + (scelto === f.id ? ' selected' : '') + '>' +
                 esc(f.etichetta) + '</option>';
@@ -3880,6 +3890,10 @@ ${_deCornice()}
 /* La tendina è il CAMPO del motore (10a; regola dei lotti 2 e 5): neutra senza bordo, al passaggio bianca col bordo. */
 .de-ns-sel { height:var(--mm-ctl-h, 40px); border:var(--mm-bordo-spessore, 1px) solid transparent; border-radius:var(--mm-r-campo, 10px); padding:0 2.25rem 0 12px; font-size:var(--mm-ctl-fs, 12px); font-weight:700; color:var(--mm-testo, #404040); background-color:var(--mm-neutro, #f1f4f8); cursor:pointer; }
 .de-ns-sel:hover { background-color:var(--mm-fondo, #fff); border-color:var(--mm-bordo, #cbd5e1); }
+/* La tendina del carattere larga quanto la voce SCELTA, non quanto la più lunga dell'elenco
+   («Atkinson Hyperlegible»): misurato a 1470 nella console (0093, G), 239px → 225 col solo
+   nome corto, e «Esci» restava a capo per 27px. */
+.de-font { field-sizing:content; }
 /* Il comando compatto delle sezioni della sintesi: le due spunte nella barra
    la mandavano a capo (misurato: 113px liberi contro 166 richiesti). */
 .de-sez { position:relative; flex:0 0 auto; }

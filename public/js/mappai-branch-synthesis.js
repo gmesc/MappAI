@@ -609,6 +609,7 @@
                     'in un discorso unico: niente elenchi, tono da introduzione di dispensa.\n' +
                     'Conserva soggetti, fatti documentati e rettifiche esplicite, senza introdurre nuove cause o generalizzazioni. ' +
                     'Per i riferimenti usa soltanto gli ID [[src-...]] forniti, senza numerarli o trascrivere le citazioni.\n' +
+                    'Non usare mai gli ID dei nodi (quelli tra [nodo ...]) come riferimenti, né tra doppie quadre né con «src-» davanti.\n' +
                     langNote + '\n\n' + input.material;
                 const payload = {
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -622,8 +623,17 @@
                 const resp = await callModelAPI(payload, apiKey);
                 _requireSameVersion(version);
                 intro = (resp?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                /* 0093 (C): i rimandi a un NODO ([[ROOT]], [[src-<id nodo>]]) escono dal testo e
+                   restano nel registro tecnico; la regola è una sola, in mappai-material-drafts.js */
+                let nodeMarkers = [];
+                const D = window.MappAIMaterialDrafts;
+                if (D && D.nodeMarkers) {
+                    const nm = D.nodeMarkers(intro, allNodes.map(n => n && n.id).filter(Boolean));
+                    intro = nm.text; nodeMarkers = nm.removed;
+                }
                 introSources = _sourcesForMarkers(intro, input.sourcesArr);
                 introGrounding = { unknownCitationIds: window.MappAIGroundingCore.resolveCitations(intro, introSources).unknownIds };
+                if (nodeMarkers.length) introGrounding.nodeMarkers = nodeMarkers;
             } catch (e) { if (giro) giro.verifica();
                 if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
                 console.warn('[BranchSynthesis] Panoramica fallita (non bloccante):', e);

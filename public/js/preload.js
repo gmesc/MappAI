@@ -179,12 +179,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     studentFolderEnsure: (data) => ipcRenderer.invoke('student-folder-ensure', data),
     launcherChoice: (choice) => ipcRenderer.invoke('launcher-choice', choice),
     launcherReturn: () => ipcRenderer.invoke('launcher-return'),
+    // 0095: «Importa dal Vault» copia la cartella in Mappe/ (mappai-import-vault.js)
+    importVaultInfo: (data) => ipcRenderer.invoke('import-vault-info', data),
+    importVaultCopy: (data) => ipcRenderer.invoke('import-vault-copy', data),
     loadVault: (folderPath) => ipcRenderer.invoke('load-vault', folderPath),
     pickFolder: () => ipcRenderer.invoke('pick-folder'),
     fetchUrl: (url) => ipcRenderer.invoke('fetch-url', url),
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
     deleteVault: (data) => ipcRenderer.invoke('delete-vault', data),
     vaultRelocate: (data) => ipcRenderer.invoke('vault-relocate', data),
+    vaultRename: (data) => ipcRenderer.invoke('vault-rename', data),   // 0094: { folderPath, nome, projectId }
     getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),
     savePrompts: (data) => ipcRenderer.invoke('save-prompts', data),

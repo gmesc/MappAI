@@ -841,7 +841,9 @@ window.fetchModelAPI = async function (payload, apiKey, context) {
             model = localStorage.getItem(storageKey);
         }
         if (!model) {
-            model = (provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603');
+            /* 0093: su Infomaniak il modello lo sceglie il docente dal catalogo, niente nome fisso */
+            if (provider !== 'google') throw new Error(window.t('modello_da_scegliere', 'Scegli il modello AI prima di generare.'));
+            model = 'gemini-2.0-flash';
         }
     }
 
@@ -1976,7 +1978,9 @@ window.MappAITune = {
             if (up && up.nickname) { grade = up.grade || ''; system = up.system || ''; }
             else {
                 var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
-                if (c) { grade = c.grade || c.name || ''; system = c.system || ''; }
+                /* 0093 (difetto 42): mai il NOME al posto del grado — una classe vecchia senza
+                   grado mandava all'AI «studenti di <nome della classe>» */
+                if (c) { grade = c.grade || ''; system = c.system || ''; }
             }
             /* Col «semplifica comunque» il registro SEMPLICE entra anche senza
                un grado: la richiesta è «scrivi in modo accessibile», e vale pure

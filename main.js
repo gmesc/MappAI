@@ -31,6 +31,8 @@ const yaml = require('js-yaml');
 // Logica pura organizzazione file (010): nomi cartelle, gerarchia per-classe,
 // piano migrazione, parsing sessioni. UMD → in Node ritorna module.exports.
 const FilesCore = require('./public/js/mappai-files-core.js');
+// 0094 (ADR 0021): il nome del progetto è la sua cartella — nome libero, riparazione dei percorsi.
+const NomeCartellaCore = require('./public/js/mappai-nome-cartella-core.js');
 // Leggere un'immagine con un modello di visione locale (20/8): formati, misure,
 // prompt e diagnosi dei guasti stanno nel core, qui c'è solo l'I/O.
 const VisioneCore = require('./public/js/mappai-visione-core.js');
@@ -1248,6 +1250,83 @@ ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir }
     }
 });
 
+/* ── 0094 (ADR 0021): RINOMINARE UN PROGETTO ─────────────────────────────────
+   Il nome del progetto è il nome della sua cartella; lo cambia il docente con
+   «Rinomina…». Qui solo I/O: il nome libero lo decide il core. Solo nella stessa
+   cartella madre (classe e materia, o Allievi/<nome>/Mappe): spostare resta
+   `vault-relocate`.
+   `_cartelleRinominate`: le cartelle rinominate in questa sessione (percorso
+   vecchio → { nuovo, ids }). Un salvataggio partito prima della rinomina e
+   arrivato dopo farebbe rinascere la cartella vecchia (`save-vault` crea la
+   cartella che manca): `_scritturaSuRinominata` lo riconosce dall'id. Un
+   progetto NUOVO con quel nome ha un altro id, e si crea come sempre. */
+const _cartelleRinominate = new Map();
+function _scritturaSuRinominata(folderPath, mapData) {
+    try {
+        if (!folderPath || fs.existsSync(folderPath)) return false;
+        const r = _cartelleRinominate.get(path.resolve(folderPath));
+        if (!r) return false;
+        /* senza id (un salvataggio costruito senza la cartella adottata) è comunque
+           una scrittura sulla cartella che non c'è più: la si rifiuta lo stesso */
+        const id = mapData && mapData.projectId;
+        return !FilesCore.idProgettoValido(id) || r.ids.indexOf(id) >= 0;
+    } catch (e) { return false; }
+}
+/* L'id del progetto in testa a `index.yaml`, se la cartella non ne ha ancora uno
+   valido in colonna 0 (le cartelle di prima del 29/9). È la scrittura che il
+   primo salvataggio farebbe comunque (ADR 0013, migrazione pigra), anticipata al
+   gesto del docente. Il resto del file non si tocca. Restituisce l'id che la
+   cartella dichiara dopo (o null). Riusabile (0095: il vault importato senza id). */
+function _scriviIdSeManca(cartella, id) {
+    const file = path.join(cartella, 'index.yaml');
+    let testo;
+    try { testo = fs.readFileSync(file, 'utf-8'); } catch (e) { return null; }
+    const riga = testo.split('\n').find(l => l.startsWith('projectId:'));
+    if (riga) {
+        const c = riga.slice('projectId:'.length).trim().replace(/^["']|["']$/g, '');
+        return FilesCore.idProgettoValido(c) ? c : null;
+    }
+    if (!FilesCore.idProgettoValido(id)) return null;
+    fs.writeFileSync(file, 'projectId: ' + id + '\n' + testo, 'utf-8');
+    return id;
+}
+ipcMain.handle('vault-rename', async (event, { folderPath, nome, projectId } = {}) => {
+    try {
+        if (!folderPath) return { success: false, error: 'percorso mancante' };
+        const from = path.resolve(folderPath);
+        const basi = [mapsBaseDir(), studentsBaseDir()].filter(Boolean).map(b => path.resolve(b));
+        if (!basi.some(b => from !== b && from.startsWith(b + path.sep))) return { success: false, error: 'fuori dalle cartelle dei progetti' };
+        if (!fs.existsSync(path.join(from, 'index.yaml'))) return { success: false, error: 'cartella-non-trovata' };
+        if (!String(nome == null ? '' : nome).trim()) return { success: false, error: 'nome-vuoto' };
+        const pulito = FilesCore.vaultFolderName(String(nome).trim());
+        const madre = path.dirname(from), attuale = path.basename(from);
+        const fratelli = fs.readdirSync(madre).filter(n => {
+            if (n === attuale) return false;
+            try { return fs.statSync(path.join(madre, n)).isDirectory(); } catch (e) { return false; }
+        });
+        const riservati = path.resolve(madre) === path.resolve(mapsBaseDir())
+            ? [].concat(FilesCore.VAULT_CONTAINER_EXCLUDE || [], [FilesCore.GENERICO]) : [];
+        const libero = NomeCartellaCore.nomeLibero(pulito, fratelli, riservati);
+        let idPrima = null;
+        try { idPrima = _scriviIdSeManca(from, null); } catch (e) { idPrima = null; }
+        if (libero.nome === attuale) {
+            return { success: true, invariato: true, fullPath: from, folderName: attuale, suffisso: false, projectId: idPrima, idScritto: false };
+        }
+        const to = path.join(madre, libero.nome);
+        fs.renameSync(from, to);   // stessa madre: niente EXDEV; solo maiuscole diverse va su APFS
+        const ids = [idPrima, projectId].filter(x => FilesCore.idProgettoValido(x));
+        _cartelleRinominate.set(from, { nuovo: to, ids: ids });
+        let idDopo = idPrima, idScritto = false;
+        if (!idPrima) {
+            try { idDopo = _scriviIdSeManca(to, projectId); idScritto = !!idDopo; } catch (e) { idDopo = null; }
+        }
+        return { success: true, fullPath: to, folderName: libero.nome, suffisso: libero.suffisso, projectId: idDopo, idScritto: idScritto };
+    } catch (err) {
+        console.error('vault-rename:', err);
+        return { success: false, error: err.message };
+    }
+});
+
 // pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe
 // (materiali della pipeline dalla sezione Insegna). Validazione sotto mapsBaseDir.
 ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) => {
@@ -1522,6 +1601,8 @@ function _istantaneaVault(folderPath, quanti) {
 
 ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
     try {
+        // 0094: non far rinascere la cartella appena rinominata dallo stesso progetto
+        if (typeof _scritturaSuRinominata === 'function' && _scritturaSuRinominata(folderPath, mapData)) return { success: false, error: 'cartella-rinominata' };
         ReviewStore.checkMapWrite(folderPath, mapData);
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
@@ -3300,6 +3381,14 @@ ipcMain.handle('get-all-vaults', async () => {
                 vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
                 // 0061 (ADR 0013): l'id del progetto, solo nella forma che l'app conia
                 if (FilesCore.idProgettoValido(parsed.projectId)) vaultInfo.projectId = parsed.projectId;
+                /* 0093 (D): i giri della generazione, dai consumi che il vault tiene. Le
+                   chiamate della MAPPA nel registro hanno `projectId` vuoto (il progetto
+                   nasce dopo): «Consumi AI» le lega a questa cartella per giro
+                   (mappai-usage-core.js, vaultProjects). Campo in più, solo se ce ne sono. */
+                const cr = parsed.generationUsage && Array.isArray(parsed.generationUsage.costRecords)
+                    ? parsed.generationUsage.costRecords : [];
+                const giri = Array.from(new Set(cr.map(r => r && r.runId ? String(r.runId) : '').filter(Boolean)));
+                if (giri.length) vaultInfo.runIds = giri;
                 if (parsed.userProfile) {
                     vaultInfo.nickname = parsed.userProfile.nickname;
                     vaultInfo.age      = parsed.userProfile.age;
@@ -3389,6 +3478,128 @@ ipcMain.handle('pick-folder', async () => {
         return { canceled: false, folderPath: result.filePaths[0] };
     }
     return { canceled: true };
+});
+
+/* ── IMPORTARE UN VAULT (0095, ADR 0021) ─────────────────────────────────────
+   «Importa dal Vault» non apre più la cartella dov'è: la COPIA in Mappe/ e
+   apre la copia. Qui solo I/O (inv. 19): dove va, il nome, l'id e i percorsi
+   li decide `mappai-import-vault-core.js`. La sorgente si apre solo in lettura.
+   `dove` = { maps, students }: le basi, passate dall'handler (e dal test). */
+function importaDentroDi(base, p) {
+    if (!base || !p) return false;
+    const vero = (x) => { try { return fs.realpathSync.native(x); } catch (e) { return path.resolve(x); } };
+    const rel = path.relative(vero(base), vero(p));
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+// Che cosa dice la cartella scelta: c'è index.yaml? sta già in Mappe/ o in Allievi/ (D3)?
+function importaVaultInfo(src, dove) {
+    const s = String(src || '');
+    let st = null; try { st = fs.statSync(s); } catch (e) { st = null; }
+    if (!s || !st || !st.isDirectory()) return { ok: false, error: 'non-trovata' };
+    const nome = path.basename(path.resolve(s));
+    const dentro = importaDentroDi(dove.maps, s) || importaDentroDi(dove.students, s);
+    const indexPath = path.join(s, 'index.yaml');
+    if (!fs.existsSync(indexPath)) return { ok: true, haIndice: false, dentro, nome, indice: {} };
+    const testo = fs.readFileSync(indexPath, 'utf-8');
+    // `dossier`: un dossier da foto importato si apre in «Proietta» (D9, gate del 13/10)
+    const CHIAVI = ['projectId', 'classe', 'materia', 'rootNodeLabel', 'extractionMode', 'dossier'];
+    const indice = {};
+    let parsed = null;
+    try { parsed = yaml.load(testo); } catch (e) { parsed = null; }
+    if (parsed && typeof parsed === 'object') {
+        CHIAVI.forEach(k => { if (parsed[k] != null && typeof parsed[k] !== 'object') indice[k] = String(parsed[k]); });
+    } else {
+        // come il ripiego di load-vault: riga per riga, solo in colonna 0
+        testo.split(/\r?\n/).forEach(line => {
+            CHIAVI.forEach(k => {
+                if (line.startsWith(k + ':')) indice[k] = line.slice(k.length + 1).trim().replace(/^["']|["']$/g, '');
+            });
+        });
+    }
+    return { ok: true, haIndice: true, dentro, nome, indice };
+}
+
+// La copia: { src, classDir, discDir, nome, projectId } → { ok, folderPath, percorsi } | { ok:false, error }
+async function importaVaultCopia(o, dove) {
+    const IV = require('./public/js/mappai-import-vault-core.js');
+    o = o || {};
+    const src = String(o.src || '');
+    if (!src || !fs.existsSync(path.join(src, 'index.yaml'))) return { ok: false, error: 'non-vault' };
+    if (importaDentroDi(dove.maps, src) || importaDentroDi(dove.students, src)) return { ok: false, error: 'dentro' };
+    if (!FilesCore.idProgettoValido(o.projectId)) return { ok: false, error: 'id' };
+    const nome = FilesCore.vaultFolderName(o.nome);
+    const segs = FilesCore.mapVaultParents(o.classDir || null, o.discDir || '').concat([nome]);
+    fs.mkdirSync(dove.maps, { recursive: true });
+    const dest = path.join(dove.maps, ...segs);
+    // una cartella scelta che contiene Mappe/ si copierebbe dentro se stessa
+    let baseVera; try { baseVera = fs.realpathSync.native(dove.maps); } catch (e) { baseVera = path.resolve(dove.maps); }
+    if (importaDentroDi(src, path.join(baseVera, ...segs))) return { ok: false, error: 'dentro-se-stessa' };
+    /* la cartella si PRENDE con un mkdir non ricorsivo: se c'è già (anche nata
+       fra il piano e questo istante) non si scrive niente, e una cartella che
+       esisteva prima non viene mai tolta dal ripulisti */
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    try { fs.mkdirSync(dest); }
+    catch (e) { return { ok: false, error: e.code === 'EEXIST' ? 'esiste' : ('copia: ' + e.message) }; }
+    try {
+        // voce per voce: `cp` rifiuterebbe la cartella `dest` appena presa
+        for (const voce of fs.readdirSync(src)) {
+            await fs.promises.cp(path.join(src, voce), path.join(dest, voce), { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true });
+        }
+        const ip = path.join(dest, 'index.yaml');
+        const pp = path.join(dest, 'pipeline.json');
+        const leggiMan = () => {
+            if (!fs.existsSync(pp)) return null;
+            try { const m = JSON.parse(fs.readFileSync(pp, 'utf-8')); return (m && typeof m === 'object') ? m : null; } catch (e) { return null; }
+        };
+        /* D10: con un id nuovo, l'id vecchio del vault si sostituisce in tutti i file
+           di testo della copia (pipeline.json, documenti del percorso, verifiche):
+           lettura e revisione controllano che sia lo stesso dappertutto */
+        let idCambiati = 0;
+        const rigaId = fs.readFileSync(ip, 'utf-8').split(/\r?\n/).find(l => /^projectId\s*:/.test(l));
+        const idIndice = rigaId ? rigaId.replace(/^projectId\s*:/, '').trim().replace(/^["']|["']$/g, '') : '';
+        const vecchiId = IV.idVecchiDelVault(idIndice, leggiMan(), o.projectId);
+        if (vecchiId.length) {
+            const TESTO = /\.(json|html?|md|ya?ml|txt|csv)$/i;
+            const giro = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
+                const p = path.join(d, e.name);
+                if (e.isDirectory()) return giro(p);
+                if (!e.isFile() || !TESTO.test(e.name)) return;
+                const r = IV.sostituisciId(fs.readFileSync(p, 'utf-8'), vecchiId, o.projectId);
+                if (r.cambi) { fs.writeFileSync(p, r.testo, 'utf-8'); idCambiati++; }
+            });
+            giro(dest);
+        }
+        fs.writeFileSync(ip, IV.indiceConId(fs.readFileSync(ip, 'utf-8'), o.projectId), 'utf-8');
+        /* D6: i percorsi di pipeline.json sulla copia; un manifesto illeggibile resta com'è.
+           Quali sono i percorsi vecchi lo dice il core dell'import (la sorgente e il
+           `vaultPath` in cima, mai gli altri); la riscrittura è quella della rinomina,
+           `NomeCartellaCore.riparaPercorsi` dello 0094, una chiamata per percorso vecchio. */
+        let percorsi = 0;
+        const man = leggiMan();
+        if (man) {
+            let r = { manifest: man, cambiati: 0 };
+            IV.vecchiDelManifesto(man, src).forEach(v => {
+                const x = NomeCartellaCore.riparaPercorsi(r.manifest, dest, v);
+                r = { manifest: x.manifest, cambiati: r.cambiati + x.cambiati };
+            });
+            if (r.cambiati) { fs.writeFileSync(pp, JSON.stringify(r.manifest, null, 2), 'utf-8'); percorsi = r.cambiati; }
+        }
+        return { ok: true, folderPath: dest, percorsi, idCambiati };
+    } catch (e) {
+        try { fs.rmSync(dest, { recursive: true, force: true }); } catch (_) { /* resta da togliere a mano */ }
+        return { ok: false, error: 'copia: ' + e.message };
+    }
+}
+
+ipcMain.handle('import-vault-info', async (event, data) => {
+    try { return importaVaultInfo(data && data.src, { maps: mapsBaseDir(), students: studentsBaseDir() }); }
+    catch (e) { return { ok: false, error: e.message }; }
+});
+
+ipcMain.handle('import-vault-copy', async (event, data) => {
+    try { return await importaVaultCopia(data, { maps: mapsBaseDir(), students: studentsBaseDir() }); }
+    catch (e) { return { ok: false, error: e.message }; }
 });
 
 // IPC Handler to open the specific folder in macOS Finder

@@ -6,7 +6,7 @@ const path = require('node:path');
 const G = require('../public/js/mappai-grounding-core.js');
 const { load } = require('cheerio');
 
-function fixture({ approved = true, large = false, overviewMarkers = false } = {}) {
+function fixture({ approved = true, large = false, overviewMarkers = false, introExtra = '' } = {}) {
     const original = ('La BNS acquistò oro dalla Germania. ' + 'Il rapporto menzionava accuse, senza trasformarle in fatti accertati. '.repeat(7)).trim();
     const nodes = [
         { id: 'root', level: 0, label: 'Svizzera', desc: 'Neutralità e guerra.' },
@@ -21,6 +21,7 @@ function fixture({ approved = true, large = false, overviewMarkers = false } = {
     const prompts = [], requests = [];
     const win = {
         MappAIGroundingCore: G,
+        MappAIMaterialDrafts: require('../public/js/mappai-material-drafts.js'),
         MappAIReviewCore: require('../public/js/mappai-review-core.js'),
         MappAIReview: { current: () => review, sources: () => sources, requireApproved: async () => approved },
         MappAIStudyExport: { collectBranchNodes: id => nodes.filter(n => n.id === id || n.level === 2) },
@@ -32,7 +33,7 @@ function fixture({ approved = true, large = false, overviewMarkers = false } = {
             requests.push(text);
             const id = /\[\[(src-[\w-]+)\]\]/.exec(text)?.[1];
             return { candidates: [{ content: { parts: [{ text: text.includes('PANORAMICA introduttiva')
-                ? 'Panoramica dai fatti approvati.' + (overviewMarkers ? ' [[' + id + ']] [[src-sconosciuto]]' : '') : 'DERIVATO_NON_FONTE [[' + id + ']] [[src-sconosciuto]]' }] } }] };
+                ? 'Panoramica dai fatti approvati.' + (overviewMarkers ? ' [[' + id + ']] [[src-sconosciuto]]' : '') + introExtra : 'DERIVATO_NON_FONTE [[' + id + ']] [[src-sconosciuto]]' }] } }] };
         }
     };
     const sandbox = { window: win, appState: state, console: { log() {}, warn() {}, error() {} } };
@@ -104,4 +105,24 @@ test('sintesi: una modifica semantica durante la chiamata scarta il risultato', 
         assert.equal(f.win.MappAIBranchSynthesis.getData(), null);
         assert.equal(f.requests.length, 1, 'nessun ramo successivo o panoramica da una revisione mista');
     }
+});
+
+/* 0093 (C): il modello imita l'intestazione `## label [nodo ID]` e scrive rimandi a un
+   NODO al posto di una fonte. Escono dal testo e restano nel registro tecnico. */
+test('0093 C: alla generazione i rimandi a nodi escono dalla Panoramica, i rimandi buoni restano tutti', async () => {
+    const f = fixture({ large: true, overviewMarkers: true,
+        introExtra: ' Il circuito è chiuso [[ROOT]]. Il nodo [[src-1_0_L3_A2]] e [[n3]] e [[src-economia]].' });
+    const data = await f.win.MappAISynthesis.runWholeMap({ apiKey: 'fake', silent: true });
+    assert.ok(f.requests[2].includes('Non usare mai gli ID dei nodi'), 'il prompt della Panoramica lo vieta');
+    assert.ok(data.intro.includes('Il circuito è chiuso. Il nodo e e.'), data.intro);
+    assert.ok(!/\[\[(ROOT|src-1_0_L3_A2|n3|src-economia)\]\]/.test(data.intro));
+    assert.ok(data.intro.includes('[[' + data.introSources[0].id + ']]'), 'il rimando alla fonte resta');
+    assert.deepEqual(Array.from(data.introGrounding.nodeMarkers), ['ROOT', 'src-1_0_L3_A2', 'n3', 'src-economia']);
+    assert.deepEqual(Array.from(data.introGrounding.unknownCitationIds), ['src-sconosciuto']);
+});
+
+test('0093 C: una Panoramica senza rimandi a nodi non porta nodeMarkers', async () => {
+    const f = fixture({ large: true, overviewMarkers: true });
+    const data = await f.win.MappAISynthesis.runWholeMap({ apiKey: 'fake', silent: true });
+    assert.equal('nodeMarkers' in data.introGrounding, false);
 });

@@ -27,7 +27,8 @@
   var REGISTERS = {
     semplice: { label: 'Semplice (BES/DSA, primo biennio)', prompt: 'Usa un linguaggio molto semplice: frasi brevi, lessico concreto, un concetto per frase ed esempi dal quotidiano. Adatto a studenti BES/DSA e alle prime classi.' },
     medio: { label: 'Standard (medie / biennio)', prompt: 'Usa un linguaggio chiaro e standard: definizioni precise ma accessibili, periodi di media lunghezza.' },
-    ricco: { label: 'Ricco (liceo / triennio)', prompt: 'Usa un linguaggio articolato con terminologia disciplinare completa; sono ammessi periodi complessi e connettivi logici avanzati.' }
+    /* «Complesso» a schermo dal 13/10/2026 (0093, Giacomo); la chiave resta `ricco`: è salvata nelle classi */
+    ricco: { label: 'Complesso (liceo / triennio)', prompt: 'Usa un linguaggio articolato con terminologia disciplinare completa; sono ammessi periodi complessi e connettivi logici avanzati.' }
   };
   function toast(m, k) { if (window.showToast) window.showToast(m, k || 'info'); else console.log(m); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
@@ -302,7 +303,9 @@
      studenti» in testa a un modulo di creazione dice dove sei, non che cosa
      stai facendo — e il titolo vero finiva ripetuto dentro il corpo, in un
      carattere più piccolo di quello dell'intestazione. */
-  function overlay(bodyHtml, maxWidth, titolo) {
+  /* `chiudi` (0093, F): chi apre la schermata può decidere che cosa fanno la × e
+     il velo — «Profilo classe» chiede prima di buttare via le modifiche. */
+  function overlay(bodyHtml, maxWidth, titolo, chiudi) {
     closeModal();
     _stile2col();
     _onEnter = null;   // ogni schermata dichiara la sua (default: Invio non fa nulla)
@@ -315,8 +318,9 @@
       '<i data-lucide="users" style="width:22px;height:22px;color:#4f46e5"></i>' + esc(titolo || t('cls_title', 'Account classi e studenti')) + '</div>' +
       '<button type="button" class="cls-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>' +
       '</div>' + bodyHtml + '</div>';
-    ov.addEventListener('click', function (e) { if (e.target === ov) closeModal(); });
-    ov.querySelector('.cls-close').onclick = closeModal;
+    var esci = chiudi || closeModal;
+    ov.addEventListener('click', function (e) { if (e.target === ov) esci(); });
+    ov.querySelector('.cls-close').onclick = function () { esci(); };
     document.body.appendChild(ov);
     if (window.safeCreateIcons) window.safeCreateIcons();
     _bindEnter(ov);
@@ -822,7 +826,7 @@
       '<div id="cls-tuning-explain" style="display:none;background:#fff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#334155">' +
       t('cls_tuning_explain', 'La taratura non cambia i <b>fatti</b>: cambia solo <b>come</b> l\'AI li spiega, per calibrarli su questa classe.<br><br>' +
         '<b>Grado e livello</b> — presi dalla sezione «Nome classe» qui sopra (grado + Scuola Media / Liceo): regolano profondità e complessità dei contenuti.<br>' +
-        '<b>Registro</b> — quanto è semplice o ricco il linguaggio (lunghezza frasi, lessico).<br>' +
+        '<b>Registro</b> — quanto è semplice o complesso il linguaggio (lunghezza frasi, lessico).<br>' +
         '<b>Note</b> — indicazioni libere (es. «3 DSA», «esempi dallo sport», «evita metafore astratte»).<br><br>' +
         'Vale per mappe, quiz, cloze e tutor generati quando questa classe è la <b>classe attiva</b>. Le mappe già create non vengono ri-tradotte.') +
       '</div>' +
@@ -925,11 +929,13 @@
       btn(t('cls_delete', 'Elimina classe'), DANGER).replace('<button', '<button data-del="1"') +
       '<div style="display:flex;gap:8px">' +
       btn(t('cls_back', 'Indietro'), GHOST).replace('<button', '<button data-back="1"') +
-      btn(t('cls_save_names', 'Salva nomi'), PRIMARY).replace('<button', '<button data-savenames="1"') +
+      /* «Salva» e non «Salva nomi» (0093, F): salva tutto il profilo, non solo i nomi */
+      btn(t('cls_save', 'Salva'), PRIMARY).replace('<button', '<button data-savenames="1"') +
       '</div></div>';
 
-    var ov = overlay(body, null, t('cls_edit_title', 'Profilo classe') + ' · ' + c.name);
-    ov.querySelector('[data-back]').onclick = function () { tornaAllaLista(); };
+    var ov = overlay(body, null, t('cls_edit_title', 'Profilo classe') + ' · ' + c.name,
+      function () { esciChiedendo(closeModal); });
+    ov.querySelector('[data-back]').onclick = function () { esciChiedendo(tornaAllaLista); };
     wireDisciplineField(ov);
     wireTuningHelp(ov);
 
@@ -953,7 +959,30 @@
       refreshIdent();
     }
 
-    ov.querySelector('[data-savenames]').onclick = function () {
+    /* ── USCIRE CON MODIFICHE NON SALVATE (0093, F) ─────────────────────────
+       «Indietro», la × e il velo buttavano via tutto senza dirlo: spuntare una
+       disciplina e premere «Indietro» non la salvava. Si fotografano i campi
+       all'apertura; se all'uscita sono cambiati, la finestra di salvataggio del
+       motore (Salva · Esci senza salvare · Torna indietro). Senza modifiche, o
+       senza motore, si esce come prima. */
+    var fotografia = '';
+    function statoCampi() {
+      return JSON.stringify(Array.prototype.map.call(ov.querySelectorAll('input,select,textarea'), function (el) {
+        return [el.id || el.name || '', (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : String(el.value || '')];
+      }));
+    }
+    function esciChiedendo(dopo) {
+      var MM = window.MappAIModal;
+      if (statoCampi() === fotografia || !MM || !MM.chiediSalvataggio) { dopo(); return; }
+      MM.chiediSalvataggio({ nome: c.name }).then(function (a) {
+        if (a === 'salva') { if (salva(false)) dopo(); }
+        else if (a === 'esci') dopo();
+      });
+    }
+
+    /* `resta`: dal bottone si resta nella schermata (e la si ridisegna se il nome è
+       cambiato); dalla finestra di salvataggio si esce subito dopo. false = non salvato. */
+    function salva(resta) {
       // identità: grado + sezione → nome canonico (solo se il grado è impostato)
       var nameChanged = false;
       if (idGrade) {
@@ -963,7 +992,7 @@
           var nm = buildClassName(pg.gradeNum, sec);
           if (STORE.list().some(function (x) { return x.id !== c.id && x.name === nm; })) {
             toast(t('cls_dup', 'Esiste già la classe «') + nm + t('cls_dup2', '». Cambia grado o sezione.'), 'error');
-            return;
+            return false;
           }
           c.gradeNum = pg.gradeNum; c.section = sec;
           c.grade = String(pg.gradeNum) + 'ª';
@@ -999,8 +1028,11 @@
       nuovi.forEach(function (i) { saveStudentCredentialPdf(c, i); });
       if (STORE.activeId() === c.id) renderChip();
       toast(t('cls_saved', 'Classe salvata.'), 'success');
-      if (nameChanged) renderEdit(c.id);
-    };
+      if (resta && nameChanged) renderEdit(c.id);
+      else fotografia = statoCampi();
+      return true;
+    }
+    ov.querySelector('[data-savenames]').onclick = function () { salva(true); };
     ov.querySelector('[data-print]').onclick = function () { printCredentials(c); };
     ov.querySelector('[data-del]').onclick = function () {
       /* ⚠️ Passava da `showPrompt`, che è un modale del markup fermo a z-9999:
@@ -1026,6 +1058,7 @@
         window.showPrompt(chiedi, '', provaEliminare);
       } else if (confirm(t('cls_del_confirm2', 'Eliminare la classe') + ' ' + c.name + '?')) doDelete(c.id);
     };
+    fotografia = statoCampi();   // i campi come li ha trovati il docente (0093, F)
   }
 
   function doDelete(id) {

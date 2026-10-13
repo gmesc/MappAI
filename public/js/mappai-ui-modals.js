@@ -1142,6 +1142,13 @@ function renderModelSelect(models, selectEl, currentValue) {
 
     if (currentValue && [...selectEl.options].some(o => o.value === currentValue)) {
         selectEl.value = currentValue;
+    } else if (isInfo && !currentValue) {
+        /* 0093: con Infomaniak il modello lo sceglie il docente. Finché non l'ha scelto,
+           la tendina lo dice e non propone niente: prima si selezionava la prima voce
+           senza salvarla, cioè si generava con un modello che nessuno aveva scelto. */
+        const vuota = document.createElement('option'); vuota.value = ''; vuota.disabled = true;
+        vuota.textContent = window.t('modelli_scegli', '— scegli un modello —');
+        selectEl.insertBefore(vuota, selectEl.firstChild); vuota.selected = true;
     } else if (isInfo && currentValue) {
         const missing = document.createElement('option'); missing.value = currentValue;
         missing.textContent = currentValue + ' — ' + window.t('catalog_not_available', 'Non disponibile nel catalogo aggiornato');

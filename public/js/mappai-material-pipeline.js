@@ -1750,6 +1750,21 @@
       return window.MappAIReview.open(opts.vaultPath || opts.manifest.vaultPath, opts.manifest);
     }
     config = JSON.parse(JSON.stringify(config || {}));
+    /* 0093 (B, gate di Giacomo 13/10): con Infomaniak il modello lo sceglie il docente. Senza scelta ci si
+       ferma QUI, prima del velo e della lettura delle fonti: prima partiva tutto, il motore della mappa si
+       fermava con «Scegli il modello AI prima di generare.» (fetchModelAPI) e poi CREA aggiungeva
+       «Pipeline interrotta: … mappa troppo piccola». Non vale per i modelli per fase (hanno i loro), per
+       una config che porta già il suo contesto AI, né per una revisione già chiusa (come la chiave sotto). */
+    const _chiusa = opts.manifest && opts.manifest.review && opts.manifest.review.final &&
+      ['approved', 'finalizing', 'done'].includes(opts.manifest.review.final.stage);
+    if (!_chiusa && !config.aiContext && _state().aiProvider === 'infomaniak' &&
+        !(window.MappAIModelli && window.MappAIModelli.acceso && window.MappAIModelli.acceso())) {
+      const sel = document.getElementById('model-select');
+      if (!((sel && sel.value) || localStorage.getItem('infomaniak_selected_model'))) {
+        _toast(_t('modello_da_scegliere', 'Scegli il modello AI prima di generare.'), 'error');
+        return;
+      }
+    }
     if (opts.manifest && opts.manifest.review && window.MappAIReview) {
       _state()._pipelineManifest = opts.manifest;
       // con la quarantena accesa G1 è facoltativa: il record lo calcola il giro, il cancello decide dopo (0042)
@@ -2175,6 +2190,9 @@
     else if (o.tuned && !o.levelTuned) scope = 'materials';
     const r = _configRoot().querySelector('input[name="mp-adapt-scope"][value="' + scope + '"]');
     if (r) r.checked = true;
+    /* 0093: nel modale su un progetto già fatto c'è solo l'ambito «materiali»: un preset «solo mappa» non ha niente
+       da tarare (in CREA, anche senza le tre scelte nel bento, resta com'era) */
+    else if (scope === 'map' && Pipeline._reviewTarget) set('mp-adapt-on', false);
     _syncSections(); Pipeline._reestimate();
   }
 
@@ -2250,8 +2268,9 @@
     const adaptRadio = (val, label, desc, checked) =>
       '<label class="flex items-start gap-2 cursor-pointer select-none">' +
       '<input type="radio" name="mp-adapt-scope" value="' + val + '"' + (checked ? ' checked' : '') + ' class="mt-1 accent-indigo-600 shrink-0">' +
-      '<span><span class="text-[12.5px] font-semibold text-slate-700">' + _esc(label) + '</span> ' +
-      '<span class="text-[11px] text-slate-400">— ' + _esc(desc) + '</span></span></label>';
+      '<span><span class="text-[12.5px] font-semibold text-slate-700">' + _esc(label) + '</span>' +
+      /* senza descrizione niente «—» appeso («Entrambi», 0093: Giacomo al gate) */
+      (desc ? ' <span class="text-[11px] text-slate-400">— ' + _esc(desc) + '</span>' : '') + '</span></label>';
     const SEL = 'px-2.5 py-1.5 rounded-lg border border-slate-200 text-[12px] font-semibold text-slate-700 bg-white';
     const SECT = 'bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100';
     const SUBTITLE = 'block text-[10.5px] font-bold uppercase tracking-widest text-slate-400 mb-2';
@@ -2338,10 +2357,17 @@
             '</label>' +
             (_tarAcceso() ? '<p id="mp-adapt-tar" class="text-[12px] text-slate-600 leading-relaxed mt-2 ml-[27px]"></p>' : '') +
             '<div id="mp-adapt-body" class="mt-3 space-y-2">' +
-              '<p class="text-[11px] text-slate-500 leading-relaxed">' + _esc(_t('mp_adapt_help', 'La classe attiva è già il contesto di base. Scegli cosa affinare in più:')) + '</p>' +
-              adaptRadio('map', _t('mp_adapt_map', 'Solo la mappa'), _t('mp_adapt_map_desc', 'profondità e complessità dei contenuti sul grado'), false) +
-              adaptRadio('materials', _t('mp_adapt_materials', 'Solo i materiali'), _t('mp_adapt_materials_desc', 'registro e note su quiz, fogli e sintesi → file [VERDE]'), false) +
-              adaptRadio('both', _t('mp_adapt_both', 'Entrambi'), _t('mp_adapt_both_desc', 'mappa sul grado + materiali [VERDE]'), true) +
+              /* 0093 (gate, Giacomo: «Sì, nella beta.7»): su un progetto GIÀ FATTO (ELABORA, INSEGNA) la mappa non
+                 si rigenera — il giro fa solo B-E (`runApprovedMaterials`) — quindi «Solo la mappa» ed «Entrambi» non
+                 fanno niente: resta la spunta, che vale per i materiali. Il radio nascosto tiene l'ambito per
+                 `_readConfig` e `_applyOptions`. In CREA (il bento, altro markup) le tre scelte restano. */
+              (Pipeline._reviewTarget
+                ? '<input type="radio" name="mp-adapt-scope" value="materials" checked hidden>' +
+                  '<p class="text-[11px] text-slate-500 leading-relaxed">' + _esc(_t('mp_adapt_solo_mat', 'Vale per i materiali: la sintesi segue registro e note della classe.')) + '</p>'
+                : '<p class="text-[11px] text-slate-500 leading-relaxed">' + _esc(_t('mp_adapt_help', 'La classe attiva è già il contesto di base. Scegli cosa affinare in più:')) + '</p>' +
+                  adaptRadio('map', _t('mp_adapt_map', 'Solo la mappa'), _t('mp_adapt_map_desc', 'mappa più semplice, sul grado'), false) +
+                  adaptRadio('materials', _t('mp_adapt_materials', 'Solo i materiali'), _t('mp_adapt_materials_desc', 'la sintesi segue registro e note della classe'), false) +
+                  adaptRadio('both', _t('mp_adapt_both', 'Entrambi'), '', true)) +
             '</div></div>' +
         '</div>' +
         // Footer
@@ -2381,7 +2407,13 @@
      del chip di ELABORA) e spegne scelte e «Avvia». Interruttore `mappai_elabora_attesa`. */
   function _g2Attende() {
     const C = window.MappAIMaterialiAttesaCore;
-    try { return !!(C && C.acceso(window.localStorage) && C.g2InAttesa(_state()._pipelineManifest)); } catch (e) { return false; }
+    /* 0094 (lotto F2, difetto 9): il manifesto in memoria conta solo se è del progetto
+       aperto — quello di un altro progetto spegneva «Avvia» col suo avviso */
+    try {
+      const s = _state();
+      const chi = { projectId: (typeof StorageManager !== 'undefined') ? StorageManager.currentProjectId : null, vaultPath: s.activeVaultPath || '' };
+      return !!(C && C.acceso(window.localStorage) && C.g2InAttesa(s._pipelineManifest, chi));
+    } catch (e) { return false; }
   }
   function _avvisoG2(modal) {
     const corpo = modal.querySelector('.space-y-3');
@@ -2425,7 +2457,10 @@
   function _adattaSecondoClasse() {
     if (!_tarAcceso() || !document.getElementById('mp-adapt-tar')) return;
     const scelta = _classeScelta(), box = document.querySelector('#mp-modal #mp-adapt-on');
-    if (scelta && box) box.checked = scelta.speciale;
+    /* 0093 (Giacomo, «opzione 2»): una classe «Complesso» (chiave `ricco`) non accende la spunta da sola,
+       nemmeno con le note — accesa partirebbe su «Entrambi», e in CREA la parte mappa forza il registro
+       semplice. `_classSpecial` non cambia (governa anche il pallino verde). */
+    if (scelta && box) box.checked = scelta.speciale && scelta.cls.register !== 'ricco';
   }
   function _scriviTaratura() {
     const p = document.getElementById('mp-adapt-tar');

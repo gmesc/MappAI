@@ -177,7 +177,9 @@
             const key = provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model';
             try { model = localStorage.getItem(key); } catch (e) { }
         }
-        if (!model) model = provider === 'google' ? 'gemini-2.0-flash' : 'mistral-small-4-119B-2603';
+        /* 0093: su Infomaniak nessun nome fisso: senza scelta del docente il modello resta vuoto
+           e «Avvia» si ferma con un messaggio (sotto, in `#tq-start`) */
+        if (!model && provider === 'google') model = 'gemini-2.0-flash';
         // chiave del provider SCELTO (non solo l'attivo)
         const apiKey = window.getProviderKey ? window.getProviderKey(provider)
             : (window.getSystemKey ? window.getSystemKey() : '');
@@ -279,6 +281,7 @@
             if (pc.provider === 'infomaniak' && !pc.productId) {
                 toast(t('tq_need_productid', 'Imposta il Product ID di Infomaniak in Config AI per usarlo qui.'), 'error'); return;
             }
+            if (!pc.model) { toast(t('modello_da_scegliere', 'Scegli il modello AI prima di generare.'), 'error'); return; }
 
             const r = await window.electronAPI.tutorStartSession({
                 name: st.rootNodeLabel || 'Mappa',

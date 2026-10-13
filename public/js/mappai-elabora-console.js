@@ -314,6 +314,7 @@
        esposta): due classificatori dello stesso nome-file divergerebbero. */
     var _disco = null;          /* null = non ancora letto · [] = letto, niente */
     var _discoVault = '';       /* per quale vault: cambiando mappa si rilegge */
+    var _discoManifest = null;  /* 0094 (F2): il pipeline.json della cartella attiva, letto con i file */
     function _generePerFile(nome) {
         try {
             if (window.MappAITeach && window.MappAITeach.generePerFile) return window.MappAITeach.generePerFile(nome);
@@ -333,10 +334,11 @@
         var s = _appState();
         var api = window.electronAPI;
         var vp = (s && s.activeVaultPath) || '';
-        if (!api || !api.vaultMaterialsList || !vp) { _disco = []; _discoVault = vp; return; }
-        _discoVault = vp;
+        if (!api || !api.vaultMaterialsList || !vp) { _disco = []; _discoVault = vp; _discoManifest = null; return; }
+        _discoVault = vp; _discoManifest = null;
         api.vaultMaterialsList({ vaultPath: vp }).then(function (r) {
             if (_discoVault !== vp) return;          /* mappa cambiata nel frattempo */
+            _discoManifest = (r && r.manifest) || null;
             _disco = ((r && r.files) || []).filter(function (f) {
                 if (!f || !f.name) return false;
                 if (/\.json$/i.test(f.name)) return false;
@@ -1316,6 +1318,8 @@
                    Sparisce al primo clic, e sparisce anche in INSEGNA: la
                    lista dei nuovi è una sola (`MappAIGen`). */
                 badge: (window.MappAIGen && MappAIGen.eNuovo && MappAIGen.eNuovo(m)) ? t('ec_nuovo', 'NUOVO') : '',
+                /* 0094 (lotto E): un nome dato dall'app propone il titolo */
+                sotto: (T && T.propostaNome && T.propostaNome(m)) ? t('rn_provvisorio', 'nome provvisorio: Rinomina… propone «{nome}»').replace('{nome}', T.propostaNome(m)) : '',
                 chiude: false
             };
         });
@@ -1428,9 +1432,24 @@
        alla lista nella forma di `_materiali()`, e `tabelleMateriali` (letto e
        mai modificato) le mette nella tabella della loro categoria. Interruttore
        `mappai_elabora_attesa` ('0' = niente righe). */
+    /* 0094 (lotto F2, difetto 9): il manifesto conta solo per il SUO progetto. Se
+       quello in memoria è di un altro (`diQuestoProgetto`), vale il pipeline.json
+       della cartella attiva, letto da `_caricaDisco` insieme ai file. */
+    function _progettoAperto() {
+        var st = _appState() || {}, sm = null;
+        try { sm = (typeof StorageManager !== 'undefined') ? StorageManager : null; } catch (e) { sm = null; }
+        return { projectId: sm ? sm.currentProjectId : null, vaultPath: st.activeVaultPath || '' };
+    }
+    function _manifestoDelProgetto() {
+        var C = window.MappAIMaterialiAttesaCore, st = _appState() || {}, chi = _progettoAperto();
+        if (!C || !C.diQuestoProgetto) return st._pipelineManifest;
+        if (C.diQuestoProgetto(st._pipelineManifest, chi)) return st._pipelineManifest;
+        /* il pipeline.json letto dal disco della cartella attiva è suo per definizione */
+        return (_discoVault && _discoVault === chi.vaultPath) ? _discoManifest : null;
+    }
     function _g2InAttesa() {
         var C = window.MappAIMaterialiAttesaCore;
-        try { return !!(C && C.acceso(window.localStorage) && C.g2InAttesa((_appState() || {})._pipelineManifest)); }
+        try { return !!(C && C.acceso(window.localStorage) && C.g2InAttesa(_manifestoDelProgetto(), _progettoAperto())); }
         catch (e) { return false; }
     }
     function _righeInAttesa() {
@@ -1438,7 +1457,7 @@
         try { if (!C || !C.acceso(window.localStorage)) return []; } catch (e) { return []; }
         var st = _appState() || {};
         if (st.extractionMode === 'lettura') return [];
-        return C.righe(st._pipelineManifest).map(function (r) {
+        return C.righe(_manifestoDelProgetto(), _progettoAperto()).map(function (r) {
             return { id: r.id, titolo: t(r.chiave, r.nome), tipo: r.tipo, data: 0, archivio: false,
                 voce: false, cls: '', disc: '', attesa: true };
         });
@@ -2574,15 +2593,23 @@
                 var _scelto = (_mappe || []).filter(function (x) { return String(x.id) === String(_sceltoId); })[0]
                     || (_sceltoId ? corrente : null);
                 if (!_scelto) liv = liv.slice(0, 1);
+                /* 0094 (S7): «Rinomina…» in fondo al menu del progetto, ma non per un
+                   percorso di lettura: qui la briciola è sempre il progetto aperto, e una
+                   lettura aperta non si rinomina (S2) */
+                var _rinE = (_scelto && window.MappAITeach && MappAITeach.perRinomina) ? MappAITeach.perRinomina(_scelto) : null;
+                if (_rinE && _rinE.lettura) _rinE = null;
+                var _nuovoE = _rinE ? { et: t('rn_voce', 'Rinomina…'), onPick: function () { if (window.MappAIRinomina) MappAIRinomina.apri(_rinE); } } : null;
                 /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
                    l'allineamento il filtro si stringe spesso su UNA mappa, e una
                    tendina con una voce sola — già spuntata — si legge come rotta. */
-                else liv.push((_mappe || []).length > 1
+                if (!_scelto) { /* niente */ }
+                else liv.push(((_mappe || []).length > 1 || _nuovoE)
                     ? {
                         et: _scelto.nome,
                         menu: {
                             tipo: 'lista',
-                            voci: (_mappe || []).map(function (m2) {
+                            nuovo: _nuovoE,
+                            voci: (_mappe || []).length < 2 ? [] : (_mappe || []).map(function (m2) {
                                 return {
                                     et: m2.nome, on: String(m2.id) === String(_scelto.id),
                                     onPick: function () {
@@ -2648,11 +2675,22 @@
                cadere, o riporterebbe in colonna i documenti di una mappa che non
                appartiene più al contesto scelto. */
             var atteso = m;
+            /* 0094 (lotto F3, difetto 9 della guida): se il caricamento non parte o non
+               arriva, la briciola torna al progetto DAVVERO aperto. Prima `_prog` restava
+               quello scelto, e le tabelle del progetto caricato si leggevano col nome
+               dell'altro (righe «Completa validazione» di «Circuiti» sotto «Elettricità»). */
+            var _tornaAlCaricato = function () {
+                if (_inCorso !== atteso) return;
+                var corr = null;
+                try { corr = (_mappe && T.mappaCorrente) ? T.mappaCorrente(_mappe) : null; } catch (e) { corr = null; }
+                _prog = corr ? corr.id : null;
+                _inCorso = null; _inCorsoV2 = null; rifai();
+            };
             var ok = T.apriMappa(m, function () {
                 if (_inCorso !== atteso) return;
                 _inCorso = null; _inCorsoV2 = null; _caricaMappe(); _disco = null; _caricaDisco(); rifai();
-            });
-            if (!ok) { _inCorso = null; _inCorsoV2 = null; rifai(); toast(t('ec_map_ko', 'Non riesco a cambiare progetto da qui.'), 'warning'); }
+            }, _tornaAlCaricato);
+            if (!ok) { _tornaAlCaricato(); toast(t('ec_map_ko', 'Non riesco a cambiare progetto da qui.'), 'warning'); }
         }
 
         /* l'elenco si rilegge dopo un cambio di contesto: classe o materia nuove
@@ -3532,6 +3570,15 @@
         s.suApertura = function (box, ridis) {
             ridisegna = ridis;
             montaBriciole(box);
+            /* 0094 (S7): tasto destro su un progetto della colonna → «Rinomina…» */
+            if (window.MappAIRinomina && MappAIRinomina.menuContestuale) {
+                MappAIRinomina.menuContestuale(box, function (nav) {
+                    if (String(nav).indexOf('prog:') !== 0) return null;
+                    var id = String(nav).slice(5);
+                    var m = (_mappe || []).filter(function (x) { return String(x.id) === id; })[0];
+                    return (m && window.MappAITeach && MappAITeach.perRinomina) ? MappAITeach.perRinomina(m) : null;
+                });
+            }
             /* l'elenco delle mappe arriva dal disco: si chiede all'apertura e la
                briciola si completa quando risponde (`suApertura` esiste per
                questo — `suAzione` nasce da un gesto e qui non c'è nessun gesto) */

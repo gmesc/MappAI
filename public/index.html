@@ -69,7 +69,7 @@
          foglio non cambia NULLA. La mette mappai-stile-manifesto.js, che si
          spegne con localStorage mappai_stile_manifesto='0'.
          Va DOPO i token e fuori dai @layer: le regole in layer perdono. -->
-    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=ritocchi-0087-20261012-10">
+    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=ritocchi-0087-20261013-5">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
     <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=ritocchi-0087-20261013-3">
@@ -342,6 +342,13 @@
         html[data-app="docente"] .pm-btn-cancel:hover { background: var(--mm-accent-soft); color: var(--mm-accent); }
         html[data-app="docente"] .pm-btn-primary { background: var(--mm-accent); }
         html[data-app="docente"] .pm-btn-primary:hover { background: var(--mm-accent-hover); }
+        /* 13/10 (0087, Giacomo con una schermata: «i bottoni di questo modale devono allinearsi con i token dei
+           bottoni delle altre superfici»): nel riepilogo «Materiali generati» (#mp-summary, scritto da
+           mappai-material-pipeline.js) il gemello prende anche la disposizione di `.mm-btn`: icona accanto al
+           testo (`--mm-btn-gap`) e a `--mm-icona`. Prima «Apri cartella» era un blocco con l'icona da 16 SOPRA
+           il testo, alto 56, e «Chiudi» gli andava dietro. Solo qui: gli altri modali `.pm-*` sono un giro a sé. */
+        html[data-app="docente"] #mp-summary :is(.pm-btn-cancel, .pm-btn-primary) { display: inline-flex; align-items: center; justify-content: center; gap: var(--mm-btn-gap); padding-top: var(--mm-btn-pad-y); padding-bottom: var(--mm-btn-pad-y); }
+        html[data-app="docente"] #mp-summary :is(.pm-btn-cancel, .pm-btn-primary) svg { width: var(--mm-icona); height: var(--mm-icona); flex: 0 0 auto; }
         /* in un riquadro grigio il campo è bianco e senza bordo (Giacomo, 08/10, punto 4) */
         html[data-app="docente"] .pm-section :is(select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])) {
             background: var(--mm-fondo);
@@ -2760,7 +2767,7 @@
          SCRIPT UNIFICATI (JS)
          ========================================== -->
     <script src="traduzioni/it_translations.js?v=0090-20261013-1"></script>
-    <script src="traduzioni/en_translations.js?v=0091-20261013-1"></script>
+    <script src="traduzioni/en_translations.js?v=0093-20261013-1"></script>
     <script src="traduzioni/i18n-helper.js"></script>
     <script src="js/infomaniak_bridge.js?v=0066-20260930-1"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
@@ -2776,7 +2783,7 @@
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
     <script src="js/mappai-generazione.js?v=0062-20261013-1"></script>
 
-    <script src="js/app.js?v=0088-20261012-1"></script>
+    <script src="js/app.js?v=0093-20261013-1"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -2794,11 +2801,13 @@
     <!-- «le cartelle sono cambiate»: il canale unico fra chi scrive su disco e chi
          mostra elenchi (9/8). Presto, perché chiunque può segnalare. -->
     <script src="js/mappai-vaults-bus.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-nome-cartella-core.js?v=0094-20261013-1"></script>
+    <script src="js/mappai-rinomina.js?v=0094-20261013-2"></script>
     <script src="js/mappai-console-bento.js?v=0091-20261013-1"></script>
     <script src="js/mappai-mm-triage.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-catalogo-core.js?v=0088-20261012-1"></script>
-    <script src="js/mappai-ui-modals.js?v=0088-20261012-1"></script>
-    <script src="js/mappai-storage-lang.js?v=cassetto-0082-20261008-1-0070-20261008-2-0070-guardia-20261010"></script>
+    <script src="js/mappai-ui-modals.js?v=0093-20261013-1"></script>
+    <script src="js/mappai-storage-lang.js?v=0094-20261013-1"></script>
     <script src="js/mappai-d3-render.js?v=ritocchi-0087-20261009-4"></script>
     <!-- HTML che viene dai dati (vault, fonti, modelli, allievi) → testo o lista bianca (25/9) -->
     <script src="js/mappai-html-sicuro.js?v=rinforzo-20260925-3"></script>
@@ -2853,7 +2862,7 @@
     <script src="js/mappai-causal-core.js"></script>
     <script src="js/mappai-causal-chains.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-grounding-core.js?v=review-teacher-20260913-4"></script>
-    <script src="js/mappai-branch-synthesis.js?v=0079b-20261009-3"></script>
+    <script src="js/mappai-branch-synthesis.js?v=0093-20261013-1"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
@@ -2896,7 +2905,7 @@
     <script src="js/mappai-study-bus.js"></script>
     <script src="js/mappai-active-study-core.js?v=sf1"></script>
     <script src="js/mappai-active-study.js?v=ritocchi-0087-20261013-2"></script>
-    <script src="js/mappai-menu-hubs.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-menu-hubs.js?v=ritocchi-0087-0095-20261013-1"></script>
     <!-- Lavagna Collaborativa (003): QR vendored + core puro + lato docente -->
     <script src="js/vendor/qrcode-generator.js"></script>
     <!-- Variante WEB: toggle rete WiFi aula / Internet condiviso dai wizard QR -->
@@ -2906,7 +2915,7 @@
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
     <script src="js/mappai-live-core.js?v=qz2"></script>
     <script src="js/mappai-live-reports.js?v=ritocchi-0087-20261013-2"></script>
-    <script src="js/mappai-live-classes.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-live-classes.js?v=0093-20261013-1"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
     <script src="js/mappai-vista-ridotta.js?v=0067-20261001-1-notte-0070-20261008-1"></script>
@@ -2922,7 +2931,7 @@
     <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
     <script src="js/mappai-tutor-core.js"></script>
     <script src="js/mappai-tutor-reports.js?v=ritocchi-0087-20261013-2"></script>
-    <script src="js/mappai-tutor-teacher.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-tutor-teacher.js?v=0093-20261013-1"></script>
     <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
     <script src="js/mappai-teach-core.js?v=identita-0061-20260930-1"></script>
     <!-- Organizzazione file (010): core puro + impostazioni cartella + registro attività -->
@@ -2934,7 +2943,7 @@
     <script src="js/mappai-files-settings.js?v=0088-20261012-1"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
     <script src="js/mappai-pipeline-core.js?v=punto-20261006-4"></script>
-    <script src="js/mappai-landing-teach.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-landing-teach.js?v=0094-20261013-1"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -2955,26 +2964,26 @@
          accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
     <script src="js/mappai-elabora.js?v=cassetto-0082-20261007-2-0070-20261008-4"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
-    <script src="js/mappai-doc-editor.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-doc-editor.js?v=0093-20261013-1"></script>
     <!-- ELABORA come CONSOLE (colonna dei documenti + area full-bleed con
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=0091-20261013-1"></script>
+    <script src="js/mappai-elabora-console.js?v=0094-20261013-1"></script>
     <script src="js/mappai-review-core.js?v=rinforzo-20260925-3"></script>
     <!-- 0069 (ADR 0016 rev. 1): la scheda confermata in CREA è la fonte del dossier.
          Core puro, dopo visione-core e review-core che legge; interruttore
          `mappai_dossier_fonte_scheda`, spento. -->
     <script src="js/mappai-dossier-fonte-core.js?v=0088-20261012-1"></script>
     <script src="js/mappai-review-context.js?v=review-0015-20260922-2"></script>
-    <script src="js/mappai-material-drafts.js?v=review-teacher-20260913-4"></script>
+    <script src="js/mappai-material-drafts.js?v=0093-20261013-1"></script>
     <!-- Cercare nella fonte (15/9/2026). DOPO review-context e material-drafts:
          il core li usa per costruire i record da cercare. Tutto nel renderer —
          nessun processo esterno, nessun modello, nessuna chiamata di rete.
          Interruttore: localStorage `mappai_local_search_enabled` = '0'. -->
     <script src="js/mappai-local-search-core.js?v=bm25-20260915"></script>
     <script src="js/mappai-local-search.js?v=bm25-20260915b"></script>
-    <script src="js/mappai-material-review.js?v=0070-casi-20261010-1"></script>
+    <script src="js/mappai-material-review.js?v=0093-20261013-1"></script>
     <script src="js/mappai-review-fonte.js?v=0074-20261006-2"></script>
     <script src="js/mappai-confronto-core.js?v=inline-20260917"></script>
     <!-- 0073 (ADR 0012 rev. 3-5): il Banco nuovo. Il core puro dello 0072, DOPO review-core e review-context
@@ -2982,7 +2991,7 @@
          PRIMA di mappai-review.js, che monta la veste. Interruttore `mappai_banco_veste`: acceso di default (0089, ADR 0020), '0' lo spegne. -->
     <script src="js/mappai-banco-core.js?v=0089-20261010-1"></script>
     <script src="js/mappai-banco-veste.js?v=0086-20261009-4"></script>
-    <script src="js/mappai-materiali-attesa-core.js?v=0090-20261013-2"></script>
+    <script src="js/mappai-materiali-attesa-core.js?v=0094-20261013-1"></script>
     <script src="js/mappai-review.js?v=0090-20261013-3"></script>
     <script src="js/mappai-link-editor-core.js?v=link-editor-0022-20260924-2"></script>
     <script src="js/mappai-link-editor.js?v=rinforzo-20260925-1"></script>
@@ -2999,7 +3008,7 @@
          chiama. Niente interfaccia, nessun secondo interruttore: si scrive sempre. -->
     <script src="js/mappai-misura-evidenze.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-learning-path.js?v=ritocchi-0087-20261009-4"></script>
-    <script src="js/mappai-material-pipeline.js?v=0062-0091-20261013-1"></script>
+    <script src="js/mappai-material-pipeline.js?v=0062-0091-0093-0094-20261013-1"></script>
     <!-- Lo strato delle affermazioni e la quarantena (packet 0042, ADR 0010): il core
          puro, la cucitura (interruttori, record, cancello avvolto) e le superfici
          (riquadro del Setup, strato del Banco, riga del riepilogo). DOPO review.js e
@@ -3028,14 +3037,14 @@
     <script src="js/mappai-percorso-lettura-core.js?v=0070-g2-20261010-5"></script>
     <script src="js/mappai-percorso-lettura-materials.js?v=0070-catalogo-20261010-2"></script>
     <script src="js/mappai-percorso-lettura-design.js?v=0070-g2-20261010-6"></script>
-    <script src="js/mappai-percorso-lettura.js?v=0070-g2-20261010-6"></script>
+    <script src="js/mappai-percorso-lettura.js?v=0094-20261013-1"></script>
     <script src="js/mappai-percorso-lettura-view.js?v=0070-editor-toolbar-20261009-1"></script>
     <script src="js/mappai-percorso-lettura-print.js?v=0070-catalogo-20261010"></script>
     <script src="js/mappai-percorso-lettura-editor.js?v=ritocchi-0087-20261012-9"></script>
     <script src="js/mappai-percorso-lettura-toolbar.js?v=0070-editor-toolbar-20261009-2"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=ritocchi-0087-20261012-4"></script>
-    <script src="js/mappai-costruisci-manifesto.js?v=0070-grafica-20261008-5"></script>
+    <script src="js/mappai-bento-composizione.js?v=0093-20261013-1"></script>
+    <script src="js/mappai-costruisci-manifesto.js?v=0093-20261013-1"></script>
     <script id="lettura-crea-bootstrap">
         document.addEventListener('DOMContentLoaded', function () {
             var enabled = false;
@@ -3049,7 +3058,7 @@
     </script>
     <!-- 0087 lotto 10-crea: la scelta «Output» (dopo il bootstrap della Lettura: il suo ascoltatore parte dopo) -->
     <script src="js/mappai-crea-output.js?v=ritocchi-0087-20261012-5"></script>
-    <script src="js/mappai-usage-core.js?v=identita-0061-20260930-1"></script>
+    <script src="js/mappai-usage-core.js?v=0093-20261013-1"></script>
     <script src="js/mappai-usage-tracker.js?v=rinforzo-20260925-1"></script>
     <script src="js/mappai-usage-dashboard.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Sidebar ridimensionabile (006) -->
@@ -3062,13 +3071,16 @@
     <script src="js/mappai-pomodoro.js?v=0079b-20261009-1"></script>
     <script src="js/mappai-user-profile.js?v=ritocchi-0087-20261012-1"></script>
     <script src="js/mappai-teacher-profile.js?v=0088-20261012-1"></script>
+    <!-- 0095 (ADR 0021): «Importa dal Vault» copia la cartella in Mappe/, con un modale per classe e materia -->
+    <script src="js/mappai-import-vault-core.js?v=0095-20261013-3"></script>
+    <script src="js/mappai-import-vault.js?v=0095-20261013-4"></script>
     <!-- Registro LOCALE degli errori (15/8): niente parte da solo — le righe
          stanno su disco e la Cabina le allega alla segnalazione. Prima della
          Cabina, che le legge. -->
     <script src="js/mappai-errori.js?v=memoria-0076-20261005-2"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-cabina.js?v=0093-20261013-1"></script>
     <script src="js/mappai-config-core.js?v=0064-20260930-3"></script>
     <script src="js/mappai-config-import.js?v=0064-20260930-3"></script>
     <script src="js/mappai-search-finder.js?v=rinforzo-20260925-3"></script>
@@ -3081,7 +3093,7 @@
     <script src="js/mappai-modelli-ui.js?v=0088-20261012-5"></script>
     <script src="js/mappai-kg-extraction.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-mm-extraction.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-vault-io.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-vault-io.js?v=0094-0095-20261013-4"></script>
     <script src="js/mappai-merge-validate.js?v=ritocchi-0087-20261012-1"></script>
     <script src="js/mappai-print-dossier.js?v=aff-0042-20260926-1"></script>
     <script src="js/mappai-context-menu.js?v=0083-20261007-1"></script>

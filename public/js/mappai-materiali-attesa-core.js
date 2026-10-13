@@ -43,7 +43,28 @@
     function acceso(storage) { return _letto(storage, CHIAVE); }
     function tarAcceso(storage) { return _letto(storage, CHIAVE_TARATURA); }
 
-    function g2InAttesa(manifest) {
+    /* 0094 (lotto F2, difetto 9 della guida): un manifesto conta solo per il SUO
+       progetto: vero se `review.projectId` (o `reading.projectId`) è l'id del progetto
+       oppure se il suo `vaultPath` è la cartella del progetto (NFC, `\` → `/`, senza `/`
+       finale); falso se uno dei due dice un altro progetto e l'altro non lo smentisce;
+       un manifesto senza nessuno dei due (vecchio) vale come prima. Senza `progetto`
+       (chi chiama come prima): vero. */
+    function _forma(p) { var v = String(p == null ? '' : p); try { v = v.normalize('NFC'); } catch (e) { } return v.replace(/\\/g, '/').replace(/\/+$/, ''); }
+    function diQuestoProgetto(manifest, progetto) {
+        if (!progetto) return true;
+        if (!manifest || typeof manifest !== 'object') return false;
+        var id = (manifest.review && manifest.review.projectId) || (manifest.reading && manifest.reading.projectId) || null;
+        var vp = manifest.vaultPath || (manifest.review && manifest.review.vaultPath) || '';
+        var idOk = (id && progetto.projectId) ? id === progetto.projectId : null;
+        var vpOk = (vp && progetto.vaultPath) ? _forma(vp) === _forma(progetto.vaultPath) : null;
+        /* basta uno dei due: una cartella rinominata dal Finder ha il percorso vecchio
+           e l'id giusto; una copia di prova ha l'id vecchio e il percorso giusto */
+        if (idOk === true || vpOk === true) return true;
+        return !(idOk === false || vpOk === false);
+    }
+
+    function g2InAttesa(manifest, progetto) {
+        if (progetto && !diQuestoProgetto(manifest, progetto)) return false;
         var f = manifest && !manifest.reading && manifest.review && manifest.review.final;
         return !!(f && f.stage === 'awaiting_review');
     }
@@ -71,8 +92,8 @@
     /* → [{ id: 'att:<materiale>', tipo, chiave, nome, chip: true }], vuoto se la
        G2 non aspetta. Gli id cominciano con `att:`: non si confondono con i set
        (`set:`) né con i file del vault. */
-    function righe(manifest) {
-        if (!g2InAttesa(manifest)) return [];
+    function righe(manifest, progetto) {
+        if (!g2InAttesa(manifest, progetto)) return [];
         var c = manifest.config || {};
         return MATERIALI.filter(function (m) { return m.chiesto(c); })
             .map(function (m) { return { id: 'att:' + m.id, tipo: m.tipo, chiave: m.chiave, nome: m.nome, chip: true }; });
@@ -96,6 +117,7 @@
         acceso: acceso,
         tarAcceso: tarAcceso,
         g2InAttesa: g2InAttesa,
+        diQuestoProgetto: diQuestoProgetto,
         righe: righe,
         eRiga: eRiga,
         taratura: taratura

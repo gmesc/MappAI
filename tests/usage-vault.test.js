@@ -89,3 +89,73 @@ test('0061: U4. i record di una voce vanno una volta sola: alla cartella che dic
  assert.equal(sto.records.length,0,'la cartella senza id non riceve i record di una voce che ha già la sua casa');
  assert.equal(out.reduce((n,x)=>n+x.records.length,0),records.length,'ogni record contato una volta sola');
 });
+
+/* 0093 (D) — il giro della guida («Elettricità», 4R, 13/10): 14 chiamate della MAPPA col
+   `projectId` vuoto e il giro A, 16 dei materiali e 5 del giudice col progetto e il giro B.
+   La cartella dichiara i due giri (index.yaml › generationUsage.costRecords, portati da
+   get-all-vaults in `runIds`). La Cabina ne contava 21; devono essere 35. */
+const PG='proj_1791852544512', GA='modelli-mv5yqkqv-1', GB='modelli-mv5yx9y7-2';
+const giro=(n,pid,run,phase)=>Array.from({length:n},()=>({projectId:pid,project:'Elettricità',inTok:10,outTok:2,phase,runId:run}));
+const guida=()=>[].concat(giro(14,'',GA,'mappa'),giro(16,PG,GB,'materiali'),giro(5,PG,GB,'giudice'));
+const vg=(path,runIds,projectId=PG)=>({fullPath:path,folderName:'Elettricità',rootNodeLabel:'Elettricità',classDir:'4R',discDir:'Scienze',projectId,runIds});
+test('0093 D: le chiamate della mappa vanno al progetto della cartella che dichiara il loro giro: 35, non 21', () => {
+ const records=guida(), before=JSON.stringify(records);
+ const prima=C.vaultProjects(records,[vg('/el')],[]);
+ assert.equal(prima[0].records.length,21,'senza i giri della cartella: come oggi');
+ const out=C.vaultProjects(records,[vg('/el',[GA,GB])],[]);
+ assert.equal(out[0].projectId,PG);
+ assert.equal(out[0].records.length,35);
+ assert.equal(out.filter(x=>!x.nelVault).length,0,'niente resta nello storico');
+ assert.deepEqual(out[0].records.map(x=>x.phase),records.map(x=>x.phase),'nell\'ordine del registro');
+ assert.equal(JSON.stringify(records),before,'il registro non si riscrive');
+});
+test('0093 D: una riga senza giro resta nello storico; un giro dichiarato da due cartelle non si lega', () => {
+ const senza={projectId:'',project:'Senza titolo',inTok:1,outTok:1};
+ const out=C.vaultProjects(guida().concat([senza]),[vg('/el',[GA,GB])],[]);
+ assert.equal(out[0].records.length,35);
+ assert.deepEqual(out.filter(x=>!x.nelVault).map(x=>x.records.length),[1]);
+ const due=C.vaultProjects(guida(),[vg('/el',[GA,GB]),vg('/copia',[GA],'proj_1791852544999')],[]);
+ assert.equal(due.find(x=>x.key==='vault:/el').records.length,21,'il giro A è conteso: nessuno lo prende');
+ assert.equal(due.filter(x=>!x.nelVault).reduce((n,x)=>n+x.records.length,0),14);
+});
+test('0093 D: una cartella senza identità non riceve le chiamate del suo giro', () => {
+ const out=C.vaultProjects(guida(),[vg('/el',[GA,GB],null)],[]);
+ assert.equal(out[0].projectId,null);
+ assert.equal(out[0].records.length,0);
+});
+
+/* 0093 (D) — la metà in main.js: `get-all-vaults` vero (estratto come in
+   identita-cartella.test.js) su una cartella temporanea con l'index.yaml della guida
+   ridotto all'osso: l'identità in colonna 0 e i consumi della generazione coi due giri. */
+function getAllVaults(base) {
+ const fs=require('node:fs'), path=require('node:path'), vm=require('node:vm');
+ const source=fs.readFileSync(path.join(__dirname,'../main.js'),'utf8'), handlers={};
+ const ctx=vm.createContext({fs,path,Buffer,console:{log(){},warn(){},error(){}},yaml:require('js-yaml'),
+  FilesCore:require('../public/js/mappai-files-core.js'),ipcMain:{handle:(n,fn)=>{handlers[n]=fn;}},
+  _contaNodiInCartella:()=>0,mapsBaseDir:()=>path.join(base,'Mappe'),studentsBaseDir:()=>path.join(base,'Allievi')});
+ for (const name of ['_vaultWalkMd','_vaultPruneEmptyDirs','walkMappe']) {
+  const s=source.indexOf('function '+name+'('); assert.ok(s>=0,name);
+  vm.runInContext(source.slice(s,source.indexOf('\n}',s)+2),ctx);
+ }
+ const s=source.indexOf("ipcMain.handle('get-all-vaults',"); assert.ok(s>=0);
+ vm.runInContext(source.slice(s,source.indexOf('\n});',s)+4),ctx);
+ return handlers['get-all-vaults'];
+}
+test('0093 D: get-all-vaults porta i giri dei consumi della cartella; con quelli «Elettricità» ha 35 chiamate', async t => {
+ const fs=require('node:fs'), path=require('node:path'), os=require('node:os');
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'mappai-0093-'));
+ t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
+ const el=path.join(base,'Mappe','4R','Scienze','Elettricità'), vecchio=path.join(base,'Mappe','4R','Scienze','Vecchio');
+ fs.mkdirSync(el,{recursive:true}); fs.mkdirSync(vecchio,{recursive:true});
+ const riga=(run,phase,pid)=>'    - provider: infomaniak\n      project: Elettricità\n      projectId: "'+pid+'"\n      phase: '+phase+'\n      runId: '+run+'\n';
+ fs.writeFileSync(path.join(el,'index.yaml'),'projectId: '+PG+'\nextractionMode: mindmap\nrootNodeLabel: Elettricità\n'+
+  'generationUsage:\n  costRecords:\n'+riga(GA,'mappa','')+riga(GA,'mappa','')+riga(GB,'materiali',PG));
+ fs.writeFileSync(path.join(vecchio,'index.yaml'),'extractionMode: mindmap\nrootNodeLabel: Vecchio\n');
+ const vaults=await getAllVaults(base)();
+ const v=vaults.find(x=>x.fullPath===el), w=vaults.find(x=>x.fullPath===vecchio);
+ assert.equal(v.projectId,PG);
+ assert.deepEqual(Array.from(v.runIds),[GA,GB],'distinti, nell\'ordine del file');
+ assert.equal('runIds' in w,false,'senza consumi nessun campo in più');
+ const out=C.vaultProjects(guida(),vaults,[]);
+ assert.equal(out.find(x=>x.key==='vault:'+el).records.length,35);
+});

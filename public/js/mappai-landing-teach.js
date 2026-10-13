@@ -277,7 +277,7 @@
       var assign = "window.MappAITeach.assignElab(" + i + ")";
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
-        title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
+        title: _nomeDi(v, v.rootNodeLabel || v.folderName), titleTip: _nomeDi(v, v.rootNodeLabel || v.folderName), dot: dot,
         cls: classCell(chips, assign), disc: vaultDisc(rec), assign: assign,
         date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
         block: block,
@@ -304,7 +304,7 @@
   }
   function elabDelete(i) {
     var r = _elabRec(i); if (!r) return;
-    var title = r.v.rootNodeLabel || r.v.folderName;
+    var title = _nomeDi(r.v, r.v.rootNodeLabel || r.v.folderName);
     confirmDeleteText(title, function () {
       var purgeLocal = function () {
         if (!r.p) return;
@@ -348,7 +348,7 @@
 
   function _openAssignModal(rec, onDone) {
     var p = rec.p, v = rec.v;
-    var title = (v && (v.rootNodeLabel || v.folderName)) || (p && p.name) || _t('lt_this_map', 'questa mappa');
+    var title = (v && _nomeDi(v, v.rootNodeLabel || v.folderName)) || (p && p.name) || _t('lt_this_map', 'questa mappa');
     var classes = _classesForAssign();
     var curClsId = (p && p.clsId) || '';
     // Se il progetto non porta l'id ma il nome, recupera l'id dalla lista.
@@ -1007,7 +1007,7 @@
         : "window.MappAITeach.projOpen(" + i + ")";
       return fileRow({
         tipo: tipoCell(meta.icon, meta.label, meta.full),
-        title: v.rootNodeLabel || v.folderName, titleTip: (v.rootNodeLabel || v.folderName), dot: dot,
+        title: _nomeDi(v, v.rootNodeLabel || v.folderName), titleTip: _nomeDi(v, v.rootNodeLabel || v.folderName), dot: dot,
         cls: classCell(chips), disc: vaultDisc(rec), date: dateCell(v.lastUpdated ? new Date(v.lastUpdated).getTime() : 0),
         block: projBlockDisk(i),
         onClick: onClick,
@@ -1037,7 +1037,7 @@
   }
   function projQr(i) {
     var r = _projRec(i); if (!r) return;
-    var name = r.p ? r.p.name : (r.v.rootNodeLabel || r.v.folderName);
+    var name = _nomeDi(r.v, r.p ? r.p.name : (r.v.rootNodeLabel || r.v.folderName));
     if (window.MappAILive && window.MappAILive.shareVaultZipQr) window.MappAILive.shareVaultZipQr(r.v.folderName, name);
     else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
   }
@@ -1964,6 +1964,39 @@
   function _consMappe() {
     return _cons.mappe || [];
   }
+  /* 0094 (ADR 0021): il nome di un progetto è il nome della sua CARTELLA, letto dal
+     disco. Con `mappai_nome_da_cartella` = '0' il ripiego di prima (il titolo). */
+  function _nomeDaCartella() {
+    try { return !!(window.MappAINomeCartellaCore && MappAINomeCartellaCore.acceso(window.localStorage)); } catch (e) { return false; }
+  }
+  function _nomeDi(v, ripiego) {
+    return (_nomeDaCartella() && v && v.folderName) ? v.folderName : ripiego;
+  }
+  /* la descrizione di un progetto della lista per «Rinomina…» (mappai-rinomina.js) */
+  function _perRinomina(m) {
+    if (!m || !m.v || !m.v.fullPath || !_nomeDaCartella()) return null;
+    return { vaultPath: m.v.fullPath, nome: m.v.folderName, titolo: m.v.rootNodeLabel || '',
+      projectId: m.v.projectId || null, idRiga: m.p ? m.p.id : null, lettura: _letturaDi(m) };
+  }
+  /* «Rinomina…» dalla briciola o dal tasto destro; al ritorno la selezione segue
+     la cartella (una voce `v:` ha il percorso nell'id) */
+  function _consRinomina(m) {
+    var d = _perRinomina(m);
+    if (!d || !window.MappAIRinomina) return;
+    d.dopo = function (res) { _consDopoRinomina(m, res); };
+    MappAIRinomina.apri(d);
+  }
+  function _consDopoRinomina(m, res) {
+    if (res && res.fullPath && m && m.v && _cons.voce === 'v:' + m.v.fullPath) _cons.voce = 'v:' + res.fullPath;
+  }
+  /* la seconda riga di una voce col nome dato dall'app (S4 del packet, lotto E) */
+  function _proposta(m) {
+    try {
+      if (!m || !m.v || !_nomeDaCartella()) return '';
+      var FCp = window.MappAIFilesCore;
+      return MappAINomeCartellaCore.nomeProposto(m.v.folderName, m.v.rootNodeLabel, FCp && FCp.vaultFolderName) || '';
+    } catch (e) { return ''; }
+  }
   function _consCaricaMappe() {
     var api = window.electronAPI;
     var projects = projectsRead();
@@ -1979,7 +2012,7 @@
         var p = matchProjectToVault(projects, v);
         return {
           id: p ? 'p:' + p.id : 'v:' + v.fullPath,
-          nome: (p && p.name) || v.rootNodeLabel || v.folderName,
+          nome: _nomeDi(v, (p && p.name) || v.rootNodeLabel || v.folderName),
           /* IL GENERE LO DICE IL DISCO (Giacomo, 8/8 notte: un KG mostrava
              l'icona delle MindMap). `index.yaml` porta `extractionMode` e
              `get-all-vaults` lo restituisce già: prima si ripiegava su
@@ -2611,7 +2644,9 @@
           /* «NUOVO» = generato in questa sessione e mai ancora aperto. La lista
              è la stessa di ELABORA (`MappAIGen`): il bollino sparisce dai due
              elenchi insieme, al primo clic. */
-          badge: (window.MappAIGen && MappAIGen.eNuovo && MappAIGen.eNuovo(x)) ? _t('ec_nuovo', 'NUOVO') : ''
+          badge: (window.MappAIGen && MappAIGen.eNuovo && MappAIGen.eNuovo(x)) ? _t('ec_nuovo', 'NUOVO') : '',
+          /* 0094 (lotto E): un nome dato dall'app propone il titolo */
+          sotto: _proposta(x) ? _t('rn_provvisorio', 'nome provvisorio: Rinomina… propone «{nome}»').replace('{nome}', _proposta(x)) : ''
         });
       });
     }
@@ -3135,22 +3170,27 @@
       if (!p) livelli = livelli.slice(0, 1);
       else {
         var _altre = _consFiltrate();
+        /* 0094 (S7): «Rinomina…» in fondo al menu della briciola, come «+ Nuova
+           materia»; con una mappa sola il pezzo diventa un menu con lei sola */
+        var _rin = _perRinomina(p);
+        var _nuovoRin = _rin ? { et: _t('rn_voce', 'Rinomina…'), onPick: function () { _consRinomina(p); } } : null;
         /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
            l'allineamento il filtro si stringe spesso su UNA mappa, e una
            tendina con una voce sola — già spuntata — si legge come rotta.
            Con una sola mappa la briciola resta un'etichetta; per allargare c'è
            «mostra tutti» in fondo ai filtri. */
-        livelli.push(_altre.length > 1
+        livelli.push((_altre.length > 1 || _nuovoRin)
           ? {
             et: p.nome,
             menu: {
               tipo: 'lista',
-              voci: _altre.map(function (mm2) {
+              voci: _altre.length > 1 ? _altre.map(function (mm2) {
                 return {
                   et: mm2.nome, on: mm2.id === p.id,
                   onPick: function () { if (mm2.id !== p.id) scegliMappa(mm2.id); }
                 };
-              })
+              }) : [],
+              nuovo: _nuovoRin
             }
           }
           : { statico: p.nome, qui: true });
@@ -3252,7 +3292,14 @@
     };
     s.suApertura = function (box, ridisegna) {
       ridisegnaCons = ridisegna;
-      montaCascata(box);              // il percorso c'è già all'apertura, prima che arrivino le mappe
+      montaCascata(box);
+      /* 0094 (S7): tasto destro su una mappa della colonna → «Rinomina…» */
+      if (window.MappAIRinomina && MappAIRinomina.menuContestuale) {
+        MappAIRinomina.menuContestuale(box, function (nav) {
+          var m = (_consMappe() || []).filter(function (x) { return x.id === nav; })[0];
+          return m ? Object.assign(_perRinomina(m) || {}, { dopo: function (res) { _consDopoRinomina(m, res); } }) : null;
+        });
+      }              // il percorso c'è già all'apertura, prima che arrivino le mappe
       _consCaricaMappe().then(function (list) {
         _cons.mappe = list;
         /* la mappa del segnalibro può non esserci più (cartella spostata o
@@ -3624,10 +3671,16 @@
   /* Aprire la mappa segue la stessa strada delle righe di INSEGNA: il progetto
      salvato se c'è, altrimenti il vault dal disco (le mappe senza progetto in
      localStorage esistono, ed erano proprio quelle che la console non vedeva). */
-  function _consCarica(m) {
+  /* 0094 (lotto F3): `seNo` = il caricamento ha risposto di no (`loadProject`
+     rifiuta durante un lavoro o se la cartella non si legge). Chi aspetta deve
+     saperlo: ELABORA rimette la briciola sul progetto davvero aperto. */
+  function _seNoRisposta(r, seNo) {
+    if (seNo && r && typeof r.then === 'function') r.then(function (ok) { if (ok === false) seNo(); }, function () { seNo(); });
+  }
+  function _consCarica(m, seNo) {
     if (!m) return false;
-    if (m.p && window.loadSavedProject) { window.loadSavedProject(m.p.id); return true; }
-    if (m.p && typeof StorageManager !== 'undefined' && StorageManager.loadProject) { StorageManager.loadProject(m.p.id); return true; }
+    if (m.p && window.loadSavedProject) { _seNoRisposta(window.loadSavedProject(m.p.id), seNo); return true; }
+    if (m.p && typeof StorageManager !== 'undefined' && StorageManager.loadProject) { _seNoRisposta(StorageManager.loadProject(m.p.id), seNo); return true; }
     if (m.v && window.directLoadVault) { window.directLoadVault(m.v.fullPath); return true; }
     return false;
   }
@@ -3658,11 +3711,12 @@
      PRECEDENTE: con una mappa già aperta ELABORA si apriva su quella, poi il
      caricamento finiva e riportava al canvas — «il bottone porta alla mappa».
      Qui si aspetta l'identità giusta, con un tetto oltre il quale si rinuncia. */
-  function _consQuandoPronta(m, poi) {
+  function _consQuandoPronta(m, poi, seNo, fermo) {
     var giri = 0;
     var passo = function () {
+      if (fermo && fermo()) return;                 /* 0094: il caricamento ha già detto di no */
       if (_consEccoLa(m)) return poi();
-      if (++giri > 60) { toast(_t('lt_cons_apri_ko', 'Non riesco ad aprire questa mappa.'), 'warning'); return; }
+      if (++giri > 60) { toast(_t('lt_cons_apri_ko', 'Non riesco ad aprire questa mappa.'), 'warning'); if (seNo) seNo(); return; }
       setTimeout(passo, 80);                        // ~5s al massimo
     };
     passo();
@@ -3832,6 +3886,10 @@
        eliminazione della landing passa da qui, e ora anche il cestino delle
        tabelle in ELABORA v2 — la regola è una, il posto è uno. */
     confirmDeleteText: confirmDeleteText,
+    /* 0094: la descrizione per «Rinomina…» e la proposta per un nome provvisorio,
+       per la console di ELABORA (una regola sola, qui) */
+    perRinomina: function (m) { return _perRinomina(m); },
+    propostaNome: function (m) { return _proposta(m); },
     mappeDelContesto: function () {
       return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });
     },
@@ -3866,11 +3924,14 @@
     mappaCorrente: function (list) {
       return (list || []).filter(function (m) { return _consEccoLa(m); })[0] || null;
     },
-    apriMappa: function (m, poi) {
+    apriMappa: function (m, poi, seNo) {
       if (!m) return false;
       if (_consEccoLa(m)) { if (poi) poi(); return true; }   /* già quella: niente da caricare */
-      if (!_consCarica(m)) return false;
-      _consQuandoPronta(m, function () { if (poi) poi(); });
+      /* 0094 (F3): un lavoro in corso rifiuta il cambio di mappa (lo dice da sé) */
+      if (window.mappaiOccupato && window.mappaiOccupato()) return false;
+      var detto = false, no = function () { if (detto) return; detto = true; if (seNo) seNo(); };
+      if (!_consCarica(m, no)) return false;
+      _consQuandoPronta(m, function () { if (!detto && poi) poi(); }, no, function () { return detto; });
       return true;
     },
     setMode: setMode,

@@ -287,10 +287,12 @@ test('senza materie da proporre il gate non le pretende (nessun vicolo cieco)', 
     assert.strictEqual(B.gate({ chi: 'c:cls_1', materia: '', materieDisponibili: 0 }).ok, true);
 });
 
-test('la scala tipografica ha TRE corpi dichiarati, non quattro', () => {
+test('la scala tipografica ha al massimo TRE corpi, interi (dal 13/10 sono due: 13 e 15)', () => {
     const corpi = Object.keys(B.SCALA).map(k => B.SCALA[k].px);
-    assert.strictEqual(corpi.length, 3);
-    assert.strictEqual(new Set(corpi).size, 3, 'tre corpi distinti: niente 12 contro 12,5');
+    assert.strictEqual(corpi.length, 3, 'tre usi dichiarati: titolo, voce, azione');
+    assert.ok(new Set(corpi).size <= 3, 'al massimo tre corpi');
+    assert.ok(corpi.every(px => Number.isInteger(px)), 'niente mezzi punti: niente 12 contro 12,5');
+    assert.deepStrictEqual([B.SCALA.titolo.px, B.SCALA.voce.px, B.SCALA.azione.px], [15, 13, 15]);
 });
 
 test('ogni voce dell\'inventario ha un id, un\'etichetta e un tipo', () => {
@@ -448,12 +450,14 @@ test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', (
     /* 0087 lotto 10-crea (12/10): davanti il box «Output» (fondo chiaro), dopo la riga
        del genere i due posti d'attesa della modalità iconografica (nudi) */
     /* 12/10 sera: la Lettura (0070) sta subito dopo la riga del genere, chiara: non è più un extra */
+    /* 13/10 (0087 lotto 11): i sei box delle opzioni dei materiali escono dalla vista estesa
+       e diventano il box unico, dopo la Lettura e i posti d'attesa (nascosti con
+       Differenziazione) e prima del box giallo */
     assert.deepStrictEqual(stabili,
-        ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'lettura', 'foto-attesa', 'scheda-attesa', 'ctx', 'azioni']);
-    /* «output» (20/8): il box a tutta riga con le spunte di CHE COSA si genera,
-       primo degli extra — è l'unica decisione da prendere per un DOSSIER. */
+        ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'lettura', 'foto-attesa', 'scheda-attesa',
+            'output', 'quiz', 'preset', 'ns', 'src', 'multi', 'ctx', 'azioni']);
     assert.deepStrictEqual(extra,
-        ['output', 'preset', 'quiz', 'ns', 'src', 'multi', 'modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
+        ['modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
 });
 
 test('i box extra stanno DOPO il mega-bento, e quello che cresce è l\'ultimo', () => {
@@ -767,15 +771,19 @@ test('una voce in forma di oggetto conta come il suo id', () => {
    moltiplica per sette il costo di ciò che sta nel box «Quiz», quindi gli sta
    sotto e non dentro. */
 
-test('«Più set per angolo» è un box suo, a tutta riga, nella vista estesa', () => {
+test('«Più set per angolo» è un box suo, largo 2, in fondo al box unico dei materiali', () => {
     const m = B.MODULI.find(x => x.id === 'multi');
     assert.ok(m, 'il box esiste nella composizione');
-    assert.strictEqual(m.span, 4, 'a tutta riga: chiude la griglia da solo');
-    assert.strictEqual(B.nascondibile(m), true, 'è un\'impostazione: vive nella vista estesa');
+    /* 13/10 (0087 lotto 11, Giacomo): «'Output automatici' e 'Più set per angoli' devono avere
+       larghezza 2 colonne» */
+    assert.strictEqual(m.span, 2, 'largo due colonne');
+    assert.strictEqual(m.gruppo, 'materiali');
+    assert.strictEqual(B.nascondibile(m), false, 'il box unico è sempre a schermo con Differenziazione');
     const righe = B.valida(B.MODULI).righe.map(r => r.map(x => x.id).join('+'));
-    assert.ok(righe.indexOf('multi') >= 0, 'una riga tutta sua');
-    assert.ok(righe.indexOf('multi') > righe.indexOf('preset+quiz+ns+src'),
-        'sta SOTTO i quattro box delle opzioni: moltiplica il loro costo');
+    assert.ok(righe.indexOf('output+quiz+preset') >= 0, 'prima riga del box unico: 2+1+1 (Quiz prima del Preset, 13/10)');
+    assert.ok(righe.indexOf('ns+src+multi') >= 0, 'seconda riga del box unico: 1+1+2');
+    assert.ok(righe.indexOf('ns+src+multi') > righe.indexOf('output+quiz+preset'),
+        'sta SOTTO il box dei quiz: moltiplica il loro costo');
 });
 
 test('il box porta SOLO una casella per angolo: i generi stanno in «Output automatici»', () => {
@@ -819,10 +827,12 @@ test('output automatici: spostate, non duplicate — e la famiglia resta legata'
     assert.ok(!B.voce('mn-src-img'));
 });
 
-test('Set misto è il primo output, resta nei box nascosti e accende il master quiz', () => {
+test('Set misto è il primo output, sta nel box unico dei materiali e accende il master quiz', () => {
     const output = B.MODULI.find(m => m.id === 'output');
     assert.equal(B.vociDi(output)[0].id, 'mp-qt-mixed');
-    assert.equal(B.nascondibile(output), true);
+    /* 13/10 (0087 lotto 11): non più nei box nascosti, ma nel box unico dei materiali */
+    assert.equal(B.nascondibile(output), false);
+    assert.equal(output.gruppo, 'materiali');
     assert.equal(B.voce('mp-qt-mixed').figlioDi, 'mp-quiz-on');
     assert.ok(B.mastersDerivati(B.MODULI).find(m => m.id === 'mp-quiz-on').da.includes('mp-qt-mixed'));
 });
@@ -840,12 +850,12 @@ test('la migrazione del layout aggiunge Set misto senza cambiare scelte grafiche
     assert.strictEqual(B.withMixedOutput(migrated), migrated, 'non inserisce una seconda checkbox');
 });
 
-test('se il box output personale manca, la migrazione crea solo il campo nuovo in un box nascosto', () => {
+test('se il box output personale manca, la migrazione crea solo il campo nuovo, nel box unico dei materiali', () => {
     const original = [{ id: 'preset', voci: ['mp-preset'] }];
     const migrated = B.withMixedOutput(original);
     const added = migrated.find(m => m.id === 'output');
     assert.deepEqual(added.voci, ['mp-qt-mixed']);
-    assert.equal(B.nascondibile(added), true);
+    assert.equal(added.gruppo, 'materiali');   /* 13/10, lotto 11: prima era un box nascosto */
     assert.deepEqual(migrated.find(m => m.id === 'preset'), original[0]);
 });
 
@@ -973,4 +983,23 @@ test('pulsante unico: il percorso selezionato prevale sulla sola mappa, con gate
     assert.equal(classes.has('mn-card--mappa'), false);
     plan.pending = true; listeners['mappai-reading-plan-changed'](); assert.equal(button.disabled, true);
     plan.pending = false; plan.valid = false; listeners['mappai-reading-plan-changed'](); assert.equal(button.disabled, true);
+});
+
+test('0087 lotto 11: un layout salvato coi sei box scuri in coda passa al box unico, con le voci del docente', () => {
+    const vecchi = B.MODULI.filter(m => !m.gruppo).slice();
+    const scuro = { bg: '#404040', testo: '#ffffff', bordoCol: '#404040' };
+    const sei = ['output', 'preset', 'quiz', 'ns', 'src', 'multi'].map(id =>
+        Object.assign({}, B.MODULI.find(m => m.id === id), { gruppo: undefined, stile: scuro, span: id === 'output' || id === 'multi' ? 4 : 1 }));
+    sei.forEach(m => { delete m.gruppo; });
+    sei[3] = Object.assign({}, sei[3], { voci: ['mp-ns-card'] });     /* il docente aveva tolto voci dai fogli */
+    const salvato = vecchi.concat(sei);
+    const migrato = B.withMaterialControls(salvato);
+    const ids = migrato.map(m => m.id);
+    const ctx = ids.indexOf('ctx');
+    assert.deepStrictEqual(ids.slice(ctx - 6, ctx), ['output', 'quiz', 'preset', 'ns', 'src', 'multi'], 'subito prima del giallo');
+    migrato.filter(m => m.gruppo === 'materiali').forEach(m => assert.strictEqual(B.nascondibile(m), false));
+    assert.deepStrictEqual(migrato.find(m => m.id === 'ns').voci, ['mp-ns-card'], 'le voci del docente restano');
+    assert.deepStrictEqual(['output', 'multi'].map(id => migrato.find(m => m.id === id).span), [2, 2]);
+    assert.deepStrictEqual(B.valida(migrato).errori, []);
+    assert.strictEqual(B.withMaterialControls(migrato), migrato, 'già migrato: niente da fare');
 });

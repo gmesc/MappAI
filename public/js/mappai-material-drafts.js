@@ -61,6 +61,31 @@
       triples: synthesisTriples(s, '').map(x => [x.question, x.text, x.answer]) });
     return JSON.stringify({ intro: data.intro, body: part(data), sections: (data.sections || []).map(part) });
   }
+  /* ── RIMANDI A UN NODO (0093, C) ──────────────────────────────────────────
+     Il modello che scrive la Panoramica riceve il materiale con le intestazioni
+     `## label [nodo ID]` (grounding-core, buildInput) e a volte le imita: scrive
+     `[[ROOT]]` o `[[src-1_0_L3_A2]]` dove andrebbe un rimando a una FONTE.
+     Il primo resta letterale davanti al docente, il secondo ha la forma di una
+     fonte e blocca «Approvato». Un rimando a un nodo non dice niente all'allievo:
+     si toglie dal testo (con lo spazio prima) e resta nel registro tecnico.
+     Il testo intorno non si tocca (memoria «citazioni verbatim»).
+     Le fonti hanno la forma `src-` + base36 minuscolo (grounding-core, hash):
+     non hanno mai `_` né maiuscole. Un nodo è un ID della mappa passato da chi
+     chiama, oppure ha la forma dei nodi delle MindMap (`ROOT`, `1_0_L3_A2`).
+     Un rimando che non è né fonte né nodo resta dov'è: lo segnala la revisione. */
+  const SOURCE_ID = /^src-[0-9a-z]+$/;
+  function nodeMarkers(text, nodeIds) {
+    const ids = nodeIds ? new Set(Array.from(nodeIds, String)) : null, removed = [];
+    const clean = String(text || '').replace(/[ \t]*\[\[([^\[\]\s]+)\]\]/g, (m, id) => {
+      const bare = id.replace(/^src-/, '');
+      const node = (ids && ids.has(bare)) ||
+        (!SOURCE_ID.test(id) && (bare === 'ROOT' || /^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+$/.test(bare)));
+      if (!node) return m;
+      removed.push(id);
+      return '';
+    });
+    return { text: clean, removed };
+  }
   function flatten(drafts) {
     const out = [];
     Object.entries(drafts.B || {}).forEach(([key, set]) => {
@@ -71,9 +96,12 @@
       if (data.whole) {
         // Project legacy raw IDs into a local registry without mutating drafts
         // or borrowing the meaning of another section's numbered references.
+        // 0093 (C): una Panoramica già fatta entra nella revisione senza i rimandi a nodi
+        const intro = nodeMarkers(data.intro);
         const introSources = Array.isArray(data.introSources) ? data.introSources
-          : G.citationRegistry(data.intro, (data.sections || []).flatMap(s => s.sourcesArr || []));
-        if (data.intro) out.push({ id: 'synthesis-intro', kind: 'synthesis', text: data.intro, citations: clone(introSources), step: 'D', part: 'intro', title: 'Panoramica' });
+          : G.citationRegistry(intro.text, (data.sections || []).flatMap(s => s.sourcesArr || []));
+        if (data.intro) out.push(Object.assign({ id: 'synthesis-intro', kind: 'synthesis', text: intro.text, citations: clone(introSources), step: 'D', part: 'intro', title: 'Panoramica' },
+          intro.removed.length ? { nodeMarkers: intro.removed } : {}));
         (data.sections || []).forEach((s, i) => {
           out.push({ id: 'synthesis-' + i, kind: 'synthesis', text: s.rawText || '', citations: clone(s.sourcesArr || []), step: 'D', part: i, title: s.branchLabel });
           out.push(...synthesisTriples(s, i));
@@ -113,6 +141,13 @@
       if (data.whole) {
         data.intro = byId.has('synthesis-intro') ? byId.get('synthesis-intro').text : '';
         if (byId.get('synthesis-intro')?.citations) data.introSources = clone(byId.get('synthesis-intro').citations);
+        // i rimandi a nodi tolti in `flatten` restano nel registro tecnico della Panoramica
+        const tolti = byId.get('synthesis-intro')?.nodeMarkers;
+        if (Array.isArray(tolti) && tolti.length) {
+          const g = Object.assign({}, data.introGrounding);
+          g.nodeMarkers = Array.from(new Set((Array.isArray(g.nodeMarkers) ? g.nodeMarkers : []).concat(tolti)));
+          data.introGrounding = g;
+        }
         data.sections = (data.sections || []).map((s, i) => {
           const it = byId.get('synthesis-' + i);
           if (!it) return null;
@@ -160,5 +195,5 @@
     }
     return out;
   }
-  return { normalize, flatten, apply };
+  return { normalize, flatten, apply, nodeMarkers };
 }));

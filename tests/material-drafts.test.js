@@ -273,3 +273,54 @@ test('overview and section references are native keyboard links to their own dis
   }
   assert.equal(JSON.stringify(data), before);
 });
+
+/* 0093 (C) — la Panoramica VERA della guida («Elettricità», 4R, Gemma 4 su Infomaniak, 13/10):
+   `[[ROOT]]` letterale e `[[src-1_0_L3_A2]]`, l'ID del nodo «corto circuito» con «src-» davanti.
+   Testo e ID del registro sono quelli di `pipeline.json` (review.drafts.D.data); dei passaggi
+   originali si tiene solo l'ID, che è quello che i controlli guardano. */
+const GUIDA_INTRO = "L'elettricità è l'energia prodotta dal movimento di minuscole particelle negative, chiamate elettroni, all'interno di un circuito chiuso [[ROOT]]. Per farli muovere serve una spinta, chiamata tensione e misurata in Volt [[src-vftual]] [[src-1j8ypt3]]. La quantità di elettroni che passano in un certo tempo è invece l'intensità di corrente, misurata in Ampère [[src-ge91kb]]. A queste due grandezze si aggiunge la resistenza, misurata in Ohm, che indica quanto un materiale ostacola il passaggio della corrente [[src-1rnw4oc]] [[src-1qqj5mo]]. Queste tre misure sono collegate dalla Legge di Ohm [[src-15m64hj]].\n\nPer costruire un circuito servono materiali diversi: i conduttori, come rame e zinco, lasciano passare l'elettricità facilmente, mentre gli isolanti la bloccano [[src-81eug1]] [[src-17912ho]] [[src-d9hd3z]]. L'energia viene fornita dalle batterie, che trasformano l'energia chimica in elettrica [[src-11znhra]]. Queste sono nate con la pila di Volta e oggi sono evolute in modelli al litio per alimentare smartphone e auto elettriche [[src-xe6nx6]] [[src-uu2dl2]].\n\nNel circuito l'energia serve a far funzionare gli utilizzatori, come lampadine o motori [[src-kxjazb]]. Se gli utilizzatori sono collegati in serie, la spinta viene divisa tra loro; se sono in parallelo, ognuno riceve la spinta massima [[src-1m1qc6p]] [[src-1cimjek]]. È fondamentale usare interruttori per controllare il flusso e isolare bene i cavi per evitare pericoli [[src-1ru3q8u]] [[src-1dtzwos]]. Senza un utilizzatore che rallenti gli elettroni, si crea un corto circuito che riscalda la batteria [[src-1i4ot82]] [[src-1_0_L3_A2]].";
+const GUIDA_REGISTRO = ["src-vftual","src-1j8ypt3","src-ge91kb","src-1rnw4oc","src-1qqj5mo","src-15m64hj","src-81eug1","src-17912ho","src-d9hd3z","src-11znhra","src-xe6nx6","src-uu2dl2","src-kxjazb","src-1m1qc6p","src-1cimjek","src-1ru3q8u","src-1dtzwos","src-1i4ot82"].map((id, i) => ({ id, idx: i + 1, title: '2.1 PROJECT E.pdf', page: 14, text: 'Passaggio ' + (i + 1) + '.', verbatim: true }));
+
+test('0093 C: la Panoramica della guida entra nella revisione senza rimandi a nodi e senza problemi strutturali', () => {
+  const drafts = { D: { data: { whole: true, intro: GUIDA_INTRO, introSources: GUIDA_REGISTRO,
+    introGrounding: { unknownCitationIds: ['src-1_0_L3_A2'] }, sections: [] } } };
+  const before = JSON.stringify(drafts);
+  const prima = MR.validate([{ id: 'synthesis-intro', kind: 'synthesis', text: GUIDA_INTRO, citations: GUIDA_REGISTRO, step: 'D', part: 'intro' }]);
+  assert.equal(prima.ok, false, 'senza la correzione la Panoramica della guida è bloccata');
+  const items = D.flatten(drafts), intro = items.find(it => it.id === 'synthesis-intro');
+  assert.equal(JSON.stringify(drafts), before, 'flatten non tocca le bozze');
+  assert.equal(intro.text.includes('[[ROOT]]'), false);
+  assert.equal(intro.text.includes('src-1_0_L3_A2'), false);
+  assert.ok(intro.text.includes('all\'interno di un circuito chiuso. Per farli muovere'), 'il testo intorno resta com\'era');
+  assert.ok(intro.text.endsWith('riscalda la batteria [[src-1i4ot82]].'));
+  assert.equal((intro.text.match(/\[\[src-[0-9a-z]+\]\]/g) || []).length, 18, 'i 18 rimandi buoni restano tutti');
+  assert.deepEqual(intro.nodeMarkers, ['ROOT', 'src-1_0_L3_A2']);
+  const report = MR.validate(items);
+  assert.equal(report.ok, true, JSON.stringify(report.issues.map(i => i.problem)));
+  const out = D.apply(drafts, items);
+  assert.equal(out.D.data.intro, intro.text);
+  assert.deepEqual(out.D.data.introGrounding.nodeMarkers, ['ROOT', 'src-1_0_L3_A2'], 'il registro tecnico tiene ciò che si è tolto');
+  assert.deepEqual(out.D.data.introGrounding.unknownCitationIds, ['src-1_0_L3_A2']);
+});
+
+test('0093 C: un rimando né fonte né nodo resta bloccante, ma il docente legge una frase senza codici', () => {
+  const data = { whole: true, intro: 'Panoramica [[src-a]] e [[src-zz9q]].', introSources: [{ id: 'src-a', idx: 1, title: 'Fonte', page: 1, text: 'Originale.' }], sections: [] };
+  const items = D.flatten({ D: { data } });
+  assert.equal(items[0].text, data.intro, 'un rimando con la forma di una fonte non si tocca');
+  assert.equal('nodeMarkers' in items[0], false);
+  const report = MR.validate(items);
+  assert.equal(report.ok, false);
+  const p = report.issues.find(i => i.target.id === 'synthesis-intro');
+  assert.equal(p.blocking, true);
+  assert.equal(p.problem, 'Una o più frasi rimandano a passaggi della fonte che non si trovano: controllale o escludi la sezione.');
+  assert.equal(/src-|\[\[/.test(p.problem), false);
+  assert.deepEqual(p.unknownCitationIds, ['src-zz9q'], 'il codice resta nella segnalazione tecnica');
+});
+
+test('0093 C: nodeMarkers — forma dei nodi, ID passati, fonti intatte', () => {
+  const r = D.nodeMarkers('A [[ROOT]]. B [[src-ROOT]] [[1_0_L2_B_D1]] [[src-1_2_L3_A1]]. C [[src-1i4ot82]] [[src-abc]] [[economia]] [[src-economia]].', ['economia']);
+  assert.equal(r.text, 'A. B. C [[src-1i4ot82]] [[src-abc]].');
+  assert.deepEqual(r.removed, ['ROOT', 'src-ROOT', '1_0_L2_B_D1', 'src-1_2_L3_A1', 'economia', 'src-economia']);
+  assert.equal(D.nodeMarkers('Solo [[src-abc]].').removed.length, 0);
+  assert.equal(D.nodeMarkers('').text, '');
+});

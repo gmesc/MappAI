@@ -552,7 +552,7 @@
         s.area = 'due';
         s.sezioni.push({
             id: 'pv-dove', titolo: t('cb_pv_dove_t', 'Dove vivono i dati'), largo: true,
-            testo: t('cb_pv_dove_d', 'Sul tuo computer, in cartelle che puoi aprire dal Finder: mappe e vault, materiali, sessioni delle attività, profili di classi e allievi, registro dei consumi. Non c’è un account MappAI, non c’è un server di MappAI, non c’è sincronizzazione.')
+            testo: t('cb_pv_dove_d', 'Sul tuo computer, in cartelle che puoi aprire dal Finder: mappe e vault, materiali, sessioni delle attività, profili di classi e allievi, registro dei consumi. Non c’è un account MappAI e non c’è sincronizzazione. L’unico server di MappAI serve alle attività via QR in modalità «Internet» (live.insegnai.ch, presso Infomaniak): fa passare la sessione e non la conserva.')
         });
         s.sezioni.push({
             id: 'pv-esce', titolo: t('cb_pv_esce_t', 'Che cosa esce dal computer'),
@@ -560,7 +560,7 @@
         });
         s.sezioni.push({
             id: 'pv-allievi', titolo: t('cb_pv_allievi_t', 'I profili degli allievi'),
-            testo: t('cb_pv_allievi_d', 'Quando la taratura è attiva, nel prompt entrano età, grado, sistema scolastico e le note che hai scritto nella scheda (per una classe: grado, registro e note). Il NOME dell’allievo non entra mai. Le note servono a cambiare come l’AI scrive: scrivici i bisogni linguistici, non le diagnosi.')
+            testo: t('cb_pv_allievi_d', 'Quando la taratura è attiva, nel prompt entrano età, grado, sistema scolastico e le note che hai scritto nella scheda (per una classe: grado, disciplina, registro e note). Il NOME dell’allievo non entra mai. Le note servono a cambiare come l’AI scrive: scrivici i bisogni linguistici, non le diagnosi.')
         });
         s.sezioni.push({
             id: 'pv-lan', titolo: t('cb_pv_lan_t', 'Le attività in classe'),

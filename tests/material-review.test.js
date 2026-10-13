@@ -113,7 +113,9 @@ test('single-bracket unknown citations are findings, while reference-only lines 
     const item = { id: 'synthesis-3', kind: 'synthesis', text: 'Fatto [src-absent].', citations: [] };
     const report = MR.validate([item]);
     assert.equal(report.ok, false);
-    assert.match(report.issues[0].problem, /src-absent/);
+    /* 0093 (C): il docente legge una frase senza codici; il codice resta nella segnalazione tecnica */
+    assert.equal(/src-/.test(report.issues[0].problem), false);
+    assert.deepEqual(report.issues[0].unknownCitationIds, ['src-absent']);
     assert.equal(report.issues[0].hasProposal, false);
     assert.equal(MR.claimUnits([{ ...item, text: '[src-absent].\n[[src-absent]]' }]).length, 0);
 });
@@ -742,7 +744,8 @@ test('raw source anchors require an existing registry, preserve exact text, and 
     const report = await r.check([missing]);
     assert.equal(report.issues.length, 1);
     assert.equal(report.issues[0].hasProposal, false);
-    assert.match(report.issues[0].problem, /src-unknown/);
+    assert.equal(/src-/.test(report.issues[0].problem), false);
+    assert.deepEqual(Array.from(report.issues[0].unknownCitationIds), ['src-unknown']);
     assert.equal(missing.text, 'Il commercio continuò [[src-unknown]].');
 });
 

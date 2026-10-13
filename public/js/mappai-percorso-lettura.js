@@ -1933,13 +1933,22 @@
     ensure(input?.data?.extractionMode === 'lettura' && typeof input.folderPath === 'string');
     if (editorOpen) throw new Error(t('pl_close_editor', 'Chiudi il testo aperto prima di aprire un altro progetto.'));
     await operation(async () => {
-      const before = identity(), { folderPath: path, data } = input, manifest = data._pipelineManifest;
+      const before = identity(), { folderPath: path, data } = input;
+      let manifest = data._pipelineManifest;
       ensure(manifest?.reading?.kind === 'percorso-lettura' && manifest.reading.schemaVersion === 1,
         t('pl_read_failed', 'Il testo salvato non è leggibile.'));
       const ptr = manifest.reading;
       ensure(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(ptr.percorsoId) &&
         ptr.sourcePath === 'Materiale Studio/Sorgenti/Percorso-lettura-' + ptr.percorsoId + '.json');
       const draft = await readDocument(path, ptr.sourcePath); before();
+      /* 0094 (lotto D, ADR 0021): una cartella rinominata o spostata dal Finder porta i
+         percorsi vecchi. Se gli id di cartella, manifesto, puntatore e testo coincidono, il
+         manifesto è suo: i percorsi si riparano in memoria (li scrive il primo salvataggio). */
+      const NCl = window.MappAINomeCartellaCore;
+      if (NCl && NCl.acceso(window.localStorage) && manifest.review && manifest.review.vaultPath !== path &&
+          draft.projectId === data.projectId && draft.projectId === ptr.projectId && manifest.review.projectId === draft.projectId) {
+        manifest = NCl.riparaPercorsi(manifest, path, null).manifest;
+      }
       ensure(draft.projectId === data.projectId && draft.projectId === ptr.projectId && draft.percorsoId === ptr.percorsoId &&
         draft.source.sourceId === ptr.sourceId && manifest.review?.projectId === draft.projectId && manifest.review.vaultPath === path);
       const a = await adopt(draft, path, manifest, [sourceEntry(draft)], before);

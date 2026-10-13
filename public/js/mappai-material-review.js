@@ -146,8 +146,12 @@
             const ids = sharedIds || registeredIds([item]);
             const rawIds = Array.from(new Set(Array.from(str(item.text).matchAll(/\[{1,2}(src-[\w-]+)\]{1,2}/g), m => m[1])));
             const unknown = rawIds.filter(id => !ids.has(id));
-            if (unknown.length) add('text', 'Il testo richiama passaggi originali non presenti nel registro di questa sezione: ' +
-                unknown.join(', ') + '. Verifica i riferimenti senza eliminare automaticamente il richiamo.');
+            /* 0093 (C): il docente legge una frase senza codici; i codici restano
+               nella segnalazione tecnica (`unknownCitationIds`) e nella prova */
+            if (unknown.length) {
+                add('text', 'Una o più frasi rimandano a passaggi della fonte che non si trovano: controllale o escludi la sezione.');
+                out[out.length - 1].unknownCitationIds = unknown;
+            }
         }
         FIELDS.filter(f => f !== '$item').forEach(field => {
             const values = Array.isArray(item[field]) ? item[field] : [item[field]];

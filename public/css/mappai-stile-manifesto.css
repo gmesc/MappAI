@@ -2395,6 +2395,19 @@ html[data-app="docente"] #mn-bento #focus-input {
     --mn-sp-min-h: var(--mm-ctl-h);
     font-size: var(--mm-ctl-fs) !important;
 }
+/* 13/10/26 (0087 lotto 11, Giacomo sul banco dei corpi: «B per tutto il bento»): nel bento di
+   CREA i testi a 12 passano a 13 (--mm-fs-testo) e i titoli a 14 passano a 15 (--mm-fs-titolo).
+   Si ridefiniscono le VARIABILI sul bento, non le regole: la scala del bento (--bn-fs-*), il
+   corpo dei controlli (--mm-ctl-fs: tendine, numeri, campi, anche quelli della Lettura che lo
+   leggono) e quello dei bottoni (--mm-btn-fs). Il titolo coincide così con le due card
+   d'azione (15): la scala del bento ha due corpi, 13 e 15 (SCALA in mappai-bento-composizione.js).
+   Zero corpi nuovi, zero `!important`; solo nell'app del docente (il reader non ha il bento). */
+html[data-app="docente"] #mn-bento {
+    --bn-fs-titolo: var(--mm-fs-titolo);
+    --bn-fs-voce: var(--mm-fs-testo);
+    --mm-ctl-fs: var(--mm-fs-testo);
+    --mm-btn-fs: var(--mm-fs-testo);
+}
 
 /* ═══ «OUTPUT» e i posti d'attesa (0087, lotto 10-crea, 12/10/2026) ═════════════
    Il box «Output» della prima riga, la terza riga d'attesa della modalità
@@ -2559,3 +2572,39 @@ html.manifesto #mn-bento #lettura-crea-host .lettura-plan-status[data-stato="err
     --bn-fw-voce: 700;
     -webkit-text-fill-color: var(--mm-danger);
 }
+
+/* ═══ IL BOX UNICO DEI MATERIALI (13/10/26, 0087 lotto 11) ═══════════════════════
+   Giacomo: i box «Output automatici», «Preset», «Quiz», «Fogli nodi», «Fonte & Sintesi» e
+   «Più set per angolo» «raccolti in un box unico con lo stile del box delle opzioni per le
+   attività di Lettura», sempre visibile con Output = Differenziazione. Il riquadro lo scrive il
+   renderer (`raggruppa` in mappai-costruisci-manifesto.js, `m.gruppo` nel dato); qui la veste
+   del box della Lettura: fondo --man-card, raggio --mm-r-card, imballaggio 18/20 (come la card
+   nuda della Lettura qui sopra), titolo col corpo e il peso del titolo del bento, griglia
+   interna a 4 colonne con lo stesso passo del bento (--mn-gap), sotto-box bianchi (il fondo
+   lo scrive il dato, #ffffff = --mm-fondo) col raggio dei riquadri dentro una card
+   (--mm-r-box), come i tre percorsi della Lettura. Zero colori nuovi, zero `!important`. */
+html.manifesto #mn-bento .mn-gruppo {
+    background: var(--man-card);
+    border-radius: var(--mm-r-card);
+    padding: 18px 20px;
+    color: var(--mm-testo);
+    box-sizing: border-box;
+    min-width: 0;
+}
+html.manifesto #mn-bento .mn-gruppo__t {
+    margin: 0 0 var(--mn-gap);
+    font-size: var(--bn-fs-titolo);
+    font-weight: var(--bn-fw-titolo);
+    line-height: 1.4;
+}
+html.manifesto #mn-bento .mn-gruppo__b {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--mn-gap);
+}
+html.manifesto #mn-bento .mn-gruppo .mn-card {
+    border-radius: var(--mm-r-box);
+}
+/* con Metacomprensione e Analisi iconografica quel posto è dei loro box (Giacomo, 13/10) */
+html.manifesto[data-crea-output="metacomprensione"] #mn-bento .mn-gruppo--materiali,
+html.manifesto[data-crea-output="iconografica"] #mn-bento .mn-gruppo--materiali { display: none; }

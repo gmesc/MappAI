@@ -291,7 +291,11 @@
             vexport: { icon: 'archive',     ok: !!window.saveMapVault, fn: () => window.saveMapVault(),
                        title: t('ui_export_vault', 'Esporta nel Vault'), tip: t('tt_save_vault', 'Salva la mappa come vault Markdown (cartella compatibile Obsidian).') },
             vimport: { icon: 'folder-open', ok: !!window.loadMapVault, fn: () => window.loadMapVault(),
-                       title: t('ui_import_vault', 'Importa dal Vault'), tip: t('tt_open_vault', 'Riapre una mappa salvata come vault Markdown.') },
+                       title: t('ui_import_vault', 'Importa dal Vault'),
+                       /* 0095: con l'interruttore acceso la cartella si copia in «MappAI - file» */
+                       tip: (window.MappAIImportVault && window.MappAIImportVault.attivo())
+                           ? t('iv_tt_vimport', 'Copia un vault in «MappAI - file» e apre la copia; l\'originale resta dov\'è.')
+                           : t('tt_open_vault', 'Riapre una mappa salvata come vault Markdown.') },
             jimport: { icon: 'upload',      ok: !!document.getElementById('menu-import-json'), fn: () => clickInput('menu-import-json'),
                        title: t('import_json', 'Importa JSON'),          tip: t('tt_import_json', 'Importa una mappa da file JSON.') },
             notes:   { icon: 'file-text',   ok: !!window.exportNotesMarkdown, fn: () => window.exportNotesMarkdown(),
