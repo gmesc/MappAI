@@ -21,6 +21,15 @@
         catch (e) { return window.appState; }
     }
 
+    /* `StorageManager` è una `const` lessicale di mappai-storage-lang.js (invariante 3).
+       ⚠️ `window.StorageManager` in Chromium ESISTE ma è la classe nativa del browser
+       (quella di navigator.storage): non ha `currentProjectId`, e il projectId di
+       ogni record di consumo usciva null. */
+    function _storage() {
+        try { return (typeof StorageManager !== 'undefined') ? StorageManager : null; }
+        catch (e) { return null; }
+    }
+
     let _ctx = { cat: 'other', sub: 'misc' };
 
     function setContext(cat, sub) {
@@ -41,7 +50,7 @@
         }
         return {
             project: String(label || '').trim() || 'Senza titolo',
-            projectId: (window.StorageManager && window.StorageManager.currentProjectId) || null
+            projectId: ((_storage() || {}).currentProjectId) || null
         };
     }
 

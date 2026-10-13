@@ -109,7 +109,8 @@ function famigliaDi(nome) {
     if (/-r-|-r$|-raggio/.test(nome)) return 'raggi';
     if (/-fs\b|-fs-/.test(nome)) return 'fs';
     if (/ombra/.test(nome)) return 'ombre';
-    if (/-gap|-pad|-h$|-h-|altezza/.test(nome)) return 'spazi';
+    /* lo spessore di un bordo è una lunghezza, non un colore (09/10, packet 0087) */
+    if (/-gap|-pad|-h$|-h-|altezza|spessore/.test(nome)) return 'spazi';
     return 'colore';
 }
 

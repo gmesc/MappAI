@@ -10,6 +10,27 @@ let editTarget = null;
 let editLinks = [];
 let editImages = [];
 
+/* ── IL TESTO DEL NODO ENTRA COME TESTO (25/9/2026) ──────────────────────────
+   I link e le immagini della modifica del nodo, e la scheda «Note» della barra
+   laterale, componevano l'HTML con urls, immagini, etichette e desc COSÌ
+   COM'ERANO: un vault ricevuto da un collega con un link `<img src=x
+   onerror=…>` eseguiva codice al doppio clic sul nodo — e qui ogni codice ha
+   `window.electronAPI`, cioè il disco del docente. L'escape è quello del nucleo
+   (mappai-html-sicuro.js, caricato prima); senza, un ripiego che fa la stessa
+   cosa. */
+function _escEditModal(v) {
+    if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(v);
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
+/* Un DATO dentro un gestore in linea (`onclick="f(…)"`). L'apice raddoppiato
+   con la barra non bastava: un `"` usciva dall'attributo, un `\'` chiudeva la
+   stringa, e il parser HTML scioglie `&#39;` in `'` PRIMA che il codice parta.
+   `JSON.stringify` scrive un letterale di stringa JS valido, l'escape lo
+   tiene dentro l'attributo: a schermo arriva, intero, come argomento. */
+function _jsArgEditModal(v) {
+    return _escEditModal(JSON.stringify(String(v == null ? '' : v)));
+}
+
 // appendText (opz.): citazione da ELABORA precaricata in coda alla desc; il
 // docente la vede, ritocca e SALVA (non-mutante finché non salva). Decisione 1(B).
 window.openEditModal = function (nodeData, appendText, opts) {
@@ -115,7 +136,7 @@ window.renderEditLinksList = function () {
     if (!container) return;
     container.innerHTML = editLinks.map((link, idx) => `
                 <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg p-2 group transition-colors hover:bg-slate-100">
-                    <span class="text-xs text-slate-600 truncate flex-grow mr-2"><i data-lucide="${link.startsWith('file://') ? 'database' : 'link'}" class="w-3 h-3 inline mr-1"></i> ${link}</span>
+                    <span class="text-xs text-slate-600 truncate flex-grow mr-2"><i data-lucide="${String(link).startsWith('file://') ? 'database' : 'link'}" class="w-3 h-3 inline mr-1"></i> ${_escEditModal(link)}</span>
                     <button onclick="window.removeLinkFromEdit(${idx})" class="text-red-500 hover:text-red-700 p-1 transition-colors"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 </div>
             `).join('');
@@ -127,7 +148,7 @@ window.renderEditImagesList = function () {
     if (!container) return;
     container.innerHTML = editImages.map((img, idx) => `
                 <div class="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 group transition-all hover:border-indigo-300">
-                    <img src="${img}" class="w-full h-full object-cover">
+                    <img src="${_escEditModal(img)}" class="w-full h-full object-cover">
                     <button onclick="window.removeImageFromEdit(${idx})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 transition-opacity shadow-sm hover:bg-red-600"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
             `).join('');
@@ -264,22 +285,25 @@ window.updateUserNotesSidebar = function () {
     if (hint) hint.style.display = 'none';
 
     let html = '';
+    const esc = _escEditModal;
     customNodes.forEach(n => {
-        html += `<div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 cursor-pointer hover:bg-indigo-100 transition shadow-sm" onclick="window.zoomToNode('${n.id.replace(/'/g, "\\'")}')">`;
-        html += `<h4 class="font-bold text-sm text-indigo-700 flex items-center gap-1.5"><i data-lucide="tag" class="w-3.5 h-3.5"></i> ${n.label}</h4>`;
+        html += `<div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 cursor-pointer hover:bg-indigo-100 transition shadow-sm" onclick="window.zoomToNode(${_jsArgEditModal(n.id)})">`;
+        html += `<h4 class="font-bold text-sm text-indigo-700 flex items-center gap-1.5"><i data-lucide="tag" class="w-3.5 h-3.5"></i> ${esc(n.label)}</h4>`;
         if (n.hasCustomText) {
             if (n.aiDesc && n.aiDesc !== n.desc) {
-                html += `<p class="text-[10px] text-slate-400 mt-1 line-clamp-2 italic border-l-2 border-slate-200 pl-2 mb-1">${n.aiDesc}</p>`;
+                html += `<p class="text-[10px] text-slate-400 mt-1 line-clamp-2 italic border-l-2 border-slate-200 pl-2 mb-1">${esc(n.aiDesc)}</p>`;
             }
-            html += `<p class="text-xs text-slate-800 mt-1 line-clamp-3 font-medium">${n.desc}</p>`;
+            html += `<p class="text-xs text-slate-800 mt-1 line-clamp-3 font-medium">${esc(n.desc)}</p>`;
         }
         if (n.image) {
-            html += `<img src="${n.image}" class="w-full h-20 object-cover rounded mt-2 border border-indigo-200">`;
+            html += `<img src="${esc(n.image)}" class="w-full h-20 object-cover rounded mt-2 border border-indigo-200">`;
         }
-        const nodeUrls = n.urls || (n.url ? [n.url] : []);
+        // un solo link scritto come testo (un vault a mano) resta un link, non rompe la barra
+        const nodeUrls = [].concat(n.urls || (n.url ? [n.url] : []));
         if (nodeUrls.length > 0) {
             html += `<div class="mt-2 space-y-1">`;
-            nodeUrls.forEach(u => {
+            nodeUrls.forEach(u0 => {
+                const u = String(u0 == null ? '' : u0);
                 const isLocal = u.startsWith('file://');
                 let displayUrl;
                 if (isLocal) {
@@ -292,9 +316,12 @@ window.updateUserNotesSidebar = function () {
                     displayUrl = u.length > 30 ? u.substring(0, 30) + "..." : u;
                 }
 
+                /* Il link passa da `openCustomLink` (mappai-ui-canvas.js), che
+                   apre solo pagine web, posta e documenti: il valore arriva lì
+                   intero, come argomento, e lì si decide se esce dall'app. */
                 html += `
-                    <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink('${u.replace(/'/g, "\\'")}')">
-                        <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${displayUrl}</span>
+                    <span class="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-bold shadow-sm" onclick="event.stopPropagation(); window.openCustomLink(${_jsArgEditModal(u)})">
+                        <i data-lucide="${isLocal ? 'database' : 'link'}" class="w-3 h-3"></i> ${isLocal ? 'File' : 'Link'}: <span class="font-normal underline">${esc(displayUrl)}</span>
                     </span>`;
             });
             html += `</div>`;

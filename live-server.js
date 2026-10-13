@@ -80,10 +80,66 @@ const BODY_CAP = 1024 * 1024;   // 1 MB
 
 function token(n) { return crypto.randomBytes(n).toString('base64url').slice(0, n); }
 
+/* Content-Disposition per un nome qualunque (25/9). Node rifiuta nelle
+   intestazioni i caratteri fuori dal Latin-1: un «—» o un apostrofo tipografico
+   («l’acqua») facevano lanciare `writeHead` (ERR_INVALID_CHAR) e il download
+   dell'allievo restava appeso. RFC 6266: un nome ASCII di ripiego per i client
+   vecchi, e il nome vero in `filename*`, UTF-8 codificato per RFC 5987 (che
+   vuole codificati anche ' ( ) *, lasciati in chiaro da encodeURIComponent). */
+function dispositionAllegato(nome) {
+  const ascii = String(nome).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '');
+  const utf8 = encodeURIComponent(String(nome))
+    .replace(/['()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+  return 'attachment; filename="' + ascii + '"; filename*=UTF-8\'\'' + utf8;
+}
+
 function json(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(obj));
 }
+
+/* L'URL della richiesta, o null dopo aver già risposto 400. `GET //[ HTTP/1.1`
+   fa lanciare `new URL`: l'eccezione usciva dal gestore, la richiesta restava
+   appesa e nel main arrivava un uncaughtException per ogni tentativo. */
+function urlDi(req, res) {
+  try { return new URL(req.url, 'http://x'); }
+  catch (e) { res.writeHead(400); res.end('bad request'); return null; }
+}
+
+/* testo UTF-8 valido e senza NUL, oppure null: un binario travestito da testo non passa */
+function testoUtf8(buf) {
+  try {
+    const s = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    return s.indexOf('\u0000') < 0 ? s : null;
+  } catch (e) { return null; }
+}
+
+/* ── CHE COSA PUÒ CONSEGNARE UN ALLIEVO (25/9) ───────────────────────────────
+   Solo ciò che MappAI studente manda davvero (`fileDaInviare` in
+   studente/scambio-core.js del reader): il PDF delle risposte, l'HTML della
+   prova o del report (`risposte.html`, `report.html`) e i record di studio
+   `sessioni.jsonl`. Il nome da solo non basta — chi ha il token del QR scrive
+   i byte che vuole — quindi i primi byte devono dire la stessa cosa
+   dell'estensione. Prima passava qualunque file: un `.command` o un
+   `.terminal` finiva nel vault a un clic da «Apri nel Finder», che è
+   `shell.openPath`. ⚠️ Un HTML resta un HTML, script compresi: chi lo mostra
+   lo chiude in una sandbox (`_consMostra` in mappai-landing-teach.js). */
+const CONSEGNA_FORMATI = {
+  '.pdf': buf => buf.slice(0, 5).toString('latin1') === '%PDF-',
+  '.html': buf => {
+    const s = testoUtf8(buf);
+    return s != null && /^﻿?\s*<(?:!doctype\s+html|html)[\s>]/i.test(s.slice(0, 1024));
+  },
+  '.jsonl': buf => {
+    const s = testoUtf8(buf);
+    const riga = s == null ? '' : (s.replace(/^﻿/, '').split(/\r?\n/).find(l => l.trim()) || '');
+    try { const o = JSON.parse(riga); return !!o && typeof o === 'object'; } catch (e) { return false; }
+  }
+};
+/* una prova sono al massimo tre file (PDF, report, record): 50 per cartella
+   sono più prove di quante un allievo ne consegni su una mappa */
+const CONSEGNE_PER_ALLIEVO = 50;
 
 function readBody(req, cb, cap) {
   const tetto = cap || BODY_CAP;
@@ -407,7 +463,7 @@ function createLiveServer(opts) {
   armTimer();
 
   const server = http.createServer((req, res) => {
-    const u = new URL(req.url, 'http://x');
+    const u = urlDi(req, res); if (!u) return;
     const p = u.pathname;
     checkExpiry();
 
@@ -821,8 +877,9 @@ function createMaterialsServer(opts) {
      Un VAULT esposto per sessione (manifest in memoria e in <dir>/vault.json,
      crash-safe come session.json): l'app studente legge `/api/vault` e scarica
      i file uno a uno da `/vault/<rel>` — solo i rel ELENCATI, mai un cammino
-     libero. E `POST /api/consegna`: l'allievo manda il PDF delle risposte, che
-     finisce nel vault del docente in Consegne/<studente>/. `opts.scambio:false`
+     libero. E `POST /api/consegna`: l'allievo manda il PDF delle risposte (o
+     l'HTML della prova, i record di studio: `CONSEGNA_FORMATI`), che finisce
+     nel vault del docente in Consegne/<studente>/. `opts.scambio:false`
      spegne tutto (kill-switch dal renderer). */
   const scambio = opts.scambio !== false;
   const vaultFile = path.join(dir, 'vault.json');
@@ -863,17 +920,31 @@ function createMaterialsServer(opts) {
     const { dir: _d, ...pub } = vault;   // la cartella del Mac non viaggia
     return pub;
   }
-  /* la consegna: nome sicuro, mai sovrascrivere */
+  /* la consegna: nome sicuro, formato ammesso, mai sovrascrivere */
   function scriviConsegna(b) {
     const ident = FC.identitaStudente(b.numero != null ? b.numero : (b.studente && b.studente.numero), b.classe != null ? b.classe : (b.studente && b.studente.classe));
     if (!ident) return { code: 400, body: { error: 'studente' } };
     const nome = path.basename(String(b.nome || '')).replace(/^\.+/, '');
     if (!nome || !/^[^\/\\]+$/.test(nome) || FC.safeName(nome, '') !== nome) return { code: 400, body: { error: 'nome' } };
+    /* i caratteri di DIREZIONE (bidi) rovesciano il nome a schermo: «compito\u202Efdp.html»,
+       HTML vero, nel Finder si legge «compitolmth.pdf» (25/9, dalla revisione del ramo) */
+    if (/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/.test(nome)) return { code: 400, body: { error: 'nome' } };
+    const formato = CONSEGNA_FORMATI[path.extname(nome).toLowerCase()];
+    if (!formato) return { code: 415, body: { error: 'formato' } };
     if (typeof b.base64 !== 'string' || !b.base64) return { code: 400, body: { error: 'contenuto' } };
-    const vaultDir = opts.vaultDir ? opts.vaultDir(String(b.vault || '')) : null;
+    /* il vault si cerca per NOME, e un nome è un segmento solo: con `../..`
+       `findVaultDirByName` usciva da Mappe verso qualunque cartella con un index.yaml */
+    const nomeVault = String(b.vault || '');
+    if (!nomeVault || /[\/\\\u0000]/.test(nomeVault) || nomeVault === '.' || nomeVault === '..') return { code: 404, body: { error: 'vault' } };
+    const vaultDir = opts.vaultDir ? opts.vaultDir(nomeVault) : null;
     if (!vaultDir || !fs.existsSync(vaultDir)) return { code: 404, body: { error: 'vault' } };
-    let buf; try { buf = Buffer.from(b.base64, 'base64'); } catch (e) { return { code: 400, body: { error: 'contenuto' } }; }
+    const buf = Buffer.from(b.base64, 'base64');
+    if (!buf.length) return { code: 400, body: { error: 'contenuto' } };
+    if (!formato(buf)) return { code: 415, body: { error: 'formato' } };
     const cart = path.join(vaultDir, FC.CONSEGNE, ident.id);
+    let gia = 0;
+    try { gia = fs.readdirSync(cart).filter(f => f.charAt(0) !== '.').length; } catch (e) { gia = 0; }   // cartella nuova
+    if (gia >= CONSEGNE_PER_ALLIEVO) return { code: 400, body: { error: 'troppe-consegne' } };
     fs.mkdirSync(cart, { recursive: true });
     const sess = FC.safeName(String(b.sessione || ''), '');
     const base = (sess ? sess + ' - ' : '') + nome;
@@ -882,7 +953,7 @@ function createMaterialsServer(opts) {
     while (fs.existsSync(path.join(cart, fin))) { fin = stem + ' (' + n + ')' + ext; n++; }
     fs.writeFileSync(path.join(cart, fin), buf);
     const rel = FC.CONSEGNE + '/' + ident.id + '/' + fin;
-    const info = { ok: true, rel, size: buf.length, studente: ident.id, vault: String(b.vault || ''), vaultDir };
+    const info = { ok: true, rel, size: buf.length, studente: ident.id, vault: nomeVault, vaultDir };
     if (opts.onConsegna) { try { opts.onConsegna(info); } catch (e) { /* il renderer non c'è */ } }
     return { code: 200, body: { ok: true, rel, size: buf.length, studente: ident.id } };
   }
@@ -908,7 +979,7 @@ function createMaterialsServer(opts) {
   }
 
   const server = http.createServer((req, res) => {
-    const u = new URL(req.url, 'http://x');
+    const u = urlDi(req, res); if (!u) return;
     const p = u.pathname;
     /* CORS: l'app studente chiama da `capacitor://localhost`, un'origine che
        non si può prevedere per IP; il gate resta il token. */
@@ -963,14 +1034,16 @@ function createMaterialsServer(opts) {
       if (u.searchParams.get('s') !== session.token && u.searchParams.get('s') !== session.adminToken) {
         res.writeHead(403); res.end('forbidden'); return;
       }
-      const name = path.basename(decodeURIComponent(p.slice('/files/'.length)));
+      let name = '';   // un `%` monco fa lanciare decodeURIComponent: stesso guasto di `new URL`
+      try { name = path.basename(decodeURIComponent(p.slice('/files/'.length))); }
+      catch (e) { res.writeHead(400); res.end('bad request'); return; }
       const file = path.join(filesDir, name);
       if (!file.startsWith(filesDir) || !fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
       const ext = path.extname(file).toLowerCase();
       const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' };
       // ?inline=1 → anteprima nel browser (pagina file.html); default = download
       const inline = u.searchParams.get('inline') === '1';
-      if (ext !== '.html' && !inline) headers['Content-Disposition'] = 'attachment; filename="' + name.replace(/"/g, '') + '"';
+      if (ext !== '.html' && !inline) headers['Content-Disposition'] = dispositionAllegato(name);
       res.writeHead(200, headers);
       res.end(fs.readFileSync(file)); return;
     }

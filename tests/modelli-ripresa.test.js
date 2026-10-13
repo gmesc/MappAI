@@ -107,11 +107,30 @@ test('flag spento e manifesto legacy: nessuna migrazione implicita', () => {
     assert.equal(h.window.MappAIModelli.avvia({ manifest: PC.createManifest({}) }), null);
 });
 
-test('preflight rifiuta giudice senza modello, audio Google e reranker esterno', () => {
+test('nuovaAzione freezes the current Setup and key; ordinary retry still uses the saved profile', async () => {
+    const h = runtime(), original = h.window.MappAIModelli.avvia();
+    const manifest = PC.createManifest({ modelli: original.profilo() }, { vaultPath: h.state.activeVaultPath });
+    manifest.modelliGiro = original.riepilogo();
+    const before = JSON.stringify(manifest), current = B1.profile(); current.modelli.giudice = 'new-judge';
+    h.window.MappAIModelli.salvaProfilo(current);
+    const fresh = h.window.MappAIModelli.avvia({ manifest, vaultPath: h.state.activeVaultPath, nuovaAzione: true, giudice: true });
+    const frozenKey = h.keys.infomaniak;
+    current.modelli.giudice = 'later-judge'; h.window.MappAIModelli.salvaProfilo(current); h.keys.infomaniak = 'later-key';
+    await fresh.chat('giudice', B1.payload());
+    assert.equal(h.calls[0].payload.model, 'new-judge'); assert.equal(h.calls[0].apiKey, frozenKey);
+    const retry = h.window.MappAIModelli.avvia({ manifest, vaultPath: h.state.activeVaultPath, giudice: true });
+    await retry.chat('giudice', B1.payload());
+    assert.equal(h.calls[1].payload.model, manifest.config.modelli.modelli.giudice);
+    assert.equal(h.calls[1].apiKey, 'later-key');
+    assert.notEqual(fresh.riepilogo().runId, original.riepilogo().runId);
+    assert.equal(fresh.riepilogo().previousRunId, original.riepilogo().runId);
+    assert.equal(JSON.stringify(manifest), before);
+});
+
+test('preflight rifiuta giudice senza modello e reranker esterno', () => {
     const h = runtime(), p = h.profile; p.modelli.giudice = null; h.window.MappAIModelli.salvaProfilo(p);
     assert.throws(() => h.window.MappAIModelli.avvia({ giudice: true }), /giudice/);
-    assert.throws(() => h.window.MappAIModelli.avvia({ config: { synthesis: { audio: true } } }), /senza voce/);
-    assert.throws(() => h.window.MappAIModelli.avvia({ nuovo: true, config: { dossier: { titolo: 'Foto' } } }), /fonti testuali/);
+    /* la voce e il dossier non si rifiutano più (0065): li prova tests/voce-dossier-giri.test.js */
     h.values.set('mappai_reranker_infomaniak', '1');
     assert.throws(() => h.window.MappAIModelli.avvia({ nuovo: true }), /reranker/);
     assert.equal(h.calls.length + h.embeddingCalls.length, 0);

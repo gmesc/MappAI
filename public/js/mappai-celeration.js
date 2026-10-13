@@ -66,7 +66,7 @@
     let grid = '';
     [0, 0.5, 1].forEach(v => {
       const y = accY(v);
-      grid += `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="#e2e8f0"/>`;
+      grid += `<line x1="${PADL}" y1="${y}" x2="${W - PADR}" y2="${y}" stroke="#cbd5e1"/>`;
       grid += `<text x="${PADL - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="#16a34a">${Math.round(v * 100)}%</text>`;
     });
     grid += `<text x="${W - PADR + 6}" y="${PADT + 6}" font-size="10" fill="#2563eb">${maxRate.toFixed(0)}/min</text>`;
@@ -101,12 +101,12 @@
           <span style="color:#16a34a;font-weight:600">● Accuratezza</span>
           <span style="color:#2563eb;font-weight:600">● Fluenza (corrette/min)</span>
         </div>${chartSVG(series)}
-        ${oneDay ? '<p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Un solo giorno di dati: torna domani per vedere la <b>celeration</b> (la crescita nel tempo).</p>' : ''}`;
+        ${oneDay ? '<p style="color:var(--mm-testo-3, #64748b);font-size:12px;margin:8px 0 0">Un solo giorno di dati: torna domani per vedere la <b>celeration</b> (la crescita nel tempo).</p>' : ''}`;
     }
 
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:620px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:22px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="trending-up" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:#0f172a;font-size:16px">I tuoi progressi</b>
-          <button id="cel-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1">×</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="trending-up" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:var(--mm-testo, #404040);font-size:16px">I tuoi progressi</b>
+          <button id="cel-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1">×</button></div>
         ${inner}</div>`;
     document.body.appendChild(modal);
     if (window.safeCreateIcons) window.safeCreateIcons();

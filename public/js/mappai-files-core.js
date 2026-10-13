@@ -211,6 +211,10 @@
        contratto del vault già prevede per i media, e resta separata da 'Fonti',
        dove ELABORA mette gli originali che gli servono per l'anteprima. */
     if (segs.length === 2 && (segs[0] === 'Materiale Studio' || segs[0] === 'Fonti' || segs[0] === 'Allegati')) return segs.join('/');
+    /* 'Documenti' (0077, ADR 0018): i documenti salvati, un file per documento.
+       Due segmenti esatti; non viaggia all'allievo (relVaultStudente non la
+       conosce) e gli elenchi dei materiali non la guardano. */
+    if (segs.length === 2 && segs[0] === 'Documenti') return segs.join('/');
     /* 'Materiale Studio/Sorgenti' (6/9): i gemelli `.html` dei fogli di domande
        aperte — la sorgente col `qp-set` che prima viveva solo nell'archivio in
        localStorage di UN computer. Sottocartella e non fratello del PDF, di
@@ -647,9 +651,22 @@
     return validi.slice(0, Math.max(0, validi.length - k));
   }
 
+  /* ── LA FORMA DELL'ID DI PROGETTO (0061, 29/09; ADR 0013) ──────────────────
+     L'id di progetto viaggia ora dentro la cartella (`index.yaml › projectId`), e
+     un `index.yaml` può arrivare da fuori: da un collega, da una copia, da un file
+     scritto a mano. Ma l'id è anche la CHIAVE della fotografia in localStorage
+     (`saveCurrentProject`): un `projectId: tutor_ai_projects` farebbe scrivere la
+     fotografia sopra l'indice dei progetti. Vale solo la forma che l'app conia
+     ('proj_' + Date.now()); qualunque altro valore vale come assente. Una fonte
+     sola: la usano teach-core, usage-core, INSEGNA e main.js (inv. 6). */
+  function idProgettoValido(x) {
+    return typeof x === 'string' && /^proj_\d{10,16}$/.test(x);
+  }
+
   var CORE = {
     serveIstantanea: serveIstantanea,
     istantaneeDaPotare: istantaneeDaPotare,
+    idProgettoValido: idProgettoValido,
     materialeEstraneo: materialeEstraneo,
     nomeDiceLaMappa: nomeDiceLaMappa,
     ROOT_FOLDER: ROOT_FOLDER,

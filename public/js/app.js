@@ -55,7 +55,7 @@ let appState = {
         system: "Ticino"
     },
     allProfiles: [],
-    aiProvider: localStorage.getItem('ai_provider') || 'google',
+    aiProvider: localStorage.getItem('ai_provider') || 'infomaniak',
     infomaniakProductId: localStorage.getItem('infomaniak_product_id') || '',
     studentMode: false,
     infomaniakAllModels: true,
@@ -561,18 +561,57 @@ if (typeof pdfjsLib !== 'undefined') {
    di testo porta la sua altezza, e che l'app buttava via. Un docente vede a colpo
    d'occhio che il dossier ha una sezione economica; il modello no, e infatti la
    pagina economica è sparita da due mappe su due.
-   `extractTextFromPDF` continua a restituire la stessa stringa di sempre (sei
-   chiamanti, invariati); chi vuole di più chiama `extractPdfPages`. */
+   `extractTextFromPDF` continua a restituire il testo di tutte le pagine (sei
+   chiamanti, invariati); chi vuole di più chiama `extractPdfPages`.
+
+   ── IL TESTO DI OGNI PAGINA (packet 0044, 28/9/26) ──
+   pdf.js spezza una riga in più pezzi anche a metà parola, e gli spazi veri li
+   codifica già da sé. Incollare i pezzi sempre con uno spazio inventava «Henr i»,
+   «neutrali tà», «Federale ,», e da qui il difetto arrivava a prompt, àncora,
+   evidenze e giudice. Il testo lo compone `MappAIPdfTesto.testoPagina`
+   (js/mappai-pdf-testo-core.js): gli spazi di pdf.js più una rete geometrica,
+   una riga per pagina, spazi compattati; cambiano SOLO gli spazi.
+   Interruttore `mappai_pdf_unione_nativa`: assente = acceso; '0' = l'unione di
+   prima, che vive solo nel core (`unisciVecchio`), non qui.
+   ⚠️ Il core si legge DENTRO la funzione, mai al caricamento: il reader copia
+   questo file così com'è e non ha il core (non chiama mai extractPdfPages).
+
+   ── IL TESTO PER IL MODELLO (packet 0045, 28/9/26) ──
+   In più, `testoPerModello`: le stesse pagine senza le righe che si ripetono
+   nella fascia alta o bassa di molte pagine (intestazioni, piè di pagina),
+   riconosciute dalla POSIZIONE da `MappAIPdfTesto.intestazioniRipetute` (la
+   regola sta solo nel core). Lo usa SOLO il prompt di startGeneration: `text`,
+   `pages` e `titoli` restano il testo intero (àncora, evidenze, revisione).
+   `intestazioni` = [{ testo, fascia, pagine }], per il registro.
+   Interruttore `mappai_intestazioni_posizione`: assente = acceso; '0' =
+   `testoPerModello` uguale a `text`. Spento anche con
+   `mappai_strip_boilerplate = '0'`: chi ha spento il filtro vuole il testo intero. */
 window.extractPdfPages = async function (file) {
+    if (!window.MappAIPdfTesto || typeof window.MappAIPdfTesto.testoPagina !== 'function') {
+        throw new Error('extractPdfPages: manca MappAIPdfTesto — js/mappai-pdf-testo-core.js non è caricato in index.html');
+    }
+    let nativa = true;                                             // una volta per file
+    try { nativa = localStorage.getItem('mappai_pdf_unione_nativa') !== '0'; } catch (e) { nativa = true; }
+    let senzaIntestazioni = true;                                  // una volta per file
+    try {
+        senzaIntestazioni = localStorage.getItem('mappai_intestazioni_posizione') !== '0' &&
+            localStorage.getItem('mappai_strip_boilerplate') !== '0';
+    } catch (e) { senzaIntestazioni = true; }
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const pages = [];
     const altezze = [];
     const grezzi = [];
+    const perPosizione = [];                                       // { items, vp } per pagina (0045)
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        pages.push({ n: i, text: content.items.map(item => item.str).join(" ") });
+        pages.push({ n: i, text: window.MappAIPdfTesto.testoPagina(content.items, { nativa }) });
+        if (senzaIntestazioni) {
+            const viewport = page.getViewport({ scale: 1 });
+            perPosizione.push({ items: content.items,
+                vp: { height: viewport.height, punto: (x, y) => viewport.convertToViewportPoint(x, y) } });
+        }
         // altezza del glifo: `height`, o la scala verticale della matrice
         content.items.forEach(it => {
             const h = it.height || (it.transform && Math.abs(it.transform[3])) || 0;
@@ -617,7 +656,25 @@ window.extractPdfPages = async function (file) {
         titoli.push({ page: g.n, text: g.s });
     });
     if (titoli.length > 24) titoli = titoli.slice(0, 24);          // un indice, non un secondo documento
-    return { text: pages.map(p => p.text).join('\n'), pages, titoli };
+    const text = pages.map(p => p.text).join('\n');
+    let testoPerModello = text, intestazioni = [];
+    if (senzaIntestazioni && typeof window.MappAIPdfTesto.intestazioniRipetute === 'function') {
+        // un'eccezione del core non rompe la lettura del PDF: fonti, ELABORA e
+        // «Espandi con AI» passano tutti da qui → si torna al testo intero
+        try {
+            const r = window.MappAIPdfTesto.intestazioniRipetute(perPosizione);
+            intestazioni = r.elenco;
+            if (intestazioni.length) {
+                testoPerModello = perPosizione.map((pg, p) => r.escludi[p].size
+                    ? window.MappAIPdfTesto.testoPagina(pg.items.filter((_, k) => !r.escludi[p].has(k)), { nativa })
+                    : pages[p].text).join('\n');
+            }
+        } catch (e) {
+            console.warn('[Intestazioni] calcolo non riuscito: ' + (e && e.message));
+            testoPerModello = text; intestazioni = [];
+        }
+    }
+    return { text, pages, titoli, testoPerModello, intestazioni };
 };
 
 window.extractTextFromPDF = async function (file) {
@@ -1564,7 +1621,11 @@ window.startGeneration = async function (options) {
                 let _pdf = await window.extractPdfPages(src.file);
                 let pdfText = _pdf.text;
                 if (pdfText.trim()) {
-                    textParts.push("[FONTE PDF " + src.file.name + "]:\n" + pdfText);
+                    /* 0045: al modello il testo senza le intestazioni ripetute
+                       (riconosciute dalla posizione); _pdfPagine resta intero. */
+                    textParts.push("[FONTE PDF " + src.file.name + "]:\n" + (_pdf.testoPerModello || pdfText));
+                    const _nIntest = (_pdf.intestazioni || []).reduce((n, x) => n + (x.pagine || 0), 0);
+                    if (_nIntest) console.log('[Intestazioni] tolte ' + _nIntest + ' righe ripetute (posizione) da ' + src.file.name);
                     /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
                        citazioni sanno da che pagina vengono) e alla Fase 1 (i
                        titoli del dossier come indice). Il prompt non cambia. */
@@ -1583,7 +1644,11 @@ window.startGeneration = async function (options) {
                 let _pdf = await window.extractPdfPages(src.file);
                 let pdfText = _pdf.text;
                 if (pdfText.trim()) {
-                    textParts.push("[FONTE PDF " + src.file.name + "]:\n" + pdfText);
+                    /* 0045: al modello il testo senza le intestazioni ripetute
+                       (riconosciute dalla posizione); _pdfPagine resta intero. */
+                    textParts.push("[FONTE PDF " + src.file.name + "]:\n" + (_pdf.testoPerModello || pdfText));
+                    const _nIntest = (_pdf.intestazioni || []).reduce((n, x) => n + (x.pagine || 0), 0);
+                    if (_nIntest) console.log('[Intestazioni] tolte ' + _nIntest + ' righe ripetute (posizione) da ' + src.file.name);
                     /* pagine e titoli viaggiano a parte: servono all'ANCORA (le
                        citazioni sanno da che pagina vengono) e alla Fase 1 (i
                        titoli del dossier come indice). Il prompt non cambia. */
@@ -2377,9 +2442,11 @@ window.applyAppTranslations = null;
         const categoryLabel = (cat && cat.etichetta) || 'Altro';
         const emailSubject = `MappAI Feedback - [${categoryLabel}]`;
 
-        const appVersion = "1.0.0";
         const osInfo = navigator.platform || 'sconosciuto';
         const userAgent = navigator.userAgent;
+        /* La versione vera sta nello user agent di Electron (`MappAI/<versione>`): una cifra scritta
+           qui andava fuori squadra a ogni rilascio (0088, R2). */
+        const appVersion = (/\bmappai\/(\d\S*)/i.exec(userAgent || '') || [])[1] || 'sconosciuta';
         const model = document.getElementById('model-select')?.value || 'Non specificato';
 
         const emailBase = `SEGNALAZIONE UTENTE MAPPAI\n` +

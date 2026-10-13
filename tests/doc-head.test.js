@@ -197,3 +197,13 @@ test('MISURE e COLORI sono esportati: chi migra un foglio confronta invece di in
     assert.strictEqual(H.COLORI.classeTesto, '#4338ca');
     assert.strictEqual(H.ACCENTO, '#4f46e5');
 });
+
+// ── il nome della mappa dentro <style> (25/9) ────────────────────────────────
+test('stile e piè: un «</style>» nel nome della mappa non chiude il foglio di stile', () => {
+    const cattivo = 'Mappa </style><script>alert(1)</script>';
+    for (const out of [H.stile({ accento: '#4f46e5', mappa: cattivo }), H.stile({ accento: '#4f46e5', mappa: cattivo, pagina: {} })]) {
+        assert.ok(!/<\/style\s*>\s*<script/i.test(out), out.slice(0, 200));
+        assert.ok(out.includes('\\3c '), 'il «<» resta, come escape CSS');
+    }
+    assert.equal(H.escCss('a<b'), 'a\\3c b');
+});

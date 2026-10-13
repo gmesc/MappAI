@@ -74,25 +74,24 @@ window.fillPromptTemplate = function(promptKey, variables) {
         : ((window.currentLanguage === 'en' || window.currentLanguage === 'en-US') ? 'en' : 'it');
     const langSuffix = promptLang === 'en' ? '_EN' : '_IT';
     
-    let text = "";
-    // Seleziona preferenzialmente i prompt specifici per Infomaniak se il provider è attivo
-    if (window.appState && window.appState.aiProvider === 'infomaniak') {
-        text = window.systemPromptsConfig[promptKey + "_INFOMANIAK" + langSuffix] || window.systemPromptsConfig[promptKey + "_INFOMANIAK"] || "";
-    }
-    
-    if (!text) {
-        // Toggle "logica MM": se l'utente sceglie la logica sperimentale BERT, usa la
-        // variante _BERT del prompt L1 (con la REGOLA DI PERTINENZA). Default = MappAI.
-        let resolvedKey = promptKey;
-        try {
-            if (promptKey === 'L1_MACRO_CATEGORIES' && localStorage.getItem('mappai_mm_logic') === 'bert') {
-                resolvedKey = 'L1_MACRO_CATEGORIES_BERT';
-            }
-        } catch (e) { /* localStorage non disponibile */ }
-        text = window.systemPromptsConfig[resolvedKey + langSuffix] || window.systemPromptsConfig[resolvedKey] ||
+    /* Il template NON dipende dal provider. Qui c'era un ramo che, con Infomaniak,
+       cercava prima le varianti `<chiave>_INFOMANIAK`: guardava `window.appState`,
+       che non esiste (`appState` è un `let` di app.js, invariante 3), quindi non è
+       mai scattato — e quelle varianti non esistono più in nessuno dei due file di
+       prompt. Tolto il 25/9/26 a comportamento identico: riaccenderlo «correggendo»
+       la guardia cambierebbe il prompt a chi avesse ancora quelle varianti in un
+       override utente vecchio. */
+    // Toggle "logica MM": se l'utente sceglie la logica sperimentale BERT, usa la
+    // variante _BERT del prompt L1 (con la REGOLA DI PERTINENZA). Default = MappAI.
+    let resolvedKey = promptKey;
+    try {
+        if (promptKey === 'L1_MACRO_CATEGORIES' && localStorage.getItem('mappai_mm_logic') === 'bert') {
+            resolvedKey = 'L1_MACRO_CATEGORIES_BERT';
+        }
+    } catch (e) { /* localStorage non disponibile */ }
+    let text = window.systemPromptsConfig[resolvedKey + langSuffix] || window.systemPromptsConfig[resolvedKey] ||
                window.systemPromptsConfig[promptKey + langSuffix] || window.systemPromptsConfig[promptKey] || "";
-    }
-    
+
     for (const [key, value] of Object.entries(variables || {})) {
         // Replacer FUNZIONE (non stringa): inserisce il valore LETTERALE. Con la stringa,
         // JS interpreta le sequenze speciali ($$ → $, $& → match, ecc.) e corrompe i valori

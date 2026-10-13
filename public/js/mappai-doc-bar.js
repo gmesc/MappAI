@@ -66,7 +66,7 @@
        10 + bottone 32) — qui il bottone sale a 44 perché su iPad si tocca. */
     function stile() {
         return '<style>\n' +
-            ':root{--mm-doc-h:60px;--mm-doc-fondo:#ffffff;--mm-doc-bordo:#e2e8f0;' +
+            ':root{--mm-doc-h:60px;--mm-doc-fondo:#ffffff;--mm-doc-bordo:#cbd5e1;' +
             '--mm-doc-testo:#0f172a;--mm-doc-testo-2:#475569;--mm-doc-accento:#4f46e5;' +
             '--mm-doc-accento-hover:#4338ca;--mm-doc-fs:13px;--mm-doc-r:10px;--mm-doc-icona:18px}\n' +
             '.mm-doc-bar{position:fixed;top:0;left:0;right:0;height:var(--mm-doc-h);' +

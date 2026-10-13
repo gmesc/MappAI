@@ -107,6 +107,53 @@ window.parseSimpleMarkdown = function (text) {
     return html;
 }
 
+/* ── LA RISPOSTA DEL MODELLO ENTRA COME DATO (25/9/2026) ─────────────────────
+   Il tutor metteva in `innerHTML` la risposta del modello così com'era — e il
+   modello lo pilota anche chi ha scritto il PDF o il vault da cui arriva il
+   contesto: un `<img src=x onerror=…>` nella risposta era codice con tutto
+   `window.electronAPI` in mano. La formattazione voluta (i prompt chiedono
+   <strong>, <p>, <ul>, <li>; `parseSimpleMarkdown` aggiunge grassetti e a capo)
+   passa dalla lista bianca di `sanificaTutor` (mappai-html-sicuro.js, caricato
+   prima); ciò che scrive l'utente è testo. Senza il nucleo si ripiega sulla via
+   più severa: tutto è testo. */
+function _escTutor(v) {
+    if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(v);
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
+function _htmlTutor(html) {
+    return window.MappAIHtmlSicuro ? window.MappAIHtmlSicuro.sanificaTutor(html) : _escTutor(html);
+}
+
+/* Testo semplice da un HTML che non è nostro (la risposta del modello, la desc
+   di un vault ricevuto), per la voce, il trascritto e il contesto del prompt.
+   `stripHTML` (mappai-text-utils.js) lo ricava con un <div> del documento VERO:
+   lì un `<img src=x onerror=…>` scatta anche se il div non entra mai nella
+   pagina — e il trascritto lo chiamava a OGNI risposta, senza un clic. Un
+   documento fatto con `createHTMLDocument` è INERTE (non carica immagini, non
+   esegue gestori): stesso `textContent`, nessun codice. */
+function _testoPianoTutor(html) {
+    const s = html == null ? '' : String(html);
+    try {
+        const div = document.implementation.createHTMLDocument('').createElement('div');
+        div.innerHTML = s;
+        return div.textContent || '';
+    } catch (e) {
+        return s.replace(/<[^>]*>/g, '');
+    }
+}
+
+/* Il bottone della voce portava il testo DENTRO `onclick="…readTextAloud(this,
+   '…')"`, protetto dal solo apice: un `\'` o un `&#39;` nella risposta del
+   modello chiudeva la stringa, e il resto diventava codice. Ora il testo sta in
+   `data-tutor-voce` (con l'escape) e lo legge, come dato, un ascolto solo. */
+if (!window._mappaiTutorVoceDelegata) {
+    window._mappaiTutorVoceDelegata = true;
+    document.addEventListener('click', function (e) {
+        const b = e.target && e.target.closest ? e.target.closest('[data-tutor-voce]') : null;
+        if (b) window.readTextAloud(b, b.getAttribute('data-tutor-voce'));
+    });
+}
+
 window.readTextAloud = function (btnElement, textToRead) {
     if (window.speechSynthesis.speaking) {
         window.speechSynthesis.cancel();
@@ -115,8 +162,8 @@ window.readTextAloud = function (btnElement, textToRead) {
         return;
     }
 
-    // Rimuovi tag HTML per la lettura
-    let cleanText = stripHTML(textToRead);
+    // Rimuovi tag HTML per la lettura (in un documento inerte: vedi _testoPianoTutor)
+    let cleanText = _testoPianoTutor(textToRead);
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'it-IT';
     utterance.rate = 0.9;
@@ -146,7 +193,7 @@ window.saveTutorChatTranscript = async function (targetName, role, text) {
         }
 
         let prefix = role === 'user' ? 'Studente' : 'Tutor';
-        let cleanText = stripHTML(window.parseSimpleMarkdown(text)).replace(/<br>/g, '\n');
+        let cleanText = _testoPianoTutor(window.parseSimpleMarkdown(text)).replace(/<br>/g, '\n');
         let contentToSave = `[${prefix}]: ${cleanText}`;
 
         await window.electronAPI.saveChatTranscript({
@@ -172,7 +219,7 @@ window.resetSidebarTutor = function () {
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
-                <button onclick="window.readTextAloud(this, \`${firstMsg.replace(/'/g, "\\'")}\`)" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
+                <button data-tutor-voce="${_escTutor(firstMsg)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
             </div>
         `;
         window.safeCreateIcons();
@@ -190,7 +237,7 @@ window.sendSidebarTutorMessage = async function () {
 
     chatHistory.innerHTML += `
         <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
-            <p>${customQuery}</p>
+            <p>${_escTutor(customQuery)}</p>
         </div>
     `;
     const loaderId = 'loader-' + Date.now();
@@ -205,7 +252,7 @@ window.sendSidebarTutorMessage = async function () {
     if (tutorState.sidebar.history.length === 0) {
         let globalContext = "CONTESTO GLOBALE DELLA MAPPA:\n\n";
         appState.db.nodes.forEach(n => {
-            globalContext += `- NODO [${n.label}]: ${stripHTML(n.desc || "")}\n`;
+            globalContext += `- NODO [${n.label}]: ${_testoPianoTutor(n.desc || "")}\n`;
         });
 
         tutorState.sidebar.history.push({
@@ -245,7 +292,8 @@ window.sendSidebarTutorMessage = async function () {
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
 
         let rawText = data.candidates[0].content.parts[0].text || "";
-        let resultHTML = rawText.split(MARKER_HTML).join('').split(MARKER_END).join('').trim();
+        // l'HTML chiesto dal prompt, ridotto alla lista bianca (vedi _htmlTutor)
+        let resultHTML = _htmlTutor(rawText.split(MARKER_HTML).join('').split(MARKER_END).join('').trim());
 
         tutorState.sidebar.history.push({
             role: "model",
@@ -255,11 +303,10 @@ window.sendSidebarTutorMessage = async function () {
 
         // Update UI
         document.getElementById(loaderId).remove();
-        let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML += `
         <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
             <div class="markdown-body flex-grow">${resultHTML}</div>
-            <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
+            <button data-tutor-voce="${_escTutor(rawText)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
         </div>
     `;
         window.safeCreateIcons();
@@ -316,11 +363,10 @@ window.startNodeTutor = function () {
             "Ciao! Scegli una <strong>modalità</strong> qui sotto e parto io. Passa il mouse sui pulsanti per scoprire cosa fa ognuna." :
             "Hi! Pick a <strong>mode</strong> below and I'll start. Hover the buttons to see what each one does.";
 
-        let safeRawTextForBtn = firstMsg.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         chatHistory.innerHTML = `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
-                <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
+                <button data-tutor-voce="${_escTutor(firstMsg)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
             </div>
         `;
         window.safeCreateIcons();
@@ -334,10 +380,12 @@ window.startNodeTutor = function () {
     } else {
         // Render existing persistent chat history
         chatHistory.innerHTML = '';
+        /* Lo storico viene dal VAULT (tutorState viaggia con la mappa): anche
+           qui le parole dell'utente sono testo e quelle del modello passano
+           dalla lista bianca. */
         tutorState.nodes[editTarget.id].history.forEach(msg => {
             let text = msg.parts[0].text;
-            let resultHTML = window.parseSimpleMarkdown(text);
-            let safeRawTextForBtn = text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let resultHTML = _htmlTutor(window.parseSimpleMarkdown(text));
 
             if (msg.role === 'user') {
                 // remove context injection from rendering if present
@@ -350,14 +398,14 @@ window.startNodeTutor = function () {
                 visibleText = visibleText.replace(/^\[(MODALITÀ ATTIVA|ACTIVE MODE):[^\]]*\]\s*/, '');
                 chatHistory.innerHTML += `
                     <div class="bg-slate-800 text-white p-3 rounded-lg text-xs rounded-tr-none border border-slate-700 self-end shadow-sm max-w-[90%]">
-                        <p>${visibleText}</p>
+                        <p>${_escTutor(visibleText)}</p>
                     </div>
                 `;
             } else {
                 chatHistory.innerHTML += `
                     <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
                         <div class="markdown-body flex-grow">${resultHTML}</div>
-                        <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
+                        <button data-tutor-voce="${_escTutor(text)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
                     </div>
                 `;
             }
@@ -470,7 +518,7 @@ window.sendNodeTutorMessage = async function (presetText) {
 
     chatHistory.innerHTML += `
         <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
-            <p>${customQuery}</p>
+            <p>${_escTutor(customQuery)}</p>
         </div>
     `;
     const loaderId = 'loader-node-' + Date.now();
@@ -488,7 +536,7 @@ window.sendNodeTutorMessage = async function (presetText) {
 
     currentNodeState.turns++;
 
-    let contextStr = `CONTESTO NODO [${editTarget.label}]: ${stripHTML(editTarget.desc || '')}\n`;
+    let contextStr = `CONTESTO NODO [${editTarget.label}]: ${_testoPianoTutor(editTarget.desc || '')}\n`;
     if (editTarget.chunks && editTarget.chunks.length > 0) {
         /* i chunk possono essere stringhe (generazione) o oggetti {title,source,text}
            (dopo una riapertura del vault, e dall'11/9 anche appena generati): senza
@@ -564,14 +612,22 @@ window.sendNodeTutorMessage = async function (presetText) {
     // Usa la variante semplificata per Infomaniak: i modelli più piccoli (Apertus)
     // non gestiscono prompt complessi con HTML e 5 regole di score → entrano in loop
     const isInfomaniakTutor = (appState.aiProvider === 'infomaniak');
-    const tutorPromptKey = isInfomaniakTutor
-        ? (lang === 'it' ? "SOCRATIC_TUTOR_INFOMANIAK_IT" : "SOCRATIC_TUTOR_INFOMANIAK_EN")
-        : (lang === 'it' ? "SOCRATIC_TUTOR_IT" : "SOCRATIC_TUTOR_EN");
-    instruction = window.fillPromptTemplate(tutorPromptKey, {
+    const tutorVars = {
         userProfileProfile: userProfileStr,
         phaseInstruction: phaseStr,
         kgInstruction: kgStr
-    });
+    };
+    instruction = isInfomaniakTutor
+        ? window.fillPromptTemplate(lang === 'it' ? "SOCRATIC_TUTOR_INFOMANIAK_IT" : "SOCRATIC_TUTOR_INFOMANIAK_EN", tutorVars)
+        : '';
+    /* ⚠️ Le varianti _INFOMANIAK non esistono in nessuno dei due file di prompt
+       (verificato il 25/9/26): chiederle dava la stringa vuota, e su Infomaniak il
+       tutor partiva SENZA prompt di sistema — né regole socratiche, né profilo
+       dello studente, né fase. Se la variante manca si usa quella standard; se un
+       override utente la contiene ancora, vince lei come prima. */
+    if (!instruction) {
+        instruction = window.fillPromptTemplate(lang === 'it' ? "SOCRATIC_TUTOR_IT" : "SOCRATIC_TUTOR_EN", tutorVars);
+    }
 
     let apiQuery = customQuery;
     if (currentNodeState.turns === 1) {
@@ -603,8 +659,8 @@ window.sendNodeTutorMessage = async function (presetText) {
         if (!data || !data.candidates || data.candidates.length === 0) throw new Error("Risposta vuota");
 
         let rawText = data.candidates[0].content.parts[0].text || "";
-        let resultHTML = window.parseSimpleMarkdown(rawText);
-        let safeRawTextForBtn = rawText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // grassetti e a capo come prima, poi la lista bianca (vedi _htmlTutor)
+        let resultHTML = _htmlTutor(window.parseSimpleMarkdown(rawText));
 
         currentNodeState.history.push({ role: "model", parts: [{ text: rawText }], mode: currentNodeState.mode });
 
@@ -612,7 +668,7 @@ window.sendNodeTutorMessage = async function (presetText) {
         chatHistory.innerHTML += `
             <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
                 <div class="markdown-body flex-grow">${resultHTML}</div>
-                <button onclick="window.readTextAloud(this, '${safeRawTextForBtn}')" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
+                <button data-tutor-voce="${_escTutor(rawText)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-3.5 h-3.5"></i></button>
             </div>
         `;
         window.safeCreateIcons();
@@ -683,18 +739,21 @@ window.generateAIQuiz = async function () {
     }
 }
 
+/* Domanda, opzioni e spiegazione le scrive il modello, e il prompt gli passa la
+   desc del nodo (che può venire da un vault altrui): passano dalla stessa lista
+   bianca delle risposte del tutor. */
 function renderQuizUI() {
     if (!currentQuizData) return;
     const body = document.getElementById('ai-modal-body');
 
     let html = `
                 <div class="mb-6">
-                    <h3 class="text-lg font-bold text-slate-800 leading-snug">${currentQuizData.question}</h3>
+                    <h3 class="text-lg font-bold text-slate-800 leading-snug">${_htmlTutor(currentQuizData.question)}</h3>
                 </div>
                 <div class="space-y-3" id="quiz-options-container">
                     ${currentQuizData.options.map((opt, i) => `
                         <div class="quiz-option" onclick="window.selectQuizAnswer(${i})">
-                            <span class="mr-2 inline-block w-6 text-center rounded bg-slate-200 text-slate-600">${String.fromCharCode(65 + i)}</span> ${opt}
+                            <span class="mr-2 inline-block w-6 text-center rounded bg-slate-200 text-slate-600">${String.fromCharCode(65 + i)}</span> ${_htmlTutor(opt)}
                         </div>
                     `).join('')}
                 </div>
@@ -716,14 +775,14 @@ window.selectQuizAnswer = function (selectedIndex) {
     feedback.classList.remove('hidden');
     if (isCorrect) {
         feedback.classList.add('bg-emerald-50', 'border', 'border-emerald-200', 'text-emerald-800');
-        feedback.innerHTML = `<h4 class="font-bold flex items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> Esatto!</h4><p class="mt-2 text-sm">${currentQuizData.explanation}</p>`;
+        feedback.innerHTML = `<h4 class="font-bold flex items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> Esatto!</h4><p class="mt-2 text-sm">${_htmlTutor(currentQuizData.explanation)}</p>`;
         if (currentNode && currentNode.studyStatus !== 'done') {
             currentNode.studyStatus = 'done';
             renderGraph();
         }
     } else {
         feedback.classList.add('bg-red-50', 'border', 'border-red-200', 'text-red-800');
-        feedback.innerHTML = `<h4 class="font-bold flex items-center gap-2"><i data-lucide="x-circle" class="w-5 h-5"></i> Sbagliato</h4><p class="mt-2 text-sm">La risposta corretta era la <b>${String.fromCharCode(65 + currentQuizData.correctIndex)}</b>.<br><br>${currentQuizData.explanation}</p>`;
+        feedback.innerHTML = `<h4 class="font-bold flex items-center gap-2"><i data-lucide="x-circle" class="w-5 h-5"></i> Sbagliato</h4><p class="mt-2 text-sm">La risposta corretta era la <b>${String.fromCharCode(65 + currentQuizData.correctIndex)}</b>.<br><br>${_htmlTutor(currentQuizData.explanation)}</p>`;
         if (currentNode && currentNode.studyStatus !== 'review' && currentNode.studyStatus !== 'todo') {
             currentNode.studyStatus = 'review';
             renderGraph();

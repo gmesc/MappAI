@@ -112,11 +112,16 @@ window.buildDisciplineSystemPrompt = function () {
     const disc = window.MAPPAI_DISCIPLINES[window.activeDiscipline];
     if (!disc) return null;
 
-    // Costruisci hint profilo dal userProfile
-    const grade = (window.appState && window.appState.userProfile && window.appState.userProfile.grade) || '';
+    // Costruisci hint profilo dal userProfile.
+    // ⚠️ `appState` è un `let` di app.js, NON sta su `window` (invariante 3): con
+    // `window.appState` il grado non entrava mai nel prompt disciplinare.
+    const st = (typeof appState !== 'undefined') ? appState : null;
+    const grade = (st && st.userProfile && st.userProfile.grade) || '';
     let profileHint = '';
     if (grade) {
-        const gl = grade.toLowerCase();
+        // String(): questo ramo non era mai girato, e sta dentro buildSystemInstruction
+        // senza try — un grado salvato come numero non deve fermare la generazione.
+        const gl = String(grade).toLowerCase();
         if (gl.includes('liceo') || gl.includes('gymnasium') || gl.includes('ginnasio')) {
             profileHint = 'Profilo destinatario: studente di Liceo. Usa terminologia disciplinare precisa e approfondi fino al dettaglio tecnico.';
         } else if (gl.includes('media') || gl.includes('mittelstufe') || gl.includes('scuola media')) {

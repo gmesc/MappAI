@@ -223,7 +223,305 @@
         return { tolti: tolti, scartati: scartati, esaminati: esaminati, saltati: saltati };
     }
 
+    /* Il contratto fonte-intera accetta solo ID del registro locale del giro.
+       Questo controllo prova la provenienza, NON il sostegno semantico; tutte
+       le correzioni e le rimozioni restano proposte, senza mutare la mappa. */
+    function validaFonteIntera(data, ctx) {
+        var c = ctx || {}, registro = c.registro;
+        if (!data || !Array.isArray(data.nodi) || !Array.isArray(data.link))
+            throw new Error('risposta del Giudice priva degli elenchi nodi e link');
+        if (!registro || registro.schema !== 'mappai-fonti-giudice@1' ||
+            !registro.revisione || !Array.isArray(registro.passaggi))
+            throw new Error('registro delle prove assente o non valido');
+
+        var out = { correzioni: [], segnalati: [], scartati: [], linkTolti: [], esitiLink: [],
+            nodiEsaminati: [], nodiSaltati: [], linkEsaminati: [], linkSaltati: [] };
+        var passaggi = new Map(), nodi = new Map(), link = new Map(), nodiInvalidi = new Map();
+        registro.passaggi.forEach(function (p) {
+            if (!p || typeof p.id !== 'string' || !p.id.trim() || passaggi.has(p.id))
+                throw new Error('registro delle prove con identificativi mancanti o duplicati');
+            passaggi.set(p.id, p);
+        });
+        (c.nodi || []).forEach(function (n) { nodi.set(n.id, n); });
+        var id = function (x) { return x && typeof x === 'object' ? x.id : x; };
+        var terna = function (l) { return { source: id(l.source), target: id(l.target), rel: l.rel }; };
+        var chiave = function (l) { return JSON.stringify([id(l.source), id(l.target), l.rel]); };
+        (c.links || []).forEach(function (l) {
+            if (!(l.relNone === true && l.rel === '') && !NEUTRI[String(l.rel || '').toLowerCase()])
+                link.set(chiave(l), l);
+        });
+        function scarta(v, perche) {
+            out.scartati.push(Object.assign({}, v, { perche: perche }));
+        }
+        function legacy(v) {
+            return ['prova', 'prova_source', 'prova_target', 'valido'].some(function (k) {
+                return Object.prototype.hasOwnProperty.call(v, k);
+            });
+        }
+        function risolvi(v, obbligatorie) {
+            if (legacy(v)) return { perche: 'campi di prova legacy non ammessi' };
+            if (!Array.isArray(v.prove) || (obbligatorie && !v.prove.length))
+                return { perche: 'identificativi delle prove mancanti' };
+            var viste = new Set(), evidenze = [];
+            for (var i = 0; i < v.prove.length; i++) {
+                var evidenzaId = v.prove[i], p = passaggi.get(evidenzaId);
+                if (typeof evidenzaId !== 'string' || !p)
+                    return { perche: 'prova sconosciuta o di una revisione diversa' };
+                if (viste.has(evidenzaId)) return { perche: 'identificativo di prova duplicato' };
+                viste.add(evidenzaId);
+                if (p.citabile !== true || ['original', 'reference'].indexOf(p.origin) < 0 ||
+                    typeof p.text !== 'string' || !_norm(p.text) || !p.sourceId || !p.sourceRevision || !p.recordId)
+                    return { perche: 'passaggio non ammesso come prova originale' };
+                evidenze.push({ evidenzaId: p.id, docId: p.sourceId, sourceRevision: p.sourceRevision,
+                    recordId: p.recordId, start: p.start, end: p.end, text: p.text, page: p.page,
+                    title: p.title || '', source: p.page ? 'pagina ' + p.page : 'fonte senza pagine', verbatim: true });
+            }
+            return { evidenze: evidenze };
+        }
+
+        // Più difetti distinti possono riguardare lo stesso nodo. Un finding
+        // inutilizzabile lascia il nodo fra i residui, senza perdere gli altri.
+        var difetti = new Map();
+        data.nodi.forEach(function (v) {
+            if (!v || !nodi.has(v.id)) { scarta(v, 'nodo inesistente o non richiesto'); return; }
+            var k = JSON.stringify([v.id, v.tipo, _norm(v.brano_errato), _norm(v.problema)]);
+            if (!difetti.has(k)) difetti.set(k, []);
+            difetti.get(k).push(v);
+        });
+        difetti.forEach(function (vs) {
+            var v = vs[0], n = nodi.get(v.id), motivo = '', prove;
+            if (vs.length > 1) motivo = 'segnalazione duplicata per il nodo';
+            else if (TIPI.indexOf(v.tipo) < 0) motivo = 'tipo di difetto non previsto';
+            else if (typeof v.problema !== 'string' || !_norm(v.problema)) motivo = 'motivo della segnalazione mancante';
+            else { prove = risolvi(v, true); motivo = prove.perche || ''; }
+            if (motivo) {
+                vs.forEach(function (x) { scarta(x, motivo); });
+                nodiInvalidi.set(v.id, motivo); return;
+            }
+            var riga = { id: v.id, label: n.label, tipo: v.tipo, problema: _norm(v.problema),
+                prove: v.prove.slice(), evidenze: prove.evidenze, prova: prove.evidenze[0].text,
+                prima: _norm(n.desc), brano: _norm(v.brano_errato), con: _norm(v.con), soloProposta: true };
+            if (TIPI_APPLICABILI.indexOf(v.tipo) >= 0 && v.brano_errato && v.con) {
+                var ch = chirurgia(n.desc, v.brano_errato, v.con);
+                if (ch.ok) { riga.dopo = ch.nuova; out.correzioni.push(riga); return; }
+                riga.perche = ch.perche;
+            }
+            out.segnalati.push(riga);
+        });
+        /* Packet 0026 (b): una risposta interrotta porta solo i verdetti già
+           CHIUSI. Un nodo che non vi compare non è «senza difetti»: la risposta
+           si è fermata prima di arrivarci, quindi resta fra i saltati. */
+        var completi = c.completi || {};
+        var citati = new Set(data.nodi.map(function (v) { return v && v.id; }));
+        nodi.forEach(function (n, nodoId) {
+            if (nodiInvalidi.has(nodoId)) out.nodiSaltati.push({ id: nodoId, motivo: nodiInvalidi.get(nodoId) });
+            else if (completi.nodi === false && !citati.has(nodoId)) out.nodiSaltati.push({ id: nodoId, motivo: 'risposta interrotta prima di questo nodo' });
+            else out.nodiEsaminati.push(nodoId);
+        });
+
+        var candidati = new Map();
+        data.link.forEach(function (v) {
+            if (!v || typeof v.source !== 'string' || typeof v.target !== 'string' ||
+                typeof v.rel !== 'string' || !link.has(chiave(v))) {
+                scarta(v, 'arco inesistente o non richiesto'); return;
+            }
+            var k = chiave(v);
+            if (!candidati.has(k)) candidati.set(k, []);
+            candidati.get(k).push(v);
+        });
+        link.forEach(function (l, k) {
+            var vs = candidati.get(k) || [], v = vs[0], riga = terna(l), motivo = '', prove;
+            if (!v) motivo = completi.link === false ? 'risposta interrotta prima di questo nesso' : 'nessun verdetto ricevuto per il nesso';
+            else if (vs.length !== 1) motivo = 'verdetti duplicati per il nesso';
+            else if (['sostenuto', 'contraddetto', 'non_verificabile'].indexOf(v.esito) < 0) motivo = 'esito del nesso non valido';
+            else if (typeof v.problema !== 'string' || !_norm(v.problema)) motivo = 'motivo del verdetto mancante';
+            else { prove = risolvi(v, v.esito !== 'non_verificabile'); motivo = prove.perche || ''; }
+            if (motivo) {
+                out.linkSaltati.push(Object.assign({}, riga, { motivo: motivo }));
+                vs.forEach(function (x) { scarta(x, motivo); }); return;
+            }
+            var esito = Object.assign({}, riga, { esito: v.esito, problema: _norm(v.problema),
+                prove: v.prove.slice(), evidenze: prove.evidenze });
+            out.esitiLink.push(esito);
+            if (v.esito === 'non_verificabile') {
+                out.linkSaltati.push(Object.assign({}, riga, { motivo: _norm(v.problema), esito: v.esito })); return;
+            }
+            out.linkEsaminati.push(riga);
+            if (v.esito === 'contraddetto') out.linkTolti.push(Object.assign({}, riga, {
+                problema: _norm(v.problema), isCross: !!l.isCross, soloProposta: true, prove: v.prove.slice(),
+                prova_source: prove.evidenze[0].text,
+                prova_target: (prove.evidenze[1] || prove.evidenze[0]).text,
+                evidenze: { source: prove.evidenze.slice(), target: prove.evidenze.slice() }
+            }));
+        });
+        return out;
+    }
+
+    /* ── Packet 0026 — i lotti che corrono fino al tetto ─────────────────────
+       Il 25/9 tre lotti su Svizzera sono arrivati a 4096 token di uscita con
+       62.773 caratteri: JSON seguito da spazio bianco senza fine. V8 li ha
+       rifiutati con tre firme diverse e il lotto è andato perso per intero.
+       Qui sotto: che cosa si salva di una risposta così, che cosa se ne lascia
+       per la diagnosi, e quali lotti una ripresa deve rifare. */
+
+    function _posizioneErrore(messaggio, testo) {
+        var m = String(messaggio || '');
+        var p = m.match(/position (\d+)/);
+        if (p) return Number(p[1]);
+        var lc = m.match(/line (\d+) column (\d+)/);
+        if (lc) {
+            var righe = String(testo).split('\n').slice(0, Number(lc[1]) - 1);
+            return righe.reduce(function (s, r) { return s + r.length + 1; }, 0) + Number(lc[2]) - 1;
+        }
+        return /end of JSON|Unterminated/i.test(m) ? String(testo).length : -1;
+    }
+
+    /* Deroga dichiarata all'invariante 8 (salvageTruncatedJSON). Il salvataggio
+       generico RICHIUDE le stringhe aperte (mappai-json-salvage.js), e una
+       motivazione troncata diventerebbe un verdetto «intero». Qui invece:
+       · si tengono solo gli oggetti CHIUSI degli elenchi `nodi` e `link`;
+       · una stringa aperta non si richiude mai: l'oggetto che la contiene cade;
+       · la risposta si dichiara «non integra», e chi la usa lo sa.
+       Le virgolette tipografiche dentro le motivazioni non sono delimitatori. */
+    function analizzaRisposta(raw) {
+        var grezzo = String(raw == null ? '' : raw);
+        // trim PRIMA delle regex: `\s*` davanti a una coda di 58.000 spazi
+        // diventa quadratico (1,5 s misurati).
+        var testo = grezzo.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim();
+        var inizio = testo ? Math.max(0, grezzo.indexOf(testo)) : 0;
+        var errore;
+        try {
+            return { data: JSON.parse(testo), integra: true, errore: '', posizione: -1, completi: { nodi: true, link: true } };
+        } catch (e) { errore = e; }
+        var posizione = _posizioneErrore(errore && errore.message, testo);
+        var data = null, completi = { nodi: false, link: false };
+        var pila = [], inStringa = false, escape = false, inizioStringa = -1;
+        var ultimaStringa = null, chiave = null, elenco = null, inizioElemento = -1;
+        for (var i = 0; i < testo.length; i++) {
+            var ch = testo.charAt(i);
+            if (inStringa) {
+                if (escape) escape = false;
+                else if (ch === '\\') escape = true;
+                else if (ch === '"') {
+                    inStringa = false;
+                    if (pila.length === 1) { try { ultimaStringa = JSON.parse(testo.slice(inizioStringa, i + 1)); } catch (_) { ultimaStringa = null; } }
+                }
+                continue;
+            }
+            if (ch === '"') { inStringa = true; inizioStringa = i; continue; }
+            if (ch === ':' && pila.length === 1) { chiave = ultimaStringa; continue; }
+            if (ch === ',' && pila.length === 1) { chiave = null; ultimaStringa = null; continue; }
+            if (ch === '{' || ch === '[') {
+                if (!pila.length && ch === '{') data = { };
+                if (pila.length === 1 && ch === '[' && (chiave === 'nodi' || chiave === 'link')) {
+                    elenco = chiave; data[elenco] = [];
+                }
+                if (pila.length === 2 && elenco && ch === '{') inizioElemento = i;
+                pila.push(ch);
+                continue;
+            }
+            if (ch === '}' || ch === ']') {
+                pila.pop();
+                if (pila.length === 2 && elenco && ch === '}' && inizioElemento >= 0) {
+                    var pezzo = testo.slice(inizioElemento, i + 1), oggetto = null;
+                    try { oggetto = JSON.parse(pezzo); }
+                    catch (_) { try { oggetto = JSON.parse(pezzo.replace(/[\u0000-\u001f]/g, ' ')); } catch (__) { oggetto = null; } }
+                    if (oggetto && typeof oggetto === 'object' && !Array.isArray(oggetto)) data[elenco].push(oggetto);
+                    inizioElemento = -1;
+                }
+                if (pila.length === 1 && ch === ']' && elenco) { completi[elenco] = true; elenco = null; }
+                if (!pila.length) break;
+            }
+        }
+        if (data) ['nodi', 'link'].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
+        return { data: data, integra: false, errore: String(errore && errore.message || 'JSON non analizzabile'),
+            posizione: posizione >= 0 ? inizio + posizione : -1, completi: completi };
+    }
+
+    /* Le corse di spazio bianco si comprimono: un lotto corso a vuoto ne ha
+       decine di migliaia, e nel rapporto basta dire quante erano. */
+    function _comprimi(t) {
+        return String(t).replace(/\s{40,}/g, function (s) {
+            return ' ⟨… ' + String(s.length).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' spazi …⟩ ';
+        });
+    }
+    /* L'estratto per la diagnosi: SOLO testo del modello e numeri. Niente
+       payload, header, stack o credenziali: finisce in pipeline.json. */
+    function estrattoGrezzo(raw, info) {
+        var t = String(raw == null ? '' : raw), o = info || {}, pos = Number(o.posizione);
+        var out = { lunghezza: t.length, outTok: Number(o.outTok) || 0, tetto: Number(o.tetto) || 0 };
+        var bianco = function (i) { return i >= 0 && i < t.length && /\s/.test(t.charAt(i)); };
+        // Un taglio non spezza una corsa di spazi: il conteggio compresso è quello vero.
+        var taglio = function (a, b) {
+            a = Math.max(0, a); b = Math.min(t.length, b);
+            while (a > 0 && bianco(a) && bianco(a - 1)) a--;
+            while (b < t.length && bianco(b) && bianco(b - 1)) b++;
+            return _comprimi(t.slice(a, b));
+        };
+        if (t.length <= 1200) out.inizio = _comprimi(t);
+        else { out.inizio = taglio(0, 600); out.fine = taglio(t.length - 600, t.length); }
+        if (pos >= 0) out.posizione = pos;
+        if (pos >= 0 && t.length > 1200) out.attorno = taglio(pos - 300, pos + 300);
+        if (o.errore) out.errore = String(o.errore).slice(0, 200);
+        return out;
+    }
+
+    /* Esiti TECNICI: la macchina non ha risposto per intero (tetto, analisi,
+       rete, tempo). Non sono verdetti e non lo diventano: si possono rifare. */
+    function lottoTecnico(r) {
+        return !!r && (r.stato === 'errore' || !!r.tecnico);
+    }
+
+    /* Quali lotti rifare. Si ripete SOLO ciò che è fallito per ragioni tecniche,
+       e solo se fonte, contratto e modello sono gli stessi del rapporto
+       precedente e i lotti hanno gli stessi bersagli; altrimenti si rifà tutto,
+       e il motivo lo dice. Precedente: retryPlan dei materiali. */
+    function pianoRipresa(rapporto, attuale) {
+        var a = attuale || {}, lotti = Array.isArray(a.lotti) ? a.lotti : [];
+        var tutto = function (motivo) {
+            return { modo: 'completa', motivo: motivo, rifare: lotti.map(function (l) { return l.lotto; }), riusati: {} };
+        };
+        var r = rapporto;
+        if (!r || typeof r !== 'object') return tutto('nessun rapporto precedente');
+        if (r.contratto !== a.contratto) return tutto('contratto del controllo diverso');
+        if (!r.fonte || !a.revisione || r.fonte.revisione !== a.revisione) return tutto('fonte cambiata dal controllo precedente');
+        var m = r.modello;
+        if (!m || !m.model) return tutto('modello del controllo precedente non registrato');
+        if (!a.modello || m.provider !== a.modello.provider || m.model !== a.modello.model) return tutto('modello diverso dal controllo precedente');
+        var esiti = Array.isArray(r.esitiRami) ? r.esitiRami : [];
+        if (esiti.length !== lotti.length) return tutto('lotti diversi dal controllo precedente');
+        var chiave = function (x) { return JSON.stringify([x.source, x.target, x.rel]); };
+        var rifare = [], riusati = {};
+        for (var i = 0; i < lotti.length; i++) {
+            var l = lotti[i], v = esiti.filter(function (e) { return e && e.lotto === l.lotto; });
+            if (v.length !== 1) return tutto('lotti diversi dal controllo precedente');
+            v = v[0];
+            if (String(v.id) !== String(l.id) || JSON.stringify(v.nodi || []) !== JSON.stringify(l.nodi || []) ||
+                !Array.isArray(v.terne) || JSON.stringify(v.terne.map(chiave)) !== JSON.stringify((l.terne || []).map(chiave)))
+                return tutto('lotti diversi dal controllo precedente');
+            if (lottoTecnico(v)) { rifare.push(l.lotto); continue; }
+            var mio = function (row) { return row && typeof row === 'object' && row.lotto === l.lotto; };
+            var cop = r.copertura || {}, nodiLotto = new Set(v.nodi || []);
+            var righe = {};
+            ['correzioni', 'segnalati', 'scartati', 'linkTolti', 'esitiLink'].forEach(function (k) {
+                righe[k] = (Array.isArray(r[k]) ? r[k] : []).filter(mio);
+            });
+            righe.copertura = {
+                nodiEsaminati: (cop.nodiEsaminati || []).filter(function (id) { return nodiLotto.has(id); }),
+                nodiSaltati: (cop.nodiSaltati || []).filter(mio),
+                linkEsaminati: (cop.linkEsaminati || []).filter(mio),
+                linkSaltati: (cop.linkSaltati || []).filter(mio)
+            };
+            riusati[l.lotto] = { esito: JSON.parse(JSON.stringify(v)), righe: JSON.parse(JSON.stringify(righe)) };
+        }
+        return { modo: 'mirata', motivo: rifare.length ? '' : 'nessun lotto con esito tecnico da ripetere', rifare: rifare, riusati: riusati };
+    }
+
     return {
+        analizzaRisposta: analizzaRisposta,
+        estrattoGrezzo: estrattoGrezzo,
+        lottoTecnico: lottoTecnico,
+        pianoRipresa: pianoRipresa,
         TIPI: TIPI,
         TIPI_APPLICABILI: TIPI_APPLICABILI,
         TIPI_SEGNALA: TIPI_SEGNALA,
@@ -231,6 +529,7 @@
         provaContraria: provaContraria,
         chirurgia: chirurgia,
         validaVerdetti: validaVerdetti,
-        validaLink: validaLink
+        validaLink: validaLink,
+        validaFonteIntera: validaFonteIntera
     };
 }));

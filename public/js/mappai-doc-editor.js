@@ -960,22 +960,40 @@
         if (_kind === 'causal') return _ccSnapshot(label);
         _hist.push(_kind === 'synthesis' ? { blocks: _syn.blocks } : { items: _doc.items, title: _doc.title }, label);
     }
-    function undo() {
-        if (!_hist || !_hist.canUndo()) { toast(t('de_no_undo', 'Niente da annullare'), 'info'); return; }
-        const prev = _hist.undo();
-        if (!prev) return;
-        if (_kind === 'synthesis') { _syn.blocks = prev.state.blocks; _bMenu = -1; }
+    /* lo stato di ADESSO nella forma in cui la cronologia lo tiene (per genere di documento):
+       è quello che «annulla» mette da parte per il «rifai» (12/10/2026, 0087 lotto 10-editor) */
+    function _statoCorrente() {
+        if (_kind === 'synthesis') return { blocks: _syn.blocks };
+        if (_kind === 'nodesheet') return { cards: _sheet.cards, fmt: _sheet.fmt, bg: _sheet.bg, depth: _sheet.depth, excluded: _sheet.excluded };
+        if (_kind === 'causal') return { cc: _cc };
+        return { items: _doc.items, title: _doc.title };
+    }
+    function _applicaStato(st) {
+        if (_kind === 'synthesis') { _syn.blocks = st.blocks; _bMenu = -1; }
         else if (_kind === 'nodesheet') {
-            _sheet.cards = prev.state.cards;
-            _sheet.fmt = prev.state.fmt; _sheet.bg = prev.state.bg;
-            _sheet.depth = prev.state.depth; _sheet.excluded = prev.state.excluded || [];
+            _sheet.cards = st.cards;
+            _sheet.fmt = st.fmt; _sheet.bg = st.bg;
+            _sheet.depth = st.depth; _sheet.excluded = st.excluded || [];
             _nsMenu = -1;
         }
-        else if (_kind === 'causal') { _cc = prev.state.cc; }
-        else { _doc.items = prev.state.items; _doc.title = prev.state.title; }
+        else if (_kind === 'causal') { _cc = st.cc; }
+        else { _doc.items = st.items; _doc.title = st.title; }
         _dirty = true;
         render();
+    }
+    function undo() {
+        if (!_hist || !_hist.canUndo()) { toast(t('de_no_undo', 'Niente da annullare'), 'info'); return; }
+        const prev = _hist.undo(_statoCorrente());
+        if (!prev) return;
+        _applicaStato(prev.state);
         toast(t('de_undone', 'Annullato') + (prev.label ? ': ' + prev.label : ''), 'info');
+    }
+    function redo() {
+        if (!_hist || !_hist.canRedo || !_hist.canRedo()) { toast(t('de_no_redo', 'Niente da rifare'), 'info'); return; }
+        const next = _hist.redo(_statoCorrente());
+        if (!next) return;
+        _applicaStato(next.state);
+        toast(t('de_redone', 'Rifatto') + (next.label ? ': ' + next.label : ''), 'info');
     }
 
     // ── modifiche quiz ──────────────────────────────────────────────────────
@@ -2506,7 +2524,16 @@
             _sezioniBar() +
             _fontBar() +
             _zoomBar() +
-            '<button type="button" class="de-btn" onclick="MappAIDocEditor.undo()" title="' + esc(t('de_undo_tip', 'Annulla l\'ultima operazione')) + '"><i data-lucide="undo-2" class="w-4 h-4"></i> ' + esc(t('de_undo', 'Annulla')) + '</button>' +
+            /* il bottone che DISFA dice il suo tasto, «⌘Z» o «Ctrl+Z» (09/10/26, packet 0087 lotto 8,
+               MappAIScorciatoia in mappai-undo.js); la frase resta nel titolo e nell'aria-label */
+            /* 12/10 (lotto 10-editor, Giacomo): un bottone DOPPIO con le due icone, annulla e rifai,
+               senza testo; il tasto resta nel titolo e nell'aria-label (⌘Z / ⌘⇧Z) */
+            (function () { var S = window.MappAIScorciatoia, ku = S ? S('Z') : '⌘Z', kr = S ? S('Z', true) : '⌘⇧Z',
+                fu = t('de_undo_tip', 'Annulla l\'ultima operazione') + ' (' + ku + ')', fr = t('de_redo_tip', 'Rifai l\'ultima operazione annullata') + ' (' + kr + ')';
+                return '<div class="de-undo">' +
+                    '<button type="button" class="de-zbtn" onclick="MappAIDocEditor.undo()" title="' + esc(fu) + '" aria-label="' + esc(fu) + '"><i data-lucide="undo-2"></i></button>' +
+                    '<button type="button" class="de-zbtn" onclick="MappAIDocEditor.redo()" title="' + esc(fr) + '" aria-label="' + esc(fr) + '"><i data-lucide="redo-2"></i></button>' +
+                    '</div>'; })() +
             /* «Voce» = registra la voce naturale (Google) su QUESTA sintesi,
                anche se è stata generata giorni fa. Prima si poteva solo nel
                modale che compariva subito dopo la generazione: riaperta
@@ -2530,7 +2557,7 @@
                fuori. */
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.print()" title="' +
             esc(t('de_print_tip2', 'Apre la stampa su una copia effimera: non lascia file nella cartella')) +
-            '"><i data-lucide="printer" class="w-4 h-4"></i> ' + esc(t('de_print', 'Stampa')) + '</button>' +
+            '" aria-label="' + esc(t('de_print', 'Stampa')) + '"><i data-lucide="printer" class="w-4 h-4"></i></button>' +
             /* «Crea PDF» = l'atto di PUBBLICARE (13/8, Giacomo): scrive il file
                in «Materiale Studio/» e da lì il materiale compare in INSEGNA.
                Sta separato dal salvataggio perché su un documento a cui si
@@ -2538,13 +2565,13 @@
                transitorio, già visibile alla classe. */
             '<button type="button" class="de-btn" onclick="MappAIDocEditor.creaPdf()" title="' +
             esc(t('de_pdf_tip', 'Scrive il PDF nella cartella della mappa: da lì compare fra i materiali di INSEGNA')) +
-            '"><i data-lucide="file-down" class="w-4 h-4"></i> ' + esc(t('de_pdf', 'Crea PDF')) + '</button>' +
+            '">' + esc(t('de_pdf', 'PDF')) + '</button>' +
             /* Il bottone conclusivo è l'uscita (vedi `esci()`): tutte e due le
                facce nel markup, `_paintDirty()` accende quella giusta senza
                ridisegnare la barra. */
             '<button type="button" class="de-btn de-primary" id="de-exit" onclick="MappAIDocEditor.esci()">' +
-            '<span class="de-exit-clean"><i data-lucide="log-out" class="w-4 h-4"></i> ' + esc(t('de_exit', 'Esci')) + '</span>' +
-            '<span class="de-exit-dirty"><i data-lucide="save" class="w-4 h-4"></i> ' + esc(t('de_exit_save', 'Salva ed Esci')) + '</span>' +
+            '<span class="de-exit-clean">' + esc(t('de_exit', 'Esci')) + '</span>' +
+            '<span class="de-exit-dirty">' + esc(t('de_exit_save', 'Salva ed Esci')) + '</span>' +
             '</button>' +
             '</div>';
     }
@@ -3043,7 +3070,7 @@
                 const step = 'max(7px,' + P.rule.toFixed(2) + 'cqw)';
                 body = '<div class="de-ns-rules" aria-hidden="true" style="background-image:' +
                     'repeating-linear-gradient(to bottom,transparent 0,transparent calc(' + step + ' - 1px),' +
-                    '#e2e8f0 calc(' + step + ' - 1px),#e2e8f0 ' + step + ')"></div>';
+                    'var(--mm-bordo, #cbd5e1) calc(' + step + ' - 1px),var(--mm-bordo, #cbd5e1) ' + step + ')"></div>';
             }
 
             // Menu «+»: dà alla card un contenuto sotto il titolo (o glielo toglie).
@@ -3381,7 +3408,7 @@
         host.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
                 e.preventDefault(); e.stopPropagation();
-                undo();
+                if (e.shiftKey) redo(); else undo();
             }
         }, true);
 
@@ -3425,23 +3452,26 @@
         _stylesInjected = true;
         const css = `
 ${_deCornice()}
-#elab-doc-host { height:100%; overflow:auto; background:#f8fafc; }
+/* L'AREA DI EDITING di ELABORA (09/10/26, packet 0087 lotto 7, variante V2 scelta da Giacomo sul banco): niente
+   fondo grigio, come la tela dei Consumi e delle Impostazioni AI. Senza il grigio le card restano distinte per il
+   loro bordo (--mm-bordo, il grigio dei controlli e dei filetti): testata, domande, sezioni, blocchi della sintesi. */
+#elab-doc-host { height:100%; overflow:auto; background:var(--mm-fondo, #fff); }
 .de-list { max-width:900px; margin:0 auto; padding:26px 22px 60px; }
 .de-list-head { margin-bottom:22px; }
-.de-list-h { font-size:17px; font-weight:900; color:#0f172a; }
+.de-list-h { font-size:17px; font-weight:900; color:var(--mm-testo, #404040); }
 .de-list-p { font-size:12px; line-height:1.65; color:#64748b; margin-top:6px; max-width:680px; }
-.de-group { background:#fff; border:1px solid #e2e8f0; border-radius:14px; margin-bottom:14px; overflow:hidden; }
+.de-group { background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:calc(var(--mm-r-box, 16px) - 4px); margin-bottom:14px; overflow:hidden; }
 .de-group-h { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; color:#475569; padding:11px 16px; background:#f8fafc; border-bottom:1px solid #eef2f6; }
 .de-row { display:flex; align-items:center; gap:10px; width:100%; padding:11px 16px; background:#fff; border:0; border-top:1px solid #f1f5f9; cursor:pointer; text-align:left; font:inherit; }
 .de-row:first-of-type { border-top:0; }
 .de-row:hover { background:#eef2ff; }
-.de-row-t { font-size:13px; font-weight:700; color:#1e293b; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.de-row-b { font-size:10px; font-weight:800; color:#4f46e5; background:#ede9fe; border-radius:999px; padding:2px 9px; flex:0 0 auto; }
-.de-row-m { font-size:11px; color:#94a3b8; flex:0 0 auto; }
-.de-empty-row { padding:14px 16px; font-size:12px; color:#94a3b8; font-style:italic; }
+.de-row-t { font-size:13px; font-weight:700; color:var(--mm-testo, #404040); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.de-row-b { font-size:10px; font-weight:800; color:var(--mm-accent, #4f46e5); background:var(--mm-accent-soft, #eef2ff); border-radius:999px; padding:2px 9px; flex:0 0 auto; }
+.de-row-m { font-size:11px; color:var(--mm-testo-3, #64748b); flex:0 0 auto; }
+.de-empty-row { padding:14px 16px; font-size:12px; color:var(--mm-testo-3, #64748b); font-style:italic; }
 
 .de-doc { display:flex; flex-direction:column; height:100%; }
-.de-bar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#fff; border-bottom:1px solid #e2e8f0; flex:0 0 auto; flex-wrap:wrap; }
+.de-bar { display:flex; align-items:center; gap:var(--mm-btn-gap, 8px); padding:8px 14px; background:#fff; border-bottom:1px solid var(--mm-bordo, #cbd5e1); flex:0 0 auto; flex-wrap:wrap; }
 /* Dentro la CONSOLE la maniglia della colonna sta nell'angolo in alto a sinistra
    dell'area, proprio alla quota della barra. Misurato: copriva i primi 20px del
    titolo — le lettere «Ca» di «Catena…» — e il clic lì finiva alla maniglia.
@@ -3453,14 +3483,23 @@ ${_deCornice()}
    ⚠️ Niente apici inversi in questo commento: è dentro un template literal e
    il primo che capita chiude la stringa (quarta volta nel progetto). */
 .mm-console__area .de-bar { padding-left: calc(var(--mnc-man-size, 34px) + 12px); }
-.de-bar-t { font-size:13px; font-weight:800; color:#1e293b; }
+/* Il titolo cede per primo: con i controlli a 40 la barra della sintesi (stile + Voce + HTML) a 1880 mandava
+   «Esci» a capo. In una barra che va a capo il capo si decide PRIMA della compressione, quindi il titolo
+   deve pesare poco nel conto della riga: base flessibile 0 (conta i suoi 120px minimi), poi cresce fino al
+   suo testo (max-content) prima dello spazio vuoto. Il titolo intero sta comunque nella testata del foglio. */
+.de-bar-t { font-size:14px; font-weight:700; color:var(--mm-testo, #404040); flex:999 1 0; min-width:120px; max-width:max-content; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .de-dirty { color:#f59e0b; font-size:20px; line-height:0; margin-left:4px; visibility:hidden; }
 .de-spacer { flex:1 1 auto; }
-.de-btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; border-radius:9px; padding:6px 11px; font:700 11px 'Space Mono',var(--emoji-font),monospace; cursor:pointer; }
-.de-btn:hover { background:#eef2ff; color:#4f46e5; }
-.de-btn.de-primary { background:#4f46e5; border-color:#4f46e5; color:#fff; }
-.de-btn.de-primary:hover { background:#4338ca; color:#fff; }
-.de-btn.de-ghost { background:#fff; }
+/* LO STANDARD DEI CONTROLLI (11/10/26, packet 0087 lotto 10a, banco 10a — Giacomo: «applica V2»):
+   bottone alto --mm-ctl-h (40), corpo --mm-ctl-fs (12), raggio --mm-r-btn (10), icona --mm-icona (20);
+   a riposo il fondo di sezione col bordo, al passaggio l'accento tenue col testo d'accento. È il gemello
+   di .mm-btn--secondario del motore, che legge gli stessi token. Niente font-family: la impone style.css. */
+.de-btn { display:inline-flex; align-items:center; gap:var(--mm-btn-gap, 8px); min-height:var(--mm-ctl-h, 40px); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); border-radius:var(--mm-r-btn, 10px); padding:0 12px; font-size:var(--mm-ctl-fs, 12px); font-weight:700; cursor:pointer; }
+.de-btn svg { width:var(--mm-icona, 20px); height:var(--mm-icona, 20px); }
+.de-btn:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
+.de-btn.de-primary { background:var(--mm-accent, #4f46e5); border-color:transparent; color:#fff; }
+.de-btn.de-primary:hover { background:var(--mm-accent-hover, #4338ca); color:#fff; }
+.de-btn.de-ghost { background:var(--mm-fondo, #fff); }
 /* Le due facce del bottone di uscita: convivono nel markup ed è _paintDirty()
    ad accendere quella giusta (vedi il commento lì). La faccia «sporca» parte
    spenta, così fra la scrittura dell'HTML e il primo ridisegno non lampeggiano
@@ -3468,28 +3507,34 @@ ${_deCornice()}
    ⚠️ Niente apici inversi qui dentro: questo CSS vive in un template literal. */
 .de-btn .de-exit-clean, .de-btn .de-exit-dirty { display:inline-flex; align-items:center; gap:6px; }
 .de-btn .de-exit-dirty { display:none; }
-.de-style { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:9px; }
-.de-sbtn { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; color:#475569; border-radius:6px; cursor:pointer; font:700 13px 'Space Mono',monospace; }
-.de-sbtn:hover { background:#e0e7ff; color:#4f46e5; }
-.de-sep { width:1px; height:18px; background:#e2e8f0; margin:0 3px; }
-.de-color { width:26px; height:26px; padding:0; border:1px solid #e2e8f0; border-radius:6px; background:none; cursor:pointer; }
+/* Il gruppo stile e lo zoom sono CONTROLLI della barra (10a): alti --mm-ctl-h, raggio --mm-r-btn, fondo di
+   sezione col bordo; i tasti dentro stanno a 32 con lo stesso raggio e il corpo dei bottoni. */
+.de-style { display:inline-flex; align-items:center; gap:4px; height:var(--mm-ctl-h, 40px); padding:0 4px; background:var(--mm-fondo-sez, #f8fafc); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-radius:var(--mm-r-btn, 10px); }
+.de-sbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; color:var(--mm-testo-2, #475569); border-radius:var(--mm-r-btn, 10px); cursor:pointer; font-size:var(--mm-ctl-fs, 12px); font-weight:700; }
+.de-sbtn:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
+.de-sep { width:1px; height:var(--mm-icona, 20px); background:var(--mm-bordo, #cbd5e1); margin:0 3px; }
+.de-color { width:32px; height:32px; padding:0; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-radius:var(--mm-r-btn, 10px); background:none; cursor:pointer; }
 .de-slots { display:inline-flex; gap:3px; }
 .de-slot { width:16px; height:16px; border-radius:4px; border:1px solid rgba(15,23,42,.18); cursor:pointer; padding:0; }
 .de-slot:hover { transform:scale(1.15); }
 
 /* Dimensione dell'anteprima: − 100% + . Sta a destra, staccata dalle azioni del
    documento (salva/stampa): non è una modifica al documento, è come lo si guarda. */
-.de-zoom { display:inline-flex; align-items:center; gap:2px; padding:2px 4px; margin-right:4px;
-           background:#f8fafc; border:1px solid #e2e8f0; border-radius:9px; }
-.de-zoom.changed { border-color:#a5b4fc; background:#eef2ff; }
-.de-zbtn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
-           border:0; background:transparent; color:#475569; border-radius:6px; cursor:pointer;
-           font:700 14px 'Space Mono',monospace; line-height:1; }
-.de-zbtn:hover { background:#e0e7ff; color:#4f46e5; }
-.de-zlbl { min-width:44px; border:0; background:transparent; color:#64748b; cursor:pointer;
-           font:700 10px 'Space Mono',monospace; }
-.de-zoom.changed .de-zlbl { color:#4f46e5; }
-.de-zbtn:focus-visible, .de-zlbl:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
+.de-zoom { display:inline-flex; align-items:center; gap:2px; height:var(--mm-ctl-h, 40px); padding:0 4px; margin-right:0;
+           background:var(--mm-fondo-sez, #f8fafc); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-radius:var(--mm-r-btn, 10px); }
+.de-zoom.changed { border-color:#a5b4fc; background:var(--mm-accent-soft, #eef2ff); }
+/* il bottone doppio annulla/rifai (12/10, lotto 10-editor): stessa cornice dello zoom, due icone 20 */
+.de-undo { display:inline-flex; align-items:center; gap:2px; height:var(--mm-ctl-h, 40px); padding:0 4px;
+           background:var(--mm-fondo-sez, #f8fafc); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-radius:var(--mm-r-btn, 10px); }
+.de-undo .de-zbtn svg { width:var(--mm-icona, 20px); height:var(--mm-icona, 20px); }
+.de-zbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center;
+           border:0; background:transparent; color:var(--mm-testo-2, #475569); border-radius:var(--mm-r-btn, 10px); cursor:pointer;
+           font-size:var(--mm-ctl-fs, 12px); font-weight:700; line-height:1; }
+.de-zbtn:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
+.de-zlbl { min-width:44px; border:0; background:transparent; color:var(--mm-testo-3, #64748b); cursor:pointer;
+           font-size:var(--mm-ctl-fs, 12px); font-weight:700; }
+.de-zoom.changed .de-zlbl { color:var(--mm-accent, #4f46e5); }
+.de-zbtn:focus-visible, .de-zlbl:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
 
 /* Il contenitore di misura: le regole responsive guardano LA LARGHEZZA DI QUESTO
    riquadro, non quella della finestra — l'editor vive in un pannello di ELABORA
@@ -3510,7 +3555,7 @@ ${_deCornice()}
 .de-sheet { --de-max:800px; --de-zoom:1; --de-user:1;
             zoom:calc(var(--de-zoom) * var(--de-user));
             width:100%; max-width:min(var(--de-max), 100%); margin:0 auto;
-            font-family:var(--doc-font, var(--app-font, 'Space Mono', var(--emoji-font), monospace)); color:#1e293b; }
+            font-family:var(--doc-font, var(--app-font, 'Space Mono', var(--emoji-font), monospace)); color:var(--mm-testo, #404040); }
 /* ⚠️ Il carattere del DOCUMENTO nell'anteprima ha bisogno di !important e di
    specificità: style.css porta una regola sull'universale con font-family
    var(--app-font) !important, che batte qualunque regola di modulo non-important
@@ -3523,14 +3568,20 @@ ${_deCornice()}
 .de-fontdoc .de-sheet, .de-fontdoc .de-sheet * { font-family:var(--doc-font) !important; }
 /* Stesse misure della cornice condivisa (mappai-doc-head.js): l'anteprima
    non può essere impaginata diversamente dal foglio che descrive. */
-.de-sheet-head { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid #4f46e5; }
-.de-sheet.flash .de-sheet-head { border-bottom-color:#059669; }
-.de-sheet-title { font-size:20px; font-weight:900; color:#1e293b; outline:none; }
+/* 13/10 (0087 lotto 10d, Giacomo: «mantieni i colori differenziati per tipi di materiali», «falli diventare token»):
+   i colori di genere sono i token --mm-genere-* di mappai-modal-tokens.css (quiz = accento; flash = --mm-ok;
+   foglio = arancio, testo scuro, tenue; aree = teal). Due valori si sono unificati: il tratteggio delle card del
+   foglio (#fb923c) va sul colore del genere, le due tinte arancio (#ffedd5 badge, #fff7ed formati) su una sola;
+   lo small del formato attivo (#ea580c, che era il colore del fuoco) sul testo del genere. Il verde del «giusto»
+   (.de-opt.correct) resta --mm-ok; gli arancio di avviso (.de-limit.warn, .over) restano: sono l'ambra del 10f. */
+.de-sheet-head { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:var(--mm-r-box, 16px); margin-bottom:24px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-bottom:2px solid var(--mm-genere-quiz, #4f46e5); }
+.de-sheet.flash .de-sheet-head { border-bottom-color:var(--mm-genere-flash, #059669); }
+.de-sheet-title { font-size:20px; font-weight:900; color:var(--mm-testo, #404040); outline:none; }
 .de-sheet-sub { font-size:10px; color:#64748b; margin-top:4px; }
-.de-badge { display:inline-block; margin-top:8px; background:#ede9fe; color:#4f46e5; border-radius:999px; padding:2px 12px; font-size:10px; font-weight:bold; }
-.de-sheet.flash .de-badge { background:#dcfce7; color:#059669; }
-.de-sec-title { font-size:15px; font-weight:900; color:#4f46e5; margin:20px 0 14px; padding-bottom:5px; border-bottom:2px solid #e2e8f0; }
-.de-sheet.flash .de-sec-title { color:#059669; }
+.de-badge { display:inline-block; margin-top:8px; background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); border-radius:999px; padding:2px 12px; font-size:10px; font-weight:bold; }
+.de-sheet.flash .de-badge { background:var(--mm-genere-flash-soft, #dcfce7); color:var(--mm-genere-flash, #059669); }
+.de-sec-title { font-size:15px; font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:20px 0 14px; padding-bottom:5px; border-bottom:2px solid var(--mm-bordo, #cbd5e1); }
+.de-sheet.flash .de-sec-title { color:var(--mm-genere-flash, #059669); }
 /* ── Griglia della preview ────────────────────────────────────────────────
    Una colonna di default; due quando il pannello è largo abbastanza perché
    una colonna resti leggibile (~520px l'una). align-items:start = le card
@@ -3538,10 +3589,10 @@ ${_deCornice()}
    L'ordine resta quello di lettura: sinistra→destra, riga per riga, e ogni
    card porta il proprio numero («CARTA 3») — riordinare resta chiaro. */
 .de-items { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
-.de-item { background:#fff; border-radius:12px; padding:16px 20px; border-left:4px solid #4f46e5; }
-.de-sheet.flash .de-item { border-left-color:#059669; }
+.de-item { background:#fff; border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:16px 20px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-left:4px solid var(--mm-genere-quiz, #4f46e5); }
+.de-sheet.flash .de-item { border-left-color:var(--mm-genere-flash, #059669); }
 .de-item-h { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.de-qn { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#4f46e5; }
+.de-qn { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-genere-quiz, #4f46e5); }
 /* Contatore caratteri della carta: nero finché il testo entra, ambra quando no. */
 .de-count { font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9;
             border-radius:999px; padding:1px 8px; white-space:nowrap; }
@@ -3550,24 +3601,30 @@ ${_deCornice()}
 .de-limit { font-size:11px; line-height:1.5; color:#475569; background:#f8fafc;
             border-left:3px solid #94a3b8; border-radius:8px; padding:8px 12px; margin-bottom:14px; }
 .de-limit.warn { color:#7c2d12; background:#fff7ed; border-left-color:#f97316; }
-.de-sheet.flash .de-qn { color:#059669; }
+.de-sheet.flash .de-qn { color:var(--mm-genere-flash, #059669); }
 /* Strumenti di riga: attenuati ma SEMPRE presenti (a opacity:0 sparivano per chi
    naviga da tastiera) e pieni su hover o quando il fuoco entra nella riga. */
 .de-item-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
 .de-item:hover .de-item-tools, .de-block:hover .de-b-tools,
 .de-item:focus-within .de-item-tools, .de-block:focus-within .de-b-tools { opacity:1; }
 .de-t:focus-visible, .de-x:focus-visible, .de-letter:focus-visible, .de-slot:focus-visible,
-.de-sbtn:focus-visible, .de-addopt:focus-visible, .de-add:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
-.de-t { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #e2e8f0; background:#fff; color:#64748b; border-radius:6px; cursor:pointer; padding:0; }
-.de-t:hover { background:#eef2ff; color:#4f46e5; }
+.de-sbtn:focus-visible, .de-addopt:focus-visible, .de-add:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
+/* Gli strumenti di riga (su, giù, aggiungi, elimina) sono bottoni della barra messi nel foglio (10a, Giacomo:
+   «stessa dimensione di bottone e icone dei bottoni della top bar»). Il foglio è ingrandito dal gradino e dallo
+   zoom dell'utente: la misura si DIVIDE per quel fattore, così a schermo il bottone fa 40 e l'icona 20 a ogni
+   gradino (nel foglio dei nodi, che non ha zoom, 40 e 20 pieni). */
+.de-t { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); width:calc(var(--mm-ctl-h, 40px) * .75 / var(--de-k)); height:calc(var(--mm-ctl-h, 40px) * .75 / var(--de-k)); display:inline-flex; align-items:center; justify-content:center; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); cursor:pointer; padding:0; }
+.de-t svg { width:calc(var(--mm-icona, 20px) * .75 / var(--de-k)); height:calc(var(--mm-icona, 20px) * .75 / var(--de-k)); }
+/* 12/10 (lotto 10-editor): i bottoni sugli item (su/giù, aggiungi, elimina) ridotti del 25 % — 30 e icone 15 a zoom 1 */
+.de-t:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
 .de-t.de-del:hover { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
-.de-q { font-size:15px; font-weight:bold; color:#1e293b; line-height:1.55; margin-bottom:12px; outline:none; border-radius:6px; padding:2px 4px; }
+.de-q { font-size:15px; font-weight:bold; color:var(--mm-testo, #404040); line-height:1.55; margin-bottom:12px; outline:none; border-radius:6px; padding:2px 4px; }
 .de-opts { display:flex; flex-direction:column; gap:8px; }
-.de-opt { display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; }
+.de-opt { display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid var(--mm-bordo, #cbd5e1); }
 .de-opt.correct { background:#f0fdf4; border-color:#86efac; }
 .de-letter { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#e2e8f0; color:#475569; font:bold 12px 'Space Mono',monospace; display:flex; align-items:center; justify-content:center; border:0; cursor:pointer; }
-.de-opt.correct .de-letter { background:#059669; color:#fff; }
-.de-opt-txt { font-size:13px; color:#1e293b; line-height:1.5; flex:1 1 auto; outline:none; padding:2px 4px; border-radius:5px; }
+.de-opt.correct .de-letter { background:var(--mm-ok, #059669); color:#fff; }
+.de-opt-txt { font-size:13px; color:var(--mm-testo, #404040); line-height:1.5; flex:1 1 auto; outline:none; padding:2px 4px; border-radius:5px; }
 .de-x { border:0; background:transparent; color:#64748b; font-size:15px; cursor:pointer; padding:0 4px; line-height:1; }
 .de-x:hover { color:#dc2626; }
 .de-addopt { align-self:flex-start; margin-top:2px; border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:5px 12px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
@@ -3584,30 +3641,30 @@ ${_deCornice()}
    (Niente apici inversi in questo commento: è dentro un template literal.) */
 .de-liv { display:inline-flex; gap:4px; margin-right:auto; }
 .de-liv-b { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-    padding:2px 8px; border-radius:999px; border:1px solid #e2e8f0; background:#fff;
-    color:#94a3b8; cursor:pointer; }
+    padding:2px 8px; border-radius:999px; border:1px solid var(--mm-bordo, #cbd5e1); background:#fff;
+    color:var(--mm-testo-3, #64748b); cursor:pointer; }
 .de-liv-b:hover { border-color:#cbd5e1; color:#475569; }
 .de-liv-b.on.base { background:#fef3c7; border-color:#fcd34d; color:#92400e; }
 .de-liv-b.on.ponte { background:#eef2ff; border-color:#c7d2fe; color:#4338ca; }
-.de-liv-b:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
+.de-liv-b:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
 .de-oq-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .de-oq-meta .de-lbl { margin-bottom:0; }
 .de-oq-lbl-righe { margin-left:8px; }
 .de-areas { display:inline-flex; gap:6px; flex-wrap:wrap; }
 .de-area { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;
-  border:1px solid #e2e8f0; background:#f8fafc; color:#475569; cursor:pointer; }
+  border:1px solid var(--mm-bordo, #cbd5e1); background:#f8fafc; color:#475569; cursor:pointer; }
 .de-area:hover:not(:disabled) { border-color:#99f6e4; background:#f0fdfa; }
-.de-area.on { background:#0f766e; border-color:#0f766e; color:#fff; }
+.de-area.on { background:var(--mm-genere-aree, #0f766e); border-color:var(--mm-genere-aree, #0f766e); color:#fff; }
 /* spenta e non scegliibile: due aree ci sono già. Non si sostituisce a sorpresa. */
 .de-area:disabled { opacity:.4; cursor:not-allowed; }
-.de-area:focus-visible { outline:2px solid #0f766e; outline-offset:2px; }
-.de-lines { width:56px; font-size:12px; padding:3px 6px; border:1px solid #e2e8f0;
-  border-radius:8px; font-family:inherit; color:#1e293b; }
-.de-oq-noaree { font-size:11px; color:#94a3b8; }
+.de-area:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
+.de-lines { width:56px; font-size:12px; padding:3px 6px; border:1px solid var(--mm-bordo, #cbd5e1);
+  border-radius:8px; font-family:inherit; color:var(--mm-testo, #404040); }
+.de-oq-noaree { font-size:11px; color:var(--mm-testo-3, #64748b); }
 .de-a { font-size:13px; color:#065f46; background:#f0fdf4; border-radius:8px; padding:8px 12px; outline:none; line-height:1.5; }
 .de-expl { font-size:11px; color:#475569; font-style:italic; line-height:1.5; background:#f8fafc; border-radius:8px; padding:7px 11px; outline:none; }
-[contenteditable]:hover { box-shadow:inset 0 0 0 1px #e2e8f0; }
-[contenteditable]:focus { box-shadow:inset 0 0 0 2px #a5b4fc; background:#fff; }
+[contenteditable]:hover { box-shadow:inset 0 0 0 1px var(--mm-bordo, #cbd5e1); }
+[contenteditable]:focus { box-shadow:inset 0 0 0 2px var(--mm-focus, #ea580c); background:#fff; }
 [contenteditable]:empty:before { content:attr(data-ph); color:#64748b; font-style:italic; }
 .de-add { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:6px; padding:12px; border:2px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:12px; font:700 12px 'Space Mono',monospace; cursor:pointer; }
 .de-add:hover { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
@@ -3671,23 +3728,23 @@ ${_deCornice()}
    modo di crescere, ed è diventato lo standard di tutti i fogli di testo.) */
 
 /* ── Catena dei perché: stessa resa del documento stampato ───────────────── */
-.de-sheet.causal .de-sheet-head { border-bottom-color:#4f46e5; }
+.de-sheet.causal .de-sheet-head { border-bottom-color:var(--mm-genere-quiz, #4f46e5); }
 .de-cc-legend { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:12px; font-size:10px; color:#475569; }
 .de-cc-leg i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
-.de-cc-sec { background:#fff; border-radius:14px; padding:14px 18px; margin-bottom:14px; }
+.de-cc-sec { background:#fff; border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:14px 18px; margin-bottom:14px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); }
 .de-cc-sec-cross { border:2px dashed #a5b4fc; }
-.de-cc-sec-title { font-size:14px; font-weight:900; color:#4f46e5; margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid #eef2ff; }
-.de-cc-sec-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; }
-.de-cc-row { padding:7px 0; border-bottom:1px dashed #e2e8f0; }
+.de-cc-sec-title { font-size:14px; font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid #eef2ff; }
+.de-cc-sec-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-testo-3, #64748b); }
+.de-cc-row { padding:7px 0; border-bottom:1px dashed var(--mm-bordo, #cbd5e1); }
 .de-cc-row:last-of-type { border-bottom:0; }
 .de-cc-line { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.7; font-size:11px; }
-.de-cc-side { flex:1 1 34%; min-width:120px; color:#334155; outline:none; padding:2px 5px; border-radius:6px; }
+.de-cc-side { flex:1 1 34%; min-width:120px; color:var(--mm-testo, #404040); outline:none; padding:2px 5px; border-radius:6px; }
 .de-cc-conn { display:inline-flex; align-items:baseline; gap:5px; border:1.5px solid; border-radius:9999px;
               padding:1px 9px; font-size:11px; font-weight:700; white-space:nowrap; flex:0 0 auto; }
 .de-cc-conn-txt { outline:none; min-width:52px; display:inline-block; }
 .de-cc-arr { font-weight:700; }
 .de-cc-meta { display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap; }
-.de-cc-badge { font-size:8.5px; color:#94a3b8; text-transform:uppercase; letter-spacing:.05em; }
+.de-cc-badge { font-size:8.5px; color:var(--mm-testo-3, #64748b); text-transform:uppercase; letter-spacing:.05em; }
 .de-cc-badge-man { color:#4f46e5; }
 .de-cc-fams { display:inline-flex; gap:3px; }
 /* Pallini della famiglia: 14px di colore, ma il bersaglio del clic è 22px
@@ -3695,17 +3752,17 @@ ${_deCornice()}
 .de-cc-fam { width:22px; height:22px; padding:0; border:0; border-radius:50%; cursor:pointer;
              background-clip:content-box !important; border:4px solid transparent; }
 .de-cc-fam.on { outline:2px solid #0f172a; outline-offset:-1px; }
-.de-cc-fam:focus-visible { outline:2px solid #4f46e5; outline-offset:1px; }
+.de-cc-fam:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:1px; }
 .de-cc-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
 .de-cc-row:hover .de-cc-tools, .de-cc-row:focus-within .de-cc-tools { opacity:1; }
 .de-cc-type { font:700 12px 'Space Mono',monospace; }
-.de-cc-trunc { margin-top:6px; font-size:10px; color:#94a3b8; font-style:italic; }
+.de-cc-trunc { margin-top:6px; font-size:10px; color:var(--mm-testo-3, #64748b); font-style:italic; }
 .de-cc-addrow { margin-top:8px; border:1px dashed #cbd5e1; background:#fff; color:#64748b;
                 border-radius:8px; padding:4px 12px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
 .de-cc-addrow:hover { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
 
 /* Sintesi: le dimensioni del testo dipendono dal tipo di blocco, non dall'utente. */
-.de-sheet.synth .de-blocks { background:#fff; border-radius:16px; padding:20px 24px; }
+.de-sheet.synth .de-blocks { background:#fff; border-radius:var(--mm-r-box, 16px); padding:20px 24px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); }
 /* align-items:baseline — la targhetta si allinea alla PRIMA RIGA del blocco da
    sola, qualunque siano i corpi in gioco. Con flex-start servivano quattro
    scostamenti a mano (uno per tipo di blocco) da ricalibrare a ogni ritocco
@@ -3734,15 +3791,15 @@ ${_deCornice()}
             font-family:'Space Mono',monospace; font-weight:700; line-height:1.2;
             font-size:calc(9px / var(--de-zsum));
             text-align:right; text-transform:uppercase;
-            letter-spacing:.05em; color:#94a3b8; background:transparent;
+            letter-spacing:.05em; color:var(--mm-testo-3, #64748b); background:transparent;
             border:0; border-radius:6px; cursor:pointer; }
 .de-b-tag:hover, .de-b-tag.active { color:#4f46e5; background:#eef2ff; }
 /* Il blocco generato non cambia tipo: la sua etichetta è solo un'etichetta. */
 .de-b-tag-off { cursor:default; pointer-events:none; }
-.de-b-tag:focus-visible { outline:2px solid #4f46e5; outline-offset:2px; }
+.de-b-tag:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
 /* Menu dei tipi di blocco (stessa forma di quello del foglio nodi). */
 .de-b-menu { position:absolute; left:0; top:26px; z-index:6; width:min(250px,90%);
-             background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+             background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px;
              box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
 .de-b-menu .de-ns-mi b { font-size:11px; }
 .de-t.de-t-on { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
@@ -3752,6 +3809,22 @@ ${_deCornice()}
 /* Lettura ad alta voce del testo in editing */
 .de-tts-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
 .de-tts-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
+/* Il lettore audio nella testata della sintesi è un CONTROLLO (10a, Giacomo 11/10: «anche il player audio deve
+   avere le dimensioni del chip e delle icone allineate a quelle dei bottoni»). Il suo foglio vive in
+   mappai-tts-reader.js, che il reader iPad copia: lo si lascia com'è e qui, dentro il foglio ingrandito, si DIVIDE
+   per il fattore come per .de-t, così a schermo il chip fa 40 e le icone 20 a ogni gradino. */
+.de-tts-row { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); }
+.de-tts-row .mai-tts-wrap { gap:calc(10px / var(--de-k)); }
+.de-tts-row .mai-tts-chip { height:calc(var(--mm-ctl-h, 40px) / var(--de-k)); border-width:calc(var(--mm-bordo-spessore, 1px) / var(--de-k)); }
+.de-tts-row .mai-tts-seg { min-width:calc(46px / var(--de-k)); padding:0 calc(12px / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); gap:calc(2px / var(--de-k)); }
+.de-tts-row .mai-tts-play { min-width:calc(52px / var(--de-k)); }
+.de-tts-row .mai-tts-rate { min-width:calc(54px / var(--de-k)); }
+.de-tts-row .mai-tts-seg i, .de-tts-row .mai-tts-seg svg { width:calc(var(--mm-icona, 20px) / var(--de-k)); height:calc(var(--mm-icona, 20px) / var(--de-k)); }
+.de-tts-row .mai-tts-seg span { font-size:calc(10px / var(--de-k)); }
+.de-tts-row .mai-tts-progress { height:calc(8px / var(--de-k)); min-width:calc(120px / var(--de-k)); flex-basis:calc(160px / var(--de-k)); }
+.de-tts-row .mai-tts-thumb { width:calc(14px / var(--de-k)); height:calc(14px / var(--de-k)); }
+.de-tts-row .mai-tts-time { font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); min-width:calc(34px / var(--de-k)); }
+.de-tts-row .mai-tts-sec { width:calc(22px / var(--de-k)); height:calc(22px / var(--de-k)); margin-right:calc(8px / var(--de-k)); }
 /* Lo spazio sopra un titolo sta sulla RIGA, non sul testo. Messo sul testo,
    spingeva giù solo la colonna di destra: l'etichetta restava in cima (è l'altro
    elemento della riga) e TITOLO/SOTTOTITOLO risultavano più alti del testo che
@@ -3760,14 +3833,14 @@ ${_deCornice()}
 .de-block + .de-b-h3 { margin-top:12px; }
 .de-block + .de-b-h4 { margin-top:8px; }
 .de-b-h3 .de-b-txt { font-size:14px; font-weight:900; color:#4f46e5; margin:0 0 4px; }
-.de-b-h4 .de-b-txt { font-size:12px; font-weight:700; color:#1e293b; margin:0 0 2px; }
-.de-b-p .de-b-txt { font-size:11px; line-height:1.7; color:#334155; }
-.de-b-li .de-b-txt { font-size:11px; line-height:1.7; color:#334155; margin-left:18px; list-style:disc; }
-.de-b-li .de-b-txt:before { content:'•'; color:#94a3b8; margin-right:7px; }
-.de-b-blockquote .de-b-txt { font-size:11px; line-height:1.7; color:#475569; border-left:3px solid #e2e8f0; padding-left:10px; font-style:italic; }
+.de-b-h4 .de-b-txt { font-size:12px; font-weight:700; color:var(--mm-testo, #404040); margin:0 0 2px; }
+.de-b-p .de-b-txt { font-size:11px; line-height:1.7; color:var(--mm-testo, #404040); }
+.de-b-li .de-b-txt { font-size:11px; line-height:1.7; color:var(--mm-testo, #404040); margin-left:18px; list-style:disc; }
+.de-b-li .de-b-txt:before { content:'•'; color:var(--mm-testo-3, #64748b); margin-right:7px; }
+.de-b-blockquote .de-b-txt { font-size:11px; line-height:1.7; color:#475569; border-left:3px solid var(--mm-bordo, #cbd5e1); padding-left:10px; font-style:italic; }
 .de-b-txt sup { color:#4f46e5; font-weight:bold; }
 /* blocchi generati (citazioni, catena dei perché): visibili, non editabili */
-.de-b-locked { flex:1 1 auto; font-size:10px; line-height:1.6; color:#64748b; background:#f8fafc; border:1px dashed #e2e8f0; border-radius:8px; padding:8px 10px; max-height:140px; overflow:auto; }
+.de-b-locked { flex:1 1 auto; font-size:10px; line-height:1.6; color:#64748b; background:#f8fafc; border:1px dashed var(--mm-bordo, #cbd5e1); border-radius:8px; padding:8px 10px; max-height:140px; overflow:auto; }
 .de-b-locked * { font-size:10px !important; color:#64748b !important; }
 /* I quattro comandi del blocco erano in fila in alto a destra, SOPRA il testo:
    156px stesi sulla prima riga (misurato: sconfinavano di 153px dentro il
@@ -3790,44 +3863,50 @@ ${_deCornice()}
 .de-note { font-size:10px; color:#64748b; font-style:italic; margin-top:14px; text-align:center; }
 
 /* ── Foglio dei nodi: le card hanno le proporzioni della carta ────────────── */
-.de-sheet.ns .de-sheet-head { border-bottom-color:#f97316; }
-.de-sheet.ns .de-badge { background:#ffedd5; color:#c2410c; }
+.de-sheet.ns .de-sheet-head { border-bottom-color:var(--mm-genere-foglio, #f97316); }
+.de-sheet.ns .de-badge { background:var(--mm-genere-foglio-soft, #fff7ed); color:var(--mm-genere-foglio-testo, #c2410c); }
 .de-ns-mix { font-size:10px; color:#64748b; margin-top:7px; }
-.de-ns-ctrl { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; margin-bottom:14px; }
+.de-ns-ctrl { background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:10px 12px; margin-bottom:14px; }
 .de-ns-ctrl-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 .de-ns-ctrl-row + .de-ns-ctrl-row { margin-top:9px; padding-top:9px; border-top:1px solid #f1f5f9; }
 .de-ns-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
-.de-ns-fmt { border:1px solid #e2e8f0; background:#f8fafc; color:#475569; border-radius:9px; padding:5px 10px; font:800 11px 'Space Mono',monospace; cursor:pointer; text-align:left; }
-.de-ns-fmt small { display:block; font-size:9px; font-weight:400; color:#94a3b8; margin-top:1px; }
-.de-ns-fmt.active { border-color:#f97316; background:#fff7ed; color:#c2410c; }
-.de-ns-fmt.active small { color:#ea580c; }
-.de-ns-sel { border:1px solid #e2e8f0; border-radius:8px; padding:5px 8px; font:700 11px 'Space Mono',monospace; color:#475569; background:#fff; cursor:pointer; }
+/* I bottoni del pannello del foglio dei nodi: lo standard della barra (10a). Se il pannello sta dentro un foglio
+   ingrandito, la misura si divide per il fattore come per .de-t; fuori, il fattore vale 1. */
+.de-ns-fmt, .de-ns-all, .de-ns-ai { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); min-height:calc(var(--mm-ctl-h, 40px) / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); }
+.de-ns-fmt { border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); padding:0 10px; font-weight:800; cursor:pointer; text-align:left; }
+.de-ns-fmt small { display:block; font-size:9px; font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:1px; }
+.de-ns-fmt.active { border-color:var(--mm-genere-foglio, #f97316); background:var(--mm-genere-foglio-soft, #fff7ed); color:var(--mm-genere-foglio-testo, #c2410c); }
+.de-ns-fmt.active small { color:var(--mm-genere-foglio-testo, #c2410c); }
+/* La tendina è il CAMPO del motore (10a; regola dei lotti 2 e 5): neutra senza bordo, al passaggio bianca col bordo. */
+.de-ns-sel { height:var(--mm-ctl-h, 40px); border:var(--mm-bordo-spessore, 1px) solid transparent; border-radius:var(--mm-r-campo, 10px); padding:0 2.25rem 0 12px; font-size:var(--mm-ctl-fs, 12px); font-weight:700; color:var(--mm-testo, #404040); background-color:var(--mm-neutro, #f1f4f8); cursor:pointer; }
+.de-ns-sel:hover { background-color:var(--mm-fondo, #fff); border-color:var(--mm-bordo, #cbd5e1); }
 /* Il comando compatto delle sezioni della sintesi: le due spunte nella barra
    la mandavano a capo (misurato: 113px liberi contro 166 richiesti). */
 .de-sez { position:relative; flex:0 0 auto; }
-.de-sez > summary { list-style:none; cursor:pointer; border:1px solid #e2e8f0; background:#f8fafc;
-                    color:#475569; border-radius:9px; padding:6px 11px; font:700 11px var(--app-font, monospace);
+.de-sez > summary { list-style:none; cursor:pointer; display:inline-flex; align-items:center; min-height:var(--mm-ctl-h, 40px); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc);
+                    color:var(--mm-testo-2, #475569); border-radius:var(--mm-r-btn, 10px); padding:0 12px; font-size:var(--mm-ctl-fs, 12px); font-weight:700;
                     white-space:nowrap; user-select:none; }
 .de-sez > summary::-webkit-details-marker { display:none; }
-.de-sez > summary:hover { background:#eef2ff; color:#4338ca; }
+.de-sez > summary:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
 .de-sez[data-spente] > summary { border-color:#fbbf24; background:#fffbeb; color:#92400e; }
 .de-sez[open] > summary { background:#eef2ff; color:#4338ca; }
 .de-sez-p { position:absolute; top:calc(100% + 6px); right:0; z-index:40; display:flex;
             flex-direction:column; gap:8px; min-width:210px; padding:10px 12px; background:#fff;
-            border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); }
+            border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); }
 .de-sez-p .de-ns-check { white-space:nowrap; }
 .de-ns-check { display:inline-flex; align-items:center; gap:6px; font:700 11px 'Space Mono',monospace; color:#475569; cursor:pointer; }
-.de-ns-all { border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:5px 10px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
-.de-ns-all:hover:not(:disabled) { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
+.de-ns-all { border:var(--mm-bordo-spessore, 1px) dashed var(--mm-bordo, #cbd5e1); background:var(--mm-fondo, #fff); color:var(--mm-testo-3, #64748b); padding:0 10px; font-weight:700; cursor:pointer; }
+.de-ns-all:hover:not(:disabled) { border-color:var(--mm-accent, #4f46e5); color:var(--mm-accent, #4f46e5); background:var(--mm-accent-soft, #eef2ff); }
 .de-ns-all:disabled { opacity:.4; cursor:not-allowed; }
-.de-ns-ai { display:inline-flex; align-items:center; gap:6px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; border-radius:9px; padding:5px 11px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
-.de-ns-ai:hover { background:#eef2ff; color:#4f46e5; }
+.de-ns-ai { display:inline-flex; align-items:center; gap:var(--mm-btn-gap, 8px); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); padding:0 12px; font-weight:700; cursor:pointer; }
+.de-ns-ai svg { width:calc(var(--mm-icona, 20px) / var(--de-k)); height:calc(var(--mm-icona, 20px) / var(--de-k)); }
+.de-ns-ai:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
 .de-ns-grid { display:grid; gap:10px; }
 /* La card: proporzioni reali (aspect-ratio dalla geometria del foglio). */
-.de-ns-card { position:relative; background:#fff; border:1px dashed #fb923c; border-radius:10px; display:flex; flex-direction:column; overflow:hidden; }
+.de-ns-card { position:relative; background:#fff; border:1px dashed var(--mm-genere-foglio, #f97316); border-radius:calc(var(--mm-r-box, 16px) - 4px); display:flex; flex-direction:column; overflow:hidden; }
 .de-ns-card.over { border-color:#f59e0b; box-shadow:0 0 0 2px #fef3c7 inset; }
 .de-ns-head { display:flex; align-items:center; gap:6px; padding:4px 6px; background:#f8fafc; border-bottom:1px solid #f1f5f9; flex:0 0 auto; }
-.de-ns-n { font-size:10px; font-weight:800; color:#c2410c; }
+.de-ns-n { font-size:10px; font-weight:800; color:var(--mm-genere-foglio-testo, #c2410c); }
 .de-ns-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
 .de-ns-card:hover .de-ns-tools, .de-ns-card:focus-within .de-ns-tools { opacity:1; }
 .de-ns-plus.active { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
@@ -3847,33 +3926,33 @@ ${_deCornice()}
 /* Centratura: la regola vale per TUTTI i tipi di contenuto (vedi .de-ns-inner).
    Con «spazio da scrivere» le righe riempiono la card (.de-ns-rules cresce),
    quindi lì il titolo resta in alto — come nel foglio stampato. */
-.de-ns-title { font-weight:900; color:#1e293b; line-height:1.25; text-align:center; outline:none; border-radius:5px; word-break:break-word; }
+.de-ns-title { font-weight:900; color:var(--mm-testo, #404040); line-height:1.25; text-align:center; outline:none; border-radius:5px; word-break:break-word; }
 .de-ns-card.lay-card .de-ns-title { text-align:left; line-height:1.2; margin-bottom:4px; }
 .de-ns-kws { flex:0 1 auto; display:flex; flex-direction:column; gap:2px; margin-top:5px; overflow:auto; }
 .de-ns-kw { display:flex; align-items:center; gap:4px; }
 .de-ns-kw-t { flex:1 1 auto; text-align:center; color:#5a5a5a; outline:none; border-radius:4px; padding:1px 3px; word-break:break-word; }
 .de-ns-kw.over .de-ns-kw-t { background:#ffedd5; color:#7c2d12; }
-.de-ns-addkw { align-self:center; margin-top:3px; border:1px dashed #cbd5e1; background:#fff; color:#94a3b8; border-radius:7px; padding:2px 9px; font:700 10px 'Space Mono',monospace; cursor:pointer; }
+.de-ns-addkw { align-self:center; margin-top:3px; border:1px dashed #cbd5e1; background:#fff; color:var(--mm-testo-3, #64748b); border-radius:7px; padding:2px 9px; font:700 10px 'Space Mono',monospace; cursor:pointer; }
 .de-ns-addkw:hover { border-color:#4f46e5; color:#4f46e5; }
 .de-ns-desc { flex:0 1 auto; color:#1e1e1e; line-height:1.4; text-align:justify; outline:none; border-radius:5px; overflow:auto; word-break:break-word; }
 .de-ns-rules { flex:1 1 auto; margin-top:6px; }
-.de-ns-menu { position:absolute; right:6px; top:30px; z-index:5; width:min(230px,92%); background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
+.de-ns-menu { position:absolute; right:6px; top:30px; z-index:5; width:min(230px,92%); background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
 .de-ns-mi { display:block; width:100%; text-align:left; border:0; background:transparent; border-radius:7px; padding:6px 8px; cursor:pointer; font:inherit; }
 .de-ns-mi:hover { background:#eef2ff; }
-.de-ns-mi b { display:block; font-size:11px; font-weight:800; color:#1e293b; }
-.de-ns-mi small { display:block; font-size:10px; color:#94a3b8; margin-top:1px; }
+.de-ns-mi b { display:block; font-size:11px; font-weight:800; color:var(--mm-testo, #404040); }
+.de-ns-mi small { display:block; font-size:10px; color:var(--mm-testo-3, #64748b); margin-top:1px; }
 .de-ns-mi.active b { color:#4f46e5; }
 .de-ns-mi-off { border-top:1px solid #f1f5f9; margin-top:2px; }
 .de-ns-mi-off b { color:#64748b; }
 
-.de-radio { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer; }
+.de-radio { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer; }
 .de-radio:hover { border-color:#a5b4fc; background:#f8fafc; }
-.de-radio b { display:block; font-size:12px; color:#1e293b; }
+.de-radio b { display:block; font-size:12px; color:var(--mm-testo, #404040); }
 .de-radio small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
-.de-modal-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin:4px 0 8px; }
+.de-modal-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-testo-3, #64748b); margin:4px 0 8px; }
 .de-fmt-row { display:flex; gap:8px; margin-bottom:12px; }
-.de-fmt { flex:1 1 0; text-align:center; border:1px solid #e2e8f0; border-radius:10px; padding:10px 6px; cursor:pointer; font-size:13px; font-weight:800; color:#1e293b; }
-.de-fmt small { display:block; font-size:10px; font-weight:400; color:#94a3b8; margin-top:3px; }
+.de-fmt { flex:1 1 0; text-align:center; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; padding:10px 6px; cursor:pointer; font-size:13px; font-weight:800; color:var(--mm-testo, #404040); }
+.de-fmt small { display:block; font-size:10px; font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:3px; }
 .de-fmt input { display:none; }
 .de-fmt:has(input:checked) { border-color:#4f46e5; background:#eef2ff; color:#4f46e5; }
 `;
@@ -3927,7 +4006,7 @@ ${_deCornice()}
         blockMenu: blockMenu, blockAddMenu: blockAddMenu, setBlockTag: setBlockTag,
         zoomStep: zoomStep, zoomReset: zoomReset, setFont: setFont, mostraSezione: mostraSezione,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
-        undo: undo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
+        undo: undo, redo: redo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
         voceNaturale: voceNaturale,
         salvaConNome: salvaConNome,
         openAnswersModal: openAnswersModal, openFlashModal: openFlashModal

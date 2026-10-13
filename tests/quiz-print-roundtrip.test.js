@@ -233,6 +233,21 @@ test('buildFlashcardSetHtml: senza mappa in memoria la carta non stampa una riga
     noMap();
 });
 
+/* Il foglio stampato dalla sidebar non passa opts.mapName: il nome lo cercava in
+   `appState.nodes`, che non esiste (invariante 2 — la sandbox lo tiene, vuoto,
+   apposta), e ogni foglio si intitolava «MappAI». */
+test('buildQuizSetHtml: senza opts.mapName il foglio porta il nome della mappa, non «MappAI»', () => {
+    withMap();
+    // la testata (che scrive il nome della mappa) è del modulo della cornice: qui solo per questa prova
+    W.MappAIDocHead = require('../public/js/mappai-doc-head.js');
+    try {
+        assert.strictEqual(W.MappAIQuizPrint.mapName(), 'Le funzioni urbane');
+        assert.ok(/Le funzioni urbane/.test(W.buildQuizSetHtml(RAW, { now: '01/01/2026' })), 'il titolo è l\'etichetta del ROOT');
+        noMap();
+        assert.strictEqual(W.MappAIQuizPrint.mapName(), 'MappAI', 'senza mappa in memoria resta il ripiego storico');
+    } finally { noMap(); delete W.MappAIDocHead; }
+});
+
 
 /* ── La sorgente nel vault (6/9) ─────────────────────────────────────────── */
 test('scriviSorgente: gemello .html in Materiale Studio/Sorgenti/, stesso stem del PDF', async () => {

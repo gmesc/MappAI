@@ -5,82 +5,9 @@
 // NB: directLoadVault riassegna `tutorState` (let top-level in app.js) e chiama
 // initD3Visualization() come bare identifier — entrambi risolti a runtime tramite
 // lo scope lessicale globale condiviso (modulo caricato dopo app.js).
-window.showVaultManager = async function () {
-    const modal = document.getElementById('vault-manager-modal');
-    const box = document.getElementById('vault-manager-box');
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        box.classList.remove('scale-95');
-    }, 10);
-    window.safeCreateIcons();
-
-    await window.loadVaultList();
-};
-
-window.closeVaultManager = function () {
-    const modal = document.getElementById('vault-manager-modal');
-    const box = document.getElementById('vault-manager-box');
-    modal.classList.add('opacity-0');
-    box.classList.add('scale-95');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }, 200);
-};
-
-window.loadVaultList = async function () {
-    const container = document.getElementById('vault-list-container');
-    container.innerHTML = '<div class="flex items-center justify-center p-20 text-slate-300"><i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i></div>';
-    window.safeCreateIcons();
-
-    try {
-        const vaults = await window.electronAPI.getAllVaults();
-        container.innerHTML = "";
-
-        if (!vaults || vaults.length === 0) {
-            container.innerHTML = `<div class="text-center p-10 text-slate-400 font-bold uppercase tracking-widest text-xs">${window.getTranslation('empty_projects_msg')}</div>`;
-            return;
-        }
-
-        vaults.forEach(v => {
-            const card = document.createElement('div');
-            card.className = "bg-white border border-slate-100 p-4 rounded-2xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group shadow-sm flex justify-between items-center";
-
-            let userBadge = "";
-            if (v.nickname) {
-                userBadge = `<span class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[9px] font-black uppercase">${v.nickname} (${v.age || '?'})</span>`;
-            }
-
-            card.innerHTML = `
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-all">
-                        <i data-lucide="folder" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-black text-slate-800 text-sm leading-none">${v.rootNodeLabel || v.folderName}</span>
-                            ${userBadge}
-                        </div>
-                        <span class="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">${v.folderName} • ${new Date(v.lastUpdated).toLocaleDateString()}</span>
-                    </div>
-                </div>
-                <i data-lucide="chevron-right" class="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-all"></i>
-            `;
-
-            card.onclick = () => {
-                window.closeVaultManager();
-                window.directLoadVault(v.fullPath);
-            };
-            container.appendChild(card);
-        });
-        window.safeCreateIcons();
-    } catch (err) {
-        container.innerHTML = `<div class="text-red-500 p-4 text-center text-xs">Errore nel caricamento: ${err.message}</div>`;
-    }
-};
+// 12/10/2026 (0087, lotto 10-modali): il modale «Esplora vault» (#vault-manager-modal,
+// showVaultManager/loadVaultList) è USCITO — nessuno lo apriva dal 3/8 (ELABORA «Progetti
+// esistenti» e INSEGNA leggono il disco). Restano directLoadVault e resetVaultState.
 
 window.directLoadVault = async function (folderPath) {
     /* ⚠️ Non si cambia mappa mentre la pipeline lavora (13/8): i suoi passi
@@ -96,15 +23,20 @@ window.directLoadVault = async function (folderPath) {
     // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
     // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
     // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.
-    if (window.MappAIStudioView && appState.layoutMode === 'studio') {
-        window.MappAIStudioView.exit();
-        appState.layoutMode = 'default';
-    }
     window.showLoadingOverlay(true, "Caricamento Vault...");
     try {
         const loadRes = await window.electronAPI.loadVault(folderPath);
         window.showLoadingOverlay(false);
         if (loadRes.success) {
+            if (loadRes.data && loadRes.data.extractionMode === 'lettura') {
+                const reading = window.MappAIPercorsoLettura;
+                if (!reading || typeof reading.openVault !== 'function') throw new Error(window.t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+                return await reading.openVault({ folderPath: folderPath, data: loadRes.data });
+            }
+            if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+                window.MappAIStudioView.exit();
+                appState.layoutMode = 'default';
+            }
             appState._reviewRestoring = true;
             delete appState._reviewRestoreError;
             delete appState._reviewCommit;
@@ -116,8 +48,14 @@ window.directLoadVault = async function (folderPath) {
                questa mappa nella scheda di un'altra (46 copie accumulate, una
                voce col vault sbagliato — misurato sui dati veri). Allinea anche
                classDir/discDir, che erano il residuo della mappa di prima. */
+            /* 0061 (29/09, ADR 0013): gesto `apri` — vince l'id scritto nella cartella;
+               senza id, per nome come prima, ma non la voce che un'altra cartella dichiara
+               già; una cartella vuota e senza id è una creazione. È la strada di INSEGNA,
+               delle console, degli elenchi, del ripiego di `loadProject` e del
+               ricongiungimento per id (D7). `loadRes` c'è già: nessuna attesa in più. */
             if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
-                await StorageManager.adottaVault(folderPath, appState);
+                await StorageManager.adottaVault(folderPath, appState, { gesto: 'apri', idCartella: loadRes.data.projectId,
+                    vuota: !(loadRes.data.nodes || []).length && !loadRes.data._pipelineManifest });
             }
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             /* la mappa PORTA la sua classe e la sua materia (9/8): si tengono da
@@ -169,6 +107,20 @@ window.directLoadVault = async function (folderPath) {
                 });
             }
 
+            /* 0078 (§4.2, interruttore `mappai_cartella_completa`): lo stato di
+               generazione della mappa di PRIMA — disciplina, «tarata», pagine
+               del PDF, rapporti, guida semantica, bozze della revisione,
+               consumi — non passa a questa. Si azzera PRIMA di leggere ciò che
+               la cartella porta (la vista, i consumi, la revisione), così
+               quello vince. La lista è del core, una sola: `semanticGuidance`
+               è fra i suoi campi. Spento o senza core: come prima. */
+            if (window.MappAIVistaCore && window.MappAIVistaCore.cartellaCompleta && window.MappAIVistaCore.cartellaCompleta()) {
+                window.MappAIVistaCore.azzeraGenerazione(appState);
+                /* il layout torna quello di base: il bottone deve dirlo, o
+                   mostrerebbe ancora il layout della mappa di prima */
+                if (window.updateLayoutButtonLabel) { try { window.updateLayoutButtonLabel(); } catch (e) { } }
+            }
+
             appState.db = {
                 nodes: nodesList,
                 links: linksList,
@@ -184,7 +136,11 @@ window.directLoadVault = async function (folderPath) {
                PRECEDENTE non devono sopravvivere al cambio — stessa regola del
                tutorState qui sotto), POI si applica la vista se c'è. La regola
                di fusione di `applica` («non azzerare ciò che manca») serve ad
-               altri contesti; qui ciò che manca è di un'altra mappa. */
+               altri contesti; qui ciò che manca è di un'altra mappa.
+               0078: con l'interruttore acceso la vista porta anche la Catena dei
+               perché rivista, le copie dei documenti e i nodi fissati: si
+               applica DOPO che i nodi della cartella sono in `db` (qui sopra),
+               perché marca solo i nodi che ci sono. */
             appState.studioProfile = undefined;
             appState.focusTopic = '';
             appState.db.timelineEvents = [];
@@ -295,6 +251,17 @@ window.resetVaultState = function () {
     delete appState._reviewRestoreError;
     appState.activeVaultPath = null;
     appState.activeVaultClassDir = null;   // 22/7: nesting classe del vault auto-creato
+    /* 0061 (29/09, D1; ADR 0013): l'identità nasce quando la generazione comincia
+       (inv. 20-bis: ciò che dura dichiara a che cosa appartiene quando comincia). Senza,
+       con una mappa aperta l'autosave del rendering scriveva la mappa nuova nella voce
+       della precedente, e la cartella nuova ne avrebbe tenuto l'id. Si CONIA invece di
+       azzerare: autosave, consumi e cartella partono con lo stesso id, e la regola
+       `nuova` lo tiene. La chiamano le estrazioni, e ora «Importa JSON» e le mappe
+       dimostrative (D6). `typeof` (inv. 3). */
+    if (typeof StorageManager !== 'undefined') {
+        StorageManager.currentProjectId = 'proj_' + Date.now();
+        StorageManager.idInCartella = null;
+    }
     const syncBtn = document.getElementById('sync-vault-btn');
     if (syncBtn) {
         syncBtn.classList.add('hidden');

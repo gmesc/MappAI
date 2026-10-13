@@ -16,6 +16,69 @@ test('la composizione di partenza non ha ERRORI', () => {
    classe (vive nel chip), l'ambito, il genere «titolo» e la stima. Il test le
    fissa — se un domani ne esce una quinta senza che nessuno l'abbia deciso, si
    vede subito. */
+/* 0087 lotto 10-crea (Giacomo, 12/10): «Output» a sinistra del bottone DOCUMENTI,
+   l'elenco dei file da 3/4 a 1/2, la terza riga d'attesa della modalità iconografica. */
+test('10-crea: la prima riga è Output 1 · Carica 1 · elenco 2, e chiude le quattro colonne', () => {
+    const ids = B.MODULI.map(m => m.id);
+    assert.deepStrictEqual(ids.slice(0, 3), ['output-scelta', 'upload', 'elenco']);
+    assert.deepStrictEqual(B.MODULI.slice(0, 3).map(m => m.span), [1, 1, 2]);
+    const out = B.MODULI[0];
+    assert.strictEqual(out.titolo, 'Output');
+    assert.ok(!B.nascondibile(out), 'il box Output ha fondo chiaro: non sparisce in vista compatta');
+    assert.deepStrictEqual(B.vociDi(out).map(v => v.id), ['mn-output']);
+    const v = B.valida(B.MODULI);
+    assert.deepStrictEqual(v.errori, []);
+});
+
+test('10-crea: i posti d\'attesa (foto 1 · scheda 3) stanno dopo la riga del genere e puntano a pezzi di index.html', () => {
+    const ids = B.MODULI.map(m => m.id);
+    const g = ids.indexOf('genere-opz');
+    /* 12/10 sera: fra il genere e i posti d'attesa sta la Lettura (a tutta riga) */
+    assert.equal(ids[g + 1], 'lettura');
+    assert.deepStrictEqual(ids.slice(g + 2, g + 4), ['foto-attesa', 'scheda-attesa']);
+    assert.deepStrictEqual([B.MODULI[g + 2].span, B.MODULI[g + 3].span], [1, 3]);
+    assert.strictEqual(B.voce('mn-foto-attesa').sposta, '#mn-foto-attesa');
+    assert.strictEqual(B.voce('mn-scheda-attesa').sposta, '#mn-scheda-attesa');
+    assert.strictEqual(B.voce('mn-output').sposta, '#mn-output-campo');
+});
+
+test('12/10 sera: un layout salvato con la Lettura in fondo e vestita la riporta dopo il genere, nuda; già a posto non tocca nulla', () => {
+    const vecchio = [
+        { id: 'output-scelta', titolo: 'Output', span: 1, stile: { bg: '#ffffff', testo: '#404040' }, voci: ['mn-output'] },
+        { id: 'upload', span: 1, nuda: true, voci: ['mn-upload'] },
+        { id: 'elenco', span: 2, nuda: true, voci: ['mn-elenco'] },
+        { id: 'genere', span: 1, nuda: true, voci: ['mn-genere'] },
+        { id: 'genere-opz', span: 3, nuda: true, voci: ['mn-genere-opz'] },
+        { id: 'foto-attesa', span: 1, nuda: true, voci: ['mn-foto-attesa'] },
+        { id: 'scheda-attesa', span: 3, nuda: true, voci: ['mn-scheda-attesa'] },
+        { id: 'ctx', span: 1, voci: ['mp-chi'] },
+        { id: 'lettura', span: 4, layout: { colonneVoci: 1 }, voci: ['mn-lettura'] }
+    ];
+    const nuovo = B.withOutput(vecchio);
+    assert.notStrictEqual(nuovo, vecchio);
+    assert.deepStrictEqual(nuovo.map(m => m.id), ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'lettura', 'foto-attesa', 'scheda-attesa', 'ctx']);
+    assert.equal(nuovo[5].nuda, true, 'nuda'); assert.equal(nuovo[5].stile, undefined);
+    assert.equal(vecchio[8].nuda, undefined, 'il vecchio non si tocca');
+    assert.strictEqual(B.withOutput(nuovo), nuovo, 'già a posto: stesso oggetto');
+});
+
+test('10-crea: withOutput porta Output, elenco a 2 e i posti d\'attesa in un layout salvato che non li ha; chi li ha resta com\'è', () => {
+    const vecchio = [
+        { id: 'upload', span: 1, nuda: true, voci: ['mn-upload'] },
+        { id: 'elenco', span: 3, nuda: true, voci: ['mn-elenco'] },
+        { id: 'genere', span: 1, nuda: true, voci: ['mn-genere'] },
+        { id: 'genere-opz', span: 3, nuda: true, voci: ['mn-genere-opz'] },
+        { id: 'ctx', span: 1, voci: ['mp-chi'] }
+    ];
+    const nuovo = B.withOutput(vecchio);
+    assert.notStrictEqual(nuovo, vecchio, 'una copia, non il vecchio mutato');
+    assert.deepStrictEqual(nuovo.map(m => m.id), ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'foto-attesa', 'scheda-attesa', 'ctx']);
+    assert.strictEqual(nuovo[2].span, 2, 'l\'elenco da 3/4 a 1/2');
+    assert.strictEqual(vecchio[1].span, 3, 'il vecchio non si tocca');
+    assert.strictEqual(B.withOutput(nuovo), nuovo, 'già migrato: stesso oggetto, niente da salvare');
+    assert.strictEqual(B.withMaterialControls(B.MODULI).some(m => m.id === 'output-scelta'), true, 'anche la migrazione dei materiali lo porta');
+});
+
 test('le voci fuori dalla composizione sono quelle DECISE, non altre', () => {
     const v = B.valida(B.MODULI);
     /* Gli STRUMENTI (5/8) sono fuori per costruzione: sono le funzioni che la vista
@@ -382,8 +445,11 @@ test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', (
        quiz, fogli nodi, fonte&sintesi — sono passate alla vista estesa, e la
        configurazione di partenza la dice ora il preset «Default».
        Restano MONTATE nel DOM: `_readConfig()` legge i loro campi. */
+    /* 0087 lotto 10-crea (12/10): davanti il box «Output» (fondo chiaro), dopo la riga
+       del genere i due posti d'attesa della modalità iconografica (nudi) */
+    /* 12/10 sera: la Lettura (0070) sta subito dopo la riga del genere, chiara: non è più un extra */
     assert.deepStrictEqual(stabili,
-        ['upload', 'elenco', 'genere', 'genere-opz', 'ctx', 'azioni']);
+        ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'lettura', 'foto-attesa', 'scheda-attesa', 'ctx', 'azioni']);
     /* «output» (20/8): il box a tutta riga con le spunte di CHE COSA si genera,
        primo degli extra — è l'unica decisione da prendere per un DOSSIER. */
     assert.deepStrictEqual(extra,
@@ -582,15 +648,15 @@ test('i quattro pezzi della prima sezione sono voci componibili', () => {
     });
 });
 
-test('i quattro moduli della prima sezione sono NUDI e chiudono le due righe', () => {
-    const primi = B.MODULI.slice(0, 4);
+test('i quattro pezzi storici della prima sezione sono NUDI e, col box Output davanti, chiudono le due righe', () => {
+    /* 0087 lotto 10-crea (12/10): la prima riga è Output 1 · Carica 1 · elenco 2 */
+    const primi = B.MODULI.slice(1, 5);
     assert.deepStrictEqual(primi.map(m => m.id), ['upload', 'elenco', 'genere', 'genere-opz']);
     primi.forEach(m => {
         assert.strictEqual(m.nuda, true, m.id + ': un riquadro attorno a un box che è già un box');
         assert.strictEqual(m.stile, undefined, m.id + ': fondo e testo sono del pezzo, non del modulo');
     });
-    /* gli span sono quelli delle righe storiche: l'impaginazione a schermo non cambia */
-    assert.strictEqual(primi[0].span + primi[1].span, B.COLONNE, 'upload 2 + elenco 2');
+    assert.strictEqual(B.MODULI[0].span + primi[0].span + primi[1].span, B.COLONNE, 'Output 1 + upload 1 + elenco 2');
     assert.strictEqual(primi[2].span + primi[3].span, B.COLONNE, 'genere 1 + opzioni 3');
 });
 
@@ -791,4 +857,120 @@ test('i controlli nuovi riparano un layout vecchio anche dopo la precedente migr
     assert.ok(B.vociDi(fixed.find(m => m.id === 'quiz')).some(v => v.id === 'mp-fc-count'));
     assert.strictEqual(B.withMaterialControls(fixed), fixed);
     assert.equal(B.valida(fixed).errori.length, 0);
+});
+
+
+test('0070 → 12/10: il percorso usa un host unico a quattro colonne, subito dopo la riga del genere, col grigio dei box standard', () => {
+    const module = B.MODULI.find(m => m.id === 'lettura');
+    assert.equal(module.span, 4);
+    assert.equal(module.altezza, undefined, 'il configuratore ha altezza naturale');
+    assert.equal(B.nascondibile(module), false, 'nudo: non è più un extra della vista estesa');
+    assert.equal(module.nuda, true, 'il planner è il box, col grigio dei box standard dal foglio');
+    assert.equal(module.stile, undefined);
+    assert.deepEqual(B.vociDi(module).map(v => v.id), ['mn-lettura']);
+    assert.equal(B.voce('mn-lettura').sposta, '#lettura-crea-host');
+    assert.equal(B.titoloPosto(B.vociDi(module)[0]), 'mai', 'il titolo appartiene al planner');
+    const index = B.MODULI.indexOf(module);
+    assert.equal(B.MODULI[index - 1].id, 'genere-opz', 'seconda riga quando la riga del genere si nasconde');
+    assert.deepEqual(B.valida(B.MODULI).errori, []);
+});
+
+test('0070: un layout già migrato riceve il percorso senza perdere scelte o mutare il sorgente', () => {
+    const old = B.MODULI.filter(m => m.id !== 'lettura').map(m => ({ ...m, voci: m.voci.slice() }));
+    old.find(m => m.id === 'quiz').titolo = 'I miei esercizi';
+    old.find(m => m.id === 'testo').altezza = 321;
+    const before = JSON.parse(JSON.stringify(old));
+    const updated = B.withMaterialControls(old);
+    assert.deepEqual(old, before);
+    assert.deepEqual(updated.filter(m => m.id !== 'lettura'), before);
+    assert.equal(updated.filter(m => B.vociDi(m).some(v => v.id === 'mn-lettura')).length, 1);
+    assert.equal(updated.at(-1).id, 'testo');
+    assert.equal(updated[updated.findIndex(m => m.id === 'genere-opz') + 1].id, 'lettura', 'subito dopo la riga del genere (12/10)');
+    assert.strictEqual(B.withMaterialControls(updated), updated);
+    assert.deepEqual(B.valida(updated).errori, []);
+});
+
+test('0070: layout senza testo e voce personalizzata non duplicano il configuratore', () => {
+    const old = B.MODULI.filter(m => !['lettura', 'testo'].includes(m.id));
+    const updated = B.withMaterialControls(old);
+    assert.equal(updated[updated.findIndex(m => m.id === 'genere-opz') + 1].id, 'lettura');
+    const custom = updated.map(m => m.id === 'lettura'
+        ? { ...m, id: 'lettura-personale', titolo: 'Testi', voci: [{ id: 'mn-lettura', et: 'Le mie attività' }] }
+        : m);
+    assert.strictEqual(B.withMaterialControls(custom), custom);
+    assert.equal(custom.filter(m => B.vociDi(m).some(v => v.id === 'mn-lettura')).length, 1);
+    assert.deepEqual(B.valida(custom).errori, []);
+});
+
+test('0070: il bootstrap monta il planner solo dopo DOM pronto e interruttore esplicito', () => {
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+    const bootstrap = html.match(/<script id="lettura-crea-bootstrap">([\s\S]*?)<\/script>/)[1];
+    assert.equal((html.match(/id="lettura-crea-host"/g) || []).length, 1);
+    assert.match(html, /id="lettura-crea-host" hidden/);
+    for (const flag of [null, '0', '1', 'true', 'storage-error']) {
+        let ready, mounted = 0;
+        const host = { hidden: true };
+        vm.runInNewContext(bootstrap, {
+            document: {
+                addEventListener: (name, cb) => { assert.equal(name, 'DOMContentLoaded'); ready = cb; },
+                getElementById: id => { assert.equal(id, 'lettura-crea-host'); return host; }
+            },
+            localStorage: { getItem: key => {
+                assert.equal(key, 'mappai_percorso_lettura');
+                if (flag === 'storage-error') throw new Error('storage unavailable');
+                return flag;
+            } },
+            window: { MappAIPercorsoLettura: { mountCreatePlanner: element => {
+                assert.strictEqual(element, host); mounted++;
+            } } }
+        });
+        assert.equal(mounted, 0, 'non monta prima del DOM completo');
+        ready();
+        assert.equal(mounted, flag === '1' ? 1 : 0, String(flag));
+        assert.equal(host.hidden, true, 'solo il runtime rivela un planner montato con successo');
+    }
+    const script = file => html.indexOf('src="js/' + file + '?');
+    assert.ok(script('mappai-doc-head.js') < script('mappai-percorso-lettura-view.js'));
+    assert.ok(script('mappai-font-core.js') < script('mappai-percorso-lettura-view.js'));
+    assert.ok(script('mappai-percorso-lettura-core.js') < script('mappai-percorso-lettura.js'));
+    assert.ok(script('mappai-percorso-lettura.js') < script('mappai-percorso-lettura-editor.js'));
+    assert.ok(script('mappai-percorso-lettura-view.js') < script('mappai-percorso-lettura-print.js'));
+    assert.ok(script('mappai-percorso-lettura-editor.js') < html.indexOf('id="lettura-crea-bootstrap"'));
+});
+
+test('percorso nel bento: misurare la vista ridotta non azzera lo scroll nelle sezioni aperte', () => {
+    const vm = require('node:vm'), fs = require('node:fs');
+    const classes = new Set(), viewport = { scrollTop: 1900, scrollLeft: 0 };
+    const html = { classList: { contains: name => classes.has(name), add: name => classes.add(name), remove: name => classes.delete(name) } };
+    const bento = { getBoundingClientRect() {
+        if (classes.has('mappai-ridotta')) viewport.scrollTop = 0; // il layout corto limita lo scroll
+        return { top: 100, bottom: 600, height: 500 };
+    } };
+    const context = { window: { addEventListener() {} }, console: { log() {} }, document: { readyState: 'loading', documentElement: html,
+        scrollingElement: viewport, addEventListener() {}, querySelector() { return null; },
+        getElementById(id) { return id === 'mn-bento' ? bento : id === 'lettura-crea-host' ? { hidden: false } : null; } } };
+    const code = fs.readFileSync(require.resolve('../public/js/mappai-vista-ridotta'), 'utf8')
+        .replace('window.MappAIRidotta = {', 'window.measureReading = _hRiferimento; window.MappAIRidotta = {');
+    vm.runInNewContext(code, context);
+    assert.equal(context.window.measureReading(), 500);
+    assert.equal(viewport.scrollTop, 1900);
+    assert.equal(classes.has('mappai-ridotta'), false);
+});
+
+test('pulsante unico: il percorso selezionato prevale sulla sola mappa, con gate e stato occupato', () => {
+    const vm = require('node:vm'), fs = require('node:fs'), listeners = {}, classes = new Set();
+    const label = { textContent: '' }, button = { classList: { toggle(k, on) { on ? classes.add(k) : classes.delete(k); } },
+        querySelector: s => s === 'span' ? label : null, setAttribute() {} };
+    let plan = { total: 0, valid: false, pending: false };
+    const window = { MappAIPipeline: { _hasOutputNow: () => false }, MappAIPercorsoLettura: { creationStatus: () => plan } };
+    const document = { readyState: 'loading', addEventListener(name, fn) { listeners[name] = fn; },
+        getElementById: id => id === 'mn-genera' ? button : null };
+    vm.runInNewContext(fs.readFileSync(require.resolve('../public/js/mappai-costruisci-manifesto'), 'utf8'), { window, document });
+    window.MappAICostruisci.aggiornaGate(); assert.equal(label.textContent, 'Genera Mappa');
+    plan = { total: 6, valid: true, pending: false }; listeners['mappai-reading-plan-changed']();
+    assert.equal(label.textContent, 'Genera percorso'); assert.equal(button.disabled, false);
+    assert.equal(classes.has('mn-card--mappa'), false);
+    plan.pending = true; listeners['mappai-reading-plan-changed'](); assert.equal(button.disabled, true);
+    plan.pending = false; plan.valid = false; listeners['mappai-reading-plan-changed'](); assert.equal(button.disabled, true);
 });

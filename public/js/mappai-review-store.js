@@ -25,6 +25,12 @@ function saveManifest(folder, manifest, expectedVersion) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('review-conflict: manifest non valido');
   const old = readManifest(folder);
   const version = (old && old._storageVersion) || 0;
+  // Il file che c'è contro il manifesto intero (25/9/26): qui perché è l'unico
+  // punto che vede tutti e due, e prima della versione attesa perché dice meglio
+  // CHE COSA non va — un manifesto di un altro progetto con la sua versione
+  // sarebbe passato per «aggiornato da un altro salvataggio».
+  const conflitto = ReviewCore.conflittoDiScrittura(old, manifest, folder);
+  if (conflitto) throw new Error('review-conflict: ' + conflitto.motivo);
   if ((old && old.review) || manifest.review) {
     if (Number(expectedVersion || 0) !== version) throw new Error('review-conflict: rapporto aggiornato da un altro salvataggio');
     if (old && old.review && !manifest.review) throw new Error('review-conflict: la rigenerazione non può cancellare le decisioni');

@@ -176,7 +176,10 @@ function createGardenServer(opts) {
   }
 
   const server = http.createServer((req, res) => {
-    const u = new URL(req.url, 'http://x');
+    /* `GET //[ HTTP/1.1` fa lanciare `new URL`: senza la guardia l'eccezione
+       usciva dal gestore e la richiesta restava appesa */
+    let u;
+    try { u = new URL(req.url, 'http://x'); } catch (e) { res.writeHead(400); res.end('bad request'); return; }
     const p = u.pathname;
 
     if (p === '/') {

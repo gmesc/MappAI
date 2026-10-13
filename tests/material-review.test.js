@@ -25,8 +25,17 @@ const clean = (batch, reference = material) => ({ checkedIds: batch.map(i => i.i
 const recoveryRows = payload => JSON.parse(payload.contents[0].parts[0].text.split('SEGNALAZIONI DA COMPLETARE (dati)\n')[1].split('\n\nPASSAGGI ORIGINALI')[0]);
 const recoveryChoice = (payload, index, extra = {}) => ({ issueId: recoveryRows(payload)[index].issueId,
     action: 'needs_teacher', reason: 'Le prove non permettono una riparazione certa.', ...extra });
-function runtime(answer) {
-    const context = vm.createContext({ console, MappAIGroundingCore: G, salvageTruncatedJSON: salvage, getMaxOutputTokens: n => n });
+/* 0058: i tre motivi di un lotto perso, scritti qui come costanti locali. */
+const TETTO = 'Risposta interrotta al tetto dei token';
+const TRONCATA = 'Risposta troncata o interrotta';
+const FORMA = 'Risposta priva degli elenchi di controllo previsti';
+const full = batch => JSON.stringify(clean(batch));
+const INF = { aiContext: { provider: 'infomaniak', model: 'google/gemma-4-31B-it' } };
+const counted = (value, out, reason) => ({ ...response(value, reason), usageMetadata: { promptTokenCount: 10818, candidatesTokenCount: out } });
+// `extra` si fonde nel contesto: `{ MappAIJudgeCore: undefined }` toglie judge-core.
+function runtime(answer, extra) {
+    const context = vm.createContext({ console, MappAIGroundingCore: G, MappAIJudgeCore: require('../public/js/mappai-judge-core.js'),
+        salvageTruncatedJSON: salvage, getMaxOutputTokens: n => n, ...extra });
     context.window = context;
     vm.runInContext(read('mappai-material-review.js'), context);
     vm.runInContext(read('infomaniak_bridge.js'), context);
@@ -388,11 +397,22 @@ test('invalid request after a successful lot retains its results and skips only 
 });
 
 test('IDs and text limits omitted from the wire schema are still checked locally', async () => {
-    for (const bad of [{ checkedIds: ['foreign'] }, { mcOptions: [{ id: 'foreign', indices: [] }] }]) {
-        const r = runtime(batch => response({ ...clean(batch), ...bad }));
+    // 0046: a foreign row is discarded on its own and recorded in the batch.
+    {
+        const r = runtime(batch => response({ ...clean(batch), checkedIds: ['foreign'] }));
         const report = await r.check([flash('f')]);
         assert.equal(report.checkStatus, 'incomplete');
-        assert.match(report.batches[0].reason, /ID estranei/);
+        assert.match(report.batches[0].reason, /ID estranei/, 'the only material of the batch lost its verdict, so the batch stays discarded');
+        assert.deepEqual(plain(report.batches[0]).foreignIds, ['foreign']);
+    }
+    {
+        const r = runtime(batch => response({ ...clean(batch), mcOptions: [{ id: 'foreign', indices: [] }] }));
+        const report = await r.check([flash('f')]);
+        assert.equal(report.checkStatus, 'completed',
+            '0046: the flashcard has its own complete verdict; the foreign mcOptions row concerned an MC that is not in the batch and is discarded alone');
+        assert.equal(Object.prototype.hasOwnProperty.call(report.batches[0], 'reason'), false,
+            'a discarded foreign row does not mark as lost a batch whose materials all have their verdict');
+        assert.deepEqual(plain(report.batches[0]).foreignIds, ['foreign']);
     }
     const r = runtime(batch => response({ ...clean(batch), issues: [
         wrongGuide('long-problem', { problem: 'x'.repeat(351) }),
@@ -566,6 +586,11 @@ for (const mode of ['truncated', 'length', 'MAX_TOKENS']) {
         assert.equal(report.issues.length, 1);
         assert.equal(report.issues[0].after, GOLD);
         assert.equal(r.calls.length, 1);
+        // 0058: a declared token ceiling is the ceiling, not a generic interruption;
+        // an interrupted batch keeps the excerpt of what arrived.
+        assert.equal(report.batches[0].reason, mode === 'truncated' ? TRONCATA : TETTO, mode);
+        assert.ok(report.batches[0].grezzo, mode + ': an interrupted batch keeps the raw excerpt');
+        assert.equal(report.batches[0].grezzo.errore, report.batches[0].reason, mode);
     });
 }
 
@@ -1004,6 +1029,11 @@ test('captured medium-thinking truncation never certifies the ten declared IDs a
     assert.equal(report.coverage.skipped.length, 10);
     assert.equal(report.issues.length, 0);
     assert.equal(r.calls.length, 1, 'do not create a new review cycle to hide truncation');
+    // 0058: the ceiling is recognised before the shape check, with the budget
+    // actually sent (24,576) and the thought tokens counted in the output.
+    assert.equal(report.batches[0].reason, TETTO);
+    assert.equal(report.batches[0].grezzo.tetto, 24576);
+    assert.equal(report.batches[0].grezzo.outTok, 11986, '467 answer tokens + 11,519 thought tokens');
 });
 
 test('captured live findings: repeated issues without actions stay manual; explicit choices recover without duplicate metatext', async () => {
@@ -1362,4 +1392,403 @@ test('l\'esenzione non tocca la guardia strutturale di validate', () => {
     const { validate } = require('../public/js/mappai-material-review.js');
     assert.equal(validate([{ id: 'title', kind: 'nodesheet', layout: 'title', question: 'Oro e valuta', text: '' }]).ok, true);
     assert.equal(validate([{ id: 'card', kind: 'nodesheet', layout: 'card', question: 'Oro e valuta', text: '' }]).ok, false);
+});
+
+/* 0046: un identificativo estraneo al lotto scarta la sua riga, non il lotto.
+   Il motivo è la frase che il Banco riconosce: la prova passa dal classificatore
+   vero (`coverageFailure`), non da una copia della regola. */
+const ReviewContext = require('../public/js/mappai-review-context.js');
+const FOREIGN = 'Gli elenchi di controllo contengono ID estranei al lotto';
+const lot12 = () => Array.from({ length: 6 }, (_, n) => mc('mc-' + n)).concat(Array.from({ length: 6 }, (_, n) => open('op-' + n)));
+const failures = (report, items) => ReviewContext.incompleteMaterials(plain(report), items).map(ReviewContext.coverageFailure);
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+test('0046: one foreign checkedId in a batch of 12 skips only its material, and the recorded ids are bounded', async () => {
+    const items = lot12();
+    const r = runtime(batch => { const data = clean(batch); data.checkedIds[data.checkedIds.indexOf('op-2')] = 'op-2-estraneo'; return response(data); });
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 11);
+    assert.deepEqual(plain(report.coverage.skipped), [{ id: 'op-2', reason: FOREIGN }]);
+    assert.deepEqual(plain(report.batches[0]).foreignIds, ['op-2-estraneo']);
+    assert.equal(has(report.batches[0], 'reason'), false, 'the other materials have their verdict: the batch is not lost');
+    assert.equal(has(report.batches[0], 'foreignClaimIds'), false);
+    assert.equal(report.checkStatus, 'incomplete');
+    assert.deepEqual(failures(report, items), ['foreign_ids']);
+    const long = runtime(batch => { const data = clean(batch);
+        for (let n = 0; n < 6; n++) data.checkedIds[n] = String(n).padEnd(100, 'x');
+        return response(data); });
+    const bounded = await long.check(items);
+    assert.equal(bounded.coverage.checkedIds.length, 6);
+    const recorded = plain(bounded.batches[0]).foreignIds || [];
+    assert.equal(recorded.length, 5);
+    assert.ok(recorded.every(id => id.length === 80), 'every recorded id is cut at 80 characters');
+});
+
+test('0046: a null mcOptions row skips only the MC left without its row', async () => {
+    const items = lot12();
+    const r = runtime(batch => { const data = clean(batch); data.mcOptions[data.mcOptions.findIndex(row => row.id === 'mc-1')] = null; return response(data); });
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 11);
+    assert.deepEqual(plain(report.coverage.skipped), [{ id: 'mc-1', reason: FOREIGN }]);
+    assert.deepEqual(plain(report.batches[0]).foreignIds, ['null']);
+    assert.equal(has(report.batches[0], 'reason'), false);
+});
+
+test('0046: a claim verdict without the claim- prefix is discarded alone, never repaired', async () => {
+    const items = lot12();
+    let stripped = '';
+    const r = runtime(batch => {
+        const data = clean(batch), unit = MR.claimUnits(batch).find(c => c.itemId === 'op-3');
+        const row = data.checkedClaims.find(c => c.id === unit.id);
+        row.id = stripped = unit.id.replace(/^claim-/, '');
+        return response(data);
+    });
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 11);
+    assert.deepEqual(plain(report.batches[0]).foreignClaimIds, [stripped]);
+    assert.equal(has(report.batches[0], 'foreignIds'), false);
+    assert.deepEqual(plain(report.coverage.skipped), [{ id: 'op-3', reason: FOREIGN }]);
+    assert.equal(report.coverage.claims.filter(c => !c.checked).length, 1, 'the claim left without its verdict is not checked');
+    assert.equal(report.coverage.claims.find(c => !c.checked).status, 'missing');
+});
+
+test('0046: a finding with a foreign id still leaves the whole batch unverified', async () => {
+    const items = lot12();
+    const r = runtime(batch => response({ ...clean(batch), issues: [{ id: 'mc-99', field: 'explanation', problem: 'Il soggetto dello scambio è invertito.',
+        evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD, replacement: GOLD }] }));
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.equal(report.coverage.skipped.length, 12);
+    assert.ok(report.coverage.skipped.every(row => row.reason === 'Una segnalazione non è verificabile'),
+        'a finding may concern a material of the batch: discarding it would hide an error');
+    assert.equal(report.rejected.length, 1);
+    assert.equal(has(report.batches[0], 'foreignIds'), false);
+});
+
+test('0046: a foreign checkedId and an MC without its mcOptions row keep distinct reasons', async () => {
+    const items = lot12();
+    const r = runtime(batch => { const data = clean(batch);
+        data.checkedIds[data.checkedIds.indexOf('op-1')] = 'op-1-estraneo';
+        data.mcOptions = data.mcOptions.filter(row => row.id !== 'mc-4');
+        return response(data); });
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 10);
+    const reasons = Object.fromEntries(plain(report.coverage.skipped).map(row => [row.id, row.reason]));
+    assert.deepEqual(reasons, { 'op-1': FOREIGN, 'mc-4': 'Non tutte le alternative MC sono state esaminate' });
+    assert.equal(has(report.batches[0], 'reason'), false);
+    const byId = Object.fromEntries(ReviewContext.incompleteMaterials(plain(report), items).map(row => [row.id, ReviewContext.coverageFailure(row)]));
+    assert.equal(byId['op-1'], 'foreign_ids');
+    assert.notEqual(byId['mc-4'], 'foreign_ids', 'the MC was listed in checkedIds: its missing row is not a foreign id');
+});
+
+test('0046: when every checkedId is foreign the batch stays discarded with its reason', async () => {
+    const items = lot12();
+    const r = runtime(batch => response({ ...clean(batch), checkedIds: batch.map(i => 'estraneo-' + i.id) }));
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.equal(report.batches[0].reason, FOREIGN);
+    assert.equal((plain(report.batches[0]).foreignIds || []).length, 5);
+    assert.equal(report.checkStatus, 'incomplete');
+    assert.deepEqual(failures(report, items), Array(12).fill('foreign_ids'));
+});
+
+/* 0058: il giudice dei materiali dice PERCHÉ un lotto è perso. Il taglio si
+   riconosce prima del parse e del controllo di forma; un lotto interrotto o
+   fallito conserva un estratto della risposta grezza (estrattoGrezzo di
+   judge-core); le segnalazioni scartate conservano il loro testo; su
+   Infomaniak, coi modelli che ricevono response_format, gli ID si scelgono da
+   un elenco chiuso (scelta 1a). Il controllo locale per uguaglianza resta. */
+const reasons = report => plain(report.coverage.skipped).map(row => row.reason);
+const idEnums = schema => {
+    const p = schema.properties;
+    return [p.checkedIds.items.enum, p.mcOptions.items.properties.id.enum, p.issues.items.properties.id.enum,
+        p.checkedClaims.items.properties.id.enum, p.issues.items.properties.claimIds.items.enum];
+};
+const cutInIssues = batch => full(batch).replace(/\[\]\}$/, '[') + '{"id":"mc-0","field":"explanation","problem":"La spiegazione attribuisce';
+const withoutMcOptions = batch => { const data = clean(batch); delete data.mcOptions; return data; };
+const B_ITEMS = () => Array.from({ length: 5 }, (_, n) => mc('set_1790533815231_3o06h-' + n));
+const ORPHAN = { id: 'set_evidenzaId', field: 'explanation', problem: 'La spiegazione attribuisce lo scambio al soggetto sbagliato.',
+    evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD };
+
+test('0058: T1 round A, a batch cut inside issues at 6000/6000 is lost to the ceiling, with a bounded excerpt', async () => {
+    const items = lot12();
+    let raw = '';
+    const r = runtime(batch => { raw = cutInIssues(batch); return counted(raw, 6000); });
+    const report = await r.check(items);
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.deepEqual(reasons(report), Array(12).fill(TETTO));
+    assert.equal(report.batches[0].reason, TETTO);
+    assert.ok(!JSON.stringify(report).includes(FORMA), 'the shape check does not speak for a cut response');
+    const g = plain(report.batches[0].grezzo || {});
+    assert.equal(g.lunghezza, raw.length);
+    assert.equal(g.outTok, 6000);
+    assert.equal(g.tetto, 6000);
+    assert.equal(g.errore, TETTO);
+    assert.equal(typeof g.inizio, 'string');
+    assert.equal(typeof g.fine, 'string', 'a long response keeps its beginning and its end');
+    assert.ok(JSON.stringify(g).length < 3000);
+    for (const secret of ['mock-key', 'systemInstruction', 'PASSAGGI ORIGINALI']) assert.ok(!JSON.stringify(report).includes(secret), secret);
+    assert.deepEqual(failures(report, items), Array(12).fill('unknown'), 'the classifier is not touched: the new reason stays unknown');
+});
+
+test('0058: T2 a run of blanks inside issues up to the ceiling is lost to the ceiling, and the excerpt compresses the spaces', async () => {
+    const r = runtime(batch => counted(full(batch).replace(/\[\]\}$/, '[') + ' \n'.repeat(3000), 6000));
+    const report = await r.check(lot12());
+    assert.deepEqual(reasons(report), Array(12).fill(TETTO));
+    assert.equal(report.batches[0].reason, TETTO);
+    const g = plain(report.batches[0].grezzo || {});
+    assert.ok(String(g.fine).includes('⟨… ') && String(g.fine).includes(' spazi …⟩'), 'the blank run is counted, not copied');
+    assert.ok(JSON.stringify(g).length < 3000);
+});
+
+test('0058: T2b a blank run that makes the parser throw is the ceiling (or TRONCATA without counts), never the parser message', async () => {
+    const raw = '{"checkedIds":["mc-0",' + ' \n'.repeat(3000);
+    const report = await runtime(() => counted(raw, 6000)).check(lot12());
+    assert.deepEqual(reasons(report), Array(12).fill(TETTO));
+    assert.equal(report.batches[0].reason, TETTO);
+    const g = plain(report.batches[0].grezzo || {});
+    assert.ok(String(g.inizio).includes('spazi'));
+    assert.equal(typeof g.errore, 'string');
+    assert.ok(g.errore.length > 0 && g.errore !== TETTO, 'the parser message stays in the excerpt, not in the reason');
+    const bare = await runtime(() => response(raw)).check(lot12());
+    assert.deepEqual(reasons(bare), Array(12).fill(TRONCATA));
+    assert.equal(bare.batches[0].reason, TRONCATA);
+});
+
+test('0058: T3 a closed JSON followed by blanks up to the ceiling certifies nothing (choice 1c); one token below, 12/12', async () => {
+    const at = await runtime(batch => counted(full(batch) + ' \n'.repeat(3000), 6000)).check(lot12());
+    assert.equal(at.coverage.checkedIds.length, 0);
+    assert.deepEqual(reasons(at), Array(12).fill(TETTO));
+    assert.equal(at.batches[0].reason, TETTO);
+    assert.equal(at.coverage.claims.filter(c => c.checked).length, 0);
+    assert.equal((at.batches[0].grezzo || {}).errore, TETTO, 'saved at the end of the batch, without a throw');
+    const below = await runtime(batch => counted(full(batch) + ' \n'.repeat(3000), 5999)).check(lot12());
+    assert.equal(below.coverage.checkedIds.length, 12);
+    assert.equal(below.batches[0].status, 'completed');
+    assert.equal(has(below.batches[0], 'grezzo'), false);
+    assert.equal(has(below.batches[0], 'reason'), false);
+});
+
+test('0058: T4 round C, a short complete answer (420 of 8192) is not a cut and keeps the reasons of today', async () => {
+    const items = Array.from({ length: 5 }, (_, n) => mc('set_1790538324891_0uu10-' + n))
+        .concat(Array.from({ length: 5 }, (_, n) => open('set_1790538404543_nh5o0-' + n)));
+    const r = runtime((batch, payload) => {
+        assert.equal(payload.generationConfig.maxOutputTokens, 8192);
+        const mcs = batch.filter(i => i.kind === 'mc');
+        return counted({ checkedIds: mcs.slice(0, 2).map(i => i.id),
+            checkedClaims: MR.claimUnits(batch).filter(u => mcs.slice(0, 3).some(i => i.id === u.itemId))
+                .map(u => ({ id: u.id, status: 'supported', sourceIds: [material.sourcesArr[0].id] })),
+            mcOptions: mcs.slice(0, 2).map(i => ({ id: i.id, indices: i.options.map((_, n) => n) })), issues: [] }, 420);
+    });
+    r.w.getMaxOutputTokens = () => 8192;
+    const report = await r.check(items, { aiContext: { provider: 'infomaniak', model: 'mistralai/Mistral-Small-4-119B-2603' } });
+    assert.deepEqual(plain(report.coverage.checkedIds), ['set_1790538324891_0uu10-0', 'set_1790538324891_0uu10-1']);
+    const byId = Object.fromEntries(plain(report.coverage.skipped).map(row => [row.id, row.reason]));
+    assert.equal(byId['set_1790538324891_0uu10-2'], 'Nessun esito ricevuto per questo item');
+    assert.equal(Object.values(byId).filter(v => v === 'Una o più affermazioni non hanno un esito verificabile').length, 7);
+    assert.equal(Object.keys(byId).length, 8);
+    assert.ok(!JSON.stringify(report).includes(TETTO));
+    assert.equal(has(report.batches[0], 'grezzo'), false);
+    assert.equal(has(report.batches[0], 'reason'), false);
+});
+
+test('0058: T5 a wrong shape without a cut stays FORMA with an excerpt of its numbers; without judge-core no excerpt and no exception', async () => {
+    const answer = batch => counted(withoutMcOptions(batch), 900);
+    const report = await runtime(answer).check([mc('q')]);
+    assert.equal(report.batches[0].reason, FORMA);
+    assert.deepEqual(reasons(report), [FORMA]);
+    const g = plain(report.batches[0].grezzo || {});
+    assert.equal(g.outTok, 900);
+    assert.equal(g.tetto, 6000);
+    assert.equal(g.errore, FORMA);
+    const without = await runtime(answer, { MappAIJudgeCore: undefined }).check([mc('q')]);
+    assert.equal(without.batches[0].reason, FORMA);
+    assert.equal(has(without.batches[0], 'grezzo'), false, 'the excerpt is a diagnosis, not a condition');
+});
+
+test('0058: T5b an empty or prose-only answer is FORMA with 0 tokens and TETTO at the ceiling, never the parser message', async () => {
+    for (const raw of ['', 'Ecco il JSON richiesto.']) {
+        const report = await runtime(() => counted(raw, 0)).check([flash('f')]);
+        assert.equal(report.batches[0].reason, FORMA, JSON.stringify(raw));
+        assert.deepEqual(reasons(report), [FORMA], JSON.stringify(raw));
+        assert.equal((report.batches[0].grezzo || {}).lunghezza, raw.length, JSON.stringify(raw));
+        const capped = await runtime(() => counted(raw, 6000)).check([flash('f')]);
+        assert.equal(capped.batches[0].reason, TETTO, JSON.stringify(raw));
+    }
+});
+
+test('0058: T6 a cut without token counts is TRONCATA, not FORMA', async () => {
+    const report = await runtime(batch => response(cutInIssues(batch))).check(lot12());
+    assert.deepEqual(reasons(report), Array(12).fill(TRONCATA));
+    assert.equal(report.batches[0].reason, TRONCATA);
+    assert.equal((report.batches[0].grezzo || {}).outTok, 0);
+});
+
+test('0058: T7 a recovery answer at the ceiling fails as interrupted', async () => {
+    const r = runtime((batch, payload, call) => call === 1
+        ? response({ ...clean(batch), issues: [wrongGuide('q', { replacement: undefined })] })
+        : counted({ decisions: [recoveryChoice(payload, 0)] }, 6000));
+    const report = await r.check([{ ...open('q'), guide: WRONG }]);
+    assert.equal(r.calls.length, 2);
+    assert.equal(report.batches[0].proposalRecovery.status, 'failed');
+    assert.equal(report.batches[0].proposalRecovery.reason, 'Recupero troncato o interrotto');
+});
+
+test('0058: T8 an orphan finding keeps its text in rejected and (choice A) still leaves the batch unverified', async () => {
+    const report = await runtime(batch => response({ ...clean(batch), issues: [ORPHAN] })).check(B_ITEMS());
+    assert.equal(report.coverage.checkedIds.length, 0);
+    assert.deepEqual(reasons(report), Array(5).fill('Una segnalazione non è verificabile'));
+    assert.deepEqual(plain(report.rejected), [{ id: 'set_evidenzaId', reason: 'Destinatario/campo o descrizione del problema non valido',
+        field: 'explanation', problem: ORPHAN.problem, quote: GOLD }]);
+});
+
+test('0058: T9 a finding over the length limits keeps its text, cut at the limits', async () => {
+    const problem = 'La risposta attribuisce lo scambio al soggetto sbagliato. '.repeat(8).slice(0, 400);
+    const report = await runtime(batch => response({ ...clean(batch), issues: [{ id: 'f', field: 'answer', problem,
+        evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD }] })).check([flash('f')]);
+    assert.deepEqual(plain(report.rejected), [{ id: 'f', reason: 'La segnalazione supera i limiti di lunghezza previsti',
+        field: 'answer', problem: problem.slice(0, 350), quote: GOLD }]);
+    assert.equal(report.rejected[0].problem.length, 350);
+});
+
+test('0058: T10 a finding that names foreign claims keeps its text, with the reason of that check', async () => {
+    const problem = 'La risposta attribuisce lo scambio al soggetto sbagliato.';
+    const report = await runtime(batch => response({ ...clean(batch), issues: [{ id: 'f', field: 'answer', problem,
+        evidenceKind: 'source', sourceId: material.sourcesArr[0].id, quote: GOLD, claimIds: ['claim-estraneo'] }] })).check([flash('f')]);
+    assert.deepEqual(plain(report.rejected), [{ id: 'f', reason: 'La segnalazione richiama affermazioni estranee al destinatario o al campo',
+        field: 'answer', problem, quote: GOLD }], 'the evidence passed verifiedEvidence: the row is the one of the claim check');
+});
+
+test('0058: T11 round B rebuilt: the foreign ids read as in the gate and the orphan finding keeps its text', async () => {
+    const wrong = ['set_179053315231_3o06h-1', 'set_1790533815224_3o06h-2', 'set_1790533815224_3o06h-3', 'set_1790548815224_3o06h-4'];
+    let prefixed = '';
+    const r = runtime(batch => {
+        const data = clean(batch), unit = MR.claimUnits(batch).find(c => c.itemId === 'set_1790533815231_3o06h-1');
+        data.checkedClaims.find(c => c.id === unit.id).id = prefixed = 'id' + unit.id;
+        data.checkedIds = ['set_1790533815231_3o06h-0'].concat(wrong);
+        data.mcOptions = data.mcOptions.slice(0, 2).concat(wrong.slice(1).map(id => ({ id, indices: [0, 1, 2, 3] })));
+        data.issues = [ORPHAN];
+        return response(data);
+    });
+    const report = await r.check(B_ITEMS());
+    assert.deepEqual(plain(report.batches[0]).foreignIds, ['set_179053315231_3o06h-1', 'set_1790533815224_3o06h-2',
+        'set_1790533815224_3o06h-3', 'set_1790548815224_3o06h-4', 'set_1790533815224_3o06h-2']);
+    assert.deepEqual(plain(report.batches[0]).foreignClaimIds, [prefixed]);
+    assert.equal(report.rejected[0].problem, ORPHAN.problem);
+    assert.equal(report.coverage.checkedIds.length, 0, 'choice A: the orphan finding still leaves the whole batch unverified');
+});
+
+test('0058: T12 (choice 1a) Infomaniak models with response_format get the batch ids as enums; Google, no context, Qwen and Apertus do not', async () => {
+    const lot = () => [mc('m0'), mc('m1'), mc('m2'), open('o0'), open('o1'), flash('f0')];
+    const sent = async (items, opts) => {
+        let payload = null;
+        const r = runtime((batch, p) => { payload = p; return response(clean(batch)); });
+        await r.check(items, opts);
+        return { r, payload, schema: plain(payload.generationConfig.responseSchema) };
+    };
+    const all = ['m0', 'm1', 'm2', 'o0', 'o1', 'f0'], claimIds = MR.claimUnits(lot()).map(c => c.id);
+    const { r, payload, schema } = await sent(lot(), INF);
+    const p = schema.properties;
+    assert.deepEqual(p.checkedIds.items.enum, all);
+    assert.deepEqual(p.mcOptions.items.properties.id.enum, ['m0', 'm1', 'm2']);
+    assert.deepEqual(p.issues.items.properties.id.enum, all);
+    assert.deepEqual(p.checkedClaims.items.properties.id.enum, claimIds);
+    assert.deepEqual(p.issues.items.properties.claimIds.items.enum, claimIds);
+    assert.equal(p.checkedClaims.items.properties.sourceIds.items.enum, undefined, 'passage ids stay free');
+    assert.doesNotMatch(JSON.stringify(schema), /"maxItems"/);
+    assertStructuredSubset(schema);
+    const translated = r.w.InfomaniakBridge.translatePayload(payload, 'google/gemma-4-31B-it');
+    assert.deepEqual(plain(translated.response_format.json_schema.schema.properties.checkedIds.items.enum), all);
+    const flashOnly = (await sent([flash('f0'), flash('f1')], INF)).schema.properties;
+    assert.deepEqual(flashOnly.checkedIds.items.enum, ['f0', 'f1']);
+    assert.equal(flashOnly.mcOptions.items.properties.id.enum, undefined, 'an empty enum would make the schema invalid: it is omitted');
+    const others = [];
+    for (const opts of [{ aiContext: { provider: 'google', model: 'gemini-3.8-flash' } }, {},
+        { aiContext: { provider: 'infomaniak', model: 'Qwen/Qwen3.5-122B-A10B-FP8' } },
+        { aiContext: { provider: 'infomaniak', model: 'swiss-ai/Apertus-v1.5-70B' } }]) {
+        const { schema: s } = await sent(lot(), opts);
+        assert.deepEqual(idEnums(s), Array(5).fill(undefined), JSON.stringify(opts));
+        others.push(JSON.stringify(s));
+    }
+    assert.equal(new Set(others).size, 1, 'without the enum the schema is one and the same, byte for byte');
+});
+
+test('0058: T13 the enum does not replace the local check (0046 case 1 with an Infomaniak context)', async () => {
+    const r = runtime(batch => { const data = clean(batch); data.checkedIds[data.checkedIds.indexOf('op-2')] = 'op-2-estraneo'; return response(data); });
+    const report = await r.check(lot12(), INF);
+    assert.equal(report.coverage.checkedIds.length, 11);
+    assert.deepEqual(plain(report.coverage.skipped), [{ id: 'op-2', reason: FOREIGN }]);
+    assert.deepEqual(plain(report.batches[0]).foreignIds, ['op-2-estraneo']);
+});
+
+test('0058: T14 lists over the limits at the ceiling are lost to the ceiling, with the excerpt', async () => {
+    const r = runtime(batch => counted({ ...clean(batch), issues: Array.from({ length: 4 }, () => ({
+        id: 'q', field: 'explanation', problem: 'Controlla questo fatto.', evidenceKind: 'source', quote: GOLD
+    })) }, 6000));
+    const report = await r.check([mc('q')]);
+    assert.equal(report.batches[0].reason, TETTO);
+    assert.deepEqual(reasons(report), [TETTO]);
+    assert.equal((report.batches[0].grezzo || {}).errore, TETTO);
+});
+
+test('0058: T15 the second batch inherits neither the excerpt nor the enum of the first', async () => {
+    let second = null;
+    const r = runtime((batch, payload, call) => {
+        if (call === 1) return counted(withoutMcOptions(batch), 900);
+        second = payload;
+        throw new Error('Provider offline');
+    });
+    const report = await r.check(lot12().concat([flash('f13')]), INF);
+    assert.equal(report.batches.length, 2);
+    assert.equal(has(report.batches[0], 'grezzo'), true);
+    assert.equal(has(report.batches[1], 'grezzo'), false);
+    assert.equal(report.batches[1].reason, 'Provider offline');
+    const s = plain(second.generationConfig.responseSchema).properties;
+    assert.deepEqual(s.checkedIds.items.enum, ['f13']);
+    assert.equal(s.mcOptions.items.properties.id.enum, undefined);
+});
+
+test('0070 §31: budget sul payload completo divide i gruppi e conserva il contratto del Banco', async () => {
+    const items = Array.from({ length: 13 }, (_, n) => flash('budget-' + n));
+    const snapshots = [];
+    const h = runtime();
+    const report = await h.check(items, {
+        fitsRequest(payload) { return JSON.parse(payload.contents[0].parts[0].text.split('ITEM DA CONTROLLARE (dati)\n')[1]).length <= 3; },
+        onCheckpoint(report) { snapshots.push(plain(report)); }
+    });
+    assert.equal(report.checkStatus, 'completed');
+    assert.equal(new Set(report.coverage.checkedIds).size, 13);
+    assert.ok(h.calls.every(c => JSON.parse(c.payload.contents[0].parts[0].text.split('ITEM DA CONTROLLARE (dati)\n')[1]).length <= 3));
+    assert.ok(snapshots.length > 1);
+    assert.equal(snapshots[0].checkStatus, 'incomplete');
+    assert.equal(snapshots[0].coverage.checkedIds.length + snapshots[0].coverage.skipped.length, 13);
+    const resumed = runtime();
+    const result = await resumed.checkRemaining(items, { previousReport: snapshots[0] });
+    assert.equal(result.checkStatus, 'completed');
+    assert.equal(result.retrySummary.reused, snapshots[0].coverage.checkedIds.length);
+    assert.doesNotThrow(() => R.createReview({ db: { items }, sources: [], report, projectId: 'p', generationId: 'g' }));
+});
+test('0070 §31: singolo item fuori budget resta incompleto senza chiamare AI', async () => {
+    const h = runtime();
+    const report = await h.check([flash('too-large')], { fitsRequest: () => false });
+    assert.equal(h.calls.length, 0); assert.equal(report.checkStatus, 'incomplete');
+    assert.match(report.coverage.skipped[0].reason, /budget/i);
+});
+test('0070 §31: risposta incompleta divide solo gli item mancanti senza duplicare copertura', async () => {
+    const h = runtime(batch => batch.length > 1 ? response('{}') : response(clean(batch)));
+    const report = await h.check([flash('a'), flash('b'), flash('c')], { fitsRequest: () => true });
+    assert.equal(report.checkStatus, 'completed');
+    assert.equal(new Set(report.coverage.checkedIds).size, 3);
+    assert.equal(report.coverage.skipped.length, 0);
+    assert.equal(new Set(report.coverage.claims.map(c => c.itemId + ':' + c.text)).size, report.coverage.claims.length);
+});
+test('0070 §31: checkpoint fallito e annullamento interrompono senza consumare altri gruppi', async () => {
+    const h = runtime();
+    await assert.rejects(h.check(Array.from({ length: 13 }, (_, n) => flash('i' + n)), {
+        onCheckpoint() { throw Error('disco non disponibile'); }
+    }), /disco non disponibile/);
+    assert.equal(h.calls.length, 1);
+    const stopped = runtime();
+    await assert.rejects(stopped.check([flash('x')], { assertCurrent() { throw Error('annullato'); } }), /annullato/);
+    assert.equal(stopped.calls.length, 0);
 });

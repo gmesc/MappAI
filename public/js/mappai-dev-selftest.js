@@ -105,23 +105,23 @@
       const cnt = (typeof r.val === 'number') ? ` <b>(${r.val})</b>` : '';
       return `<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:13px">
           <span style="color:${color};font-weight:700;width:14px">${mark}</span>
-          <code style="color:#0f172a">${r.name}</code>${cnt}
-          <span style="margin-left:auto;color:#94a3b8;font-size:11px">${r.need}</span></div>`;
+          <code style="color:var(--mm-testo, #404040)">${r.name}</code>${cnt}
+          <span style="margin-left:auto;color:var(--mm-testo-3, #64748b);font-size:11px">${r.need}</span></div>`;
     }).join('');
     const missingCrit = rows.filter(r => r.crit && !r.ok);
 
     modal.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:20px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i data-lucide="stethoscope" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:#0f172a;font-size:16px">Dev self-test</b>
-          <button id="dst-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px">×</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><i data-lucide="stethoscope" style="width:20px;height:20px;color:#4f46e5"></i><b style="color:var(--mm-testo, #404040);font-size:16px">Dev self-test</b>
+          <button id="dst-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px">×</button></div>
         <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;margin-bottom:10px;font-size:13px;font-weight:600;background:${missingCrit.length ? '#fef2f2' : '#f0fdf4'};color:${missingCrit.length ? '#b91c1c' : '#15803d'}">
           <i data-lucide="${missingCrit.length ? 'x' : 'check'}" style="width:15px;height:15px"></i>${missingCrit.length ? missingCrit.length + ' critici mancanti: ' + missingCrit.map(r => r.name).join(', ') : 'Tutti i critici presenti'}</div>
         ${rowsHtml}
-        <div style="margin-top:10px;font-size:11px;color:#94a3b8">Apri una mappa e premi <b>Ricontrolla</b>: <code>#map-svg</code>/<code>circle.node-circle</code> esistono solo a grafo renderizzato.</div>
+        <div style="margin-top:10px;font-size:11px;color:var(--mm-testo-3, #64748b)">Apri una mappa e premi <b>Ricontrolla</b>: <code>#map-svg</code>/<code>circle.node-circle</code> esistono solo a grafo renderizzato.</div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-          <button id="dst-recheck" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Ricontrolla</button>
+          <button id="dst-recheck" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Ricontrolla</button>
           <button id="dst-copy" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600">Copia report</button>
         </div>
-        <textarea id="dst-report" readonly style="width:100%;height:120px;margin-top:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-family:monospace;font-size:11px;color:#334155">${report}</textarea>
+        <textarea id="dst-report" readonly style="width:100%;height:120px;margin-top:10px;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:8px;padding:8px;font-family:monospace;font-size:11px;color:var(--mm-testo, #404040)">${report}</textarea>
       </div>`;
     document.body.appendChild(modal);
     if (window.safeCreateIcons) window.safeCreateIcons();
@@ -141,7 +141,7 @@
     b.id = 'dst-btn';
     b.title = 'Dev self-test (agganci runtime)';
     b.innerHTML = '<i data-lucide="stethoscope" style="width:20px;height:20px"></i>';
-    b.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;width:44px;height:44px;border-radius:50%;border:1.5px solid #64748b;background:#fff;color:#334155;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(15,23,42,.4)';
+    b.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;width:44px;height:44px;border-radius:50%;border:1.5px solid #64748b;background:#fff;color:var(--mm-testo, #404040);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 18px -6px rgba(15,23,42,.4)';
     b.onclick = () => openPanel();
     document.body.appendChild(b);
     if (window.safeCreateIcons) window.safeCreateIcons();

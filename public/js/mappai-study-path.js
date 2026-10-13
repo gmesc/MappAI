@@ -59,7 +59,17 @@
   // ─────────────────────────── LAYER BROWSER ───────────────────────────
   function S() { try { return (typeof appState !== 'undefined') ? appState : window.appState; } catch (e) { return window.appState; } }
   function clean(s) { return window.cleanLabel ? window.cleanLabel(s) : String(s || '').trim(); }
-  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  /* L'escape passava dal DOM (textContent → innerHTML), che protegge `<` e `&`
+     ma NON le virgolette: in `data-id="${esc(id)}"` un id di nodo
+     `x" onmouseover="…` usciva dall'attributo e diventava un gestore, con
+     `window.electronAPI` in mano. Gli id e le etichette vengono dal vault, che
+     si passa fra colleghi (25/9/2026). Ora i cinque caratteri: il nucleo
+     (mappai-html-sicuro.js) o, dove non c'è (il reader dell'iPad copia questo
+     file byte per byte), lo stesso escape qui. */
+  function esc(s) {
+    if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+  }
   function toast(m) { try { if (window.showToast) return window.showToast(m, 'info'); } catch (e) {} }
 
   function masteryFn(id) {
@@ -99,30 +109,30 @@
     const labelOf = {}; nodes.forEach(n => { labelOf[n.id] = clean(n.label); });
 
     const list = (arr, extra) => {
-      if (!arr.length) return '<div style="color:#94a3b8;font-size:12px;padding:2px 0">—</div>';
+      if (!arr.length) return '<div style="color:var(--mm-testo-3, #64748b);font-size:12px;padding:2px 0">—</div>';
       return arr.slice(0, 25).map(it => {
         const color = DOT[it.level] || '#9ca3af';
-        const tag = extra && it.reason ? ` <span style="color:#94a3b8">· ${REASON[it.reason] || it.reason}</span>` : '';
-        return `<div class="sp-item" data-id="${esc(it.id)}" style="display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:8px;cursor:pointer;font-size:13px;color:#334155">
+        const tag = extra && it.reason ? ` <span style="color:var(--mm-testo-3, #64748b)">· ${REASON[it.reason] || it.reason}</span>` : '';
+        return `<div class="sp-item" data-id="${esc(it.id)}" style="display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--mm-testo, #404040)">
             <span style="width:10px;height:10px;border-radius:50%;background:${color};flex:0 0 auto"></span>
             <span>${esc(labelOf[it.id] || it.id)}${tag}</span></div>`;
-      }).join('') + (arr.length > 25 ? `<div style="color:#94a3b8;font-size:11px;padding:2px 7px">+${arr.length - 25} altri…</div>` : '');
+      }).join('') + (arr.length > 25 ? `<div style="color:var(--mm-testo-3, #64748b);font-size:11px;padding:2px 7px">+${arr.length - 25} altri…</div>` : '');
     };
     const section = (title, sub, arr, extra) =>
-      `<div style="margin-bottom:12px"><div style="font-weight:700;color:#0f172a;font-size:13px">${title} <span style="color:#94a3b8;font-weight:400">(${arr.length})</span></div>
-       <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${sub}</div>${list(arr, extra)}</div>`;
+      `<div style="margin-bottom:12px"><div style="font-weight:700;color:var(--mm-testo, #404040);font-size:13px">${title} <span style="color:var(--mm-testo-3, #64748b);font-weight:400">(${arr.length})</span></div>
+       <div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-bottom:4px">${sub}</div>${list(arr, extra)}</div>`;
 
     document.getElementById('sp-modal')?.remove();
     const modal = document.createElement('div');
     modal.id = 'sp-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;padding:16px';
     modal.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:20px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="compass" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:#0f172a;font-size:16px">Cosa studiare ora</b>
-          <button id="sp-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1">×</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><i data-lucide="compass" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:var(--mm-testo, #404040);font-size:16px">Cosa studiare ora</b>
+          <button id="sp-x" style="margin-left:auto;background:none;border:0;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1">×</button></div>
         ${section('<i data-lucide="play" style="width:14px;height:14px;vertical-align:-2px"></i> Pronti', 'Prerequisito padroneggiato — inizia da qui', res.ready, false)}
         ${section('<i data-lucide="rotate-cw" style="width:14px;height:14px;vertical-align:-2px"></i> Da rivedere', 'Deboli o non ripassati da una settimana', res.review, true)}
         ${section('<i data-lucide="circle-check" style="width:14px;height:14px;vertical-align:-2px"></i> Padroneggiati', 'Acquisiti e recenti', res.mastered, false)}
-        ${res.locked.length ? `<div style="font-size:11px;color:#94a3b8"><i data-lucide="lock" style="width:12px;height:12px;vertical-align:-1px"></i> ${res.locked.length} bloccati (studia prima il loro prerequisito)</div>` : ''}
+        ${res.locked.length ? `<div style="font-size:11px;color:var(--mm-testo-3, #64748b)"><i data-lucide="lock" style="width:12px;height:12px;vertical-align:-1px"></i> ${res.locked.length} bloccati (studia prima il loro prerequisito)</div>` : ''}
       </div>`;
     document.body.appendChild(modal);
     if (window.safeCreateIcons) window.safeCreateIcons();

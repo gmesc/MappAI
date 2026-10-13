@@ -25,9 +25,36 @@
         try { return (typeof appState !== 'undefined') ? appState : window.appState; }
         catch (e) { return window.appState; }
     }
+    /* ── I DATI DELLA MAPPA ENTRANO COME DATI (25/9/2026) ────────────────────
+       All'apertura di ELABORA la fonte, l'albero e le card si compongono in un
+       solo `innerHTML`, con i valori del vault ricevuto da un collega: gli id
+       dei nodi dentro `onclick="…('…')"` protetti dal solo apice, i colori di
+       `customColors` dentro `style="…"` così com'erano, il livello e la
+       profondità del triage senza escape. Qui dentro ogni codice ha
+       `window.electronAPI`, cioè il disco del docente.
+       L'escape è quello del nucleo (mappai-html-sicuro.js, caricato prima): i
+       cinque caratteri, apice compreso; senza, un ripiego che fa lo stesso. */
     function esc(s) {
-        return String(s == null ? '' : s)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        if (window.MappAIHtmlSicuro && window.MappAIHtmlSicuro.esc) return window.MappAIHtmlSicuro.esc(s);
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    }
+    /* Un DATO dentro un gestore in linea (`onclick="MappAIElabora.f(…)"`).
+       L'escape da solo non basta: il parser HTML scioglie `&#39;` e `&quot;`
+       PRIMA che il codice parta. `JSON.stringify` scrive un letterale di
+       stringa JS valido (virgolette, barre, a capo), l'escape lo tiene dentro
+       l'attributo: alla funzione arriva il valore intero, come argomento. */
+    function _js(v) { return esc(JSON.stringify(String(v == null ? '' : v))); }
+    /* Un colore dei DATI che entra in uno `style="…"`: passa solo un colore —
+       `#rgb`, `#rrggbb`, `rgb()`/`rgba()` con `normColor` dell'editor dei
+       documenti (caricato prima), e senza di lui gli esadecimali. Torna sempre
+       `#rrggbb`, oppure null: chi chiama ripiega sul colore di sempre. */
+    function _coloreSicuro(v) {
+        const DE = window.MappAIDocEdit;
+        if (DE && DE.normColor) return DE.normColor(v);
+        const c = String(v == null ? '' : v).trim().toLowerCase();
+        const m = /^#([0-9a-f]{3})$/.exec(c);
+        if (m) return '#' + m[1][0] + m[1][0] + m[1][1] + m[1][1] + m[1][2] + m[1][2];
+        return /^#[0-9a-f]{6}$/.test(c) ? c : null;
     }
     function t(k, f) { return window.t ? window.t(k, f) : f; }
 
@@ -60,6 +87,12 @@
        = non lo sappiamo (mappa nuova, fonti caricate da CREA prima che il vault
        esistesse): in quel caso la prima apertura di un vault le sostituisce. */
     let _fontiDiVault = null;
+    /* 0059: e DI QUALE elenco parla `_fontiDiVault` — l'array stesso, non il suo
+       contenuto. «Carica un progetto» (`loadSavedProject`) sostituisce tutto
+       `appState` e le fonti con lui, senza passare di qui: `_fontiDiVault`
+       restava il vault di prima e, riaprendo quel vault, il ripristino teneva
+       le fonti dell'altro progetto. Si assegnano sempre insieme. */
+    let _fontiLista = null;
 
     function hasMap() {
         const s = _appState();
@@ -85,6 +118,12 @@
 
     // ── entrata nel tab ─────────────────────────────────────────────────────
     function open() {
+        if ((_appState() || {}).extractionMode === 'lettura') {
+            const reading = window.MappAIPercorsoLettura;
+            if (reading && typeof reading.openCurrent === 'function') return reading.openCurrent();
+            window.showAlert(t('alert_error_title', 'Errore'), t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+            return;
+        }
         // ── Cablaggio bento (8/8): ELABORA diventa una CONSOLE ────────────────
         // Colonna dei documenti + area a tutta larghezza con l'editor vero.
         // ⚠️ La console apre il workspace classico per la FONTE (è un ponte
@@ -183,7 +222,7 @@
        workspace, dichiarati come DATI perché lì la barra è della console. */
     function sourceActions() {
         return [
-            { id: 'src-questions', etichetta: t('el_questions', 'Domande scheda'), icona: 'help-circle' },
+            { id: 'src-questions', etichetta: t('el_questions', 'Domande della fonte'), icona: 'help-circle' },
             { id: 'src-hl', etichetta: t('el_export_hl', 'Esporta evidenziata'), icona: 'file-output' },
             { id: 'src-areas', etichetta: t('el_export_areas', 'Esporta per aree'), icona: 'files' },
             { id: 'src-text', etichetta: t('el_add_text', 'Incolla testo'), icona: 'clipboard-paste' },
@@ -199,6 +238,8 @@
     }
 
     function render() {
+        // Anche i render differiti della landing rispettano la console del percorso.
+        if (_appState()?.extractionMode === 'lettura') { _teardownOverlay(); return; }
         /* la fonte è montata nella console: si ridisegna lì, e il workspace a
            tutto schermo non si apre nemmeno */
         if (_srcHost && _srcHost.isConnected) { if (renderSource()) return; }
@@ -326,8 +367,13 @@
             // per cui ci si arriva (rivedere quiz, flashcard e sintesi prima di
             // stamparli). L'analisi della fonte resta a un clic sul segmento.
             _mode = 'docs';
-            window.loadSavedProject(id);
-            setTimeout(function () { openFromMap(); }, 350);
+            /* 0082 (B4 (a)): col cassetto solo indice acceso un progetto senza copia
+               si apre dalla cartella, e la mappa cambia dopo la lettura del disco:
+               `dopoApertura` aspetta la promessa di `loadSavedProject`, poi lo stesso
+               ritardo di oggi. Spento, il setTimeout di oggi senza attesa. */
+            const apri = function () { setTimeout(function () { openFromMap(); }, 350); };
+            if (typeof StorageManager !== 'undefined' && StorageManager.dopoApertura) StorageManager.dopoApertura(window.loadSavedProject(id), apri);
+            else { window.loadSavedProject(id); apri(); }
         }
     }
 
@@ -352,7 +398,7 @@
             '</div>';
 
         const srcActions =
-            '<button type="button" class="elab-btn" onclick="MappAIElabora.openQuestions()" title="' + t('el_questions_tip', 'Recupera le domande/esercizi della scheda per usarle in un quiz') + '">❓ ' + t('el_questions', 'Domande scheda') + '</button>' +
+            '<button type="button" class="elab-btn" onclick="MappAIElabora.openQuestions()" title="' + t('el_questions_tip', 'Recupera le domande/esercizi della fonte per usarle in un quiz') + '">❓ ' + t('el_questions', 'Domande della fonte') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportHighlightedPdf()" title="' + t('el_export_hl_tip', 'Esporta il PDF originale con le frasi evidenziate per macro-area (fonte solo-testo → documento riflowato)') + '">📄 ' + t('el_export_hl', 'Esporta evidenziata') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.exportAreas()" title="' + t('el_export_areas_tip', 'Raccoglie le frasi della fonte per macro-area, stampabile/PDF') + '">📑 ' + t('el_export_areas', 'Esporta per aree') + '</button>' +
             '<button type="button" class="elab-btn" onclick="MappAIElabora.addTextPrompt()">' + emo('pencil') + ' ' + t('el_add_text', 'Incolla testo') + '</button>' +
@@ -417,7 +463,7 @@
             const type = { taxonomic: 'tassonomico', procedural: 'procedurale', 'causal-narrative': 'causale/narrativo', mixed: 'misto' }[tr.contentType] || tr.contentType;
             tt = t('el_triage_t', 'Struttura della fonte') + ' · ' + esc(type);
             td = esc(tr.rationale || t('el_triage_d', 'Il contenuto essenziale vive fino al livello indicato.'));
-            verdict = t('el_essential', 'essenziale') + ' · L' + tr.essentialDepth;
+            verdict = t('el_essential', 'essenziale') + ' · L' + esc(tr.essentialDepth);
         } else {
             // fallback deterministico (nessun triage salvato) — dai segnali di testo
             tt = t('el_profile', 'Profilo del materiale');
@@ -458,25 +504,25 @@
     // cuore di un concetto specifico; il generico/non-coperto resta pulito.
     function _hlLegacy() { try { return localStorage.getItem('mappai_elab_highlight_legacy') === '1'; } catch (e) { return false; } }
     function _nodeGroupOf(n) { return (n && n.level === 0) ? 0 : (n ? n.group : undefined); }
+    /* Il colore di un gruppo passa da `_coloreSicuro`: da qui escono i colori
+       di TUTTO il modulo — evidenziazione della fonte e del PDF, albero, i due
+       documenti esportati (`_areaSections`, `_highlightedDocBody`), la legenda.
+       Un `customColors` che non è un colore vale «nessun colore personale». */
     function _groupColorOf(grp) {
         const s = _appState();
         try {
             const cc = s.db.customColors || {};
-            if (cc[grp] !== undefined) return cc[grp];
+            if (cc[grp] !== undefined) { const c = _coloreSicuro(cc[grp]); if (c) return c; }
             if (typeof colorScale !== 'undefined' && colorScale && colorScale[grp]) return colorScale[grp];
         } catch (e) { /* soft */ }
         return '#94a3b8';
     }
-    // hex (#rgb/#rrggbb) o rgb()/qualunque → rgba con alpha. Fallback: la stringa così com'è.
+    /* colore → rgba con alpha. Prima un `rgb(…)` o un testo qualunque tornavano
+       così com'erano, cioè dentro `style="…"`: ora il colore passa da
+       `_coloreSicuro` (che scrive `#rrggbb`) e il resto diventa il grigio. */
     function _rgba(color, a) {
-        let c = String(color || '').trim();
-        let m = /^#([0-9a-f]{3})$/i.exec(c);
-        if (m) { const h = m[1]; c = '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
-        m = /^#([0-9a-f]{6})$/i.exec(c);
-        if (m) { const n = parseInt(m[1], 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
-        m = /^rgb\(([^)]+)\)$/i.exec(c);
-        if (m) return 'rgba(' + m[1].split(',').map(x => x.trim()).slice(0, 3).join(',') + ',' + a + ')';
-        return c;
+        const n = parseInt((_coloreSicuro(color) || '#94a3b8').slice(1), 16);
+        return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
     }
 
     function _buildMarks(R, s) {
@@ -756,7 +802,9 @@
             let colored = _coloredSentences();
             if (opts.graded === false) colored = colored.filter(c => c.strength !== 'weak');   // solo concetti centrali
             const buf = await entry.file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+            // isEvalSupported:false — CVE-2024-4367: pdf.js 3.4.120 compila i glifi dei
+            // font con `new Function`, e un PDF costruito ad arte esegue JS nell'app
+            const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
             const U = (window.pdfjsLib && pdfjsLib.Util) ? pdfjsLib.Util : null;
             const jsPDF = window.jspdf.jsPDF;
             const SCALE = 2, CAP = 60;
@@ -820,7 +868,7 @@
         }
     }
 
-    // ── Domande della scheda → quiz (idea utente a) ──────────────────────────
+    // ── Domande della fonte → quiz (idea utente a) ───────────────────────────
     // Recupera le domande/esercizi dalla fonte e le usa come set di studio aperto.
     function openQuestions() {
         if (!window.MappAIQuestions) { if (window.showToast) showToast(t('el_q_nolib', 'Estrattore domande non disponibile.'), 'error'); return; }
@@ -830,6 +878,7 @@
         const ov = document.createElement('div');
         ov.id = 'elab-q-modal';
         ov.style.cssText = 'position:fixed;inset:0;z-index:1002;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:24px;font:inherit';
+        try { const MM = window.MappAIModal; if (MM && MM.prossimoZ) ov.style.zIndex = String(MM.prossimoZ()); } catch (e) { /* senza motore resta il 1002 del cssText; dentro la console (12100) finiva sotto: inv. 11, trappola 52 */ }
         const rows = qs.map((q, i) =>
             '<label class="elab-q-row" style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:10px;cursor:pointer">' +
             '<input type="checkbox" data-qi="' + i + '" checked style="margin-top:3px;width:16px;height:16px;accent-color:#4f46e5;flex:0 0 auto">' +
@@ -839,7 +888,7 @@
         ov.innerHTML =
             '<div style="background:#fff;border-radius:18px;max-width:720px;width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,.3)">' +
             '<div style="padding:18px 22px;border-bottom:1px solid #eef2f6">' +
-            '<div style="font-size:16px;font-weight:900;color:#1e293b">❓ ' + t('el_q_title', 'Domande della scheda') + '</div>' +
+            '<div style="font-size:16px;font-weight:900;color:#1e293b">❓ ' + t('el_q_title', 'Domande della fonte') + '</div>' +
             '<div style="font-size:11px;color:#64748b;margin-top:3px">' + t('el_q_sub', 'Recuperate dalla fonte. Seleziona quelle da mettere nel set di studio.') + ' · ' + qs.length + '</div></div>' +
             '<div style="padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f1f5f9">' +
             '<button type="button" id="elab-q-all" class="elab-btn elab-tiny elab-ghost">' + t('el_q_all', 'Seleziona tutto') + '</button>' +
@@ -874,13 +923,13 @@
         const id = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
         s.db.studySets.push({
             id: id,
-            title: t('el_q_setname', 'Domande della scheda'),
+            title: t('el_q_setname', 'Domande della fonte'),
             mode: 'quiz', type: t('el_q_settype', 'Aperte'),
             items: items, material: '', angle: 'auto', quantity: items.length,
             date: new Date().toISOString(), origin: 'elabora-questions'
         });
         if (window.renderStudySets) window.renderStudySets();
-        try { if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+        try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
         if (window.showToast) showToast(t('el_q_created', '{n} domande aggiunte come set di studio.').replace('{n}', items.length), 'success');
     }
 
@@ -926,7 +975,10 @@
     // Renderer DEDICATO (non renderTreeView: quella ricostruisce la sidebar e
     // userebbe la lista piatta per group). Gerarchia REALE da appState.db.links
     // (source=padre → target=figlio, skip isCross), come _recalcLevels.
-    function _qid(id) { return String(id).replace(/'/g, "\\'"); }
+    /* L'id di un nodo dentro i gestori in linea dell'albero: un letterale JS
+       intero, virgolette comprese (vedi `_js`). Prima si raddoppiava il solo
+       apice, e un id con `"` o con `\'` usciva dall'attributo o dalla stringa. */
+    function _qid(id) { return _js(id); }
 
     function _treeHTML(s, R) {
         const nodes = s.db.nodes || [], links = s.db.links || [];
@@ -988,40 +1040,34 @@
     }
 
     function _treeRow(n, depth, nChildren, covByNode, strByNode) {
-        const s = _appState();
         const grp = (n.level === 0) ? 0 : n.group;
-        let color = '#94a3b8';
-        try {
-            const cc = s.db.customColors || {};
-            if (cc[grp] !== undefined) color = cc[grp];
-            else if (typeof colorScale !== 'undefined' && colorScale[grp]) color = colorScale[grp];
-        } catch (e) { /* soft */ }
+        const color = _groupColorOf(grp);          // lo stesso colore della fonte, filtrato
         const cov = covByNode.get(n.id);
         const nStr = strByNode.get(n.id) || 0;
         const words = String(n.desc || n.content || '').split(/\s+/).filter(Boolean).length;
         const qid = _qid(n.id);
         const isRoot = n.level === 0;
         const chev = nChildren
-            ? '<span class="elab-tw-chev" onclick="event.stopPropagation();MappAIElabora.toggleTreeRow(\'' + qid + '\')">' + (_treeCollapsed.has(n.id) ? '▸' : '▾') + '</span>'
+            ? '<span class="elab-tw-chev" onclick="event.stopPropagation();MappAIElabora.toggleTreeRow(' + qid + ')">' + (_treeCollapsed.has(n.id) ? '▸' : '▾') + '</span>'
             : '<span class="elab-tw-chev elab-tw-leaf"></span>';
         let badges = '';
-        if (cov) badges += '<span class="elab-tb elab-tb-res" title="' + t('el_tb_res_tip', 'Frasi della fonte non ancora nella scheda — clicca per la card') + '" onclick="event.stopPropagation();MappAIElabora.gotoNodeCard(\'' + qid + '\')">' + cov.res + '</span>';
+        if (cov) badges += '<span class="elab-tb elab-tb-res" title="' + t('el_tb_res_tip', 'Frasi della fonte non ancora nella scheda — clicca per la card') + '" onclick="event.stopPropagation();MappAIElabora.gotoNodeCard(' + qid + ')">' + cov.res + '</span>';
         else if (words >= 25) badges += '<span class="elab-tb elab-tb-cov" title="' + t('el_tb_cov_tip', 'Scheda coperta dalla fonte') + '">✓</span>';
         if (nStr) badges += '<span class="elab-tb elab-tb-str" title="' + t('el_tb_str_tip', 'Suggerimenti strutturali su questo nodo') + '">' + nStr + '</span>';
         badges += '<span class="elab-tb elab-tb-w" title="' + t('el_tb_w_tip', 'Parole nella descrizione') + '">' + words + 'w</span>';
         const acts =
-            '<span class="elab-ta" title="' + t('el_ta_rename', 'Rinomina') + '" onclick="event.stopPropagation();MappAIElabora.renameNode(\'' + qid + '\')">✎</span>' +
-            '<span class="elab-ta" title="' + t('el_ta_edit', 'Modifica contenuto') + '" onclick="event.stopPropagation();MappAIElabora.editNode(\'' + qid + '\')">📝</span>' +
-            '<span class="elab-ta" title="' + t('el_ta_child', 'Aggiungi figlio') + '" onclick="event.stopPropagation();MappAIElabora.addChild(\'' + qid + '\')">＋</span>' +
-            (!isRoot ? '<span class="elab-ta" title="' + t('el_ta_merge', 'Fondi in un altro nodo…') + '" onclick="event.stopPropagation();MappAIElabora.startMergePick(\'' + qid + '\')">⇄</span>' : '');
+            '<span class="elab-ta" title="' + t('el_ta_rename', 'Rinomina') + '" onclick="event.stopPropagation();MappAIElabora.renameNode(' + qid + ')">✎</span>' +
+            '<span class="elab-ta" title="' + t('el_ta_edit', 'Modifica contenuto') + '" onclick="event.stopPropagation();MappAIElabora.editNode(' + qid + ')">📝</span>' +
+            '<span class="elab-ta" title="' + t('el_ta_child', 'Aggiungi figlio') + '" onclick="event.stopPropagation();MappAIElabora.addChild(' + qid + ')">＋</span>' +
+            (!isRoot ? '<span class="elab-ta" title="' + t('el_ta_merge', 'Fondi in un altro nodo…') + '" onclick="event.stopPropagation();MappAIElabora.startMergePick(' + qid + ')">⇄</span>' : '');
         return '<div class="elab-tr' + (_mergePick === n.id ? ' elab-tr-picked' : '') + '" style="padding-left:' + (10 + depth * 18) + 'px"' +
-            (!isRoot ? ' draggable="true" ondragstart="MappAIElabora.treeDragStart(event,\'' + qid + '\')"' : '') +
+            (!isRoot ? ' draggable="true" ondragstart="MappAIElabora.treeDragStart(event,' + qid + ')"' : '') +
             ' ondragover="event.preventDefault();this.classList.add(\'elab-tr-over\')" ondragleave="this.classList.remove(\'elab-tr-over\')"' +
-            ' ondrop="this.classList.remove(\'elab-tr-over\');MappAIElabora.treeDrop(event,\'' + qid + '\')"' +
-            ' onclick="MappAIElabora.treeRowClick(\'' + qid + '\')" ondblclick="MappAIElabora.editNode(\'' + qid + '\')">' +
+            ' ondrop="this.classList.remove(\'elab-tr-over\');MappAIElabora.treeDrop(event,' + qid + ')"' +
+            ' onclick="MappAIElabora.treeRowClick(' + qid + ')" ondblclick="MappAIElabora.editNode(' + qid + ')">' +
             chev + '<span class="elab-tw-dot" style="background:' + esc(color) + '"></span>' +
             '<span class="elab-tw-lbl' + (isRoot ? ' elab-tw-root' : '') + '">' + esc(window.cleanLabel ? window.cleanLabel(n.label) : n.label) + '</span>' +
-            '<span class="elab-tw-lvl">L' + (n.level != null ? n.level : '?') + '</span>' +
+            '<span class="elab-tw-lvl">L' + (n.level != null ? esc(n.level) : '?') + '</span>' +
             '<span class="elab-spacer"></span>' + badges + '<span class="elab-ta-wrap">' + acts + '</span>' +
         '</div>';
     }
@@ -1202,8 +1248,16 @@
                 const nm = (src.name || (f && f.name) || '').toLowerCase();
                 if (f && typeof f.arrayBuffer === 'function' && ((f.type === 'application/pdf') || nm.endsWith('.pdf'))) { add(src.name || (f && f.name) || 'PDF', f); return; }
                 // read-back dal vault (dopo reload il File è morto → {})
-                if (src.vaultRel && s.activeVaultPath && window.electronAPI && window.electronAPI.readVaultFile) {
-                    add(src.name || 'PDF', _vaultPseudoFile(s.activeVaultPath, src.vaultRel), 'vault:' + src.vaultRel);
+                /* 0059 D12: dal vault in cui `vaultRel` vale (`vaultDi`), non da
+                   quello aperto: dopo «Esporta nel Vault» in una cartella nuova il
+                   PDF di `Allegati/` sta ancora nel vault di prima, e cercato nel
+                   nuovo dava «Impossibile aprire il PDF». Solo lettura. Senza
+                   `vaultDi` (schede di prima dello 0059) il vault aperto, come prima.
+                   La chiave dice anche il vault: lo stesso `vaultRel` in due vault
+                   sono due file. */
+                const vpPdf = src.vaultDi || s.activeVaultPath;
+                if (src.vaultRel && vpPdf && window.electronAPI && window.electronAPI.readVaultFile) {
+                    add(src.name || 'PDF', _vaultPseudoFile(vpPdf, src.vaultRel, s.activeVaultPath), 'vault:' + vpPdf + '|' + src.vaultRel);
                 }
             });
         } catch (e) { /* soft */ }
@@ -1211,14 +1265,28 @@
     }
 
     // pseudo-File: espone solo .arrayBuffer() sui byte letti via IPC (cacheata)
-    function _vaultPseudoFile(vaultPath, relPath) {
+    /* `ripiego` (0059 D12): il vault aperto, se la lettura da `vaultPath` (il
+       `vaultDi` della fonte) non riesce. INSEGNA che sposta la mappa aperta
+       aggiorna `activeVaultPath` e non il `vaultDi` delle fonti (D9): senza
+       ripiego, il PDF di una mappa spostata non si aprirebbe più, e prima dello
+       0059 si apriva. */
+    function _vaultPseudoFile(vaultPath, relPath, ripiego) {
         let cached = null;
+        const leggi = async function (vp) {
+            const r = await window.electronAPI.readVaultFile({ vaultPath: vp, relPath: relPath });
+            if (!r || !r.ok) throw new Error(r && r.error || 'read-vault-file fallita');
+            return r;
+        };
         return {
             name: relPath.split('/').pop(),
             arrayBuffer: async function () {
                 if (cached) return cached;
-                const res = await window.electronAPI.readVaultFile({ vaultPath: vaultPath, relPath: relPath });
-                if (!res || !res.ok) throw new Error(res && res.error || 'read-vault-file fallita');
+                let res;
+                try { res = await leggi(vaultPath); }
+                catch (e) {
+                    if (!ripiego || ripiego === vaultPath) throw e;
+                    res = await leggi(ripiego);
+                }
                 const bin = atob(res.base64);
                 const bytes = new Uint8Array(bin.length);
                 for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -1250,33 +1318,32 @@
     // match della frase normalizzata nel testo concatenato della pagina).
     // Matching condiviso (anteprima DOM + export PDF): quali text item della
     // pagina cadono in una frase colorata. → Map(item idx → colore).
+    // (0044, 28/9/26) Il confronto IGNORA gli spazi: indice e chiave senza spazi
+    // dal core MappAIPdfTesto. Così ritrova sia il testo vecchio («Henr i») sia
+    // il nuovo («Henri»): regge con mappai_pdf_unione_nativa = '0' e sui vault
+    // salvati prima. La chiave è chiaveSenzaSpazi(cs.n), mai cs.n così com'è:
+    // _normKey abbassa la stringa intera, l'indice carattere per carattere, e sul
+    // sigma finale greco le due strade divergono. `pezzo` è allineato 1:1 alle
+    // unità di `testo`. Core assente → Map vuota, come quando non c'è testo.
     function _matchColoredItems(tc, colored) {
         const items = (tc && tc.items) || [];
         const itemColor = new Map();
-        if (!items.length || !colored || !colored.length) return itemColor;
-        let raw = ''; const map = [];
-        items.forEach((it, idx) => {
-            const s = it.str || '';
-            let prevSpace = raw.length === 0 || raw[raw.length - 1] === ' ';
-            for (let k = 0; k < s.length; k++) {
-                const ch = s[k];
-                if (/\s/.test(ch)) { if (!prevSpace) { raw += ' '; map.push(idx); prevSpace = true; } }
-                else { raw += ch.toLowerCase(); map.push(idx); prevSpace = false; }
-            }
-            if (!prevSpace) { raw += ' '; map.push(idx); }
-        });
-        if (!raw) return itemColor;
+        const T = window.MappAIPdfTesto;
+        if (!T || !items.length || !colored || !colored.length) return itemColor;
+        const indice = T.indiceSenzaSpazi(items), testo = indice.testo, pezzo = indice.pezzo;
+        if (!testo) return itemColor;
         colored.forEach(cs => {
-            if (!cs.n || cs.n.length < 8) return;
+            const chiave = T.chiaveSenzaSpazi(cs && cs.n);
+            if (chiave.length < 8) return;
             const strong = cs.strength !== 'weak';
             let from = 0, pos;
-            while ((pos = raw.indexOf(cs.n, from)) >= 0) {
-                const end = Math.min(pos + cs.n.length - 1, map.length - 1);
+            while ((pos = testo.indexOf(chiave, from)) >= 0) {
+                const end = pos + chiave.length - 1;
                 for (let ci = pos; ci <= end; ci++) {
-                    const it = map[ci], prev = itemColor.get(it);
+                    const it = pezzo[ci], prev = itemColor.get(it);
                     if (!prev || (prev.strength === 'weak' && strong)) itemColor.set(it, { color: cs.color, strength: strong ? 'strong' : 'weak' });
                 }
-                from = pos + cs.n.length;
+                from = pos + chiave.length;
             }
         });
         return itemColor;
@@ -1321,7 +1388,7 @@
         try {
             const buf = await entry.file.arrayBuffer();
             if (token !== _pdfToken) return;
-            const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+            const pdf = await pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;   // CVE-2024-4367, vedi _runPdfExport
             if (token !== _pdfToken) return;
             const total = pdf.numPages;
             const n = Math.min(total, CAP);
@@ -1425,7 +1492,7 @@
         let out = '<div class="elab-sec-lbl elab-lbl">' + t('el_sec_profile', 'Profilo del materiale') + '</div>';
         sig.forEach(x => {
             const body = esc(x.suggestion) +
-                '<div class="elab-actions"><button type="button" class="elab-btn elab-tiny elab-ghost" onclick="MappAIElabora.ignore(\'sig:' + esc(x.key) + '\')">' + t('el_ignore', 'Ignora') + '</button></div>';
+                '<div class="elab-actions"><button type="button" class="elab-btn elab-tiny elab-ghost" onclick="MappAIElabora.ignore(' + _js('sig:' + x.key) + ')">' + t('el_ignore', 'Ignora') + '</button></div>';
             out += _card('sig', 'signal', 'notice', esc(x.observation), null, t('el_notice', 'da valutare'), 'notice', body, 'sig:' + x.key);
         });
         return out;
@@ -1451,7 +1518,7 @@
                     '<button type="button" class="elab-btn elab-tiny elab-primary" onclick="event.stopPropagation();MappAIElabora.addCitation(' + ci + ',' + ri + ')">' + emo('cite') + ' ' + t('el_add_cite', 'Aggiungi citazione') + '</button>' +
                     '</div></div>';
             });
-            body += '<div class="elab-actions"><button type="button" class="elab-btn elab-tiny elab-ghost" onclick="MappAIElabora.ignore(\'cov:' + esc(c.nodeId) + '\')">' + emo('ignore') + ' ' + t('el_ignore_node', 'Ignora questo nodo') + '</button></div>';
+            body += '<div class="elab-actions"><button type="button" class="elab-btn elab-tiny elab-ghost" onclick="MappAIElabora.ignore(' + _js('cov:' + c.nodeId) + ')">' + emo('ignore') + ' ' + t('el_ignore_node', 'Ignora questo nodo') + '</button></div>';
             out += _card('cov', 'coverage', 'good', esc(c.label), meta, t('el_enrichable', 'arricchibile'), 'good', body, 'cov:' + c.nodeId, 'elab-card-cov-' + ci);
         });
         return out;
@@ -1496,20 +1563,80 @@
 
     function ignore(key) { _ignored.add(key); render(); }
 
-    function pickPdf() { const el = document.getElementById('elab-pdf-input'); if (el) el.click(); }
+    /* «Aggiungi PDF» (0059). `#elab-pdf-input` lo costruisce solo la vista
+       vecchia (:387): dalla console di ELABORA il bottone non trovava niente e
+       non faceva niente. Senza quel campo se ne crea uno al volo, SENZA id (un
+       secondo `#elab-pdf-input` sarebbe un doppione quando la vista vecchia
+       torna). Staccato dal documento la finestra di sistema può non aprirsi:
+       sta nascosto in `body` e se ne va sia alla scelta sia all'annullamento. */
+    function pickPdf() {
+        const el = document.getElementById('elab-pdf-input');
+        if (el) { el.click(); return; }
+        if (!document.body) return;
+        const campo = document.createElement('input');
+        campo.type = 'file';
+        campo.accept = 'application/pdf,.pdf';
+        campo.style.display = 'none';
+        const togli = () => { try { campo.remove(); } catch (e) { } };
+        campo.onchange = () => { const p = onPdf(campo); togli(); return p; };   // onPdf legge il file prima di tornare
+        campo.oncancel = togli;
+        document.body.appendChild(campo);
+        campo.click();
+    }
+
+    /* ── IL VELO E IL LUCCHETTO DI «AGGIUNGI PDF» (0059, D10) ────────────────
+       Un PDF lungo si legge per secondi, e intanto il docente poteva aprire un
+       altro progetto: il PDF e `fonti.json` finivano mezzi di qua e mezzi di
+       là. Dalla scelta del file alla fine della scrittura (PDF in `Fonti/` e
+       `fonti.json`) c'è il velo «Lettura del PDF…», e l'app è occupata:
+       `mappaiOccupato()` (mappai-material-pipeline.js) lo chiede a
+       `letturaPdfAttiva()` e avvisa con `motivoLetturaPdf()`, sul modello di
+       `MappAIGen.attiva()`/`motivo()`. Così «Riprendi», «Apri Vault», INSEGNA,
+       la briciola e l'elenco di ELABORA non cambiano mappa a metà.
+       Il velo è `#loading-overlay`, a 9999 nel foglio, e la console di ELABORA
+       sta a 12100: il piano si chiede al motore (inv. 11, trappola 52). Alla
+       fine lo z-index in linea si toglie: chi usa il velo dopo (CREA, la
+       pipeline, che lo porta dentro `#build-content`) lo ritrova com'era. */
+    let _letturaPdf = false;
+    function letturaPdfAttiva() { return _letturaPdf; }
+    function motivoLetturaPdf() { return t('el_pdf_busy', 'Sto leggendo il PDF, riprova tra poco.'); }
+    function _veloPdf(acceso) {
+        let el = null;
+        try { el = document.getElementById('loading-overlay'); } catch (e) { }
+        if (acceso) {
+            try { const MM = window.MappAIModal; if (el && MM && MM.prossimoZ) el.style.zIndex = String(MM.prossimoZ()); } catch (e) { /* senza motore resta il 9999 del foglio */ }
+            try { if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('el_pdf_reading', 'Lettura del PDF…')); } catch (e) { }
+        } else {
+            try { if (window.showLoadingOverlay) window.showLoadingOverlay(false); } catch (e) { }
+            try { if (el) el.style.zIndex = ''; } catch (e) { }
+        }
+    }
 
     async function onPdf(input) {
         const file = input && input.files && input.files[0];
         input.value = '';
         if (!file) return;
         if (typeof window.extractTextFromPDF !== 'function') { if (window.showToast) showToast(t('el_no_pdf', 'Lettore PDF non disponibile'), 'error'); return; }
+        /* D10: con l'app già occupata (una generazione, la pipeline, un altro
+           PDF in lettura) non si comincia, e l'avviso lo dà `mappaiOccupato`,
+           come agli altri guardiani: così il velo non è mai conteso. Si chiede
+           PRIMA di chiudere il lucchetto, o risponderebbe «occupata» a sé stessa. */
+        if (window.mappaiOccupato && window.mappaiOccupato()) return;
         if (window.showToast) showToast(t('el_reading_pdf', 'Lettura PDF…'), 'info');
+        _letturaPdf = true;
+        _veloPdf(true);
         try {
             const text = await window.extractTextFromPDF(file);
             if (!text || text.trim().length < 40) { if (window.showToast) showToast(t('el_pdf_empty', 'PDF senza testo estraibile'), 'error'); return; }
-            _persistSource('pdf', text, file.name || 'PDF', file);
+            /* si ATTENDE la scrittura (PDF in Fonti/, poi fonti.json): chi ha
+               premuto il bottone ritrova il file sul disco quando onPdf finisce */
+            await _persistSource('pdf', text, file.name || 'PDF', file);
         } catch (e) {
             if (window.showToast) showToast(t('el_pdf_err', 'Errore lettura PDF'), 'error');
+        } finally {
+            /* sempre: anche col PDF senza testo e con un errore di lettura o di scrittura */
+            _letturaPdf = false;
+            _veloPdf(false);
         }
     }
 
@@ -1528,68 +1655,229 @@
     // in più, se il progetto ha un vault attivo, l'ORIGINALE viene scritto in
     // <vault>/Fonti/ e il path RELATIVO persiste su src.vaultRel (regola DAL:
     // mai path assoluti) → l'anteprima sopravvive ai riavvii via read-vault-file.
+    /* 0059: restituisce la PROMESSA della scrittura. Un PDF va in `Fonti/` anche
+       su un vault vecchio (l'eccezione firmata dell'ADR 0011 rev. 1: «Aggiungi
+       PDF» di un file nuovo), e poi si riscrive `fonti.json` — senza, su un vault
+       che l'indice lo aveva già, il PDF aggiunto spariva alla riapertura. Un
+       testo incollato riscrive l'indice solo dove `Fonti/` c'è già. */
     function _persistSource(type, content, name, file) {
         const s = _appState();
         if (!s.sources) s.sources = [];
         // id MONOTONO di sessione (mai riusato tra progetti) → niente collisione in
         // _pdfFiles quando si cambia mappa (bug: PDF di un progetto nell'altro).
-        const id = 'elab_' + type + '_' + (++_pdfSeq);
+        /* 0059: e mai l'id di una fonte che c'è già. Il contatore riparte da 0 a
+           ogni avvio, mentre `fonti.json` gli id li conserva: dopo un riavvio
+           «elab_pdf_1» poteva essere la fonte appena ripristinata, `_pdfFiles`
+           dava a quella il File della nuova, e il flush su un altro vault
+           scriveva i byte di un PDF sotto il nome dell'altro. */
+        let id;
+        do { id = 'elab_' + type + '_' + (++_pdfSeq); } while (_pdfFiles.has(id) || s.sources.some(x => x && x.id === id));
         const src = { id: id, type: type, content: content, file: null, name: name, origin: 'elabora' };
         s.sources.push(src);
         /* Una fonte aggiunta a mano appartiene alla mappa aperta ADESSO: senza
            questa riga il ripristino la scambierebbe per roba di un'altra mappa
            e la butterebbe via alla prima riapertura. */
-        if (s.activeVaultPath) _fontiDiVault = s.activeVaultPath;
+        if (s.activeVaultPath) { _fontiDiVault = s.activeVaultPath; _fontiLista = s.sources; }
+        /* Il vault e le fonti si fissano ORA (invariante 20-bis): la scrittura di
+           un PDF grande dura, e se intanto si apre un'altra mappa l'indice va nel
+           vault dove è andato il PDF, con le fonti di quel vault — non in quello
+           attivo alla fine, che può essere un vault vecchio senza `Fonti/`. */
+        const vp = s.activeVaultPath || null;
+        const fonti = s.sources;
+        let scrittura;
         if (file) {
             _pdfFiles.set(id, file);
             _srcView = 'pdf';                                  // mostra subito il PDF appena aggiunto
             const idx = _collectPdfs().findIndex(p => p.file === file);
             if (idx >= 0) _pdfIdx = idx;
-            _saveOriginalToVault(src, file);                   // async, non blocca
+            scrittura = _saveOriginalToVault(src, file, { aggiunta: true, vaultPath: vp })
+                .then(esito => esito ? salvaIndiceFonti({ pdfScritto: true, vaultPath: vp, fonti }).then(() => esito) : esito);
+        } else {
+            scrittura = salvaIndiceFonti({ vaultPath: vp, fonti });   // solo dove Fonti/ c'è già
         }
         try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
         if (window.showToast) showToast(t('el_added', 'Materiale aggiunto alla fonte — ricalcolo…'), 'success');
         render();   // corpusFromState include ora la nuova source → nuove card
+        return Promise.resolve(scrittura).catch(() => false);
     }
 
-    // scrive il PDF originale in <vault>/Fonti/ (se un vault è collegato) e
-    // annota src.vaultRel; il salvataggio progetto successivo lo persiste gratis.
-    async function _saveOriginalToVault(src, file) {
+    /* ── IL PDF DELLA FONTE STA IN `Fonti/` (packet 0059, ADR 0011 rev. 1) ─────
+       La regola — che cosa si scrive, dove, con quale nome, che cosa si mostra —
+       sta in `mappai-fonti-core.js`; qui l'I/O. Il core si chiede AL MOMENTO
+       della chiamata: senza, ELABORA legge come prima e in `Fonti/` non scrive
+       niente, e lo dice una volta sola in console. */
+    let _senzaCoreDetto = false;
+    function _fontiCore() {
+        const FO = window.MappAIFontiCore;
+        if (FO) return FO;
+        if (!_senzaCoreDetto) {
+            _senzaCoreDetto = true;
+            try { console.warn('[ELABORA] MappAIFontiCore assente: le fonti si leggono come prima, in Fonti/ non si scrive'); } catch (e) { }
+        }
+        return null;
+    }
+    /* L'interruttore `mappai_fonte_in_fonti` (acceso di default, '0' lo spegne):
+       unico lettore della chiave. Governa la sola SCRITTURA della pipeline e del
+       ramo 1 di `ensureProjectVault`; la lettura da `Fonti/` e da `Allegati/`
+       resta accesa comunque. Senza core è spento: la strada nuova non c'è. */
+    function fonteInFonti() {
+        const FO = _fontiCore();
+        if (!FO) return false;
+        let v = null;
+        try { v = localStorage.getItem('mappai_fonte_in_fonti'); } catch (e) { v = null; }
+        return FO.interruttoreAcceso(v);
+    }
+    /* Gli elenchi del vault. `vault-sources-list` (main.js:1285) risponde
+       `files: []` sia per una `Fonti/` assente sia per una vuota (per la regola
+       sono la stessa cosa), e `ok:false` «vault inesistente» se la cartella del
+       vault non c'è: anche quello è un elenco vuoto — lì niente si può
+       scrivere, `save-vault-file` risponde lo stesso errore. Ogni altro caso
+       (senza vault, permessi, una cartella che non si legge, il canale che
+       manca o fallisce) dà `null`: ELENCO NON DISPONIBILE, che non è un elenco
+       vuoto. Chi scrive, con `null`, nel dubbio non scrive: né il PDF
+       (sembrerebbe mancare e se ne farebbe un doppione) né l'indice (i suoi
+       `vaultRel` sembrerebbero senza file e se ne andrebbero). Chi legge lo
+       tratta come vuoto.
+       Di `Allegati/` si usa solo il nome: il `relPath` che dà il processo
+       principale è sbagliato (main.js:1267). */
+    async function _elencoFonti(vp) {
+        const api = window.electronAPI;
+        if (!vp || !api || !api.vaultSourcesList) return null;
+        try {
+            const r = await api.vaultSourcesList({ vaultPath: vp });
+            if (r && r.ok !== false && Array.isArray(r.files)) return r.files.filter(Boolean);
+            if (r && r.ok === false && /^vault inesistente/.test(String(r.error || ''))) return [];
+            return null;
+        } catch (e) { return null; }
+    }
+    async function _elencoAllegati(vp) {
+        const api = window.electronAPI;
+        if (!vp || !api || !api.vaultMaterialsList) return [];
+        try {
+            const r = await api.vaultMaterialsList({ vaultPath: vp, dir: 'Allegati' });
+            return (r && r.ok !== false && Array.isArray(r.files)) ? r.files.filter(Boolean) : [];
+        } catch (e) { return []; }
+    }
+    /* Stessi byte? L'elenco dà metadati, non contenuto (trappola 45): i byte si
+       leggono. Le due codifiche base64 (btoa qui, Buffer nel processo principale)
+       sono canoniche, quindi stessa stringa ⇔ stessi byte. Un file illeggibile —
+       sopra i 50 MB `read-vault-file` risponde ok:false — conta come diverso. */
+    async function _stessiByte(vp, rel, b64) {
+        try {
+            const r = await window.electronAPI.readVaultFile({ vaultPath: vp, relPath: rel });
+            return !!(r && r.ok && typeof r.base64 === 'string' && r.base64 === b64);
+        } catch (e) { return false; }
+    }
+
+    /* Scrive il PDF originale in <vault>/Fonti/ e annota `src.vaultRel` e
+       `src.vaultDi` (il vault in cui quel percorso vale; resta in memoria e
+       nella scheda del progetto, mai in un file del vault). È l'UNICO scrittore
+       del PDF della fonte (inv. 6); `copySourcesTo` fa solo la copia per
+       l'allievo.
+       opts = { aggiunta, vaultNuovo }: senza nessuno dei due scrive solo dove
+       `Fonti/` c'è già (la regola operativa, dal core).
+       Un file con gli stessi byte già in `Fonti/` si ADOTTA invece di farne una
+       seconda copia; altrimenti il primo nome libero di `PipelineCore.nomeLibero`
+       (« · 02» … « · 99»). Due chiamate per la stessa fonte sullo stesso vault
+       (la pipeline e il ramo 1 in gara) condividono la stessa scrittura.
+       `opts.vaultPath`: il vault fissato da chi ha cominciato (inv. 20-bis);
+       senza, quello attivo adesso.
+       Restituisce 'scritto' | 'adottato' | false. */
+    const _scrittureInCorso = new Map();   // vault + id della fonte → promessa
+    function _saveOriginalToVault(src, file, opts) {
+        const o = opts || {};
         const s = _appState();
         const api = window.electronAPI;
-        if (!s || !s.activeVaultPath || !api || !api.saveVaultFile) return;
+        const vp = ('vaultPath' in o) ? o.vaultPath : (s && s.activeVaultPath);
+        if (!vp || !src || !file || !api || !api.saveVaultFile) return Promise.resolve(false);
+        const chiave = vp + '\u0000' + src.id;
+        if (_scrittureInCorso.has(chiave)) return _scrittureInCorso.get(chiave);
+        const p = _scriviOriginale(src, file, vp, o).catch(() => false)
+            .then(esito => { _scrittureInCorso.delete(chiave); return esito; });
+        _scrittureInCorso.set(chiave, p);
+        return p;
+    }
+    async function _scriviOriginale(src, file, vp, opts) {
+        const api = window.electronAPI;
+        const FO = _fontiCore();
+        if (!FO) return false;
         try {
             const FC = window.MappAIFilesCore;
-            const base = (FC && FC.safeName) ? FC.safeName(String(src.name || 'fonte').replace(/\.pdf$/i, ''), 'fonte') : 'fonte';
+            const ext = opts.extension === '.docx' ? '.docx' : '.pdf';
+            const grezzo = String(src.name || file.name || 'fonte').replace(ext === '.docx' ? /\.docx$/i : /\.pdf$/i, '');
+            const nome = ((FC && FC.safeName) ? FC.safeName(grezzo, 'fonte') : 'fonte') + ext;
             const buf = await file.arrayBuffer();
             let bin = ''; const bytes = new Uint8Array(buf);
             const CHUNK = 0x8000;
             for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
             const b64 = btoa(bin);
-            // anti-collisione (review 22/7): mai sovrascrivere un PDF omonimo già
-            // in Fonti/ — ifAbsent + retry con suffisso « · 02», « · 03»…
-            for (let n = 0; n < 10; n++) {
-                const rel = 'Fonti/' + base + (n ? ' · 0' + (n + 1) : '') + '.pdf';
-                const res = await api.saveVaultFile({ vaultPath: s.activeVaultPath, relPath: rel, base64: b64, ifAbsent: true });
-                if (res && res.ok) {
-                    src.vaultRel = rel;
-                    try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
-                    break;
+            /* ifAbsent non sovrascrive mai: se il nome scelto si è occupato fra
+               l'elenco e la scrittura, si rifà l'elenco — al massimo tre volte.
+               Un nome NASCOSTO all'elenco (comincia per «.», `FO.nomeNascosto`)
+               rifacendo l'elenco non compare, e il giro dopo sceglierebbe lo
+               stesso nome: lo si impara dalla risposta della scrittura
+               (`nascosti`), e questo non conta fra i tre giri — ogni volta si
+               aggiunge un nome, e i nomi liberi finiscono (« · 99»). */
+            const nascosti = [];
+            for (let giro = 0; giro <= 3 + nascosti.length; giro++) {
+                const elenco = await _elencoFonti(vp);
+                if (!elenco) return false;                                     // elenco non disponibile: nel dubbio non si scrive
+                const esistenti = elenco.concat(nascosti);                     // i nomi imparati: per nomeLibero, non per i gemelli
+                if (!FO.puoScrivereFonti({ vaultNuovo: !!opts.vaultNuovo, fontiPresente: esistenti.length > 0, aggiunta: !!opts.aggiunta })) return false;
+                const uguali = [];
+                /* 0070: il core storico riconosce i gemelli con suffisso PDF.
+                   Si adatta soltanto il nome dato al confronto; il percorso e
+                   i byte scritti restano DOCX. Stesse regole di deduplicazione. */
+                const docxNames = ext === '.docx' ? new Map(esistenti.filter(e => e && /\.docx$/i.test(e.name))
+                    .map(e => [e.name.replace(/\.docx$/i, '.pdf'), e.name])) : null;
+                const candidates = docxNames ? esistenti.filter(e => e && /\.docx$/i.test(e.name))
+                    .map(e => Object.assign({}, e, { name: e.name.replace(/\.docx$/i, '.pdf') })) : esistenti;
+                const twins = FO.gemelli(docxNames ? nome.replace(/\.docx$/i, '.pdf') : nome, candidates, bytes.length)
+                    .map(n => docxNames ? docxNames.get(n) : n);
+                for (const g of twins) {
+                    if (await _stessiByte(vp, 'Fonti/' + g, b64)) uguali.push(g);
                 }
-                if (!res || !res.exists) break;   // errore diverso da collisione → stop
+                const scelta = FO.sceltaNome(nome, esistenti, uguali);
+                if (!scelta) {
+                    console.warn('[ELABORA] «' + nome + '»: in Fonti/ ci sono già l\'originale e 98 varianti, il PDF non si scrive');
+                    return false;
+                }
+                let esito = false, rel = '';
+                if (scelta.adotta) {
+                    rel = 'Fonti/' + scelta.adotta; esito = 'adottato';        // stessi byte: nessuna seconda copia
+                } else {
+                    rel = 'Fonti/' + scelta.scrivi;
+                    const res = await api.saveVaultFile({ vaultPath: vp, relPath: rel, base64: b64, ifAbsent: true, potaVarianti: false });
+                    if (res && res.ok) esito = 'scritto';
+                    else if (res && res.exists) {
+                        if (!FO.nomeNascosto(scelta.scrivi)) continue;         // occupato nel frattempo: si rifà l'elenco
+                        /* nascosto e occupato: stessi byte → si adotta, come un
+                           gemello; altrimenti è un nome preso, e si va oltre */
+                        if (await _stessiByte(vp, rel, b64)) esito = 'adottato';
+                        else { nascosti.push(scelta.scrivi); continue; }
+                    }
+                    else return false;                                         // errore diverso dalla collisione → stop
+                }
+                src.vaultRel = rel;
+                src.vaultDi = vp;
+                try { if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject(); } catch (e) { }
+                return esito;
             }
-        } catch (e) { /* soft: l'anteprima in-sessione resta comunque */ }
+            return false;
+        } catch (e) { return false; /* soft: l'anteprima in-sessione resta comunque; senza PipelineCore il core fallisce, e non si scrive */ }
     }
 
-    // Flush per Costruisci: alla CREAZIONE del vault (saveMapVault success) salva
-    // in Fonti/ gli originali PDF ancora vivi in memoria e senza vaultRel.
-    // Chiamata da vault-io.js con soft-guard.
-    /* Copia i PDF originali delle fonti in una cartella del vault (2/8).
-       Diversa da `flushSourcesToVault`: quella scrive in «Fonti/» e annota
-       `src.vaultRel` perché ELABORA ci torna sopra per l'anteprima. Questa
-       consegna una COPIA (la pipeline la mette in «Allegati/») e non tocca
-       `vaultRel`: se lo facesse, l'anteprima seguirebbe la copia e ci
-       ritroveremmo due originali che si contendono lo stesso ruolo. */
+    /* Copia i PDF originali delle fonti in una cartella del vault (2/8). Dallo
+       0059 la chiama solo la pipeline di CREA, per due cose: la COPIA per
+       l'allievo in «Allegati/», sotto la spunta «Manda la fonte all'allievo»
+       (primo tempo dell'ADR 0011 rev. 1: il pacchetto dell'allievo non contiene
+       «Fonti/»), e, a interruttore `mappai_fonte_in_fonti` spento, la strada di
+       prima, dove quella copia era l'unico PDF del vault. Il PDF della fonte in
+       «Fonti/» non passa di qui: lo scrive `_saveOriginalToVault`, e ce lo
+       porta `flushSourcesToVault`. Questa non tocca `vaultRel` né l'indice: se
+       lo facesse, l'anteprima seguirebbe la copia e ci ritroveremmo due
+       originali che si contendono lo stesso ruolo. Tiene il suo ciclo « · 0N»
+       (al decimo tentativo « · 010»), dichiarato dal packet. */
     async function copySourcesTo(vaultPath, cartella) {
         const s = _appState();
         const api = window.electronAPI;
@@ -1620,22 +1908,70 @@
         return n;
     }
 
-    async function flushSourcesToVault() {
+    /* 0059: opts = { vaultNuovo } — vero se il vault nasce da questa stessa
+       azione (la pipeline di CREA, il ramo 2 di `ensureProjectVault`, «Salva
+       vault» su una cartella senza `index.yaml`). Su un vault che c'era e senza
+       `Fonti/` non si scrive NIENTE, indice compreso (ADR 0011 rev. 1: i vault
+       vecchi si leggono). Chi scrivere lo dice il core: il vecchio salto cieco
+       «ha già un vaultRel» lasciava il secondo vault di due generazioni di fila
+       senza il suo PDF, perché quel `vaultRel` era del primo.
+       Restituisce true se ha scritto qualcosa. */
+    async function flushSourcesToVault(opts) {
+        const o = opts || {};
         const s = _appState();
-        if (!s || !s.activeVaultPath || !s.sources) return;
-        for (const src of s.sources) {
-            if (src.vaultRel) continue;
-            const f = _pdfFiles.get(src.id) || src.file;
-            if (!f || typeof f.arrayBuffer !== 'function') continue;
-            const nm = (src.name || f.name || '').toLowerCase();
-            const isPdf = (f.type === 'application/pdf') || nm.endsWith('.pdf') || src.type === 'pdf';
-            if (!isPdf) continue;
+        if (!s || !s.activeVaultPath || !s.sources) return false;
+        const FO = _fontiCore();
+        if (!FO) return false;
+        /* il vault e le fonti si fissano ORA (inv. 20-bis): PDF, `.txt` e indice
+           vanno tutti nel vault da cui il flush è partito, anche se a metà se ne
+           apre un altro */
+        const vp = s.activeVaultPath;
+        const fonti = s.sources;
+        /* E i File, prima della prima attesa: un «Aggiungi PDF» fatto prima che
+           il vault esistesse ha il File solo in `_pdfFiles`, e il ripristino di
+           un'altra mappa aperta a metà lo svuota — il PDF non arrivava più nel
+           vault da cui il flush era partito. */
+        const fileDi = new Map(fonti.filter(Boolean).map(src => [src, _pdfFiles.get(src.id) || src.file]));
+        const vaultNuovo = !!o.vaultNuovo;
+        const percorsoLettura = s.extractionMode === 'lettura';
+        /* L'elenco di `Fonti/` dice se la cartella c'è e quali file ci sono
+           davvero. Non disponibile (`null`): nel dubbio non si scrive niente. */
+        const elenco = await _elencoFonti(vp);
+        if (!elenco) return false;
+        const fontiPresente = elenco.length > 0;
+        if (!FO.puoScrivereFonti({ vaultNuovo, fontiPresente })) return false;
+        let pdfScritto = false;
+        for (const src of fonti.slice()) {
+            if (!src) continue;
+            const f = fileDi.get(src);
+            const haFile = !!(f && typeof f.arrayBuffer === 'function');
+            const nm = (src.name || (f && f.name) || '').toLowerCase();
+            const isPdf = haFile && ((f.type === 'application/pdf') || nm.endsWith('.pdf') || src.type === 'pdf');
+            const isDocx = percorsoLettura && haFile && !isPdf && (nm.endsWith('.docx') || src.type === 'docx' ||
+                f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+            /* `presenteQui`: il file del suo `vaultRel` è in `Fonti/` di QUESTO
+               vault? Nel vault eliminato e ricreato allo stesso percorso il
+               `vaultDi` delle fonti coincide ma il file non c'è più: si riscrive.
+               Un elenco di prima di una scrittura in gara lo dà per assente a
+               torto: niente di male, `_saveOriginalToVault` rifà l'elenco e
+               adotta il file uguale. */
+            const presenteQui = FO.presenteIn(src.vaultRel, elenco);
+            // Il nome del booleano del core è storico: per lettura ammette anche l'originale DOCX.
+            if (!FO.daScrivere({ isPdf: isPdf || isDocx, haFile, vaultRel: src.vaultRel, vaultDi: src.vaultDi, daAllegati: src.daAllegati, presenteQui }, vp)) continue;
             if (!src.name && f.name) src.name = f.name;
-            await _saveOriginalToVault(src, f);
+            if (await _saveOriginalToVault(src, f, { vaultNuovo, vaultPath: vp, extension: isDocx ? '.docx' : '.pdf' })) pdfScritto = true;
         }
         /* e poi l'INDICE: senza, il PDF sta nel vault ma nessuno sa che era una
            fonte, di che tipo, né dove finiva il testo che se n'era estratto */
-        await salvaIndiceFonti();
+        const indice = await salvaIndiceFonti({ vaultNuovo, pdfScritto, vaultPath: vp, fonti });
+        /* le fonti in memoria ora sono di questo vault (lo stesso ragionamento
+           di `_persistSource`): il ripristino non le butta via. Se intanto si è
+           aperta un'altra mappa, in memoria ci sono le sue, e non sono di vp.
+           Si guarda lo stato di ADESSO: «Carica un progetto» sostituisce tutto
+           `appState`, e il vecchio `s` porterebbe ancora le fonti del flush. */
+        const ora = _appState();
+        if ((pdfScritto || indice) && ora && ora.sources === fonti) { _fontiDiVault = vp; _fontiLista = fonti; }
+        return !!(pdfScritto || indice);
     }
 
     /* ══ LE FONTI SOPRAVVIVONO AL VAULT (9/8) ═══════════════════════════════════
@@ -1680,10 +2016,30 @@
         var base = String(s == null ? '' : s).replace(/\.(pdf|docx?|txt|md|html?)$/i, '');
         return base.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'fonte';
     }
-    async function salvaIndiceFonti() {
+    /* 0059: opts = { vaultNuovo, pdfScritto }. Chiamata senza opzioni (dal
+       completamento dei testi, da «Incolla testo») scrive solo dove `Fonti/` c'è
+       già. Mai un `fonti: []` dove `Fonti/` non c'era, mai una fonte letta da
+       `Allegati/`, mai un `vaultRel` che vale in un altro vault né uno il cui
+       file qui non c'è. Con l'elenco di `Fonti/` non disponibile non si scrive
+       niente; e se la regola dice che l'indice non si scrive, non si scrive
+       nemmeno un `.txt` (la regola si chiede prima dei testi). `potaVarianti: false`:
+       scrivere in `Fonti/` non deve mandare nel Cestino niente di
+       `Materiale Studio/Sorgenti/` (main.js:997-1002).
+       E opts = { vaultPath, fonti }: il vault e le fonti fissati da chi ha
+       cominciato la scrittura (inv. 20-bis). Senza, quelli di adesso, letti
+       tutti e due PRIMA della prima attesa: l'indice di un vault si scrive con
+       le fonti di quel vault.
+       0078: opts.completa = il motivo di `completaFontiDellaCartella` (la
+       cartella di «Riprendi» senza `Fonti/`): passa al core e basta, senza gli
+       effetti di `vaultNuovo`, che resta false. */
+    async function salvaIndiceFonti(opts) {
+        const o = opts || {};
         const s = _appState();
         const api = window.electronAPI;
-        if (!s || !s.activeVaultPath || !api || !api.saveVaultFile) return false;
+        if (!s || !api || !api.saveVaultFile) return false;
+        const vp = ('vaultPath' in o) ? o.vaultPath : s.activeVaultPath;
+        const fonti = Array.isArray(o.fonti) ? o.fonti : (s.sources || []);
+        if (!vp) return false;
         /* ⚠️ Questo indice si riscrive INTERO, e con `fonti: []` cancella quello
            che c'era. Da quando le fonti si azzerano al cambio mappa esiste una
            finestra — il ripristino è asincrono e non viene atteso — in cui la
@@ -1693,17 +2049,54 @@
            risultano ancora di questo vault; svuotarlo davvero (l'utente ha
            tolto tutte le fonti) passa comunque, perché lì `_fontiDiVault` è già
            quello giusto. */
-        if (!(s.sources || []).length && _fontiDiVault !== s.activeVaultPath) return false;
+        if (!fonti.length && _fontiDiVault !== vp) return false;
+        const FO = _fontiCore();
+        if (!FO) return false;
+        const vaultNuovo = !!o.vaultNuovo;
+        const esistenti = await _elencoFonti(vp);
+        if (!esistenti) return false;              // elenco non disponibile: nel dubbio l'indice non si scrive
+        const fontiPresente = esistenti.length > 0;
+        const scrivibili = FO.vociScrivibili(fonti);
+        if (!FO.scriviIndice({ voci: scrivibili, vaultNuovo, fontiPresente, pdfScritto: !!o.pdfScritto, completa: !!o.completa })) return false;
+        /* Un vault SPOSTATO (INSEGNA, «Organizza i file»): chi lo sposta aggiorna
+           `activeVaultPath`, non le fonti, e il loro `vaultDi` resta il percorso
+           di prima — `vaultRelPerIndice` toglieva dall'indice il `vaultRel` di un
+           PDF che sta proprio qui, e alla riapertura ELABORA non lo vedeva più.
+           Se il file c'è qui e non c'è più là, il vault è questo: `vaultDi` si
+           riallinea. Il core decide; qui solo gli elenchi, uno per vault. */
+        const altrove = new Map();
+        for (const src of scrivibili) {
+            if (!FO.vaultSpostato(src, vp, vaultNuovo, { qui: esistenti, la: [] })) continue;   // non è un candidato: niente letture
+            if (!altrove.has(src.vaultDi)) altrove.set(src.vaultDi, await _elencoFonti(src.vaultDi));
+            if (FO.vaultSpostato(src, vp, vaultNuovo, { qui: esistenti, la: altrove.get(src.vaultDi) })) src.vaultDi = vp;
+        }
         const voci = [];
         let n = 0;
-        for (const src of (s.sources || [])) {
-            if (!src) continue;
+        /* Un `vaultRel` entra nell'indice solo se il suo file c'è QUI: lo dice
+           l'elenco di `Fonti/`, non la memoria (il vault eliminato e ricreato
+           allo stesso percorso: il `vaultDi` delle fonti coincide, il file non
+           c'è più). Ma l'elenco è di prima delle attese, e un PDF scritto
+           intanto (un «Aggiungi PDF» che finisce mentre si incolla un testo) non
+           ci sarebbe: prima di togliere un `vaultRel` l'elenco si rifà, una volta
+           sola. Se non si può rifare, nel dubbio l'indice non si scrive (i testi
+           già scritti restano, in una `Fonti/` che la regola ammette). Per un
+           nome che l'elenco non può mostrare (`presenteQui` undefined, un nome
+           che comincia per «.») l'elenco non dice niente: vale come prima. */
+        let elencoQui = esistenti, rifatto = false;
+        for (const src of scrivibili) {
             n++;
+            let presenteQui = FO.presenteIn(src.vaultRel, elencoQui);
+            if (presenteQui === false && !rifatto && FO.vaultRelPerIndice(src, vp, vaultNuovo)) {
+                rifatto = true;
+                elencoQui = await _elencoFonti(vp);
+                if (!elencoQui) return false;
+                presenteQui = FO.presenteIn(src.vaultRel, elencoQui);
+            }
             const nome = _safeNomeFile(src.name || src.title || ('fonte ' + n));
             const testo = String(src.content || '');
             const voce = {
                 id: src.id || ('src' + n), tipo: src.type || 'text', nome: src.name || src.title || nome,
-                vaultRel: src.vaultRel || '', caratteri: testo.length, testoRel: ''
+                vaultRel: FO.vaultRelPerIndice(src, vp, vaultNuovo, presenteQui), caratteri: testo.length, testoRel: ''
             };
             /* il testo si scrive solo se c'è: una fonte PDF appena caricata ha il
                testo estratto, una riga vuota no — e un file vuoto nel vault è
@@ -1711,7 +2104,7 @@
             if (testo.length > 40) {
                 const rel = 'Fonti/' + nome + '.txt';
                 try {
-                    const r = await api.saveVaultFile({ vaultPath: s.activeVaultPath, relPath: rel, text: testo });
+                    const r = await api.saveVaultFile({ vaultPath: vp, relPath: rel, text: testo, potaVarianti: false });
                     if (r && r.ok) voce.testoRel = rel;
                 } catch (e) { /* il testo non si scrive: l'indice resta, con vaultRel */ }
             }
@@ -1719,20 +2112,73 @@
         }
         try {
             const r = await api.saveVaultFile({
-                vaultPath: s.activeVaultPath, relPath: FONTI_INDICE,
+                vaultPath: vp, relPath: FONTI_INDICE, potaVarianti: false,
                 text: JSON.stringify({ schema: 'mappai-fonti@1', mappa: s.rootNodeLabel || '', fonti: voci }, null, 2)
             });
             return !!(r && r.ok);
         } catch (e) { return false; }
     }
 
-    /* Ripristina `appState.sources` da un vault appena caricato. Tre gradini, dal
-       più informativo al più povero:
+    /* ══ «RIPRENDI» DÀ `Fonti/` ALLA CARTELLA CHE NON CE L'HA (0078, §4.4) ══════
+       Una cartella che non ha `Fonti/` non la riceve mai: la si scrive solo su
+       un vault nuovo, dove c'è già o per un'aggiunta. Le sue fonti vivevano
+       solo nella copia del cassetto, che lo 0082 toglierà. «Riprendi»
+       (`loadProject`) apre dalla copia, quindi le fonti in memoria sono quelle
+       della copia: col testo estratto, senza il File della sessione.
+       Se la cartella non ha `Fonti/` per niente (nemmeno il solo indice), qui
+       si scrivono `fonti.json` e i `.txt` (testo sopra i 40 caratteri) col
+       motivo `completa` del core — MAI un PDF: il file della sessione non c'è
+       più. E non si passa dal ripristino dal vault, che svuota le fonti in
+       memoria prima di leggere e da una cartella che non dà niente le
+       lascerebbe vuote: qui le fonti in memoria non si toccano mai.
+       La cartella e le fonti si fissano all'INIZIO (inv. 20-bis): se intanto si
+       apre un altro progetto, si scrive comunque nella cartella di partenza con
+       le fonti di partenza, e quelle dell'altro non diventano «di questa
+       cartella». Se l'indice è scritto e in memoria ci sono ancora quelle
+       fonti, da qui sono di questo vault (come in coda al flush), e un
+       ripristino dello stesso vault le tiene. Se non riesce, lo dice il
+       registro (il nome della cartella, mai il percorso); niente lancia.
+       Non legge `mappai_fonte_in_fonti`: `fonti.json` e i `.txt` esistono da
+       prima dello 0059. → true se l'indice è stato scritto. */
+    async function completaFontiDellaCartella(vaultPath) {
+        const s = _appState();
+        const vp = vaultPath || null;
+        const fonti = (s && Array.isArray(s.sources)) ? s.sources : null;
+        const api = window.electronAPI;
+        if (!vp || !fonti || !api || !api.saveVaultFile) return false;
+        const FO = _fontiCore();
+        if (!FO || !FO.vociScrivibili(fonti).length) return false;
+        /* `Fonti/` c'è già, anche col solo `fonti.json`: la tiene chi la scrive
+           di solito, qui niente. Elenco non disponibile: nel dubbio niente. */
+        const elenco = await _elencoFonti(vp);
+        if (!elenco || elenco.length) return false;
+        let scritto = false;
+        try { scritto = await salvaIndiceFonti({ vaultPath: vp, fonti: fonti, completa: true }); } catch (e) { scritto = false; }
+        if (scritto) {
+            const ora = _appState();
+            if (ora && ora.sources === fonti) { _fontiDiVault = vp; _fontiLista = fonti; }
+            return true;
+        }
+        try {
+            const nome = String(vp).split(/[\\/]/).filter(Boolean).pop() || '';
+            if (window.MappAIErrori && window.MappAIErrori.registra) {
+                window.MappAIErrori.registra({ dove: 'fonti',
+                    messaggio: 'Fonti/ non scritta nella cartella «' + nome + '»: le fonti restano nella memoria rapida' });
+            }
+        } catch (e) { /* un registro che non c'è o lancia non ferma «Riprendi» */ }
+        return false;
+    }
+
+    /* Ripristina `appState.sources` da un vault appena caricato. Le voci le
+       compone il core, dalla più informativa alla più povera:
          1. `Fonti/fonti.json` → tipo, nome, testo (dal .txt) e `vaultRel`;
-         2. nessun indice ma dei PDF in `Fonti/` → si ricostruiscono le voci senza
-            testo (i vault salvati prima di oggi sono tutti così), e il testo lo
-            estrarrà ELABORA alla prima apertura;
-         3. niente in `Fonti/` → non si tocca nulla.
+         2. nessun indice ma dei PDF in `Fonti/` → le voci senza testo (i vault
+            salvati prima del 9/8 sono così), e il testo lo estrae ELABORA alla
+            prima apertura;
+         e in coda, per NOME (B2, 0059), i PDF di `Allegati/` che `Fonti/` non
+         ha, marcati `daAllegati`: in sola lettura. Ogni voce porta `vaultDi`.
+       Se non trova niente lascia le fonti vuote: quelle di un'altra mappa se ne
+       sono già andate prima della lettura.
        ⚠️ Non sovrascrive le fonti dello STESSO vault già in memoria: quelle in
        RAM hanno il file vero e sono migliori di quanto si rilegga dal disco.
        🐛 Ma «già in memoria» da solo era sbagliato, ed era il difetto che
@@ -1740,14 +2186,17 @@
        aprendo la mappa B con le fonti di A in RAM questa funzione usciva subito
        e la colonna continuava a elencare i file di A — congelati sul primo
        progetto della sessione. La domanda giusta non è «ci sono fonti?» ma
-       «sono di QUESTO vault?». */
+       «sono di QUESTO vault?», e (0059) «sono ancora QUELLE?»: «Carica un
+       progetto» sostituisce `appState` con le fonti di un altro progetto e
+       `_fontiDiVault` da solo diceva ancora «questo vault». L'uscita anticipata
+       vuole lo stesso vault E lo stesso array (`_fontiLista`). */
     async function ripristinaFontiDalVault(vaultPath) {
         const s = _appState();
         const api = window.electronAPI;
         if (!s || !api || !api.readVaultFile) return 0;
         const vp = vaultPath || s.activeVaultPath;
         if (!vp) return 0;
-        if ((s.sources || []).length && _fontiDiVault === vp) return 0;   // stesso vault: le sue sono migliori
+        if ((s.sources || []).length && _fontiDiVault === vp && s.sources === _fontiLista) return 0;   // stesso vault, stesse fonti: le sue sono migliori
         if ((s.sources || []).length) {
             /* Sono di un'altra mappa: se ne vanno con i loro File di sessione,
                o il visore mostrerebbe il PDF del progetto precedente. */
@@ -1755,14 +2204,36 @@
             try { _pdfFiles.clear(); } catch (e) { /* noop */ }
             _srcView = 'text'; _pdfIdx = 0;
         }
-        _fontiDiVault = vp;   /* da qui in poi le fonti in RAM sono di questo vault */
+        _fontiDiVault = vp; _fontiLista = s.sources;   /* da qui in poi le fonti in RAM sono di questo vault */
         let indice = null;
         try {
             const r = await api.readVaultFile({ vaultPath: vp, relPath: FONTI_INDICE });
             if (r && r.ok && r.base64) indice = JSON.parse(_testoDaBase64(r.base64));
         } catch (e) { indice = null; }
         const out = [];
-        if (indice && Array.isArray(indice.fonti)) {
+        /* 0059: le voci le compone il core, dall'indice (gradino 1) o dai PDF di
+           `Fonti/` (gradino 2); in coda, per NOME (B2), i PDF di `Allegati/` che
+           `Fonti/` non ha — i vault di CREA dal 4/8 al 28/9 hanno il PDF solo lì.
+           Per questo i due elenchi si chiedono SEMPRE. Ogni voce porta `vaultDi`;
+           quelle di `Allegati/` sono marcate `daAllegati` e restano in sola
+           lettura: nessuna scrittura le prende. */
+        const FO = _fontiCore();
+        if (FO) {
+            const fonti = await _elencoFonti(vp);
+            const allegati = await _elencoAllegati(vp);
+            for (const v of FO.fontiDaRipristinare({ indice, fonti, allegati }, vp)) {
+                let testo = '';
+                if (v.testoRel) {
+                    try {
+                        const t = await api.readVaultFile({ vaultPath: vp, relPath: v.testoRel });
+                        if (t && t.ok && t.base64) testo = _testoDaBase64(t.base64);
+                    } catch (e) { /* testo perso: resta la voce, ELABORA lo rifarà */ }
+                }
+                const src = { id: v.id, type: v.type, name: v.name, content: testo, vaultRel: v.vaultRel, vaultDi: v.vaultDi };
+                if (v.daAllegati) src.daAllegati = true;
+                out.push(src);
+            }
+        } else if (indice && Array.isArray(indice.fonti)) {
             for (const v of indice.fonti) {
                 let testo = '';
                 if (v.testoRel) {
@@ -1783,36 +2254,71 @@
             } catch (e) { /* niente da recuperare */ }
         }
         if (!out.length) return 0;
+        /* 0059: se intanto è partito il ripristino di un ALTRO vault (o una
+           scrittura ha dichiarato le fonti in memoria di un altro vault),
+           `_fontiDiVault` non è più vp e le fonti in memoria sono quelle
+           dell'altro: questo ripristino, arrivato dopo, non le tocca. Senza, le
+           fonti di A restavano in memoria col vault C aperto, e la prima
+           scrittura («Incolla testo», «Aggiungi PDF», «Salva vault», il ramo 1)
+           riscriveva l'indice di C con le voci di A. */
+        if (_fontiDiVault !== vp) return 0;
         s.sources = out;
+        _fontiLista = out;   /* l'array nuovo è quello di cui `_fontiDiVault` parla */
         return out.length;
     }
 
-    /* Il testo che manca, estratto dal PDF che c'è (gradino 2 → gradino 1).
-       Gira quando ELABORA si apre su un vault vecchio: `extractTextFromPDF` è la
-       STESSA funzione dell'upload (app.js), quindi il testo è identico a quello
-       che si sarebbe avuto generando; e il risultato si scrive nel vault, così la
-       volta dopo è già pronto. Silenzioso: se non riesce, la fonte resta senza
-       testo e la vista lo dice. */
+    /* Il testo che manca, estratto dal PDF che c'è: le voci del gradino 2 (che
+       così diventano gradino 1) e i PDF letti da `Allegati/`. Gira quando
+       ELABORA monta la fonte e qualche fonte PDF ha il `vaultRel` ma non il
+       testo: `extractTextFromPDF` è la STESSA funzione dell'upload (app.js),
+       quindi il testo è identico a quello che si sarebbe avuto generando. Il
+       testo resta in memoria; nel vault (`fonti.json` e i `.txt`) si scrive
+       solo se almeno una delle fonti completate non viene da `Allegati/`, e
+       solo dove `Fonti/` c'è già — un vault vecchio si legge e basta —, così
+       la volta dopo è già pronto. Il vault e le fonti si fissano all'INIZIO
+       (inv. 20-bis): l'estrazione dura, e se intanto si apre un'altra mappa il
+       risultato va nel vault da cui si è partiti, con le sue fonti — prima
+       finiva nell'indice della mappa appena aperta, e lo svuotava.
+       Silenzioso: se non riesce, la fonte resta senza testo e la vista lo
+       dice. */
     async function _completaTestiMancanti() {
         const s = _appState();
         const api = window.electronAPI;
         if (!s || !api || !api.readVaultFile || !window.extractTextFromPDF) return 0;
-        const daFare = (s.sources || []).filter(x => x && !x.content && x.vaultRel && /\.pdf$/i.test(x.vaultRel));
+        const vp = s.activeVaultPath;
+        const fonti = s.sources || [];
+        const listaAllInizio = _fontiLista;   // di quale elenco parlava `_fontiDiVault` quando si è partiti
+        const daFare = fonti.filter(x => x && !x.content && x.vaultRel && /\.pdf$/i.test(x.vaultRel));
         if (!daFare.length) return 0;
-        let fatti = 0;
+        /* 0059: anche il PDF letto da `Allegati/` dà il suo testo — resta in
+           memoria, così ELABORA colora — ma nel vault si scrive solo per le
+           fonti di `Fonti/`: un vault vecchio si legge e basta. Senza core non
+           si scrive comunque (`salvaIndiceFonti` lo sa da sé). */
+        const FO = window.MappAIFontiCore;
+        const soloLettura = src => !FO || FO.inAllegati(src);
+        let fatti = 0, daScrivere = 0;
         for (const src of daFare) {
             try {
-                const r = await api.readVaultFile({ vaultPath: s.activeVaultPath, relPath: src.vaultRel });
+                const r = await api.readVaultFile({ vaultPath: vp, relPath: src.vaultRel });
                 if (!r || !r.ok || !r.base64) continue;
                 const bin = atob(r.base64);
                 const buf = new Uint8Array(bin.length);
                 for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
                 const finto = new File([buf], src.name || 'fonte.pdf', { type: 'application/pdf' });
                 const testo = await window.extractTextFromPDF(finto);
-                if (testo && testo.length > 40) { src.content = testo; fatti++; }
+                if (testo && testo.length > 40) { src.content = testo; fatti++; if (!soloLettura(src)) daScrivere++; }
             } catch (e) { /* un PDF illeggibile non ferma gli altri */ }
         }
-        if (fatti) { try { await salvaIndiceFonti(); } catch (e) { } }
+        /* 0059: ma se intanto un ALTRO elenco è diventato quello delle fonti di
+           vp — vp riaperto (il ripristino fa un elenco nuovo, anche passando da
+           un'altra mappa), poi «Aggiungi PDF» o «Incolla testo» su quello —
+           l'elenco fissato qui è vecchio. L'indice si riscrive INTERO: le voci
+           nate sull'elenco nuovo sparirebbero. Non si scrive, e la prossima
+           apertura estrae di nuovo il testo. Se invece si è aperto un altro
+           vault (`_fontiDiVault` non è vp), il risultato va in vp con le sue
+           fonti, come sopra. */
+        const rilette = _fontiDiVault === vp && _fontiLista !== listaAllInizio && _fontiLista !== fonti;
+        if (daScrivere && !rilette) { try { await salvaIndiceFonti({ vaultPath: vp, fonti }); } catch (e) { } }
         return fatti;
     }
 
@@ -1837,7 +2343,7 @@
         #elab-overlay{position:fixed;inset:0;z-index:950;background:var(--epanel)}
         /* In fullscreen: via i controlli globali che coprirebbero la topbar (a11y eye,
            dev self-test, drawer insegnai.ch) — stesso pattern di body.is-snapshotting. */
-        body.elab-fullscreen #a11y-panel-toggle,body.elab-fullscreen .a11y-panel,body.elab-fullscreen #dst-btn,body.elab-fullscreen #insegnai-drawer{display:none !important}
+        body.elab-fullscreen #dst-btn,body.elab-fullscreen #insegnai-drawer{display:none !important}
         .elab-empty{max-width:520px;margin:60px auto;text-align:center;color:var(--esoft)}
         .elab-empty-emo{font-family:var(--emoji-font);font-size:40px;line-height:1}
         .elab-empty-h{font-weight:700;font-size:18px;color:var(--eink);margin:14px 0 6px}
@@ -1987,9 +2493,19 @@
         setRightView, setMode, toggleTreeRow, treeRowClick, gotoNodeCard, renameNode, editNode,
         addChild, treeDragStart, treeDrop, startMergePick, cancelMergePick,
         flushSourcesToVault, copySourcesTo, exportAreas,
+        /* l'interruttore `mappai_fonte_in_fonti` (0059): lo chiedono la pipeline
+           e `mappai-vault-io.js`, che non leggono la chiave da sé */
+        fonteInFonti,
+        /* il lucchetto di «Aggiungi PDF» (0059, D10): lo chiede `mappaiOccupato` */
+        letturaPdfAttiva, motivoLetturaPdf,
         /* le fonti che sopravvivono al vault (9/8): le chiama `mappai-vault-io.js`
            al caricamento, e la console/ELABORA quando apre */
         salvaIndiceFonti, ripristinaFontiDalVault, completaTestiMancanti: _completaTestiMancanti, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
-        openQuestions
+        openQuestions,
+        /* 0078: `Fonti/` alla cartella di «Riprendi» che non ce l'ha */
+        completaFontiDellaCartella
     };
+    /* 0078: anche su `window`, dove la cerca `loadProject` (con la guardia: nel
+       reader questo modulo non c'è) */
+    window.completaFontiDellaCartella = completaFontiDellaCartella;
 })();

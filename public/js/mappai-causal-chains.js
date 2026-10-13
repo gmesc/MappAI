@@ -85,11 +85,13 @@
     }
 
     // ── API per la sintesi ──────────────────────────────────────────────────
-    function triplesFor(nodes) {
+    /* `links` facoltativo (packet 0042): chi lavora su una VISTA della mappa
+       (la quarantena) passa i suoi collegamenti; senza, quelli della mappa. */
+    function triplesFor(nodes, linksVista) {
         const C = window.MappAICausalCore;
         const a = _getAppState();
         if (!C || !nodes || !nodes.length) return [];
-        const links = (a && a.db && a.db.links) || [];
+        const links = Array.isArray(linksVista) ? linksVista : ((a && a.db && a.db.links) || []);
         const ids = new Set(nodes.map(n => n.id));
         const linkT = C.extractLinkTriples(nodes, links, _familyMap())
             .filter(x => ids.has(x.sourceId) && ids.has(x.targetId));
@@ -118,23 +120,25 @@
             const arr = x.type === 'contrast' ? '↔' : '→';
             const a = x.type === 'contrast' ? x.a : x.cause;
             const b = x.type === 'contrast' ? x.b : x.effect;
-            return '<div style="display:flex;align-items:baseline;gap:7px;padding:5px 0;border-bottom:1px dashed #e2e8f0;flex-wrap:wrap">' +
-                '<span style="font-size:10.5px;color:#334155">' + _esc(a) + '</span>' +
+            return '<div style="display:flex;align-items:baseline;gap:7px;padding:5px 0;border-bottom:1px dashed var(--mm-bordo, #cbd5e1);flex-wrap:wrap">' +
+                '<span style="font-size:10.5px;color:var(--mm-testo, #404040)">' + _esc(a) + '</span>' +
                 '<span style="font-size:10px;font-weight:700;color:' + fm.color + ';white-space:nowrap">' + arr + ' ' + _esc(x.type === 'contrast' ? x.conn : (x.connShow || x.conn)) + ' ' + arr + '</span>' +
-                '<span style="font-size:10.5px;color:#334155">' + _esc(b) + '</span>' +
+                '<span style="font-size:10.5px;color:var(--mm-testo, #404040)">' + _esc(b) + '</span>' +
                 '</div>';
         }).join('');
-        return '<div style="margin:18px 0 6px;padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #4f46e5;border-radius:10px;page-break-inside:avoid">' +
+        return '<div style="margin:18px 0 6px;padding:14px 16px;background:#f8fafc;border:1px solid var(--mm-bordo, #cbd5e1);border-left:4px solid #4f46e5;border-radius:10px;page-break-inside:avoid">' +
             '<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#4f46e5;margin-bottom:8px">' +
             _esc(t('cc_box_title', 'La catena dei perché')) + '</div>' + rows + '</div>';
     }
 
     // ── Catena dell'intera mappa ────────────────────────────────────────────
-    function buildForCurrentMap() {
+    /* `dbVista` facoltativo (packet 0042): la vista della quarantena; senza, la mappa aperta. */
+    function buildForCurrentMap(dbVista) {
         const C = window.MappAICausalCore;
         const a = _getAppState();
-        if (!C || !a || !a.db) return null;
-        return C.buildChains({ nodes: a.db.nodes || [], links: a.db.links || [], familyMap: _familyMap() });
+        const db = dbVista || (a && a.db);
+        if (!C || !db) return null;
+        return C.buildChains({ nodes: db.nodes || [], links: db.links || [], familyMap: _familyMap() });
     }
 
     function _rowHtml(x) {
@@ -184,7 +188,7 @@
             '<title>' + _esc(t('cc_doc_title', 'Catena dei perché')) + ' — ' + _esc(mapName) + '</title>' +
             '<style>' + _fontDoc(fontId) +
             '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
-            "body{font-family:var(--doc-font, 'Space Mono', monospace);font-size:12px;color:#1e293b;margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
+            "body{font-family:var(--doc-font, 'Space Mono', monospace);font-size:12px;color:var(--mm-testo, #404040);margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
             /* Testata e piè: cornice condivisa (mappai-doc-head.js). Erano due
                regole copiate dal foglio quiz, con misure loro. */
             _ccCornice(mapName) +
@@ -193,21 +197,21 @@
             '.cc-sec{background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;page-break-inside:avoid}' +
             '.cc-sec-cross{border:2px dashed #a5b4fc}' +
             '.cc-sec-title{font-size:14px;font-weight:900;color:#4f46e5;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #eef2ff}' +
-            '.cc-row{padding:7px 0;border-bottom:1px dashed #e2e8f0}.cc-row:last-child{border-bottom:0}' +
+            '.cc-row{padding:7px 0;border-bottom:1px dashed var(--mm-bordo, #cbd5e1)}.cc-row:last-child{border-bottom:0}' +
             '.cc-line{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;line-height:1.7}' +
-            '.cc-side{color:#334155}' +
+            '.cc-side{color:var(--mm-testo, #404040)}' +
             '.cc-conn{display:inline-flex;align-items:baseline;gap:5px;border:1.5px solid;border-radius:9999px;padding:1px 9px;font-size:11px;font-weight:700;white-space:nowrap}' +
-            '.cc-badge{display:inline-block;margin-top:2px;font-size:8.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em}' +
+            '.cc-badge{display:inline-block;margin-top:2px;font-size:8.5px;color:var(--mm-testo-3, #64748b);text-transform:uppercase;letter-spacing:.05em}' +
             '.cc-badge-txt{color:#a8a29e}' +
-            '.cc-trunc{margin-top:6px;font-size:10px;color:#94a3b8;font-style:italic}' +
+            '.cc-trunc{margin-top:6px;font-size:10px;color:var(--mm-testo-3, #64748b);font-style:italic}' +
             /* modalità esercizio: connettivo nascosto → casella da completare */
             'body.cc-ex .cc-conn-txt{color:transparent!important;border-bottom:1.5px dotted #94a3b8;min-width:64px;display:inline-block}' +
             'body.cc-ex .cc-badge{visibility:hidden}' +
             '.no-print{display:block}@media print{.no-print{display:none!important}body{background:#fff;padding:10px}}' +
             '</style></head><body>' +
-            '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:\'Space Mono\',monospace;font-size:12px">' +
+            '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:\'Space Mono\',monospace;font-size:12px">' +
             '<b>' + _esc(t('cc_doc_title', 'Catena dei perché')) + '</b>' +
-            '<span><button onclick="document.body.classList.toggle(\'cc-ex\')" style="font-family:inherit;margin-right:8px;padding:6px 14px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;cursor:pointer">' + _esc(t('cc_exercise', 'Modalità esercizio')) + '</button>' +
+            '<span><button onclick="document.body.classList.toggle(\'cc-ex\')" style="font-family:inherit;margin-right:8px;padding:6px 14px;border:1px solid var(--mm-bordo, #cbd5e1);background:#fff;border-radius:8px;cursor:pointer">' + _esc(t('cc_exercise', 'Modalità esercizio')) + '</button>' +
             '<button onclick="window.print()" style="font-family:inherit;padding:6px 14px;border:0;background:#4f46e5;color:#fff;border-radius:8px;cursor:pointer;font-weight:700">' + _esc(t('cc_print', 'Stampa')) + '</button></span></div>' +
             '<div style="height:44px" class="no-print"></div>' +
             _ccTestata(mapName, now) +
@@ -222,15 +226,19 @@
      * dalla mappa. Senza questo, la revisione si vedrebbe solo nell'editor e
      * stampa e PDF continuerebbero a mostrare l'estrazione grezza.
      */
-    function chainsForOutput() {
+    /* `opts.db` facoltativo (packet 0042): con la vista della quarantena vale il
+       SUO `causalDoc` — assente quando conteneva frasi o collegamenti esclusi,
+       e allora i nessi si ricavano dalla vista, mai dalla mappa aperta. */
+    function chainsForOutput(opts) {
         const a = _getAppState();
-        const saved = a && a.db && a.db.causalDoc;
+        const vista = opts && opts.db ? opts.db : null;
+        const saved = vista ? vista.causalDoc : a && a.db && a.db.causalDoc;
         const C = window.MappAICausalCore;
         if (saved && C && C.chainsFromDoc) {
             const revised = C.chainsFromDoc(saved);
             if (revised && revised.total) return revised;
         }
-        return buildForCurrentMap();
+        return vista ? buildForCurrentMap(vista) : buildForCurrentMap();
     }
 
     function mapName() {

@@ -53,20 +53,73 @@
         };
     }
 
-    /* I CORPI del testo proiettato: dal fondo dell'aula si legge dai 18px in
-       su; oltre i 40 anche un titolo smette di stare nel pannello. */
-    var CORPI = [18, 22, 26, 32, 40];
-    /* un valore sporco (persistenza vecchia, typo) riparte dal DEFAULT: un
-       salto da un numero mai visto sarebbe una sorpresa in mezzo alla lezione */
-    function corpoSu(c) { var i = CORPI.indexOf(c); if (i < 0) return CORPO_DEF; return CORPI[Math.min(CORPI.length - 1, i + 1)]; }
-    function corpoGiu(c) { var i = CORPI.indexOf(c); if (i < 0) return CORPO_DEF; return CORPI[Math.max(0, i - 1)]; }
+    /* IL CORPO DEL TESTO PROIETTATO: un solo bottone «Aa» a ciclo (regola di
+       Giacomo del 09/10, packet 0079 B7). Dalla partenza (22px) quattro taglie
+       che crescono sempre — ×1 · ×1,25 · ×1,5 · ×1,8 = 22, 28, 33, 40 — poi si
+       torna a ×1. Oltre i 40 anche un titolo smette di stare nel pannello; sotto
+       i 22, dal fondo dell'aula, non serve. Un valore sporco (persistenza
+       vecchia, typo) riparte da ×1: un salto da un numero mai visto sarebbe una
+       sorpresa in mezzo alla lezione. */
     var CORPO_DEF = 22;
+    var AA_FATTORI = [1, 1.25, 1.5, 1.8];
+    var AA_CORPI = AA_FATTORI.map(function (f) { return Math.round(CORPO_DEF * f); });
+    function aaSucc(c) { var i = AA_CORPI.indexOf(c); return i < 0 ? CORPO_DEF : AA_CORPI[(i + 1) % AA_CORPI.length]; }
+    function aaFattore(c) { var i = AA_CORPI.indexOf(c); return i < 0 ? 1 : AA_FATTORI[i]; }
+
+    /* LO SPLIT fra immagine e scheda (0079, lotto B): il disegno del divisore
+       del Banco, chiuso da TUTTI E DUE i lati. Lo stato è { frazione, chiusa }:
+       `frazione` = la larghezza dell'immagine sul totale (0.55 = la proporzione
+       di sempre), `chiusa` = null | 'immagine' | 'scheda'. Chiudendo, la
+       frazione resta quella di PRIMA del gesto: si riapre lì, non alla larghezza
+       di passaggio. Niente minimi in px: bastano le soglie. */
+    var SPLIT = { DEF: 0.55, SOGLIA: 0.1, PASSO: 0.05 };
+    function _split(frazione, chiusa) { return { frazione: frazione, chiusa: chiusa || null }; }
+
+    /* `inizio` è lo stato all'INIZIO del gesto (la UI lo conserva al
+       pointerdown): durante il trascinamento la frazione viva cambia a ogni
+       movimento, e chiudendo si torna a quella di partenza. */
+    function splitDaPuntatore(x, W, inizio) {
+        inizio = inizio || _split(SPLIT.DEF, null);
+        if (!(W > 0)) return _split(inizio.frazione, inizio.chiusa);
+        if (x < SPLIT.SOGLIA * W) return _split(inizio.frazione, 'immagine');
+        if (x > (1 - SPLIT.SOGLIA) * W) return _split(inizio.frazione, 'scheda');
+        return _split(x / W, null);
+    }
+
+    /* La tastiera, come nel Banco: ← → spostano di PASSO (oltre la soglia
+       chiudono quel lato); da chiuso, la freccia che si allontana dal bordo
+       riapre e quella verso il bordo non fa nulla; Home chiude l'immagine, End
+       la scheda; Invio e Spazio riaprono un lato chiuso e, a tutti e due
+       aperti, chiudono la scheda (come «Affianca»). Un altro tasto → null. */
+    function splitDaTasto(stato, tasto) {
+        stato = stato || _split(SPLIT.DEF, null);
+        var f = stato.frazione, c = stato.chiusa || null;
+        if (tasto === 'Home') return _split(f, 'immagine');
+        if (tasto === 'End') return _split(f, 'scheda');
+        if (tasto === 'Enter' || tasto === ' ') return c ? _split(f, null) : _split(f, 'scheda');
+        if (tasto !== 'ArrowLeft' && tasto !== 'ArrowRight') return null;
+        var sinistra = tasto === 'ArrowLeft';
+        if (c === 'immagine') return sinistra ? _split(f, c) : _split(f, null);
+        if (c === 'scheda') return sinistra ? _split(f, null) : _split(f, c);
+        var g = Math.round((f + (sinistra ? -SPLIT.PASSO : SPLIT.PASSO)) * 1000) / 1000;
+        if (g < SPLIT.SOGLIA) return _split(f, 'immagine');
+        if (g > 1 - SPLIT.SOGLIA) return _split(f, 'scheda');
+        return _split(g, null);
+    }
+
+    /* La frazione ricordata: buona solo fra le due soglie, altrimenti DEF. */
+    function splitLeggi(valore) {
+        if (valore === null || valore === undefined || valore === '') return SPLIT.DEF;
+        var n = Number(valore);
+        return (n >= SPLIT.SOGLIA && n <= 1 - SPLIT.SOGLIA) ? n : SPLIT.DEF;
+    }
 
     return {
         Z_MIN: Z_MIN, Z_MAX: Z_MAX,
-        CORPI: CORPI, CORPO_DEF: CORPO_DEF,
+        CORPO_DEF: CORPO_DEF, AA_FATTORI: AA_FATTORI, AA_CORPI: AA_CORPI,
         adatta: adatta, clampZ: clampZ,
         zoomAlPunto: zoomAlPunto, clampPan: clampPan,
-        corpoSu: corpoSu, corpoGiu: corpoGiu
+        aaSucc: aaSucc, aaFattore: aaFattore,
+        SPLIT: SPLIT, splitDaPuntatore: splitDaPuntatore, splitDaTasto: splitDaTasto, splitLeggi: splitLeggi
     };
 }));

@@ -65,6 +65,7 @@ function dom() {
   return { document, text: () => $('body').text(), html: () => $.html() };
 }
 
+const SPENTI_0089 = new Set(['mappai_banco_veste', 'mappai_affermazioni', 'mappai_quarantena']);
 function runtime(opts = {}) {
   const d = dom(), calls = { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 }, saved = { manifest: null, map: clone(DB), version: 0 };
   const st = { activeVaultPath: '/vault', db: clone(DB), sources: [], _pdfPagine: [], _reviewRevision: null };
@@ -93,11 +94,286 @@ function runtime(opts = {}) {
   const ctx = vm.createContext({ window, appState: st, document: d.document, console, TextDecoder, Uint8Array,
     atob: value => Buffer.from(value, 'base64').toString('binary'),
     StorageManager: { currentProjectId: 'project', saveCurrentProject: () => { calls.cache++; } },
-    localStorage: opts.localStorage || { getItem: () => null } });
+    // packet 0089 (ADR 0020): veste, affermazioni e quarantena accese senza chiave; qui il default è il '0' esplicito (inv. 1)
+    localStorage: opts.localStorage || { getItem: k => (SPENTI_0089.has(k) ? '0' : null) } });
   vm.runInContext(fs.readFileSync(require.resolve('../public/js/mappai-review.js'), 'utf8'), ctx);
-  return { R: window.MappAIReview, window, st, calls, saved, dom: d, opts };
+  return { R: window.MappAIReview, window, st, calls, saved, dom: d, opts,
+    load: file => vm.runInContext(fs.readFileSync(require.resolve('../public/js/' + file), 'utf8'), ctx) };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+function setupJudge() {
+  const profile = require('../tools/smoke/modelli-per-fase').profile();
+  profile.modelli.giudice = 'google/gemma-4-31B-it';
+  const values = new Map([['mappai_multimodello', '1'], ['mappai_modelli_infomaniak', JSON.stringify(profile)]]);
+  const h = runtime({ localStorage: { getItem: k => values.get(k) || null, setItem: (k, v) => values.set(k, v) } });
+  h.st.aiProvider = 'infomaniak'; h.st.infomaniakProductId = 'private-product';
+  h.window.MappAIModelliCore = require('../public/js/mappai-modelli-core');
+  h.window.getProviderKey = () => 'private-key';
+  h.window.fetchEmbeddings = async () => { throw new Error('Unexpected embeddings call'); };
+  const calls = [];
+  h.window.fetchModelAPI = async (_payload, key, ctx) => {
+    calls.push({ ...ctx, key });
+    return { _mappaiAI: { provider: ctx.provider, phase: ctx.phase, requestedModel: ctx.model,
+      actualModel: ctx.model, runId: ctx.runId } };
+  };
+  h.load('mappai-modelli.js');
+  const partial = { stato: 'parziale', copertura: { nodiEsaminati: ['a'], nodiSaltati: [{ id: 'b' }],
+    linkEsaminati: [], linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'prova mancante' }] } };
+  const m = manifest(Core.setDecision(initial({ ...initial().initial.report, ...partial, checkStatus: 'incomplete' }), 'issue', 'reject'));
+  m.config.modelli = clone(profile); m.config.modelli.modelli.giudice = 'mistralai/Mistral-Small-4-119B-2603';
+  m.modelliGiro = { runId: 'generation-original', profilo: clone(m.config.modelli), chiamate: [] };
+  h.st._pipelineManifest = m; h.st._judgeReport = h.st._giudiceReport = m.review.initial.report;
+  h.window.executeJudgePass = async (key, opts, giro) => {
+    // Packet 0026: «Riprova» passa anche il rapporto precedente (ripresa mirata);
+    // un nuovo controllo dal Setup no.
+    assert.equal(key, null); assert.deepEqual({ enabled: opts.enabled, apply: opts.apply }, { enabled: true, apply: false });
+    assert.ok(!opts.rapportoPrecedente || opts.rapportoPrecedente === h.m.review.initial.report ||
+      clone(opts.rapportoPrecedente).stato === 'parziale');
+    assert.deepEqual(clone(h.st._generationSources), Core.sourceSnapshot(SOURCES));
+    assert.equal(h.st.db.nodes[0].desc, 'Prima.');
+    h.st._judgeReport = h.st._giudiceReport = clone(partial);
+    await giro.chat('giudice', {});
+    return h.st._judgeReport;
+  };
+  return Object.assign(h, { m, values, profile, aiCalls: calls });
+}
+
+function fullSourceReport() {
+  const proof = { evidenzaId: 'ev-original-2', docId: 'pdf-1', sourceRevision: 'revision-original', recordId: 'record-2',
+    start: 0, end: 42, page: 2, title: '<img src=x onerror=bad()>', source: 'pagina 2', text: 'Testo originale <script>bad()</script>.', verbatim: true };
+  return { contratto: 'mappai-giudice@2', stato: 'parziale', quando: '2026-09-25T00:00:00Z',
+    fonte: { schema: 'mappai-fonti-giudice@1', revisione: 'registry-1', fornita: true,
+      copertura: { pagineTotali: 6, pagineConTesto: 5, pagineVuote: 1, pagineNonNumerate: 0, caratteri: 9000 }, diagnostica: [] },
+    copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [], linkEsaminati: [{ source: 'a', target: 'b', rel: 'richiede' }],
+      linkSaltati: [{ source: 'b', target: 'a', rel: 'determina', motivo: 'Il testo non chiarisce la direzione.' },
+        { source: 'a', target: 'b', rel: 'causa', motivo: 'ID non ammesso.' }] },
+    esitiLink: [{ source: 'a', target: 'b', rel: 'richiede', esito: 'sostenuto', problema: 'Il rapporto è descritto nel passaggio.', prove: [proof.evidenzaId], evidenze: [proof] },
+      { source: 'b', target: 'a', rel: 'determina', esito: 'non_verificabile', problema: 'Il testo non chiarisce la direzione.', prove: [], evidenze: [] }] };
+}
+
+test('full-source report shows provenance, extraction limits and uncertainty separately from technical failures', async () => {
+  const h = runtime(), report = fullSourceReport(), m = manifest(initial(report));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m), evidence = modal.querySelector('[data-judge-evidence]');
+  assert.match(modal.querySelector('#mrv-judge-model-result').textContent, /Descrizioni esaminate: 2/);
+  assert.match(evidence.textContent, /Pagine con testo disponibili: 5 \/ 6.*Parti prive di testo: 1/);
+  assert.match(evidence.textContent, /non sono automaticamente confermate/);
+  assert.match(evidence.textContent, /Sostenuto dalla fonte/);
+  assert.match(evidence.textContent, /Pagina 2/);
+  assert.equal(evidence.querySelector('[data-judge-proof] blockquote').textContent, report.esitiLink[0].evidenze[0].text);
+  assert.match(evidence.querySelector('[data-judge-proof] details').textContent, /ev-original-2.*revision-original/);
+  assert.equal(evidence.querySelector('script'), null); assert.equal(evidence.querySelector('img'), null);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /Prove insufficienti.*direzione/);
+  assert.match(modal.querySelector('#mrv-unchecked').textContent, /Risposta del controllo non utilizzabile.*ID non ammesso/);
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  await h.R.writeManifest('/vault', m);
+  const next = fullSourceReport(); next.esitiLink[0].esito = 'contraddetto'; next.esitiLink[0].problema = 'Direzione contraddetta.';
+  m.review = Core.mergeRetry(m.review, initial(next)); await h.R.writeManifest('/vault', m);
+  const fresh = runtime(); await fresh.R.restore('/vault', clone(h.saved.manifest));
+  const reopened = fresh.R.open('/vault', fresh.st._pipelineManifest);
+  assert.match(reopened.querySelector('[data-judge-link-outcome="contraddetto"]').textContent, /Contraddetto dalla fonte/);
+  assert.match(reopened.querySelector('#mrv-judge-history').textContent, /Sostenuto dalla fonte.*Testo originale/s);
+  assert.deepEqual(clone(fresh.R.current().initial.previousReports[0]), report);
+});
+
+test('missing or unnumbered source reports never imply that the whole document was checked', () => {
+  for (const supplied of [true, false]) {
+    const h = runtime(), report = fullSourceReport(); report.fonte.fornita = supplied;
+    report.fonte.copertura = { pagineTotali: 1, pagineConTesto: 1, pagineVuote: 0, pagineNonNumerate: 1, caratteri: 100 };
+    report.esitiLink = [];
+    const modal = h.R.open('/vault', manifest(initial(report))), text = modal.querySelector('[data-judge-evidence]').textContent;
+    assert.match(text, /Parti senza numero di pagina: 1/);
+    assert.doesNotMatch(text, /Pagina 1|100%|Pagine con testo/);
+    assert.match(text, supplied ? /Testo originale fornito/ : /non è stato fornito/);
+  }
+});
+
+test('a rejected description finding names the uncovered node and its reason without changing legacy reports', () => {
+  for (const legacy of [false, true]) {
+    const h = runtime(), report = fullSourceReport();
+    report.esitiLink = []; report.copertura.linkSaltati = []; report.copertura.linkEsaminati = [];
+    report.copertura.nodiEsaminati = ['b']; report.copertura.nodiSaltati = [{ id: 'a', motivo: 'riferimento della prova non ammesso <script>bad()</script>' }];
+    if (legacy) delete report.contratto;
+    const modal = h.R.open('/vault', manifest(initial(report))), list = modal.querySelector('[data-judge-unchecked-nodes]');
+    if (legacy) assert.equal(list, null);
+    else {
+      assert.match(list.textContent, /Germania: Descrizione da controllare · riferimento della prova non ammesso/);
+      assert.equal(list.querySelector('script'), null);
+      assert.match(modal.querySelector('#mrv-unchecked').textContent, /Parti ancora da controllare: 1/);
+      assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+    }
+  }
+});
+
+test('empty pages or uncertain extraction order explain why zero target residuals still leave a partial check', () => {
+  for (const reason of ['empty-page', 'extraction-order']) {
+    const h = runtime(), report = fullSourceReport();
+    report.esitiLink = []; report.copertura.linkSaltati = []; report.copertura.nodiSaltati = [];
+    if (reason === 'extraction-order') {
+      report.fonte.copertura.pagineVuote = 0; report.fonte.copertura.pagineConTesto = 6;
+      report.fonte.diagnostica = [{ code: 'extraction_order' }];
+    }
+    const modal = h.R.open('/vault', manifest(initial(report)));
+    assert.match(modal.querySelector('#mrv-judge-model-result').textContent, /Parti ancora da controllare: 0/);
+    assert.match(modal.querySelector('[data-judge-evidence]').textContent, /resta parziale per i limiti del testo estratto, anche se non ci sono descrizioni o collegamenti ancora da controllare/);
+    assert.equal(modal.querySelector('#mrv-coverage-label').textContent, 'Parziale');
+    assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  }
+});
+
+test('rechecking an approved edited map uses its source snapshot and restores the caller on success or failure', async () => {
+  for (const fail of [false, true]) {
+    const h = runtime(), begun = Core.beginApproval(initial({ checkStatus: 'completed', issues: [] }), DB);
+    const m = manifest(Core.completeApproval(begun.review, begun.revision)); h.st._pipelineManifest = m;
+    h.st.db.nodes[0].desc = 'Una modifica successiva.';
+    const other = [{ title: 'Altra fonte', content: 'Non appartiene alla revisione.' }]; h.st._generationSources = other;
+    const oldReview = m.review, pages = h.st._pdfPagine, sources = h.st.sources;
+    h.window.executeJudgePass = async (_key, opts) => {
+      assert.equal(opts.apply, false);
+      assert.deepEqual(clone(h.st._generationSources), Core.sourceSnapshot(SOURCES));
+      assert.equal(h.st.db.nodes[0].desc, 'Una modifica successiva.');
+      if (fail) throw new Error('controllo non disponibile');
+      return fullSourceReport();
+    };
+    if (fail) await assert.rejects(h.R.requireApproved(), /controllo non disponibile/);
+    else {
+      assert.equal(await h.R.requireApproved(), false);
+      assert.deepEqual(clone(m.review.previous), clone(oldReview));
+      assert.equal(m.review.initial.report.contratto, 'mappai-giudice@2');
+    }
+    assert.equal(h.st._generationSources, other); assert.equal(h.st._pdfPagine, pages); assert.equal(h.st.sources, sources);
+    assert.equal(h.calls.map + h.calls.pipeline, 0);
+    if (fail) assert.equal(m.review, oldReview);
+  }
+});
+
+test('new Setup check: cancel is inert; preview is frozen, history and decisions survive reload', async () => {
+  const h = setupJudge(), before = clone(h.m), pages = h.st._pdfPagine, sources = h.st.sources;
+  const modal = h.R.open('/vault', h.m);
+  await modal.querySelector('#mrv-setup-judge').click();
+  assert.match(modal.querySelector('#mrv-setup-preview').textContent, /gemma-4.*Mistral-Small/s);
+  assert.match(modal.querySelector('#mrv-setup-preview').textContent, /prima delle correzioni/);
+  await modal.querySelector('#mrv-setup-cancel').click();
+  assert.equal(h.aiCalls.length + h.calls.manifest, 0);
+  assert.deepEqual(clone(h.m), before);
+  await modal.querySelector('#mrv-setup-judge').click();
+  h.profile.modelli.giudice = 'different-after-preview'; h.window.MappAIModelli.salvaProfilo(h.profile);
+  const confirm = modal.querySelector('#mrv-manual-confirm'); confirm.checked = true; confirm.onchange();
+  await modal.querySelector('#mrv-setup-start').click();
+  assert.equal(h.aiCalls.length, 1); assert.equal(h.aiCalls[0].model, 'google/gemma-4-31B-it');
+  assert.equal(h.aiCalls[0].phase, 'giudice'); assert.equal(h.aiCalls[0].vaultPath, '/vault');
+  assert.notEqual(h.aiCalls[0].runId, before.modelliGiro.runId);
+  assert.deepEqual(clone(h.m.config), before.config); assert.deepEqual(clone(h.m.modelliGiro), before.modelliGiro);
+  assert.deepEqual(clone(h.m.review.initial.decisions), before.review.initial.decisions);
+  assert.deepEqual(clone(h.m.review.initial.previousReports), [before.review.initial.report]);
+  assert.equal(h.m.review.initial.checkStatus, 'incomplete');
+  assert.equal(h.st._pdfPagine, pages); assert.equal(h.st.sources, sources);
+  assert.equal(Object.hasOwn(h.st, '_generationSources'), false);
+  assert.equal(h.R.isBusy(), false); assert.equal(h.calls.map + h.calls.pipeline, 0);
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  assert.match(modal.querySelector('#mrv-status').textContent, /spunta/);
+  assert.match(modal.querySelector('#mrv-judge-model-result').textContent, /gemma-4.*→.*gemma-4/);
+  assert.match(modal.querySelector('#mrv-judge-model-result').textContent, /Collegamenti controllati: 0/);
+  assert.match(modal.querySelector('#mrv-judge-history').textContent, /Modello non registrato/);
+  assert(!JSON.stringify(h.saved.manifest).includes('private-'));
+  const fresh = runtime(); await fresh.R.restore('/vault', clone(h.saved.manifest));
+  const reopened = fresh.R.open('/vault', fresh.st._pipelineManifest);
+  assert.match(reopened.querySelector('#mrv-judge-model-result').textContent, /gemma-4/);
+  assert.equal(fresh.st._judgeReport, fresh.R.current().initial.report);
+  // Ordinary retry continues to request the saved model even after a new check.
+  await h.R.retryJudge('/vault', h.m);
+  assert.equal(h.aiCalls[1].model, 'mistralai/Mistral-Small-4-119B-2603');
+  assert.match(h.R.open('/vault', h.m).querySelector('#mrv-judge-history').textContent, /gemma-4/);
+});
+
+test('new check locks actions, starts once, and requires a new preview after a failed save', async () => {
+  const h = setupJudge(), modal = h.R.open('/vault', h.m), old = h.m.review;
+  let release;
+  const execute = h.window.executeJudgePass;
+  h.window.executeJudgePass = async (...args) => { await new Promise(resolve => { release = resolve; }); return execute(...args); };
+  await modal.querySelector('#mrv-setup-judge').click();
+  const button = modal.querySelector('#mrv-setup-start'), attempt = button.click(); await tick();
+  assert.equal(h.R.isBusy(), true); assert.equal(button.disabled, true);
+  assert.equal(modal.querySelector('#mrv-later').disabled, true);
+  await button.click(); h.opts.failSave = true; release(); await attempt;
+  assert.equal(h.aiCalls.length, 1); assert.equal(h.m.review, old);
+  assert.equal(h.R.isBusy(), false); assert.equal(modal.querySelector('#mrv-setup-judge').hidden, false);
+  assert.match(modal.querySelector('#mrv-status').textContent, /Disco/);
+  assert.equal(modal.querySelector('#mrv-later').disabled, false);
+});
+
+test('new Setup check cannot start while a teacher decision has an unresolved save failure', async () => {
+  const h = setupJudge(), modal = h.R.open('/vault', h.m); h.opts.failSave = true;
+  await modal.querySelector('[data-review-filter=decided]').click();
+  await modal.querySelectorAll('[data-actions] button').find(b => b.textContent === 'Annulla decisione').click();
+  assert.equal(modal.querySelector('#mrv-save-retry').hidden, false);
+  await modal.querySelector('#mrv-setup-judge').click();
+  assert.equal(h.aiCalls.length, 0);
+  assert.match(modal.querySelector('#mrv-status').textContent, /Disco/);
+});
+
+test('Setup check preflight: disabled phases, key, Product ID and judge errors stay visible without calls', async () => {
+  for (const [change, expected] of [
+    [h => h.window.MappAIModelli.spegni(), /Attiva/],
+    [h => { h.window.getProviderKey = () => ''; }, /Chiave/],
+    [h => { h.st.infomaniakProductId = ''; }, /Product ID/],
+    [h => { h.profile.modelli.giudice = null; h.window.MappAIModelli.salvaProfilo(h.profile); }, /Assegna/]
+  ]) {
+    const h = setupJudge(), before = clone(h.m); change(h);
+    const modal = h.R.open('/vault', h.m); await modal.querySelector('#mrv-setup-judge').click();
+    assert.match(modal.querySelector('#mrv-status').textContent, expected);
+    assert.equal(h.aiCalls.length + h.calls.manifest, 0); assert.deepEqual(clone(h.m), before);
+  }
+});
+
+test('new check preserves the previous report and source context on AI or write failure', async () => {
+  for (const kind of ['ai', 'write', 'empty']) {
+    const h = setupJudge(), old = h.m.review, oldReport = h.st._judgeReport, pages = h.st._pdfPagine;
+    if (kind === 'write') h.opts.failSave = true;
+    if (kind !== 'write') h.window.executeJudgePass = async () => {
+      h.st._judgeReport = h.st._giudiceReport = { stato: 'in-corso' };
+      if (kind === 'ai') throw new Error('model unavailable');
+      return null;
+    };
+    const prepared = h.R.prepareSetupJudge('/vault', h.m);
+    await assert.rejects(prepared.run(), /Disco|model unavailable|rapporto/);
+    assert.equal(h.m.review, old); assert.equal(h.st._pipelineManifest, h.m);
+    assert.equal(h.st._judgeReport, oldReport); assert.equal(h.st._giudiceReport, oldReport);
+    assert.equal(h.st._pdfPagine, pages); assert.equal(h.R.isBusy(), false);
+    assert.equal(h.saved.manifest, null);
+    await assert.rejects(prepared.run(), /anteprima/);
+  }
+});
+
+test('new check refuses a changed review, base or project after preview and during the call', async () => {
+  for (const timing of ['preview', 'call']) for (const kind of ['decision', 'base', 'project']) {
+    const h = setupJudge(), prepared = h.R.prepareSetupJudge('/vault', h.m);
+    const change = () => {
+      if (kind === 'decision') h.m.review = Core.setDecision(h.m.review, 'issue', 'accept');
+      if (kind === 'base') h.st.db.nodes[0].desc = 'Changed by teacher';
+      if (kind === 'project') { h.st.activeVaultPath = '/other'; h.st.sources = ['other sources']; h.st._judgeReport = { project: 'other' }; }
+    };
+    if (timing === 'preview') change();
+    else {
+      const execute = h.window.executeJudgePass;
+      h.window.executeJudgePass = async (...args) => { const report = await execute(...args); change(); return report; };
+    }
+    await assert.rejects(prepared.run(), /cambiato/);
+    assert.equal(h.calls.manifest, 0); assert.equal(h.R.isBusy(), false);
+    if (kind === 'decision') assert.equal(h.m.review.initial.decisions.issue.choice, 'accept');
+    if (kind === 'base') assert.equal(h.st.db.nodes[0].desc, 'Changed by teacher');
+    if (kind === 'project') { assert.deepEqual(h.st.sources, ['other sources']); assert.deepEqual(h.st._judgeReport, { project: 'other' }); }
+  }
+});
+
+test('new check is unavailable on an approved map; a complete pending check can be checked again', () => {
+  const h = setupJudge(); h.m.review.initial.checkStatus = 'completed';
+  assert(h.R.open('/vault', h.m).querySelector('#mrv-setup-judge'));
+  h.m.review.initial.status = 'approved';
+  assert.equal(h.R.open('/vault', h.m).querySelector('#mrv-setup-judge'), null);
+  assert.throws(() => h.R.prepareSetupJudge('/vault', h.m), /cambiato/);
+});
 
 test('link editor saves a manual decision and Undo persists without changing the base map', async () => {
   const h = runtime(), m = manifest(Core.setDecision(initial(), 'issue', 'reject'));
@@ -302,6 +578,15 @@ test('the Banco skin adds the source column, handle and text size without changi
   assert.ok(modal.querySelector('.mrv-colonne #mrv-fonte'), 'the source column sits beside the cards');
   assert.ok(modal.querySelector('.mrv-carte #mrv-content'), 'cards keep their container and ids');
   assert.equal(modal.querySelector('#mrv-maniglia').getAttribute('aria-controls'), 'mrv-sidebar');
+  // testata ad altezza fissa (25/9/26): il testo intero compare al passaggio del mouse SOLO se accorciato
+  const testata = modal.querySelector('.mrv-header');
+  const accorciato = { textContent: 'Controllo in corso… (3/12)', scrollWidth: 400, clientWidth: 120, title: '' };
+  const intero = { textContent: '1 / 2 decise', scrollWidth: 90, clientWidth: 120, title: 'testo di prima' };
+  testata.listeners.mouseover({ target: { closest: () => accorciato } });
+  testata.listeners.mouseover({ target: { closest: () => intero } });
+  testata.listeners.mouseover({ target: { closest: () => null } });
+  assert.equal(accorciato.title, 'Controllo in corso… (3/12)');
+  assert.equal(intero.title, '', 'a text that fits gets no tooltip, and a stale one is cleared');
   // il divisore fra fonte e schede (17/9/26): un separatore da tastiera; Invio chiude la fonte e la riapre
   const divisore = modal.querySelector('.mrv-colonne .mrv-divisore'), colonne = modal.querySelector('.mrv-colonne');
   assert.equal(divisore.getAttribute('role'), 'separator');
@@ -1050,10 +1335,12 @@ test('G2 exposes every unchecked material without creating findings or modifying
   const details = modal.querySelector('#mrv-material-coverage');
   assert.equal(details.querySelectorAll('[data-coverage-item]').length, 105);
   assert.match(details.textContent, /Domanda salvata 104/);
-  assert.match(details.textContent, /HTTP 400: schema non valido/);
-  assert.match(details.textContent, /Il controllo automatico non è completo/);
+  // 0053 (Giacomo, 27/09): la causa tecnica non si mostra al docente — un pallino per materiale e una legenda sola
+  assert.doesNotMatch(details.textContent, /HTTP 400: schema non valido|Il controllo automatico non è completo|Dettaglio del controllo/);
   assert.doesNotMatch(details.textContent, /interrotto per un problema tecnico/);
-  assert.equal(details.querySelector('.mrv-coverage-technical').getAttribute('open'), undefined);
+  assert.equal(!!details.querySelector('.mrv-coverage-technical'), false);
+  assert.equal(details.querySelectorAll('[data-coverage-pallino]').length, 105);
+  assert.equal(details.querySelectorAll('[data-coverage-legenda]').length, 1);
   assert.doesNotMatch(h.dom.text(), /Nessuna proposta di correzione\. Puoi leggere i contenuti e continuare\./);
   assert.equal(modal.querySelector('#mrv-filters').hidden, true);
   assert.equal(modal.querySelector('#mrv-filter-count').hidden, true);
@@ -1107,6 +1394,9 @@ const currentCard = modal => modal.querySelector('[data-review-card]:not([hidden
 
 test('dashboard keeps fifty findings in a navigable queue, displays one card and advances only after saving', async () => {
   const h = dashboardReview(50), { modal } = h;
+  // testata del 25/9/26: titolo breve e due fasi sole («Pronti da usare» e il pallino 3 tolti)
+  assert.equal(modal.querySelector('#mrv-title').textContent, 'Revisione pre-materiali');
+  assert.deepEqual(Array.from(modal.querySelectorAll('.mrv-stages li'), li => li.textContent), ['1Contenuti', '2Materiali']);
   assert.equal(modal.querySelectorAll('[data-review-issue]').length, 50);
   assert.equal(modal.querySelectorAll('[data-review-card]:not([hidden])').length, 1);
   assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd0');
@@ -1115,7 +1405,7 @@ test('dashboard keeps fifty findings in a navigable queue, displays one card and
   assert.equal(h.saved.manifest.review.initial.decisions.d0.choice, 'accept');
   assert.equal(currentCard(modal).getAttribute('data-review-card'), 'd1');
   assert.equal(modal.querySelectorAll('[data-review-issue]').length, 49);
-  assert.equal(modal.querySelector('#mrv-progress-label').textContent, '1 / 50 segnalazioni decise');
+  assert.equal(modal.querySelector('#mrv-progress-label').textContent, '1 / 50 decise');
   assert.equal(modal.querySelector('#mrv-progress').getAttribute('value'), '2');
   assert.equal(h.dom.document.activeElement.id, 'mrv-current-title');
   await modal.querySelector('#mrv-next').click();
@@ -1643,9 +1933,13 @@ test('0015 recorded validation causes remain distinct from network failures in t
   r.initial.report={checkStatus:'incomplete',coverage:{expectedIds:items.slice(38).map(i=>i.id),checkedIds:[],skipped:items.slice(38).map((i,n)=>({id:i.id,reason:reasons[n<36?0:n<54?1:2]}))}};
   const before=clone(r.initial.report),modal=h.R.open('/vault',m,{final:true});
   assert.equal(modal.querySelectorAll('[data-coverage-item]').length,57);
-  assert.match(modal.querySelector('[data-coverage-item="n38"]').textContent,/identificativi che non corrispondono/);
-  assert.match(modal.querySelector('[data-coverage-item="n74"]').textContent,/esito verificabile per tutte le affermazioni/);
-  assert.match(modal.querySelector('[data-coverage-item="n92"]').textContent,/segnalazione che non è stato possibile verificare/);
+  /* 0053 (Giacomo, 27/09): le cause restano distinte nel rapporto (deepEqual qui sotto, e il classificatore in
+     review-context.test.js), ma al docente arriva un pallino «Revisione necessaria», uguale per tutte */
+  for (const id of ['n38','n74','n92']) {
+    const riga=modal.querySelector('[data-coverage-item="'+id+'"]');
+    assert.doesNotMatch(riga.textContent,/identificativi|ID estranei|esito verificabile|non è stato possibile verificare|non è verificabile|Dettaglio del controllo|Il materiale è conservato/);
+    assert.equal(riga.querySelector('summary [data-coverage-pallino]').getAttribute('aria-label'),'Revisione necessaria');
+  }
   assert.doesNotMatch(modal.textContent,/interrotto per un problema tecnico|errore di rete/);
   assert.equal(modal.querySelector('#mrv-continue').hidden,true);
   assert.deepEqual(clone(r.initial.report),before);
@@ -1670,4 +1964,1148 @@ test('0015 a report referring to a missing material remains readable and cannot 
   assert.match(modal.querySelector('[data-coverage-item="unknown-item"]').textContent,/non è disponibile nella bozza salvata/);
   assert.equal(modal.querySelector('[data-coverage-approve="unknown-item"]'),null);
   assert.equal(modal.querySelector('#mrv-continue').hidden,true);
+});
+
+test('0026: «Riprova» passa il rapporto precedente e mostra «Lotto k di N» su #mrv-status', async () => {
+  const h = runtime(), partial = { stato: 'parziale', copertura: {
+    nodiEsaminati: ['b'], linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'risposta interrotta al tetto' }]
+  }, issues: [] };
+  const m = manifest(initial(partial));
+  const modal = h.R.open('/vault', m), previous = m.review.initial.report, seen = [];
+  h.window.executeJudgePass = async (_key, opts) => {
+    assert.equal(opts.rapportoPrecedente, previous, 'la ripresa mirata riceve il rapporto salvato');
+    opts.onProgress({ lotto: 2, totale: 12, etichetta: 'Difesa Militare', modo: 'mirata', daRifare: 3 });
+    seen.push(modal.querySelector('#mrv-status').textContent);
+    opts.onProgress({ lotto: 5, totale: 12, etichetta: 'ROOT', modo: 'completa', daRifare: 12 });
+    seen.push(modal.querySelector('#mrv-status').textContent);
+    return clone(partial);
+  };
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.match(seen[0], /Lotto 2 di 12 · Difesa Militare · si ripetono solo i lotti non riusciti \(3\)/);
+  assert.match(seen[1], /Lotto 5 di 12 · ROOT$/);
+  assert.equal(m.review.initial.checkStatus, 'incomplete');
+  assert.equal(m.review.initial.previousReports.length, 1, 'il rapporto precedente resta nello storico');
+});
+
+test('0026: il nuovo controllo dal Setup mostra l’avanzamento e non passa un rapporto precedente', async () => {
+  const h = setupJudge(), modal = h.R.open('/vault', h.m), seen = [];
+  const execute = h.window.executeJudgePass;
+  h.window.executeJudgePass = async (key, opts, giro) => {
+    assert.equal(opts.rapportoPrecedente, undefined);
+    opts.onProgress({ lotto: 1, totale: 4, etichetta: 'Economia' });
+    seen.push(modal.querySelector('#mrv-status').textContent);
+    return execute(key, opts, giro);
+  };
+  await modal.querySelector('#mrv-setup-judge').click();
+  await modal.querySelector('#mrv-setup-start').click();
+  assert.match(seen[0], /Controllo in corso.*Lotto 1 di 4 · Economia/);
+  assert.equal(h.aiCalls.length, 1);
+});
+
+/* ── Packet 0053 (Giacomo, 27/09) ─────────────────────────────────────────────
+   Nel G2 un pallino «Revisione necessaria» accanto a ogni materiale ancora da
+   rileggere, e una legenda sola in cima al riquadro. Approvato: l'icona di oggi,
+   niente pallino. Escluso: niente pallino. Nessun testo tecnico nelle schede. */
+test('0053: pallino solo sui materiali da rileggere, legenda una volta sola, nessun testo tecnico', async () => {
+  const h = stalledMaterialFixture(), modal = h.R.open('/vault', h.m, { final: true });
+  for (let i = 240; i < 245; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  await modal.querySelector('[data-coverage-exclude="material-246"]').click();
+  const box = modal.querySelector('#mrv-material-coverage');
+  const righe = box.querySelectorAll('[data-coverage-item]');
+  for (const riga of righe) {
+    const id = riga.getAttribute('data-coverage-item'), n = Number(id.split('-')[1]);
+    const pallino = riga.querySelector('summary [data-coverage-pallino]'), approvato = riga.querySelector('summary [data-teacher-approved]');
+    // booleani: un oggetto del DOM finto in un messaggio d'errore fa girare Node all'infinito
+    if (n >= 240 && n < 245) { assert.equal(!!approvato, true, id + ' approvato: l’icona'); assert.equal(!!pallino, false, id + ' approvato: niente pallino'); }
+    else if (n === 246) assert.equal(!!pallino, false, 'escluso: niente pallino');
+    else { assert.equal(!!pallino, true, id + ' da rileggere: il pallino'); assert.equal(pallino.getAttribute('role'), 'img'); assert.equal(pallino.getAttribute('aria-label'), 'Revisione necessaria'); }
+    assert.equal(!!riga.querySelector('.mrv-coverage-technical'), false, id + ': niente «Dettaglio del controllo»');
+  }
+  const legende = box.querySelectorAll('[data-coverage-legenda]');
+  assert.equal(legende.length, 1);
+  assert.match(legende[0].textContent, /Revisione necessaria/);
+  assert.match(legende[0].textContent, /Approvato da te/);
+  assert.doesNotMatch(box.textContent, /identificativi|ID estranei|Dettaglio del controllo|Il materiale è conservato/);
+  // Giacomo, 27/09 (via ADMIN): «Questo numero conta i materiali…» esce subito — il «non sono errori» lo dice la legenda
+  assert.doesNotMatch(box.textContent, /Questo numero conta i materiali/);
+});
+
+/* ── Packet 0042: lo strato delle affermazioni nel Banco ──────────────────────
+   Il core vero (require), la cucitura e le superfici vere caricate nel contesto.
+   Ogni runtime ha la SUA copia di review-core: l'avvolgimento del gate non esce. */
+function conStrato(h) {
+  h.window.MappAIReviewCore = Object.assign({}, Core);
+  h.window.MappAIAffermazioniCore = require('../public/js/mappai-affermazioni-core');
+  h.load('mappai-affermazioni.js');
+  h.load('mappai-affermazioni-ui.js');
+  return h;
+}
+const ACCESO = (extra = {}) => { const v = Object.assign({ mappai_affermazioni: '1', mappai_quarantena: '1' }, extra); return { getItem: k => (k in v ? v[k] : null), setItem: (k, x) => { v[k] = String(x); } }; };
+function rapportoStrato() {
+  return { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'issue', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Testo da correggere.', evidence: [{ source: 'Libro.pdf', page: 4, text: 'dopo.' }] }] };
+}
+
+test('0042: da spento lo strato caricato lascia il Banco identico byte per byte — coda, piede, copertura', () => {
+  for (const report of [undefined, rapportoStrato()]) {
+    const a = runtime(), ma = manifest(initial(report)); a.st._pipelineManifest = ma;
+    const b = conStrato(runtime()), mb = manifest(initial(report)); b.st._pipelineManifest = mb;
+    assert.equal(b.window.MappAIReviewCore.gate.__quarantena, true);
+    a.R.open('/vault', ma); b.R.open('/vault', mb);
+    assert.equal(b.dom.html(), a.dom.html());
+    assert.equal(b.dom.document.getElementById('mrv-next-step').textContent, a.dom.document.getElementById('mrv-next-step').textContent);
+    assert.equal(b.dom.document.getElementById('mrv-coverage-label').textContent, a.dom.document.getElementById('mrv-coverage-label').textContent);
+  }
+  // e in G2 lo strato non c'è nemmeno da acceso
+  const g2 = conStrato(runtime({ localStorage: ACCESO() })), m = manifest();
+  m.review.final = { stage: 'awaiting_review', items: [], review: Core.createReview({ db: { items: [] }, sources: SOURCES, report: { checkStatus: 'completed', issues: [] } }) };
+  const modal = g2.R.open('/vault', m, { final: true });
+  assert.equal(modal.querySelector('[data-aff-blocco]'), null);
+});
+
+test('0042: da acceso compaiono lo stato della segnalazione esclusa, il piede e il blocco in sola lettura', async () => {
+  const h = conStrato(runtime({ localStorage: ACCESO() })), m = manifest(initial(rapportoStrato()));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  assert.equal(modal.querySelector('[data-review-issue="issue"] .mrv-queue-state').textContent, 'Fuori dai materiali finché non decidi');
+  assert.match(modal.querySelector('#mrv-next-step').textContent, /Non serve decidere tutto per creare i materiali/);
+  assert.match(modal.querySelector('#mrv-coverage-label').textContent, /^Completa · descrizioni esaminate in almeno un giro: 2 \/ 2$/);
+  const blocco = modal.querySelector('#mrv-coverage-details [data-aff-blocco]');
+  assert.ok(blocco, 'il blocco «Affermazioni delle descrizioni»');
+  assert.match(blocco.textContent, /Affermazioni delle descrizioni/);
+  assert.match(blocco.querySelector('[data-aff-conteggi]').textContent, /1 fuori dai materiali/);
+  assert.match(blocco.querySelector('[data-aff-nota]').textContent, /non è una frase verificata/);
+  assert.ok(!/verificat[ae] dalla fonte|frase verificata:/.test(blocco.querySelector('[data-aff-conteggi]').textContent), 'mai «verificata» (inv. 22)');
+  const fuori = blocco.querySelector('[data-corsia="fuori-contestata"]');
+  assert.ok(fuori && /Prima\./.test(fuori.textContent) && /contestata dal controllo/.test(fuori.textContent));
+  assert.notEqual(blocco.querySelector('[data-aff-gruppo="fuori"]').getAttribute('open'), undefined, 'il gruppo «fuori» è aperto');
+  // in sola lettura: nessun bottone di decisione, solo la strada verso la segnalazione
+  assert.deepEqual(blocco.querySelectorAll('button').map(b => b.getAttribute('data-aff-vai')), ['issue']);
+  assert.equal(blocco.querySelectorAll('[data-review-choice]').length, 0);
+  assert.equal(h.calls.manifest, 0, 'aprire il Banco non scrive niente');
+  // la decisione cambia lo stato: la voce non è più «da decidere»
+  await modal.querySelector('[data-review-card="issue"] [data-review-choice="reject"]').click();
+  await tick();
+  assert.doesNotMatch(modal.querySelector('#mrv-coverage-details [data-aff-blocco]').textContent, /Fuori dai materiali finché non decidi/);
+  // solo lo strato, senza quarantena: il blocco dice che cosa resterebbe fuori, la coda e il piede restano quelli di oggi
+  const solo = conStrato(runtime({ localStorage: ACCESO({ mappai_quarantena: '0' }) })), ms = manifest(initial(rapportoStrato()));
+  solo.st._pipelineManifest = ms;
+  const vista = solo.R.open('/vault', ms);
+  assert.equal(vista.querySelector('[data-review-issue="issue"] .mrv-queue-state').textContent, 'Da decidere');
+  assert.doesNotMatch(vista.querySelector('#mrv-next-step').textContent, /Non serve decidere tutto/);
+  assert.match(vista.querySelector('[data-aff-blocco]').textContent, /Resterebbero fuori dai materiali con la quarantena/);
+});
+
+test('0042 giro 1: le parole dicono solo ciò che si sa — nodo senza frase indicata, collegamento non esaminato', () => {
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo',
+    copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [], linkEsaminati: [], linkSaltati: [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'tempo scaduto' }] },
+    issues: [{ id: 'vaga', target: { kind: 'node', id: 'b', field: 'desc' }, problem: 'Tono troppo netto' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() })), m = manifest(initial(report));
+  h.st._pipelineManifest = m;
+  const blocco = h.R.open('/vault', m).querySelector('#mrv-coverage-details [data-aff-blocco]');
+  const fuori = blocco.querySelector('[data-corsia="fuori-contestata"]');
+  assert.ok(fuori && /Altro testo\./.test(fuori.textContent));
+  assert.match(fuori.textContent, /il controllo ha segnalato il nodo senza dire quale frase/);
+  assert.doesNotMatch(fuori.textContent, /contestata dal controllo/);
+  assert.match(blocco.querySelector('[data-aff-conteggi]').textContent, /1 collegamenti che il controllo non ha esaminato/);
+  assert.doesNotMatch(blocco.querySelector('[data-aff-conteggi]').textContent, /collegamenti da decidere/);
+  assert.doesNotMatch(blocco.textContent, /[Ss]critte da te/);
+});
+
+test('0042: il Banco aperto con `alza` chiede il piano al motore; senza, resta quello di sempre', () => {
+  const h = runtime(), m = manifest();
+  h.window.MappAIModal = { prossimoZ: () => 12345 };
+  const alzato = h.R.open('/vault', m, { alza: true });
+  assert.equal(alzato.style.zIndex, '12345');
+  const normale = h.R.open('/vault', m);
+  assert.equal(normale.style.zIndex, undefined);
+});
+
+test('0042: un ricontrollo con `final` conserva bozze, final.review e consegne, e toglie il record della quarantena', async () => {
+  const h = conStrato(runtime()), r = initial({ checkStatus: 'incomplete', issues: [{ id: 'existing', target: { kind: 'node', id: 'a' }, after: 'Dopo.' }] });
+  const m = manifest(r);
+  const g2 = Core.createReview({ db: { items: [{ id: 'q1', kind: 'mc', question: 'Domanda?' }] }, sources: SOURCES, report: { checkStatus: 'completed', issues: [] } });
+  m.review.drafts = { B: { 'mc-auto': { id: 's1', items: [{ id: 'q1' }], quarantena: { firma: 'f1' } } }, C: {} };
+  m.review.final = { stage: 'awaiting_review', items: [{ id: 'q1', kind: 'mc', question: 'Domanda?' }], review: g2, quarantena: { firma: 'f1' } };
+  m.review.deliveries = [{ final: { stage: 'done' } }];
+  m.review.quarantena = { schema: 'mappai-quarantena@1', firma: 'f1', completo: true };
+  const prima = clone(m.review);
+  h.window.executeJudgePass = async () => ({ checkStatus: 'completed', issues: [] });
+  await h.R.retryJudge('/vault', m);
+  assert.deepEqual(clone(m.review.final), prima.final, 'final.review sopravvive al ricontrollo');
+  assert.deepEqual(clone(m.review.drafts), prima.drafts);
+  assert.deepEqual(clone(m.review.deliveries), prima.deliveries);
+  assert.equal(m.review.quarantena, undefined, 'dopo un ricontrollo il record non vale più');
+  assert.equal(m.review.initial.checkStatus, 'completed');
+  assert.deepEqual(clone(h.saved.manifest.review.final), prima.final, 'e sul disco');
+  // anche il nuovo controllo dal Setup
+  const s = conStrato(setupJudge());
+  s.m.review.drafts = clone(prima.drafts); s.m.review.final = clone(prima.final); s.m.review.quarantena = clone(prima.quarantena);
+  const prepared = s.R.prepareSetupJudge('/vault', s.m);
+  await prepared.run();
+  assert.deepEqual(clone(s.m.review.final), prima.final);
+  assert.deepEqual(clone(s.m.review.drafts), prima.drafts);
+  assert.equal(s.m.review.quarantena, undefined);
+  // senza la cucitura, come prima: mergeRetry non porta i materiali
+  const legacy = runtime(), ml = manifest(clone(r));
+  ml.review.final = clone(prima.final);
+  legacy.window.executeJudgePass = async () => ({ checkStatus: 'completed', issues: [] });
+  await legacy.R.retryJudge('/vault', ml);
+  assert.equal(ml.review.final, undefined);
+});
+
+test('0042: il ricontrollo di G2 sotto quarantena confronta i materiali con la vista, non con la mappa', async () => {
+  const PENDENTE = 'La Svizzera pagava in franchi svizzeri tutto il suo oro.';
+  const db = { nodes: [{ id: 'a', label: 'Oro', level: 0, desc: 'La Germania vendeva oro alla Svizzera durante la guerra. ' + PENDENTE },
+    { id: 'b', label: 'Commercio', level: 1, desc: 'La Svizzera commerciava anche con gli Alleati durante la guerra.' }],
+    links: [{ source: 'a', target: 'b', rel: 'include' }], sourcesDict: {} };
+  const fonti = [{ nome: 'Libro.pdf', pages: [{ n: 4, text: 'La Germania vendeva oro alla Svizzera durante la guerra mondiale. La Svizzera commerciava anche con gli Alleati durante tutta la guerra.' }] }];
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const review = Core.createReview({ db, sources: fonti, generationId: 'g', report: { contratto: 'mappai-giudice@2', stato: 'completo',
+    copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'i-oro', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non dice «La Svizzera pagava in franchi svizzeri».' }] } });
+  review.quarantena = require('../public/js/mappai-affermazioni-core').record(review, h.st.db);
+  assert.equal(review.quarantena.completo, true, review.quarantena.motivo);
+  const items = [{ id: 'q1', kind: 'mc', question: 'Chi vendeva oro?', options: ['La Germania', 'La Svizzera'], correctIndex: 0 }];
+  review.final = { stage: 'awaiting_review', items: clone(items), review: Core.createReview({ db: { items }, sources: fonti, report: { checkStatus: 'incomplete', issues: [] } }) };
+  const m = manifest(review); h.st._pipelineManifest = m;
+  let materiale = null;
+  h.window.MappAIMaterialReview = { ...Material, checkRemaining: async (_items, opts) => {
+    materiale = opts.material.material;
+    return { checkStatus: 'completed', coverage: { expectedIds: ['q1'], checkedIds: ['q1'], skipped: [] }, issues: [] };
+  } };
+  await h.R.retryMaterialJudge('/vault', m);
+  assert.ok(materiale, 'il controllo è partito: il cancello avvolto consente con il record');
+  assert.ok(!materiale.split('PASSAGGI ORIGINALI')[0].includes(PENDENTE), 'la frase contestata non è nel riferimento di G2');
+  assert.match(materiale, /La Germania vendeva oro alla Svizzera/);
+  assert.equal(h.st.db.nodes[0].desc, db.nodes[0].desc, 'la mappa non cambia');
+  assert.equal(m.review.final.review.initial.checkStatus, 'completed');
+});
+
+/* ── Packet 0042, giro 2 del 26/09 ────────────────────────────────────────── */
+test('0042 giro 2: dopo «Riprova il controllo» lo strato si ricalcola sulla copertura nuova, anche con le stesse segnalazioni', async () => {
+  const parziale = { contratto: 'mappai-giudice@2', stato: 'parziale',
+    copertura: { nodiEsaminati: ['a'], nodiSaltati: [{ id: 'b', motivo: 'tempo scaduto' }] },
+    issues: [{ id: 'issue', target: { kind: 'node', id: 'a', field: 'desc' }, after: 'Dopo.', problem: 'Testo da correggere.' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() })), m = manifest(initial(parziale));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  assert.match(modal.querySelector('#mrv-coverage-label').textContent, /descrizioni esaminate in almeno un giro: 1 \/ 2$/);
+  assert.match(modal.querySelector('[data-aff-blocco]').textContent, /Altro testo\./, 'la frase del nodo non esaminato è fuori');
+  // il ricontrollo esamina anche «b» e non trova niente di nuovo: stesse segnalazioni, stesse decisioni
+  h.window.executeJudgePass = async () => ({ contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] }, issues: [] });
+  const firmaPrima = h.window.MappAIAffermazioniCore.firma(m.review, h.st.db, h.st.db.causalDoc);
+  await modal.querySelector('#mrv-retry-judge').click();
+  // giro 3, D6: la copertura sta nella firma — le bozze nate prima del ricontrollo non valgono più
+  assert.notEqual(h.window.MappAIAffermazioniCore.firma(m.review, h.st.db, h.st.db.causalDoc), firmaPrima, 'la firma cambia con la copertura');
+  assert.match(modal.querySelector('#mrv-coverage-label').textContent, /descrizioni esaminate in almeno un giro: 2 \/ 2$/);
+  assert.doesNotMatch(modal.querySelector('[data-aff-blocco] [data-aff-gruppo="fuori"]')?.textContent || '', /Altro testo\./);
+});
+
+test('0042 giro 2: una segnalazione aperta che non toglie niente lo dice; il piede promette solo ciò che fa', () => {
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'corretta', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'Troppo breve.' },
+      { id: 'vaga', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'Tono troppo netto.' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  const m = manifest(Core.setDecision(initial(report), 'corretta', 'manual', { text: 'Prima, con la correzione del docente.' }));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  // «a» contiene soltanto testo del docente: la segnalazione aperta non toglie niente dai materiali
+  // (giro 4, E1: il testo non dice a quali frasi si riferisca — il controllo ha indicato il nodo;
+  // giro 6, G1: dice che il testo scritto o ritoccato dal docente resta nei materiali)
+  const statoVaga = modal.querySelector('[data-review-issue="vaga"] .mrv-queue-state').textContent;
+  assert.equal(statoVaga, 'Da decidere · per ora non toglie niente dai materiali: il testo del nodo l’hai scritto o ritoccato tu con le tue decisioni, e resta nei materiali');
+  assert.doesNotMatch(statoVaga, /frasi a cui si riferisce/);
+  // giro 3, D4c: il piede dice che cosa succede quando la frase non si individua (giro 6, G1: il testo del docente resta;
+  // giro 7, H6: se non ripete parola per parola una frase del nodo)
+  assert.match(modal.querySelector('#mrv-next-step').textContent,
+    /quando una segnalazione non permette di individuare la frase, lascia fuori tutto il nodo, ma il testo che hai scritto o ritoccato con una tua decisione resta nei materiali, se non ripete parola per parola una frase del nodo\./);
+  assert.doesNotMatch(modal.querySelector('#mrv-next-step').textContent, /frasi ancora da decidere|quando le trova/);
+  // giro 8 (I4): con la frase individuata esce ogni frase della mappa che la riprende (H3); senza, per le
+  // segnalazioni del controllo, anche le frasi di altri nodi che la segnalazione ripete (H5, solo del Giudice: I3)
+  assert.match(modal.querySelector('#mrv-next-step').textContent,
+    /lascia fuori le frasi indicate dalle segnalazioni aperte, con ogni frase della mappa che le riprende;/);
+  assert.match(modal.querySelector('#mrv-next-step').textContent,
+    /una frase del nodo\. In quel caso, se la segnalazione viene dal controllo, possono restare fuori anche frasi di altri nodi che ripete\. I materiali passano comunque dalla tua revisione\./);
+});
+
+test('0042 giro 3 (D4a): lo stato «superata» non dice a quali frasi si riferisse la segnalazione', () => {
+  // il docente toglie con «Modifica» la frase contestata; una seconda segnalazione aperta la citava
+  const TOLTA = 'La Germania pagava in oro rubato.';
+  const db = { nodes: [{ id: 'a', label: 'Germania', level: 0, desc: 'Prima. ' + TOLTA + ' Poi altro.' }, { id: 'b', label: 'Svizzera', level: 1, desc: 'Altro testo.' }],
+    links: [{ source: 'a', target: 'b', rel: 'include' }], sourcesDict: {} };
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'taglio', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'Frase da togliere.' },
+      { id: 'citata', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non dice «La Germania pagava in oro rubato».' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const m = manifest(Core.setDecision(Core.createReview({ db, sources: SOURCES, report }), 'taglio', 'manual', { text: 'Prima. Poi altro.' }));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  const stato = modal.querySelector('[data-review-issue="citata"] .mrv-queue-state').textContent;
+  assert.equal(stato, 'Da decidere · il passo contestato non si ritrova più nel testo che hai corretto: per ora non toglie niente dai materiali');
+  assert.doesNotMatch(stato, /frasi a cui si riferisce|già cambiato/);
+  // e il resto del nodo non esce (D1): nel blocco il gruppo «fuori» non c'è
+  assert.equal(modal.querySelector('[data-aff-blocco] [data-aff-gruppo="fuori"]'), null);
+});
+
+test('0042 giro 3 (D4c), giro 6 (G1): il riquadro del Setup dice che, quando la frase non si individua, esce tutto il nodo tranne il testo del docente', () => {
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  const host = h.dom.document.createElement('div');
+  h.window.MappAIAffermazioniUI.disegnaSetup(host);
+  // giro 7 (H6): se non ripete parola per parola una frase del nodo
+  assert.match(host.textContent, /Quando una segnalazione non permette di individuare la frase, resta fuori tutto il nodo, ma il testo che hai scritto o ritoccato con una tua decisione resta nei materiali, se non ripete parola per parola una frase del nodo\./);
+  // giro 7 (H10): nei nodi non esaminati il testo del docente resta, e il riquadro lo dice
+  assert.match(host.textContent, /quelle dei nodi che il controllo non ha esaminato \(tranne il testo che hai scritto o ritoccato tu\)\./);
+  // giro 8 (I4): con la frase individuata esce ogni frase della mappa che la riprende; senza, per le
+  // segnalazioni del controllo, anche le frasi di altri nodi che la segnalazione ripete
+  assert.match(host.textContent, /\(tranne il testo che hai scritto o ritoccato tu\)\. Quando la frase contestata è individuata, resta fuori ogni frase della mappa che la riprende\. Quando una segnalazione/);
+  assert.match(host.textContent, /una frase del nodo\. In quel caso, se la segnalazione viene dal controllo, possono restare fuori anche frasi di altri nodi che ripete\. La revisione dei materiali si apre sempre\./);
+});
+
+test('0042 giro 2: il documento dei nessi che non va ai materiali si dice, nel Banco e nel riepilogo', () => {
+  const CC = require('../public/js/mappai-causal-core.js');
+  const db = { nodes: [{ id: 'a', label: 'Economia di guerra', level: 0, desc: 'La guerra provocò la fame. Il razionamento del cibo valeva per tutti.' },
+    { id: 'b', label: 'Svizzera', level: 1, desc: 'Altro testo.' }], links: [{ source: 'a', target: 'b', rel: 'include' }], sourcesDict: {} };
+  db.causalDoc = CC.docFromChains(CC.buildChains({ nodes: db.nodes, links: db.links }), {});
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'fame', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte parla di carestia.' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const rv = Core.setDecision(Core.createReview({ db, sources: SOURCES, report }), 'fame', 'manual',
+    { text: 'La guerra provocò la carestia. Il razionamento del cibo valeva per tutti.' });
+  const m = manifest(rv); h.st._pipelineManifest = m;
+  const blocco = h.R.open('/vault', m).querySelector('[data-aff-blocco]');
+  // giro 4, E3: prima di generare si dice che cosa succederà, e il motivo vero
+  assert.equal(blocco.querySelector('[data-aff-causal]').textContent, 'Con «Genera materiali» la catena dei perché che hai rivisto non verrà usata: ' +
+    'una tua decisione ha cambiato un nodo o un collegamento che vi compare. Se chiedi la catena, sarà ricavata dal testo usato per i materiali, senza le tue modifiche.');
+  // il riepilogo lo legge dalla ricevuta, con le segnalazioni che non tolgono niente e i collegamenti tolti
+  const UI = h.window.MappAIAffermazioniUI;
+  const conteggi = { fuori: { totale: 2, giudice: 2, docente: 0, nonEsaminate: 0, coesione: 0 }, superate: 4, senzaEffetto: 2, linkEsclusi: 2, linkNonEsaminati: 1 };
+  // giro 3, D4b: la frase sulla catena compare solo se la catena è nata in questo giro (passo E concluso, bozza con la stessa firma)
+  const ric = { firma: 'q-1', conteggi, causalDocScartato: true, causalDocMotivo: 'decisione_descrizione', svuotati: [] };
+  const conCatena = { steps: { E: { status: 'done' } }, review: { final: { quarantena: ric },
+    drafts: { B: {}, C: {}, E: { chains: { total: 1 }, quarantena: { firma: 'q-1' }, published: true } } } };
+  const riepilogo = UI.rigaRiepilogo(conCatena, db);
+  assert.match(riepilogo, /6 segnalazioni aperte non tolgono niente dai materiali · 2 collegamenti fuori dai materiali \(1 mai esaminati dal controllo\)/);
+  assert.match(riepilogo, /data-aff-causal[^>]*>La catena dei perché che hai rivisto non è stata usata: una tua decisione ha cambiato un nodo o un collegamento che vi compare\. Nei materiali c’è la catena/);
+  const senzaCatena = [
+    { steps: { E: { status: 'skipped' } }, review: { final: { quarantena: ric }, drafts: { B: {}, C: {} } } },   // nessun nesso: catena non generata
+    { steps: { E: { status: 'pending' } }, review: { final: { quarantena: ric }, drafts: { B: {}, C: {} } } },   // catena non chiesta
+    { review: { final: { quarantena: ric } } },
+    { steps: { E: { status: 'done' } }, review: { final: { quarantena: ric }, drafts: { E: { chains: { total: 1 }, quarantena: { firma: 'q-vecchia' } } } } }
+  ];
+  senzaCatena.forEach((m, i) => assert.doesNotMatch(UI.rigaRiepilogo(m, db), /data-aff-causal/, 'caso ' + i));
+  assert.match(UI.rigaRiepilogo(senzaCatena[0], db), /id="mps-aff"/, 'il resto del riepilogo c\'è');
+  const uno = UI.rigaRiepilogo({ review: { final: { quarantena: { conteggi: Object.assign({}, conteggi, { superate: 0, senzaEffetto: 1, linkEsclusi: 1, linkNonEsaminati: 0 }), svuotati: [] } } } }, db);
+  assert.match(uno, /1 segnalazione aperta non toglie niente dai materiali · 1 collegamento fuori dai materiali</);
+  assert.doesNotMatch(uno, /data-aff-causal/);
+});
+
+/* ── Packet 0042, giro 4 del 26/09 ────────────────────────────────────────── */
+test('0042 giro 4 (E1): una frase ritoccata dal docente che ripete ancora il passo contestato — lo stato lo dice, la riga pure', () => {
+  const PRIMA = 'Il Consiglio Federale ha scritto la dichiarazione di neutralità grazie a un mandato speciale.';
+  const MANDATO = 'Questo mandato è un incarico ufficiale dato dall\'Assemblea Federale, l\'organo che rappresenta il popolo e i cantoni, per gestire la situazione di guerra.';
+  const db = { nodes: [{ id: 'a', label: 'Mandato', level: 0, desc: PRIMA + ' ' + MANDATO }, { id: 'b', label: 'Svizzera', level: 1, desc: 'Altro testo.' }],
+    links: [{ source: 'a', target: 'b', rel: 'include' }], sourcesDict: {} };
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [] },
+    issues: [{ id: 'deciso', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non definisce l\'Assemblea Federale come \'l\'organo che rappresenta il popolo e i cantoni\'.' },
+      { id: 'aperta', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non definisce l\'Assemblea Federale come l\'organo che rappresenta il popolo e i cantoni.' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const m = manifest(Core.setDecision(Core.createReview({ db, sources: SOURCES, report }), 'deciso', 'manual',
+    { text: PRIMA + ' ' + MANDATO.replace('è un incarico', 'è stato un incarico') }));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  const stato = modal.querySelector('[data-review-issue="aperta"] .mrv-queue-state').textContent;
+  // giro 5 (F3): la riprende per contenimento — «somiglia», mai «contiene»
+  assert.equal(stato, 'Da decidere · una frase che hai ritoccato somiglia ancora al passo contestato: resta fuori dai materiali finché non decidi');
+  assert.doesNotMatch(stato, /contiene/);
+  assert.doesNotMatch(stato, /non si ritrova più/, 'non è «superata»: il passo c\'è ancora');
+  const fuori = modal.querySelector('[data-aff-blocco] [data-corsia="fuori-contestata"]');
+  assert.ok(fuori && /è stato un incarico/.test(fuori.textContent));
+  assert.match(fuori.textContent, /l’hai ritoccata, ma somiglia ancora al passo contestato: da decidere/);
+  assert.doesNotMatch(fuori.textContent, /contiene/);
+});
+
+test('0042 giro 4 (E3): il documento dei nessi — il motivo vero per frase e collegamento, nel Banco prima di generare e senza quarantena', () => {
+  const CC = require('../public/js/mappai-causal-core.js');
+  const db = { nodes: [{ id: 'a', label: 'Economia di guerra', level: 0, desc: 'La guerra provocò la fame. Il razionamento del cibo valeva per tutti.' },
+    { id: 'b', label: 'Svizzera', level: 1, desc: 'Altro testo.' }], links: [{ source: 'a', target: 'b', rel: 'causa' }], sourcesDict: {} };
+  db.causalDoc = CC.docFromChains(CC.buildChains({ nodes: db.nodes, links: db.links }), {});
+  const casi = [
+    // una frase del documento è contestata da una segnalazione aperta
+    { issues: [{ id: 'fame', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non dice «La guerra provocò la fame».' }],
+      motivo: 'contiene una frase che la quarantena tiene fuori dai materiali' },
+    // il collegamento del documento è da decidere
+    { issues: [{ id: 'rel', target: { kind: 'link', source: 'a', target: 'b', rel: 'causa', field: '$link' }, after: null, problem: 'Il collegamento non è sostenuto.' }],
+      motivo: 'contiene un collegamento che la quarantena tiene fuori dai materiali' },
+    // giro 5 (F3): la riga del documento viene da un nodo con una frase esclusa, ma non la contiene
+    { issues: [{ id: 'razionamento', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non dice «Il razionamento del cibo valeva per tutti».' }],
+      motivo: 'tocca un nodo con frasi che la quarantena tiene fuori' }
+  ];
+  for (const caso of casi) {
+    const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b'], nodiSaltati: [],
+      linkEsaminati: [{ source: 'a', target: 'b', rel: 'causa' }], linkSaltati: [] }, issues: caso.issues };
+    for (const quarantena of ['1', '0']) {
+      const h = conStrato(runtime({ localStorage: ACCESO({ mappai_quarantena: quarantena }) }));
+      h.st.db = clone(db);
+      const m = manifest(Core.createReview({ db, sources: SOURCES, report })); h.st._pipelineManifest = m;
+      const p = h.R.open('/vault', m).querySelector('[data-aff-blocco] [data-aff-causal]');
+      assert.ok(p, caso.motivo);
+      const testo = p.textContent;
+      assert.ok(testo.includes(': ' + caso.motivo + '.'), testo);
+      assert.doesNotMatch(testo, /[Nn]ei materiali c’è|contiene frasi o collegamenti/, 'prima di generare non si parla della catena nei materiali');
+      assert.match(testo, quarantena === '1' ? /^Con «Genera materiali» la catena dei perché che hai rivisto non verrà usata/ : /^Con la quarantena la catena dei perché che hai rivisto non andrebbe ai materiali/);
+    }
+  }
+});
+
+test('0042 giro 4 (E3): nel riepilogo la frase sulla catena solo se la catena è stata pubblicata, con almeno un nesso dopo G2', () => {
+  const h = conStrato(runtime({ localStorage: ACCESO() })), UI = h.window.MappAIAffermazioniUI;
+  const db = { nodes: [{ id: 'a', label: 'Economia', level: 0, desc: 'Testo.' }], links: [] };
+  const conteggi = { fuori: { totale: 1, giudice: 1, docente: 0, nonEsaminate: 0, coesione: 0 }, superate: 0, senzaEffetto: 0, linkEsclusi: 0, linkNonEsaminati: 0 };
+  const ric = { firma: 'q-1', conteggi, causalDocScartato: true, causalDocMotivo: 'frase_esclusa', svuotati: [] };
+  const giro = E => ({ steps: { E: { status: 'done' } }, review: { final: { stage: 'done', quarantena: ric }, drafts: { B: {}, C: {}, E } } });
+  // passo E «done» ma la bozza non pubblicata (G2 non ancora approvata), oppure G2 ha escluso tutti i nessi
+  assert.doesNotMatch(UI.rigaRiepilogo(giro({ chains: { total: 2 }, quarantena: { firma: 'q-1' } }), db), /data-aff-causal/);
+  assert.doesNotMatch(UI.rigaRiepilogo(giro({ chains: { total: 0 }, quarantena: { firma: 'q-1' }, published: true }), db), /data-aff-causal/);
+  const pubblicata = UI.rigaRiepilogo(giro({ chains: { total: 2 }, quarantena: { firma: 'q-1' }, published: true }), db);
+  assert.match(pubblicata, /data-aff-causal[^>]*>La catena dei perché che hai rivisto non è stata usata: contiene una frase che la quarantena tiene fuori dai materiali\. Nei materiali c’è la catena ricavata/);
+});
+
+/* ── Packet 0042, giro 5 del 26/09 (F3) ───────────────────────────────────── */
+test('0042 giro 5 (F3): una frase (non del docente) che somiglia al passo contestato, in un nodo cambiato da una decisione — la riga dice «somiglia», non «contestata»', () => {
+  const PRIMA = 'Il Consiglio Federale ha scritto la dichiarazione di neutralità grazie a un mandato speciale.';
+  const MANDATO = 'Questo mandato è un incarico ufficiale dato dall\'Assemblea Federale, l\'organo che rappresenta il popolo e i cantoni, per gestire la situazione di guerra.';
+  const SIMILE = 'Il mandato era un incarico ufficiale dato dall\'Assemblea Federale, l\'organo che rappresenta il popolo e i cantoni.';
+  const db = { nodes: [{ id: 'a', label: 'Mandato', level: 0, desc: PRIMA + ' ' + MANDATO },
+    { id: 'c', label: 'Assemblea', level: 1, desc: 'Le sessioni duravano poche settimane. ' + SIMILE }],
+    links: [{ source: 'a', target: 'c', rel: 'include' }], sourcesDict: {} };
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'c'], nodiSaltati: [] },
+    issues: [{ id: 'sessioni', target: { kind: 'node', id: 'c', field: 'desc' }, problem: 'La fonte non parla di settimane.' },
+      { id: 'aperta', target: { kind: 'node', id: 'a', field: 'desc' }, problem: 'La fonte non definisce l\'Assemblea Federale come l\'organo che rappresenta il popolo e i cantoni.' }] };
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const m = manifest(Core.setDecision(Core.createReview({ db, sources: SOURCES, report }), 'sessioni', 'manual',
+    { text: 'Le sessioni si tenevano a Berna. ' + SIMILE }));
+  h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  const righe = Array.from(modal.querySelectorAll('[data-aff-blocco] [data-corsia="fuori-contestata"]'));
+  const simile = righe.find(r => /Il mandato era/.test(r.textContent));
+  assert.ok(simile, 'la frase simile del nodo cambiato è fuori');
+  assert.match(simile.textContent, /somiglia a un passo contestato, da decidere/);
+  assert.doesNotMatch(simile.textContent, /contestata dal controllo/);
+});
+
+/* ── Packet 0042, giro 7 del 26/09 (H10): i testi del Banco dicono ciò che il sistema sa ── */
+test('0042 giro 7 (H10): in modo \'nodo\' il perché si guarda prima della via — l\'altro nodo e il problema che parla d\'altro hanno un testo loro; «docente» solo se niente del nodo è fuori', () => {
+  const ECONOMIA = 'La Svizzera adottò il piano Wahlen per garantire il cibo alla popolazione. Lo Stato usò un sistema di razionamento per dividere le provvigioni in modo controllato.';
+  const BASE_D = 'La Svizzera fu criticata. Inoltre, lo Stato è accusato di aver aiutato la Germania fornendo materiale militare.';
+  const db = { nodes: [{ id: 'a', label: 'Economia', level: 0, desc: ECONOMIA },
+    { id: 'b', label: 'Commercio', level: 1, desc: 'La convenzione dell’Aia è un accordo internazionale. Questo accordo permette agli stati neutrali di commerciare liberamente con i paesi in guerra.' },
+    { id: 'c', label: 'Razionamento', level: 1, desc: 'Il razionamento durò fino al 1948.' },
+    { id: 'd', label: 'Accuse', level: 1, desc: BASE_D }],
+  links: [{ source: 'a', target: 'b', rel: 'include' }, { source: 'a', target: 'c', rel: 'include' }, { source: 'a', target: 'd', rel: 'include' }], sourcesDict: {} };
+  const report = { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b', 'c', 'd'], nodiSaltati: [] },
+    issues: [
+      // il caso 899d5 di Svizzera: segnala «Economia», il problema parla del commercio con i belligeranti
+      { id: 'i-899', target: { kind: 'node', id: 'a', field: 'desc' },
+        problem: 'La Svizzera ha adottato misure per conservare la sua neutralità durante la Seconda Guerra Mondiale. Tuttavia, non è vero che ha commercio liberamente con tutti i paesi belligeranti' },
+      { id: 'i-sposta', target: { kind: 'node', id: 'c', field: 'desc' }, problem: 'Troppo breve.' },
+      { id: 'i-d-deciso', target: { kind: 'node', id: 'd', field: 'desc' }, problem: 'Da riscrivere.' },
+      { id: 'i-d-citata', target: { kind: 'node', id: 'd', field: 'desc' },
+        problem: 'La fonte non dice «Inoltre, lo Stato è accusato di aver aiutato la Germania fornendo materiale militare».' },
+      { id: 'i-d-vaga', target: { kind: 'node', id: 'd', field: 'desc' }, problem: 'Tono troppo netto' }] };
+  let rv = Core.createReview({ db, sources: SOURCES, report });
+  // il docente sposta PAROLA PER PAROLA una frase di «Economia» in «Razionamento» (H6: non è testo suo)
+  rv = Core.setDecision(rv, 'i-sposta', 'manual', { text: 'Il razionamento durò fino al 1948. Lo Stato usò un sistema di razionamento per dividere le provvigioni in modo controllato.' });
+  rv = Core.setDecision(rv, 'i-d-deciso', 'manual', { text: 'La Confederazione ricevette molte critiche. Inoltre, la Svizzera è stata accusata di aver prolungato la guerra rifornendo la Germania di materiale militare.' });
+  const h = conStrato(runtime({ localStorage: ACCESO() }));
+  h.st.db = clone(db);
+  const m = manifest(rv); h.st._pipelineManifest = m;
+  const modal = h.R.open('/vault', m);
+  const blocco = modal.querySelector('[data-aff-blocco]');
+  const rigaDi = inizio => blocco.querySelectorAll('[data-corsia="fuori-contestata"]').find(r => r.querySelector('.mrv-aff-testo').textContent.startsWith(inizio));
+  // la frase dell'altro nodo di cui parla il problema (H5)
+  const problema = rigaDi('Questo accordo permette');
+  assert.ok(problema, 'la frase di «Commercio» è fuori');
+  assert.match(problema.textContent, /il controllo ha segnalato un altro nodo, ma il problema che descrive parla di questa frase: da decidere/);
+  // la frase base spostata in un altro nodo: somiglia a una frase del nodo segnalato — non «l'hai ritoccata, ma somiglia al passo contestato»
+  const spostata = rigaDi('Lo Stato usò');
+  const nelNodo = blocco.querySelectorAll('[data-corsia="fuori-contestata"]').filter(r => r.querySelector('.mrv-aff-testo').textContent.startsWith('Lo Stato usò'));
+  assert.equal(nelNodo.length, 2, 'la frase in «Economia» e la copia in «Razionamento»');
+  const inC = nelNodo.find(r => /^Razionamento/.test(r.querySelector('.mrv-aff-nodo').textContent));
+  const inA = nelNodo.find(r => /^Economia/.test(r.querySelector('.mrv-aff-nodo').textContent));
+  assert.ok(spostata && inC && inA);
+  assert.match(inC.textContent, /somiglia a una frase di un nodo che il controllo ha segnalato senza dire quale frase contesta, da decidere/);
+  assert.doesNotMatch(inC.textContent, /l’hai ritoccata/);
+  assert.match(inA.textContent, /il controllo ha segnalato il nodo senza dire quale frase, da decidere/);
+  // la frase ritoccata che riprende il passo CITATO resta «ritoccata»: lì il passo si sa
+  assert.match(rigaDi('Inoltre, la Svizzera').textContent, /l’hai ritoccata, ma somiglia ancora al passo contestato/);
+  // «Accuse» è tutto del docente, ma una sua frase è fuori per la citata: la 'nodo' non dice «resta nei materiali»
+  const stato = modal.querySelector('[data-review-issue="i-d-vaga"] .mrv-queue-state').textContent;
+  assert.equal(stato, 'Da decidere · da sola non toglie niente dai materiali: il testo del nodo l’hai scritto o ritoccato tu, ma una sua parte resta fuori per un’altra segnalazione aperta');
+  assert.doesNotMatch(stato, /e resta nei materiali/);
+});
+
+/* ── Packet 0041: le frasi della fonte rimaste fuori dalla mappa ──────────────
+   Tre frasi di Svizzera: una ripresa dalla mappa, una orfana (il raid aereo) e
+   una a cui mancano 45% e 1942. Il core vero, la cucitura e l'interfaccia vere. */
+const ORF_DB = { nodes: [
+  { id: 'a', label: 'Mobilitazione', level: 0, desc: 'Per proteggere il territorio, lo Stato ha decretato la mobilitazione generale, che significa chiamare tutti i soldati al servizio.' },
+  { id: 'b', label: 'Esportazioni verso l’Asse', level: 1, desc: 'Tra il 1940 e il 1944, la Germania è stata il paese che ha comprato più prodotti svizzeri. ' +
+    'Le esportazioni svizzere andavano soprattutto alle due potenze dell’Asse, Germania e Italia.' },
+  { id: 'c', label: 'Fortezze', level: 1, desc: 'Queste basi facevano parte del Ridotto nazionale, un piano per resistere in caso di invasione.' }],
+  links: [{ source: 'a', target: 'b', rel: 'include' }, { source: 'a', target: 'c', rel: 'include' }], sourcesDict: {} };
+const ORF_SOURCES = [{ nome: 'Svizzera.pdf', pages: [
+  { n: 2, text: '- decretò la mobilitazione generale, chiamando tutti i soldati al servizio del paese; - informò la popolazione sul comportamento da adottare in caso di raid aereo.' },
+  { n: 4, text: 'Le due potenze dell’Asse (Germania e Italia) erano destinatarie del 45% delle esportazioni svizzere negli anni 1940 - 1942.' }] }];
+const ORF_45 = 'Le due potenze dell’Asse (Germania e Italia) erano destinatarie del 45% delle esportazioni svizzere negli anni 1940 - 1942.';
+function revisioneOrfane() {
+  return Core.createReview({ db: ORF_DB, sources: ORF_SOURCES, report: { contratto: 'mappai-giudice@2', stato: 'completo',
+    copertura: { nodiEsaminati: ['a', 'b', 'c'], nodiSaltati: [] },
+    issues: [{ id: 'issue', target: { kind: 'node', id: 'c', field: 'desc' }, problem: 'Il nodo non dice dove stavano le basi.' }] } });
+}
+function bancoOrfane(localStorage, prima) {
+  const h = runtime({ localStorage });
+  if (localStorage) conStrato(h);
+  if (prima) prima(h);
+  h.st.db = clone(ORF_DB);
+  const m = manifest(revisioneOrfane()); h.st._pipelineManifest = m;
+  return { h, m, modal: h.R.open('/vault', m) };
+}
+
+test('0041: da spento il Banco è quello del 0042 — nessun blocco; da acceso l’unica differenza è il blocco in coda', () => {
+  const spento = bancoOrfane(ACCESO()), zero = bancoOrfane(ACCESO({ mappai_frasi_orfane: '0' })), acceso = bancoOrfane(ACCESO({ mappai_frasi_orfane: '1' }));
+  assert.ok(spento.modal.querySelector('[data-aff-blocco]'), 'il blocco del 0042 c’è');
+  assert.equal(spento.modal.querySelector('[data-aff-orfane]'), null);
+  assert.equal(zero.h.dom.html(), spento.h.dom.html());
+  const blocco = acceso.modal.querySelector('#mrv-coverage-details [data-aff-blocco] [data-aff-orfane]');
+  assert.ok(blocco, 'il blocco nuovo sta in coda a quello del 0042');
+  blocco.remove();
+  assert.equal(acceso.h.dom.html(), spento.h.dom.html(), 'tolto il blocco nuovo, il Banco è lo stesso byte per byte');
+  // l'interruttore da solo, con lo strato spento, non fa niente: il Banco è quello di sempre
+  const base = bancoOrfane(null);
+  const solo = bancoOrfane({ getItem: k => (k === 'mappai_frasi_orfane' ? '1' : SPENTI_0089.has(k) ? '0' : null), setItem() {} });
+  assert.equal(solo.h.dom.html(), base.h.dom.html());
+  assert.equal([spento, acceso, solo].reduce((n, x) => n + x.h.calls.manifest, 0), 0, 'aprire il Banco non scrive niente');
+  // il riepilogo: con l'interruttore spento la riga del 0042 non cambia
+  const ric = { firma: 'q-1', conteggi: { fuori: { totale: 1, giudice: 1, docente: 0, nonEsaminate: 0, coesione: 0 }, superate: 0, senzaEffetto: 0, linkEsclusi: 0, linkNonEsaminati: 0 }, svuotati: [] };
+  const giro = () => ({ review: Object.assign(revisioneOrfane(), { final: { quarantena: ric } }) });
+  const riga0042 = spento.h.window.MappAIAffermazioniUI.rigaRiepilogo(giro(), clone(ORF_DB));
+  assert.doesNotMatch(riga0042, /data-aff-orfane/);
+  const riga0041 = acceso.h.window.MappAIAffermazioniUI.rigaRiepilogo(giro(), clone(ORF_DB));
+  // giro di correzione del 27/09: il riepilogo dice anche DOVE sta l'elenco (dentro «Copertura del controllo», che si apre a mano)
+  assert.match(riga0041, /data-aff-orfane>Frasi della fonte rimaste fuori dalla mappa: 2 \(1 che la mappa riprende poco o per niente, 1 con elementi mancanti\)\. L’elenco è in «Rivedi i contenuti», sotto «Copertura del controllo»\.</);
+  assert.equal(riga0041.replace(/<div class="pm-option-desc" data-aff-orfane>[^<]*<\/div>/, ''), riga0042);
+  // G1 approvata: l'elenco nel Banco non c'è, e il riepilogo non ci manda
+  const approvata = giro(); approvata.review.initial.status = 'approved';
+  assert.doesNotMatch(acceso.h.window.MappAIAffermazioniUI.rigaRiepilogo(approvata, clone(ORF_DB)), /data-aff-orfane/);
+});
+
+test('0041: da acceso il blocco elenca le frasi rimaste fuori; «Mostra nella fonte» e «Correggi il nodo vicino» portano ai posti giusti', async () => {
+  const mostrate = [];
+  const { h, modal } = bancoOrfane(ACCESO({ mappai_frasi_orfane: '1' }), x => {
+    x.window.MappAIReviewFonte = { monta: () => ({ mostra: prove => mostrate.push(clone(prove)), smonta() {} }) };
+  });
+  const blocco = modal.querySelector('#mrv-coverage-details [data-aff-orfane]');
+  assert.equal(blocco.querySelector('summary').textContent, 'Frasi della fonte rimaste fuori (2)');
+  /* gate 3 del 27/09 (Giacomo, niente sovraccarico): a schermo una riga sola; le avvertenze sui limiti del
+     confronto restano, nel suggerimento del titolo */
+  assert.equal(blocco.querySelector('[data-aff-orf-nota]').textContent, 'Da rileggere nella fonte: la mappa non le riprende, o le riprende senza un numero, una data o un nome.');
+  assert.match(blocco.querySelector('summary').getAttribute('title'), /Il confronto è fra parole.*Le frasi molto brevi e quelle che finiscono in un vuoto da riempire non si confrontano.*l’elenco non garantisce che la mappa riprenda tutto\.$/);
+  assert.doesNotMatch(blocco.textContent, /verificat|coperta/i, 'nessun certificato (inv. 22)');
+  const orfana = blocco.querySelector('[data-aff-orf-gruppo="orfane"] [data-aff-orf-riga]');
+  // giro di correzione del 27/09: con «Fortezze» il raid aereo ha in comune solo «caso» — niente nodo, niente bottone
+  assert.equal(orfana.querySelector('.mrv-aff-nodo').textContent, 'Pagina 2');
+  assert.equal(orfana.querySelector('[data-aff-orf-correggi]'), null);
+  assert.equal(orfana.querySelector('.mrv-aff-testo').textContent, '- informò la popolazione sul comportamento da adottare in caso di raid aereo.');
+  assert.equal(orfana.querySelector('[data-aff-orf-manca]'), null);
+  const manca = blocco.querySelector('[data-aff-orf-gruppo="mancanti"] [data-aff-orf-riga]');
+  assert.equal(manca.querySelector('.mrv-aff-nodo').textContent, 'Pagina 4 · nodo più simile per parole: Esportazioni verso l’Asse');
+  assert.equal(manca.querySelector('[data-aff-orf-manca]').textContent, 'Nella mappa manca: 45%, 1942');
+  assert.match(blocco.querySelector('[data-aff-orf-gruppo="orfane"] .mrv-field-label').textContent, /^Riprese poco o per niente dalla mappa \(1\)$/);
+  assert.deepEqual(blocco.querySelectorAll('button').map(b => b.type), ['button', 'button', 'button']);
+  assert.equal(blocco.querySelectorAll('[data-aff-orf-altre]').length, 0);
+  // «Mostra nella fonte»: la frase e la sua pagina al pannello della fonte
+  mostrate.length = 0;
+  await manca.querySelector('[data-aff-orf-fonte]').click();
+  assert.deepEqual(mostrate, [[{ text: ORF_45, page: 4 }]]);
+  // «Correggi il nodo vicino»: il riquadro «Correggi anche un nodo non segnalato», col nodo scelto e il suo testo
+  const altri = modal.querySelector('#mrv-other-nodes');
+  assert.equal(altri.getAttribute('open'), undefined);
+  assert.equal(modal.querySelector('#mrv-add-node').disabled, true);
+  await manca.querySelector('[data-aff-orf-correggi]').click();
+  assert.notEqual(altri.getAttribute('open'), undefined, 'il riquadro si apre');
+  assert.equal(altri.querySelector('label select').value, 'b');
+  assert.equal(altri.querySelector('p').textContent, ORF_DB.nodes[1].desc, 'l’anteprima del nodo, come dopo una scelta a mano');
+  assert.equal(modal.querySelector('#mrv-add-node').disabled, false);
+  assert.equal(h.calls.manifest, 0, 'scegliere il nodo non scrive niente: si aggiunge con «Aggiungi alla revisione»');
+  // e il gesto porta davvero alla revisione del nodo scelto
+  await modal.querySelector('#mrv-add-node').click();
+  assert.ok(h.st._pipelineManifest.review.initial.issues.some(i => i.origin === 'teacher' && i.target.kind === 'node' && String(i.target.id) === 'b'), 'una «Modifica del docente» sul nodo scelto');
+});
+
+test('0041: il blocco vive solo in G1; con la mappa cambiata resta, e l’elenco lungo si taglia a 12 per gruppo', () => {
+  // G2: lo strato non c'è, quindi nemmeno le frasi rimaste fuori
+  const g2 = conStrato(runtime({ localStorage: ACCESO({ mappai_frasi_orfane: '1' }) })), m2 = manifest();
+  m2.review.final = { stage: 'awaiting_review', items: [], review: Core.createReview({ db: { items: [] }, sources: SOURCES, report: { checkStatus: 'completed', issues: [] } }) };
+  assert.equal(g2.R.open('/vault', m2, { final: true }).querySelector('[data-aff-orfane]'), null);
+  // la mappa cambiata dopo il controllo: il blocco del 0042 lo dice, le frasi rimaste fuori si calcolano sulla mappa viva
+  const cambiata = bancoOrfane(ACCESO({ mappai_frasi_orfane: '1' }), x => { x.st.db = clone(ORF_DB); });
+  cambiata.h.st.db.nodes[1].desc += ' Nel 1942 il 45% delle esportazioni andava all’Asse.';
+  const modal = cambiata.h.R.open('/vault', cambiata.m);
+  assert.match(modal.querySelector('[data-aff-blocco]').textContent, /La mappa è cambiata dopo il controllo/);
+  assert.equal(modal.querySelector('[data-aff-orfane] summary').textContent, 'Frasi della fonte rimaste fuori (1)');
+  assert.equal(modal.querySelector('[data-aff-orf-gruppo="mancanti"]'), null, 'il 45% e il 1942 ora ci sono');
+  // tanti raid aerei: 12 righe e il conto delle altre
+  const molte = [{ nome: 'Svizzera.pdf', pages: Array.from({ length: 15 }, (_, i) => ({ n: i + 1,
+    text: 'Il bollettino numero ' + (i + 1) + ' informò la popolazione sul comportamento da adottare in caso di raid aereo.' })) }];
+  const h = conStrato(runtime({ localStorage: ACCESO({ mappai_frasi_orfane: '1' }) }));
+  h.st.db = clone(ORF_DB);
+  const rv = Core.createReview({ db: ORF_DB, sources: molte, report: { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: ['a', 'b', 'c'], nodiSaltati: [] },
+    issues: [{ id: 'issue', target: { kind: 'node', id: 'c', field: 'desc' }, problem: 'Il nodo non dice dove stavano le basi.' }] } });
+  const mm = manifest(rv); h.st._pipelineManifest = mm;
+  const lungo = h.R.open('/vault', mm).querySelector('[data-aff-orfane]');
+  assert.equal(lungo.querySelector('summary').textContent, 'Frasi della fonte rimaste fuori (15)');
+  assert.equal(lungo.querySelectorAll('[data-aff-orf-riga]').length, 12);
+  assert.deepEqual(lungo.querySelectorAll('[data-aff-orf-riga] .mrv-aff-nodo').map(p => p.textContent.split(' · ')[0]),
+    Array.from({ length: 12 }, (_, i) => 'Pagina ' + (i + 1)), 'in ordine di pagina');
+  assert.equal(lungo.querySelector('[data-aff-orf-altre="orfane"]').textContent, 'Altre frasi non mostrate: 3');
+});
+
+test('0041, giro di correzione: la voce d’elenco corta entra nell’elenco; a zero righe la nota conta le frasi e dice che cosa non vede', () => {
+  const apri = (db, sources) => {
+    const h = conStrato(runtime({ localStorage: ACCESO({ mappai_frasi_orfane: '1' }) }));
+    h.st.db = clone(db);
+    const rv = Core.createReview({ db, sources, report: { contratto: 'mappai-giudice@2', stato: 'completo', copertura: { nodiEsaminati: db.nodes.map(n => n.id), nodiSaltati: [] },
+      issues: [{ id: 'issue', target: { kind: 'node', id: 'c', field: 'desc' }, problem: 'Il nodo non dice dove stavano le basi.' }] } });
+    const m = manifest(rv); h.st._pipelineManifest = m;
+    return h.R.open('/vault', m).querySelector('#mrv-coverage-details [data-aff-orfane]');
+  };
+  // «- aumentò i finanziamenti alla difesa;» ha tre parole piene: con lo splitter a 5 non si confrontava
+  const fonte = [{ nome: 'Svizzera.pdf', pages: [{ n: 2, text: ORF_SOURCES[0].pages[0].text + ' - aumentò i finanziamenti alla difesa;' }, ORF_SOURCES[0].pages[1]] }];
+  const corta = apri(ORF_DB, fonte);
+  assert.equal(corta.querySelector('summary').textContent, 'Frasi della fonte rimaste fuori (3)');
+  const righe = corta.querySelectorAll('[data-aff-orf-gruppo="orfane"] [data-aff-orf-riga]');
+  const fin = righe.find(r => r.querySelector('.mrv-aff-testo').textContent === '- aumentò i finanziamenti alla difesa;');
+  assert.ok(fin, 'la voce corta è fra le frasi riprese poco o per niente');
+  assert.equal(fin.querySelector('.mrv-aff-nodo').textContent, 'Pagina 2');
+  assert.equal(fin.querySelector('[data-aff-orf-correggi]'), null);
+  // la mappa che riprende tutte e tre le frasi: la nota conta, e non certifica
+  const tutto = clone(ORF_DB);
+  tutto.nodes[2].desc += ' Lo Stato informò la popolazione sul comportamento da adottare in caso di raid aereo.';
+  tutto.nodes[1].desc += ' Negli anni 1940 - 1942 il 45% delle esportazioni svizzere andava all’Asse.';
+  const zero = apri(tutto, ORF_SOURCES);
+  assert.equal(zero.querySelector('summary').textContent, 'Frasi della fonte rimaste fuori (0)');
+  assert.equal(zero.querySelector('[data-aff-orf-nota]').textContent, 'Nessuna frase rimasta fuori.');
+  assert.match(zero.querySelector('summary').getAttribute('title'), /l’elenco non garantisce che la mappa riprenda tutto\.$/, 'il limite resta nel suggerimento');
+  assert.doesNotMatch(zero.textContent, /Ogni frase|verificat|coperta/i, 'nessun certificato di completezza (inv. 22)');
+  assert.equal(zero.querySelectorAll('[data-aff-orf-riga]').length, 0);
+});
+
+test('0041: la sotto-spunta del Setup compare con lo strato acceso e scrive `mappai_frasi_orfane`', () => {
+  const valori = new Map([['mappai_affermazioni', '0']]);   // packet 0089: senza chiave lo strato è acceso; «spento» è il '0'
+  const h = conStrato(runtime({ localStorage: { getItem: k => (valori.has(k) ? valori.get(k) : null), setItem: (k, v) => valori.set(k, String(v)) } }));
+  const host = h.dom.document.createElement('div');
+  const UI = h.window.MappAIAffermazioniUI;
+  UI.disegnaSetup(host);
+  assert.equal(host.querySelector('#aff-orphans-toggle'), null, 'con lo strato spento non c’è: non farebbe niente');
+  assert.equal(host.querySelectorAll('input[type="checkbox"]').length, 2);
+  valori.set('mappai_affermazioni', '1');
+  UI.disegnaSetup(host);
+  const orf = host.querySelector('#aff-orphans-toggle');
+  assert.ok(orf);
+  assert.equal(orf.checked, false);
+  assert.equal(orf.disabled, false);
+  assert.match(host.textContent, /Frasi della fonte rimaste fuori dalla mappa/);
+  assert.match(host.textContent, /Nella revisione dei contenuti, sotto «Copertura del controllo», elenca/, 'dice dove compare l’elenco');
+  assert.doesNotMatch(host.textContent, /verificat/);
+  orf.checked = true; orf.onchange();
+  assert.equal(valori.get('mappai_frasi_orfane'), '1');
+  assert.equal(host.querySelector('#aff-orphans-toggle').checked, true);
+  valori.set('mappai_review_enabled', '0');
+  UI.disegnaSetup(host);
+  assert.equal(host.querySelector('#aff-orphans-toggle').disabled, true);
+  assert.match(host.textContent, /l’elenco si vede solo lì/);
+});
+
+/* ── Packet 0042, gate 3 del 27/09 (b) ────────────────────────────────────────
+   Su un progetto nato senza il controllo G1 la quarantena non si può
+   calcolare: il blocco lo dice, invece di contare «134 fuori dai materiali»
+   come se valesse; coda e piede restano quelli di oggi (G1 non è facoltativa). */
+test('0042 gate 3 (b): senza rapporto o senza fonti il blocco dice che la quarantena non vale, e non conta niente', () => {
+  const casi = [
+    { review: initial({}), motivo: /il controllo automatico dei contenuti non ha un rapporto/ },
+    { review: Core.createReview({ db: DB, sources: [], report: rapportoStrato() }), motivo: /la revisione di questa mappa non ha le fonti/ },
+    // il progetto del gate 3: né rapporto né fonti — si dice per prima la mancanza che nessun controllo ripara
+    { review: Core.createReview({ db: DB, sources: [], report: {} }), motivo: /la revisione di questa mappa non ha le fonti/ }
+  ];
+  for (const caso of casi) {
+    const h = conStrato(runtime({ localStorage: ACCESO() })), m = manifest(caso.review);
+    h.st._pipelineManifest = m;
+    const modal = h.R.open('/vault', m);
+    const blocco = modal.querySelector('#mrv-coverage-details [data-aff-blocco]');
+    assert.ok(blocco, 'il blocco «Affermazioni delle descrizioni» c’è');
+    assert.match(blocco.textContent, /La quarantena non vale per questo progetto/);
+    assert.match(blocco.textContent, caso.motivo);
+    assert.equal(blocco.querySelector('[data-aff-conteggi]'), null, 'niente conteggi: la quarantena non è in vigore');
+    assert.doesNotMatch(modal.querySelector('#mrv-next-step').textContent, /Non serve decidere tutto/);
+  }
+});
+
+
+// Packet 0070: the same persisted review protocol, backed by canonical reading
+// JSON instead of a map. The runtime owns projection and disk readback.
+function readingFixture(options = {}) {
+  const h = runtime(options), value = { db: { items: [
+    { id: 'p1', kind: 'reading-paragraph', text: 'Prima.', blockType: 'heading', emphasis: [], order: 0 },
+    { id: 'p2', kind: 'reading-paragraph', text: 'Altro testo.', blockType: 'paragraph', emphasis: [{ start: 0, end: 5, kind: 'em' }], order: 1 }
+  ] }, current: true, contentWrites: 0, commits: 0, continuations: 0 };
+  h.st.db = { nodes: [], links: [] };
+  h.window.MappAIPercorsoLetturaView = require('../public/js/mappai-percorso-lettura-view');
+  const review = Core.createReview({ db: value.db, sources: SOURCES, report: null, checkStatus: 'unavailable',
+    generationId: 'reading-g1', projectId: 'project', vaultPath: '/vault' });
+  const m = manifest(review);
+  const adapter = {
+    phase: 'source', getDb: () => value.db,
+    assertCurrent() { if (!value.current) throw new Error('reading_session_changed'); },
+    validateDb(db) {
+      assert.ok(db.items.length);
+      db.items.forEach((it, i) => {
+        assert.ok(typeof it.text === 'string' && it.text.trim());
+        assert.equal(it.order, i);
+        assert.ok(it.emphasis.every(e => e.start >= 0 && e.end <= it.text.length));
+      });
+    },
+    async saveReadback(db, context) {
+      context.assertCurrent(); value.contentWrites++; value.disk = clone(db);
+      if (value.afterContentWrite) await value.afterContentWrite(db);
+      return clone(value.readback || value.disk);
+    },
+    onCommit(db) { value.db = clone(db); value.commits++; },
+    onContinue() { value.continuations++; }
+  };
+  return { ...h, m, adapter, value };
+}
+
+test('reading G1 displays every paragraph without nodes and requires a real manual confirmation', async () => {
+  const h = readingFixture(), modal = h.R.openReading('/vault', h.m, h.adapter);
+  assert.equal(modal.querySelectorAll('[data-reading-paragraph]').length, 2);
+  assert.equal(modal.querySelector('[data-reading-source] h2').textContent, 'Prima.');
+  assert.equal(modal.querySelector('[data-reading-source] em').textContent, 'Altro');
+  assert.match(h.dom.text(), /La fonte dice: dopo/);
+  assert.equal(modal.querySelector('#mrv-other-nodes'), null);
+  assert.equal(modal.querySelector('#mrv-retry-judge'), null);
+  assert.equal(modal.querySelector('#mrv-setup-judge'), null);
+  assert.equal(modal.querySelector('#mrv-continue').hidden, true);
+  await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter), /incompleto/);
+  assert.equal(h.value.contentWrites, 0);
+  const confirm = modal.querySelector('#mrv-manual-confirm'); confirm.checked = true; confirm.onchange();
+  await modal.querySelector('#mrv-continue').click();
+  assert.equal(h.m.review.initial.status, 'approved');
+  assert.equal(h.m.review.initial.checkStatus, 'unavailable');
+  assert.equal(h.m.review.initial.manualReview, true);
+  assert.equal(Core.gate(h.m.review, h.value.db, SOURCES).allowed, true);
+  assert.equal(h.value.commits, 1); assert.equal(h.value.continuations, 1);
+  assert.equal(h.calls.map + h.calls.load + h.calls.cache + h.calls.pipeline, 0);
+});
+
+test('reading source corrections stay in decisions, invalidate the checkbox and persist through JSON readback', async () => {
+  const h = readingFixture(), modal = h.R.openReading('/vault', h.m, h.adapter);
+  const confirm = modal.querySelector('#mrv-manual-confirm'); confirm.checked = true; confirm.onchange();
+  await modal.querySelector('[data-reading-edit="p1"]').click();
+  assert.equal(modal.querySelector('#mrv-manual-confirm').checked, false);
+  const card = modal.querySelector('[data-review-card]');
+  await card.querySelector('[data-review-choice="manual"]').click();
+  const input = card.querySelector('textarea'); input.value = 'Dopo.'; input.oninput(); await tick();
+  assert.equal(h.value.db.items[0].text, 'Prima.');
+  assert.equal(h.saved.manifest.review.initial.decisions[h.m.review.initial.issues[0].id].text, 'Dopo.');
+  await h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true });
+  assert.equal(h.value.disk.items[0].text, 'Dopo.');
+  assert.equal(h.value.db.items[0].text, 'Dopo.');
+  assert.equal(h.calls.map + h.calls.load + h.calls.cache + h.calls.pipeline, 0);
+});
+
+test('reading source G1 does not mount the node vest or change its global flag', () => {
+  const flags = new Map([['mappai_banco_veste', '1']]), h = readingFixture({ localStorage: { getItem: k => flags.get(k) || null } });
+  let mounts = 0;
+  h.window.MappAIBancoVeste = { monta() { mounts++; throw new Error('node vest must not mount'); } };
+  h.window.MappAIBancoCore = {};
+  h.window.MappAIReviewFonte = { monta() { return { mostra() { return 0; }, pagine() { return []; }, smonta() {} }; } };
+  h.R.openReading('/vault', h.m, h.adapter);
+  assert.equal(mounts, 0); assert.equal(flags.get('mappai_banco_veste'), '1');
+  assert.equal(h.m.review.initial.status, 'awaiting_review');
+});
+
+test('reading source changes and invalid projections cannot reach the content writer', async () => {
+  for (const change of [
+    h => { h.value.db.items[0].text = 'Cambiato fuori dal Banco.'; },
+    h => { h.value.db.items.reverse(); h.value.db.items.forEach((it, i) => { it.order = i; }); },
+    h => { h.value.db.items[1].emphasis[0].end = 200; },
+    h => { h.value.current = false; }
+  ]) {
+    const h = readingFixture(); change(h);
+    await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true }));
+    assert.equal(h.value.contentWrites, 0); assert.equal(h.m.review.initial.status, 'awaiting_review');
+  }
+});
+
+test('reading G1 failed writes and readback mismatch never install approved in memory', async () => {
+  for (const failure of ['manifest', 'content', 'readback', 'final', 'project']) {
+    const h = readingFixture();
+    if (failure === 'manifest') h.opts.failSave = true;
+    h.value.afterContentWrite = () => {
+      if (failure === 'content') throw new Error('content_failed');
+      if (failure === 'readback') { h.value.readback = clone(h.value.disk); h.value.readback.items[0].text = 'Testo diverso sul disco.'; }
+      if (failure === 'final') h.opts.failSave = true;
+      if (failure === 'project') h.st.activeVaultPath = '/another';
+    };
+    await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true }));
+    assert.equal(h.m.review.initial.status, failure === 'manifest' ? 'awaiting_review' : 'applying', failure);
+    assert.equal(h.value.commits, 0); assert.equal(h.value.continuations, 0);
+    assert.notEqual(h.st._pipelineManifest?.review.initial.status, 'approved', failure);
+    assert.equal(h.calls.map + h.calls.load + h.calls.cache + h.calls.pipeline, 0);
+  }
+});
+
+test('reading applying resumes after a failed final manifest without a second manual approval', async () => {
+  const h = readingFixture();
+  h.value.afterContentWrite = () => { h.opts.failSave = true; };
+  await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true }));
+  h.opts.failSave = false; h.value.afterContentWrite = null;
+  // Reopening from disk retains the applying consent and the exact snapshot.
+  h.m = clone(h.saved.manifest);
+  await h.R.approveReading('/vault', h.m, h.adapter);
+  assert.equal(h.m.review.initial.status, 'approved');
+  assert.equal(h.m.review.initial.checkStatus, 'unavailable');
+  assert.equal(h.value.commits, 1);
+});
+
+function readingMaterials() {
+  const h = readingFixture(), begun = Core.beginApproval(h.m.review, h.value.db, { manualReview: true });
+  h.m.review = Core.completeApproval(begun.review, begun.revision);
+  const items = [{ id: 'q1', kind: 'mc', question: 'Che cosa dice il testo?', options: ['Prima.', 'Dopo.', 'Altro.', 'Nulla.'],
+    correctIndex: 0, explanation: 'La prima parola.', reading: { optionIds: ['a', 'b', 'c', 'd'], privateGuide: 'Solo docente' } }];
+  const report = { checkStatus: 'incomplete', checkedIds: [], issues: [{ id: 'reading-note',
+    target: { kind: 'item', id: 'q1', field: 'question' }, problem: 'Consegna da verificare.', after: 'Qual è la prima parola?' }] };
+  h.m.review.final = { stage: 'awaiting_review', items: clone(items), sourceRevision: h.m.review.approvedRevision,
+    review: Core.createReview({ db: { items }, sources: SOURCES, report, projectId: 'project', vaultPath: '/vault' }) };
+  h.value.db = { items: clone(items) };
+  h.adapter.phase = 'materials'; h.adapter.validateDb = db => { assert.equal(db.items[0].options.length, 4); };
+  return h;
+}
+
+test('reading G2 uses real material items and preserves private adapter metadata on approval', async () => {
+  const h = readingMaterials();
+  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'reading-note', 'accept');
+  await h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true });
+  assert.equal(h.value.disk.items[0].question, 'Qual è la prima parola?');
+  assert.deepEqual(h.value.disk.items[0].reading.optionIds, ['a', 'b', 'c', 'd']);
+  assert.equal(h.value.disk.items[0].reading.privateGuide, 'Solo docente');
+  assert.equal(h.m.review.final.review.initial.status, 'approved');
+  assert.equal(h.m.review.final.items[0].question, 'Qual è la prima parola?');
+  assert.equal(h.calls.map + h.calls.load + h.calls.cache + h.calls.pipeline, 0);
+});
+
+test('reading G2 checks source revision and retry preserves existing teacher decisions', async () => {
+  const h = readingMaterials();
+  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'reading-note', 'reject');
+  let retries = 0;
+  h.window.executeJudgePass = () => { throw new Error('map judge must not run'); };
+  h.adapter.retry = async args => {
+    retries++; args.assertCurrent(); assert.equal(args.items[0].id, 'q1'); assert.deepEqual(clone(args.sources), Core.sourceSnapshot(SOURCES));
+    return { checkStatus: 'completed', checkedIds: ['q1'], issues: [] };
+  };
+  const modal = h.R.openReading('/vault', h.m, h.adapter);
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(retries, 1);
+  assert.equal(h.m.review.final.review.initial.decisions['reading-note'].choice, 'reject');
+  assert.equal(h.m.review.final.review.initial.checkStatus, 'completed');
+  assert.equal(h.calls.cache, 0);
+  h.m.review.final.sourceRevision = 'old-source';
+  await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true }));
+  assert.equal(h.value.contentWrites, 0);
+});
+
+
+test('reading G2 checkpoint preserves an unchanged revision across metadata readback but rejects changed decisions', async () => {
+  for (const changed of [false, true]) {
+    const h = readingMaterials();
+    h.adapter.retry = async args => {
+      const checkpoint = clone(h.m);
+      checkpoint.reading = { reviewCheckpoint: { checkStatus: 'incomplete', checkedIds: ['q1'] } };
+      if (changed) checkpoint.review.final.review = Core.setDecision(checkpoint.review.final.review, 'reading-note', 'reject');
+      await h.R.writeManifest('/vault', checkpoint, args.assertCurrent);
+      Object.assign(h.m, checkpoint);
+      args.assertCurrent();
+      return { checkStatus: 'completed', checkedIds: ['q1'], issues: [] };
+    };
+    const modal = h.R.openReading('/vault', h.m, h.adapter);
+    await modal.querySelector('#mrv-retry-judge').click();
+    assert.equal(h.m.review.final.review.initial.checkStatus, changed ? 'incomplete' : 'completed');
+    if (changed) assert.match(modal.querySelector('#mrv-status').textContent, /cambiato/);
+    assert.equal(h.value.contentWrites, 0);
+  }
+});
+
+test('reading G2 progress shows item coverage and set review without undefined map lots', async () => {
+  const h = readingMaterials();
+  let modal; const statuses = [];
+  h.adapter.retry = async args => {
+    args.onProgress({ done: 6, total: 41, reused: 3, batch: 2 });
+    statuses.push(modal.querySelector('#mrv-status').textContent);
+    args.onProgress({ phase: 'design-review', etichetta: 'Controllo strategie e ripetizioni nella scheda…' });
+    statuses.push(modal.querySelector('#mrv-status').textContent);
+    return { checkStatus: 'completed', checkedIds: ['q1'], issues: [] };
+  };
+  modal = h.R.openReading('/vault', h.m, h.adapter);
+  await modal.querySelector('#mrv-retry-judge').click();
+  assert.equal(h.m.review.final.review.initial.checkStatus, 'completed');
+  assert.match(statuses[0], /6\/41/);
+  assert.doesNotMatch(statuses.join(' '), /undefined|Lotto/);
+  assert.match(statuses[1], /strategie e ripetizioni/);
+});
+
+test('reading G2 can repair an invalid base item before validating the composed result', async () => {
+  const h = readingMaterials(), items = clone(h.value.db.items);
+  items[0].options[1] = items[0].options[0];
+  const report = { checkStatus: 'completed', issues: [{ id: 'options', target: { kind: 'item', id: 'q1', field: 'options' },
+    problem: 'Alternative duplicate.', after: ['Prima.', 'Dopo.', 'Altro.', 'Nulla.'] }] };
+  h.value.db = { items };
+  h.m.review.final.items = clone(items);
+  h.m.review.final.review = Core.createReview({ db: { items }, sources: SOURCES, report, projectId: 'project', vaultPath: '/vault' });
+  const modal = h.R.openReading('/vault', h.m, h.adapter);
+  assert.ok(modal.querySelector('[data-review-card]'));
+  h.m.review.final.review = Core.setDecision(h.m.review.final.review, 'options', 'accept');
+  await h.R.approveReading('/vault', h.m, h.adapter);
+  assert.equal(h.value.db.items[0].options[1], 'Dopo.');
+  assert.equal(h.m.review.final.review.initial.status, 'approved');
+});
+
+
+test('reading identity is rechecked after the queued manifest write before touching canonical content', async () => {
+  const h = readingFixture(), write = h.window.electronAPI.saveVaultFile;
+  h.window.electronAPI.saveVaultFile = async args => {
+    const result = await write(args);
+    h.value.db.items[0].text = 'Un cambiamento concorrente.';
+    return result;
+  };
+  await assert.rejects(h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true }), /cambiato/);
+  assert.equal(h.value.contentWrites, 0);
+  assert.equal(h.value.commits, 0);
+  assert.equal(h.saved.manifest.review.initial.status, 'applying');
+  assert.notEqual(h.m.review.initial.status, 'approved');
+});
+
+function readingMenuFixture(status = 'approved') {
+  const h = readingFixture();
+  h.m.reading = { kind: 'percorso-lettura', extractionMode: 'lettura', projectId: 'project',
+    percorsoId: 'percorso', sourceId: 'fonte', sourcePath: 'Materiale Studio/Sorgenti/Percorso-lettura-percorso.json' };
+  h.st.extractionMode = 'lettura'; h.st._pipelineManifest = h.m;
+  if (status !== 'awaiting_review') {
+    const approved = Core.beginApproval(h.m.review, h.value.db, { manualReview: true });
+    h.m.review = status === 'applying' ? approved.review : Core.completeApproval(approved.review, approved.review.approvedRevision);
+  }
+  const entryCalls = { reading: 0, judge: 0 };
+  h.window.MappAIPercorsoLettura = { openCurrent: async () => { entryCalls.reading++; return 'editor-lettura'; } };
+  h.window.executeJudgePass = async () => { entryCalls.judge++; throw new Error('Il giudice della mappa non deve essere chiamato.'); };
+  return { ...h, entryCalls };
+}
+
+test('0070 menu generale: Rivedi contenuti rinvia fonte in attesa, applying e approvata senza ripristinare nodi', async () => {
+  const $ = cheerio.load(fs.readFileSync(require.resolve('../public/index.html'), 'utf8'));
+  const button = $('button').toArray().find(e => ($(e).attr('onclick') || '').includes('MappAIReview.openCurrent()'));
+  assert.ok(button);
+  for (const status of ['awaiting_review', 'applying', 'approved']) {
+    const h = readingMenuFixture(status), before = JSON.stringify(h.m);
+    assert.equal(await vm.runInNewContext($(button).attr('onclick'), { window: h.window }), 'editor-lettura');
+    assert.deepEqual(h.entryCalls, { reading: 1, judge: 0 });
+    assert.deepEqual(h.calls, { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 });
+    assert.equal(JSON.stringify(h.m), before); assert.equal(h.dom.document.getElementById('mappai-review-modal'), null);
+  }
+});
+
+test('0070 menu generale: Percorso breve e requireApproved non concedono il gate mappa né ricreano G1, anche sotto quarantena', async () => {
+  const h = readingMenuFixture(), before = JSON.stringify(h.m);
+  h.window.appState = h.st;
+  vm.runInNewContext(fs.readFileSync(require.resolve('../public/js/mappai-learning-path.js'), 'utf8'), h.window);
+  const $ = cheerio.load(fs.readFileSync(require.resolve('../public/index.html'), 'utf8'));
+  const button = $('button').toArray().find(e => ($(e).attr('onclick') || '').includes('MappAILearningPath.open()'));
+  assert.ok(button);
+  assert.equal(await vm.runInNewContext($(button).attr('onclick'), { window: h.window }), false);
+  h.window.MappAIAffermazioni = { facoltativa: () => true };
+  assert.equal(await h.R.requireApproved({ quarantena: true }), false);
+  assert.equal(await h.R.requireStandalone(), false);
+  assert.deepEqual(h.entryCalls, { reading: 3, judge: 0 });
+  assert.deepEqual(h.calls, { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 });
+  assert.equal(JSON.stringify(h.m), before);
+});
+
+test('0070 ingresso R.open: senza adapter rinvia al percorso; openReading continua a montare e salvare il G1 canonico', async () => {
+  const h = readingMenuFixture('awaiting_review');
+  assert.equal(await h.R.open('/vault', h.m, { final: true }), 'editor-lettura');
+  assert.equal(h.entryCalls.reading, 1); assert.equal(h.calls.map, 0);
+  const modal = h.R.openReading('/vault', h.m, h.adapter);
+  assert.equal(modal.querySelectorAll('[data-reading-paragraph]').length, 2);
+  assert.equal(h.entryCalls.reading, 1);
+  await h.R.approveReading('/vault', h.m, h.adapter, { manualReview: true });
+  assert.equal(h.value.contentWrites, 1); assert.equal(h.calls.map, 0); assert.equal(h.calls.cache, 0);
+});
+
+test('0070 ingressi legacy: identità divergenti e runtime assente fermano il rinvio senza toccare il progetto', async () => {
+  for (const invalidate of [
+    h => { h.m.reading.projectId = 'altro-progetto'; },
+    h => { h.m.review.projectId = 'altro-progetto'; },
+    h => { h.m.vaultPath = '/altro-vault'; },
+    h => { h.st.activeVaultPath = '/altro-vault'; },
+    h => { h.st.extractionMode = 'mindmap'; },
+    h => { delete h.window.MappAIPercorsoLettura; }
+  ]) {
+    const h = readingMenuFixture(); invalidate(h); const before = JSON.stringify(h.st);
+    await assert.rejects(h.R.openCurrent(), /progetto è cambiato|non è disponibile/);
+    await assert.rejects(h.R.requireApproved(), /progetto è cambiato|non è disponibile/);
+    assert.throws(() => h.R.open('/vault', h.m), /progetto è cambiato|non è disponibile/);
+    assert.equal(JSON.stringify(h.st), before);
+    assert.deepEqual(h.entryCalls, { reading: 0, judge: 0 });
+    assert.deepEqual(h.calls, { manifest: 0, map: 0, load: 0, cache: 0, pipeline: 0 });
+  }
+  const h = readingMenuFixture(), stale = clone(h.m); stale.reading.percorsoId = 'percorso-precedente';
+  assert.throws(() => h.R.open('/vault', stale), /progetto è cambiato/);
+  assert.equal(h.entryCalls.reading, 0); assert.equal(h.st._pipelineManifest, h.m);
+});
+
+/* ── 0088 · B10: «1 Contenuti» cliccabile in G2 ─────────────────────────────────────────────────────
+   Con la quarantena accesa (di default dal 0089) G1 è FACOLTATIVA: aprire un progetto porta dritto a G2, e in testata «1
+   Contenuti · 2 Materiali» era solo un indicatore. Ora, in G2, quando G1 è facoltativa e ancora in attesa, il passo è un
+   bottone che chiude G2 come «Salva e continua più tardi» (nessuna decisione persa) e apre G1 con la stessa chiamata di
+   «Rivedi i contenuti» (`MappAIReview.open(vaultPath, manifest, { alza: true })`). In tutti gli altri casi resta com'è. */
+function g2ConG1Facoltativa(opts = {}) {
+  const h = runtime(opts);
+  const items = [{ id: 'material-0', kind: 'flashcard', question: 'Domanda 0?', answer: 'Risposta 0.' },
+    { id: 'material-1', kind: 'flashcard', question: 'Domanda 1?', answer: 'Risposta 1.' }];
+  const issues = [{ id: 'decision-0', target: { kind: 'item', id: 'material-0', field: 'answer' }, after: 'Correzione 0.' }];
+  const m = manifest(initial({ checkStatus: 'completed', issues: [] }));        // G1 ancora in attesa
+  m.review.final = { stage: 'awaiting_review', items: clone(items), review: Core.createReview({ db: { items }, sources: SOURCES,
+    report: { checkStatus: 'completed', issues } }) };
+  assert.equal(m.review.initial.status, 'awaiting_review');
+  h.st._pipelineManifest = m;
+  /* il vero `facoltativa` somma la quarantena accesa e il record calcolabile: qui basta la sua forma */
+  if (!opts.senzaModulo) h.window.MappAIAffermazioni = { facoltativa: rv => opts.facoltativa !== false && !!rv && !!rv.initial && rv.initial.status === 'awaiting_review' };
+  return { ...h, m };
+}
+const passiTesto = modal => Array.from(modal.querySelectorAll('.mrv-stages li'), li => li.textContent);
+const ETICHETTA_PASSO = 'Torna a rivedere i contenuti. Le correzioni valgono per i materiali che generi dopo.';
+
+test('0088 B10: in G2, con G1 facoltativa e in attesa, «1 Contenuti» è un bottone accessibile; le due fasi restano quelle di prima', () => {
+  const h = g2ConG1Facoltativa(), modal = h.R.open('/vault', h.m, { final: true });
+  const passo = modal.querySelector('#mrv-step-contenuti');
+  assert.equal(!!passo, true);
+  assert.equal(passo.n.name, 'button');
+  assert.equal(passo.getAttribute('type'), 'button');
+  assert.equal(passo.getAttribute('aria-label'), ETICHETTA_PASSO);
+  assert.equal(passo.getAttribute('title'), ETICHETTA_PASSO);
+  assert.deepEqual(passiTesto(modal), ['1Contenuti', '2Materiali'], 'il testo delle fasi non cambia');
+  const li = modal.querySelectorAll('.mrv-stages li');
+  assert.equal(li[0].getAttribute('aria-current'), undefined, 'il passo corrente resta «2 Materiali»');
+  assert.equal(li[1].getAttribute('aria-current'), 'step');
+  assert.equal(li[1].querySelector('button'), null, '«2 Materiali» non è un bottone');
+  assert.equal(h.calls.manifest, 0, 'aprire non scrive niente');
+});
+
+test('0088 B10: il clic chiude G2 come «Salva e continua più tardi» e apre G1 con la chiamata di «Rivedi i contenuti»', async () => {
+  const h = g2ConG1Facoltativa(), modal = h.R.open('/vault', h.m, { final: true });
+  const aperture = [];
+  h.R.open = (...a) => { aperture.push(a); };
+  await modal.querySelector('#mrv-step-contenuti').click();
+  assert.equal(modal.isConnected, false, 'G2 si è chiusa');
+  assert.equal(aperture.length, 1);
+  assert.equal(aperture[0][0], '/vault');
+  assert.equal(aperture[0][1], h.m, 'lo stesso manifesto');
+  assert.deepEqual(clone(aperture[0][2]), { alza: true }, 'sopra la console che l\'ha aperta, e NON come G2 (niente final)');
+});
+
+test('0088 B10: nessuna decisione si perde passando da G2 a G1', async () => {
+  const h = g2ConG1Facoltativa(), modal = h.R.open('/vault', h.m, { final: true });
+  await currentCard(modal).querySelector('[data-review-choice=accept]').click();
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['decision-0'].choice, 'accept');
+  const aperture = [];
+  h.R.open = (...a) => { aperture.push(a); };
+  await modal.querySelector('#mrv-step-contenuti').click();
+  assert.equal(aperture.length, 1);
+  assert.equal(h.m.review.final.review.initial.decisions['decision-0'].choice, 'accept');
+  assert.equal(h.saved.manifest.review.final.review.initial.decisions['decision-0'].choice, 'accept');
+});
+
+test('0088 B10: se il salvataggio fallisce G2 resta aperta e G1 NON si apre (come «Salva e continua più tardi»)', async () => {
+  const h = g2ConG1Facoltativa({ failSave: true }), modal = h.R.open('/vault', h.m, { final: true });
+  await currentCard(modal).querySelector('[data-review-choice=accept]').click();      // il disco non salva
+  const aperture = [];
+  h.R.open = (...a) => { aperture.push(a); };
+  await modal.querySelector('#mrv-step-contenuti').click();
+  assert.equal(modal.isConnected, true, 'la finestra resta');
+  assert.equal(aperture.length, 0);
+});
+
+test('0088 B10: negli altri casi il passo resta un semplice indicatore (G1 approvata, quarantena spenta, modulo assente, G1 aperta)', () => {
+  const approvata = g2ConG1Facoltativa(); approvata.m.review.initial.status = 'approved';
+  const mA = approvata.R.open('/vault', approvata.m, { final: true });
+  assert.equal(mA.querySelector('#mrv-step-contenuti'), null, 'G1 già approvata');
+  assert.deepEqual(passiTesto(mA), ['1Contenuti', '2Materiali']);
+  const spenta = g2ConG1Facoltativa({ facoltativa: false });
+  assert.equal(spenta.R.open('/vault', spenta.m, { final: true }).querySelector('#mrv-step-contenuti'), null, 'quarantena spenta: G1 non è facoltativa');
+  const senza = g2ConG1Facoltativa({ senzaModulo: true });
+  assert.equal(senza.R.open('/vault', senza.m, { final: true }).querySelector('#mrv-step-contenuti'), null, 'senza il modulo delle affermazioni');
+  const g1 = g2ConG1Facoltativa();
+  const mG1 = g1.R.open('/vault', g1.m);
+  assert.equal(mG1.querySelector('#mrv-step-contenuti'), null, 'dentro G1 il passo corrente è «1 Contenuti»');
+  assert.equal(mG1.querySelectorAll('.mrv-stages li')[0].getAttribute('aria-current'), 'step');
+});
+
+/* ── 0088 · B14: alla chiusura di G2 la pipeline può chiedere di uscire da CREA (`options.dopoChiusura`) ───────────
+   «Salva e continua più tardi» ed ESC la chiamano SOLO a chiusura avvenuta; se il salvataggio fallisce la finestra resta
+   e non succede niente; il clic di B10 («1 Contenuti») e «Continua» non la chiamano; senza l'opzione tutto resta com'è. */
+test('0088 B14: «Salva e continua più tardi» chiama `dopoChiusura` dopo aver chiuso G2; senza l\'opzione niente cambia', async () => {
+  const h = g2ConG1Facoltativa(); let chiamate = 0;
+  const modal = h.R.open('/vault', h.m, { final: true, dopoChiusura: () => { chiamate++; assert.equal(modal.isConnected, false, 'prima si chiude, poi si esce da CREA'); } });
+  await modal.querySelector('#mrv-later').click();
+  assert.equal(modal.isConnected, false); assert.equal(chiamate, 1);
+  const senza = g2ConG1Facoltativa(), m2 = senza.R.open('/vault', senza.m, { final: true });
+  await m2.querySelector('#mrv-later').click();
+  assert.equal(m2.isConnected, false);
+});
+
+test('0088 B14: ESC è «Salva e continua più tardi»: chiama `dopoChiusura` una volta', async () => {
+  const h = g2ConG1Facoltativa(); let chiamate = 0;
+  const modal = h.R.open('/vault', h.m, { final: true, dopoChiusura: () => { chiamate++; } });
+  modal.listeners.keydown({ key: 'Escape', preventDefault() {} });
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(modal.isConnected, false); assert.equal(chiamate, 1);
+});
+
+test('0088 B14: se il salvataggio fallisce G2 resta aperta e `dopoChiusura` NON è chiamata', async () => {
+  const h = g2ConG1Facoltativa({ failSave: true }); let chiamate = 0;
+  const modal = h.R.open('/vault', h.m, { final: true, dopoChiusura: () => { chiamate++; } });
+  await currentCard(modal).querySelector('[data-review-choice=accept]').click();      // il disco non salva
+  await modal.querySelector('#mrv-later').click();
+  assert.equal(modal.isConnected, true); assert.equal(chiamate, 0);
+});
+
+test('0088 B14: il clic di B10 («1 Contenuti») chiude G2 e apre G1 senza chiamare `dopoChiusura`: G1 si apre sopra CREA', async () => {
+  const h = g2ConG1Facoltativa(); let chiamate = 0;
+  const modal = h.R.open('/vault', h.m, { final: true, dopoChiusura: () => { chiamate++; } });
+  const aperture = []; h.R.open = (...a) => { aperture.push(a); };
+  await modal.querySelector('#mrv-step-contenuti').click();
+  assert.equal(modal.isConnected, false); assert.equal(aperture.length, 1); assert.equal(chiamate, 0);
+});
+
+test('0088 B14: «Continua» chiama `onContinue` e NON `dopoChiusura` (è la continuazione a sapere da dove viene)', async () => {
+  const h = stalledMaterialFixture(); let chiamate = 0, continuate = 0;
+  const modal = h.R.open('/vault', h.m, { final: true, onContinue: async () => { continuate++; }, dopoChiusura: () => { chiamate++; } });
+  for (let i = 240; i < 250; i++) await modal.querySelector('[data-coverage-approve="material-' + i + '"]').click();
+  assert.equal(modal.querySelector('#mrv-continue').hidden, false);
+  await modal.querySelector('#mrv-continue').click();
+  assert.equal(modal.isConnected, false); assert.equal(continuate, 1); assert.equal(chiamate, 0);
 });

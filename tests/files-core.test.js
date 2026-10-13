@@ -146,6 +146,31 @@ test('sanitizeVaultRelPath: ammette root e Materiale Studio/, nega traversal', (
   assert.strictEqual(FC.sanitizeVaultRelPath(null), null);
 });
 
+// ── 0077: Documenti/ — i documenti salvati diventano file della cartella (ADR 0018) ──
+test('0077: sanitizeVaultRelPath ammette Documenti/<file>, un livello solo', () => {
+  assert.strictEqual(FC.sanitizeVaultRelPath('Documenti/Sintesi — Elettricità - synthesis - doc_1790000000000_1.html'),
+    'Documenti/Sintesi — Elettricità - synthesis - doc_1790000000000_1.html');
+  assert.strictEqual(FC.sanitizeVaultRelPath('Documenti\\Foglio nodi - nodesheet - doc_1_2.pdf'), 'Documenti/Foglio nodi - nodesheet - doc_1_2.pdf');
+  ['Documenti/a/b', 'Documenti/a/b.html', 'Documenti/../x', 'Documenti/../../etc/passwd', '/Documenti/x.html',
+   'C:\\Documenti\\x.html', 'Documenti/x?.html', 'Documenti/x.', 'documenti/x.html', 'Materiale Studio/Documenti/x.html'].forEach(r => {
+    assert.strictEqual(FC.sanitizeVaultRelPath(r), null, r + ' non deve passare');
+  });
+});
+
+test('0077: Documenti/ non viaggia all\'allievo e non entra negli elenchi dei materiali', () => {
+  ['Documenti/Sintesi - synthesis - doc_1_1.html', 'Documenti/Foglio - nodesheet - doc_1_2.pdf', 'Documenti/x.html'].forEach(r => {
+    assert.strictEqual(FC.relVaultStudente(r), null, r + ' non viaggia');
+  });
+  /* gli elenchi dei materiali di ELABORA e INSEGNA vengono da `vault-materials-list`
+     (main.js, sola lettura): la sua allowlist conosce solo «Materiale Studio» e «Allegati» */
+  const main = require('fs').readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const i = main.indexOf("ipcMain.handle('vault-materials-list'");
+  assert.ok(i > 0);
+  const corpo = main.slice(i, main.indexOf('ipcMain.handle(', i + 10));
+  assert.ok(/const cartella = \(dirName === 'Allegati'\) \? 'Allegati' : 'Materiale Studio';/.test(corpo), 'allowlist di due cartelle');
+  assert.ok(!/Documenti/.test(corpo), 'Documenti/ non è fra le cartelle elencate');
+});
+
 // ── Il carattere nel nome del file (7/9/26) ──────────────────────────────
 test('senzaCarattere: toglie solo un suffisso noto, riconosce le etichette vecchie', () => {
   assert.deepStrictEqual(FC.senzaCarattere('Quiz-MC-Il Clima - TM Sans.pdf'), { stem: 'Quiz-MC-Il Clima', carattere: 'TM Sans', est: '.pdf' });
@@ -570,4 +595,16 @@ test('istantaneeDaPotare: tiene le ultime tre e ignora ciò che non è una data'
   assert.deepStrictEqual(FC.istantaneeDaPotare(nomi), ['20260901-101010'], 'via la più vecchia');
   assert.deepStrictEqual(FC.istantaneeDaPotare(nomi, 10), [], 'sotto il tetto non si pota');
   assert.deepStrictEqual(FC.istantaneeDaPotare([]), []);
+});
+
+// ── 0061: la forma dell'id di progetto (ADR 0013) ──────────────────────────
+// L'id è anche la CHIAVE della fotografia in localStorage: un `index.yaml` arrivato
+// da fuori con `projectId: tutor_ai_projects` farebbe scrivere la fotografia sopra
+// l'indice dei progetti. Vale solo la forma che l'app conia.
+test('0061: F1. idProgettoValido: la forma che l\'app conia, e nient\'altro', () => {
+  assert.strictEqual(FC.idProgettoValido('proj_1788975818955'), true);
+  assert.strictEqual(FC.idProgettoValido('proj_' + Date.now()), true);
+  for (const x of ['tutor_ai_projects', 'mappai_language', 'proj_12', 'proj_1788975818955 ', 42, null, '']) {
+    assert.strictEqual(FC.idProgettoValido(x), false, JSON.stringify(x));
+  }
 });

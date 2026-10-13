@@ -22,7 +22,13 @@
  *   --gate3 <packet> "<prova>" [--riga N]   chiude la casella di Giacomo citando lui
  *   --marca <packet> <N> <cieca|rossa|corso> "<motivo>"
  *   --stato <packet> "<riga 3 nuova>"       riscrive la riga «Stato» (rifiuta «chiuso» con caselle aperte)
+ *   --perimetro [packet]            il §2/§3 come li legge il hook, e le voci scritte male (esce 1 se ce n'è
+ *                                   una); senza packet: tutti quelli non chiusi di docs/tasks/ (packet 0081)
  *   --hook apri|controlla|gesto     per `.claude/hooks/contabilita.js`, non per le mani
+ *
+ * ⚠ `.claude/hooks/perimetro.js` fa `require` di questo file e ne usa `leggiPerimetro`, `re`,
+ *   `elencoDalDisco` e `PUNTI`: se qui c'è un errore di sintassi, il hook rifiuta ogni scrittura tranne
+ *   quella del packet. Dopo ogni modifica: `node -e "require('./tools/contabilita/packet.js')"`.
  */
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -101,12 +107,265 @@ const BLOCCA = new Set(['irrisolta', 'nuda', 'scaduta']);
 const RISOLTA = new Set(['chiusa', 'dichiarata', 'sospetta']);
 const NOME = { U: 'Giacomo', S: 'suite', D: 'diff', C: 'comando', A: 'asserzione' };
 
-// ─── glob di §2/§3 (stessa traduzione di perimetro.js) ───────────────────────────────────
-const lista = (md, n) => sezione(md, n).split('\n').filter(l => /^\s*[-*] /.test(l))
-  .map(l => (l.match(/`([^`]+)`/) || [])[1]).filter(Boolean);
+// ─── il perimetro: §2/§3, UNA lettura per il hook e per il controllo a secco (packet 0081) ──
+// La regola di sempre (`perimetro.js` fino al 05/10/2026): di ogni riga a elenco del §2 e del §3 conta
+// SOLO il primo testo fra apici inversi. `vociSezione` la applica e in più tiene ciò che il hook NON
+// legge (gli altri testi della voce, le righe che vanno a capo), perché `leggiPerimetro` possa dire
+// che cosa si perde. Dal 0081 il hook non ha più una copia sua: chiama questa (invariante 6).
+const RE_VOCE = /^\s*[-*] /;
+function vociSezione(md, n) {
+  const parti = md.split(/^(?=## )/m);                     // stesso taglio del hook: la PRIMA sezione `## N.`
+  let base = 0, sez = null;
+  for (const s of parti) { if (s.startsWith(`## ${n}.`)) { sez = s; break; } base += s.split('\n').length - 1; }
+  if (sez === null) return { riga: 0, voci: [] };
+  const voci = []; let cur = null;
+  sez.split('\n').forEach((l, i) => {
+    if (RE_VOCE.test(l)) { cur = { riga: base + i + 1, righe: [l], letto: (l.match(/`([^`]+)`/) || [])[1], testi: [] }; voci.push(cur); }
+    else if (cur && l.trim() && !/^#/.test(l)) cur.righe.push(l);        // la voce che va a capo
+    else { cur = null; return; }
+    for (const m of l.matchAll(/`([^`]+)`/g)) cur.testi.push(m[1]);
+  });
+  return { riga: base + 1, voci };
+}
+// La scorciatoia di sempre: ciò che il hook legge del §n.
+const lista = (md, n) => vociSezione(md, n).voci.map(v => v.letto).filter(Boolean);
+// I glob di §2/§3: la traduzione del hook, una sola (il hook la prende da qui).
 const re = (g) => new RegExp('^' + g.replace(/\/$/, '/**').replace(/[.+^${}()|[\]\\]/g, '\\$&')
   .replace(/\*\*\//g, '%D%').replace(/\*\*/g, '%A%').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]')
   .replace(/%D%/g, '(?:.*/)?').replace(/%A%/g, '.*') + '$');
+
+// Che cosa è un problema (packet 0081 §4.2). Le regole, deterministiche:
+// · «percorso del progetto» = un testo senza spazi e senza numero di riga (`:12`, `:85-89`) il cui
+//   primo segmento è una CARTELLA della radice del progetto (`public/…`, `relay/…`, `.claude/…`), o
+//   che senza `/` combacia con un FILE della radice (`main.js`, `package.json`). Il resto (nomi di
+//   funzione, `Fonti/x.pdf`, `~/…`, comandi, un file d'esempio senza cartella) non è un percorso;
+// · un PRIMO testo (quello che il hook legge) è scritto male se il hook non potrà mai farlo
+//   combaciare dentro il progetto — comincia con `./`, è un assoluto sotto la radice (`root`, per
+//   iniezione), o porta un numero di riga dopo un percorso o un nome di file: grave; `../…` o un
+//   assoluto fuori dalla radice stanno dove il hook non interviene: avviso; un URL non è mai un
+//   percorso — oppure se non ha cartella, SEMBRA UN FILE e nessuna voce della radice lo fa
+//   combaciare: grave se un file così esiste altrove nell'albero (è abbreviato), avviso se non c'è da
+//   nessuna parte (può essere un file della radice che questo checkout non ha), avviso anche in una
+//   voce del §2 che dice «nuovo». Un identificatore (`pickPdf`, `window.t`) non perde niente:
+//   silenzio. Senza `root` un assoluto è grave. Nel dubbio, avviso: col hook severo un falso
+//   allarme grave ferma una chat. Una CARTELLA della radice scritta senza barra (`public`) è grave;
+// · «sembra un file» = un nome (lettere, cifre, `_ . - + @`) con un'estensione della lista fissa
+//   `EST_FILE`, o un glob con la forma di un nome (`\w - . * ? [ ]`): vale per i primi testi e per i
+//   nomi abbreviati dopo il primo nel §3;
+// · «invito di gruppo» = un glob (`*`, `?`) o una cartella intera (`x/`).
+// Il disco entra per iniezione: `elenca(cartella)` → i nomi dentro, le cartelle con `/` in coda
+// (`elencoDalDisco(ROOT)` per il hook e il comando, `elencoDaFile([...])` per le prove). Senza
+// `elenca` si controlla solo il punto 5: il resto chiede il disco, e la funzione non lo indovina.
+const GLOB = /[*?]/;
+const gruppo = (g) => GLOB.test(g) || g.endsWith('/');
+const parteFissa = (g) => { const i = g.search(GLOB); const s = i < 0 ? g : g.slice(0, i); return s.slice(0, s.lastIndexOf('/') + 1); };
+// Le estensioni «da file»: una lista FISSA, mai presa dal disco (`dist/` e `.venv/` di un checkout
+// hanno `.db`, `.lock`, `.c`, e il verdetto non deve cambiare da un disco all'altro). Una sola lista
+// per i primi testi e per quelli dopo il primo.
+const EST_FILE = /\.(?:[mc]?js|ts|json|md|txt|s?css|html?|svg|png|jpe?g|gif|webp|ico|pdf|woff2?|ttf|otf|eot|sh|py|ipynb|ya?ml|csv|xml|mp3|mp4|wav|m4a|zip|plist)$/i;
+// «Sembra un file»: un nome (lettere, cifre, `_ . - + @`) con un'estensione da file; oppure un glob
+// che ha la forma di un nome (solo `\w - . * ? [ ]`), anche senza estensione. `mappai-*.js`,
+// `mappai-*`, `a?b.js`, `en_translations.js` sì; `?v=`, `window.t`, `appState.db`, `10:30` no.
+const sembraFile = (t) => (GLOB.test(t) ? /^[\w.*?[\]-]+$/.test(t) : /^[\w.+@-]+$/.test(t) && EST_FILE.test(t));
+const RE_URL = /:\/\//;
+// Un glob NUDO (solo `*`, `?`, `/`, al più un'estensione: `*`, `**`, `*.js`, `**/*.js`, `*/`) citato DOPO
+// il primo testo è prosa che parla dei glob, non un percorso. Il primo testo no: il hook lo legge.
+const globNudo = (t) => GLOB.test(t) && /^[*?/]+$/.test(t.replace(/\.[A-Za-z0-9]+$/, ''));
+const NUOVO = /\bnuov[oaie]\b/i;
+const SALTA = new Set(['node_modules/', '.git/']);
+const TETTO_FILE = 50000;                                  // una ricerca nel disco non scorre più di tante voci
+const nomeDi = (p) => p.slice(p.lastIndexOf('/') + 1);
+const PUNTI = { 1: 'voce con più di un percorso', 2: 'primo percorso che il hook non fa combaciare', 3: 'file che non esiste', 4: 'divieto che il hook non legge', 5: '§2 senza voci' };
+const senzaPunto = (t) => t.replace(/^\.\//, '');
+const testoVoce = (v) => v.righe.map(l => l.trim()).join(' ');
+
+// Un primo testo che il hook non farà MAI combaciare (punto 2): `{ grave, cosa }`, o null. Fuori dal
+// progetto il hook non interviene, quindi lì non si perde niente: avviso. Dentro (`./`, un assoluto
+// sotto la radice, un numero di riga) la voce non consente o non vieta niente: grave.
+function maiCombacia(t, n, root) {
+  const effetto = n === 2 ? 'consente' : 'vieta';
+  const nulla = `il hook non lo farà mai combaciare, quindi questa voce non ${effetto} niente`;
+  if (/^\.\.\//.test(t)) return { grave: false, cosa: `\`${t}\` è fuori dal progetto: il hook non lo controlla. Se la voce non serve, toglila.` };
+  if (/^\.\//.test(t)) return { grave: true, cosa: `\`${t}\` comincia con \`./\`: ${nulla}. Scrivi il percorso dalla radice senza \`./\`: «${senzaPunto(t)}».` };
+  if (t.startsWith('/')) {
+    const r = root ? String(root).replace(/\/+$/, '') : null;
+    if (r && t !== r && !t.startsWith(`${r}/`)) return { grave: false, cosa: `\`${t}\` è un percorso assoluto fuori dal progetto: il hook non lo controlla. Se la voce non serve, toglila.` };
+    return { grave: true, cosa: `\`${t}\` è un percorso assoluto${r ? ' dentro il progetto' : ''}: ${nulla}. Scrivi il percorso dalla radice${r ? `: «${t.slice(r.length + 1)}»` : ''}.` };
+  }
+  // `:N` è un numero di riga solo dopo un percorso o un nome di file: `:1524` e `10:30` non lo sono
+  const i = t.search(/:\d/), prima = i < 0 ? '' : t.slice(0, i);
+  if (i > 0 && (prima.includes('/') || sembraFile(prima)))
+    return { grave: true, cosa: `\`${t}\` porta un numero di riga: ${nulla}. Scrivi il percorso senza \`:N\` («${prima}») e metti la riga nel commento.` };
+  return null;
+}
+
+function leggiPerimetro(md, { elenca, root } = {}) {
+  const S = { 2: vociSezione(md, 2), 3: vociSezione(md, 3) };
+  const consentiti = S[2].voci.map(v => v.letto).filter(Boolean), vietati = S[3].voci.map(v => v.letto).filter(Boolean);
+  const problemi = [];
+  const metti = (punto, sezione, v, testo, cosa, grave = punto !== 3) =>
+    problemi.push({ punto, grave, sezione, riga: v.riga, voce: testoVoce(v), testo, cosa });
+  if (!consentiti.length) {
+    const v = { riga: S[2].riga || 1, righe: [S[2].riga ? md.split('\n')[S[2].riga - 1] : '(il §2 «File consentiti» non c\'è)'] };
+    metti(5, 2, v, null, 'il §2 «File consentiti» non ha nessuna voce con un percorso fra apici inversi: con il packet acceso il hook rifiuta ogni scrittura. Una voce per file: «- `percorso/intero.js` — perché».');
+  }
+  if (typeof elenca === 'function') controllaSulDisco(S, consentiti, vietati, elenca, metti, root);
+  problemi.sort((a, b) => a.riga - b.riga);                 // stabile: dentro la stessa voce resta l'ordine dei testi
+  return { consentiti, vietati, problemi };
+}
+
+function controllaSulDisco(S, consentiti, vietati, elenca, metti, root) {
+  const memo = new Map();
+  const ls = (d) => {
+    d = d.replace(/\/+$/, '');
+    if (!memo.has(d)) { let x; try { x = elenca(d) || []; } catch (e) { x = []; } memo.set(d, [...x].sort()); }
+    return memo.get(d);
+  };
+  const radice = ls('');
+  const cartelle = new Set(radice.filter(x => x.endsWith('/')).map(x => x.slice(0, -1)));
+  const fileRadice = radice.filter(x => !x.endsWith('/'));
+  const esiste = (p) => { const q = p.replace(/\/+$/, ''); const i = q.lastIndexOf('/'); const nm = q.slice(i + 1); return ls(i < 0 ? '' : q.slice(0, i)).some(x => x === nm || x === `${nm}/`); };
+  const sotto = (d) => {                                    // i file sotto una cartella, senza node_modules/.git, col tetto
+    const out = [], pila = [d.replace(/\/+$/, '')]; let visti = 0;
+    while (pila.length) {
+      const c = pila.pop();
+      for (const x of ls(c)) {
+        if (++visti > TETTO_FILE) return out;
+        const p = c ? `${c}/${x}` : x;
+        if (!x.endsWith('/')) out.push(p); else if (!SALTA.has(x)) pila.push(p.slice(0, -1));
+      }
+    }
+    return out.sort();
+  };
+  const percorso = (t) => {
+    if (/\s/.test(t) || /:\d/.test(t) || !/[A-Za-z0-9]/.test(t)) return false;
+    if (t.includes('/')) return cartelle.has(t.split('/')[0]);
+    return fileRadice.some(f => re(t).test(f));
+  };
+  const vale = (globs, p) => globs.some(g => re(g).test(p));
+  const nonLetti = (v) => v.testi.slice(v.letto ? 1 : 0);
+  // Un testo che il hook già legge non perde niente: nel §2 se un'altra voce lo consente o il §3 lo
+  // vieta comunque; nel §3 se un'altra voce lo vieta, o se il §2 lo consente PER INTERO — è il modo
+  // in cui il template chiede di nominare nel §3 un file del §2 (dopo il primo percorso), quindi è
+  // un riferimento, non un divieto perso.
+  const giaLetto = (n, t) => (n === 2 ? vale(consentiti, t) || vale(vietati, t) : vale(vietati, t) || consentiti.includes(t));
+
+  for (const n of [2, 3]) for (const v of S[n].voci) {
+    // 1. un altro percorso nella stessa voce: il hook non lo legge (`./x` si riconosce togliendo `./`)
+    for (const t of nonLetti(v)) {
+      const q = senzaPunto(t);
+      if (globNudo(q) || !percorso(q) || t === v.letto || q === v.letto || giaLetto(n, q)) continue;
+      const primo = v.letto ? `solo il primo percorso della voce (\`${v.letto}\`)` : 'solo il primo testo fra apici della riga col trattino, e qui non ce n\'è';
+      metti(1, n, v, t, `il hook legge ${primo}: \`${t}\` ${n === 2 ? 'non è consentito' : 'non è vietato'}. Dagli una voce sua: «- \`${t}\` — …». Se è solo un riferimento, scrivilo col numero di riga (\`${t}:N\`) o senza cartella.`);
+    }
+    const t = v.letto;
+    if (!t || RE_URL.test(t)) continue;                      // un URL non è mai un percorso
+    const effetto = n === 2 ? 'consente' : 'vieta';
+    // 2a. un primo testo che il hook non potrà mai far combaciare: confronta percorsi relativi alla
+    //     radice, senza `./`, e un numero di riga diventa parte del nome
+    const mai = maiCombacia(t, n, root);
+    if (mai) { metti(2, n, v, t, mai.cosa, mai.grave); continue; }
+    // 2b. un primo testo senza cartella che sembra un file e che nessuna voce della radice fa
+    //     combaciare (anche come glob). Un identificatore (`pickPdf`, `window.t`) è un commento: silenzio.
+    //     Grave solo se è DIMOSTRABILMENTE abbreviato (un file così esiste altrove nell'albero); se non
+    //     c'è da nessuna parte può essere un file della radice che questo checkout non ha: avviso.
+    //     Una CARTELLA della radice senza barra (`public`, `publ*`) il hook la fa combaciare solo con la
+    //     cartella, mai con un file dentro: grave, qualunque forma abbia.
+    const fileDellaRadice = !t.includes('/') && fileRadice.some(f => re(t).test(f));
+    const cartella = !t.includes('/') && !fileDellaRadice && [...cartelle].sort().find(d => re(t).test(d));
+    if (cartella) {
+      metti(2, n, v, t, `\`${t}\` combacia solo con la cartella \`${cartella}\` della radice: il hook confronta i file, e una cartella scritta senza barra non ne fa entrare nessuno, quindi questa voce non ${effetto} niente. Scrivi «${cartella}/» con la barra.`);
+      continue;
+    }
+    if (!t.includes('/') && sembraFile(t) && !fileDellaRadice) {
+      const cand = sotto('').filter(p => re(t).test(nomeDi(p))).slice(0, 3);
+      const forse = cand.length ? ` (forse \`${cand.join('`, `')}\`)` : '';
+      if (n === 2 && NUOVO.test(testoVoce(v)))                 // un file nuovo nella radice È un percorso intero
+        metti(2, n, v, t, `\`${t}\` non ha cartella e la voce dice «nuovo»: il hook lo prende come un file nuovo nella radice del progetto. Se è lì che va, va bene così; se va in una cartella, scrivi il percorso intero${forse}.`, false);
+      else if (cand.length)
+        metti(2, n, v, t, `\`${t}\` non ha cartella, e nella radice del progetto non c'è: il file sta altrove${forse}. Il hook lo confronta col percorso intero, quindi questa voce non ${effetto} niente. Scrivi il percorso intero.`);
+      else
+        metti(2, n, v, t, `\`${t}\` non c'è nella radice di questo checkout, né altrove: se è un file della radice (che qui manca), ignora; se no, scrivi il percorso intero.`, false);
+      continue;
+    }
+    // 3. (avviso) un file del §2 che non esiste, in una voce che non dice «nuovo»
+    if (n === 2 && t.includes('/') && !gruppo(t) && !esiste(t) && !NUOVO.test(testoVoce(v)))
+      metti(3, n, v, t, `\`${t}\` non esiste e la voce non dice «nuovo»: se è un file da creare, scrivilo nella voce («— nuovo»); se no, controlla il percorso.`);
+  }
+
+  // 4. un testo del §3 che il hook non legge e che un invito di gruppo del §2 renderebbe scrivibile
+  const inviti = consentiti.filter(gruppo);
+  const cartelleLette = [...new Set([...consentiti, ...vietati].map(g => gruppo(g) ? parteFissa(g) : g.slice(0, g.lastIndexOf('/') + 1)))];
+  for (const v of S[3].voci) for (const t0 of nonLetti(v)) {
+    const t = senzaPunto(t0);
+    if (globNudo(t)) continue;                              // prosa sui glob, non un divieto
+    let cand, suDisco = 0;
+    if (percorso(t)) cand = [t];
+    else if (!t.includes('/') && sembraFile(t)) {
+      const r = re(t); cand = [];
+      for (const g of inviti) {
+        const f = parteFissa(g), resto = g.slice(f.length);
+        const trovati = sotto(f).filter(p => r.test(nomeDi(p)));
+        suDisco += trovati.length;
+        cand.push(...trovati);
+        // un file che non c'è ancora: lo si mette nella cartella del glob solo se il glob è una
+        // FAMIGLIA di nomi (`mappai-x*.js`), mai per `tests/**` o `docs/tasks/`, che prenderebbero tutto
+        if (resto && !resto.includes('/') && !GLOB.test(resto[0]) && !GLOB.test(t)) cand.push(f + t);
+      }
+      cand = [...new Set(cand)];
+    } else continue;
+    cand = cand.filter(c => !consentiti.includes(c));       // un file che il §2 consente per intero: è un riferimento
+    // la voce da proporre: il percorso intero; per un nome-glob, il glob con la sua cartella
+    const proposta = (c) => (GLOB.test(t) && !percorso(t) ? c.slice(0, c.lastIndexOf('/') + 1) + t : c);
+    const invito = (c) => inviti.find(g => re(g).test(c));
+    const buco = cand.find(c => invito(c) && !vale(vietati, c));
+    if (buco) {
+      metti(4, 3, v, t, `\`${t}\` il hook non lo legge, quindi non è vietato; e l'invito di gruppo \`${invito(buco)}\` del §2 renderebbe scrivibile \`${buco}\`. Dagli una voce sua col percorso intero: «- \`${proposta(buco)}\` — …».`);
+      continue;
+    }
+    if (percorso(t)) continue;                              // un percorso intero non letto è già il punto 1
+    // senza un invito che lo apra il divieto abbreviato non ha effetto: resta un avviso
+    const r = re(t);
+    const noti = cartelleLette.flatMap(d => ls(d).filter(x => !x.endsWith('/') && r.test(x)).map(x => d + x));
+    const veri = noti.filter(c => !vale(vietati, c) && !consentiti.includes(c));
+    const anche = GLOB.test(t) ? ` (oggi combacia con \`${veri.join('`, `')}\`)` : veri.length > 1 ? ` (combacia anche con \`${veri.slice(1).join('`, `')}\`)` : '';
+    if (veri.length) { metti(4, 3, v, t, `\`${t}\` il hook non lo legge (non è il primo percorso, e non ha cartella), quindi non vieta niente. Oggi nessun invito di gruppo del §2 lo renderebbe scrivibile, quindi è senza effetto; se è un divieto, dagli una voce sua: «- \`${proposta(veri[0])}\` — …»${anche}.`, false); continue; }
+    // un nome che non c'è da nessuna parte, ma che un invito-cartella del §2 lascerebbe creare: non si
+    // sa dove starebbe, quindi non è un buco certo — ma nemmeno un divieto. Un avviso, non il silenzio.
+    // Tace se il nome è noto: un file sotto gli inviti, nelle cartelle del perimetro, o una voce intera del §2.
+    const noto = suDisco || noti.length || consentiti.some(c => !gruppo(c) && r.test(nomeDi(c)));
+    const dove = noto ? [] : inviti.map(g => parteFissa(g) + t).filter(c => invito(c) && !vale(vietati, c) && !consentiti.includes(c));
+    if (dove.length) metti(4, 3, v, t, `\`${t}\` il hook non lo legge (non è il primo percorso, e non ha cartella), quindi non vieta niente; e non so dove starebbe: nel progetto non c'è un file così, ma l'invito di gruppo \`${invito(dove[0])}\` del §2 lo lascerebbe creare (per esempio \`${dove[0]}\`). Se è un divieto, scrivi il percorso intero in una voce sua.`, false);
+  }
+}
+
+// Il disco vero, per il hook e per il comando: un `readdirSync` per cartella, nessun processo.
+// ⚠ I link simbolici NON si seguono: valgono come file (anche rotti). Un link a una cartella può
+//   uscire dal progetto o girare in tondo, e il hook ha dieci secondi in tutto.
+const elencoDalDisco = (root) => (dir) => {
+  try { return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).map(d => (d.isDirectory() ? `${d.name}/` : d.name)); }
+  catch (e) { return []; }
+};
+// Un disco finto da un elenco di percorsi, per le prove (una voce che finisce con `/` è una cartella vuota).
+function elencoDaFile(file) {
+  const m = new Map();
+  for (const f of file) {
+    const parti = f.split('/').filter(Boolean);
+    parti.forEach((x, i) => {
+      const d = parti.slice(0, i).join('/');
+      if (!m.has(d)) m.set(d, new Set());
+      m.get(d).add(i < parti.length - 1 || f.endsWith('/') ? `${x}/` : x);
+    });
+  }
+  return (dir) => [...(m.get(dir.replace(/\/+$/, '')) || [])];
+}
+
+// «Non chiuso» (packet 0081, decisione 1): la riga Stato della testa NON comincia con chiuso, fatto
+// e committato, superato, annullato o fermato (in grassetto o in maiuscolo vale lo stesso). Un packet
+// senza riga Stato conta come non chiuso.
+function statoDiTesta(md) { const m = md.split(/^## /m)[0].match(/\*\*Stato\*\*:\s*(.*)/); return m ? m[1].trim() : null; }
+const CHIUSO = /^(?:chiuso|fatto e committato|superato|annullato|fermato)\b/i;
+const packetChiuso = (md) => { const s = statoDiTesta(md); return !!s && CHIUSO.test(s.replace(/^[\s*_]+/, '')); };
 
 // Col perimetro ACCESO il giudizio lo dà il hook vero, non una seconda copia dei glob
 // (invariante 6). ⚠️ Senza `.claude/task-packet.json` `perimetro.js:10` esce 0 SEMPRE: sarebbe
@@ -524,6 +783,58 @@ function gesto(comando) {
     'Un commit intermedio voluto si dichiara: --marca "<packet>" <N> corso (vale solo oggi). Non aggirare dalla shell.';
 }
 
+// ─── il controllo a secco del perimetro (packet 0081) ────────────────────────────────────
+// Si lancia mentre si scrive il packet, prima del «vai»: stampa ciò che il hook leggerà e le voci
+// che perdono un permesso o un divieto. Legge solo il markdown e i nomi dei file: non esegue niente.
+const mostraPacket = (packet) => (packet.startsWith('..') ? path.resolve(ROOT, packet) : packet);
+function stampaProblema(x) {
+  console.log(`    ${x.grave ? '✗' : '·'} riga ${x.riga}, §${x.sezione} — punto ${x.punto}, ${PUNTI[x.punto]}`);
+  console.log(`        voce: ${x.voce.length > 170 ? `${x.voce.slice(0, 169)}…` : x.voce}`);
+  console.log(`        che cosa fare: ${x.cosa}`);
+}
+function stampaPerimetro(nome, md, { breve = false } = {}) {
+  const p = leggiPerimetro(md, { elenca: elencoDalDisco(ROOT), root: ROOT });
+  console.log(`Perimetro di ${nome}, come lo legge il hook (il primo percorso fra apici di ogni voce del §2 e del §3)`);
+  if (breve) console.log(`  Stato: ${statoDiTesta(md) || '(nessuna riga «Stato»: conta come non chiuso)'}`.slice(0, 160));
+  for (const [n, titolo] of [[2, 'File consentiti'], [3, 'File vietati']]) {
+    const letti = vociSezione(md, n).voci.filter(v => v.letto);
+    if (breve) { console.log(`  §${n} ${titolo} (${letti.length}): ${letti.map(v => v.letto).join(', ') || 'nessuno'}`); continue; }
+    console.log(`  §${n} ${titolo} (${letti.length}):`);
+    letti.forEach(v => console.log(`    riga ${v.riga}  ${v.letto}`));
+    if (!letti.length) console.log('    nessuno');
+  }
+  const gravi = p.problemi.filter(x => x.grave), avvisi = p.problemi.filter(x => !x.grave);
+  if (!gravi.length) console.log('  Nessun problema.');
+  else {
+    console.log(`  Problemi (${gravi.length}): con questo packet acceso il hook rifiuta ogni scrittura finché non li correggi. La regola: una voce, un percorso intero; il commento dopo il trattino.`);
+    gravi.forEach(stampaProblema);
+  }
+  if (avvisi.length) { console.log(`  Avvisi (${avvisi.length}), non bloccano:`); avvisi.forEach(stampaProblema); }
+  return { gravi: gravi.length, avvisi: avvisi.length, righe: [...new Set(gravi.map(x => x.riga))] };
+}
+function perimetroUno(packet) {
+  const md = leggi(P(packet));
+  if (md === null) throw new Error(`packet illeggibile: ${packet}`);
+  const e = stampaPerimetro(mostraPacket(packet), md);
+  console.log(`  Esito: ${e.gravi ? `${e.gravi} problema/i → uscita 1` : 'scritto bene → uscita 0'}${e.avvisi ? ` (${e.avvisi} avviso/i: non contano)` : ''}.`);
+  return e.gravi ? 1 : 0;
+}
+function perimetroTutti() {
+  const nomi = fs.readdirSync(P('docs', 'tasks')).filter(f => /^\d{4}-.*\.md$/.test(f) && f !== '0000-template.md').sort();
+  const aperti = []; let chiusi = 0;
+  for (const f of nomi) { const md = leggi(P('docs', 'tasks', f)); if (md === null) continue; if (packetChiuso(md)) chiusi++; else aperti.push([f, md]); }
+  console.log(`Controllo a secco dei perimetri: ${aperti.length} packet non chiusi in docs/tasks/ (fuori il template e ${chiusi} chiusi: Stato che comincia con chiuso, fatto e committato, superato, annullato o fermato).`);
+  const male = [];
+  for (const [f, md] of aperti) {
+    console.log('');
+    const e = stampaPerimetro(`docs/tasks/${f}`, md, { breve: true });
+    if (e.gravi) male.push(`${f} (riga ${e.righe.join(', ')})`);
+  }
+  console.log(`\nRiepilogo: ${aperti.length} packet non chiusi · ${aperti.length - male.length} scritti bene · ${male.length} con problemi${male.length ? `: ${male.join('; ')}` : ''}.`);
+  if (male.length) console.log('Con il hook severo un packet con problemi ferma la sua chat appena il perimetro si accende: va corretto prima, e detto a Giacomo.');
+  return male.length ? 1 : 0;
+}
+
 // ─── CLI ─────────────────────────────────────────────────────────────────────────────────
 function principale(argv) {
   const a = argv.slice(2);
@@ -549,6 +860,7 @@ function principale(argv) {
   if (a[0] === '--gate3') { gate3(risolviPacket(a[1]), a[2], val('--riga')); return 0; }
   if (a[0] === '--marca') { marcaRiga(risolviPacket(a[1]), a[2], a[3], a.slice(4).filter(x => x !== '--riga').join(' ')); return 0; }
   if (a[0] === '--stato') { riscriviStato(risolviPacket(a[1]), a.slice(2).join(' ')); return 0; }
+  if (a[0] === '--perimetro') return a[1] ? perimetroUno(risolviPacket(a[1])) : perimetroTutti();
   rapporto(); return 0;
 }
 
@@ -557,4 +869,7 @@ if (require.main === module) {
   catch (e) { console.error(`Contabilità: ${e.message}`); process.exit(1); }
 }
 
-module.exports = { caselle, specie, statoCasella, prova, referto, controlla, gesto, apri, rapporto, risolviPacket, scrivi, sezione, lista, re };
+module.exports = {
+  caselle, specie, statoCasella, prova, referto, controlla, gesto, apri, rapporto, risolviPacket, scrivi, sezione, lista, re,
+  leggiPerimetro, elencoDalDisco, elencoDaFile, packetChiuso, PUNTI,
+};

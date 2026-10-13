@@ -123,13 +123,23 @@
     }
 
     // ── Elenco fonti deduplicato + blocco contenuti per il prompt ─────────
-    function _buildSourcesAndContent(nodes) {
+    /* `vista` facoltativa (packet 0042): `{ db, review }` della quarantena. I nodi
+       si leggono dalla vista per id (`buildInput`), le rettifiche dalla sua
+       revisione. Senza, la mappa aperta e la revisione corrente, come sempre.
+       Con la vista entrano SOLO i nodi che la vista conosce (giro 2 del 26/09):
+       i rami si raccolgono dalla mappa viva, e un nodo aggiunto sulla tela
+       dopo il record non l'ha esaminato nessuno. */
+    function _buildSourcesAndContent(nodes, vista) {
         const reviewApi = window.MappAIReview;
-        const review = reviewApi && reviewApi.current ? reviewApi.current() : appState._pipelineManifest?.review;
+        const review = (vista && vista.review) || (reviewApi && reviewApi.current ? reviewApi.current() : appState._pipelineManifest?.review);
         const sources = reviewApi && reviewApi.sources ? reviewApi.sources()
             : (appState._pdfPagine?.length ? appState._pdfPagine : appState.sources || []);
         if (!window.MappAIGroundingCore) throw new Error('Grounding module not loaded');
-        return window.MappAIGroundingCore.buildInput(appState.db, nodes, sources, review);
+        return window.MappAIGroundingCore.buildInput(vista && vista.db ? vista.db : appState.db, vista && vista.db ? _nodiDellaVista(nodes, vista) : nodes, sources, review);
+    }
+    function _nodiDellaVista(nodes, vista) {
+        const byId = new Map(((vista.db && vista.db.nodes) || []).map(n => [String(n.id), n]));
+        return nodes.filter(n => n && byId.has(String(n.id))).map(n => byId.get(String(n.id)));
     }
 
     function _sourceVersion() {
@@ -414,10 +424,10 @@
     // ── Generazione AI ─────────────────────────────────────────────────────
     // Una passata di sintesi su un insieme di nodi (un ramo, o l'intera mappa
     // se piccola). Ritorna { rawText, sourcesArr } o null se niente contenuti.
-    async function _synthesizeOnce(nodes, label, apiKey, giro) {
+    async function _synthesizeOnce(nodes, label, apiKey, giro, vista) {
     const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
         const version = _sourceVersion();
-        const input = _buildSourcesAndContent(nodes);
+        const input = _buildSourcesAndContent(nodes, vista);
         const { nodesListText, sourcesArr } = input;
         if (!nodesListText) return null;
 
@@ -427,7 +437,9 @@
         // documento stampabile. '' / [] se il modulo manca o non trova nulla.
         let causalTriples = [];
         try {
-            if (window.MappAICausal && window.MappAICausal.triplesFor) causalTriples = window.MappAICausal.triplesFor(nodes) || [];
+            if (window.MappAICausal && window.MappAICausal.triplesFor) causalTriples = (vista
+                ? window.MappAICausal.triplesFor(_nodiDellaVista(nodes, vista), (vista.db && vista.db.links) || [])
+                : window.MappAICausal.triplesFor(nodes)) || [];
         } catch (e) { if (giro) giro.verifica(); causalTriples = []; }
         const causalScaffold = (causalTriples.length && window.MappAICausal.promptBlockFromTriples)
             ? window.MappAICausal.promptBlockFromTriples(causalTriples) : '';
@@ -536,17 +548,17 @@
     // aggiunge nulla per lo studente. Un ramo fallito non azzera gli altri.
     const WHOLE_SINGLE_MAX = 30;
 
-    async function _generateWholeMapSynthesis(apiKey, giro) {
+    async function _generateWholeMapSynthesis(apiKey, giro, vista) {
     const callModelAPI = giro ? payload => giro.chat('materiali', payload) : window.fetchModelAPI;
         const version = _sourceVersion();
         const mapName = window._getTimelineProjectName ? window._getTimelineProjectName() : 'MappAI';
-        const allNodes = appState.db.nodes || [];
+        const allNodes = (vista && vista.db ? vista.db.nodes : appState.db.nodes) || [];
 
         try {
             if (allNodes.length <= WHOLE_SINGLE_MAX) {
                 _ovl(true, window.t('bs_progress_whole', 'Sintesi della mappa in corso…'));
                 const out = await _synthesizeOnce(
-                    [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey, giro);
+                    [...allNodes].sort((a, b) => (a.level || 0) - (b.level || 0)), mapName, apiKey, giro, vista);
                 _requireSameVersion(version);
                 _ovl(false);
                 if (!out) {
@@ -571,7 +583,7 @@
                 _ovl(true,
                     window.t('bs_progress', 'Sintesi ramo') + ' ' + (i + 1) + '/' + branches.length + ': ' + label + '…');
                 try {
-                    const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey, giro);
+                    const out = await _synthesizeOnce(_collectBranchNodes(b.id), label, apiKey, giro, vista);
                     if (out) sections.push({ branchLabel: label, rawText: out.rawText, sourcesArr: out.sourcesArr, grounding: out.grounding, causalTriples: out.causalTriples || [] });
                 } catch (e) { if (giro) giro.verifica();
                     if (e.code === 'STALE_SYNTHESIS_SOURCE') throw e;
@@ -590,7 +602,7 @@
             let intro = '', introSources = [], introGrounding = { unknownCitationIds: [] };
             try {
                 _ovl(true, window.t('bs_progress_overview', 'Scrivo la panoramica…'));
-                const input = _buildSourcesAndContent(allNodes);
+                const input = _buildSourcesAndContent(allNodes, vista);
                 const langNote = window.mapLangNote ? window.mapLangNote() : '';
                 const prompt = 'Questi sono i contenuti approvati e le fonti originali della mappa "' + mapName + '".\n' +
                     'Scrivi una PANORAMICA introduttiva (150-220 parole) che colleghi i temi dei rami ' +
@@ -863,33 +875,47 @@
            Sta DENTRO .bs-body: così l'editor documenti la legge come blocco
            `raw` e la conserva al salvataggio, invece di perderla al primo
            ritocco del testo. */
+        /* `foto.src` (0079): la foto anche per INDIRIZZO (un percorso relativo, un
+           blob, un file dell'iPad), per chi non vuole megabyte di base64 nel
+           documento. Con `b64` vince `b64`. Un `javascript:` non entra, nemmeno con
+           spazi, a capo o maiuscole dentro lo schema (il browser li ignora). */
         const foto = data.foto || null;
-        const fotoHtml = (foto && foto.b64)
+        const fotoSrc = (foto && foto.b64)
+            ? 'data:' + _escBS(foto.mime || 'image/jpeg') + ';base64,' + String(foto.b64).replace(/[^A-Za-z0-9+/=]/g, '')
+            : (foto && typeof foto.src === 'string' && foto.src.trim()
+                && !/^javascript:/i.test(foto.src.replace(/[\u0000- \u007f-\u009f]/g, '')))
+                ? _escBS(foto.src.trim()) : '';
+        const fotoHtml = fotoSrc
             ? '<figure class="bs-fonte">'
-                + '<img src="data:' + _escBS(foto.mime || 'image/jpeg') + ';base64,' + String(foto.b64).replace(/[^A-Za-z0-9+/=]/g, '') + '"'
+                + '<img src="' + fotoSrc + '"'
                 + ' alt="' + _escBS(foto.titolo || data.branchLabel || '') + '">'
                 + '<figcaption>' + _escBS(foto.didascalia
                     || (window.t('bs_fonte_cap', 'Fonte iconografica analizzata') + (foto.titolo ? ' — ' + foto.titolo : '')))
                 + '</figcaption>'
               + '</figure>'
             : '';
-        const kindLabel = data.whole
+        /* `data.tipo` (0079): chi usa questo costruttore per un altro documento
+           (la scheda di un dossier: «Analisi della fonte») ne dà il nome — marchio,
+           testata e <title>. Senza, il documento è quello di sempre. */
+        const tipo = (typeof data.tipo === 'string' && data.tipo.trim()) ? data.tipo.trim() : '';
+        const kindLabel = tipo || (data.whole
             ? window.t('bs_whole_title', 'Sintesi della mappa')
-            : 'Sintesi di ramo';
+            : 'Sintesi di ramo');
 
-        // Etichette del comando Aa, una per stato del ciclo: il bottone DEVE dire
-        // dove si è, altrimenti a schermo lo stato non è visibile in nessun modo.
-        // Il documento è autoconsistente → le stringhe si cuociono qui.
-        /* ⚠️ L'etichetta dice la TAGLIA, non la diagnosi (Giacomo, 7/9): «Aa Dislessia»
-           nominava chi dovrebbe premerlo — su un documento che lo studente apre in
-           classe è un'etichetta addosso a lui, e per giunta non diceva a che punto
-           della scala si è. I tre stati sono una scala sola: x1 · x1,5 · x2. */
-        const dysLabels = [
-            window.t('bs_doc_dys', 'Aa x1'),
-            window.t('bs_doc_dys_x15', 'Aa x1,5'),
-            window.t('bs_doc_dys_x2', 'Aa x2')
-        ];
+        /* IL COMANDO «Aa» (0079, regola di Giacomo del 09/10 con lo 0087): a schermo
+           il bottone dice solo «Aa»; la taglia a cui si è arrivati la dicono
+           l'aria-label e il suggerimento («Grandezza del testo: ×1,5»), aggiornati a
+           ogni clic. La regola dell'app sta in `MappAIAa` (mappai-a11y.js), ma questo
+           documento vive da solo e non la carica: le stringhe si cuociono qui, con la
+           stessa forma (virgola in italiano, punto in inglese: `aa_sep`).
+           ⚠️ La taglia, mai la diagnosi (Giacomo, 7/9): «Aa Dislessia» era
+           un'etichetta addosso a chi lo preme. I tre stati sono una scala sola:
+           ×1 · ×1,5 · ×2, con la veste ad alta leggibilità. */
+        const dysSep = window.t('aa_sep', ',');
+        const dysNome = window.t('tts_scale', 'Grandezza del testo');
+        const dysLabels = [1, 1.5, 2].map(function (f) { return dysNome + ': ×' + String(f).replace('.', dysSep); });
         const dysTip = window.t('bs_doc_dys_tip', 'Veste ad alta leggibilità: un clic per il testo a 1,5×, un altro per 2×, un terzo per tornare al normale');
+        const dysTipJson = JSON.stringify(dysTip).replace(/</g, '\\u003c');
         // Evidenziazione della lettura (karaoke): due stati, e l'ETICHETTA li
         // nomina. La sola classe accesa sarebbe colore, cioè un canale solo —
         // la stessa ragione per cui il comando Aa dice dove si è.
@@ -911,6 +937,36 @@
         ];
         const rigaTip = window.t('bs_doc_riga_tip', 'Oscura la pagina tranne una finestra che segue il puntatore, per non perdere il rigo: un clic per stringerla o allargarla, l\'ultimo la spegne');
         const rigaLabelsJson = JSON.stringify(rigaLabels).replace(/</g, '\\u003c');
+        /* EVIDENZIA e RIGA con un'icona, la stampa dice «PDF» (Giacomo al gate dello
+           0079, 09/10: «troppo grandi … 'Stampa/PDF' può diventare solo 'PDF',
+           mentre 'EVIDENZIA' e 'RIGA' devono avere una icona Lucide SVG»; icone
+           scelte: `highlighter` e `scan-line`). Come per «Aa», lo stato a schermo
+           lo dice il bottone pieno (`on`), le parole («Evidenzia: sì», «Riga: media»)
+           l'aria-label e il suggerimento, aggiornati a ogni clic. Il documento vive
+           da solo: l'SVG è scritto qui (Lucide, licenza ISC — i tracciati di
+           public/js/lucide.min.js). */
+        const _ico = function (tracciati) {
+            return '<svg xmlns="http://www.w3.org/2000/svg" width="1.4em" height="1.4em" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+                + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
+                + tracciati.map(function (d) { return '<path d="' + d + '"/>'; }).join('') + '</svg>';
+        };
+        const icoEvidenzia = _ico(['m9 11-6 6v3h9l3-3', 'm22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4']);
+        const icoRiga = _ico(['M3 7V5a2 2 0 0 1 2-2h2', 'M17 3h2a2 2 0 0 1 2 2v2', 'M21 17v2a2 2 0 0 1-2 2h-2', 'M7 21H5a2 2 0 0 1-2-2v-2', 'M7 12h10']);
+        const pdfTip = window.t('bs_doc_pdf_tip', 'Stampa o salva in PDF');
+        const hlTipJson = JSON.stringify(hlTip).replace(/</g, '\\u003c');
+        /* Le icone del lettore, le stesse del lettore dell'app (mappai-tts-reader.js:
+           rotate-ccw + 10, play, pause, rotate-cw + 5), con i tracciati di Lucide. */
+        const _svgL = function (corpo) {
+            return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+                + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + corpo + '</svg>';
+        };
+        const icoLettoreJson = JSON.stringify({
+            back: _svgL('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>') + '<span>10</span>',
+            play: _svgL('<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>'),
+            pause: _svgL('<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>'),
+            fwd: _svgL('<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>') + '<span>5</span>'
+        }).replace(/</g, '\\u003c');
+        const rigaTipJson = JSON.stringify(rigaTip).replace(/</g, '\\u003c');
         // Le etichette finiscono dentro uno <script> del documento: un `<` letterale
         // chiuderebbe il tag e la pagina si aprirebbe muta, senza errori in console.
         const dysLabelsJson = JSON.stringify(dysLabels).replace(/</g, '\\u003c');
@@ -925,7 +981,7 @@
          della sua dimensione proprio sul dispositivo di chi ha bisogno che sia
          grande. Con essa la pagina si REIMPAGINA sulla larghezza vera. -->
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sintesi — ${_escBS(data.branchLabel)}</title>
+    <title>${tipo ? _escBS(tipo) : 'Sintesi'} — ${_escBS(data.branchLabel)}</title>
     <style>
     ${_fontDoc(opts && opts.font)}
         /* Le due leve della taglia del testo. Sono FATTORI e non valori finiti,
@@ -986,10 +1042,20 @@
            i soli corpi lascerebbe un testo da 19px dentro una pillola alta 34,
            cioè un chip che trabocca. */
         #ap-bar { display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0; margin:0 16px; }
-        .ap-chip { display:inline-flex; height:calc(34px * var(--ap-ui-k)); border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
-        .ap-seg { display:inline-flex; align-items:center; justify-content:center; min-width:calc(40px * var(--ap-ui-k)); padding:0 calc(11px * var(--ap-ui-k)); border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 calc(12px * var(--ap-ui-k))/1 var(--doc-font, 'Space Mono', monospace); border-left:1px solid #eef2ff; }
+        /* IL LETTORE COME QUELLO DELL'APP (0079, Giacomo al gate del 09/10: «allinea
+           lo stile di play anche al tasto pausa e poi controlla che tutti i player
+           usino lo stesso token»). Le misure del chip di mappai-tts-reader.js
+           (alto 40, segmenti 46, play 52) e le sue icone Lucide (rotate-ccw + 10,
+           play / pause, rotate-cw + 5), moltiplicate per la scala del documento
+           come tutto il resto della testata. Prima: caratteri di testo, e «⏸»
+           diventava un'emoji (il carattere emoji del documento la colora). */
+        .ap-chip { display:inline-flex; height:calc(40px * var(--ap-ui-k)); box-sizing:border-box; border-radius:9999px; background:#fff; border:1px solid #e2e8f0; overflow:hidden; flex:0 0 auto; }
+        .ap-seg { display:inline-flex; align-items:center; justify-content:center; gap:2px; min-width:calc(46px * var(--ap-ui-k)); padding:0 calc(11px * var(--ap-ui-k)); border:0; background:transparent; color:${accentColor}; cursor:pointer; font:700 calc(12px * var(--ap-ui-k))/1 var(--doc-font, 'Space Mono', monospace); border-left:1px solid #eef2ff; }
+        .ap-seg svg { width:calc(16px * var(--ap-ui-k)); height:calc(16px * var(--ap-ui-k)); flex:0 0 auto; }
+        .ap-seg span { font-size:calc(10px * var(--ap-ui-k)); line-height:1; font-weight:700; }
         .ap-seg:first-child { border-left:0; }
         .ap-seg:hover { background:#eef2ff; }
+        .ap-play { min-width:calc(52px * var(--ap-ui-k)); }
         .ap-play.on { background:${accentColor}; color:#fff; }
         .ap-prog { position:relative; flex:1 1 120px; min-width:70px; height:calc(7px * var(--ap-ui-k)); border-radius:9999px; background:#e2e8f0; cursor:pointer; touch-action:none; }
         .ap-fill { position:absolute; left:0; top:0; height:100%; width:0; border-radius:9999px; background:${accentColor}; pointer-events:none; }
@@ -998,6 +1064,7 @@
         /* Il ▶ «ascolta da qui» vive DENTRO il testo, non nella testata: segue la
            taglia del corpo, o resterebbe un bottone piccolo in mezzo a righe grandi. */
         .ap-sec { display:inline-flex; align-items:center; justify-content:center; width:calc(20px * var(--ap-txt-k)); height:calc(20px * var(--ap-txt-k)); margin-right:7px; padding:0; border:0; border-radius:9999px; background:#eef2ff; color:${accentColor}; cursor:pointer; vertical-align:middle; font:700 calc(11px * var(--ap-txt-k))/1 var(--doc-font, 'Space Mono', monospace); }
+        .ap-sec svg { width:55%; height:55%; }   /* l'icona play del lettore dell'app (0079) */
         .bs-body-block { background:rgba(253,230,138,.35); border-radius:5px; box-shadow:0 0 0 3px rgba(253,230,138,.35); }
         ::highlight(ap-read) { background-color:#fde68a; color:#0f172a; }
         /* Modalità dislessia (attivabile nel documento). Il comando Aa è un ciclo
@@ -1054,9 +1121,14 @@
            si spegne, e un comando sepolto sotto il velo sarebbe una trappola. */
         body.ap-riga-on #ap-topbar { z-index:100000; }
         .ap-hdr-btn { background:#fff; color:${accentColor}; border:1px solid #e2e8f0; border-radius:8px; padding:calc(6px * var(--ap-ui-k)) calc(12px * var(--ap-ui-k)); cursor:pointer; font-size:calc(11px * var(--ap-ui-k)); font-weight:bold; }
+        /* Evidenzia e Riga: solo l'icona (0079); l'SVG prende il colore del bottone */
+        .ap-hdr-btn.ap-ico { display:inline-flex; align-items:center; justify-content:center; padding-left:calc(9px * var(--ap-ui-k)); padding-right:calc(9px * var(--ap-ui-k)); line-height:0; }
         /* Stato acceso: una regola sola per i due, o il secondo comando direbbe
            «acceso» in un modo diverso dal primo. */
-        #ap-dys-btn.on, #ap-hl-btn.on { background:${accentColor}; color:#fff; border-color:${accentColor}; }
+        /* 0079: Riga ha solo l'icona, quindi anche lei dice «accesa» col fondo pieno
+           — uno stato per i tre spessori: lo spessore lo dicono la fascia sulla
+           pagina e il suggerimento (Giacomo al gate del 09/10). */
+        #ap-dys-btn.on, #ap-hl-btn.on, #ap-riga-btn.on { background:${accentColor}; color:#fff; border-color:${accentColor}; }
         /* «Stampa / PDF»: aveva TUTTO il suo stile in un attributo style=, quindi
            era l'unico comando che nessuna regola poteva più governare — né il
            carattere né la taglia. Ora è una classe come gli altri due. */
@@ -1233,10 +1305,10 @@ ${_bsPie(data.mapName)}
         <span id="ap-doc-brand" style="font-weight:bold;color:${accentColor};white-space:nowrap;">MappAI · ${_escBS(kindLabel)}</span>
         <div id="ap-bar"></div>
         <div class="ap-cmd">
-            <button id="ap-dys-btn" type="button" class="ap-hdr-btn" title="${_escBS(dysTip)}">${_escBS(dysLabels[0])}</button>
-            <button id="ap-hl-btn" type="button" class="ap-hdr-btn on" aria-pressed="true" title="${_escBS(hlTip)}">${_escBS(hlLabels[1])}</button>
-            <button id="ap-riga-btn" type="button" class="ap-hdr-btn" aria-pressed="false" title="${_escBS(rigaTip)}">${_escBS(rigaLabels[0])}</button>
-            <button type="button" class="ap-print-btn" onclick="window.print()">🖶 Stampa / PDF</button>
+            <button id="ap-dys-btn" type="button" class="ap-hdr-btn" aria-label="${_escBS(dysLabels[0])}" title="${_escBS(dysLabels[0] + ' — ' + dysTip)}">Aa</button>
+            <button id="ap-hl-btn" type="button" class="ap-hdr-btn ap-ico on" aria-pressed="true" aria-label="${_escBS(hlLabels[1])}" title="${_escBS(hlLabels[1] + ' — ' + hlTip)}">${icoEvidenzia}</button>
+            <button id="ap-riga-btn" type="button" class="ap-hdr-btn ap-ico" aria-pressed="false" aria-label="${_escBS(rigaLabels[0])}" title="${_escBS(rigaLabels[0] + ' — ' + rigaTip)}">${icoRiga}</button>
+            <button type="button" class="ap-print-btn" onclick="window.print()" title="${_escBS(pdfTip)}">PDF</button>
         </div>
     </div>
     <div id="ap-spacer" class="no-print"></div>
@@ -1294,7 +1366,8 @@ ${_bsPie(data.mapName)}
           document.body.classList.toggle('ap-riga-on',acceso);
           btn.classList.toggle('on',acceso);
           btn.setAttribute('aria-pressed',acceso?'true':'false');
-          btn.textContent=ETI[passo];
+          // l'icona resta: lo stato lo dicono aria-label e suggerimento
+          btn.setAttribute('aria-label',ETI[passo]); btn.title=ETI[passo]+' \\u2014 '+${rigaTipJson};
           if(acceso){
             velo.style.setProperty('--ap-riga-h',ALT[passo]);
             /* La posizione di partenza è METÀ SCHERMO, e la dichiara il CSS
@@ -1317,12 +1390,14 @@ ${_bsPie(data.mapName)}
       var hlBtn=document.getElementById('ap-hl-btn');
       // Aa: ciclo a tre stati — spento → dislessia 1,5× → dislessia 2× → spento.
       // Le due scale sono quelle dell'accessibilità dell'app (vedi il foglio sopra).
-      var DYS=${dysLabelsJson}, dysStep=0;
+      // Il bottone dice sempre «Aa»: la taglia la dicono aria-label e suggerimento.
+      var DYS=${dysLabelsJson}, DYST=${dysTipJson}, dysStep=0;
       var HLB=${hlLabelsJson};
       if(dysBtn){ dysBtn.addEventListener('click',function(){
         dysStep=(dysStep+1)%3; var cl=document.body.classList;
         cl.toggle('ap-dys',dysStep>0); cl.toggle('ap-x15',dysStep===1); cl.toggle('ap-x2',dysStep===2);
-        dysBtn.classList.toggle('on',dysStep>0); dysBtn.textContent=DYS[dysStep];
+        dysBtn.classList.toggle('on',dysStep>0);
+        dysBtn.setAttribute('aria-label',DYS[dysStep]); dysBtn.title=DYS[dysStep]+' \\u2014 '+DYST;
       }); }
       // Il chip serve anche SENZA speechSynthesis quando il file porta la voce
       // naturale incorporata: su un tablet senza Web Speech l'MP3 c'è ed è proprio
@@ -1397,7 +1472,8 @@ ${_bsPie(data.mapName)}
         hl(idx);
       }
       var bBack,bPlay,bFwd,bRate,fill,thumb,time,prog;
-      function paint(p){ if(bPlay){ bPlay.textContent=p?'\\u23F8':'\\u25B6'; bPlay.classList.toggle('on',!!p); } }
+      var ICO=${icoLettoreJson};   // le icone del lettore dell'app (0079)
+      function paint(p){ if(bPlay){ bPlay.innerHTML=p?ICO.pause:ICO.play; bPlay.classList.toggle('on',!!p); } }
       function fmt(s){ s=Math.max(0,Math.round(s)); var m=Math.floor(s/60),x=s%60; return m+':'+(x<10?'0':'')+x; }
       function render(rt){ rt=Math.max(0,Math.min(1,rt||0)); if(fill) fill.style.width=(rt*100)+'%'; if(thumb) thumb.style.left=(rt*100)+'%'; if(time) time.textContent=fmt(rt*TOT()); }
       function startTick(){ stopTick(); ticker=setInterval(function(){ if(!drag) render(total?gtimeSpeech()/total:0); },100); }
@@ -1463,8 +1539,8 @@ ${_bsPie(data.mapName)}
       function doSeekRatio(rt){ if(audioMode){ audioEl.currentTime=Math.max(0,Math.min(rt*TOT(),Math.max(0,TOT()-0.05))); return; } ensure(); seekTspeech(rt*total); }
       function doRate(){ ri=(ri+1)%SPEEDS.length; bRate.textContent='\\u00d7'+SPEEDS[ri]; if(audioMode){ audioEl.playbackRate=rate(); return; } if(chunks.length){ var t=gtimeSpeech(); timing(); if(playing) seekTspeech(t); else render(total?t/total:0); } }
       function doPlayNode(node){ ensure(); var i=-1; for(var j=0;j<chunks.length;j++){ if(chunks[j].src===node){ i=j; break; } } if(i<0){ for(var q=0;q<chunks.length;q++){ try{ if(node.compareDocumentPosition(chunks[q].src)&Node.DOCUMENT_POSITION_FOLLOWING){ i=q; break; } }catch(e){} } } i=Math.max(0,i); if(audioMode){ var bi=(chunks[i]&&typeof chunks[i].bi==='number')?chunks[i].bi:0; try{ audioEl.currentTime=(cuesData&&cuesData[bi]!=null)?cuesData[bi]:((total?(starts[i]/total):0)*TOT()); }catch(e){} hl(i); playAudio(function(){ doPlayNode(node); }); return; } playFrom(i,0); }
-      function seg(txt,title){ var b=document.createElement('button'); b.type='button'; b.className='ap-seg'; b.textContent=txt; b.title=title; return b; }
-      bBack=seg('\\u21BA10','Indietro 10 secondi'); bPlay=seg('\\u25B6','Ascolta / Pausa'); bPlay.className+=' ap-play'; bFwd=seg('5\\u21BB','Avanti 5 secondi'); bRate=seg('\\u00d71','Velocità di lettura');
+      function seg(txt,title,ico){ var b=document.createElement('button'); b.type='button'; b.className='ap-seg'; if(ico) b.innerHTML=ico; else b.textContent=txt; b.title=title; b.setAttribute('aria-label',title); return b; }
+      bBack=seg('','Indietro 10 secondi',ICO.back); bPlay=seg('','Ascolta / Pausa',ICO.play); bPlay.className+=' ap-play'; bFwd=seg('','Avanti 5 secondi',ICO.fwd); bRate=seg('\\u00d71','Velocità di lettura');
       var chip=document.createElement('span'); chip.className='ap-chip'; chip.appendChild(bBack); chip.appendChild(bPlay); chip.appendChild(bFwd); chip.appendChild(bRate);
       prog=document.createElement('span'); prog.className='ap-prog'; fill=document.createElement('span'); fill.className='ap-fill'; thumb=document.createElement('span'); thumb.className='ap-thumb'; prog.appendChild(fill); prog.appendChild(thumb);
       time=document.createElement('span'); time.className='ap-time'; time.textContent='0:00';
@@ -1496,11 +1572,11 @@ ${_bsPie(data.mapName)}
       if(hlBtn){ hlBtn.addEventListener('click',function(){
         hlOn=!hlOn;
         hlBtn.classList.toggle('on',hlOn);
-        hlBtn.textContent=HLB[hlOn?1:0];
+        hlBtn.setAttribute('aria-label',HLB[hlOn?1:0]); hlBtn.title=HLB[hlOn?1:0]+' \\u2014 '+${hlTipJson};
         hlBtn.setAttribute('aria-pressed',hlOn?'true':'false');
         refreshHL();
       }); }
-      (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.textContent='\\u25B6'; b.addEventListener('click',function(e){ e.stopPropagation(); doPlayNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
+      (function(){ var hs=body.querySelectorAll('h3,h4'); for(var i=0;i<hs.length;i++){ (function(h){ if(h.querySelector('.ap-sec')) return; var b=document.createElement('button'); b.type='button'; b.className='ap-sec'; b.setAttribute('data-ap-skip',''); b.title='Ascolta da qui'; b.setAttribute('aria-label','Ascolta da qui'); b.innerHTML=ICO.play; b.addEventListener('click',function(e){ e.stopPropagation(); doPlayNode(h); }); h.insertBefore(b,h.firstChild); })(hs[i]); } })();
       try{ document.addEventListener('visibilitychange',function(){ if(document.hidden && !audioMode) pause(); }); }catch(e){}
     })();
     <\/script>
@@ -2131,7 +2207,8 @@ ${_bsPie(data.mapName)}
     };
 
     // Namespace pipeline (011): sintesi «tutta la mappa» headless.
-    //   runWholeMap({apiKey?, tuned?, silent?}) → Promise<data|null> (forma _lastSynthesis)
+    //   runWholeMap({apiKey?, tuned?, silent?, db?, review?}) → Promise<data|null> (forma _lastSynthesis)
+    //     `db` + `review` (packet 0042): la vista della quarantena; senza, la mappa aperta come sempre.
     //   buildHtml(data, opts?)   → string (= _buildSynthesisPrintHtml)
     //   generateAudio(data)      → Promise<{blob, mime, ext, cues}> (Google-only, throw se manca chiave)
     // Il flusso manuale (modale sintesi) resta invariato: usa gli entry esistenti.
@@ -2139,7 +2216,10 @@ ${_bsPie(data.mapName)}
         runWholeMap: async function (opts) {
             opts = opts || {};
             const giro = opts.giro;
-            if (window.MappAIReview?.requireApproved && !await window.MappAIReview.requireApproved()) return null;
+            /* packet 0042, giro 5 (F4): con la vista della quarantena (`opts.db`) la chiama la
+               pipeline, che ha già passato il cancello avvolto, e solo con l'opzione il consenso
+               della quarantena vale. Senza vista, la chiamata di sempre. */
+            if (window.MappAIReview?.requireApproved && !await (opts.db ? window.MappAIReview.requireApproved({ quarantena: true }) : window.MappAIReview.requireApproved())) return null;
             const apiKey = opts.apiKey || (!giro && window.getSystemKey ? window.getSystemKey() : '');
             if (!apiKey && !giro) throw new Error(window.t('tst_need_key', "Inserisci un'API Key per continuare"));
             const _prevArmed = window.MappAITune ? window.MappAITune.armed : false;
@@ -2147,7 +2227,8 @@ ${_bsPie(data.mapName)}
             if (window.MappAITune) window.MappAITune.armed = !!opts.tuned;
             _silent = !!opts.silent;
             try {
-                return (await _generateWholeMapSynthesis(apiKey, giro)) || null;
+                const vista = opts.db ? { db: opts.db, review: opts.review } : null;
+                return (await (vista ? _generateWholeMapSynthesis(apiKey, giro, vista) : _generateWholeMapSynthesis(apiKey, giro))) || null;
             } finally {
                 _silent = _prevSilent;
                 if (window.MappAITune) window.MappAITune.armed = _prevArmed;

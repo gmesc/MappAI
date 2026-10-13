@@ -63,7 +63,7 @@
                 node: 'Chat dal nodo',
                 sidebar: 'Chat dalla sidebar',
                 quiz: 'Quiz del tutor',
-                qr: 'Tutor QR (Chatta e Scrivi)'
+                qr: 'Chiedi e Rispondi'
             }
         },
         live: {
@@ -231,32 +231,66 @@
 
     // Elenco dal disco, consumi collegati solo tramite un'identità locale univoca.
     // I record non attribuibili restano consultabili nello storico, senza modificarli.
+    /* 0061 (29/09, D4; ADR 0013): una cartella che DICHIARA il suo id (`index.yaml ›
+       projectId`, nella forma che l'app conia) riceve i record con quell'id, anche
+       senza voce e in qualunque posizione. Per posizione, due voci nella stessa
+       cartella — la vecchia orfana e la nuova, il caso del 28/9 — non attribuivano
+       niente a nessuna, e i consumi della mappa nuova finivano nello storico. Se due
+       cartelle dichiarano lo stesso id (una copia non ancora riaperta), nessuna delle
+       due riceve niente finché la copia non riceve il suo. Per una cartella con id mai
+       il ripiego per posizione; le cartelle senza id: le righe di prima, più la guardia
+       della scelta B (30/09, qui sotto).
+       La forma dell'id la dice FilesCore (una fonte sola, inv. 6), risolto al momento
+       della chiamata: `require` in Node, `window` nel browser. Senza FilesCore nessun
+       id è valido, e vale solo la posizione, come prima. */
     function vaultProjects(records, vaults, projects) {
         records = records || [];
         projects = Array.isArray(projects) ? projects.filter(Boolean) : [];
         const n = x => String(x == null ? '' : x).normalize('NFC');
         const id = x => x != null && String(x).trim() ? String(x) : null;
+        const FC = (function () {
+            try { if (typeof module === 'object' && module.exports && typeof require === 'function') return require('./mappai-files-core.js'); } catch (e) { }
+            try { return (typeof window !== 'undefined' && window.MappAIFilesCore) || null; } catch (e) { return null; }
+        })();
+        const idDellaCartella = v => (FC && FC.idProgettoValido && FC.idProgettoValido(v.projectId)) ? v.projectId : null;
         const visti = new Set();
         const presenti = (vaults || []).filter(v => {
             if (!v || !v.fullPath || visti.has(v.fullPath)) return false;
             visti.add(v.fullPath); return true;
         });
+        const dichiarazioni = {};
+        presenti.forEach(v => { const x = idDellaCartella(v); if (x) dichiarazioni[x] = (dichiarazioni[x] || 0) + 1; });
         const candidati = presenti.map(v => projects.filter(p =>
             p.vault && n(p.vault) === n(v.folderName) &&
             n(p.classDir) === n(v.classDir) && n(p.discDir) === n(v.discDir) &&
             n(p.studentDir) === n(v.studentDir)));
         const usati = new Set();
         const righe = presenti.map((v, i) => {
-            let p = candidati[i].length === 1 ? candidati[i][0] : null;
-            if (p && (candidati.filter(c => c.includes(p)).length !== 1 ||
-                !id(p.id) || projects.filter(x => id(x.id) === id(p.id)).length !== 1)) p = null;
+            const dichiarato = idDellaCartella(v);
+            let p = null, pid = null;
+            if (dichiarato) {
+                pid = dichiarazioni[dichiarato] === 1 ? dichiarato : null;
+                const conId = pid ? projects.filter(x => id(x.id) === pid) : [];
+                p = conId.length === 1 ? conId[0] : null;
+            } else {
+                p = candidati[i].length === 1 ? candidati[i][0] : null;
+                if (p && (candidati.filter(c => c.includes(p)).length !== 1 ||
+                    !id(p.id) || projects.filter(x => id(x.id) === id(p.id)).length !== 1)) p = null;
+                /* 0061, 30/09, scelta B di Giacomo: la guardia D3 portata ai consumi. Una
+                   voce il cui id è dichiarato da una cartella dell'elenco ha già la sua casa:
+                   i suoi record vanno lì, per id. Se una cartella senza id rimasta nella
+                   vecchia posizione della voce li ricevesse anche per posizione, gli stessi
+                   record si conterebbero due volte. */
+                if (p && dichiarazioni[id(p.id)]) p = null;
+                pid = p ? id(p.id) : null;
+            }
             const chiamate = [];
-            if (p) records.forEach((r, j) => {
-                if (id(r && r.projectId) === id(p.id)) { chiamate.push(r); usati.add(j); }
+            if (pid) records.forEach((r, j) => {
+                if (id(r && r.projectId) === pid) { chiamate.push(r); usati.add(j); }
             });
             return {
                 key: 'vault:' + v.fullPath, label: v.rootNodeLabel || v.folderName,
-                nelVault: true, projectId: p ? id(p.id) : null, created: p ? p.created : null,
+                nelVault: true, projectId: pid, created: p ? p.created : null,
                 classe: (v.classDir || v.classeDichiarata || '').replace(/_/g, ' '),
                 materia: (v.discDir || v.materiaDichiarata || '').replace(/_/g, ' '), allievo: v.studentDir || '',
                 records: chiamate

@@ -42,24 +42,122 @@
         if (!pdf.length || !chiave(titolo)) return null;
         return pdf.find(n => n === testo(titolo)) || pdf.find(n => chiave(n) === chiave(titolo)) || null;
     }
+    /* La foto di un dossier in `Allegati/` (0069, ADR 0016). La pipeline la copia
+       col nome del titolo (`safeName(titolo)` + estensione): prima quel nome, poi
+       l'unica immagine della cartella. Con più immagini e nessun nome che combacia
+       → null: meglio la scheda senza foto che la foto di un altro nodo. Mai un PDF. */
+    function trovaFoto(nomi, titolo) {
+        const img = (nomi || []).map(testo).filter(n => /\.(jpe?g|png|webp|gif)$/i.test(n));
+        if (!img.length) return null;
+        const senzaEstensione = n => n.replace(/\.[a-z0-9]+$/i, '');
+        const perNome = chiave(titolo) ? img.find(n => chiave(senzaEstensione(n)) === chiave(titolo)) : null;
+        return perNome || (img.length === 1 ? img[0] : null);
+    }
+    /* 0069, giro 10 (Giacomo: «lascia solo i bottoni per accedere ai blocchi e
+       rimuovi il menu a tendina, crea un piccolo bottone 'x' in fondo alla riga»).
+       Con la foto (la scheda come fonte): niente tendina delle pagine, e «×» in
+       fondo alla riga delle prove quando ce n'è almeno una. Un PDF: la tendina
+       come sempre, niente «×». */
+    function barraFonte(o) {
+        o = o || {};
+        const conFoto = o.immagine === true;
+        return { tendina: !conFoto, chiudi: conFoto && Number(o.prove) > 0 };
+    }
+    /* La vista «nessuna selezione» con la foto: tutta la scheda, ogni parte col
+       suo titolo — la stessa del dossier senza aggancio. */
+    function testoIntero(indice) {
+        return (Array.isArray(indice) ? indice : []).map(p => p.title + '\n' + p.text).join('\n\n');
+    }
+    /* 0074, F4 (Giacomo, 06/10: «Almeno tre parole»): una prova si cerca nella fonte solo se è una
+       citazione, cioè se ha almeno tre parole con lettere. «-1», «2», una sigla o una parola sola si
+       ritrovano in qualunque pagina: aprirebbero la pagina sbagliata e sottolineerebbero un numero.
+       Una parola è un pezzo fra due spazi che contiene almeno una lettera (di qualunque alfabeto). */
+    function eCitazione(prova) {
+        const valore = typeof prova === 'string' ? prova : prova && typeof prova === 'object' ? prova.text : '';
+        return testo(valore).split(/\s+/).filter(p => /\p{L}/u.test(p)).length >= 3;
+    }
+    /* 0074: il segno col colore della macroarea (richiesta del 28/09). È un elemento non testuale, quindi
+       contro il fondo della pagina deve fare almeno 3:1 (WCAG 1.4.11): un colore d'area più chiaro si
+       scurisce, tenendo la sua tinta, quanto basta per arrivarci. Accetta #rgb(a), #rrggbb(aa), rgb(a)()
+       e hsl(a)() — gli stessi che `safeColor` lascia passare (mappai-review-context.js); un colore
+       trasparente si compone prima sul fondo. Qualunque altra cosa → null, e il segno resta il giallo.
+       Giro 2 (4b): i canali si leggono come li legge il browser per il pallino — percentuali di 255,
+       tinta con segno e in gradi, sintassi a virgole o a spazi; un colore che `safeColor` lascia passare
+       ma che qui non si legge ripiega al grigio neutro delle aree (NEUTRO), mai al giallo. */
+    const N = '([+-]?(?:\\d+\\.?\\d*|\\.\\d+))';
+    const RGB = new RegExp('^rgba?\\(\\s*' + N + '(%?)\\s*[,\\s]\\s*' + N + '(%?)\\s*[,\\s]\\s*' + N + '(%?)\\s*(?:[,/]\\s*' + N + '(%?)\\s*)?\\)$');
+    const HSL = new RegExp('^hsla?\\(\\s*' + N + '(?:deg)?\\s*[,\\s]\\s*' + N + '%\\s*[,\\s]\\s*' + N + '%\\s*(?:[,/]\\s*' + N + '(%?)\\s*)?\\)$');
+    // la stessa forma di `safeColor` (mappai-review-context.js, non esportata): ciò che il pallino dell'area accetta
+    const SAFE = v => /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(v) || /^(?:rgb|hsl)a?\([\d\s.,%+\-/]+\)$/i.test(v);
+    const NEUTRO = '#64748b';   // il grigio delle aree senza colore (mappai-review-context.js, NEUTRAL)
+    const fra = (x, a, b) => Math.min(b, Math.max(a, x));
+    const alfa = (x, pct) => x === undefined ? 1 : fra(Number(x) / (pct ? 100 : 1), 0, 1);
+    function canali(colore) {
+        const v = testo(colore).trim().toLowerCase();
+        let m = v.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/);
+        if (m) {
+            const h = m[1].length <= 4 ? m[1].split('').map(c => c + c).join('') : m[1];
+            return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).concat(h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1);
+        }
+        m = v.match(RGB);
+        if (m) return [1, 3, 5].map(i => fra(m[i + 1] ? Number(m[i]) * 255 / 100 : Number(m[i]), 0, 255)).concat(alfa(m[7], m[8]));   // ×255/100, non ×2,55: 50% deve dare 127,5
+        m = v.match(HSL);
+        if (m) {
+            const hh = ((Number(m[1]) % 360) + 360) % 360 / 360, s = fra(Number(m[2]) / 100, 0, 1), l = fra(Number(m[3]) / 100, 0, 1);
+            const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+            const k = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+            return [k(hh + 1 / 3), k(hh), k(hh - 1 / 3)].map(x => Math.round(x * 255)).concat(alfa(m[4], m[5]));
+        }
+        return null;
+    }
+    function luminanza(c) {
+        const [r, g, b] = c.slice(0, 3).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    /* Il rapporto di contrasto WCAG fra due colori (1…21); null se uno dei due non è un colore. */
+    function contrasto(a, b) {
+        const ca = Array.isArray(a) ? a : canali(a), cb = Array.isArray(b) ? b : canali(b);
+        if (!ca || !cb) return null;
+        const la = luminanza(ca), lb = luminanza(cb);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+    const esa = c => '#' + c.slice(0, 3).map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
+    function coloreSegno(colore, fondo, minimo) {
+        const f = canali(fondo || '#ffffff') || [255, 255, 255, 1], soglia = minimo || 3;
+        const c = typeof colore === 'string' ? canali(colore) || (SAFE(colore.trim()) ? canali(NEUTRO) : null) : null;
+        if (!c) return null;
+        const pieno = c.slice(0, 3).map((x, i) => x * c[3] + f[i] * (1 - c[3]));   // un colore trasparente si vede sul fondo
+        if (contrasto(pieno, f) >= soglia) return esa(pieno);
+        // si scurisce a passi piccoli verso il nero, tenendo la tinta: il primo che arriva alla soglia
+        for (let k = 0.99; k > 0; k -= 0.01) {
+            const scuro = pieno.map(x => Math.round(x * k));
+            if (contrasto(scuro, f) >= soglia) return esa(scuro);
+        }
+        return '#000000';
+    }
     /* La pagina di una prova. `prova` può essere una prova del controllo
        ({ text, title|source, page, sourceId }), una citazione ({ docId, title,
        page, text }) o un chunk ({ source: 'pagina 3', text }). Vince la pagina
        che CONTIENE il testo; altrimenti documento e numero di pagina. */
-    function paginaPer(prova, indice) {
+    /* `rigorosa` (0069, la scheda come fonte): niente ripiego sulla prima pagina.
+       Una prova si aggancia a un blocco solo se ne contiene il testo, o se lo nomina
+       per documento o per titolo; altrimenti null, e il pannello mostra la scheda
+       intera senza fingere che il rimando punti a «Carta d'identità». */
+    function paginaPer(prova, indice, rigorosa) {
         if (!prova || !Array.isArray(indice) || !indice.length) return null;
         const titolo = testo(prova.title || (typeof prova.source === 'string' && !/^pagina\s+\d+$/i.test(prova.source) ? prova.source : ''));
         const numero = Number(prova.page || (testo(prova.source).match(/(?:pag(?:ina|e)?\.?|p\.)\s*(\d+)/i) || [])[1] || 0);
         let pool = indice;
         const restringi = f => { const r = pool.filter(f); if (r.length) pool = r; return r.length > 0; };
         const perDoc = prova.docId ? restringi(p => p.docId === prova.docId) : false;
-        if (!perDoc && titolo) restringi(p => p.title === titolo || chiave(p.title) === chiave(titolo));
+        const perTitolo = !perDoc && titolo ? restringi(p => p.title === titolo || chiave(p.title) === chiave(titolo)) : false;
         if (numero) restringi(p => p.page === numero);
         const citato = testo(prova.text).trim();
         if (citato && G && typeof G.originalExcerpt === 'function') {
             const con = pool.find(p => G.originalExcerpt(p.text, citato) !== null) || indice.find(p => G.originalExcerpt(p.text, citato) !== null);
             if (con) return con;
         }
+        if (rigorosa) return (perDoc || perTitolo) ? pool[0] : null;
         return (numero || prova.docId || titolo) ? pool[0] : null;
     }
     /* Il testo della pagina in pezzi, con la citazione marcata. Si usa
@@ -123,7 +221,7 @@
     function visore(viewer, canvas, stato, adatta, avvisa) {
         const C = globalThis.MappAIProiezioneCore;
         let page = null, width = 1, height = 1, state = { z: 1, x: 0, y: 0 }, fitted = true, drag = null;
-        let renderTask = null, renderVersion = 0, timer = null, rasterScale = 0, segni = [];
+        let renderTask = null, renderVersion = 0, timer = null, rasterScale = 0, segni = [], tinta = null;
         function apply() {
             state = C.clampPan(state, width, height, viewer.clientWidth, viewer.clientHeight);
             canvas.style.transform = 'translate(' + state.x + 'px,' + state.y + 'px) scale(' + state.z + ')';
@@ -150,7 +248,15 @@
                 task = target.render({ canvasContext: buffer.getContext('2d'), viewport }); renderTask = task;
                 await task.promise;
                 if (version !== renderVersion || target !== page) return;
-                if (segni.length) {   // la citazione, nello stesso giallo del testo archiviato; «multiply» lascia leggere l'inchiostro
+                if (segni.length && tinta) {   // 0074: col colore dell'area una sottolineatura piena in fondo al rigo, sotto le lettere
+                    /* Lo spessore, in px della tela: il 12% del rigo, e mai meno di 2 px CSS a schermo (giro 2, 4c).
+                       Un px della tela vale z / scale px CSS (la tela è disegnata a `scale` e mostrata a `state.z`),
+                       quindi 2 px CSS sono 2 × scale / z px della tela: su uno schermo a densità doppia, 4. */
+                    const ctx = buffer.getContext('2d'), minimo = 2 * scale / (state.z || 1);
+                    ctx.save(); ctx.fillStyle = tinta;
+                    segni.forEach(r => { const alto = Math.max(minimo, r.h * scale * 0.12); ctx.fillRect(r.x * scale, (r.y + r.h) * scale - alto, r.w * scale, alto); });
+                    ctx.restore();
+                } else if (segni.length) {   // la citazione, nello stesso giallo del testo archiviato; «multiply» lascia leggere l'inchiostro
                     const ctx = buffer.getContext('2d');
                     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = '#fef08a';
                     segni.forEach(r => ctx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale));
@@ -224,16 +330,17 @@
                 page = null; rasterScale = 0; canvas.hidden = true; stato.hidden = false;
                 stato.textContent = avvisa('rv_source_loading', 'Apro la pagina del PDF originale…'); viewer.setAttribute('aria-busy', 'true');
             },
-            async mostra(pagina, rett) {
-                page = pagina; segni = rett || [];
+            /* `colore` (0074): la tinta della sottolineatura, già portata a 3:1 (`coloreSegno`); senza, il giallo */
+            async mostra(pagina, rett, colore) {
+                page = pagina; segni = rett || []; tinta = colore || null;
                 const base = page.getViewport({ scale: 1 }); width = base.width; height = base.height;
                 canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
                 fit(); clearTimeout(timer); await render();
             },
             fallito,
             /* Un'altra prova sulla stessa pagina: niente ricaricamento, solo i segni nuovi. */
-            evidenzia(rett) {
-                segni = rett || []; rasterScale = 0;
+            evidenzia(rett, colore) {
+                segni = rett || []; tinta = colore || null; rasterScale = 0;
                 if (fitted) fit(); else { apply(); programma(); }
             },
             smonta() {
@@ -248,16 +355,29 @@
 
     // ── il pannello ─────────────────────────────────────────────────────────────
     /* opts: { sources, t(key, fallback), leggiPdf(titolo) → Promise<Uint8Array|null> }.
-       Senza pdfjsLib, MappAIProiezioneCore o un PDF per la fonte, resta il testo. */
+       Senza pdfjsLib, MappAIProiezioneCore o un PDF per la fonte, resta il testo.
+       0074 (la veste di G2 le passa tutte e tre; senza, il pannello di oggi):
+       · `testoAperto` (F2, Giacomo 06/10: «Aperto, ma richiudibile») — il testo della pagina parte aperto e il
+         pannello non lo apre né lo chiude più da sé: se il docente lo chiude resta chiuso finché il Banco è aperto;
+       · `soloCitazioni` (F4) — si cercano nella fonte solo le prove che sono citazioni (`eCitazione`); con la
+         foto no: la ricerca dei blocchi è già rigorosa (giro 2, «F4 non vale per la foto»);
+       · `vuoto` — la frase al posto della pagina quando nessuna prova ne trova una. */
     function monta(host, opts) {
         opts = opts || {};
         const t = typeof opts.t === 'function' ? opts.t : (_k, f) => f;
+        const testoAperto = opts.testoAperto === true, soloCitazioni = opts.soloCitazioni === true;
+        const veste = testoAperto || soloCitazioni;   // le opzioni che passa solo la veste di G2 (0074)
         const indice = indicePagine(opts.sources || []);
+        /* 0069 (ADR 0016): per un dossier da immagine il pannello mostra la FOTO
+           analizzata al posto del PDF, e sotto i blocchi della scheda. `opts.immagine`
+           → Promise<{src}|null>; `opts.etichette` = { titolo, testo } della scheda. */
+        const immagine = typeof opts.immagine === 'function' ? opts.immagine : null;
+        const etichette = opts.etichette || {};
         const crea = (tag, cls, txt) => { const el = document.createElement(tag); if (cls) el.className = cls; if (txt != null) el.textContent = txt; return el; };
         host.replaceChildren();
         host.setAttribute('aria-label', t('rv_source_panel', 'Fonte della segnalazione'));
         const testa = crea('header', 'mrv-fonte-testa');
-        const titolo = crea('h3', null, t('rv_source_title', 'Fonte'));
+        const titolo = crea('h3', null, etichette.titolo || t('rv_source_title', 'Fonte'));
         const prove = crea('div', 'mrv-fonte-prove'); prove.setAttribute('role', 'group'); prove.setAttribute('aria-label', t('rv_source_proofs', 'Prove della segnalazione'));
         const scelta = crea('select', 'mrv-fonte-pagina'); scelta.setAttribute('aria-label', t('rv_source_page', 'Pagina della fonte'));
         const icona = (el, nome) => { el.innerHTML = '<i data-lucide="' + nome + '" aria-hidden="true"></i>'; return el; };
@@ -271,12 +391,34 @@
         const stato = crea('p', 'mrv-fonte-stato'); stato.setAttribute('role', 'status');
         viewer.append(canvas, stato);
         const note = crea('details', 'mrv-fonte-testo');
-        const riassunto = crea('summary', null, t('rv_source_text', 'Testo archiviato della pagina'));
+        const riassunto = crea('summary', null, etichette.testo || t('rv_source_text', 'Testo archiviato della pagina'));
         const righe = crea('p', 'mrv-fonte-righe'); righe.tabIndex = 0;
         note.append(riassunto, righe);
-        const vuoto = crea('p', 'mrv-fonte-vuoto', t('rv_source_empty', 'Questa segnalazione non indica una pagina della fonte. Scegli una pagina dall’elenco.'));
+        if (testoAperto) note.open = true;
+        const vuoto = crea('p', 'mrv-fonte-vuoto', typeof opts.vuoto === 'string' && opts.vuoto ? opts.vuoto
+            : t('rv_source_empty', 'Questa segnalazione non indica una pagina della fonte. Scegli una pagina dall’elenco.'));
         host.append(testa, viewer, note, vuoto);
         disegna();
+        /* la foto sta sopra il testo e non cambia con la prova: è la fonte intera.
+           Stile in linea: il foglio del Banco non è di questo packet. */
+        if (immagine) {
+            viewer.hidden = true; adatta.hidden = true;
+            const figura = crea('figure', 'mrv-fonte-foto');
+            figura.style.cssText = 'margin:0;padding:var(--mm-btn-gap);flex:0 0 auto;text-align:center';
+            const attesa = crea('p', 'mrv-fonte-vuoto', t('rv_scheda_foto_attesa', 'Apro l’immagine analizzata…'));
+            figura.appendChild(attesa);
+            host.insertBefore(figura, note);
+            Promise.resolve().then(() => immagine()).then(f => {
+                if (!host.contains(figura)) return;
+                if (!f || !f.src) { attesa.textContent = t('rv_scheda_foto_manca', 'L’immagine analizzata non è nella cartella del dossier: qui sotto c’è la scheda.'); return; }
+                const img = crea('img');
+                img.src = f.src; img.alt = t('rv_scheda_foto_alt', 'L’immagine analizzata');
+                /* locale (09 §6, gradino 5): metà altezza della finestra, perché sotto la foto
+                   deve restare in vista il testo della scheda; dipende dalla finestra, non dai token */
+                img.style.cssText = 'display:block;max-width:100%;max-height:45vh;margin:0 auto;object-fit:contain';
+                figura.replaceChildren(img);
+            }).catch(() => { if (host.contains(figura)) attesa.textContent = t('rv_scheda_foto_manca', 'L’immagine analizzata non è nella cartella del dossier: qui sotto c’è la scheda.'); });
+        }
 
         // elenco delle pagine, raggruppato per documento
         const gruppi = new Map();
@@ -286,12 +428,14 @@
             gruppi.get(p.docId).appendChild(o);
         });
         gruppi.forEach(g => scelta.appendChild(g));
-        scelta.hidden = !indice.length;
+        /* giro 10: con la foto la tendina non c'è (si va ai blocchi coi bottoni delle
+           prove e con «×»); per un PDF l'espressione è quella di sempre */
+        scelta.hidden = !indice.length || !barraFonte({ immagine: !!immagine }).tendina;
 
-        const pdfPronto = !!(globalThis.pdfjsLib && globalThis.MappAIProiezioneCore && typeof opts.leggiPdf === 'function');
+        const pdfPronto = !immagine && !!(globalThis.pdfjsLib && globalThis.MappAIProiezioneCore && typeof opts.leggiPdf === 'function');
         const v = pdfPronto ? visore(viewer, canvas, stato, adatta, t) : null;
         const documenti = new Map();      // titolo → Promise<PDFDocumentProxy|null>
-        let corrente = null, citazione = '', richiesta = 0, proveAttive = [], chiuso = false;
+        let corrente = null, citazione = '', richiesta = 0, proveAttive = [], chiuso = false, coloreArea = null;
 
         function documento(titoloFonte) {
             if (!documenti.has(titoloFonte)) {
@@ -303,11 +447,18 @@
         function soloTesto(si) {
             host.classList.toggle('mrv-fonte--solo-testo', si);
             viewer.hidden = si; adatta.hidden = si;
-            if (si) note.open = true;
+            if (si && !testoAperto) note.open = true;
         }
         async function vaiA(pagina, frase) {
             if (chiuso) return;
             const id = ++richiesta;
+            /* una prova che non indica un blocco (o un dossier di prima, coi rimandi
+               senza aggancio): con la foto si legge la scheda intera, mai un pannello vuoto */
+            if (!pagina && immagine && indice.length) {
+                vuoto.hidden = true; note.hidden = false; soloTesto(true); scelta.value = '';
+                righe.replaceChildren(document.createTextNode(testoIntero(indice)));
+                return;
+            }
             vuoto.hidden = !!pagina; note.hidden = !pagina;
             if (!pagina) { soloTesto(true); viewer.hidden = true; return; }
             scelta.value = pagina.id; citazione = frase || '';
@@ -315,11 +466,12 @@
             const segno = righe.querySelector('mark');
             if (!v) { soloTesto(true); if (segno && segno.scrollIntoView) segno.scrollIntoView({ block: 'center' }); return; }
             if (corrente && corrente.id === pagina.id) {
-                if (corrente.testoPdf) v.evidenzia(rettangoli(corrente.testoPdf.items, citazione, corrente.vt));
+                if (corrente.testoPdf) v.evidenzia(rettangoli(corrente.testoPdf.items, citazione, corrente.vt), coloreArea);
                 return;
             }
             corrente = pagina;
-            v.caricamento(); soloTesto(false); note.open = false;
+            v.caricamento(); soloTesto(false);
+            if (!testoAperto) note.open = false;   // F2: con la veste il testo resta come l'ha lasciato il docente
             const doc = await documento(pagina.title);
             if (id !== richiesta || chiuso) return;
             if (!doc) { soloTesto(true); corrente = null; return; }
@@ -330,24 +482,48 @@
                 if (id !== richiesta || chiuso) return;
                 const vt = p.getViewport({ scale: 1 }).transform;
                 Object.assign(pagina, { testoPdf, vt });
-                await v.mostra(p, testoPdf ? rettangoli(testoPdf.items, citazione, vt) : []);
+                await v.mostra(p, testoPdf ? rettangoli(testoPdf.items, citazione, vt) : [], coloreArea);
                 scelta.title = pagina.title + ' · ' + t('rv_page', 'Pagina') + ' ' + numero + ' / ' + doc.numPages;
-            } catch (error) { if (id === richiesta) { v.fallito(error); note.open = true; } }
+            } catch (error) { if (id === richiesta) { v.fallito(error); if (!testoAperto) note.open = true; } }
         }
         scelta.addEventListener('change', () => { corrente = null; vaiA(indice.find(p => p.id === scelta.value), ''); });
+        /* con la foto il pannello parte dalla scheda intera, non da «nessuna pagina» */
+        if (immagine) vaiA(null, '');
 
         return {
             /* Le prove di una segnalazione (o una sola). Mostra la prima che ha una
-               pagina; con più prove compaiono i bottoni «Prova 1, 2…». */
-            mostra(elenco) {
-                const viste = new Set();
+               pagina; con più prove compaiono i bottoni «Prova 1, 2…».
+               0074: restituisce QUANTE prove hanno trovato una pagina (i doppioni una
+               volta): la veste ci decide se la Fonte resta aperta (F1). `o.colore` è il
+               colore della macroarea del materiale: il segno lo prende, portato a 3:1;
+               senza, il giallo di oggi. Con `soloCitazioni` le prove che non sono
+               citazioni non si cercano (F4): non aprono pagine e non contano.
+               Giro 2 (06/10, «F4 non vale per la foto»): con la foto la ricerca dei
+               blocchi è già rigorosa (`paginaPer`), e una citazione corta di un blocco
+               («Wählt CDU!») tiene il suo bottone. Con le opzioni della veste la chiave
+               dei doppioni toglie anche gli spazi in testa e in coda (4a); senza, è
+               quella di oggi. */
+            mostra(elenco, o) {
+                const viste = new Set(), pulisci = s => s.replace(/\s+/g, ' ');
+                const chiaveProva = x => x.pagina.id + '|' + (veste ? pulisci(testo(x.prova.text)).trim() : pulisci(testo(x.prova.text))).slice(0, 120);
                 const lista = (Array.isArray(elenco) ? elenco : [elenco]).filter(Boolean)
-                    .map(prova => ({ prova, pagina: paginaPer(prova, indice) })).filter(x => x.pagina)
-                    .filter(x => { const k = x.pagina.id + '|' + testo(x.prova.text).replace(/\s+/g, ' ').slice(0, 120); if (viste.has(k)) return false; viste.add(k); return true; });
-                const firma = lista.map(x => x.pagina.id + '|' + testo(x.prova.text).slice(0, 80)).join('§');
-                if (firma && firma === proveAttive.firma) return;
+                    .filter(prova => !soloCitazioni || !!immagine || eCitazione(prova))
+                    .map(prova => ({ prova, pagina: paginaPer(prova, indice, !!immagine) })).filter(x => x.pagina)
+                    .filter(x => { const k = chiaveProva(x); if (viste.has(k)) return false; viste.add(k); return true; });
+                const nuovo = coloreSegno(o && o.colore);
+                const firma = lista.length ? (nuovo || '') + '§' + lista.map(x => x.pagina.id + '|' + testo(x.prova.text).slice(0, 80)).join('§') : '';
+                if (firma && firma === proveAttive.firma) return lista.length;
+                coloreArea = nuovo;
+                host.classList.toggle('mrv-fonte--segno-area', !!coloreArea);
+                if (coloreArea) host.style.setProperty('--mrv-fonte-segno', coloreArea);
                 proveAttive = lista; proveAttive.firma = firma;
                 prove.replaceChildren();
+                /* 0069, giro 9: sulla scheda (pannello con la foto) le prove si
+                   chiamano come la PARTE citata — il nome lo dà il core del dossier
+                   (`etichetteProve`); null (un PDF, una lista mista) → «Prova n», come prima.
+                   Lo scorritore dice «Parte · i / N». */
+                const DFc = immagine ? globalThis.MappAIDossierFonteCore : null;
+                const nomi = DFc && typeof DFc.etichetteProve === 'function' ? DFc.etichetteProve(lista.map(x => x.pagina)) : null;
                 /* Fino a quattro prove, un bottone ciascuna; oltre (una sezione di
                    sintesi ne cita anche 17) uno scorritore, che non riempie la testata. */
                 if (lista.length > 4) {
@@ -356,23 +532,39 @@
                     prima.type = dopo.type = 'button';
                     prima.setAttribute('aria-label', t('rv_source_prev_proof', 'Prova precedente')); dopo.setAttribute('aria-label', t('rv_source_next_proof', 'Prova successiva'));
                     conta.setAttribute('aria-live', 'polite');
-                    const vai = n => { i = (n + lista.length) % lista.length; conta.textContent = t('rv_source_proof', 'Prova') + ' ' + (i + 1) + ' / ' + lista.length; vaiA(lista[i].pagina, lista[i].prova.text); };
+                    const vai = n => { i = (n + lista.length) % lista.length; conta.textContent = (nomi ? nomi[i] + ' · ' : t('rv_source_proof', 'Prova') + ' ') + (i + 1) + ' / ' + lista.length; vaiA(lista[i].pagina, lista[i].prova.text); };
                     prima.onclick = () => vai(i - 1); dopo.onclick = () => vai(i + 1);
                     prove.append(prima, conta, dopo);
                     disegna();
-                    conta.textContent = t('rv_source_proof', 'Prova') + ' 1 / ' + lista.length;
-                } else if (lista.length > 1) lista.forEach((x, i) => {
-                    const b = crea('button', 'pm-btn-cancel', t('rv_source_proof', 'Prova') + ' ' + (i + 1)); b.type = 'button';
+                    conta.textContent = (nomi ? nomi[0] + ' · ' : t('rv_source_proof', 'Prova') + ' ') + '1 / ' + lista.length;
+                } else if (lista.length > 1 || (nomi && lista.length === 1)) lista.forEach((x, i) => {
+                    /* con la foto anche UNA prova ha il suo bottone: dopo «×» serve per tornarci */
+                    const b = crea('button', 'pm-btn-cancel', nomi ? nomi[i] : t('rv_source_proof', 'Prova') + ' ' + (i + 1)); b.type = 'button';
                     b.setAttribute('aria-pressed', String(i === 0));
                     b.onclick = () => { prove.querySelectorAll('button').forEach((x2, j) => x2.setAttribute('aria-pressed', String(j === i))); vaiA(x.pagina, x.prova.text); };
                     prove.appendChild(b);
                 });
-                return vaiA(lista.length ? lista[0].pagina : null, lista.length ? lista[0].prova.text : '');
+                /* giro 10: «×» in fondo alla riga — spegne la selezione (nessun bottone
+                   premuto, nessun segno) e mostra la scheda intera (`vaiA(null)`, che con
+                   la foto scrive `testoIntero`). Un bottone di blocco riporta al blocco. */
+                if (barraFonte({ immagine: !!immagine, prove: lista.length }).chiudi) {
+                    const x = crea('button', 'pm-btn-cancel mrv-fonte-chiudi', '×'); x.type = 'button';
+                    x.setAttribute('aria-label', t('rv_scheda_intera', 'Mostra la scheda intera')); x.title = t('rv_scheda_intera', 'Mostra la scheda intera');
+                    x.setAttribute('aria-pressed', 'false');
+                    x.onclick = () => {
+                        prove.querySelectorAll('button[aria-pressed]').forEach(b2 => b2.setAttribute('aria-pressed', String(b2 === x)));
+                        corrente = null;
+                        vaiA(null, '');
+                    };
+                    prove.appendChild(x);
+                }
+                vaiA(lista.length ? lista[0].pagina : null, lista.length ? lista[0].prova.text : '');
+                return lista.length;
             },
             pagine: () => indice.slice(),
             smonta() { chiuso = true; richiesta++; if (v) v.smonta(); documenti.forEach(p => p.then(d => d && d.destroy && d.destroy()).catch(() => {})); host.replaceChildren(); }
         };
     }
 
-    return { indicePagine, trovaPdf, paginaPer, segmenti, rettangoli, monta };
+    return { indicePagine, trovaPdf, trovaFoto, paginaPer, segmenti, rettangoli, barraFonte, testoIntero, eCitazione, coloreSegno, contrasto, monta };
 }));

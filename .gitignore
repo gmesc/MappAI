@@ -94,6 +94,12 @@ tools/contabilita/*.test.js
 # interruttore spento e uno acceso. Solo lo strumento: le tracce dei giri stanno in
 # userData/MappAI-Pipeline/, fuori dal repo.
 !tools/misura-evidenze/**
+# Strato delle affermazioni e quarantena (26/9/26, ADR 0010, packet 0042): la prova
+# fuori dall'app delle segnalazioni del Giudice (filtro-giudice) e la misura offline
+# della quarantena. Solo gli strumenti: le copie di pipeline.json e le uscite restano
+# in una cartella di lavoro, fuori dal repo.
+!tools/filtro-giudice/**
+!tools/misura-affermazioni/**
 # Tre banchi di tools/smoke/ (moduli VERI con un finto window) e il loro LEGGIMI,
 # riparati il 15/9/26. Uno per uno, non la cartella: censimento-maniglia-cdp.js
 # porta un percorso del disco, review-dashboard-preview.js non è stato riletto.
@@ -106,3 +112,14 @@ tools/contabilita/*.test.js
 !tools/smoke/modelli-per-fase.js
 !tools/smoke/modelli-nei-flussi.js
 !tools/smoke/LEGGIMI.md
+
+# Riconciliazione Codex/Claude del 25/09/2026: documenti operativi inclusi
+# su richiesta di Giacomo. Backup, archivi, log e impostazioni restano locali.
+!docs/HANDOFF.md
+!docs/INTAKE.md
+!docs/TEAM-AI.md
+!docs/tasks/*.md
+!docs/adr/*.md
+!docs/tasks/0025-trasporto-infomaniak-main.diff
+!docs/riconciliazioni/2026-09-25-worktree-codex/RICONCILIAZIONE.md
+!.claude/lavori-aperti.json

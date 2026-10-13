@@ -354,6 +354,29 @@
         return '<label class="mn-op"' + tip(_voceCorrente) + '><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + '>' +
             '<span>' + esc(etichetta) + '</span></label>';
     }
+    /* ── La voce va a Google (0065, ADR 0004 rev. 3) ─────────────────────────
+       Sotto «Voce naturale (audio)» una riga dice dove va il testo della sintesi;
+       se la chiave Google manca diventa l'avviso rosso, con lo stesso testo del
+       toast al via. La chiave si legge come la legge la voce (`gemini_api_key`):
+       il controllo e la chiamata vedono la stessa cosa. Il valore non si mostra. */
+    function rigaVoce() {
+        return '<p id="mn-voce-riga" role="status" hidden></p>';
+    }
+    function aggiornaRigaVoce() {
+        var r = document.getElementById('mn-voce-riga');
+        if (!r) return;
+        var a = document.getElementById('mp-syn-audio'), s = document.getElementById('mp-syn-on');
+        var voce = !!(a && a.checked) && !(s && !s.checked);
+        var chiave = '';
+        try { chiave = localStorage.getItem('gemini_api_key') || ''; } catch (e) { }
+        var manca = voce && !chiave;
+        r.hidden = !voce;
+        r.classList.toggle('mn-voce-avviso', manca);
+        r.setAttribute('role', manca ? 'alert' : 'status');
+        r.textContent = !voce ? '' : manca
+            ? t('mp_voce_no_google', 'La voce naturale usa Google: manca la chiave Google. La sintesi uscirà senza voce. Inseriscila in Impostazioni AI › Google Gemini.')
+            : t('mp_voce_google', 'La voce si fa con Google: il testo della sintesi esce dalla Svizzera.');
+    }
     function campo(etichetta, dentro) {
         return '<label class="mn-campo"' + tip(_voceCorrente) + '><span>' + esc(etichetta) + '</span>' + dentro + '</label>';
     }
@@ -568,7 +591,7 @@
                    `QUIZ_ANGLES`, e una lista qui divergerebbe al primo angolo
                    aggiunto (inv. 6). */
                 if (v.id.indexOf('mp-ang-') === 0) return spunta(v.id, v.et, false);
-                if ((v.base && v.base.tipo) === 'spunta' || v.tipo === 'spunta') return spunta(v.id, v.et, false);
+                if ((v.base && v.base.tipo) === 'spunta' || v.tipo === 'spunta') return spunta(v.id, v.et, false) + (v.id === 'mp-syn-audio' ? rigaVoce() : '');
                 return '';
         }
     }
@@ -951,6 +974,14 @@
                 if (!st.ok) { if (window.showToast) window.showToast(st.motivo, 'warning'); return; }
                 /* la faccia del bottone e quello che fa premendolo devono essere la
                    stessa cosa: entrambe leggono `soloMappa()` */
+                var lettura = window.MappAIPercorsoLettura;
+                var piano = lettura && lettura.creationStatus ? lettura.creationStatus() : null;
+                if (piano && piano.total > 0) {
+                    if (piano.valid && !piano.pending) lettura.startFromCreate().catch(function (error) {
+                        if (window.showToast) window.showToast(error.message, 'error');
+                    });
+                    return;
+                }
                 if (soloMappa()) { if (window.startGeneration) window.startGeneration(); return; }
                 if (P && P._startFromModal) P._startFromModal();
                 return;
@@ -958,7 +989,7 @@
             if (el.id === 'mn-solo-mappa') { if (window.startGeneration) window.startGeneration(); return; }
             var a = el.getAttribute('data-preset');
             if (!P) return;
-            if (a === 'applica' && P._applyPreset) P._applyPreset();
+            if (a === 'applica' && P._applyPreset) { P._applyPreset(); aggiornaRigaVoce(); }   /* il preset scrive `.checked` senza `change` (trappola 10) */
             else if (a === 'salva' && P._savePreset) P._savePreset();
             else if (a === 'elimina' && P._deletePreset) P._deletePreset();
         });
@@ -1124,16 +1155,23 @@
         try { return !P._hasOutputNow(); } catch (e) { return false; }
     }
 
+    document.addEventListener('mappai-reading-plan-changed', function () { aggiornaGate(); });
     function aggiornaGate() {
         var b = document.getElementById('mn-genera');
         if (!b) return;
         var st = statoContesto();
-        var mappa = st.ok && soloMappa();
+        var lettura = window.MappAIPercorsoLettura;
+        var piano = lettura && lettura.creationStatus ? lettura.creationStatus() : null;
+        var testo = piano && piano.total > 0;
+        if (testo && (!piano.valid || piano.pending)) st = { ok: false, motivo: piano.pending
+            ? t('pl_plan_preparing', 'Preparazione del percorso…')
+            : t('pl_plan_invalid', 'Controlla quantità e varianti: non ripetere la stessa combinazione e rispetta i limiti indicati.') };
+        var mappa = st.ok && !testo && soloMappa();
         b.disabled = !st.ok;
         b.classList.toggle('mn-card--spento', !st.ok);
         b.classList.toggle('mn-card--mappa', mappa);
         b.setAttribute('aria-disabled', st.ok ? 'false' : 'true');
-        var nome = mappa ? t('mn_genera_mappa', 'Genera Mappa') : t('mp_generate', 'Genera materiali');
+        var nome = testo ? t('pl_generate_path', 'Genera percorso') : mappa ? t('mn_genera_mappa', 'Genera Mappa') : t('mp_generate', 'Genera materiali');
         var etichetta = b.querySelector('span');
         if (etichetta) etichetta.textContent = nome;
         var glifo = b.querySelector('svg, i[data-lucide]');
@@ -1179,6 +1217,7 @@
         mostra('mp-syn-body', 'mp-syn-on');
         mostra('mp-adapt-body', 'mp-adapt-on');
         sincronizzaMulti();
+        aggiornaRigaVoce();
         aggiornaGate();
         ristima();
     }

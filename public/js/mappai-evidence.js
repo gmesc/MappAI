@@ -162,6 +162,28 @@
        unite da uno spazio — una verità sola. Nessun `punteggi`: il reranker non
        c'è. Un ramo di cui la fonte non parla dà `materiale: ''` e la pipeline lo
        salta: è la fedeltà che si misura, non un guasto da coprire con le desc. */
+    /* ── IL RAMO DI UN DOSSIER DA FOTO (0069, giro 2; ADR 0016 rev. 1) ─────────
+       Quando le fonti della revisione SONO la scheda (`eFonteScheda`) e
+       l'interruttore `mappai_dossier_fonte_scheda` è '1', un ramo del dossier
+       riceve PER INTERO la pagina del suo blocco (`paginaDelRamo` del core della
+       scheda: una riga per campo, verbatim, coi suoi id), invece delle frasi che
+       la ricerca per etichetta trovava — l'etichetta è il titolo del blocco, che
+       nei campi non compare, e i fatti della scheda non arrivavano al generatore.
+       Il pacchetto ha la forma di `costruisciPacchetto`; il genere lo dà `tipizza`
+       del core. Qualunque altra cosa (spento, una fonte non-scheda, un ramo che non
+       è un blocco) → null, e la strada è quella di prima, riga per riga. */
+    function _paginaDellaScheda(lista, idx, query) {
+        var DF = window.MappAIDossierFonteCore, R = window.MappAIReview;
+        if (!DF || typeof DF.paginaDelRamo !== 'function') return null;
+        try {
+            if (!DF.acceso(window.localStorage)) return null;
+            if (!R || typeof R.sources !== 'function' || !DF.eFonteScheda(R.sources())) return null;
+            var p = DF.paginaDelRamo({ nodi: lista, records: idx.records });
+            if (!p) return null;
+            return { unita: p.unita.map(function (u) { return _core().tipizza(u); }), query: query,
+                punteggi: { lessicali: 0, esterni: 0 }, scartate: 0 };
+        } catch (e) { return null; }
+    }
     function materialeRamo(nodi, opts) {
         if (!_acceso()) return null;
         var i = indice();
@@ -171,7 +193,7 @@
         var puliti = lista.map(function (n) { return { label: _pulisci(n.label), desc: n.desc || n.content || '' }; });
         var area = puliti.length ? puliti[0].label : '';
         var query = puliti.map(function (n) { return n.label; }).join(' ');
-        var pacchetto = _core().costruisciPacchetto({ records: i.records, query: query, tetto: o.tetto || TETTO_RAMO });
+        var pacchetto = _paginaDellaScheda(lista, i, query) || _core().costruisciPacchetto({ records: i.records, query: query, tetto: o.tetto || TETTO_RAMO });
         var r = _core().materialeRamo({ area: area, nodi: puliti, pacchetto: pacchetto, conDesc: !!o.conDesc });
         var ids = pacchetto.unita.map(function (u) { return u.id; });
         _traccia({ quando: new Date().toISOString(), area: area, query: query, ids: ids, scartate: r.scartate, caratteri: r.caratteri });

@@ -46,7 +46,7 @@ html {
     padding: 12px;
     border-radius: 9999px;
     background: white;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--mm-bordo);
     color: #6366f1;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
@@ -312,8 +312,8 @@ body.a11y-zoom-x2 {
     border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Global A11y Panel Toggle & Floating Actions Toggle Button */
-#a11y-panel-toggle,
+/* Floating Actions Toggle Button e bottone della barra (il cerchio degli
+   strumenti compensativi che stava qui è stato tolto il 26/9/2026, packet 0039) */
 #floating-actions-toggle,
 #sidebar-toggle-btn {
     width: 48px !important;
@@ -332,31 +332,20 @@ body.a11y-zoom-x2 {
     outline: none !important;
 }
 
-#a11y-panel-toggle {
-    position: fixed !important;
-    top: 24px !important;
-    right: 24px !important;
-    z-index: 999999 !important;
-}
-
 #floating-actions-toggle {
     position: relative !important;
 }
 
-#a11y-panel-toggle:hover,
 #floating-actions-toggle:hover,
 #sidebar-toggle-btn:hover {
     background-color: #f8fafc !important;
-    color: #334155 !important;
+    color: var(--mm-testo, #404040) !important;
     outline: #334155 10px solid !important;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
     transition: all 0.2s ease !important;
 }
 
 /* Rimuove l'anello di focus persistente al click */
-#a11y-panel-toggle:focus,
-#a11y-panel-toggle:active,
-#a11y-panel-toggle:focus-visible,
 #floating-actions-toggle:focus,
 #floating-actions-toggle:active,
 #floating-actions-toggle:focus-visible,
@@ -367,8 +356,6 @@ body.a11y-zoom-x2 {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
-#a11y-panel-toggle svg,
-#a11y-panel-toggle i,
 #floating-actions-toggle svg,
 #floating-actions-toggle i,
 #sidebar-toggle-btn svg,
@@ -387,15 +374,6 @@ body.a11y-zoom-x2 {
 #floating-actions-toggle:hover i,
 #floating-actions-toggle:hover svg {
     transform: scaleX(-1) rotate(0deg) !important;
-}
-
-#a11y-panel {
-    top: 80px !important;
-    right: 24px !important;
-    width: 350px !important;
-    padding: 12px !important;
-    gap: 8px !important;
-    border-radius: 30px !important;
 }
 
 /* Floating Actions Menu mirroring a11y panel styling */
@@ -446,16 +424,6 @@ body.a11y-zoom-x2 {
     transform: translateY(10px) !important;
 }
 
-#a11y-panel span {
-    font-size: 10px !important;
-    margin-top: 8px !important;
-    margin-bottom: 4px !important;
-}
-
-#a11y-panel span:first-child {
-    margin-top: 0 !important;
-}
-
 .btn_a11y_tool,
 #floating-actions-menu button,
 #floating-actions-menu label {
@@ -469,7 +437,7 @@ body.a11y-zoom-x2 {
     font-weight: 500 !important;
     font-family: var(--app-font, 'Space Mono', monospace);
     background-color: #eeeeee !important;
-    color: #334155 !important;
+    color: var(--mm-testo, #404040) !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
     text-align: left !important;
@@ -667,7 +635,7 @@ body.a11y-zoom-x2 {
     font-size: 12px !important;
     letter-spacing: 0.05em !important;
     font-weight: bold !important;
-    color: #1e293b !important;
+    color: var(--mm-testo, #404040) !important;
     /* <--- MODIFICA QUESTO COLORE (es: Viola) */
 }
 
@@ -690,7 +658,7 @@ body.a11y-zoom-x2 {
 #projects-bar h4 {
     font-size: 18px !important;
     /* Attenzione: 80px è enorme per una barra! */
-    color: #1e293b !important;
+    color: var(--mm-testo, #404040) !important;
     font-weight: bold !important;
 }
 
@@ -901,24 +869,6 @@ body.a11y-zoom-x2 #landing-view .glass-card>* {
     margin-right: auto !important;
 }
 
-/* A11y Compensatory filters */
-html.a11y-invert {
-    filter: invert(1) hue-rotate(180deg);
-    background-color: #000;
-}
-
-html.a11y-low-contrast {
-    filter: contrast(0.75);
-}
-
-html.a11y-high-contrast {
-    filter: contrast(1.5);
-}
-
-html.a11y-grayscale {
-    filter: grayscale(1);
-}
-
 /* Riga di lettura */
 #reading-ruler {
     display: none;
@@ -939,6 +889,10 @@ html.a11y-grayscale {
     display: block;
 }
 
+/* ⚠️ Il pannello degli strumenti compensativi non c'è più nell'app del docente
+   (packet 0039, 26/9/2026), ma l'app dell'allievo ne ha ancora una copia nel suo
+   index.html e riceve questo foglio di stile per copia: `.a11y-panel` e
+   `.hidden-panel` la tengono nascosta finché non si pulisce là (INTAKE). */
 .a11y-panel {
     position: fixed;
     top: 5rem;
@@ -971,7 +925,7 @@ html.a11y-grayscale {
     border: 1px solid #cbd5e1;
     font-size: 12px;
     font-weight: bold;
-    color: #334155;
+    color: var(--mm-testo, #404040);
     cursor: pointer;
     transition: all 0.2s;
     text-align: left;
@@ -1041,7 +995,7 @@ html[data-font="space-mono"] #ai-modal-body {
 
 .glass-card {
     background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid var(--mm-bordo) !important;
     border-radius: 1.5rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
 }
@@ -1066,7 +1020,7 @@ html[data-font="space-mono"] #ai-modal-body {
     border: 1.5px solid #c7d2fe;
     border-radius: 12px;
     padding: 14px 16px;
-    color: #1e293b;
+    color: var(--mm-testo, #404040);
     font-size: 16px;
     outline: none;
     transition: all 0.3s ease;
@@ -1265,16 +1219,16 @@ html[data-font="space-mono"] #ai-modal-body {
 }
 
 .sidebar-font-toggle .font-toggle-label.active-label {
-    color: #0f172a;
+    color: var(--mm-testo, #404040);
 }
 
 /* Landing variant – light theme */
 .landing-font-toggle .font-toggle-label {
-    color: #94a3b8;
+    color: var(--mm-testo-3, #64748b);
 }
 
 .landing-font-toggle .font-toggle-label.active-label {
-    color: #0f172a;
+    color: var(--mm-testo, #404040);
 }
 
 /* ==========================================
@@ -1525,7 +1479,7 @@ html[data-font="space-mono"] #ai-modal-body {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #334155;
+    color: var(--mm-testo, #404040);
     font-size: 13px;
     font-weight: bold;
     transition: background 0.2s;
@@ -1554,7 +1508,7 @@ html[data-font="space-mono"] #ai-modal-body {
     transition: all 0.2s;
     font-size: 13px;
     font-weight: bold;
-    color: #334155;
+    color: var(--mm-testo, #404040);
 }
 
 .quiz-option:hover {
@@ -1639,7 +1593,7 @@ html[data-font="space-mono"] #ai-modal-body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #0f172a;
+    color: var(--mm-testo, #404040);
     transition: all 0.5s ease;
 }
 
@@ -1661,6 +1615,25 @@ html.mappai-genera #landing-quick-actions { display: none !important; }
     inset: 0;
     z-index: 40;
     border-radius: 18px;
+}
+
+/* ── IL VELO DEL GIRO DI CREA (packet 0062, 12/10/26) ────────────────────────
+   Giacomo: il velo che parte da CREA copre TUTTA la finestra, topbar compresa,
+   a fondo pieno (con la trasparenza si intravedeva il bento), con lo spinner e
+   i messaggi al centro della finestra. La classe la mette `MappAIGen.prendi()`
+   solo a interruttore acceso (`mappai_velo_finestra`, `'0'` lo spegne) e solo
+   per il giro di CREA: senza classe vale tutto quello che c'è sopra.
+   Il piano (misurato il 12/10): la topbar `#header-utils`, con le briciole
+   «Crea», sta a z 60; l'autodiagnosi a 9996; i Banchi salgono dal motore,
+   da 12000 in su. Il 9999 di sempre sta in mezzo. Solo nell'app del docente:
+   il reader copia questo foglio e ha un suo velo. */
+html[data-app="docente"].mappai-velo-finestra #loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    border-radius: 0;
+    background: var(--mm-fondo, #ffffff);
+    backdrop-filter: none;
 }
 
 #loading-overlay.visible {
@@ -1769,18 +1742,17 @@ select {
 }
 
 /* Fix focus outline/ring clipping in all data entry modals */
-#user-profile-modal input:focus,
-#user-profile-modal select:focus,
 #config-ai-modal input:focus,
 #config-ai-modal select:focus,
 #edit-node-modal input:focus,
 #edit-node-modal select:focus,
 #validate-rel-modal input:focus,
 #validate-rel-modal select:focus {
-    outline: 2px solid #6366f1 !important;
+    /* 11/10 (0087 lotto 10b): un anello di fuoco solo, --mm-focus */
+    outline: 2px solid var(--mm-focus) !important;
     outline-offset: -1px !important;
     box-shadow: none !important;
-    border-color: #6366f1 !important;
+    border-color: var(--mm-focus) !important;
 }
 
 /* ==========================================
@@ -1834,7 +1806,6 @@ body.is-snapshotting #floating-actions-menu,
 body.is-snapshotting #floating-actions-toggle,
 body.is-snapshotting #mode-hint,
 body.is-snapshotting .a11y-panel,
-body.is-snapshotting #a11y-panel-toggle,
 body.is-snapshotting #insegnai-drawer,
 body.is-snapshotting #toast-container,
 body.is-snapshotting .modal {
@@ -2026,7 +1997,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 #landing-view .glass-card .mode-btn,
 #landing-view .glass-card .source-type-btn {
     background: #ffffff !important;
-    border-color: #e2e8f0 !important;
+    border-color: var(--mm-bordo) !important;
     color: #475569 !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.01) !important;
 }
@@ -2066,7 +2037,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     width: 96px !important;
     height: 80px !important;
     background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid var(--mm-bordo) !important;
     color: #475569 !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
     display: flex !important;
@@ -2091,7 +2062,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 #landing-view .glass-card .btn-landing-secondary:hover {
     background: #f8fafc !important;
     border-color: #cbd5e1 !important;
-    color: #1e293b !important;
+    color: var(--mm-testo, #404040) !important;
 }
 
 /* 3. Text Wrapping Prevention */
@@ -2457,8 +2428,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 
 /* Lock Floating/Circular Actions Buttons dimensions on all zoom levels */
 #sidebar-toggle-btn,
-#floating-actions-toggle,
-#a11y-panel-toggle {
+#floating-actions-toggle {
     width: 48px !important;
     height: 48px !important;
     padding: 12px !important;
@@ -2472,10 +2442,7 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
 #sidebar-toggle-btn i,
 #floating-actions-toggle svg,
 #floating-actions-toggle id,
-#floating-actions-toggle i,
-#a11y-panel-toggle svg,
-#a11y-panel-toggle id,
-#a11y-panel-toggle i {
+#floating-actions-toggle i {
     width: 24px !important;
     height: 24px !important;
     min-width: 24px !important;
@@ -2493,10 +2460,6 @@ body.a11y-zoomed-modals .fixed.inset-0>div:not(#sidebar):not(#insegnai-drawer)>*
     left: 32px !important;
 }
 
-#a11y-panel-toggle.fixed {
-    top: 24px !important;
-    right: 24px !important;
-}
 
 /* Map Control Card overrides for zoom x1.5 and x2 to keep it compact and on-screen */
 body.a11y-zoom-x15 #map-control-card,
@@ -2740,10 +2703,6 @@ body.a11y-zoom-x2 #floating-actions-menu label {
     outline: 2px solid #4f46e5;
     outline-offset: 2px;
     border-radius: 8px;
-}
-
-#edit-project-title-input {
-    font-size: calc(18px * var(--app-zoom, 1)) !important;
 }
 
 /* ── IL CHIP DELLE LINEE DI SPLIT (17/9/26) ─────────────────────────────────

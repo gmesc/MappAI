@@ -65,25 +65,11 @@ window.showContextMenu = function (e, type, data) {
     menu.innerHTML = ''; ctxTarget = { type, data };
 
     if (type === 'node') {
-        const expandAiHtml = !appState.studentMode ? `
-            <div class="ctx-item" onclick="window.ctxAction('expand_ai')"><i data-lucide="sparkles" class="text-emerald-500"></i> ${window.t('ctx_expand_source', "Espandi da Fonte")}</div>
-        ` : '';
-
-        const spacedRepetitionHtml = !appState.studentMode ? `
-            <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">Spaced Repetition</div>
-            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard')"><i data-lucide="brain-circuit"></i> ${window.t('ctx_flashcard_nodo', "Flashcard Nodo")}</div>
-            <div class="ctx-item text-indigo-600" onclick="window.ctxAction('generate_flashcard_branch')"><i data-lucide="network"></i> ${window.t('ctx_flashcard_ramo', "Flashcard Ramo")}</div>
-            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard')"><i data-lucide="graduation-cap"></i> ${window.t('ctx_quiz_nodo', "Quiz Nodo")}</div>
-            <div class="ctx-item text-purple-600" onclick="window.ctxAction('test_flashcard_branch')"><i data-lucide="layers"></i> ${window.t('ctx_quiz_ramo', "Quiz Ramo")}</div>
-            <hr class="my-1 border-slate-200">
-        ` : '';
-
         // JIGSAW: su un nodo di ramo altrui (bloccato) nascondi le voci di scrittura.
         // Sul PROPRIO ramo il nodo è editabile → resta tutto, incluso "Crea Figlio".
         const jLocked = !!(window.MappAIJigsaw && window.MappAIJigsaw.isEnabled() && !window.MappAIJigsaw.canEdit(data));
         const editorHtml = !jLocked ? `
                     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-y border-slate-200 mt-1">${window.t('ctx_map_editor', "Editor Mappa")}</div>
-                    ${expandAiHtml}
                     <div class="ctx-item" onclick="window.ctxAction('edit')"><i data-lucide="edit-3"></i> ${window.t('ctx_edit_content', "Edit Contenuto")}</div>
                     <div class="ctx-item" onclick="window.ctxAction('rename')"><i data-lucide="type"></i> ${window.t('ctx_rename', "Rinomina")}</div>
                     <div class="ctx-item" onclick="window.ctxAction('add_child')"><i data-lucide="plus-circle"></i> ${window.t('ctx_add_child', "Crea Figlio")}</div>
@@ -103,16 +89,27 @@ window.showContextMenu = function (e, type, data) {
                     <div class="ctx-item" onclick="window.ctxAction('status_done')"><i data-lucide="check-circle-2" class="text-emerald-500"></i> ${window.t('ctx_status_done', "Imparato!")}</div>
                     <div class="ctx-item" onclick="window.ctxAction('status_none')"><i data-lucide="circle" class="text-slate-300"></i> ${window.t('ctx_status_none', "Azzera Semaforo")}</div>
                     ${editorHtml}
-                    ${spacedRepetitionHtml}
                     ${deleteHtml}
                 `;
     } else if (type === 'link') {
         // JIGSAW: ponte inter-area + docente (modalità OFF) → menu di ratifica.
-        if (data.isBridge && window.MappAIJigsaw && !window.MappAIJigsaw.isEnabled()) {
+        // Solo col set del lavoro a gruppi in vista (ADR 0007): parcheggiato, il
+        // ponte ha il menu dei collegamenti normali.
+        if (data.isBridge && window.MappAIJigsaw && !window.MappAIJigsaw.isEnabled()
+            && window.MappAISetGruppi && window.MappAISetGruppi.on()) {
+            /* Autore, stato e motivazione del ponte stanno nei link del vault e li
+               scrivono anche gli ALLIEVI (copie JIGSAW): autore e stato entravano
+               nel menu così com'erano, e al tasto destro del docente un
+               `<img src=x onerror=…>` girava con window.electronAPI in mano
+               (25/9/2026). Ora tutti e tre sono testo: il nucleo, o lo stesso
+               escape qui (il reader dell'iPad copia questo file senza il nucleo).
+               La motivazione perdeva solo `<` e `>`; ora si legge com'è scritta. */
+            const esc = v => (window.MappAIHtmlSicuro ? window.MappAIHtmlSicuro.esc(v)
+                : String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'));
             menu.innerHTML =
                 '<div class="px-3 py-2" style="max-width:270px;"><div style="font-weight:700;color:#6366f1;font-size:12px;">Ponte inter-area</div>' +
-                '<div style="color:#64748b;font-size:11px;margin-top:2px;">Autore: ' + (data.bridgeAuthor || '?') + ' · stato: ' + (data.bridgeStatus || 'proposed') + '</div>' +
-                (data.justification ? '<div style="color:#475569;font-size:12px;margin-top:4px;font-style:italic;">"' + String(data.justification).replace(/[<>]/g, '') + '"</div>' : '') + '</div>' +
+                '<div style="color:#64748b;font-size:11px;margin-top:2px;">Autore: ' + esc(data.bridgeAuthor || '?') + ' · stato: ' + esc(data.bridgeStatus || 'proposed') + '</div>' +
+                (data.justification ? '<div style="color:#475569;font-size:12px;margin-top:4px;font-style:italic;">"' + esc(data.justification) + '"</div>' : '') + '</div>' +
                 '<hr class="my-1 border-slate-200">' +
                 '<div class="ctx-item text-emerald-600" onclick="window.ctxAction(\'ratify_bridge\')"><i data-lucide="check-circle"></i> ' + window.t('ctx_ratify_bridge', 'Ratifica ponte') + '</div>' +
                 '<div class="ctx-item danger" onclick="window.ctxAction(\'reject_bridge\')"><i data-lucide="x-circle"></i> ' + window.t('ctx_reject_bridge', 'Rifiuta ponte') + '</div>' +
@@ -225,10 +222,6 @@ window.ctxAction = function (action) {
     const data = ctxTarget.data;
     hideContextMenu();
 
-    if (action === 'expand_ai') {
-        window.openContextualAIExtensionModal(data);
-        return;
-    }
     if (action === 'tts') {
         window.speakNode(data);
         return;
@@ -303,18 +296,6 @@ window.ctxAction = function (action) {
         linkingState = { active: true, sourceNode: data };
         const hint = document.getElementById('mode-hint');
         hint.innerText = "MODALITÀ COLLEGAMENTO: Clicca sul nodo di destinazione"; hint.classList.remove('hidden');
-    }
-    else if (action === 'generate_flashcard') {
-        window.openStudyConfigModal('flashcard', data, 'node');
-    }
-    else if (action === 'generate_flashcard_branch') {
-        window.openStudyConfigModal('flashcard', data, 'branch');
-    }
-    else if (action === 'test_flashcard') {
-        window.openStudyConfigModal('quiz', data, 'node');
-    }
-    else if (action === 'test_flashcard_branch') {
-        window.openStudyConfigModal('quiz', data, 'branch');
     }
     else if (action === 'delete_node') {
         if (window.MappAIJigsaw && !window.MappAIJigsaw.guardWrite(data, 'elimina')) return;

@@ -9,8 +9,33 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const path = require('path');
 const { createTutorServer } = require(path.join(__dirname, '..', 'tutor-server.js'));
+
+// Le cartelle temporanee dei test si tolgono alla fine del file (25/9): prima ne
+// restavano decine a ogni giro della suite in $TMPDIR (3898 dal 23/9).
+const _cartelleTmp = [];
+function tmpDir(prefisso) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), prefisso));
+  _cartelleTmp.push(d);
+  return d;
+}
+
+
+/* una riga di richiesta che `fetch` non manderebbe mai: si scrive sul socket.
+   Torna la riga di stato, o 'appesa' se il server non risponde. */
+function grezza(target) {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET ' + target + ' HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+    let dati = '';
+    s.setEncoding('utf8');
+    s.setTimeout(2000, () => { s.destroy(); resolve('appesa'); });
+    s.on('data', d => { dati += d; });
+    s.on('end', () => resolve(dati.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+}
 
 let srv, port, dir, tok, admin;
 let aiCalls = 0;          // invocazioni callModel
@@ -35,7 +60,7 @@ function api(p, opts) {
 }
 
 before(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tutor-test-'));
+  dir = tmpDir('tutor-test-');
   srv = createTutorServer({
     repoRoot: path.join(__dirname, '..'),
     dir,
@@ -76,6 +101,11 @@ test('GET /api/session: mai chiave/adminToken/systemInstruction/provider', async
 test('GET /api/session: token sbagliato → 403', async () => {
   const r = await api('/api/session?s=nope');
   assert.strictEqual(r.status, 403);
+});
+
+test('una richiesta malformata (GET //[) riceve 400 e il server resta in piedi', async () => {
+  assert.strictEqual(await grezza('//['), 'HTTP/1.1 400 Bad Request');
+  assert.strictEqual((await api('/api/session?s=' + tok)).status, 200);
 });
 
 // ── join ────────────────────────────────────────────────────────────────────
@@ -244,3 +274,6 @@ test('restart: sessione ripresa con lo stesso token, studenti da disco', async (
   assert.strictEqual(st.session.adminToken, admin);
   assert.strictEqual(st.joined, 2);                   // volpe + panda da disco
 });
+
+// in fondo al file: gira DOPO gli after che fermano i server
+after(() => { for (const d of _cartelleTmp) fs.rmSync(d, { recursive: true, force: true }); });

@@ -129,7 +129,7 @@
     return modal;
   }
   function header(room) {
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i data-lucide="landmark" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:#0f172a;font-size:16px">Palazzo della Memoria</b><span style="margin-left:auto;color:#94a3b8;font-size:13px">Stanza ${PAL._i + 1} / ${PAL._rooms.length}</span></div>
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i data-lucide="landmark" style="width:20px;height:20px;color:#7c3aed"></i><b style="color:var(--mm-testo, #404040);font-size:16px">Palazzo della Memoria</b><span style="margin-left:auto;color:var(--mm-testo-3, #64748b);font-size:13px">Stanza ${PAL._i + 1} / ${PAL._rooms.length}</span></div>
       <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:#7c3aed;font-size:15px;margin-bottom:10px"><i data-lucide="door-open" style="width:16px;height:16px"></i>${esc(room.label)}</div>`;
   }
 
@@ -142,9 +142,9 @@
     }).join('');
     const modal = shellOpen(`${header(room)}
       <p style="color:#64748b;font-size:13px;margin:0 0 8px">Memorizza i concetti di questa stanza, poi ricostruiscila a memoria.</p>
-      <ol style="font-size:14px;color:#1e293b;line-height:1.5;padding-left:20px;margin:0 0 8px">${items}</ol>
+      <ol style="font-size:14px;color:var(--mm-testo, #404040);line-height:1.5;padding-left:20px;margin:0 0 8px">${items}</ol>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-        <button id="pal-exit" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
+        <button id="pal-exit" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
         <button id="pal-go" style="background:#7c3aed;color:#fff;border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600">Ho memorizzato →</button>
       </div>`);
     modal.querySelector('#pal-exit').onclick = () => {
@@ -162,7 +162,7 @@
       <textarea id="pal-ta" rows="6" style="width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font:inherit;resize:vertical"></textarea>
       <div id="pal-fb" style="display:none;margin-top:10px;font-size:13.5px"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
-        <button id="pal-exit" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
+        <button id="pal-exit" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600">Esci</button>
         <button id="pal-check" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600">Verifica</button>
       </div>`);
     modal.querySelector('#pal-exit').onclick = () => {

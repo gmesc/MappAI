@@ -117,7 +117,11 @@
     function escCss(s) {
         return String(s == null ? '' : s)
             .replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-            .replace(/[\r\n]+/g, ' ');
+            .replace(/[\r\n]+/g, ' ')
+            /* ⚠️ il valore sta dentro un <style>: un «</style>» nel nome della mappa
+               chiudeva il foglio e il resto diventava HTML della pagina stampata (25/9).
+               `\3c ` è l'escape CSS di «<»: a schermo resta «<». */
+            .replace(/</g, '\\3c ');
     }
 
     /* Data del documento: **GG/MM/AAAA, senza ora** (decisione di Giacomo,

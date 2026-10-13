@@ -83,11 +83,11 @@
         const overlay = document.createElement('div');
         overlay.id = 'collab-hub-modal';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:18px';
-        overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || '780px'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
+        overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || 'var(--mm-l)'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:#0f172a">
+                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">
                     <i data-lucide="${icon}" style="width:22px;height:22px;color:#4f46e5"></i>${title}</div>
-                <button type="button" class="ch-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
+                <button type="button" class="ch-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
             </div>${bodyHtml}`;
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         overlay.querySelector('.ch-close').onclick = () => overlay.remove();
@@ -105,11 +105,11 @@
     window.openCollabHub = async function () {
         const st = S();
         if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
-            toast(t('tst_collab_need_map', 'Apri una mappa per avviare la lavagna'), 'warning');
+            toast(t('tst_collab_need_map', 'Apri una mappa per avviare la Mappa LIVE'), 'warning');
             return;
         }
         if (!window.electronAPI || !window.electronAPI.collabStartSession) {
-            toast(t('tst_collab_electron', 'La lavagna collaborativa richiede l\'app desktop'), 'warning');
+            toast(t('tst_collab_electron', 'La Mappa LIVE richiede l\'app desktop'), 'warning');
             return;
         }
         const info = await window.electronAPI.collabSessionInfo();
@@ -135,11 +135,11 @@
         _setMapDepthZero();
         const st = S();
         if (!st || !st.db || !st.db.nodes || !st.db.nodes.length) {
-            toast(t('tst_collab_need_map', 'Apri una mappa per avviare la lavagna'), 'warning');
+            toast(t('tst_collab_need_map', 'Apri una mappa per avviare la Mappa LIVE'), 'warning');
             return;
         }
         if (!window.electronAPI || !window.electronAPI.collabStartSession) {
-            toast(t('tst_collab_electron', 'La lavagna collaborativa richiede l\'app desktop'), 'warning');
+            toast(t('tst_collab_electron', 'La Mappa LIVE richiede l\'app desktop'), 'warning');
             return;
         }
         const info = await window.electronAPI.collabSessionInfo();
@@ -157,27 +157,27 @@
 
     function openStart() {
         const name = S().rootNodeLabel || rootLabel();
-        modal('presentation', t('cl_title', 'Lavagna collaborativa'), `
+        modal('presentation', t('cl_title', 'Mappa LIVE'), `
             <p style="font-size:13px;color:#475569;line-height:1.55;margin:0 0 10px">
-                ${t('cl_intro', 'I gruppi entrano dal telefono via QR e propongono nodi attorno al tema centrale. I contributi appaiono qui come layer separati, senza toccare la mappa.')}
+                ${t('cl_intro', 'I gruppi entrano dal telefono via QR e propongono nodi attorno al tema. I contributi restano un livello a parte.')}
             </p>
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:14px">
                 ${t('cl_net_note', 'Rete: usa l\'hotspot del PC o un router d\'aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.')}
             </div>
-            <div style="font-size:13px;color:#0f172a;margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
+            <div style="font-size:13px;color:var(--mm-testo, #404040);margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
             <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_login', 'Accesso allievi')}</label>
-            <select id="cl-login" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;margin-bottom:14px">
+            <select id="cl-login" class="cl-in" style="width:100%;margin-bottom:14px">
                 <option value="group">${t('cl_login_grp', 'A gruppi (3 emoji)')}</option>
                 <option value="individual">${t('cl_login_ind', 'Individuale (roster della classe attiva)')}</option>
             </select>
             <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_resume', 'Riprendi una sessione precedente')}</label>
-            <select id="cl-resume" style="width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;margin-bottom:14px">
+            <select id="cl-resume" class="cl-in" style="width:100%;margin-bottom:14px">
                 <option value="">${t('cl_resume_new', 'Nuova sessione')}</option>
             </select>
             ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('cl') : ''}
             <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700;margin-top:14px">
                 ${t('cl_start', 'Avvia sessione')}</button>
-        `, '520px');
+        `, 'var(--mm-m)');
         const ovStart = document.getElementById('collab-hub-modal');
         if (window.MappAINetMode) window.MappAINetMode.bind(ovStart, 'cl');
         // Popola «Riprendi» con le sessioni salvate su disco (tutte, più recenti prima).
@@ -233,7 +233,7 @@
                 const d = s.startedAt ? new Date(s.startedAt) : null;
                 const date = d && !isNaN(d) ? d.toLocaleDateString() : '';
                 const modeLbl = s.loginMode === 'individual' ? t('cl_login_ind_s', 'individuale') : t('cl_login_grp_s', 'gruppi');
-                const parts = [s.name || 'Lavagna', s.className, date].filter(Boolean).join(' · ');
+                const parts = [s.name || 'Mappa LIVE', s.className, date].filter(Boolean).join(' · ');
                 const grp = s.groupCount ? ' — ' + s.groupCount + (s.loginMode === 'individual' ? '👤' : '👥') : '';
                 const opt = document.createElement('option');
                 opt.value = s.dir;
@@ -301,22 +301,22 @@
         return `
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;align-items:start">
                 <div style="text-align:center">
-                    ${qrSrc ? `<img class="cl-qr" src="${qrSrc}" alt="QR" style="width:180px;max-width:100%;height:auto;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">`
+                    ${qrSrc ? `<img class="cl-qr" src="${qrSrc}" alt="QR" style="width:180px;max-width:100%;height:auto;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">`
                             : '<div style="color:#b45309;font-size:12px">QR non disponibile (libreria mancante)</div>'}
                     <div style="font-size:11.5px;color:#475569;margin-top:6px;word-break:break-all">${CT.info.urls.map(esc).join('<br>')}</div>
                     ${window.MappAINetMode ? window.MappAINetMode.lanLineHtml(CT.info) : ''}
-                    <div style="font-size:10.5px;color:#94a3b8;margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
+                    <div style="font-size:10.5px;color:var(--mm-testo-3, #64748b);margin-top:4px">${t('cl_qr_hint', 'Clic sul QR per ingrandirlo a schermo intero (LIM)')}</div>
                 </div>
                 <div>
-                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">${t('cl_groups', 'Gruppi collegati')}</div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin-bottom:8px">${t('cl_groups', 'Gruppi collegati')}</div>
                     <div class="cl-groups" style="display:flex;flex-direction:column;gap:6px">
-                        <div style="color:#94a3b8;font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>
+                        <div style="color:var(--mm-testo-3, #64748b);font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>
                     </div>
                 </div>
             </div>
             <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
                 <button type="button" class="cl-stop" style="background:#7f1d1d;color:#fecaca;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px">${t('cl_stop', 'Ferma sessione')}</button>
-                <button type="button" class="cl-folder" style="background:#f1f5f9;color:#334155;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
+                <button type="button" class="cl-folder" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
                 ${detachBtn}
             </div>`;
     }
@@ -403,13 +403,13 @@
     // La Lavagna resta anche nel tab Struttura (host coesistenti, zero regressioni).
     // act = chiave nel dispatch di renderLimSidebarTab (evita l'indice fragile)
     function limCard(act, icon, title, desc) {
-        return '<button type="button" class="lim-card" data-act="' + esc(act) + '" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
+        return '<button type="button" class="lim-card" data-act="' + esc(act) + '" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
             '<div style="width:38px;height:38px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="' + icon + '" style="width:19px;height:19px;color:#4f46e5"></i></div>' +
-            '<div style="flex:1"><div style="font-weight:800;color:#0f172a;font-size:13.5px">' + esc(title) + '</div>' +
-            '<div style="font-size:11.5px;color:#94a3b8;margin-top:1px">' + esc(desc) + '</div></div></button>';
+            '<div style="flex:1"><div style="font-weight:800;color:var(--mm-testo, #404040);font-size:13.5px">' + esc(title) + '</div>' +
+            '<div style="font-size:11.5px;color:var(--mm-testo-3, #64748b);margin-top:1px">' + esc(desc) + '</div></div></button>';
     }
     function limSection(title) {
-        return '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:14px 0 8px">' + esc(title) + '</div>';
+        return '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin:14px 0 8px">' + esc(title) + '</div>';
     }
     CT.renderLimSidebarTab = function () {
         const panel = document.getElementById('sidebar-panel-lim');
@@ -420,16 +420,16 @@
             ? t('lim_class_active_on', 'Attiva:') + ' ' + (activeCls.name || '')
             : t('lim_class_active_d', 'Nessuna: la generazione resta generica');
         panel.innerHTML =
-            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:#94a3b8;margin:2px 0 4px">' +
+            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin:2px 0 4px">' +
               esc(t('lim_title', 'Attività da LIM')) + '</div>' +
-            '<div style="font-size:11.5px;color:#94a3b8;line-height:1.5;margin-bottom:4px">' +
+            '<div style="font-size:11.5px;color:var(--mm-testo-3, #64748b);line-height:1.5;margin-bottom:4px">' +
               esc(t('lim_intro', 'Attività via QR: gli allievi entrano dal telefono sulla rete d\'aula.')) + '</div>' +
             // ── § Attività live (gli allievi entrano col QR) ─────────────────
             limSection(t('lim_sec_live', 'Attività live')) +
             limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue')) +
-            limCard('board', 'presentation', t('cl_title', 'Lavagna collaborativa'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
+            limCard('board', 'presentation', t('cl_title', 'Mappa LIVE'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
             limCard('scelta', 'list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere')) +
-            limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
+            limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
             limCard('timeline', 'calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
             // ── § Condivisione ───────────────────────────────────────────────
             limSection(t('lim_sec_share', 'Condivisione')) +
@@ -478,7 +478,7 @@
         const active = panel.querySelector('#lim-active');
         if (CT.info) {
             const host = document.createElement('div');
-            host.style.cssText = 'border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;margin-top:4px';
+            host.style.cssText = 'border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;background:#fff;padding:10px;margin-top:4px';
             active.appendChild(host);
             renderCollabPanel(host, { detach: true });
         }
@@ -491,12 +491,12 @@
         if (!fp) {
             fp = document.createElement('div');
             fp.id = 'collab-float-panel';
-            fp.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9985;width:min(360px,90vw);background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 20px 50px -12px rgba(0,0,0,.35);overflow:hidden';
+            fp.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9985;width:min(360px,90vw);background:#f8fafc;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;box-shadow:0 20px 50px -12px rgba(0,0,0,.35);overflow:hidden';
             fp.innerHTML = `<div class="cl-fp-head" style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef2ff;cursor:default">
                     <i data-lucide="presentation" style="width:16px;height:16px;color:#4f46e5"></i>
-                    <span style="flex:1;font-weight:800;font-size:13px;color:#0f172a">${t('cl_title', 'Lavagna collaborativa')}</span>
+                    <span style="flex:1;font-weight:800;font-size:13px;color:var(--mm-testo, #404040)">${t('cl_title', 'Mappa LIVE')}</span>
                     <button type="button" class="cl-fp-collapse" title="${t('cl_collapse', 'Collassa')}" style="background:none;border:0;cursor:pointer;color:#64748b;font-size:16px;line-height:1;padding:2px 6px">–</button>
-                    <button type="button" class="cl-fp-close" title="${t('cl_dock', 'Riaggancia alla sidebar')}" style="background:none;border:0;cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 6px">×</button>
+                    <button type="button" class="cl-fp-close" title="${t('cl_dock', 'Riaggancia alla sidebar')}" style="background:none;border:0;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:18px;line-height:1;padding:2px 6px">×</button>
                 </div>
                 <div class="cl-fp-body" style="padding:14px 16px"></div>`;
             document.body.appendChild(fp);
@@ -527,7 +527,7 @@
 
     // ── Host: modale storico (kill-switch reversibilità) ─────────────────────
     function openDashboardModal() {
-        const ov = modal('presentation', t('cl_title', 'Lavagna collaborativa'), `<div class="cl-modal-body"></div>`);
+        const ov = modal('presentation', t('cl_title', 'Mappa LIVE'), `<div class="cl-modal-body"></div>`);
         renderCollabPanel(ov.querySelector('.cl-modal-body'), { detach: false });
     }
 
@@ -556,7 +556,7 @@
         const ov = document.createElement('div');
         ov.style.cssText = 'position:fixed;inset:0;z-index:10001;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out';
         ov.innerHTML = `<img src="${big}" alt="QR" style="width:min(70vh,70vw);image-rendering:pixelated">
-            <div style="font-size:22px;font-weight:800;color:#0f172a">${esc(url)}</div>`;
+            <div style="font-size:22px;font-weight:800;color:var(--mm-testo, #404040)">${esc(url)}</div>`;
         ov.onclick = () => ov.remove();
         document.body.appendChild(ov);
     }
@@ -596,7 +596,7 @@
 
     function groupsHtml() {
         const groups = (CT.board && CT.board.groups) || [];
-        if (!groups.length) return `<div style="color:#94a3b8;font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>`;
+        if (!groups.length) return `<div style="color:var(--mm-testo-3, #64748b);font-size:12.5px">${t('cl_waiting', 'In attesa dei gruppi…')}</div>`;
         return groups.map(g => {
             const slug = C.slugify(g.nick);
             const lay = CT.layers[slug] || (CT.layers[slug] = { visible: true, label: g.emojiLabel || g.nick });
@@ -608,15 +608,15 @@
             const reopenBtn = g.done
                 ? `<button type="button" class="cl-reopen" data-slug="${slug}" title="${t('cl_reopen_tip', 'Rimetti il gruppo «in corso»: azzera il segno di consegna. Gli allievi continuano a costruire.')}" style="background:#fef3c7;color:#92400e;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px"><i data-lucide="unlock" style="width:11px;height:11px"></i>${t('cl_reopen', 'Sblocca')}</button>`
                 : '';
-            return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 10px">
+            return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:7px 10px">
                 <span style="width:12px;height:12px;border-radius:50%;background:${g.color};flex:0 0 auto"></span>
-                <input value="${esc(lay.label)}" data-slug="${slug}" class="cl-rename" style="flex:1;min-width:60px;border:0;background:none;font-weight:700;font-size:12.5px;color:#0f172a;outline:none">
+                <input value="${esc(lay.label)}" data-slug="${slug}" class="cl-rename" style="flex:1;min-width:60px;border:0;background:none;font-weight:700;font-size:12.5px;color:var(--mm-testo, #404040);outline:none">
                 ${doneBadge}
-                <span style="font-size:11px;color:#94a3b8">${(g.nodes || []).length}n · ${(g.links || []).length}⇢</span>
+                <span style="font-size:11px;color:var(--mm-testo-3, #64748b)">${(g.nodes || []).length}n · ${(g.links || []).length}⇢</span>
                 <button type="button" class="cl-focus" data-slug="${slug}" title="${focused ? t('cl_focus_off_tip', 'Esci dall\'isolamento e ripristina la profondità') : t('cl_focus_tip', 'Isola questo gruppo e porta la mappa base a L0')}" style="background:${focused ? '#f59e0b' : '#f1f5f9'};color:${focused ? '#fff' : '#334155'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${t('cl_focus', 'SOLO')}</button>
                 <button type="button" class="cl-toggle" data-slug="${slug}" title="${t('cl_toggle_tip', 'Mostra/nascondi questo layer sulla mappa')}" style="background:${lay.visible ? '#4f46e5' : '#e2e8f0'};color:${lay.visible ? '#fff' : '#64748b'};border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">${lay.visible ? 'ON' : 'OFF'}</button>
                 ${reopenBtn}
-                <button type="button" class="cl-export" data-slug="${slug}" title="${t('cl_export_tip', 'Scarica il layer come mappa MappAI (JSON importabile)')}" style="background:#f1f5f9;color:#334155;border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">JSON</button>
+                <button type="button" class="cl-export" data-slug="${slug}" title="${t('cl_export_tip', 'Scarica il layer come mappa MappAI (JSON importabile)')}" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:8px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:700">JSON</button>
             </div>`;
         }).join('');
     }

@@ -7,8 +7,32 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const path = require('path');
 const { createCollabServer } = require(path.join(__dirname, '..', 'collab-server.js'));
+
+// Le cartelle temporanee dei test si tolgono alla fine del file (25/9): prima ne
+// restavano decine a ogni giro della suite in $TMPDIR (3898 dal 23/9).
+const _cartelleTmp = [];
+function tmpDir(prefisso) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), prefisso));
+  _cartelleTmp.push(d);
+  return d;
+}
+
+/* una riga di richiesta che `fetch` non manderebbe mai: si scrive sul socket.
+   Torna la riga di stato, o 'appesa' se il server non risponde. */
+function grezza(target) {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET ' + target + ' HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+    let dati = '';
+    s.setEncoding('utf8');
+    s.setTimeout(2000, () => { s.destroy(); resolve('appesa'); });
+    s.on('data', d => { dati += d; });
+    s.on('end', () => resolve(dati.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+}
 const CC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-collab-core.js'));
 
 let srv, port, dir, tok, admin;
@@ -27,7 +51,7 @@ function mkNode(over) {
 }
 
 before(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-test-'));
+  dir = tmpDir('collab-test-');
   srv = createCollabServer({
     repoRoot: path.join(__dirname, '..'),
     dir,
@@ -51,6 +75,11 @@ test('GET /api/session: token valido → meta + palette', async () => {
 test('GET /api/session: token sbagliato → 403', async () => {
   const r = await api('/api/session?s=nope');
   assert.strictEqual(r.status, 403);
+});
+
+test('una richiesta malformata (GET //[) riceve 400 e il server resta in piedi', async () => {
+  assert.strictEqual(await grezza('//['), 'HTTP/1.1 400 Bad Request');
+  assert.strictEqual((await api('/api/session?s=' + tok)).status, 200);
 });
 
 test('POST /api/join: gruppo nuovo → colore assegnato', async () => {
@@ -241,7 +270,8 @@ test('POST /api/nodes: link con estremità inesistente → rejected, non salvato
 // ── Login flessibile (008 US5): collab-server loginMode 'individual' ────────
 test('collab loginMode individual: join per emoji+numero dal roster', async () => {
   const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-ind-'));
+
+  const d = tmpDir('collab-ind-');
   // buildCredentials pesca a CASO dal pool (segretezza account) → il test usa
   // le identità RESTITUITE, mai coppie hardcodate.
   const roster = LC.buildCredentials(2);
@@ -275,7 +305,7 @@ test('collab loginMode individual: join per emoji+numero dal roster', async () =
 });
 
 test('collab default resta a gruppi (nessuna regressione 003/006)', async () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-grp-'));
+  const d = tmpDir('collab-grp-');
   const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
   const pt = await s.listen(0, '127.0.0.1');
   const a = (p, o) => fetch('http://127.0.0.1:' + pt + p, o).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
@@ -289,7 +319,7 @@ test('collab default resta a gruppi (nessuna regressione 003/006)', async () => 
 });
 
 test('collab phase: open all\'avvio, markClosed → closed su disco (naming progressivo)', async () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-phase-'));
+  const d = tmpDir('collab-phase-');
   const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
   await s.listen(0, '127.0.0.1');
   // all'avvio la sessione è APERTA → il main la riprenderebbe dopo un crash
@@ -312,7 +342,7 @@ test('collab phase: open all\'avvio, markClosed → closed su disco (naming prog
 });
 
 test('group mode: /api/session espone i 3 set emoji; join con combo → nick ASCII + emojiLabel', async () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-combo-'));
+  const d = tmpDir('collab-combo-');
   const s = createCollabServer({ repoRoot: path.join(__dirname, '..'), dir: d, session: { name: 'Lav' } });
   const p = await s.listen(0, '127.0.0.1');
   const get = (u) => fetch('http://127.0.0.1:' + p + u).then(r => r.json().then(b => ({ status: r.status, body: b })));
@@ -341,3 +371,6 @@ test('group mode: /api/session espone i 3 set emoji; join con combo → nick ASC
   assert.strictEqual(board.body.groups[0].emojiLabel, '🦊🍓🚀');
   await s.stop();
 });
+
+// in fondo al file: gira DOPO gli after che fermano i server
+after(() => { for (const d of _cartelleTmp) fs.rmSync(d, { recursive: true, force: true }); });

@@ -3,12 +3,18 @@
     'use strict';
     const t = (key, fallback) => window.t ? window.t(key, fallback) : fallback;
     const labels = { mappa: ['modelli_map', 'Mappa'], materiali: ['modelli_materials', 'Materiali'],
-        embeddings: ['modelli_embeddings', 'Analisi semantica (embeddings)'], giudice: ['modelli_judge', 'Giudice, se abilitato'] };
+        embeddings: ['modelli_embeddings', 'Analisi semantica (embeddings)'], giudice: ['modelli_judge', 'Giudice'] };
     let lastRun = null;
     let refreshPanel = () => {};
     function state() { return typeof appState !== 'undefined' ? appState : window.appState || {}; }
     function catalog() {
         try { const rows = JSON.parse(localStorage.getItem('infomaniak_available_models') || '[]'); return Array.isArray(rows) ? rows : []; }
+        catch (_) { return []; }
+    }
+    /* I modelli dei vettori di Google: li deposita `refreshGeminiModels` tenendo quelli che
+       rispondono a `embedContent`. Deposito muto = tendina con la sola scelta di adesso. */
+    function catalogoVettori() {
+        try { const rows = JSON.parse(localStorage.getItem('gemini_embedding_models') || '[]'); return Array.isArray(rows) ? rows.filter(m => m && m.id) : []; }
         catch (_) { return []; }
     }
     function render() {
@@ -27,8 +33,11 @@
         try { profile = window.MappAIModelli.profiloSetup(); }
         catch (_) {
             const selected = localStorage.getItem(provider === 'infomaniak' ? 'infomaniak_selected_model' : 'gemini_selected_model') || '';
+            /* Il giudice parte dal modello scelto, come mappa e materiali (0088, B11): con la revisione accesa
+               gira sempre, e un campo vuoto fermava «Più materiali insieme» su «Assegna un modello al giudice…».
+               Un profilo già salvato non passa di qui, e il blocco di `mappai-modelli.js` resta per chi svuota il campo. */
             profile = { schema: 'mappai-modelli@1', provider, modelli: { mappa: selected, materiali: selected,
-                embeddings: provider === 'infomaniak' ? 'bge_multilingual_gemma2' : 'gemini-embedding-001', giudice: null, reranking: null } };
+                embeddings: provider === 'infomaniak' ? 'bge_multilingual_gemma2' : 'gemini-embedding-001', giudice: selected, reranking: null } };
         }
         const help = document.createElement('p'); help.className = 'text-sm mt-2';
         help.textContent = t('modelli_help', 'Le scelte valgono dal prossimo avvio. Un lavoro già avviato mantiene i suoi modelli. Puoi usare lo stesso modello per più fasi.');
@@ -38,34 +47,56 @@
         Object.keys(labels).forEach(phase => {
             const row = document.createElement('label'); row.className = 'block text-sm mt-3';
             const title = document.createElement('span'); title.textContent = t(...labels[phase]);
-            const input = document.createElement('input'); input.type = 'text'; input.id = 'modelli-' + phase;
-            input.value = profile.modelli[phase] || ''; input.autocomplete = 'off'; input.spellcheck = false;
-            input.className = 'w-full border border-slate-300 rounded-lg p-2 bg-white text-slate-800';
-            if (provider === 'infomaniak' || phase !== 'embeddings') {
-                const list = document.createElement('datalist'); list.id = 'modelli-catalogo-' + phase;
-                input.setAttribute('list', list.id);
-                const hint = document.createElement('p'); hint.className = 'text-xs mt-1 break-words';
-                const update = () => {
-                    list.replaceChildren();
-                    const C = window.MappAICatalogo;
-                    const choices = provider === 'infomaniak' && C ? C.forPhase(catalog(), phase).map(m => ({
-                        value: m.id, label: C.priceLabel(m.id, t) + (m.availability === 'catalogue' ? ' · ' + t('catalog_product_unverified', 'Accesso del prodotto da verificare') : '')
-                    })) : Array.from(document.getElementById('model-select')?.options || []).filter(o => o.value).map(o => ({ value: o.value, label: o.textContent }));
-                    choices.forEach(o => { const option = document.createElement('option'); option.value = o.value; option.label = o.label; list.append(option); });
-                    if (provider === 'infomaniak' && C && input.value.trim()) {
-                        const selected = catalog().find(m => C.canonical(m.id) === C.canonical(input.value));
-                        const valid = selected && C.forPhase([selected], phase).length;
-                        hint.textContent = C.priceLabel(input.value, t) + ' · ' + (valid
-                            ? (selected.availability === 'product' ? t('catalog_product', 'Elencato dal prodotto') : t('catalog_product_unverified', 'Accesso del prodotto da verificare'))
-                            : t('catalog_wrong_phase', 'Modello non verificato per questa funzione: aggiorna il catalogo e scegli dalla lista.'));
-                    } else hint.textContent = '';
-                };
-                input.addEventListener('focus', update); input.addEventListener('input', update);
-                updates.push(update); row.append(list); row.append(title, input, hint);
-            } else {
-                row.append(title, input);
-            }
-            host.append(row); inputs[phase] = input;
+            /* Ogni fase è un menu a tendina VERO, come «Modello AI» e «Modello per le foto» (0088, B13). Prima era un campo di testo con
+               una lista a scomparsa (`datalist`) che filtrava le voci con ciò che c'era scritto: con un modello già scelto, nella
+               lista restava solo quello. Un `select` mostra sempre tutte le voci, e la classe `form_input` gli dà gli stessi token
+               grafici della console (B12: fondo neutro, altezza e corpo dei controlli, raggio dei campi — packet 0087 lotto 5,
+               `mappai-modal-tokens.css`). */
+            const campo = document.createElement('select'); campo.id = 'modelli-' + phase;
+            campo.className = 'form_input';
+            const hint = document.createElement('p'); hint.className = 'text-xs mt-1 break-words';
+            /* La scelta di adesso: parte dal profilo e poi la tiene il menu (anche «nessuno»), così un ridisegno dell'elenco non la
+               rimette com'era. Le voci: con Infomaniak il catalogo vivo per quella fase; con Google i modelli della tendina
+               principale (per i vettori, quelli che rispondono a `embedContent`, 10/10/26) — non un elenco scritto a mano, che
+               invecchierebbe al primo modello nuovo. La scelta di adesso resta SEMPRE fra le voci, anche se l'elenco non la
+               conosce: un menu non deve mai cancellare in silenzio un'assegnazione già salvata. */
+            let corrente = profile.modelli[phase] || '';
+            const update = () => {
+                const C = window.MappAICatalogo;
+                /* ⚠️ I vettori NON prendono mai i modelli di chat (ADR 0004: la tendina generativa non può sostituire il modello di
+                   vettori): con Google sono solo quelli che rispondono a `embedContent` (`gemini_embedding_models`, 11/10), con
+                   Infomaniak solo quelli del catalogo per la fase «embeddings»; senza elenco restano la scelta di adesso e l'avviso. */
+                const vettori = phase === 'embeddings';
+                let righe;
+                if (vettori && provider === 'infomaniak') righe = C ? C.forPhase(catalog(), phase).map(m => ({ value: m.id, label: m.id + ' — ' + C.priceLabel(m.id, t) })) : [];
+                else if (vettori) righe = catalogoVettori().map(m => ({ value: m.id,
+                    label: m.displayName && m.displayName !== m.id ? m.displayName + ' · ' + m.id : m.id }));
+                else if (provider === 'infomaniak' && C) righe = C.forPhase(catalog(), phase).map(m => ({ value: m.id, label: m.id + ' — ' + C.priceLabel(m.id, t) }));
+                else righe = Array.from(document.getElementById('model-select')?.options || []).filter(o => o.value).map(o => ({ value: o.value, label: o.textContent }));
+                const noti = righe.length;
+                if (corrente && !righe.some(r => r.value === corrente)) {
+                    const voce = { value: corrente, label: noti && provider === 'infomaniak' ? corrente + ' — ' + t('catalog_not_available', 'Non disponibile nel catalogo aggiornato') : corrente };
+                    if (vettori && provider !== 'infomaniak') righe.unshift(voce); else righe.push(voce);   // i vettori di Google: in cima, com'era dall'11/10
+                }
+                campo.replaceChildren();
+                [{ value: '', label: t('modelli_scegli', '— scegli un modello —') }].concat(righe).forEach(r => {
+                    const option = document.createElement('option'); option.value = r.value; option.textContent = r.label; campo.append(option);
+                });
+                campo.value = corrente;
+                if (provider === 'infomaniak' && C && corrente.trim()) {
+                    const selected = catalog().find(m => C.canonical(m.id) === C.canonical(corrente));
+                    const valid = selected && C.forPhase([selected], phase).length;
+                    /* il prezzo sta già nella voce («modello — prezzo»): sotto resta solo ciò che la voce non dice */
+                    hint.textContent = valid
+                        ? (selected.availability === 'product' ? t('catalog_product', 'Elencato dal prodotto') : t('catalog_product_unverified', 'Accesso del prodotto da verificare'))
+                        : t('catalog_wrong_phase', 'Modello non verificato per questa funzione: aggiorna il catalogo e scegli dalla lista.');
+                } else hint.textContent = vettori && provider !== 'infomaniak' && !noti
+                    ? t('modelli_embeddings_vuoto', 'Elenco non ancora caricato: premi «Aggiorna Modelli» qui sopra.') : '';
+            };
+            campo.addEventListener('change', () => { corrente = campo.value; update(); });
+            update(); updates.push(update);
+            row.append(title, campo, hint);
+            host.append(row); inputs[phase] = campo;
         });
         const save = document.createElement('button'); save.type = 'button'; save.className = 'pm-btn-primary mt-3';
         save.textContent = t('modelli_save', 'Salva assegnazioni');
@@ -126,6 +157,13 @@
         }
     }
     window.MappAIModelliUI = { render, mostraGiro, aggiornaCatalogo: () => refreshPanel() };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
-    else render();
+    /* Con Google le voci dei menu per fase sono quelle di `#model-select`, che `refreshGeminiModels` riempie DOPO aver avvisato
+       il pannello: si osserva la tendina principale, così i menu per fase seguono il suo ridisegno (0088, B13). */
+    function osservaTendinaPrincipale() {
+        if (typeof MutationObserver === 'undefined') return;
+        const n = document.getElementById('model-select');
+        if (n) new MutationObserver(() => refreshPanel()).observe(n, { childList: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { osservaTendinaPrincipale(); render(); });
+    else { osservaTendinaPrincipale(); render(); }
 })();

@@ -22,7 +22,11 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     generateGemini: (data) => ipcRenderer.invoke('generate-gemini', data),
-    generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', data),
+    /* 0091: la guardia del silenzio sulla chiamata (main.js, callInfomaniakChat)
+       è accesa di default; localStorage.mappai_infomaniak_guardia = '0' la toglie */
+    generateInfomaniak: (data) => ipcRenderer.invoke('generate-infomaniak', Object.assign({}, data, {
+        guardia: (function () { try { return localStorage.getItem('mappai_infomaniak_guardia') !== '0'; } catch (e) { return true; } })()
+    })),
     generateEmbeddingsInfomaniak: (data) => ipcRenderer.invoke('generate-embeddings-infomaniak', data),
     rerankInfomaniak: (data) => ipcRenderer.invoke('rerank-infomaniak', data),
     generateEmbeddingsGoogle: (data) => ipcRenderer.invoke('generate-embeddings-google', data),
@@ -73,7 +77,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveChatTranscript: (data) => ipcRenderer.invoke('save-chat-transcript', data),
     saveQuizTextResponse: (data) => ipcRenderer.invoke('save-quiz-text-response', data),
     saveStudyRecord: (data) => ipcRenderer.invoke('save-study-record', data),
-    savePDFToVault: (data) => ipcRenderer.invoke('save-pdf-to-vault', data),
+    /* `savePDFToVault` tolto il 25/9: nessuno lo chiamava, e `save-pdf-to-vault`
+       scrive dove dicono `vaultPath` e un `fileName` con `../`. Per il vault c'è
+       `saveVaultFile`, che passa da `sanitizeVaultRelPath`. */
     // Pipeline «Genera materiali» (011)
     htmlToPdf: (data) => ipcRenderer.invoke('html-to-pdf', data),
     /* `potaVarianti` (7/9): le varianti dello stesso materiale in un altro carattere

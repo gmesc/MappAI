@@ -485,6 +485,26 @@ test('createHistory: undo restituisce lo stato precedente, cap rispettato', () =
     assert.strictEqual(h.undo(), null);
 });
 
+test('createHistory: il rifai (12/10, 0087 lotto 10-editor) — annulla con lo stato corrente, rifai lo riporta, una modifica nuova lo svuota', () => {
+    const h = D.createHistory(3);
+    h.push({ n: 1 }, 'uno');                         // prima della modifica che porta a 2
+    assert.ok(!h.canRedo());
+    const prev = h.undo({ n: 2 });                   // annulla: lo stato di adesso (2) va nel rifai
+    assert.deepStrictEqual(prev.state, { n: 1 });
+    assert.ok(h.canRedo()); assert.ok(!h.canUndo());
+    const next = h.redo({ n: 1 });                   // rifai: torna 2, e 1 rientra fra gli annullabili
+    assert.deepStrictEqual(next.state, { n: 2 }); assert.strictEqual(next.label, 'uno');
+    assert.ok(h.canUndo()); assert.ok(!h.canRedo());
+    assert.strictEqual(h.redo({ n: 2 }), null, 'niente da rifare');
+    h.undo({ n: 2 });
+    assert.ok(h.canRedo());
+    h.push({ n: 1 }, 'altra');                       // una modifica nuova svuota il rifai
+    assert.ok(!h.canRedo());
+    assert.strictEqual(h.undo().state.n, 1, 'undo() senza argomento come prima');
+    assert.ok(!h.canRedo(), 'senza lo stato corrente non c\'è nulla da rifare');
+    h.clear(); assert.ok(!h.canUndo() && !h.canRedo());
+});
+
 test('createHistory: lo snapshot è una copia (mutare dopo non lo cambia)', () => {
     const h = D.createHistory();
     const st = { items: [{ q: 'a' }] };

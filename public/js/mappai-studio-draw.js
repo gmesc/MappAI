@@ -79,6 +79,70 @@
         return { x: (pts[best].x + pts[best + 1].x) / 2, y: (pts[best].y + pts[best + 1].y) / 2 };
     }
 
+    /* ── SPESSORE DEI TRATTI (25/9, richiesta di Giacomo) ───────────────────
+       «In Albero le linee sono troppo sottili.» Gli spessori stavano scritti
+       dentro il disegno, uno per caso: questa tabella è il tratto di OGGI, e due
+       leve del profilo lo moltiplicano in percentuale — una per i collegamenti,
+       una per i cross-link. Il 100% è il tratto di sempre: chi non tocca niente
+       vede la mappa di prima. Moltiplicare invece di fissare un numero tiene le
+       proporzioni fra i casi che condividono una leva (il filo del percorso più
+       marcato dell'arco, il fascio più fine, la filigrana sotto al tratto pieno).
+       ⚠️ QUALE leva vale lo decide il DATO (`isCross === true`), mai il ruolo
+       nel disegno. Non coincidono: nell'Albero la filigrana è l'arco rimasto
+       FUORI dall'albero di copertura — anche un secondo genitore gerarchico, che
+       cross-link non è — mentre un cross-link finisce DENTRO l'albero quando è
+       la prima strada con cui la visita arriva a un nodo; nei Fasci il tratto
+       pieno è ciò che resta fuori dallo scheletro; nel DAG non c'è filigrana
+       affatto. Il ruolo dà il tratto di partenza (la tabella), il dato sceglie
+       chi lo moltiplica. */
+    const TRATTO = { arco: 1.6, fascio: 1.3, filo: 2.6, filigrana: 1.1, ponticello: 1.6, fodera: 5.5 };
+    // i tratteggi si allungano con lo spessore: un tratto grosso con i trattini
+    // di prima diventa una fila di quadratini, non la stessa linea più marcata
+    const TRATTEGGIO = { invertito: [5, 4], filigrana: [2, 4] };
+    // la scala delle due leve, in percentuale del tratto di oggi (100 = neutro)
+    const SPESSORE = { min: 50, max: 300, passo: 10, neutro: 100 };
+
+    /* Un valore del profilo → una percentuale che si può disegnare. Assente o
+       illeggibile (un profilo di prima, un vista.json scritto a mano) = il
+       tratto di sempre; fuori scala = il bordo della scala. */
+    function normSpessore(v) {
+        const n = (typeof v === 'number') ? v
+            : ((typeof v === 'string' && v.trim() !== '') ? Number(v) : NaN);
+        if (!Number.isFinite(n)) return SPESSORE.neutro;
+        return Math.min(SPESSORE.max, Math.max(SPESSORE.min, n));
+    }
+    // spessori: { link, cross } in percentuale, come nel profilo della vista
+    function fattoreArco(edge, spessori) {
+        const s = spessori || {};
+        return normSpessore((edge && edge.isCross === true) ? s.cross : s.link) / 100;
+    }
+    const r2 = v => Math.round(v * 100) / 100;
+    /* ruolo: 'principale' (il tratto pieno), 'filigrana', 'ponticello', 'fodera'
+       (il bianco sotto l'archetto del ponticello). Il filo del percorso non è
+       una relazione e non ha `isCross`: va con i collegamenti. */
+    function tratto(ruolo, edge, kind, spessori) {
+        let base = TRATTO[ruolo];
+        if (ruolo === 'principale') {
+            base = (edge && edge._path) ? TRATTO.filo : (kind === 'fasci' ? TRATTO.fascio : TRATTO.arco);
+        }
+        return r2(base * fattoreArco(edge, spessori));
+    }
+    function tratteggio(schema, fattore) {
+        return schema.map(v => r2(v * fattore)).join(' ');
+    }
+    /* Quale delle due leve ha qualcosa da muovere in QUESTO disegno. Con «Solo
+       gerarchia» i cross-link non ci sono, la matrice non ha linee: un cursore
+       che non tocca niente è peggio di un cursore assente (invariante 21). */
+    function trattiPresenti(res) {
+        const out = { link: false, cross: false };
+        if (!res || res.kind === 'matrice') return out;
+        (res.edges || []).concat(res.extraEdges || []).forEach(e => {
+            if (e && e.edge && e.edge.isCross === true) out.cross = true;
+            else out.link = true;
+        });
+        return out;
+    }
+
     const SIZE_RAMP = [1, 0.94, 0.87, 0.82, 0.78, 0.75, 0.72];
     function hierOf(mode, depth, isLeaf) {
         if (!mode || mode === 'no') return { op: 1, k: 1 };
@@ -108,7 +172,7 @@
         const cell = opts.cell || 26, n = res.order.length;
         const fs = Math.max(8, Math.min(13, opts.fsNode || 11));
         const side = n * cell;
-        const gridC = '#e2e8f0';
+        const gridC = '#cbd5e1';
 
         for (let i = 0; i <= n; i++) {
             const prevG = i > 0 ? (byId.get(res.order[i - 1]) || {}).group : null;
@@ -145,6 +209,7 @@
     /* ── DISEGNO ────────────────────────────────────────────────────────────
        opts: { d3, custom, fsNode, fsRel, labels:'off'|'short'|'full',
                hier, evidenzia, bands, interactive, prefix,
+               spessori: { link, cross } (percentuali, assenti = 100),
                onNodeClick(ev,node), onNodeContext(ev,node) }
        Ritorna { svg, g, bbox, fit(mode) }.                                  */
     /* Quanto si accorcia una parola-legame. Vive QUI perché qui si è deciso, e
@@ -239,18 +304,21 @@
         // archi principali. Nei fasci il colore segue la macro-area di
         // partenza, così i fasci si distinguono; il filo del percorso è indigo
         // pieno; gli invertiti tratteggiati rossi come sempre.
+        // Spessore: la tabella TRATTO per il ruolo, la leva giusta per il dato;
+        // la punta della freccia segue il tratto (lunga 4.5×, larga 2×).
+        const sp = opts.spessori;
         res.edges.forEach(e => {
             const isPath = !!e.edge._path;
             const col = e.edge.reversed ? ROSSO
                 : (res.kind === 'fasci' ? colorOf(byId.get(e.edge.s), opts.custom)
                     : (isPath ? '#4f46e5' : INK));
-            const sw = isPath ? 2.6 : (res.kind === 'fasci' ? 1.3 : 1.6);
+            const sw = tratto('principale', e.edge, res.kind, sp);
             const p = gEdge.append('path').attr('fill', 'none')
                 .attr('stroke', col)
                 .attr('stroke-width', sw)
                 .attr('stroke-opacity', res.kind === 'fasci' ? 0.55 : 1)
                 .attr('d', line(e.pts));
-            if (e.edge.reversed) p.attr('stroke-dasharray', '5 4');
+            if (e.edge.reversed) p.attr('stroke-dasharray', tratteggio(TRATTEGGIO.invertito, fattoreArco(e.edge, sp)));
             p.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: p, edge: e.edge });
             linkContext(p, e.edge); linkHit(e);
@@ -264,27 +332,33 @@
         // archi in filigrana: fuori-albero nel TD, grafo vero nel percorso,
         // scheletro dell'albero nei fasci
         (res.extraEdges || []).forEach(e => {
+            const sw = tratto('filigrana', e.edge, res.kind, sp);
             const q = gEdge.append('path').attr('fill', 'none')
-                .attr('stroke', INK_SOFT).attr('stroke-width', 1.1)
-                .attr('stroke-dasharray', '2 4').attr('stroke-opacity', res.kind === 'fasci' ? 0.5 : 0.85)
+                .attr('stroke', INK_SOFT).attr('stroke-width', sw)
+                .attr('stroke-dasharray', tratteggio(TRATTEGGIO.filigrana, fattoreArco(e.edge, sp)))
+                .attr('stroke-opacity', res.kind === 'fasci' ? 0.5 : 0.85)
                 .attr('d', line(e.pts));
             q.append('title').text(e.edge.s + ' → ' + e.edge.t + (e.edge.rel ? ' (' + e.edge.rel + ')' : ''));
             edgeEls.push({ el: q, edge: e.edge });
             linkContext(q, e.edge); linkHit(e);
             if (res.kind !== 'fasci') {
-                const ah = arrowHead(gArrow, e.pts, INK_SOFT, 1.1);
+                const ah = arrowHead(gArrow, e.pts, INK_SOFT, sw);
                 linkContext(ah, e.edge);
                 if (ah) edgeEls.push({ el: ah, edge: e.edge });
             }
         });
 
+        // il ponticello è un pezzo dell'arco che salta: stessa leva di
+        // quell'arco, e la fodera bianca cresce con lui (o non taglia più niente)
         if (res.hops && res.hops.length) {
             res.hops.forEach(hp => {
                 const c1 = gHop.append('path').attr('fill', 'none').attr('stroke', '#ffffff')
-                    .attr('stroke-width', 5.5).attr('stroke-linecap', 'round').attr('d', line(hp.pts));
+                    .attr('stroke-width', tratto('fodera', hp.edge, res.kind, sp))
+                    .attr('stroke-linecap', 'round').attr('d', line(hp.pts));
                 const c2 = gHop.append('path').attr('fill', 'none')
                     .attr('stroke', hp.edge.reversed ? ROSSO : INK)
-                    .attr('stroke-width', 1.6).attr('stroke-linecap', 'round').attr('d', line(hp.pts));
+                    .attr('stroke-width', tratto('ponticello', hp.edge, res.kind, sp))
+                    .attr('stroke-linecap', 'round').attr('d', line(hp.pts));
                 hopEls.push({ els: [c1, c2], edge: hp.edge });
                 linkContext(c1, hp.edge); linkContext(c2, hp.edge);
             });
@@ -415,5 +489,6 @@
         return bboxOf(res);
     }
 
-    return { MAPPAI_COLORS, CAP_REL, colorOf, tint, wrap, labelAt, hierOf, bboxOf, arrowHead, draw };
+    return { MAPPAI_COLORS, CAP_REL, colorOf, tint, wrap, labelAt, hierOf, bboxOf, arrowHead, draw,
+             TRATTO, TRATTEGGIO, SPESSORE, normSpessore, fattoreArco, tratto, tratteggio, trattiPresenti };
 }));

@@ -35,6 +35,14 @@
        riquadri scuri, che i tester non devono vedere): assente o '1' = ridotta, '0' = estesa. */
     function attiva() { try { return localStorage.getItem(LS) !== '0'; } catch (e) { return true; } }
 
+    /* `appState` è un `let` di app.js: NON sta su `window` (invariante 3). Prima
+       qui si leggeva `window.appState || …`, sempre undefined nell'app: il valore
+       lo dava già il ripiego con `typeof`, che ora è l'unica strada. */
+    function _st() {
+        try { return (typeof appState !== 'undefined') ? appState : null; }
+        catch (e) { return null; }
+    }
+
     /* ── I default della vista ridotta ────────────────────────────────────────
        Qui non si sceglie: le impostazioni di generazione non sono a schermo,
        quindi le mette la vista. Sono le stesse leve dei bottoni nascosti, non
@@ -56,7 +64,7 @@
        Se il contesto non è quello, non si tocca: resta la scelta dell'utente. */
     function presetSemplice() {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = _st();
             var up = a && a.userProfile;
             if (up && up.nickname) return up.register === 'semplice';
             var CL = window.MappAIClasses;
@@ -78,12 +86,12 @@
        perché lo slider vive dentro il riquadro delle impostazioni nascosto. */
     function sincronizzaGenere() {
         if (!attiva()) return;
-        var kg = false;
-        try {
-            var el = document.getElementById('extraction-mode');
-            kg = (el && el.value === 'kg') ||
-                (window.appState && window.appState.extractionMode === 'kg');
-        } catch (e) { }
+        /* Il genere lo dice il campo del form; `appState` solo se il campo manca
+           (la regola di `_kgScelto`). Il ripiego di prima leggeva `window.appState`
+           e non scattava mai; renderlo vivo cambierebbe lo schermo, perché dopo
+           l'apertura di un KG il campo può dire ancora MindMap (caricare un vault
+           non passa da `setMode`) — e lì deve continuare a comandare il campo. */
+        var kg = _kgScelto();
         var slider = document.getElementById('step-kg-density-container');
         if (slider) slider.classList.toggle('hidden', !kg);
         /* Con lo slider nascosto (MindMap) il riquadro dello step 4 resta vuoto:
@@ -120,7 +128,7 @@
        si torna indietro da soli, senza una macchina a stati da tenere allineata. */
     function _fonti() {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = _st();
             var s = (a && a.sources) || [];
             /* una riga appena aggiunta NON è una fonte: conta solo quella che
                porta davvero un file o del testo */
@@ -133,12 +141,24 @@
         try {
             var el = document.getElementById('extraction-mode');
             if (el) return el.value === 'kg';
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = _st();
             return !!(a && a.extractionMode === 'kg');
         } catch (e) { return false; }
     }
+    /* 0067 (ADR 0015): la decisione «è pronta?» con una foto fra le fonti la dà il
+       core della modalità iconografica. Vale ANCHE a interruttore spento: una scheda
+       confermata è una fonte completa e non chiede il tema (il vicolo cieco del
+       30/09), una foto SENZA scheda non è pronta (aprirebbe la strada della mappa,
+       rifiutata in fondo da app.js). Senza il core, il comportamento di prima. */
+    function _composizione() {
+        var IC = window.MappAICreaIconograficaCore;
+        if (!IC || !IC.composizione) return null;
+        try { var a = _st(); return IC.composizione((a && a.sources) || []); } catch (e) { return null; }
+    }
     function _passo() {
-        if (!_fonti()) return 1;
+        var c = _composizione();
+        if (c ? !c.pronta : !_fonti()) return 1;
+        if (c && c.attiva) return 3;                     // il titolo viene dalla scheda
         if (_kgScelto()) return 3;                       // lo slider ha già un valore
         var root = document.getElementById('root-node-name');
         return (root && String(root.value).trim()) ? 3 : 2;
@@ -305,9 +325,17 @@
     function _hRiferimento() {
         var html = document.documentElement;
         if (html.classList.contains(CLASSE)) return _hGruppo();
+        // Il planner testuale può essere molto più alto della vista ridotta:
+        // la misura forza il layout corto e il browser limita lo scroll.
+        var reading = document.getElementById('lettura-crea-host');
+        var viewport = reading && !reading.hidden && document.scrollingElement;
+        var top = viewport && viewport.scrollTop, left = viewport && viewport.scrollLeft;
         html.classList.add(CLASSE);
         var h;
-        try { h = _hGruppo(); } finally { html.classList.remove(CLASSE); }
+        try { h = _hGruppo(); } finally {
+            html.classList.remove(CLASSE);
+            if (viewport) { viewport.scrollTop = top; viewport.scrollLeft = left; }
+        }
         return h;
     }
     function margineCrea() {

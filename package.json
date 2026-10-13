@@ -1,6 +1,6 @@
 {
   "name": "mappai",
-  "version": "1.0.0-beta.5",
+  "version": "1.0.0-beta.6",
   "description": "MappAI - AI-Powered Mind Mapping and Knowledge Graph Tool",
   "author": {
     "name": "Giacomo Meschini",
@@ -32,6 +32,8 @@
       "relay-client.js",
       "relay/relay-core.js",
       "prompts_config.json",
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.md",
       "public/**",
       "tools/voxel-proto/**",
       "!public/dev/**",

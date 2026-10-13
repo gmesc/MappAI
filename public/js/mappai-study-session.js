@@ -5,56 +5,25 @@
 // a runtime via scope lessicale globale condiviso.
 window.globalQuizQueue = [];
 
+/* ── IL TESTO DEI DATI ENTRA COME TESTO (25/9/2026) ──────────────────────────
+   Domande, risposte e spiegazioni le scrive un modello, e le pilota anche chi ha
+   scritto il materiale da cui nascono; i set di `Materiale Studio/*.json` si
+   passano fra colleghi; il titolo del set resta nello storico dei punteggi
+   (localStorage) e si ridisegna a ogni avvio. Qui ogni JavaScript ha in mano
+   `window.electronAPI`, cioè il disco del docente: una spiegazione con
+   `<img src=x onerror=…>` era codice alla prima risposta data. Nessuno di questi
+   campi porta HTML per disegno — i prompt chiedono testo, l'editor dei documenti
+   li salva da `innerText`, il player mostra la domanda con `innerText` — quindi
+   passano dall'escape; i grassetti delle etichette sono del template e restano.
+   Il reader dell'iPad copia questo file byte per byte e non carica il nucleo
+   (mappai-html-sicuro.js): il ripiego fa lo stesso escape. */
+function _escSessione(v) {
+    if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(v);
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
+
 let pendingTopic = null;
 window.studyConfig = { mode: 'quiz', quantity: 15, timer: false, target: null, scope: 'all' };
-
-window.generateGlobalFlashcards = function () {
-    window.openStudyConfigModal('flashcard');
-};
-
-window.generateGlobalQuiz = function () {
-    window.openStudyConfigModal('quiz');
-};
-
-window.openStudyConfigModal = function (mode, targetNode = null, scope = 'all') {
-    window.studyConfig.mode = mode;
-    window.studyConfig.target = targetNode;
-    window.studyConfig.scope = scope;
-
-    window.selectStudyQuantity(15);
-    document.getElementById('study-timer-toggle').checked = false;
-
-    let title = mode === 'quiz' ? 'Configura Quiz' : 'Configura Flashcard';
-    if (scope === 'node' && targetNode) title += ` (${targetNode.label})`;
-    else if (scope === 'branch' && targetNode) title += ` (Ramo ${targetNode.label})`;
-
-    document.getElementById('study-config-title').innerText = title;
-
-    let iconName = 'brain-circuit';
-    if (mode === 'quiz') {
-        iconName = scope === 'branch' ? 'layers' : 'graduation-cap';
-    } else {
-        iconName = scope === 'branch' ? 'network' : 'brain-circuit';
-    }
-    const iconElem = document.getElementById('study-config-icon');
-    if (iconElem) {
-        iconElem.setAttribute('data-lucide', iconName);
-    }
-    const quizTypeContainer = document.getElementById('quiz-type-container');
-    if (mode === 'quiz') {
-        quizTypeContainer.classList.remove('hidden');
-        const angleSel = document.getElementById('study-quiz-angle');
-        if (angleSel && window.buildQuizAngleOptions) {
-            angleSel.innerHTML = window.buildQuizAngleOptions(window.studyConfig && window.studyConfig.quizAngle);
-        }
-    } else quizTypeContainer.classList.add('hidden');
-
-    const modal = document.getElementById('study-config-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    setTimeout(() => modal.classList.remove('opacity-0'), 10);
-    window.safeCreateIcons();
-};
 
 window.closeStudyConfigModal = function () {
     const modal = document.getElementById('study-config-modal');
@@ -63,19 +32,6 @@ window.closeStudyConfigModal = function () {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }, 200);
-};
-
-window.selectStudyQuantity = function (qty) {
-    window.studyConfig.quantity = qty;
-    document.querySelectorAll('.study-qty-btn').forEach(btn => {
-        if (parseInt(btn.dataset.qty) === qty) {
-            btn.classList.remove('bg-slate-50', 'text-slate-500', 'border-slate-200');
-            btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-500');
-        } else {
-            btn.classList.add('bg-slate-50', 'text-slate-500', 'border-slate-200');
-            btn.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-500');
-        }
-    });
 };
 
 // Generatore quiz riusabile (stesso motore del quiz di Studio, DYNAMIC_QUIZ).
@@ -278,6 +234,29 @@ window.quizLengthBlock = function () {
         : 'LUNGHEZZA DELLE OPZIONI (obbligatoria): la risposta esatta NON deve essere la più lunga né la più dettagliata. Un\'opzione sbagliata corta e spoglia regala la risposta a chi non sa niente della materia. Dai a ogni opzione sbagliata la SUA qualificazione plausibile — una circostanza, una data, un motivo, una conseguenza — presa dallo stesso argomento, così che le tre opzioni siano confrontabili per lunghezza e per grado di dettaglio. Se la risposta esatta ha bisogno di una precisazione per essere esatta, anche le sbagliate ne hanno bisogno.';
 };
 
+/* ── IL PUNTO IN FONDO ALLE OPZIONI (6/10/26, packet 0080) ───────────────────
+   Giacomo, 3/10: le risposte dei quiz a scelta multipla uscivano senza il punto
+   finale, e il punto deve esserci sempre (ADR 0012, revisione 5, punto E). Due
+   mani, come per la lunghezza: la regola nel prompt, perché il modello scriva
+   frasi chiuse, e il passo deterministico MappAIPipelineCore.chiudiOpzioni dopo
+   il rimescolamento, perché il modello la regola non la rispetta sempre.
+   Vale solo per la scelta multipla (bivio B4): il Vero/Falso ha due parole, le
+   domande aperte non hanno opzioni.
+   L'interruttore è mappai_mc_punto, ACCESO di default (bivio B3): '0' lo spegne,
+   e allora prompt e quiz sono quelli di prima (invariante 1). Questa è l'UNICA
+   funzione che legge la chiave (invariante 6). Dove localStorage non c'è (Node,
+   una sandbox) vale acceso, come una chiave assente. */
+window.quizPuntoAcceso = function () {
+    try { return localStorage.getItem('mappai_mc_punto') !== '0'; } catch (e) { return true; }
+};
+window.quizPuntoBlock = function () {
+    if (!window.quizPuntoAcceso()) return '';
+    var en = (typeof window.getPromptLanguage === 'function') && window.getPromptLanguage() === 'en';
+    return en
+        ? 'FULL STOP AT THE END OF THE OPTIONS (mandatory): every option, the correct one and the wrong ones, is a complete sentence and ends with a full stop (or with "?" / "!" if the sentence calls for it): punctuation must not give away the correct answer.'
+        : 'PUNTO FINALE DELLE OPZIONI (obbligatorio): ogni opzione, la corretta e le sbagliate, è una frase completa e finisce con il punto (o con «?» / «!» se la frase lo chiede): la punteggiatura non deve distinguere la risposta giusta.';
+};
+
 // La taratura classe è iniettata come ovunque via injectClassTuning.
 window.generateDynamicQuiz = async function (opts) {
     opts = opts || {};
@@ -301,12 +280,15 @@ window.generateDynamicQuiz = async function (opts) {
     const lenBlock = (window.quizLengthBlock && !/apert/i.test(String(quizType)))
         ? window.quizLengthBlock() : '';
     const mc = !/vero|false|apert|open/i.test(String(quizType));
+    /* il punto in fondo alle opzioni: solo scelta multipla (packet 0080, vedi quizPuntoBlock) */
+    const puntoBlock = (mc && window.quizPuntoBlock) ? window.quizPuntoBlock() : '';
     const roleBlock = mc && window.MappAIPipelineCore && window.MappAIPipelineCore.questionRoleBlock
         ? window.MappAIPipelineCore.questionRoleBlock('mc', opts.complementary, window.getPromptLanguage && window.getPromptLanguage() === 'en') : '';
     const prompt = (angleBlock ? angleBlock + '\n\n' : '') +
         window.fillPromptTemplate("DYNAMIC_QUIZ", { quantity, quizType, nodeLabel, nonce }) +
         (evBlock ? '\n\n' + evBlock : '') +
         (lenBlock ? '\n\n' + lenBlock : '') +
+        (puntoBlock ? '\n\n' + puntoBlock : '') +
         (roleBlock ? '\n\n' + roleBlock : '');
     /* ── LA PROVA (11/9) ──────────────────────────────────────────────────────
        `evidenza` = la frase del MATERIALE che rende vera la risposta segnata. Non
@@ -397,6 +379,10 @@ window.generateDynamicQuiz = async function (opts) {
             arr = v.items;
             const seme = opts.seme || (nodeLabel + '|' + quizType + '|' + (opts.angle || 'auto') + '|' + nonce);
             arr = PC.mescolaOpzioni(arr, seme);
+            /* il punto in fondo a ogni opzione (packet 0080), solo scelta multipla
+               e interruttore acceso; PRIMA dei due controlli qui sotto, così
+               misurano le opzioni che finiscono nel foglio */
+            if (mc && PC.chiudiOpzioni && window.quizPuntoAcceso && window.quizPuntoAcceso()) arr = PC.chiudiOpzioni(arr);
             const pos = PC.posizioniCorrette(arr);
             if (pos.tot >= 4 && pos.maxQuota > 0.6) {
                 console.warn('[Quiz] la risposta esatta cade nella stessa posizione nel ' + Math.round(pos.maxQuota * 100) + '% degli item');
@@ -408,137 +394,6 @@ window.generateDynamicQuiz = async function (opts) {
         }
         return arr;
     } catch (e) { if (giro) giro.verifica(); console.warn('[generateDynamicQuiz]', e && e.message); return []; }
-};
-
-window.startStudySession = async function () {
-    if (window.mappaiOccupato && window.mappaiOccupato()) return;
-    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
-    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
-    window.closeStudyConfigModal();
-    window.studyConfig.timer = document.getElementById('study-timer-toggle').checked;
-    if (window.studyConfig.mode === 'quiz') {
-        window.studyConfig.quizType = document.getElementById('study-quiz-type').value;
-        const _angEl = document.getElementById('study-quiz-angle');
-        window.studyConfig.quizAngle = _angEl ? _angEl.value : 'auto';
-    }
-
-    let studyText = "";
-    let targetLabel = "Globale";
-
-    if (window.studyConfig.scope === 'node' && window.studyConfig.target) {
-        const n = window.studyConfig.target;
-        studyText = `${n.label}: ${n.desc || n.content}`;
-        const isKG = appState.db.extractionMode === 'knowledge_graph';
-        const nodePrefix = (isKG && n.level === 1) ? 'Hub' : 'Nodo';
-        targetLabel = `${nodePrefix}: ${n.label}`;
-    } else if (window.studyConfig.scope === 'branch' && window.studyConfig.target) {
-        const root = window.studyConfig.target;
-        const branchNodes = [root, ...window.getDescendants(root.id)];
-        studyText = branchNodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
-        targetLabel = `Ramo: ${root.label}`;
-    } else {
-        studyText = appState.db.nodes.map(n => n.label + ": " + (n.desc || n.content)).join('\n');
-    }
-
-    if (!studyText || studyText.trim() === '') {
-        window.showToast(window.t('tst_no_study_content', "Nessun contenuto trovato per lo studio."), "error");
-        return;
-    }
-
-    const apiKey = window.getSystemKey();
-    if (!apiKey) { window.showToast(window.t('tst_key_in_settings', "Inserisci API Key nelle impostazioni."), "error"); return; }
-
-    window.showLoadingOverlay(true, window.t('lo_study_gen', "Generazione materiale di studio in corso..."), window.studyConfig.mode === 'quiz' ? 'quiz' : 'flashcard');
-
-    try {
-        let items;
-        if (window.studyConfig.mode === 'quiz') {
-            // Motore CONDIVISO con MappAI Live: un solo punto per il prompt DYNAMIC_QUIZ,
-            // nonce, temperature e schema (window.generateDynamicQuiz). Imposta da sé il
-            // contesto consumi (study/quiz_*) e ritorna [] su errore.
-            items = await window.generateDynamicQuiz({
-                nodeLabel: targetLabel,
-                material: studyText,
-                quizType: window.studyConfig.quizType,
-                quantity: window.studyConfig.quantity,
-                angle: window.studyConfig.quizAngle || 'auto',
-                apiKey: apiKey
-            });
-        } else {
-            // Flashcard: template diverso (FLASHCARD_GENERATOR, schema front/back), resta qui.
-            if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'flashcards');
-            const _PLfc = window.MappAIPrintLayout;
-            // vincolo di stampa (soglia caratteri + niente URL/formule)
-            const _regolaFc = _PLfc ? _PLfc.promptRule(_PLfc.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : "it") : "";
-            const prompt = window.fillPromptTemplate("FLASHCARD_GENERATOR", {
-                quantity: window.studyConfig.quantity,
-                nodeLabel: targetLabel,
-                nonce: window.quizNonce()
-            }) + _regolaFc;
-            const schema = {
-                type: "ARRAY",
-                maxItems: Math.max(1, parseInt(window.studyConfig.quantity, 10) || 10),
-                items: {
-                    type: "OBJECT",
-                    properties: { front: { type: "STRING" }, back: { type: "STRING" } },
-                    required: ["front", "back"]
-                }
-            };
-            const response = await window.fetchModelAPI(window.injectClassTuning({
-                contents: [{ parts: [{ text: prompt + "\n\nMateriale:\n" + studyText }] }],
-                generationConfig: { temperature: window.QUIZ_TEMPERATURE, responseMimeType: "application/json", responseSchema: schema, _respectTemp: true }
-            }), apiKey);
-            const rawText = response.candidates[0].content.parts[0].text;
-            items = salvageTruncatedJSON(rawText.split('```json').join('').split('```').join('').trim());
-        }
-
-        if (!Array.isArray(items) || !items.length) {
-            window.showLoadingOverlay(false);
-            window.showToast(window.t('tst_gen_empty', "Generazione non riuscita: nessuna domanda prodotta."), "error");
-            return;
-        }
-        window.activeStudySessionItems = items;
-
-        appState.db.studySets = appState.db.studySets || [];
-        const label = targetLabel;
-        window.activeStudySetTitle = label; // titolo corretto in storico e sul bus
-        const _setId = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        window.activeStudySetId = _setId;   // per "Domande nuove" nel player
-        appState.db.studySets.push({
-            id: _setId,
-            title: label,
-            mode: window.studyConfig.mode,
-            type: window.studyConfig.quizType || 'Flashcard',
-            items: window.activeStudySessionItems,
-            // Materiale sorgente per "Rigenera domande nuove" (nuova chiamata AI con nonce
-            // fresco, invece del replay verbatim di loadStudySet). Cap difensivo.
-            material: String(studyText || '').slice(0, 12000),
-            angle: window.studyConfig.quizAngle || 'auto',   // taglio scelto: la rigenerazione lo mantiene
-            quantity: window.studyConfig.quantity,
-            date: new Date().toISOString()
-        });
-        if (window.renderStudySets) window.renderStudySets();
-
-        window.currentStudyItemIndex = 0;
-
-        // Initialize results
-        window.studyResults = {
-            mode: window.studyConfig.mode,
-            type: window.studyConfig.quizType || 'Flashcard',
-            correct: 0,
-            total: window.activeStudySessionItems.length,
-            mistakes: [],
-            openAnswers: [],
-            startTime: Date.now()
-        };
-
-        window.openStudyPlayer();
-
-    } catch (err) {
-        window.showAlert("Errore Generazione", err.message);
-    } finally {
-        window.showLoadingOverlay(false);
-    }
 };
 
 window.studyTimerInterval = null;
@@ -710,7 +565,7 @@ window.checkQuizAnswer = function (selected, item) {
         feedbackTitle.className = "font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2 text-red-600";
     }
 
-    feedbackDesc.innerHTML = `<strong>Risposta corretta:</strong> ${item.correct}<br><br><strong>Spiegazione:</strong> ${item.explanation}`;
+    feedbackDesc.innerHTML = `<strong>Risposta corretta:</strong> ${_escSessione(item.correct)}<br><br><strong>Spiegazione:</strong> ${_escSessione(item.explanation)}`;
     document.getElementById('study-quiz-feedback').classList.remove('hidden');
     document.getElementById('study-quiz-options').classList.add('hidden');
     window.safeCreateIcons();
@@ -728,7 +583,7 @@ window.checkOpenAnswer = function () {
 
     feedbackTitle.innerHTML = '<i data-lucide="info" class="text-indigo-500 w-5 h-5"></i> Verifica la tua risposta';
     feedbackTitle.className = "font-black mb-3 uppercase tracking-wider text-sm flex items-center justify-center gap-2 text-indigo-600";
-    feedbackDesc.innerHTML = `<strong>Risposta di riferimento:</strong> ${item.correct}<br><br><strong>Spiegazione:</strong> ${item.explanation}`;
+    feedbackDesc.innerHTML = `<strong>Risposta di riferimento:</strong> ${_escSessione(item.correct)}<br><br><strong>Spiegazione:</strong> ${_escSessione(item.explanation)}`;
 
     document.getElementById('study-quiz-feedback').classList.remove('hidden');
 
@@ -855,15 +710,15 @@ window.updateStudyScoresDisplay = function () {
             div.className = `p-2.5 rounded-lg border text-xs flex flex-col gap-1.5 bg-white shadow-sm`;
             div.innerHTML = `
                 <div class="flex justify-between items-start">
-                    <div class="font-bold text-slate-800 truncate max-w-[140px]" title="${s.title}">${s.title}</div>
-                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}">${s.correct}/${s.total} (${percent}%)</span>
+                    <div class="font-bold text-slate-800 truncate max-w-[140px]" title="${_escSessione(s.title)}">${_escSessione(s.title)}</div>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}">${_escSessione(s.correct)}/${_escSessione(s.total)} (${percent}%)</span>
                 </div>
                 <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
                     <div class="h-full ${progressColor}" style="width: ${percent}%"></div>
                 </div>
                 <div class="flex justify-between items-center text-[9px] text-slate-400">
-                    <span>${s.type}</span>
-                    <span>${dateStr}</span>
+                    <span>${_escSessione(s.type)}</span>
+                    <span>${_escSessione(dateStr)}</span>
                 </div>
             `;
             container.appendChild(div);
@@ -1006,9 +861,9 @@ window.showStudySummary = function () {
             const div = document.createElement('div');
             div.className = "p-3 bg-white border border-slate-200 rounded-xl shadow-sm";
             div.innerHTML = `
-                <p class="text-xs font-black text-slate-800 mb-1">${m.q}</p>
-                <p class="text-[10px] text-red-500 mb-2"><b>Risposta Corretta:</b> ${m.correctAnswer}</p>
-                ${m.explanation ? `<p class="text-[9px] text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100">${m.explanation}</p>` : ''}
+                <p class="text-xs font-black text-slate-800 mb-1">${_escSessione(m.q)}</p>
+                <p class="text-[10px] text-red-500 mb-2"><b>Risposta Corretta:</b> ${_escSessione(m.correctAnswer)}</p>
+                ${m.explanation ? `<p class="text-[9px] text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100">${_escSessione(m.explanation)}</p>` : ''}
             `;
             mistakesContainer.appendChild(div);
         });

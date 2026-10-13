@@ -18,9 +18,9 @@
    correggere, e la regola dell'appiglio (core) scarta le affermazioni non
    ancorate a un elemento visibile. Vedi la testata di `mappai-visione-core.js`.
 
-   ⚠️ Invariante 9, dichiarato: la lettura passa SOLO da Google. Su Infomaniak
-   la visione non è documentata per i modelli in listino: il gesto lo dice
-   («scegli il provider Google»), non fallisce a metà.
+   Il fornitore (0066): con Google la lettura passa da `fetchModelAPI`; con
+   Infomaniak attivo la foto resta in Svizzera e si legge col modello della
+   tendina «Modello per le foto» (`mappai-visione-modello.js`), via ponte.
    ========================================================================= */
 (function () {
     'use strict';
@@ -43,11 +43,25 @@
     function attivo() {
         try { return localStorage.getItem(LS_ON) !== '0'; } catch (e) { return true; }
     }
-    /* Solo Google: la visione su Infomaniak non è documentata, e promettere una
-       strada non misurata è il modo di scoprirla rotta in classe. */
+    /* Due strade (0066). Con Infomaniak attivo la foto resta in Svizzera: si
+       legge col modello della tendina «Modello per le foto», mai con quello della
+       tendina principale (di solito Gemma, che non legge immagini). Con Google
+       come prima. Il messaggio 'provider infomaniak…' lo spiega il core. */
+    function _fornitore() { return (_st() || {}).aiProvider || 'google'; }
+    function _productId() {
+        var el = document.getElementById('infomaniak-product-id');
+        return (el && el.value) || (_st() || {}).infomaniakProductId || '';
+    }
+    function _modelloFoto() {
+        var M = window.MappAIVisioneModello;
+        return (M && typeof M.modello === 'function' && M.modello()) || '';
+    }
     function provaProvider() {
-        var s = _st() || {};
-        if ((s.aiProvider || 'google') !== 'google') return 'provider infomaniak non supportato';
+        if (_fornitore() === 'infomaniak') {
+            var k = window.getProviderKey ? window.getProviderKey('infomaniak') : '';
+            if (!k || !_productId() || !_modelloFoto()) return 'provider infomaniak: mancano token, product id o modello';
+            return '';
+        }
         if (window.getSystemKey && !window.getSystemKey()) return 'api key mancante';
         return '';
     }
@@ -105,6 +119,68 @@
         });
     }
 
+    /* ── LA LETTURA SU INFOMANIAK (0066) ───────────────────────────────────────
+       Il ponte traduce (l'immagine diventa `image_url`), l'IPC c'è già. Non si
+       passa da `fetchModelAPI`: sceglierebbe il modello della tendina principale,
+       e il contesto esplicito vuole una fase del profilo, che la visione non ha
+       (ADR 0004). Conversione della risposta e riga del registro sono quelle di
+       `fetchModelAPI` (app.js, ramo Infomaniak e «Tracking Usage»). Token e
+       Product ID non escono mai in un messaggio (ADR 0014). */
+    function _senzaSegreti(msg, segreti) {
+        var out = String(msg || 'Richiesta AI non riuscita.');
+        segreti.filter(Boolean).forEach(function (x) {
+            [x, encodeURIComponent(x)].forEach(function (y) { out = out.split(y).join('«omesso»'); });
+        });
+        return out;
+    }
+    function _registra(raw, resp, modello, ctx, tetto) {
+        var s = _st();
+        if (!s) return;
+        var u = s.generationUsage || (s.generationUsage = { promptTokens: 0, candidateTokens: 0, totalTokens: 0 });
+        var md = resp && resp.usageMetadata;
+        if (md) {
+            u.promptTokens += (md.promptTokenCount || 0);
+            u.candidateTokens += (md.candidatesTokenCount || 0);
+            u.totalTokens += (md.totalTokenCount || 0);
+        }
+        var uso = (raw && raw.usage) || {};
+        var inT = uso.prompt_tokens, outT = uso.completion_tokens;
+        var noto = [inT, outT].every(function (n) { return typeof n === 'number' && isFinite(n) && n >= 0; });
+        var effettivo = raw && typeof raw.model === 'string' && raw.model.trim() ? raw.model : null;
+        var c = resp && resp.candidates && resp.candidates[0];
+        var stop = (c && c.finishReason) || null;
+        var riga = { provider: 'infomaniak', model: effettivo || modello, requestedModel: modello, actualModel: effettivo,
+            usageKnown: noto, inTok: noto ? inT : null, outTok: noto ? outT : null, thoughts: 0,
+            n: null, stop: stop, tetto: tetto, ctx: ctx };
+        (u.costRecords || (u.costRecords = [])).push(riga);
+        if (window.MappAIUsage && window.MappAIUsage.record) window.MappAIUsage.record(riga);
+        if (window.updateCostDisplay) window.updateCostDisplay();
+        if (window.MappAITruncationTracker && window.MappAITruncationTracker.record) {
+            window.MappAITruncationTracker.record({ model: modello, provider: 'infomaniak', finishReason: stop,
+                truncated: stop === 'MAX_TOKENS' || stop === 'length', requestedMax: tetto,
+                promptTokens: (md && md.promptTokenCount) || 0, candidateTokens: (md && md.candidatesTokenCount) || 0 });
+        }
+    }
+    function _chiediInfomaniak(payload) {
+        var api = API(), B = window.InfomaniakBridge;
+        if (!api || !api.generateInfomaniak || !B) return Promise.reject(new Error('rete'));
+        var chiave = window.getProviderKey('infomaniak'), pid = _productId(), modello = _modelloFoto();
+        // il contesto del registro si fotografa all'entrata, come in fetchModelAPI
+        var ctx = (window.MappAIUsage && window.MappAIUsage.current && window.MappAIUsage.current()) || null;
+        var tetto = (payload.generationConfig && payload.generationConfig.maxOutputTokens) || null;
+        var tradotto;
+        try { tradotto = B.translatePayload(payload, modello, { immagini: true }); }
+        catch (e) { return Promise.reject(e); }
+        return Promise.resolve(api.generateInfomaniak({ apiKey: chiave, payload: tradotto, productId: pid }))
+            .then(function (raw) {
+                var resp = B.translateResponse(raw || {});
+                _registra(raw, resp, modello, ctx, tetto);
+                return resp;
+            }, function (e) {
+                throw new Error(_senzaSegreti(e && e.message || e, [chiave, pid]));
+            });
+    }
+
     /* ── LA LETTURA: una chiamata a Gemini ────────────────────────────────────
        `inlineData` accanto al prompt è la forma nativa che `fetchModelAPI` già
        manda. Passare dal choke point dà gratis tre cose: i consumi nel
@@ -116,9 +192,12 @@
         opts = opts || {};
         var C = CORE();
         if (!C) return Promise.reject(new Error('core-mancante'));
+        /* il fornitore si legge UNA volta: un cambio durante la preparazione della
+           foto non deve mandarla altrove da quello che il riquadro ha detto */
+        var forn = _fornitore();
         var male = provaProvider();
         if (male) return Promise.reject(new Error(male));
-        if (!window.fetchModelAPI || !window.getSystemKey) return Promise.reject(new Error('rete'));
+        if (forn !== 'infomaniak' && (!window.fetchModelAPI || !window.getSystemKey)) return Promise.reject(new Error('rete'));
 
         var api = API();
         var percorso = (api && api.getPathForFile ? api.getPathForFile(file) : file.path) || '';
@@ -137,6 +216,7 @@
                     generationConfig: { temperature: 0.2, maxOutputTokens: C.MAX_TOKEN_ANALISI }
                 };
                 if (window.injectClassTuning) payload = window.injectClassTuning(payload);
+                if (forn === 'infomaniak') return _chiediInfomaniak(payload);
                 return window.fetchModelAPI(payload, window.getSystemKey());
             })
             .then(function (resp) {
@@ -207,39 +287,77 @@
             };
         });
     }
-    /* I DUE BOX. Le spunte degli angoli vengono da `QUIZ_ANGLES` (mai una lista
-       scritta qui); le categorie sono i BLOCCHI della griglia. */
+    /* I TRE BOX (01/10: + «Scelta multipla»). Le spunte degli angoli vengono da
+       `QUIZ_ANGLES` (mai una lista scritta qui); le categorie sono i BLOCCHI della
+       griglia. I materiali di una foto si scelgono SOLO qui (Giacomo, 01/10): la
+       scheda parte dalle ultime scelte confermate, o dai default di sempre — la
+       regola «salvato o default» è del core (`opzioniIniziali`).
+       Categorie e angoli stanno in GRIGLIA (`colonne` delle sezioni del motore):
+       ogni genere è un riquadro con «Genera» e «quante», più due sottosezioni.
+       ⚠️ I riquadri non si chiudono più: chiudendo il primo, le sue due
+       sottosezioni resterebbero aperte da sole. */
+    var LS_OPZIONI = 'mappai_dossier_opzioni';
+    function _angoliValidi() {
+        return (window.QUIZ_ANGLES || []).map(function (a) { return a.key; }).filter(function (k) { return k !== 'auto'; });
+    }
+    function _opzioniIniziali(op) {
+        var IC = window.MappAICreaIconograficaCore;
+        if (!IC || !IC.opzioniIniziali) return op || {};
+        var fonte = op;
+        if (!fonte) {
+            try { fonte = JSON.parse(localStorage.getItem(LS_OPZIONI) || 'null'); } catch (e) { fonte = null; }
+        }
+        return IC.opzioniIniziali(fonte, _angoliValidi());
+    }
+    /* scritta dal guscio alla conferma (vedi `mappai-crea-iconografica.js`) */
+    function ricordaOpzioni(op) {
+        if (!op || typeof op !== 'object') return;
+        try { localStorage.setItem(LS_OPZIONI, JSON.stringify(op)); } catch (e) { }
+    }
     function _sezioniOpzioni(op) {
         var C = CORE();
-        op = op || {};
+        op = _opzioniIniziali(op);
         function box(pref, titolo, g) {
             g = g || {};
-            var campi = [
-                { id: pref + '.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: g.on !== false },
-                { id: pref + '.n', tipo: 'numero', etichetta: t('vs_op_n', 'Quante per categoria'), valore: g.n || 3, min: 1, max: 30, larghezza: 'meta' }
-            ];
-            C.BLOCCHI.forEach(function (bl) {
-                campi.push({ id: pref + '.cat.' + bl.id, tipo: 'spunta', etichetta: bl.titolo,
-                    valore: !g.cat || g.cat.indexOf(bl.id) >= 0 });
+            var acceso = (pref === 'mc') ? g.on === true : g.on !== false;
+            var cat = C.BLOCCHI.map(function (bl) {
+                return { id: pref + '.cat.' + bl.id, tipo: 'spunta', etichetta: bl.titolo,
+                    valore: !g.cat || g.cat.indexOf(bl.id) >= 0 };
             });
+            var ang = [];
             (window.QUIZ_ANGLES || []).forEach(function (a) {
                 if (a.key === 'auto') return;
                 var et = window.quizAngleLabel ? window.quizAngleLabel(a.key) : a.key;
-                campi.push({ id: pref + '.ang.' + a.key, tipo: 'spunta', etichetta: et,
+                ang.push({ id: pref + '.ang.' + a.key, tipo: 'spunta', etichetta: et,
                     valore: !!(g.angoli && g.angoli.indexOf(a.key) >= 0) });
             });
-            return { id: 'op-' + pref, titolo: titolo,
+            var out = [{ id: 'op-' + pref, titolo: titolo,
                 testo: t('vs_op_d', 'Le categorie dicono DA QUALI blocchi della scheda nascono; ogni angolo spuntato produce un set suo. Nessun angolo = un set misto.'),
-                collassabile: true, chiusa: false, campi: campi };
+                colonne: 2,
+                campi: [
+                    { id: pref + '.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: acceso },
+                    { id: pref + '.n', tipo: 'numero', etichetta: t('vs_op_n', 'Quante per categoria'), valore: g.n || 3, min: 1, max: 30, larghezza: 'meta' }
+                ] },
+                { id: 'op-' + pref + '-cat', titolo: t('vs_op_cat', 'Da quali parti della scheda'), colonne: 2, campi: cat }];
+            if (ang.length) out.push({ id: 'op-' + pref + '-ang', titolo: t('vs_op_ang', 'Angoli'), colonne: 3, campi: ang });
+            return out;
         }
-        return [
+        return [].concat(
             box('oq', t('vs_op_oq', 'Domande aperte'), op.oq),
             box('fc', t('vs_op_fc', 'Flashcard'), op.fc),
-            { id: 'op-syn', titolo: t('vs_op_syn', 'Sintesi'),
-              testo: t('vs_op_syn_d', 'Un testo continuo dalla scheda. La voce naturale si aggiunge dopo, dall\'editor della sintesi in ELABORA.'),
-              campi: [{ id: 'syn.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: op.syn !== false }],
-              sotto: '' }
-        ];
+            box('mc', t('vs_op_mc', 'Scelta multipla'), op.mc),
+            /* la VOCE NATURALE si sceglie qui (decisione 9 del 01/10): la frase di prima
+               («si aggiunge dopo, dall'editor») era falsa — il dossier la generava
+               subito se nel bento erano spuntate «Sintesi» e «Voce naturale» */
+            [{ id: 'op-syn', titolo: t('vs_op_syn', 'Sintesi'),
+              testo: t('vs_op_syn_d2', 'Un testo continuo dalla scheda.') + ' ' +
+                  t('mp_voce_google', 'La voce si fa con Google: il testo della sintesi esce dalla Svizzera.') + ' ' +
+                  t('vs_op_voce_costo', 'Costa una chiamata all\'AI per ogni blocco della sintesi.'),
+              colonne: 2,
+              campi: [{ id: 'syn.on', tipo: 'spunta', etichetta: t('vs_op_on', 'Genera'), valore: op.syn !== false },
+                  { id: 'syn.audio', tipo: 'spunta', etichetta: t('vs_op_voce', 'Voce naturale'), valore: op.voce === true }],
+              sotto: '' }]
+        );
     }
     function _leggiCampi(box) {
         var v = {};
@@ -298,7 +416,7 @@
                    blocco senza che le opzioni salvate lo escludano */
                 cat: cat.length >= C.BLOCCHI.length ? null : cat, angoli: ang };
         }
-        return { oq: genere('oq'), fc: genere('fc'), syn: !!v['syn.on'] };
+        return { oq: genere('oq'), fc: genere('fc'), mc: genere('mc'), syn: !!v['syn.on'], voce: !!v['syn.audio'] };
     }
     function _blocchiPieni(scheda) {
         var C = CORE(), n = 0;
@@ -308,11 +426,14 @@
     function _aggiornaStima(box, scheda) {
         var el = box.querySelector('[data-vs-stima]');
         if (!el) return;
-        var C = CORE();
-        var st = C.stimaDossier(_opzioniDaCampi(_leggiCampi(box)), _blocchiPieni(scheda));
+        var C = CORE(), IC = window.MappAICreaIconograficaCore;
+        var op = _opzioniDaCampi(_leggiCampi(box));
+        /* la scelta multipla si conta col core (01/10); senza, come prima */
+        var st = (IC && IC.stima) ? IC.stima(op, _blocchiPieni(scheda)) : C.stimaDossier(op, _blocchiPieni(scheda));
         el.textContent = t('vs_stima', 'Questo dossier: circa {n} chiamate all\'AI')
             .replace('{n}', st.chiamate) +
-            ' (' + st.oq + ' + ' + st.fc + ' + ' + st.syn + ')';
+            ' (' + st.oq + ' + ' + st.fc + (st.mc != null ? ' + ' + st.mc : '') + ' + ' + st.syn +
+            (st.voce ? ' + ' + t('vs_stima_voce', 'voce ≥ {n}').replace('{n}', st.voce) : '') + ')';
     }
 
     /* ── IL MONTAGGIO ─────────────────────────────────────────────────────────
@@ -575,6 +696,67 @@
         });
     }
 
+    /* ── LA SCELTA DEI MATERIALI NEL RIQUADRO DI CREA (0069, giro 3) ───────────
+       Le STESSE sezioni della superficie (`_sezioniOpzioni`, col motore), lette
+       con le stesse funzioni (`_leggiCampi` → `_opzioniDaCampi`), con la stessa
+       stima (`_aggiornaStima`) e la stessa memoria (`ricordaOpzioni`, chiave
+       `mappai_dossier_opzioni`): qui cambia solo il posto. Ogni cambio scrive
+       `scheda.opzioni`, che `IC.uscite` legge in `cfgDossier` come prima. Le
+       opzioni non sono contenuto: non toccano la conferma della scheda.
+       Gli eventi si fermano qui: non sono voci del bento. */
+    function montaOpzioni(host, scheda, onCambio) {
+        var M = MM();
+        if (!host || !scheda || !M || !M.render) return null;
+        var box = M.render({ titolo: t('vs_op_materiali', 'I materiali'), sezioni: _sezioniOpzioni(scheda.opzioni), azioni: [] });
+        var corpo = box.querySelector('.mm-body') || box;
+        /* `vs-superficie--crea`: le stesse regole della griglia di categorie e angoli
+           (mappai-crea-iconografica.css), che è ciò che si sta riusando */
+        corpo.classList.add('vs-opzioni', 'vs-superficie--crea');
+        /* giro 4 (Giacomo, 03/10: «larghi 1/2 box … su due colonne»): ogni genere
+           diventa un box con le sue parti e i suoi angoli dentro; giro 6 («vanno
+           raggruppati per items»): la griglia a due colonne legge Flashcard |
+           Domande aperte, poi Scelta multipla | Sintesi. Gruppi e ordine li decide
+           il core (`gruppiOpzioni`); si SPOSTANO le sezioni già fatte dal motore,
+           i campi restano quelli. */
+        var ICg = window.MappAICreaIconograficaCore;
+        if (ICg && typeof ICg.gruppiOpzioni === 'function') {
+            var sezioni = Array.prototype.filter.call(corpo.children, function (el) { return el.hasAttribute && el.hasAttribute('data-sez'); });
+            var perId = {};
+            sezioni.forEach(function (el) { perId[el.getAttribute('data-sez')] = el; });
+            ICg.gruppiOpzioni(sezioni.map(function (el) { return el.getAttribute('data-sez'); })).forEach(function (g) {
+                var cella = document.createElement('div');
+                cella.className = 'vs-opz-genere';
+                cella.setAttribute('data-genere', g.genere);
+                g.sezioni.forEach(function (id) { if (perId[id]) cella.appendChild(perId[id]); });
+                corpo.appendChild(cella);
+            });
+        }
+        var stima = document.createElement('p');
+        stima.className = 'mm-piede-nota'; stima.setAttribute('data-vs-stima', '');
+        corpo.appendChild(stima);
+        host.innerHTML = '';
+        host.appendChild(corpo);
+        if (window.safeCreateIcons) window.safeCreateIcons();
+        function cambia(e) {
+            if (e) e.stopPropagation();
+            var op = _opzioniDaCampi(_leggiCampi(corpo));
+            scheda.opzioni = op;
+            ricordaOpzioni(op);
+            _aggiornaStima(corpo, scheda);
+            if (onCambio) onCambio(op);
+        }
+        corpo.addEventListener('change', cambia);
+        corpo.addEventListener('input', function (e) {
+            e.stopPropagation();
+            if (e.target && e.target.type === 'number') cambia();
+        });
+        /* lo stato iniziale delle spunte È la scelta di partenza: si scrive subito,
+           così `scheda.opzioni` e lo schermo non divergono mai */
+        scheda.opzioni = _opzioniDaCampi(_leggiCampi(corpo));
+        _aggiornaStima(corpo, scheda);
+        return corpo;
+    }
+
     function apriScheda(scheda, opts) {
         return montaSuperficie(scheda, opts || { modo: 'crea' });
     }
@@ -596,7 +778,14 @@
         return ((s.sources) || []).some(function (x) { return x && x._scheda; });
     }
     function sincronizzaGenere() {
-        var giu = _fotoPresente();
+        /* 0067 (ADR 0015): con la modalità iconografica accesa il guscio NASCONDE
+           MM/KG e il tema e mette al loro posto la foto e la scheda letta — qui non si
+           sbiadisce né si disabilita nulla (e si ripulisce ciò che era rimasto). A
+           interruttore spento, o se il guscio non ha potuto montare, come prima. */
+        var G = window.MappAICreaIconografica;
+        var guscio = false;
+        try { guscio = !!(G && G.aggiorna && G.aggiorna()); } catch (e) { guscio = false; }
+        var giu = !guscio && _fotoPresente();
         var perche = t('vs_mappa_no', 'Con una fonte iconografica si genera il DOSSIER: la mappa e il tema non servono — il titolo viene dalla scheda.');
         ['mode-mindmap', 'mode-kg'].forEach(function (id) {
             var el = document.getElementById(id);
@@ -622,11 +811,13 @@
             var corpo = box.querySelector('.mm-body');
             if (!corpo) return;
             var w = document.createElement('div');
-            w.style.cssText = 'text-align:center; margin-bottom:14px;';
+            /* 01/10 (Giacomo): larga quanto la colonna dei contenuti, altezza
+               proporzionale — non più il tetto di 260px */
+            w.style.cssText = 'margin-bottom:14px;';
             var img = document.createElement('img');
             img.src = 'data:' + (scheda.mime || 'image/jpeg') + ';base64,' + scheda.fotoB64;
             img.alt = scheda.titolo || '';
-            img.style.cssText = 'max-width:100%; max-height:260px; border-radius:10px; display:inline-block;';
+            img.style.cssText = 'width:100%; height:auto; border-radius:10px; display:block;';
             w.appendChild(img);
             corpo.insertBefore(w, corpo.firstChild);
         } catch (e) { /* senza anteprima la scheda funziona lo stesso */ }
@@ -657,6 +848,11 @@
                 testo: t('vs_nota_testo', 'Facoltativo, ma migliora molto la lettura: periodo, luogo, personaggi raffigurati, occasione. Quello che scrivi qui l\'AI lo tiene per VERO.'),
                 campi: [{ id: 'nota', tipo: 'area', cresce: true,
                     etichetta: t('vs_nota_campo', 'Contesto (es. «manifesto USA del 1942; i tre schiacciati sono Hitler, Mussolini e l\u2019imperatore del Giappone»)') }]
+            }, {
+                // dove va la foto (0066): la stessa strada che prenderà `leggi`
+                testo: _fornitore() === 'infomaniak'
+                    ? t('vs_dove_ch', 'La foto va a Infomaniak, in Svizzera.')
+                    : t('vs_dove_g', 'La foto va a Google, fuori dalla Svizzera.')
             }],
             azioni: [
                 { id: 'no', etichetta: t('mm_annulla', 'Annulla') },
@@ -687,11 +883,28 @@
             }
             return chiediNota(file.name).then(function (ctx) {
                 if (!ctx.ok) return null;
-                return _analizza(file, ctx.nota, C);
+                /* `fileGia` = la foto arriva dalle fonti di CREA (0069, giro 3) */
+                return _analizza(file, ctx.nota, C, !!fileGia);
             });
         });
     }
-    function _analizza(file, nota, C) {
+    /* ── TUTTO NEL RIQUADRO (0069, giro 3; ADR 0016 rev. 1) ─────────────────────
+       Con `mappai_dossier_fonte_scheda` acceso (di default dal 0088; lo spegne '0'), per una foto delle fonti di CREA e
+       col guscio in grado di montare il riquadro, la superficie NON si apre: la
+       scheda letta torna a chi l'ha chiesta (`leggiImmagineSorgente`, la stessa
+       strada di «Usa questa fonte») con le opzioni di partenza dei materiali
+       (`_opzioniIniziali`: le ultime scelte, o i default), e la si corregge, si
+       scelgono i materiali e la si conferma nel riquadro. La decisione è del core
+       (`MappAIDossierFonteCore.soloRiquadro`); spento, tutto come prima. */
+    function _soloRiquadro(daCrea) {
+        var DF = window.MappAIDossierFonteCore, G = window.MappAICreaIconografica;
+        if (!DF || typeof DF.soloRiquadro !== 'function') return false;
+        try {
+            return DF.soloRiquadro({ acceso: DF.acceso(window.localStorage), daCrea: daCrea === true,
+                guscio: !!(G && typeof G.puoMontare === 'function' && G.puoMontare()) });
+        } catch (e) { return false; }
+    }
+    function _analizza(file, nota, C, daCrea) {
             var abbandonata = false;
             if (window.showLoadingOverlay) {
                 window.showLoadingOverlay(true,
@@ -703,12 +916,23 @@
                 /* «Annulla» abbandona l'ATTESA: una richiesta già partita non si
                    richiama indietro — il risultato arriva e si butta. */
                 if (abbandonata) return null;
+                if (_soloRiquadro(daCrea)) {
+                    scheda.opzioni = _opzioniIniziali(null);
+                    return scheda;
+                }
                 return apriScheda(scheda);
             }, function (err) {
                 if (window.showLoadingOverlay) window.showLoadingOverlay(false);
                 if (abbandonata) return null;
                 var d = C.diagnosi(err);
-                toast(d.messaggio + ' ' + d.rimedio, 'error');
+                /* Il rimedio di «chiave» manda a controllare la chiave GOOGLE. Se la lettura è
+                   affidata a Infomaniak, il 401/403 viene da lì: il rimedio giusto è il suo token
+                   e il suo Product ID (0088, D7). Il core non si tocca, è della scheda dossier. */
+                var rimedio = d.rimedio;
+                if (d.codice === 'chiave' && _fornitore() === 'infomaniak') {
+                    rimedio = t('vs_e_key_im_r', 'Controlla il token e il Product ID di Infomaniak nelle Impostazioni AI.');
+                }
+                toast(d.messaggio + ' ' + rimedio, 'error');
                 return null;
             });
     }
@@ -721,6 +945,8 @@
         schedaCorrente: schedaCorrente,
         scordaScheda: scordaScheda,
         sincronizzaGenere: sincronizzaGenere,
+        ricordaOpzioni: ricordaOpzioni,
+        montaOpzioni: montaOpzioni,
         montaSuperficie: montaSuperficie,
         superficie: SUP,
         scordaSuperficie: scordaSuperficie,

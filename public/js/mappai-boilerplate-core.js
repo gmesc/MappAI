@@ -5,9 +5,9 @@
  * Media   La Guerra Fredda   pag. …"). Estratte in testo inquinano
  * l'evidenziazione/analisi di ELABORA e il corpus di GENERAZIONE.
  *
- * DUE modi di rilevamento (l'estrazione PDF di MappAI concatena TUTTA la pagina
- * in UNA riga — `items.map(i=>i.str).join(" ")+"\n"` — quindi l'header non è una
- * riga a sé, ma il PREFISSO di ogni riga-pagina):
+ * DUE modi di rilevamento (l'estrazione PDF di MappAI mette TUTTA la pagina in
+ * UNA riga — `MappAIPdfTesto.testoPagina`, pagine separate da "\n" — quindi
+ * l'header non è una riga a sé, ma il PREFISSO di ogni riga-pagina):
  *   A) AFFISSO comune: prefisso/suffisso di parole ripetuto tra le righe lunghe
  *      (pagine) → è l'header/footer, rimosso da ogni pagina.
  *   B) RIGHE corte ripetute standalone (estrazioni che preservano le righe).
@@ -139,27 +139,52 @@
     //    trattare le DOMANDE di una scheda come contenuto (evidenziazione + mappa).
     //    Conservativo: pattern che NON toccano la prosa vera (niente stem a lettera
     //    singola tipo "E. coli", niente anni "2026.").
-    function isStructuralLine(line) {
+    //    `structuralKind` dice QUALE delle quattro regole vale (packet 0030): è
+    //    l'unica casa delle regex, e `MappAIEvidenceCore.tipizza` ci si appoggia
+    //    per dare il nome del genere invece di ricopiarle (invariante 6).
+    //    → 'spazio' | 'stem' | 'riferimento' | 'titolo' | ''  (regole A, B, C, D)
+    function structuralKind(line) {
         var t = String(line == null ? '' : line).trim();
-        if (!t) return false;
+        if (!t) return '';
         // A) riga di soli puntini/underscore/trattini (spazio risposta), nessun testo
-        if (/^[.·_…—–\-\s]{6,}$/.test(t) && !/[0-9A-Za-zÀ-ſ]/.test(t)) return true;
+        if (/^[.·_…—–\-\s]{6,}$/.test(t) && !/[0-9A-Za-zÀ-ſ]/.test(t)) return 'spazio';
         // B) stem numerato di domanda/esercizio: "1)", "2.", "10)" a inizio riga + testo
-        if (/^\d{1,2}\s*[\).]\s+\S/.test(t)) return true;
+        if (/^\d{1,2}\s*[\).]\s+\S/.test(t)) return 'stem';
         // C) riferimento a documento/figura/tabella: "Doc. 1", "Documento 2", "Fig. 3"
-        if (/^(doc\.?|documento|allegato|fig\.?|figura|tab\.?|tabella)\s*\d/i.test(t)) return true;
+        if (/^(doc\.?|documento|allegato|fig\.?|figura|tab\.?|tabella)\s*\d/i.test(t)) return 'riferimento';
         // D) titolo ALL-CAPS corto (heading): <=6 parole, >=80% lettere maiuscole
         var upper = (t.match(/[A-ZÀ-Þ]/g) || []).length;
         var lower = (t.match(/[a-zß-ÿ]/g) || []).length;
-        if (upper + lower >= 3 && t.split(/\s+/).length <= 6 && upper / (upper + lower) >= 0.8) return true;
-        return false;
+        if (upper + lower >= 3 && t.split(/\s+/).length <= 6 && upper / (upper + lower) >= 0.8) return 'titolo';
+        return '';
     }
 
+    function isStructuralLine(line) { return !!structuralKind(line); }
+
     // Rimuove le righe strutturali dal testo. → { text, removed:[sample], count }
-    function stripStructuralLines(text) {
+    //    Una riga strutturale è una riga CORTA (packet 0043). L'estrazione dei PDF
+    //    dà UNA riga per pagina (app.js:575): dopo `stripBoilerplate` una pagina
+    //    che comincia con un titolo numerato («2. L'economia svizzera…») combacia
+    //    con la regola B e veniva tolta INTERA — misurato il 26/09 sulle fonti
+    //    vere: 52 pagine, il 6,3% delle parole. Quindi 'stem' e 'riferimento' si
+    //    tolgono solo se la riga ha al più `opts.maxWords` parole con lettere o
+    //    cifre (default 25: gli stem veri, righe di DOCX e testo incollato, ne
+    //    hanno meno; la riga-pagina più corta che veniva tolta ne ha 47). Un
+    //    gruppo di puntini non è una parola. 'spazio' e 'titolo' (già ≤ 6 parole)
+    //    si tolgono sempre. `structuralKind` e `isStructuralLine` NON cambiano:
+    //    li leggono l'àncora sulle frasi ed Evidence. La strada vecchia resta
+    //    raggiungibile con `{ maxWords: Infinity }`.
+    function stripStructuralLines(text, opts) {
+        opts = opts || {};
+        var maxWords = (typeof opts.maxWords === 'number' && !isNaN(opts.maxWords)) ? opts.maxWords : 25;
         var removed = [], count = 0, kept = [];
         String(text == null ? '' : text).split('\n').forEach(function (ln) {
-            if (isStructuralLine(ln)) { removed.push(ln.trim().slice(0, 60)); count++; }
+            var kind = structuralKind(ln), togli = false;
+            if (kind === 'spazio' || kind === 'titolo') togli = true;
+            else if (kind === 'stem' || kind === 'riferimento') {
+                togli = _words(ln).filter(function (w) { return /[0-9A-Za-zÀ-ſ]/.test(w); }).length <= maxWords;
+            }
+            if (togli) { removed.push(ln.trim().slice(0, 60)); count++; }
             else kept.push(ln);
         });
         return { text: kept.join('\n'), removed: removed, count: count };
@@ -167,6 +192,7 @@
 
     return {
         findRepeatedLines: findRepeatedLines, stripBoilerplate: stripBoilerplate,
-        isStructuralLine: isStructuralLine, stripStructuralLines: stripStructuralLines, _norm: _norm
+        structuralKind: structuralKind, isStructuralLine: isStructuralLine,
+        stripStructuralLines: stripStructuralLines, _norm: _norm
     };
 });

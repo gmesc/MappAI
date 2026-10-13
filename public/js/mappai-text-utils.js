@@ -11,7 +11,8 @@
  * Alias globali (retrocompatibilità con i moduli esistenti che usano window.cleanLabel ecc.):
  *   window.cleanLabel, window.getLabelLines, window.extractDateFromLabel, window.stripHTML
  *
- * NOTA: stripHTML dipende dal DOM (document) → non testabile in Node headless.
+ * NOTA: stripHTML dipende dal DOM (DOMParser) → in Node va data una facciata
+ * (tests/html-sicuro-restanti.test.js).
  */
 (function (root, factory) {
     'use strict';
@@ -81,8 +82,15 @@
         return null;
     }
 
+    /* Il `<div>` nasceva nel documento VIVO: lì `innerHTML` carica le immagini
+       anche se il div non entra mai nella pagina, e un `<img src=x onerror=…>`
+       scattava con window.electronAPI in mano (25/9/2026). Ora nasce nel
+       documento di DOMParser, che è INERTE: niente immagini, niente gestori,
+       niente script. Il div resta un div — stesso parsing a frammento, quindi
+       stesso testo di prima, spazi in testa e <style>/<title> compresi (un
+       `parseFromString(html).body` li perderebbe). */
     function stripHTML(html) {
-        let tmp = document.createElement("DIV");
+        let tmp = new DOMParser().parseFromString('', 'text/html').createElement("DIV");
         tmp.innerHTML = html;
         return tmp.textContent || tmp.innerText || "";
     }

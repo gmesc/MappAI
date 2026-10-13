@@ -51,6 +51,7 @@ async function setupLive(t) {
     h.close();
     await srv.stop();
     await relay.close();
+    fs.rmSync(dir, { recursive: true, force: true });   // la cartella temporanea non resta in /tmp
   });
   return { relay, relayBase, srv, livePort, tok, h, roster };
 }
@@ -156,8 +157,15 @@ test('client chiuso → 502; riconnessione → stesso code, QR valido', async (t
   const { relayBase, livePort, tok, h } = await setupLive(t);
   const code = h.code;
   h.close();
-  await new Promise(r => setTimeout(r, 150)); // il relay vede la close
-  const down = await fetch(relayBase + '/api/session?s=' + tok);
+  // Il relay vede la close quando gli arriva, non dopo un tempo fisso: invece
+  // di aspettare 150 ms e sperare, si richiede finché risponde 502 (tetto 5 s).
+  const limite = Date.now() + 5000;
+  let down = await fetch(relayBase + '/api/session?s=' + tok);
+  while (down.status !== 502 && Date.now() < limite) {
+    await down.arrayBuffer();                  // si consuma la risposta prima di riprovare
+    await new Promise(r => setTimeout(r, 10));
+    down = await fetch(relayBase + '/api/session?s=' + tok);
+  }
   assert.strictEqual(down.status, 502);
   assert.strictEqual((await down.json()).error, 'teacher-offline');
 
@@ -192,7 +200,7 @@ test('materials: PDF binario passa intatto con Content-Disposition', async (t) =
     relayUrl: 'ws://127.0.0.1:' + relayPort,
     activity: 'materials', token: tok, localPort: matPort, quiet: true
   });
-  t.after(async () => { h.close(); await srv.stop(); await relay.close(); });
+  t.after(async () => { h.close(); await srv.stop(); await relay.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
   // entry corretta per materials
   const entry = await fetch(relayBase + '/j/' + h.code, { redirect: 'manual' });
@@ -224,11 +232,14 @@ test('due sessioni sullo stesso relay: routing isolato per token', async (t) => 
     const port = await srv.listen(0, '127.0.0.1');
     const tok = srv.state().session.token;
     const h = await openSession({ relayUrl: 'ws://127.0.0.1:' + relayPort, activity: 'live', token: tok, localPort: port, quiet: true });
-    return { srv, tok, h };
+    return { srv, tok, h, dir };
   };
   const a = await mk('Mappa A');
   const b = await mk('Mappa B');
-  t.after(async () => { a.h.close(); b.h.close(); await a.srv.stop(); await b.srv.stop(); await relay.close(); });
+  t.after(async () => {
+    a.h.close(); b.h.close(); await a.srv.stop(); await b.srv.stop(); await relay.close();
+    for (const s of [a, b]) fs.rmSync(s.dir, { recursive: true, force: true });
+  });
 
   assert.notStrictEqual(a.h.code, b.h.code);
   const sa = await fetch(relayBase + '/api/session?s=' + a.tok).then(r => r.json());

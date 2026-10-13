@@ -287,6 +287,10 @@
             var l = lmA[k], s = eid(l.source), t = eid(l.target);
             // se uno dei due estremi è sparito, la rimozione è conseguenza di delete/merge → non la contiamo come op relazione
             if (!B[s] || !B[t]) return;
+            // il vecchio arco d'albero di un nodo che ha cambiato genitore è conseguenza del
+            // move/promote-l1 già registrato sopra (25/9: prima lo spostamento contava tre volte)
+            // (solo se il nodo ha davvero un genitore nuovo: se resta senza, la rimozione è vera)
+            if (!l.isCross && tA.parent[t] === s && tB.parent[t] != null && tB.parent[t] !== s) return;
             var reason = l.rel === 'approfondisce' ? 'redundant-with-hierarchy'
                 : (l.isCross ? 'spurious' : 'spurious');
             recordOp(log, {
@@ -297,6 +301,9 @@
         keysB.filter(function (k) { return !lmA[k]; }).forEach(function (k) {
             var l = lmB[k], s = eid(l.source), t = eid(l.target);
             if (!A[s] || !A[t]) return;  // relazione verso un nodo nuovo → già implicita in add-node
+            // il nuovo arco d'albero di un nodo spostato è il move stesso, non una relazione aggiunta
+            // (e finiva col motivo 'causal' anche per un «include»)
+            if (!l.isCross && tB.parent[t] === s && tA.parent[t] != null && tA.parent[t] !== s) return;
             var seqRel = /segu|precede|deriva|richiede|dipende/i.test(l.rel);
             var caus = /causa|catalizza|alimenta|genera|provoca|stimola|porta a/i.test(l.rel);
             recordOp(log, {

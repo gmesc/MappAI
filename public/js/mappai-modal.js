@@ -397,8 +397,18 @@
         var indipendenti = spec.colonneIndipendenti;
         var stato = spec.statoColonne || {};
         function applicaLarghezze(larghezze) {
-            [].forEach.call(tab.querySelectorAll('col'), function (c, i) { c.style.width = larghezze[i] + 'px'; });
-            tab.style.width = larghezze.reduce(function (a, b) { return a + b; }, 0) + 'px';
+            /* 12/10 (Giacomo, 0087 lotto 10c): «in questa tabella e in tutte le altre tabelle di MappAI le
+               colonne devono occupare tutta la larghezza dello spazio della tabella, se non sai decidere quale
+               colonna allargare per colmare lo spazio vuoto puoi allargare la colonna del nome». Le larghezze
+               SALVATE restano quelle (il trascinamento riparte da lì); a schermo, se la loro somma non riempie
+               la cornice, la differenza va alla prima colonna, che è sempre il nome (mappa, materiale, allievo,
+               classe). Misurato in Cabina › Consumi AI: sei colonne salvate per 929 px in una cornice di 1240. */
+            var somma = larghezze.reduce(function (a, b) { return a + b; }, 0);
+            var cornice = tab.parentElement && tab.parentElement.clientWidth;
+            var extra = (typeof cornice === 'number' && cornice > somma) ? cornice - somma : 0;
+            tab._mmExtra = extra;
+            [].forEach.call(tab.querySelectorAll('col'), function (c, i) { c.style.width = (larghezze[i] + (i === 0 ? extra : 0)) + 'px'; });
+            tab.style.width = (somma + extra) + 'px';
         }
         if (indipendenti) {
             function aggiornaLarghezze(ripristina) {
@@ -479,7 +489,9 @@
                 scala: tab.getBoundingClientRect().width / tab.offsetWidth || 1
             };
             if (indipendenti) {
-                stato.larghezze = [].map.call(cols, function (c) { return parseFloat(c.style.width); });
+                /* lo stato tiene le larghezze SALVATE: alla prima colonna si toglie il riempimento della cornice
+                   (`_mmExtra`), così il trascinamento non se lo porta dietro e la tabella torna a stringersi */
+                stato.larghezze = [].map.call(cols, function (c, i) { return parseFloat(c.style.width) - (i === 0 ? (tab._mmExtra || 0) : 0); });
                 TRASCINA.w0 = stato.larghezze[TRASCINA.i];
             }
             /* le colonne senza larghezza dichiarata la prendono ADESSO: senza,
@@ -942,6 +954,12 @@
                        io»; chi non se ne occupa non deve fare niente. */
                     if (manda({ azione: '__esc' }) === false) return;
                     esci(); return;
+                }
+                /* la riga col fuoco vince sull'azione primaria: chi l'ha
+                   raggiunta col Tab ha già scelto che cosa aprire */
+                if (Core.rigaDaTastiera(e.target, e.key)) {
+                    e.preventDefault(); e.stopPropagation();
+                    e.target.click(); return;
                 }
                 if (e.key === 'Enter' && s.invio && e.target.tagName !== 'TEXTAREA') {
                     var p = box.querySelector('[data-primario]');

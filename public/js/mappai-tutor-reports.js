@@ -1,5 +1,5 @@
 /*
- * mappai-tutor-reports.js — report HTML "Chatta e Scrivi" (007, PURO)
+ * mappai-tutor-reports.js — report HTML «Chiedi e Rispondi» (007, PURO; fino al 26/9/2026 «Chatta e Scrivi»)
  * --------------------------------------------------------------------
  * buildTutorReportHtml(results) → documento HTML completo e stampabile:
  * una scheda per studente con TESTO CONSEGNATO + TRASCRIZIONE CHAT affiancati
@@ -33,29 +33,29 @@
 
   var BASE_STYLES = [
     "*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;box-sizing:border-box}",
-    "body{font-family:var(--doc-font, 'Space Mono', ui-monospace, monospace);font-size:12px;color:#0f172a;margin:0 auto;padding:24px 28px;max-width:900px;background:#f8fafc}",
+    "body{font-family:var(--doc-font, 'Space Mono', ui-monospace, monospace);font-size:12px;color:var(--mm-testo, #404040);margin:0 auto;padding:24px 28px;max-width:900px;background:#f8fafc}",
     ".tr-header{text-align:center;padding:24px 16px 18px;background:#fff;border-radius:16px;margin-bottom:22px;border-bottom:3px solid #4f46e5;page-break-after:avoid}",
-    ".tr-title{font-size:20px;font-weight:900;color:#0f172a}",
+    ".tr-title{font-size:20px;font-weight:900;color:var(--mm-testo, #404040)}",
     ".tr-sub{font-size:11px;color:#64748b;margin-top:6px;line-height:1.6}",
     ".tr-chips{margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}",
     ".tr-chip{display:inline-block;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:2px 12px;font-size:10px;font-weight:bold}",
-    ".tr-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;page-break-inside:avoid}",
+    ".tr-card{background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:16px 18px;margin-bottom:18px;page-break-inside:avoid}",
     ".tr-stud{display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid #f1f5f9;padding-bottom:8px}",
-    ".tr-ident{font-size:15px;font-weight:900;color:#0f172a}",
-    ".tr-meta{font-size:10px;color:#94a3b8}",
+    ".tr-ident{font-size:15px;font-weight:900;color:var(--mm-testo, #404040)}",
+    ".tr-meta{font-size:10px;color:var(--mm-testo-3, #64748b)}",
     ".tr-flag{display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 8px;font-size:9px;font-weight:bold;margin-left:6px}",
     ".tr-ok{display:inline-block;background:#dcfce7;color:#166534;border-radius:6px;padding:1px 8px;font-size:9px;font-weight:bold;margin-left:6px}",
     ".tr-cols{display:flex;gap:14px;align-items:flex-start}",
     ".tr-col{flex:1;min-width:0}",
-    ".tr-col-title{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px}",
-    ".tr-text{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.55;font-size:11.5px}",
-    ".tr-empty{color:#94a3b8;font-style:italic}",
+    ".tr-col-title{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin-bottom:6px}",
+    ".tr-text{background:#f8fafc;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:10px 12px;white-space:pre-wrap;line-height:1.55;font-size:11.5px}",
+    ".tr-empty{color:var(--mm-testo-3, #64748b);font-style:italic}",
     ".tr-turn{margin-bottom:8px;padding:7px 10px;border-radius:10px;font-size:11px;line-height:1.5}",
     ".tr-turn.u{background:#ecfdf5;border:1px solid #bbf7d0}",
     ".tr-turn.t{background:#eef2ff;border:1px solid #e0e7ff}",
     ".tr-role{font-size:9px;font-weight:bold;text-transform:uppercase;color:#64748b;display:block;margin-bottom:2px}",
     "@media print{.tr-noprint{display:none !important}body{background:#fff}}",
-    ".tr-noprint{position:sticky;top:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px 12px;margin-bottom:14px;text-align:center}",
+    ".tr-noprint{position:sticky;top:0;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:8px 12px;margin-bottom:14px;text-align:center}",
     ".tr-noprint button{background:#4f46e5;color:#fff;border:0;border-radius:8px;padding:8px 18px;font:inherit;font-weight:bold;cursor:pointer}"
   ].join('\n');
 
@@ -94,10 +94,10 @@
     ].filter(Boolean).map(function (c) { return '<span class="tr-chip">' + esc(c) + '</span>'; }).join('');
     return '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-      '<title>Chatta e Scrivi — ' + esc(s.name || '') + '</title>' +
+      '<title>Chiedi e Rispondi — ' + esc(s.name || '') + '</title>' +
       '<style>' + _fontDoc() + BASE_STYLES + '</style></head><body>' +
       '<div class="tr-noprint"><button onclick="window.print()">Stampa / Salva PDF</button></div>' +
-      '<div class="tr-header"><div class="tr-title">Chatta e Scrivi — ' + esc(s.name || '') + '</div>' +
+      '<div class="tr-header"><div class="tr-title">Chiedi e Rispondi — ' + esc(s.name || '') + '</div>' +
       '<div class="tr-sub">' + esc(s.writingBrief || '') + '</div>' +
       '<div class="tr-chips">' + chips + '</div></div>' +
       (students.length ? students.map(studentCard).join('') :

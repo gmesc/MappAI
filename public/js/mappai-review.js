@@ -12,6 +12,83 @@
   const versions = new Map();
   let writes = Promise.resolve(), busy = false, committing = false;
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o || {}, k);
+  async function withJudgeSources(s, sources, check) {
+    const temporary = { _generationSources: sources, _pdfPagine: sources.filter(x => Array.isArray(x.pages)),
+      sources: sources.map(x => Object.assign({}, x, { content: x.content || x.text || '' })) };
+    const previous = Object.fromEntries(Object.keys(temporary).map(k => [k, { present: own(s, k), value: s[k] }]));
+    try { Object.assign(s, temporary); return await check(); }
+    finally {
+      Object.keys(temporary).forEach(k => {
+        if (s[k] !== temporary[k]) return;
+        if (previous[k].present) s[k] = previous[k].value; else delete s[k];
+      });
+    }
+  }
+  function judgeEvidenceView(report, nodes) {
+    if (report?.contratto !== 'mappai-giudice@2') return null;
+    const box = document.createElement('div'); box.setAttribute('data-judge-evidence', '');
+    const fonte = report.fonte || {}, coverage = fonte.copertura || {};
+    const paragraph = text => { const p = document.createElement('p'); p.textContent = text; box.appendChild(p); };
+    paragraph(fonte.fornita ? t('rv_source_supplied', 'Testo originale fornito al Giudice.') :
+      t('rv_source_not_supplied', 'Il testo originale non è stato fornito al Giudice. Leggi il motivo del controllo incompleto.'));
+    if (Number.isFinite(coverage.pagineTotali)) paragraph((coverage.pagineNonNumerate ?
+      t('rv_source_parts', 'Parti della fonte con testo disponibili:') : t('rv_source_pages', 'Pagine con testo disponibili:')) + ' ' +
+      (coverage.pagineConTesto || 0) + ' / ' + coverage.pagineTotali +
+      (coverage.pagineVuote ? ' · ' + t('rv_source_empty_parts', 'Parti prive di testo:') + ' ' + coverage.pagineVuote : ''));
+    if (coverage.pagineNonNumerate) paragraph(t('rv_source_unnumbered', 'Parti senza numero di pagina:') + ' ' + coverage.pagineNonNumerate + '. ' +
+      t('rv_source_no_percentage', 'La paginazione della fonte non è interamente disponibile.'));
+    if (coverage.pagineVuote || fonte.diagnostica?.some(item => item.code === 'extraction_order')) {
+      paragraph(t('rv_source_keeps_partial', 'Il controllo resta parziale per i limiti del testo estratto, anche se non ci sono descrizioni o collegamenti ancora da controllare. Confronta le parti mancanti o l’ordine del testo con il documento originale.'));
+    }
+    paragraph(t('rv_source_limits', 'Il testo fornito può avere limiti di estrazione. Le descrizioni esaminate non sono automaticamente confermate: una prova consultabile documenta la provenienza, non certifica ogni affermazione.'));
+    if (fonte.diagnostica?.length) {
+      const diagnosticText = item => {
+        if (typeof item === 'string') return item;
+        const code = item.code;
+        if (code === 'judge_source_legacy_origin' || code === 'legacy_pdf_identity_unverified') return t('rv_source_legacy', 'Fonte archiviata in precedenza: alcuni dati di origine non sono verificabili.');
+        if (code === 'judge_source_excluded') return t('rv_source_excluded', 'Contenuti generati e modifiche del docente sono esclusi dalle prove originali.');
+        if (code === 'symbol_encoding_check_original') return t('rv_source_symbols', 'Alcuni simboli richiedono un confronto con il documento originale.');
+        if (code === 'table_layout_check_original') return t('rv_source_tables', 'Le tabelle richiedono un confronto con l’impaginazione originale.');
+        if (code === 'empty_page') return t('rv_source_empty', 'Una pagina non contiene testo estraibile; confrontala con l’originale.');
+        if (code === 'extraction_order') return t('rv_source_order', 'L’ordine del testo estratto può differire da quello del documento originale.');
+        if (code === 'judge_page_number_invalid') return t('rv_source_number', 'Un numero di pagina non è affidabile ed è mostrato come non disponibile.');
+        if (code === 'judge_source_origin_unknown') return t('rv_source_origin', 'L’origine di una fonte non è riconosciuta: il controllo non può usarla come prova.');
+        if (code === 'judge_source_identity_ambiguous' || code === 'judge_passage_identity_collision') return t('rv_source_ambiguous', 'Una fonte o un passaggio non sono identificabili in modo univoco: il controllo non può proseguire.');
+        return t('rv_source_unreadable', 'Alcuni dati della fonte non sono leggibili o verificabili. Consulta il documento originale.');
+      };
+      const details = document.createElement('details');
+      details.innerHTML = '<summary>' + esc(t('rv_source_details', 'Dettagli della fonte e limiti')) + '</summary><ul>' +
+        Array.from(new Set(fonte.diagnostica.map(diagnosticText))).map(text => '<li>' + esc(text) + '</li>').join('') + '</ul>';
+      box.appendChild(details);
+    }
+    const results = Array.isArray(report.esitiLink) ? report.esitiLink : [];
+    if (results.length) {
+      const labels = new Map((nodes || []).map(n => [n.id, n.label || n.id]));
+      const outcomes = { sostenuto: t('rv_link_supported', 'Sostenuto dalla fonte'), contraddetto: t('rv_link_contradicted', 'Contraddetto dalla fonte'),
+        non_verificabile: t('rv_link_insufficient', 'Prove insufficienti') };
+      const details = document.createElement('details'); details.setAttribute('data-judge-link-results', '');
+      details.innerHTML = '<summary>' + esc(t('rv_link_results', 'Esiti e prove dei collegamenti')) + ' (' + results.length + ')</summary>';
+      results.forEach(link => {
+        const row = document.createElement('details'); row.setAttribute('data-judge-link-outcome', link.esito);
+        row.innerHTML = '<summary>' + esc((labels.get(link.source) || link.source) + ' → ' + (link.rel || '') + ' → ' +
+          (labels.get(link.target) || link.target) + ' · ' + (outcomes[link.esito] || t('rv_link_unchecked', 'Controllo non completato.'))) + '</summary><p>' + esc(link.problema || '') + '</p>';
+        (link.evidenze || []).forEach(evidence => {
+          const proof = document.createElement('div'); proof.setAttribute('data-judge-proof', '');
+          const page = evidence.page ? t('rv_page', 'Pagina') + ' ' + evidence.page : t('rv_source_no_page', 'Numero di pagina non disponibile');
+          proof.innerHTML = '<p>' + esc(evidence.title || t('rv_original_source', 'Fonte originale')) + ' · ' + esc(page) + '</p><blockquote class="whitespace-pre-wrap">' +
+            esc(evidence.text || '') + '</blockquote><details><summary>' + esc(t('rv_proof_reference', 'Riferimento della prova')) + '</summary><p class="break-words">' +
+            esc([evidence.evidenzaId, evidence.docId, evidence.sourceRevision, evidence.recordId].filter(Boolean).join(' · ')) + '</p></details>';
+          row.appendChild(proof);
+        });
+        if (!link.evidenze?.length) {
+          const p = document.createElement('p'); p.textContent = t('rv_link_no_proof', 'Nessuna prova utilizzabile: il collegamento resta da verificare.'); row.appendChild(p);
+        }
+        details.appendChild(row);
+      });
+      box.appendChild(details);
+    }
+    return box;
+  }
   const assertProject = vaultPath => { if (state().activeVaultPath !== vaultPath) throw new Error(t('rv_project_changed', 'Il progetto aperto è cambiato. Riapri la revisione.')); };
   R.enabled = () => { try { return localStorage.getItem('mappai_review_enabled') !== '0'; } catch (_) { return true; } };
   R.current = () => state()._pipelineManifest && state()._pipelineManifest.review;
@@ -44,14 +121,16 @@
     if (!E.indice() || ['errore', 'senza fonti', 'non disponibile', 'progetto cambiato'].includes(result.stato)) throw new Error(t('modelli_no_index', 'Evidence non è pronto: i materiali non sono stati generati.'));
     if (result.stato === 'non scritto' && window.showToast) window.showToast(t('modelli_index_memory', 'Indice Evidence disponibile in memoria. Verrà ricostruito dalle fonti al prossimo avvio.'), 'warning');
   };
-  R.writeManifest = function (vaultPath, manifest) {
+  R.writeManifest = function (vaultPath, manifest, assertCurrent) {
     const text = JSON.stringify(manifest, null, 2);
     const work = writes.then(async () => {
+      if (assertCurrent) assertCurrent();
       const res = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'pipeline.json', text,
         expectedVersion: versions.has(vaultPath) ? versions.get(vaultPath) : manifest._storageVersion || 0 });
       if (!res || !res.ok) throw new Error((res && res.error) || 'Salvataggio revisione non riuscito');
       manifest._storageVersion = res.version;
       versions.set(vaultPath, res.version);
+      if (assertCurrent) assertCurrent();
       if (state().activeVaultPath === vaultPath) state()._pipelineManifest = manifest;
       return res;
     });
@@ -66,11 +145,61 @@
       giudice: s._judgeReport || s._giudiceReport || null,
       // l'esito del reranker (16/9/26): chiudendo l'app spariva, e con lui la prova che fosse partito
       reranker: s._rerankerReport || null };
-    const res = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'qualita.json', text: JSON.stringify(data, null, 2) });
+    /* 0082 (§4.9, sempre, anche a interruttore spento: decisione di Giacomo, 07/10).
+       Dopo un'apertura dalla cartella i rapporti in memoria sono azzerati
+       (`azzeraGenerazione`), e riscrivere il file li perdeva tutti. Prima di
+       scrivere si legge il `qualita.json` che c'è: un rapporto che in memoria manca
+       resta quello del file (regola pura `unisciQualita`; quello in memoria vince).
+       Un file che manca, illeggibile, o un canale che lancia: si scrive come prima. */
+    let unito = data;
+    try {
+      const VC = window.MappAIVistaCore;
+      if (VC && VC.unisciQualita && window.electronAPI.readVaultFile) {
+        const letto = await window.electronAPI.readVaultFile({ vaultPath, relPath: 'qualita.json' });
+        if (letto && letto.ok && (letto.text != null || letto.base64)) {
+          const testo = letto.text != null ? letto.text
+            : new TextDecoder().decode(Uint8Array.from(atob(letto.base64), c => c.charCodeAt(0)));
+          unito = VC.unisciQualita(testo, data);
+        }
+      }
+    } catch (e) { unito = data; }
+    const res = await window.electronAPI.saveVaultFile({ vaultPath, relPath: 'qualita.json', text: JSON.stringify(unito, null, 2) });
     if (!res || !res.ok) throw new Error((res && res.error) || 'Rapporto non salvato');
   };
+  /* ── LA SCHEDA CONFERMATA IN CREA (0069, ADR 0016 rev. 1) ─────────────────────
+     Un dossier da immagine la cui scheda il docente ha confermato nel riquadro di
+     CREA, con la foto accanto: la revisione è QUELLA conferma — approvata, con le
+     pagine della scheda come fonti — e dopo la generazione non c'è G1. La conferma
+     è passata dal cancello (`MappAIDossierFonteCore.registraConferma`), e qui il
+     cancello si richiede sulla mappa viva (`decidi`): se la scheda è cambiata dopo,
+     risponde `stale_revision` e si torna alla strada di prima, cioè a G1.
+     Interruttore `mappai_dossier_fonte_scheda` spento, una mappa, una foto non
+     confermata → null, e la revisione nasce come sempre. */
+  function confermaDellaScheda(vaultPath, manifest) {
+    const DF = window.MappAIDossierFonteCore, IC = window.MappAICreaIconograficaCore;
+    let acceso = false;
+    try { acceso = !!(DF && DF.acceso(window.localStorage)); } catch (_) { acceso = false; }
+    if (!acceso) return null;
+    const dossier = manifest.config && manifest.config.dossier;
+    const fonte = dossier && IC && IC.fontePerScheda ? IC.fontePerScheda(state().sources, dossier) : null;
+    const esito = DF.decidi({ acceso, dossier, conferma: fonte && fonte._confermaScheda, db: state().db });
+    if (!esito.usa) {
+      if (esito.motivo === 'stale_revision' && window.showToast) window.showToast(t('rv_scheda_cambiata', 'La scheda è cambiata dopo la conferma: il cancello si è richiuso e i contenuti passano dalla revisione.'), 'warning');
+      if (dossier) console.info('[Revisione] dossier: la scheda confermata non vale per questo giro (' + esito.motivo + ')');
+      return null;
+    }
+    return DF.perIlGiro(esito.review, { vaultPath, projectId: storage() && storage().currentProjectId,
+      config: manifest.config, now: new Date().toISOString() });
+  }
   R.checkpoint = async function (vaultPath, manifest) {
     if (!R.enabled() && !manifest.review) return manifest;
+    const confermata = !manifest.review ? confermaDellaScheda(vaultPath, manifest) : null;
+    if (confermata) {
+      manifest.review = confermata;
+      state()._reviewRevision = manifest.review.baseRevision;
+      await R.persistQuality(vaultPath);
+      await R.writeManifest(vaultPath, manifest);
+    }
     if (!manifest.review) {
       const s = state();
       manifest.review = core().createReview({ db: s.db, sources: sourceSnapshot(),
@@ -137,6 +266,7 @@
     }
     state()._pipelineManifest = manifest;
     state()._reviewRevision = expected;
+    if (r.initial.report?.modelliGiro) state()._judgeReport = state()._giudiceReport = r.initial.report;
     // sourcesDict is read from the actual vault/cache. Replacing it with an old
     // approval snapshot would silently undo source corrections made afterwards.
     if (r.initial.status === 'applying') {
@@ -226,6 +356,109 @@
       return manifest;
     } finally { committing = false; }
   };
+  // 0070: the reading runtime owns its canonical JSON; this controller owns the
+  // same review/decision protocol as the map. Callbacks never enter pipeline.json.
+  const READING = Symbol('reading-review');
+  function readingAdapter(vaultPath, manifest, options) {
+    const o = options || {}, final = o.phase === 'materials';
+    if (!['source', 'materials'].includes(o.phase) ||
+        ['getDb', 'validateDb', 'assertCurrent', 'saveReadback'].some(k => typeof o[k] !== 'function')) {
+      throw new Error(t('rv_validator_missing', 'Il controllo dei campi non è disponibile. Le bozze sono conservate.'));
+    }
+    const review = () => final ? manifest.review?.final?.review : manifest.review;
+    const assertCurrent = () => {
+      assertProject(vaultPath); o.assertCurrent();
+      const r = review();
+      if (!r || r.vaultPath !== vaultPath || r.projectId && storage()?.currentProjectId !== r.projectId ||
+          !final && r.initial.checkStatus !== 'unavailable' ||
+          final && (manifest.review.initial.status !== 'approved' ||
+            manifest.review.final.sourceRevision !== manifest.review.approvedRevision)) {
+        throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      }
+      const expected = r.initial.status === 'approved' ? [r.approvedRevision] : r.initial.status === 'applying'
+        ? [r.baseRevision, r.approvedRevision] : [r.baseRevision];
+      if (!expected.includes(core().revision(o.getDb(), r.sources))) {
+        throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      }
+    };
+    const validate = db => {
+      if (!db || !Array.isArray(db.items) || !final && (!db.items.length || db.items.some(i => i.kind !== 'reading-paragraph'))) {
+        throw new Error(t('rv_structure_invalid', 'Correggi o escludi gli elementi con campi non validi prima di completare i materiali.'));
+      }
+      const result = o.validateDb(clone(db));
+      if (result === false || result?.ok === false) throw new Error(t('rv_structure_invalid', 'Correggi o escludi gli elementi con campi non validi prima di completare i materiali.'));
+      if (final) validateFinal(db.items);
+    };
+    assertCurrent();
+    return { options: o, final, review, assertCurrent, validate, db: () => clone(o.getDb()) };
+  }
+  function installReading(manifest, candidate) {
+    Object.assign(manifest, candidate);
+    if (state().activeVaultPath === manifest.review.vaultPath) state()._pipelineManifest = manifest;
+  }
+  R.approveReading = async function (vaultPath, manifest, options, approval) {
+    if (committing) throw new Error(t('rv_busy', 'Attendi il salvataggio in corso.'));
+    const a = readingAdapter(vaultPath, manifest, options);
+    committing = true;
+    try {
+      a.assertCurrent();
+      const r = a.review(), db = a.db();
+      if (r.initial.status === 'approved') {
+        a.validate(db);
+        if (!core().gate(r, db, r.sources).allowed) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+        return manifest;
+      }
+      const result = (options.beginApproval || core().beginApproval)(r, db, { sources: r.sources, manualReview: approval?.manualReview === true });
+      if (!result.ok) throw new Error(result.unresolved.length ? t('rv_unresolved', 'Decidi le questioni ancora aperte prima di continuare.') : t('rv_conflict', 'Il contenuto è cambiato o il controllo è incompleto: verifica la revisione.'));
+      a.validate(result.db);
+      const applying = clone(manifest);
+      if (a.final) { applying.review.final.review = result.review; applying.review.final.stage = 'applying'; }
+      else applying.review = result.review;
+      await R.writeManifest(vaultPath, applying, a.assertCurrent);
+      installReading(manifest, applying);
+      const persisted = await options.saveReadback(clone(result.db), { review: clone(result.review), assertCurrent: a.assertCurrent });
+      a.assertCurrent(); a.validate(persisted);
+      const completed = core().completeApproval(result.review, core().revision(persisted, result.review.sources));
+      const approved = clone(manifest);
+      if (a.final) { approved.review.final.review = completed; approved.review.final.items = clone(persisted.items); approved.review.final.stage = 'approved'; }
+      else approved.review = completed;
+      // Keep the live review applying until the final manifest write succeeds.
+      await R.writeManifest(vaultPath, approved, a.assertCurrent);
+      installReading(manifest, approved);
+      if (options.onCommit) await options.onCommit(clone(persisted), clone(completed));
+      return manifest;
+    } finally { committing = false; }
+  };
+  async function retryReading(vaultPath, manifest, a, onProgress) {
+    a.assertCurrent();
+    if (!a.final || typeof a.options.retry !== 'function') throw new Error(t('rv_validator_missing', 'Il controllo dei campi non è disponibile. Le bozze sono conservate.'));
+    const old = a.review(), db = a.db(), expectedReview = JSON.stringify(old);
+    const current = () => {
+      a.assertCurrent();
+      // A checkpoint replaces metadata with a read-back clone, not a new revision.
+      // Keep detecting actual decision/content changes, including in-place changes.
+      if (JSON.stringify(a.review()) !== expectedReview || old.initial.status !== 'awaiting_review' || core().revision(a.db(), old.sources) !== old.baseRevision) {
+        throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      }
+    };
+    current();
+    const report = await a.options.retry({ items: clone(db.items), sources: clone(old.sources),
+      previousReport: clone(old.initial.report), onProgress, assertCurrent: current });
+    current();
+    if (!report || typeof report !== 'object' || Array.isArray(report)) throw new Error(t('rv_validator_missing', 'Il controllo dei campi non è disponibile. Le bozze sono conservate.'));
+    const next = core().mergeRetry(old, core().createReview({ db, sources: old.sources, report,
+      generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config }));
+    const candidate = clone(manifest); candidate.review.final.review = next;
+    await R.writeManifest(vaultPath, candidate, current); installReading(manifest, candidate);
+    return next;
+  }
+  R.openReading = function (vaultPath, manifest, options) {
+    const a = readingAdapter(vaultPath, manifest, options);
+    if (!a.final) a.validate(a.db());
+    else core().semanticSnapshot(a.db());
+    return R.open(vaultPath, manifest, { [READING]: a, final: a.final, alza: options.alza,
+      onContinue: options.onContinue, onClose: options.onClose });
+  };
   R.isBusy = () => busy || committing;
   // An open review keeps its base map intact. The editor adds a teacher
   // decision through the same core and writer used by the review surface.
@@ -249,29 +482,96 @@
     await persist(previous, next);
     return () => persist(next, previous);
   };
-  R.retryJudge = async function (vaultPath, manifest) {
+  R.retryJudge = async function (vaultPath, manifest, opts) {
     assertProject(vaultPath);
     const old = manifest.review, s = state();
     if (old.initial.status !== 'awaiting_review' || core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
     const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath, giudice: true });
     const key = giro ? null : window.getSystemKey && window.getSystemKey();
     if ((!key && !giro) || !window.executeJudgePass) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
-    const pages = s._pdfPagine, sources = s.sources, generationSources = s._generationSources;
-    let report;
-    try {
-      s._pdfPagine = old.sources.filter(x => Array.isArray(x.pages));
-      s._generationSources = old.sources;
-      s.sources = old.sources.map(x => Object.assign({}, x, { content: x.content || x.text || '' }));
-      report = await window.executeJudgePass(key, { enabled: true, apply: false }, giro);
+    const report = await withJudgeSources(s, old.sources, async () => {
+      // Packet 0026 (c): il rapporto precedente permette di rifare solo i lotti
+      // falliti per ragioni tecniche, se fonte, contratto e modello coincidono.
+      const result = await window.executeJudgePass(key, { enabled: true, apply: false,
+        rapportoPrecedente: old.initial.report, onProgress: opts && opts.onProgress }, giro);
       assertProject(vaultPath);
       if (core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
-    } finally { s._pdfPagine = pages; s.sources = sources; s._generationSources = generationSources; }
-    const next = core().mergeRetry(old, core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
-      projectId: old.projectId, vaultPath, config: old.config }));
+      return result;
+    });
+    const next = conservaMateriali(old, core().mergeRetry(old, core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
+      projectId: old.projectId, vaultPath, config: old.config })));
     manifest.review = next;
     if (giro) manifest.modelliGiro = giro.riepilogo();
     await R.persistQuality(vaultPath); await R.writeManifest(vaultPath, manifest); cache();
     return next;
+  };
+  /* Sotto quarantena le bozze dei materiali nascono con G1 in attesa: un
+     ricontrollo non le butta (packet 0042). Senza la cucitura, `next` com'è. */
+  function conservaMateriali(old, next) {
+    const A = window.MappAIAffermazioni;
+    return A && A.conservaMateriali ? A.conservaMateriali(old, next) : next;
+  }
+  // A new check captures today's Setup once. The saved generation profile
+  // remains the authority for retryJudge; pipeline.json owns this new report.
+  R.prepareSetupJudge = function (vaultPath, manifest) {
+    if (R.isBusy() || (window.mappaiOccupato && window.mappaiOccupato())) throw new Error(t('rv_busy', 'Attendi il salvataggio in corso.'));
+    const s = state(), old = manifest.review, db = s.db, activeManifest = s._pipelineManifest;
+    const projectId = storage()?.currentProjectId, signature = canonical(old);
+    const assertCurrent = () => {
+      assertProject(vaultPath);
+      if (!old || old.initial?.status !== 'awaiting_review' || state() !== s || s.db !== db ||
+          storage()?.currentProjectId !== projectId || s._pipelineManifest !== activeManifest ||
+          manifest.review !== old || canonical(old) !== signature || core().revision(db, old.sources) !== old.baseRevision) {
+        throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      }
+    };
+    assertCurrent();
+    if (!window.MappAIModelli?.acceso()) throw new Error(t('rv_setup_enable', 'Attiva «Usa un modello per ogni fase» nel Setup AI prima di avviare questo controllo.'));
+    if (!window.executeJudgePass) throw new Error(t('rv_setup_unavailable', 'Il controllo automatico non è disponibile. Riapri l’app e riprova.'));
+    const giro = window.MappAIModelli.avvia({ manifest, vaultPath, giudice: true, nuovaAzione: true });
+    const scelta = giro.fase('giudice');
+    let used = false;
+    return Object.freeze({
+      provider: scelta.provider, model: scelta.model,
+      run: async runOpts => {
+        if (used || committing) throw new Error(t('rv_setup_expired', 'Riapri l’anteprima prima di avviare un altro controllo.'));
+        if (window.mappaiOccupato && window.mappaiOccupato()) throw new Error(t('rv_busy', 'Attendi il salvataggio in corso.'));
+        assertCurrent(); giro.verifica(); used = true; committing = true;
+        const previous = {}, temporary = {
+          _pdfPagine: old.sources.filter(x => Array.isArray(x.pages)),
+          _generationSources: old.sources,
+          sources: old.sources.map(x => Object.assign({}, x, { content: x.content || x.text || '' }))
+        };
+        const aliases = ['_judgeReport', '_giudiceReport'];
+        [...Object.keys(temporary), ...aliases].forEach(k => { previous[k] = { present: own(s, k), value: s[k] }; });
+        const restore = k => { if (previous[k].present) s[k] = previous[k].value; else delete s[k]; };
+        try {
+          let report;
+          try {
+            Object.assign(s, temporary);
+            report = await window.executeJudgePass(null, { enabled: true, apply: false, onProgress: runOpts && runOpts.onProgress }, giro);
+            assertCurrent(); giro.verifica();
+          } finally {
+            Object.keys(temporary).forEach(k => { if (s[k] === temporary[k]) restore(k); });
+            if (s.activeVaultPath === vaultPath && s.db === db) aliases.forEach(restore);
+          }
+          if (!report || typeof report !== 'object') throw new Error(t('rv_setup_no_report', 'Il controllo non ha restituito un rapporto. Il precedente è conservato.'));
+          report = Object.assign({}, clone(report), { quando: new Date().toISOString(), modelliGiro: giro.riepilogo() });
+          const next = conservaMateriali(old, core().mergeRetry(old, core().createReview({ db, sources: old.sources, report,
+            generationId: old.generationId, projectId: old.projectId, vaultPath, config: old.config, now: report.quando })));
+          next.createdAt = old.createdAt;
+          const candidate = Object.assign({}, manifest, { review: next });
+          // One authoritative write: never replace the previous quality file
+          // before the new review has been saved successfully.
+          await R.writeManifest(vaultPath, candidate, assertCurrent);
+          Object.assign(manifest, candidate);
+          s._pipelineManifest = manifest;
+          aliases.forEach(k => { s[k] = next.initial.report; });
+          cache();
+          return next;
+        } finally { committing = false; }
+      }
+    });
   };
   R.retryMaterialJudge = async function (vaultPath, manifest, opts) {
     assertProject(vaultPath);
@@ -295,7 +595,10 @@
       if (!giro) s._reviewAIContext = clone(manifest.config.aiContext || previousContext || { provider: s.aiProvider });
       const apiKey = giro ? null : window.getSystemKey && window.getSystemKey();
       if (!apiKey && !giro) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
-      const material = grounding.buildInput(s.db, s.db.nodes, review.sources, review, { includeOriginalPages: true });
+      // sotto quarantena G2 confronta i materiali con la stessa vista da cui sono nati (packet 0042)
+      const A = window.MappAIAffermazioni, Q = A && A.perMateriali ? A.perMateriali(manifest) : null;
+      const material = Q ? grounding.buildInput(Q.db, Q.db.nodes, review.sources, Q.review, { includeOriginalPages: true })
+        : grounding.buildInput(s.db, s.db.nodes, review.sources, review, { includeOriginalPages: true });
       // Coverage describes the saved drafts. Teacher choices stay separate until
       // approval, so a retry cannot silently replace or rebase those choices.
       report = await (judge.checkRemaining || judge.check)(clone(final.items), { review, apiKey, material,
@@ -315,21 +618,57 @@
     cache();
     return next;
   };
-  R.requireApproved = async function () {
+  /* `opts.quarantena` (packet 0042): con la quarantena accesa la revisione dei
+     contenuti è FACOLTATIVA, e la ripresa della pipeline passa anche senza un
+     record ancora valido — lo calcola lei, e il cancello decide dopo. Lo
+     passano solo `Pipeline.run` (ripresa) e `runApprovedMaterials`; senza
+     l'opzione tutto resta come prima.
+     Giro 5 del 26/09 (F4): la scorciatoia vale SOLO per la pipeline dei
+     materiali, l'unica che genera dalla vista con le frasi in quarantena tolte.
+     Il cancello avvolto consente con `reason: 'quarantine'` anche a chi non
+     passa l'opzione — il «Percorso breve» (mappai-learning-path.js) e ogni
+     altro chiamante —, e lì la mappa arriverebbe com'è, frasi contestate
+     comprese. Senza l'opzione quel consenso non vale: si apre il Banco, come
+     prima della quarantena, finché G1 non è approvata. */
+  // Il menu generale può essere aperto anche su un percorso senza nodi.
+  // Solo l'adattatore del percorso può approvare o ripristinare quel registro.
+  function openReadingProject(vaultPath, manifest) {
+    const s = state(), ptr = manifest?.reading, current = s?._pipelineManifest?.reading;
+    if (s?.extractionMode !== 'lettura' || !vaultPath || vaultPath !== s.activeVaultPath ||
+        manifest?.vaultPath !== vaultPath || ptr?.kind !== 'percorso-lettura' || ptr.extractionMode !== 'lettura' ||
+        !ptr.projectId || ptr.projectId !== storage()?.currentProjectId ||
+        manifest.review?.projectId !== ptr.projectId || manifest.review?.vaultPath !== vaultPath ||
+        !current || ['projectId', 'percorsoId', 'sourceId', 'sourcePath'].some(key => !ptr[key] || current[key] !== ptr[key])) {
+      throw new Error(t('pl_stale', 'Il progetto è cambiato. Riapri il percorso prima di continuare.'));
+    }
+    const runtime = window.MappAIPercorsoLettura;
+    if (typeof runtime?.openCurrent !== 'function') throw new Error(t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+    return runtime.openCurrent();
+  }
+  R.requireApproved = async function (opts) {
     const s = state();
     if (s._reviewLoading || s._reviewRestoring || s._reviewRestoreError || busy || committing) return false;
+    if (s.extractionMode === 'lettura' || s._pipelineManifest?.reading) {
+      await openReadingProject(s.activeVaultPath, s._pipelineManifest);
+      return false; // I consumatori della mappa non possono usare il gate testuale.
+    }
     const review = R.current();
     if (!review) return true; // legacy remains usable; no retrospective approval
     const gate = core().gate(review, s.db, review.sources);
-    if (gate.allowed) return true;
+    const perQuarantena = !!(gate && (gate.quarantine || gate.reason === 'quarantine'));
+    if (gate.allowed && (!perQuarantena || (opts && opts.quarantena))) return true;
+    const A = opts && opts.quarantena ? window.MappAIAffermazioni : null;
+    if (A && A.facoltativa(review)) return true;
     if (review.initial.status === 'approved') {
       // A real content edit needs a fresh review; keep the previous decisions.
-      const manifest = s._pipelineManifest;
+      const manifest = s._pipelineManifest, vaultPath = s.activeVaultPath, db = s.db;
       const previous = clone(review);
       const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath: s.activeVaultPath, giudice: true });
       const key = giro ? null : window.getSystemKey && window.getSystemKey();
       const report = window.executeJudgePass && (giro || key)
-        ? await window.executeJudgePass(key, { enabled: true, apply: false }, giro) : {};
+        ? await withJudgeSources(s, review.sources, () => window.executeJudgePass(key, { enabled: true, apply: false }, giro)) : {};
+      assertProject(vaultPath);
+      if (s.db !== db || s._pipelineManifest !== manifest || manifest.review !== review) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
       if (giro) manifest.modelliGiro = giro.riepilogo();
       manifest.review = core().createReview({ db: s.db, sources: review.sources, report,
         generationId: s._generationId, vaultPath: s.activeVaultPath, config: manifest.config });
@@ -337,21 +676,37 @@
       s._reviewRevision = manifest.review.baseRevision;
       await R.writeManifest(s.activeVaultPath, manifest);
     }
-    R.open(s.activeVaultPath, s._pipelineManifest);
+    /* Trappola 52 anche qui (giro 4 del 26/09, E4): sotto quarantena il Banco
+       chiede il suo piano al motore, perché si può arrivare qui da dentro una
+       console — la pipeline con l'opzione e, dal gate 3 del 27/09, anche chi
+       non la passa: «Crea un documento» da ELABORA apriva il Banco a z 3400
+       sotto la console, e sembrava che la generazione non partisse. Con la
+       quarantena spenta la chiamata è quella di prima; dallo 0074 (punto 11)
+       è `R.open` stesso a chiedere il piano quando una console è aperta. */
+    if (alzaSottoQuarantena()) R.open(s.activeVaultPath, s._pipelineManifest, { alza: true });
+    else R.open(s.activeVaultPath, s._pipelineManifest);
     return false;
   };
+  function alzaSottoQuarantena() {
+    const A = window.MappAIAffermazioni;
+    return !!(A && A.quarantenaAccesa && A.quarantenaAccesa());
+  }
   R.requireStandalone = async function () {
     if (!await R.requireApproved()) return false;
     const s = state(), review = R.current();
     if (!review) return true;
     const final = review.final;
     if (final && final.stage !== 'done') {
+      // gate 3 del 27/09: «Crea un documento» parte da ELABORA, dentro una console
+      const alza = alzaSottoQuarantena();
       if (final.review) {
         if (final.review.initial.status === 'applying') await R.restore(s.activeVaultPath, s._pipelineManifest);
-        R.open(s.activeVaultPath, s._pipelineManifest, { final: true });
+        if (alza) R.open(s.activeVaultPath, s._pipelineManifest, { final: true, alza: true });
+        else R.open(s.activeVaultPath, s._pipelineManifest, { final: true });
       } else {
         if (window.showToast) window.showToast(t('rv_standalone_pending', 'La revisione dei materiali è in corso. Riprendila dal progetto prima di creare nuovi esercizi.'), 'info');
-        await R.openCurrent();
+        if (alza) await R.openCurrent({ alza: true });
+        else await R.openCurrent();
       }
       return false;
     }
@@ -359,9 +714,13 @@
     if (window.MappAIPipeline && window.MappAIPipeline.openModal) window.MappAIPipeline.openModal({ fromApproved: true });
     return false;
   };
-  R.openCurrent = async function () {
+  /* `opts.alza` (giro 7 del 26/09, H11): solo `runApprovedMaterials` sotto
+     quarantena lo passa — il Banco di G2 riaperto da una console chiede il suo
+     piano al motore (inv. 11, trappola 52). Senza, la chiamata di sempre. */
+  R.openCurrent = async function (opts) {
     const s = state();
     if ((window.mappaiOccupato && window.mappaiOccupato()) || R.isBusy() || s._reviewRestoring || s._reviewRestoreError) return;
+    if (s.extractionMode === 'lettura' || s._pipelineManifest?.reading) return openReadingProject(s.activeVaultPath, s._pipelineManifest);
     if (!s.activeVaultPath) {
       if (!s.db.nodes.length || !window.ensureProjectVault) return;
       await window.ensureProjectVault({ reason: 'review' });
@@ -379,7 +738,17 @@
     await R.checkpoint(s.activeVaultPath, manifest);
     if (manifest.review.initial.status === 'applying' || manifest.review.final?.review?.initial.status === 'applying') await R.restore(s.activeVaultPath, manifest);
     const final = manifest.review.final;
-    R.open(s.activeVaultPath, manifest, { final: !!(final && final.review) });
+    /* 0090 (parte B; Giacomo 12/10: «riporti sempre a ELABORA indipendentemente da dove sia stato lanciato»):
+       «Salva e continua più tardi» ed ESC aprono ELABORA sul progetto (`dopoChiusura`); «Continua» porta
+       `aElabora` alla pipeline, che a materiali nati apre ELABORA prima del riepilogo. La strada è quella di
+       B14 (`MappAIPipeline.tornaInElabora`). Interruttore `mappai_elabora_attesa` ('0' = come prima). */
+    const versoElabora = (() => {
+      try { const C = window.MappAIMaterialiAttesaCore; return !!(C && C.acceso(window.localStorage) && window.MappAIPipeline && window.MappAIPipeline.tornaInElabora); }
+      catch (e) { return false; }
+    })();
+    const extra = versoElabora ? { dopoChiusura: () => window.MappAIPipeline.tornaInElabora(), continua: { aElabora: true } } : {};
+    if (opts && opts.alza) R.open(s.activeVaultPath, manifest, Object.assign({ final: !!(final && final.review), alza: true }, extra));
+    else R.open(s.activeVaultPath, manifest, Object.assign({ final: !!(final && final.review) }, extra));
   };
   R.finishMapOnly = async function (giro) {
     if ((!R.enabled() && !giro) || !state().db.nodes.length) return;
@@ -559,11 +928,25 @@
   }
   R.open = function (vaultPath, manifest, options) {
     options = options || {};
+    const reading = options[READING] || null;
+    if (!reading && (manifest?.reading || state().extractionMode === 'lettura')) {
+      if (busy || committing) return;
+      return openReadingProject(vaultPath, manifest);
+    }
+    const readingSource = !!reading && !reading.final;
     const isFinal = !!options.final;
+    const currentDb = () => reading ? reading.db() : isFinal ? { items: manifest.review.final.items } : state().db;
+    const hasResume = () => !!options.onContinue || (!reading && pendingOutputs(manifest));
+    const approve = manualReview => reading
+      ? R.approveReading(vaultPath, manifest, reading.options, { manualReview })
+      : R.approve(vaultPath, manifest, { final: isFinal, manualReview });
     const getReview = () => isFinal ? manifest.review.final.review : manifest.review;
     if (!getReview() || busy || committing) return;
     function checkMessage() {
       const initial = getReview().initial, report = initial.report || {};
+      if (readingSource) return initial.status === 'approved'
+        ? t('rv_reading_confirmed', 'Fonte verificata dal docente. Il controllo automatico non è stato eseguito.')
+        : t('rv_reading_manual', 'Confronta il testo ricomposto con la fonte originale. Il controllo automatico non è stato eseguito.');
       if (initial.checkStatus === 'completed') return t('rv_check_completed', 'Controllo automatico completato.');
       const checked = report.copertura?.nodiEsaminati?.length || report.copertura?.linkEsaminati?.length || report.coverage?.checkedIds?.length;
       return checked ? t('rv_check_partial', 'Controllo automatico eseguito: alcune parti restano da verificare.') :
@@ -571,19 +954,39 @@
     }
     const old = document.getElementById('mappai-teacher-review'); if (old) old.remove();
     const previousFocus = document.activeElement;
-    const referenceOptions = { sourceLabel: t('rv_source', 'Fonte'), unknownLabel: t('rv_reference_unknown', 'Fonte da verificare') };
+    /* 0069 (ADR 0016): quando la fonte della revisione È la scheda di un dossier, il
+       linguaggio dice il vero — il riscontro è nella scheda, e un rimando apre un
+       suo blocco. Decide il dato (le fonti salvate), non l'interruttore. */
+    const DFc = window.MappAIDossierFonteCore;
+    const fonteScheda = !!(DFc && DFc.eFonteScheda(manifest.review && manifest.review.sources));
+    const referenceOptions = fonteScheda
+      ? { sourceLabel: t('rv_scheda_rimando', 'Scheda'), unknownLabel: t('rv_scheda_da_verificare', 'Scheda da verificare') }
+      : { sourceLabel: t('rv_source', 'Fonte'), unknownLabel: t('rv_reference_unknown', 'Fonte da verificare') };
     const registry = (getReview().baseSnapshot.items || []).flatMap(item => item.citations || [])
       .concat(getReview().initial.issues.flatMap(issue => issue.citationAdditions || []));
-    function referenceView(value) {
+    function referenceView(value, item) {
       const grounding = window.MappAIGroundingCore;
-      return grounding && grounding.referenceView ? grounding.referenceView(String(value), registry, referenceOptions) : { text: String(value), mapping: [] };
+      const vista = grounding && grounding.referenceView ? grounding.referenceView(String(value), registry, referenceOptions) : { text: String(value), mapping: [] };
+      /* 0069, giro 10: sulla scheda il rimando dice il BLOCCO («[Che cosa si vede]»),
+         non un numero; per un PDF la vista è quella del grounding, intatta */
+      /* 0069, giro 15: anche le note `[n]` dell'item (la Sintesi) dicono il blocco;
+         i numeri sono dell'item, quindi servono le SUE citazioni. Solo resa: `note`
+         viaggia con la vista e `restoreReferences` rimette i numeri.
+         Giro 16: le note PRIMA dei rimandi, così un rimando aggiunto da una
+         proposta non rinomina le note che c'erano (il confronto non segna frasi
+         intatte); i rimandi poi saltano i nomi già presi dalle note */
+      const pre = fonteScheda && item && DFc && typeof DFc.noteConNome === 'function' ? DFc.noteConNome(vista.text, item.citations, []) : null;
+      const base = pre && pre.note.length ? Object.assign({}, vista, { text: pre.text }) : vista;
+      const nomi = fonteScheda && DFc && typeof DFc.rimandiConNome === 'function' ? DFc.rimandiConNome(base) : base;
+      return pre && pre.note.length ? Object.assign({}, nomi, { note: pre.note }) : nomi;
     }
     function restoreReferences(value, view) {
-      return window.MappAIGroundingCore?.restoreReferenceIds ? window.MappAIGroundingCore.restoreReferenceIds(value, view.mapping) : value;
+      const ids = window.MappAIGroundingCore?.restoreReferenceIds ? window.MappAIGroundingCore.restoreReferenceIds(value, view.mapping) : value;
+      return view && view.note && DFc && typeof DFc.ripristinaNote === 'function' ? DFc.ripristinaNote(ids, view.note) : ids;
     }
-    const displayValue = (value, target, item) => referenceView(readable(value, target, item)).text;
+    const displayValue = (value, target, item) => referenceView(readable(value, target, item), item).text;
     const palette = typeof colorScale !== 'undefined' ? colorScale : window.colorScale || {};
-    const contextIndex = window.MappAIReviewContext?.createIndex(state().db, manifest.review?.drafts || {}, palette);
+    const contextIndex = window.MappAIReviewContext?.createIndex(reading ? { nodes: [] } : state().db, manifest.review?.drafts || {}, palette);
     const contextFor = issue => contextIndex ? contextIndex.describe(issue, getReview()) :
       { areas: [], materialKind: itemFor(issue, getReview())?.kind || '', scope: 'unknown' };
     const kindLabels = { mc: t('rv_context_mc', 'Quiz MC'), open: t('rv_context_open', 'Domanda aperta'),
@@ -598,7 +1001,7 @@
     const reasonFor = issue => issue.origin === 'teacher' ? 'teacher' : own(reasonLabels, issue.type) ? issue.type : 'semantic';
     function areaRows(context) {
       return context.areas.length ? context.areas : [{ id: context.scope === 'overview' ? '_overview' : '_unknown',
-        label: context.scope === 'overview' ? t('rv_context_overview', 'Trasversale') : t('rv_context_unknown', 'Area non disponibile'), color: null }];
+        label: reading ? t('rv_reading_text', 'Testo di riferimento') : context.scope === 'overview' ? t('rv_context_overview', 'Trasversale') : t('rv_context_unknown', 'Area non disponibile'), color: null }];
     }
     function chips(group, compact) {
       const contexts = group.map(contextFor), areas = new Map(), kinds = new Map();
@@ -624,6 +1027,24 @@
        sta in mappai-review-fonte.js. Kill-switch: localStorage
        `mappai_revisione_banco` = '0' → il modale di prima. */
     const banco = !!window.MappAIReviewFonte && (() => { try { return localStorage.getItem('mappai_revisione_banco') !== '0'; } catch (e) { return true; } })();
+    /* LA VESTE DEL BANCO (packet 0073 per G2, 0075 per G1; ADR 0012 revisioni 3-6): in G2 barra per materiale,
+       una scheda scrivibile sul posto, un bottone solo; in G1 barra per nodo, una scheda per nodo con le note sopra
+       il campo, la chiusura nel piede. ⌘Z del Banco in tutte e due. Solo nel Banco; interruttore
+       `mappai_banco_veste`, acceso se la chiave manca dal packet 0089 (ADR 0020); '0' lo spegne: questo modale, byte per byte. */
+    const vesteAccesa = !readingSource && banco && !!window.MappAIBancoVeste && !!window.MappAIBancoCore &&
+      (() => { try { return localStorage.getItem('mappai_banco_veste') !== '0'; } catch (e) { return true; } })();
+    let veste = null;
+    /* B10 (0088): in G2, quando la quarantena rende G1 FACOLTATIVA e G1 è ancora in attesa, «1 Contenuti» in
+       testata diventa un bottone che porta a G1. Prima era solo un indicatore, e l'unica strada a G1 era
+       «Rivedi i contenuti» nel riepilogo di «Genera materiali», che compare una volta sola. In tutti gli altri
+       casi (G1 approvata o aperta, quarantena spenta, lettura) il passo resta com'è. */
+    const contenutiRiapribili = isFinal && !reading && (() => {
+      try {
+        const A = window.MappAIAffermazioni;
+        return !!(A && typeof A.facoltativa === 'function' && manifest.review && A.facoltativa(manifest.review) &&
+          manifest.review.initial && manifest.review.initial.status === 'awaiting_review');
+      } catch (e) { return false; }
+    })();
     const modal = document.createElement('div');
     modal.id = 'mappai-teacher-review';
     modal.className = 'fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[3400] flex items-center justify-center p-4' + (banco ? ' mrv-banco' : '');
@@ -632,10 +1053,15 @@
     modal.innerHTML = '<div class="mrv-dashboard">' +
       /* Nella pelle del Banco la testata è solo titolo e fasi: il nome del progetto e
          la frase di spiegazione occupavano due righe (Giacomo, 16/9). */
-      '<header class="mrv-header"><div class="mrv-heading">' + (banco ? '' : '<p class="mrv-eyebrow">' + esc(project) + '</p>') + '<h2 id="mrv-title" class="pm-title" tabindex="-1">' + esc(isFinal ? t('rv_final_title', 'Rivedi i materiali') : t('rv_title', 'Rivedi i contenuti prima di creare i materiali')) +
-      '</h2>' + (banco ? '' : '<p class="pm-subtitle">' + esc(isFinal ? t('rv_dashboard_material_purpose', 'Verifica domande e risposte prima di consegnarle agli studenti. Le tue scelte aggiornano i materiali finali.') : t('rv_dashboard_map_purpose', 'Verifica i concetti di partenza. Le tue scelte guideranno la creazione dei materiali differenziati.')) + '</p>') +
+      '<header class="mrv-header"><div class="mrv-heading">' + (banco ? '' : '<p class="mrv-eyebrow">' + esc(project) + '</p>') + '<h2 id="mrv-title" class="pm-title" tabindex="-1">' + esc(readingSource ? t('rv_reading_title', 'Verifica il testo di partenza') : isFinal ? t('rv_final_title', 'Rivedi i materiali') : t('rv_title', 'Revisione pre-materiali')) +
+      '</h2>' + (banco ? '' : '<p class="pm-subtitle">' + esc(readingSource ? t('rv_reading_manual', 'Confronta il testo ricomposto con la fonte originale. Il controllo automatico non è stato eseguito.') : isFinal ? t('rv_dashboard_material_purpose', 'Verifica domande e risposte prima di consegnarle agli studenti. Le tue scelte aggiornano i materiali finali.') : t('rv_dashboard_map_purpose', 'Verifica i concetti di partenza. Le tue scelte guideranno la creazione dei materiali differenziati.')) + '</p>') +
       '</div><ol class="mrv-stages" aria-label="' + esc(t('rv_dashboard_stages', 'Fasi del lavoro')) + '">' +
-      [t('rv_dashboard_contents', 'Contenuti'), t('rv_dashboard_materials', 'Materiali'), t('rv_dashboard_ready', 'Pronti da usare')].map((label, i) => '<li' + (i === (isFinal ? 1 : 0) ? ' aria-current="step"' : '') + '><span>' + (i + 1) + '</span>' + esc(label) + '</li>').join('') + '</ol></header>' +
+      /* Due fasi: via «Pronti da usare» e il suo pallino 3 (Giacomo, 25/9). */
+      [t('rv_dashboard_contents', 'Contenuti'), t('rv_dashboard_materials', 'Materiali')].map((label, i) => '<li' + (i === (isFinal ? 1 : 0) ? ' aria-current="step"' : '') + '>' +
+        (i === 0 && contenutiRiapribili
+          ? '<button type="button" id="mrv-step-contenuti" class="mrv-stage-btn" aria-label="' + esc(t('rv_dashboard_contents_back', 'Torna a rivedere i contenuti. Le correzioni valgono per i materiali che generi dopo.')) +
+            '" title="' + esc(t('rv_dashboard_contents_back', 'Torna a rivedere i contenuti. Le correzioni valgono per i materiali che generi dopo.')) + '"><span>' + (i + 1) + '</span>' + esc(label) + '</button>'
+          : '<span>' + (i + 1) + '</span>' + esc(label)) + '</li>').join('') + '</ol></header>' +
       '<div class="mrv-overview"><div><strong id="mrv-progress-label"></strong><p id="mrv-filter-count" aria-live="polite"></p></div><progress id="mrv-progress" max="100" value="0" aria-label="' + esc(t('rv_dashboard_progress', 'Avanzamento delle decisioni')) + '"></progress><p id="mrv-status" role="status" aria-live="polite"></p><button type="button" id="mrv-save-retry" hidden class="pm-btn-cancel">' + esc(t('rv_save_retry', 'Riprova il salvataggio')) + '</button></div>' +
       '<div class="mrv-workspace"><aside class="mrv-sidebar" id="mrv-sidebar" data-expanded="false" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"><button type="button" id="mrv-toggle-list" class="pm-btn-cancel" aria-expanded="false" aria-controls="mrv-list">' + esc(t('rv_dashboard_show_list', 'Elenco e ricerca')) + '</button><div id="mrv-list"><div id="mrv-filters" role="group" aria-label="' + esc(t('rv_filter_label', 'Mostra le decisioni')) + '"></div>' +
       '<label class="mrv-search-label" for="mrv-search">' + esc(t('rv_dashboard_search', 'Cerca nelle segnalazioni')) + '</label><input id="mrv-search" type="search" placeholder="' + esc(t('rv_dashboard_search_hint', 'Concetto, domanda o problema…')) + '">' +
@@ -644,8 +1070,14 @@
       '<p id="mrv-queue-count" aria-live="polite"></p><nav id="mrv-queue" aria-label="' + esc(t('rv_dashboard_queue', 'Elenco delle segnalazioni')) + '"></nav>' +
       '</div><details class="mrv-coverage" id="mrv-coverage-options"><summary>' + esc(t('rv_dashboard_coverage', 'Copertura del controllo')) + ' · <span id="mrv-coverage-label"></span></summary><p id="mrv-coverage-status"></p><div id="mrv-coverage-details"></div><div id="mrv-manual"></div></details></aside>' +
       (banco ? '<button type="button" class="mrv-maniglia" id="mrv-maniglia" aria-controls="mrv-sidebar" aria-expanded="true" title="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '" aria-label="' + esc(t('rv_nav_hide', 'Nascondi elenco e controlli')) + '"><i data-lucide="panel-right-close" aria-hidden="true"></i></button>' : '') +
-      '<div class="mrv-detail">' + (banco ? '<div class="mrv-colonne"><section class="mrv-fonte" id="mrv-fonte"></section><div class="mrv-carte">' : '') +
-      (isFinal ? '<div id="mrv-occurrences-host"></div>' : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '">' +
+      /* 0074 (ADR 0012 rev. 3, p. 5): con la veste la Fonte sta a DESTRA della scheda, anche nel DOM (il Tab passa
+         dalla scheda alla Fonte); senza, a sinistra come sempre. */
+      '<div class="mrv-detail">' + (banco ? '<div class="mrv-colonne">' + (vesteAccesa ? '' : '<section class="mrv-fonte" id="mrv-fonte"></section>') + '<div class="mrv-carte">' : '') +
+      /* 0074, punto 10 (F7, F8): con la veste, fra il pannello delle occorrenze e ciò che sta sotto, il divisore che lo
+         regola; nasce nascosto (il pannello parte chiuso) e lo governa `seguiOccorrenze`, qui sotto. */
+      (isFinal ? '<div id="mrv-occurrences-host"></div>' + (vesteAccesa ? '<div class="mrv-occ-divisore" id="mrv-occorrenze-divisore" role="separator" aria-orientation="horizontal" aria-controls="mrv-occurrences-host" aria-valuemin="0" aria-valuemax="75" tabindex="0" hidden' +
+        ' title="' + esc(t('rv_occurrences_split', 'Sposta il confine fra occorrenze e materiali; in alto, al 15% o meno, le occorrenze si chiudono')) +
+        '" aria-label="' + esc(t('rv_occurrences_split', 'Sposta il confine fra occorrenze e materiali; in alto, al 15% o meno, le occorrenze si chiudono')) + '"></div>' : '') : '') + '<nav id="mrv-detail-nav" aria-label="' + esc(t('rv_dashboard_navigation', 'Navigazione tra le segnalazioni')) + '">' +
       /* Nella pelle del Banco una riga sola (Giacomo, 16/9): chevron Lucide al posto di
          «Precedente/Successiva», «Occorrenze» al posto della riga «Trova le occorrenze
          nei materiali», Aa. Gli id restano quelli: i gesti e i test non cambiano. */
@@ -657,11 +1089,48 @@
           '<button type="button" id="mrv-testo" class="pm-btn-cancel">Aa x1</button>'
         : '<button type="button" id="mrv-prev" class="pm-btn-cancel">' + esc(t('rv_dashboard_prev', 'Precedente')) + '</button><span id="mrv-position" aria-live="polite"></span>' +
           '<button type="button" id="mrv-next" class="pm-btn-cancel">' + esc(t('rv_dashboard_next', 'Successiva')) + '</button>') +
-      '</nav><div id="mrv-content"></div>' + (banco ? '</div></div>' : '') + '</div></div>' +
+      '</nav><div id="mrv-content"></div>' + (banco ? '</div>' + (vesteAccesa ? '<section class="mrv-fonte" id="mrv-fonte"></section>' : '') + '</div>' : '') + '</div></div>' +
       '<footer class="mrv-footer"><p id="mrv-next-step"></p><div class="mrv-footer-actions">' +
       '<button type="button" class="pm-btn-cancel" id="mrv-later">' + esc(t('rv_later', 'Salva e continua più tardi')) + '</button>' +
       '<button type="button" class="pm-btn-primary" id="mrv-continue"></button></div></footer></div>';
     document.body.appendChild(modal);
+    /* Invariante 11: il Banco chiede il suo piano al motore quando c'è qualcosa da coprire. `options.alza` lo
+       passano il riepilogo dei materiali (sopra una console) e, sotto quarantena, la pipeline quando apre il Banco
+       di G2 (giro 3, D5) o ricade sul cancello di oggi aprendo quello di G1 (giro 4, E4).
+       0074, punto 11 (F9, Giacomo 06/10: «Sì, sempre»): lo chiede anche ogni volta che una finestra del motore è
+       aperta (`MappAIModal.aperti > 0`: le console ELABORA, INSEGNA, Cabina), a veste accesa e spenta, con la
+       quarantena accesa e spenta — così ogni chiamante (`checkResume`, «Riprendi», «Crea un documento» da ELABORA)
+       apre il Banco sopra la console senza passare l'opzione. Senza finestre del motore aperte resta a z-[3400]:
+       non c'è niente da coprire. Una richiesta sola anche con `alza` e una console aperta. */
+    const sopraUnaConsole = () => { try { return !!(window.MappAIModal && window.MappAIModal.aperti > 0); } catch (e) { return false; } };
+    if (options.alza || sopraUnaConsole()) { try { if (window.MappAIModal && window.MappAIModal.prossimoZ) modal.style.zIndex = String(window.MappAIModal.prossimoZ()); } catch (e) { /* resta z-[3400] */ } }
+    /* LO STRATO DELLE AFFERMAZIONI (packet 0042): null con gli interruttori
+       spenti e in G2 — allora il Banco è quello di sempre, byte per byte. */
+    let strato = null;
+    try {
+      const UIA = window.MappAIAffermazioniUI;
+      strato = !reading && UIA && UIA.per ? UIA.per({ manifest, isFinal, getReview, db: () => state().db,
+        vaiA: issueId => {
+          if (veste) return veste.vaiANota(issueId);   // 0075: con la veste si apre la riga che contiene la segnalazione
+          // come «Rivedi l’altra decisione»: si allargano i filtri solo se la voce non si vedrebbe
+          if (!visibleGroups.some(g => g.some(i => i.id === issueId))) {
+            activeFilter = 'all'; search = ''; modal.querySelector('#mrv-search').value = '';
+            Object.keys(facets).forEach(key => { facets[key] = ''; });
+          }
+          return navigate(issueId);
+        },
+        mostraFonte: prove => {
+          if (!fonte) return;
+          const passi = fonte.mostra(prove);
+          /* 0075 (§4.11): con la veste la Fonte che si era chiusa da sola (F1) si riapre sulle prove che lo strato mostra.
+             Giro 2 (D5): solo se la Fonte le ha trovate; con zero passi la Fonte resta com'era, aperta o chiusa */
+          if (veste && seguiFonte && typeof passi === 'number' && passi > 0) seguiFonte('\u0000strato', passi);
+        },
+        // 0075 (Q1): con la veste «Correggi il nodo vicino» apre la scheda del nodo, anche fuori elenco; senza, falso e
+        // lo strato fa come prima (il riquadro «Correggi anche un nodo non segnalato»)
+        correggiNodo: nodeId => !!veste && veste.correggiNodo(nodeId) }) : null;
+    } catch (e) { strato = null; console.warn('[Revisione] strato delle affermazioni non disponibile:', e); }
+    const statoDaDecidere = (group, ripiego) => (strato && strato.stato(group)) || ripiego;
     const content = modal.querySelector('#mrv-content'), status = modal.querySelector('#mrv-status');
     const proceed = modal.querySelector('#mrv-continue'), retrySave = modal.querySelector('#mrv-save-retry');
     let pendingSave = Promise.resolve(), saveError = null, manualConfirmed = false, closed = false;
@@ -669,30 +1138,87 @@
        lo alza `invalidateManualCheck`, lo consuma e lo azzera `save`. */
     let approvazioneDecaduta = false;
     const invalidEditors = new Set();
-    /* Il PDF della fonte si legge da `Allegati/` del vault, dove la generazione
-       lo salva col suo titolo. Nessun PDF → il pannello mostra il testo archiviato. */
-    let allegati = null;
-    async function leggiPdfDaAllegati(titolo) {
-      const api = window.electronAPI;
-      if (!api || !api.vaultMaterialsList || !api.readVaultFile) return null;
-      if (!allegati) allegati = Promise.resolve(api.vaultMaterialsList({ vaultPath, dir: 'Allegati' }))
-        .then(r => (r && r.ok !== false && Array.isArray(r.files) ? r.files.map(f => f && f.name).filter(Boolean) : [])).catch(() => []);
-      const nome = window.MappAIReviewFonte.trovaPdf(titolo, await allegati);
-      if (!nome) return null;
-      const letto = await api.readVaultFile({ vaultPath, relPath: 'Allegati/' + nome });
+    /* Il PDF della fonte si legge dal vault, col suo titolo: prima da `Fonti/`,
+       dove lo scrive la generazione dallo 0059, poi da `Allegati/`, dove stava
+       nei vault di prima (e dove resta la copia per l'allievo). Quale dei due
+       file lo decide `MappAIFontiCore.pdfPerTitolo` (B2, «per nome»): la stessa
+       regola di ELABORA. Nessun PDF → il pannello mostra il testo archiviato.
+       Di `Allegati/` si usa solo il nome: il `relPath` che dà l'elenco dice
+       «Materiale Studio/» (main.js:1267). */
+    let elenchiPdf = null;
+    async function leggiPdfDellaFonte(titolo) {
+      const api = window.electronAPI, FO = window.MappAIFontiCore, trova = window.MappAIReviewFonte.trovaPdf;
+      if (!api || !api.readVaultFile) return null;
+      const nomi = r => (r && r.ok !== false && Array.isArray(r.files) ? r.files.map(f => f && f.name).filter(Boolean) : []);
+      if (!elenchiPdf) elenchiPdf = Promise.all([
+        Promise.resolve().then(() => api.vaultSourcesList ? api.vaultSourcesList({ vaultPath }) : null).then(nomi).catch(() => []),
+        Promise.resolve().then(() => api.vaultMaterialsList ? api.vaultMaterialsList({ vaultPath, dir: 'Allegati' }) : null).then(nomi).catch(() => [])
+      ]).then(([fonti, allegati]) => ({ fonti, allegati }));
+      const elenchi = await elenchiPdf;
+      /* senza il core, come prima dello 0059: solo `Allegati/` */
+      const rel = FO ? FO.pdfPerTitolo(titolo, elenchi, trova) : (n => (n ? 'Allegati/' + n : null))(trova(titolo, elenchi.allegati));
+      if (!rel) return null;
+      const letto = await api.readVaultFile({ vaultPath, relPath: rel });
       if (!letto || !letto.ok || !letto.base64) return null;
       const bin = atob(letto.base64), bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       return bytes;
     }
+    /* La foto di un dossier (0069): quella piena in `Allegati/`, dove la copia la
+       pipeline col nome del titolo (la stessa ricerca di Proietta, che legge
+       `Allegati/` e ripiega sulla scheda); se non c'è — i dossier di prima dello
+       0067 — quella da 900 px che la scheda porta con sé. Mai un errore. */
+    async function leggiFotoDelDossier() {
+      const api = window.electronAPI, dossier = (manifest.config && manifest.config.dossier) || {};
+      const dallaScheda = () => dossier.fotoB64 ? { src: 'data:' + (dossier.mime || 'image/jpeg') + ';base64,' + dossier.fotoB64 } : null;
+      if (!api || !api.vaultMaterialsList || !api.readVaultFile) return dallaScheda();
+      try {
+        const elenco = await api.vaultMaterialsList({ vaultPath, dir: 'Allegati' });
+        const nomi = (elenco && elenco.ok !== false && Array.isArray(elenco.files) ? elenco.files : []).map(f => f && f.name).filter(Boolean);
+        const nome = window.MappAIReviewFonte.trovaFoto(nomi, dossier.titolo || '');
+        if (!nome) return dallaScheda();
+        const letto = await api.readVaultFile({ vaultPath, relPath: 'Allegati/' + nome });
+        if (!letto || !letto.ok || !letto.base64) return dallaScheda();
+        const mime = /\.png$/i.test(nome) ? 'image/png' : /\.webp$/i.test(nome) ? 'image/webp' : /\.gif$/i.test(nome) ? 'image/gif' : 'image/jpeg';
+        return { src: 'data:' + mime + ';base64,' + letto.base64 };
+      } catch (e) { return dallaScheda(); }
+    }
     let fonte = null;
+    /* 0074, F1: con la veste la Fonte segue la scheda e si chiude da sola sul materiale senza passi. La veste
+       dice quante prove hanno trovato una pagina; chi decide aprire e chiudere è il divisore, qui sotto. */
+    let seguiFonte = null;
+    /* 0074, punto 10: con la veste, `renderOccurrences` lo chiama dopo ogni disegno del pannello (divisore e altezza) */
+    let seguiOccorrenze = null;
     if (banco) {
       /* Una riga sola per titolo, avanzamento e fasi (Giacomo, 16/9: «estendi
          orizzontalmente per salvare spazio verticale»). Si sposta il blocco
          dell'avanzamento dentro la testata: gli id restano quelli. */
       const testata = modal.querySelector('.mrv-header'), avanzamento = modal.querySelector('.mrv-overview');
       if (testata && avanzamento && testata.insertBefore) testata.insertBefore(avanzamento, testata.querySelector('.mrv-stages'));
-      try { fonte = window.MappAIReviewFonte.monta(modal.querySelector('#mrv-fonte'), { sources: getReview().sources || [], t, leggiPdf: leggiPdfDaAllegati }); }
+      /* La testata ha un'altezza fissa (Giacomo, 25/9): un testo che non ci sta si accorcia
+         con «…» (mappai-review-dashboard.css) e, solo se accorciato, si legge intero passandoci
+         sopra col mouse. Lo stato resta intero per i lettori di schermo (aria-live). */
+      if (testata && testata.addEventListener) testata.addEventListener('mouseover', e => {
+        const el = e.target && e.target.closest && e.target.closest('#mrv-title, #mrv-progress-label, #mrv-status');
+        if (el) el.title = el.scrollWidth > el.clientWidth ? el.textContent : '';
+      });
+      /* 0069: per un dossier da immagine (interruttore acceso) il pannello mostra la
+         foto analizzata e i blocchi della scheda; per un dossier generato prima la
+         scheda si legge lo stesso, senza agganciare i rimandi (`fontiDelPannello`). */
+      let pannello = { sources: getReview().sources || [], immagine: false };
+      try {
+        if (DFc) pannello = DFc.fontiDelPannello({ sources: getReview().sources || [], dossier: manifest.config && manifest.config.dossier,
+          acceso: DFc.acceso(window.localStorage) });
+      } catch (e) { console.warn('[Revisione] scheda del dossier non leggibile:', e); }
+      try {
+        fonte = window.MappAIReviewFonte.monta(modal.querySelector('#mrv-fonte'), Object.assign({ sources: pannello.sources, t, leggiPdf: leggiPdfDellaFonte },
+          pannello.immagine ? { immagine: leggiFotoDelDossier,
+            etichette: { titolo: t('rv_scheda_pannello', 'Immagine e scheda'), testo: t('rv_scheda_testo', 'Testo della scheda') } } : {},
+          /* 0074, solo con la veste: il testo della pagina sempre aperto (F2), solo le citazioni si cercano nella
+             fonte (F4), e al posto della pagina la frase di F1 */
+          vesteAccesa ? { testoAperto: true, soloCitazioni: true,
+            vuoto: t('rv_fonte_senza_passi', 'Nessun passo nella fonte per questo materiale') + '. ' + t('rv_fonte_scegli_pagina', 'Scegli una pagina dall’elenco.') } : {}));
+      }
       catch (e) { fonte = null; console.warn('[Revisione] pannello della fonte non disponibile:', e); }
       const maniglia = modal.querySelector('#mrv-maniglia');
       if (maniglia) maniglia.onclick = () => {
@@ -706,11 +1232,20 @@
          dell'area la fonte si chiude e resta una linguetta verde sul bordo sinistro, da
          trascinare o cliccare per riaprirla. Frazione e stato restano ricordati
          (mappai_revisione_fonte). Frecce ← → per spostarlo, Invio per chiudere/aprire.
-         Sotto i 900px le colonne sono impilate e il divisore non si vede (CSS). */
+         Sotto i 900px le colonne sono impilate e il divisore non si vede (CSS).
+         0074 (ADR 0012 rev. 3, p. 5): con la veste la Fonte sta a DESTRA e il divisore si specchia —
+         la Fonte è la distanza dal bordo destro, oltre quel bordo si chiude e la linguetta resta lì,
+         ← la allarga e → la stringe; stessi minimi, stessa preferenza. E segue la scheda (F1, «vince il
+         tuo gesto»): chiusa a mano resta chiusa; altrimenti si chiude da sola sul materiale senza passi
+         nella fonte e lo dice sulla linguetta. Quella chiusura NON è una preferenza: sta in `auto`, fuori
+         da `stato`, e non si salva. Riaperta a mano su un materiale senza passi resta aperta finché si
+         resta su quel materiale. Con la foto come fonte (0069) non si chiude mai da sola. */
       const colonne = modal.querySelector('.mrv-colonne'), fonteEl = modal.querySelector('#mrv-fonte');
       if (colonne && fonteEl) {
         const CHIAVE = 'mappai_revisione_fonte', MIN_FONTE = 280, MIN_CARTE = 360, SOGLIA = 0.1;
         const stato = { frazione: 0.5, chiusa: false };
+        const aDestra = vesteAccesa, conFoto = !!pannello.immagine;
+        let auto = false, senzaPassi = false, apertaQui = false, materiale;
         try { const letto = JSON.parse(localStorage.getItem(CHIAVE) || '{}'); if (letto.frazione > 0 && letto.frazione < 1) stato.frazione = letto.frazione; stato.chiusa = !!letto.chiusa; } catch (e) { /* valori predefiniti */ }
         const divisore = document.createElement('div');
         divisore.className = 'mrv-divisore'; divisore.tabIndex = 0;
@@ -719,55 +1254,165 @@
         colonne.appendChild(divisore);
         const limita = f => { const W = colonne.clientWidth || 0; if (W < MIN_FONTE + MIN_CARTE) return f; return Math.min(Math.max(f, MIN_FONTE / W), 1 - MIN_CARTE / W); };   // area nascosta o stretta: nessun limite in px
         const salva = () => { try { localStorage.setItem(CHIAVE, JSON.stringify(stato)); } catch (e) { /* resta per questa apertura */ } };
+        const chiusa = () => stato.chiusa || auto;
+        // un gesto del docente che apre: vince sulla chiusura automatica finché si resta sul materiale aperto
+        const apriDalDocente = () => { stato.chiusa = false; auto = false; apertaQui = true; };
         const applica = () => {
-          colonne.classList.toggle('is-fonte-chiusa', stato.chiusa);
-          colonne.style.setProperty('--mrv-fonte-w', stato.chiusa ? '0%' : (limita(stato.frazione) * 100).toFixed(2) + '%');
-          fonteEl.inert = stato.chiusa;
-          const etichetta = stato.chiusa ? t('rv_split_open', 'Riapri la fonte: trascina o fai clic') : t('rv_split_move', 'Sposta il confine fra fonte e schede; oltre il bordo sinistro la fonte si chiude');
+          const c = chiusa();
+          colonne.classList.toggle('is-fonte-chiusa', c);
+          colonne.style.setProperty('--mrv-fonte-w', c ? '0%' : (limita(stato.frazione) * 100).toFixed(2) + '%');
+          fonteEl.inert = c;
+          const etichetta = c ? (senzaPassi ? t('rv_fonte_senza_passi', 'Nessun passo nella fonte per questo materiale') + '. ' : '') + t('rv_split_open', 'Riapri la fonte: trascina o fai clic')
+            : aDestra ? t('rv_split_move_destra', 'Sposta il confine fra schede e fonte; oltre il bordo destro la fonte si chiude')
+              : t('rv_split_move', 'Sposta il confine fra fonte e schede; oltre il bordo sinistro la fonte si chiude');
           divisore.title = etichetta; divisore.setAttribute('aria-label', etichetta);
-          divisore.setAttribute('aria-valuenow', String(stato.chiusa ? 0 : Math.round(limita(stato.frazione) * 100)));
+          divisore.setAttribute('aria-valuenow', String(c ? 0 : Math.round(limita(stato.frazione) * 100)));
         };
         let presa = null;
         divisore.addEventListener('pointerdown', e => {
           if (e.button !== 0) return;
           e.preventDefault();
-          presa = { x: e.clientX, mosso: false, chiude: false, id: e.pointerId, frazione: stato.frazione, chiusa: stato.chiusa };
+          // `auto`: la presa comincia sulla linguetta di una Fonte chiusa da sola; `aperta`: il trascinamento l'ha aperta
+          presa = { x: e.clientX, mosso: false, chiude: false, id: e.pointerId, frazione: stato.frazione, chiusa: stato.chiusa, auto, aperta: false };
           divisore.setPointerCapture(e.pointerId); colonne.classList.add('is-trascinando');
         });
         divisore.addEventListener('pointermove', e => {
           if (!presa || presa.id !== e.pointerId) return;
           if (Math.abs(e.clientX - presa.x) > 3) presa.mosso = true;
           if (!presa.mosso) return;
-          const b = colonne.getBoundingClientRect(), x = e.clientX - b.left;
+          const b = colonne.getBoundingClientRect(), x = aDestra ? b.left + b.width - e.clientX : e.clientX - b.left;
           presa.chiude = x < b.width * SOGLIA;
           colonne.classList.toggle('sta-chiudendo', presa.chiude);
-          if (!presa.chiude) { stato.chiusa = false; stato.frazione = x / b.width; applica(); }
+          if (!presa.chiude) { presa.aperta = true; apriDalDocente(); stato.frazione = x / b.width; applica(); }
         });
         const lascia = () => {
           if (!presa) return;
           const p = presa; presa = null;
           colonne.classList.remove('is-trascinando', 'sta-chiudendo');
-          if (!p.mosso) { if (stato.chiusa) stato.chiusa = false; else return; }   // clic: riapre la linguetta, sul divisore aperto non fa nulla
-          else if (p.chiude) { stato.chiusa = true; if (!p.chiusa) stato.frazione = p.frazione; }   // chiudendo si riapre alla larghezza di prima, non a quella di passaggio
+          if (!p.mosso) { if (chiusa()) apriDalDocente(); else return; }   // clic: riapre la linguetta, sul divisore aperto non fa nulla
+          /* 0074, giro 2, difetto 1: la Fonte era chiusa DA SOLA, la presa sulla linguetta è scivolata di qualche px
+             senza mai aprirla e si è lasciata nel bordo: non è un gesto di chiusura del docente. Torna com'era, chiusa
+             da sola, e niente si scrive (altrimenti `chiusa: true` la terrebbe chiusa anche sui materiali con passi). */
+          else if (p.chiude && p.auto && !p.aperta) { applica(); return; }
+          else if (p.chiude) { stato.chiusa = true; auto = false; if (!p.chiusa) stato.frazione = p.frazione; }   // chiudendo si riapre alla larghezza di prima, non a quella di passaggio
           else stato.frazione = limita(stato.frazione);
           applica(); salva();
         };
         ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => divisore.addEventListener(n, lascia));
         divisore.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') stato.chiusa = !stato.chiusa;
+          // la freccia verso la Fonte la stringe; chiusa, la riapre la freccia che si allontana dal suo bordo
+          const stringe = aDestra ? 'ArrowRight' : 'ArrowLeft';
+          if (e.key === 'Enter' || e.key === ' ') { if (chiusa()) apriDalDocente(); else stato.chiusa = true; }
           else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-            if (stato.chiusa) { if (e.key === 'ArrowLeft') return; stato.chiusa = false; }
-            else stato.frazione = limita(stato.frazione + (e.key === 'ArrowLeft' ? -0.05 : 0.05));
+            if (chiusa()) { if (e.key === stringe) return; apriDalDocente(); }
+            else stato.frazione = limita(stato.frazione + (e.key === stringe ? -0.05 : 0.05));
           } else return;
           e.preventDefault(); applica(); salva();
         });
         applica();
+        /* F1: la veste chiama a ogni scheda con l'id del materiale e il numero di prove che hanno trovato una
+           pagina. Un materiale nuovo azzera la riapertura a mano del precedente.
+           Giro 2, difetto 2: sotto i 900 px le colonne sono impilate e il CSS non nasconde una Fonte chiusa né
+           mostra la linguetta: lì la Fonte non si chiude mai da sola (e quindi non diventa `inert`), mostra la
+           sua frase al posto della pagina. La soglia è la stessa del CSS (`max-width: 900px`), letta con
+           `matchMedia`; al cambio di larghezza si ricalcola sul materiale aperto. */
+        const impilate = () => { try { return !!(window.matchMedia && window.matchMedia('(max-width: 900px)').matches); } catch (e) { return false; } };
+        const ricalcola = () => { auto = !conFoto && senzaPassi && !stato.chiusa && !apertaQui && !impilate(); applica(); };
+        if (aDestra) {
+          seguiFonte = (id, passi) => {   // con la foto (`conFoto`) `ricalcola` non chiude mai
+            if (id !== materiale) { materiale = id; apertaQui = false; }
+            senzaPassi = !(passi > 0);
+            ricalcola();
+          };
+          try {
+            const larghezza = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
+            if (larghezza && typeof larghezza.addEventListener === 'function') {
+              const suCambio = () => {
+                if (!modal.isConnected) { larghezza.removeEventListener('change', suCambio); return; }   // il Banco è chiuso
+                if (materiale !== undefined) ricalcola();
+              };
+              larghezza.addEventListener('change', suCambio);
+            }
+          } catch (e) { /* senza matchMedia: le colonne affiancate */ }
+        }
       }
       const occorrenze = modal.querySelector('#mrv-occorrenze');
       if (occorrenze) occorrenze.onclick = () => {
         occurrenceSearch.open = !occurrenceSearch.open; renderOccurrences();
         if (occurrenceSearch.open) modal.querySelector('#mrv-occurrence-query')?.focus();
       };
+      /* IL DIVISORE DELLE OCCORRENZE (0074, punto 10; F7, F8: solo con la veste — senza, il divisore non nasce e il
+         pannello è quello di oggi). Sta fra il pannello e ciò che sta sotto e c'è solo a pannello aperto. Trascinato in
+         basso il pannello cresce fino al 75% dell'area dei materiali (`.mrv-carte`: pannello, navigazione, scheda),
+         non oltre; trascinato in alto (il puntatore sopra il punto della presa) e lasciato al 15% o meno si chiude come
+         col bottone, e si riaprirà all'altezza di prima della presa, non a quella di passaggio. Verso il basso non si
+         chiude mai, anche sotto il 15% (uno schermo alto lo apre già lì): il pannello segue il puntatore. ↓ allarga e ↑
+         stringe di 5 punti, fino al 75%; chiude solo ↑, al 15% o meno. La prima volta l'altezza è
+         quella di oggi (il contenuto, al più 60%); quella scelta resta a ogni riapertura finché il Banco è aperto, e
+         non si salva. Il modello è il divisore della Fonte qui sopra: cattura del puntatore, 3 px prima che una presa
+         diventi un trascinamento, `aria-valuenow` in percento. */
+      const occDivisore = modal.querySelector('#mrv-occorrenze-divisore');
+      const occArea = modal.querySelector('.mrv-carte'), occHost = modal.querySelector('#mrv-occurrences-host');
+      if (occDivisore && occArea && occHost) {
+        const MAX_OCC = 75, CHIUDE_OCC = 15, PASSO_OCC = 5;
+        let sceltaOcc = null;   // l'altezza scelta, in percento dell'area; null = quella di oggi
+        const rettangolo = el => { try { return el.getBoundingClientRect ? el.getBoundingClientRect() : null; } catch (e) { return null; } };
+        const inPercento = (px, area) => px / area.height * 100;
+        const altezzaOcc = () => {
+          if (sceltaOcc != null) return sceltaOcc;
+          const area = rettangolo(occArea), pannello = rettangolo(occHost);
+          return area && pannello && area.height > 0 ? inPercento(pannello.height, area) : 60;   // senza misura: il tetto di oggi
+        };
+        const imposta = p => {
+          sceltaOcc = p;
+          occHost.classList.add('is-regolato'); occHost.style.setProperty('--mrv-occ-h', p.toFixed(2) + '%');
+          occDivisore.setAttribute('aria-valuenow', String(Math.round(p)));
+        };
+        const ripristina = p => { if (p == null) { sceltaOcc = null; occHost.classList.remove('is-regolato'); } else imposta(p); };
+        // come il bottone; il divisore sparisce, quindi il fuoco che era lì o nel pannello torna sul bottone
+        const chiudiOcc = () => {
+          const fuoco = document.activeElement, dentro = !!fuoco && (fuoco === occDivisore || occHost.contains(fuoco));
+          occurrenceSearch.open = false; renderOccurrences();
+          if (dentro && occorrenze) occorrenze.focus();
+        };
+        seguiOccorrenze = () => {
+          occDivisore.hidden = !occurrenceSearch.open;
+          if (occurrenceSearch.open) occDivisore.setAttribute('aria-valuenow', String(Math.round(altezzaOcc())));
+        };
+        let presaOcc = null;
+        occDivisore.addEventListener('pointerdown', e => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          presaOcc = { y: e.clientY, mosso: false, chiude: false, id: e.pointerId, scelta: sceltaOcc };
+          occDivisore.setPointerCapture(e.pointerId); occArea.classList.add('is-trascinando-occ');
+        });
+        occDivisore.addEventListener('pointermove', e => {
+          if (!presaOcc || presaOcc.id !== e.pointerId) return;
+          if (Math.abs(e.clientY - presaOcc.y) > 3) presaOcc.mosso = true;
+          if (!presaOcc.mosso) return;
+          const area = rettangolo(occArea);
+          if (!area || !(area.height > 0)) return;
+          const p = Math.min(Math.max(inPercento(e.clientY - area.top, area), 0), MAX_OCC);
+          presaOcc.chiude = e.clientY < presaOcc.y && p <= CHIUDE_OCC;   // F7: chiude solo un gesto verso l'alto (D1)
+          occHost.classList.toggle('sta-chiudendo', presaOcc.chiude);
+          if (!presaOcc.chiude) imposta(p);
+        });
+        const lasciaOcc = () => {
+          if (!presaOcc) return;
+          const p = presaOcc; presaOcc = null;
+          occArea.classList.remove('is-trascinando-occ'); occHost.classList.remove('sta-chiudendo');
+          if (!p.mosso || !p.chiude) return;   // un clic non fa niente; lasciato sopra il 15% l'altezza è già quella
+          ripristina(p.scelta); chiudiOcc();
+        };
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => occDivisore.addEventListener(n, lasciaOcc));
+        occDivisore.addEventListener('keydown', e => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+          e.preventDefault();
+          const giu = e.key === 'ArrowDown';
+          const p = Math.min(Math.round(altezzaOcc()) + (giu ? PASSO_OCC : -PASSO_OCC), MAX_OCC);
+          if (!giu && p <= CHIUDE_OCC) chiudiOcc(); else imposta(p);   // ↓ non chiude mai (D1)
+        });
+      }
       if (window.safeCreateIcons) window.safeCreateIcons();
       /* Aa x1 → x1,5 → x2: ingrandisce il testo delle schede, non bottoni e titoli.
          Si ricorda fra un'apertura e l'altra: è una preferenza di lettura. */
@@ -796,7 +1441,7 @@
     const setReview = r => { occurrenceSearch.dirty = true; if (isFinal) manifest.review.final.review = r; else manifest.review = r; };
     function decisionState() {
       const r = getReview(), issues = r.initial.issues;
-      const db = isFinal ? { items: manifest.review.final.items } : state().db;
+      const db = currentDb();
       const preview = core().preview(r, db, { sources: r.sources });
       const attention = new Set(preview.conflicts.map(c => c.issueId).filter(Boolean));
       // A chosen action is still actionable when it cannot be applied or leaves
@@ -829,7 +1474,7 @@
       filterCount.textContent = groups.pending.length + ' ' + t('rv_count_pending', 'da rivedere') + ' · ' + groups.decided.length + ' ' + t('rv_count_decided', 'già decise');
       /* Il numero delle decise non deve MAI tornare indietro senza spiegazione:
          le bloccate si contano a parte e si nominano. */
-      modal.querySelector('#mrv-progress-label').textContent = groups.decided.length + ' / ' + groups.all.length + ' ' + t('rv_dashboard_decisions', 'segnalazioni decise') +
+      modal.querySelector('#mrv-progress-label').textContent = groups.decided.length + ' / ' + groups.all.length + ' ' + t('rv_dashboard_decisions', 'decise') +
         (groups.bloccate.length ? ' · ' + groups.bloccate.length + ' ' + t('rv_dashboard_blocked_short', 'da sbloccare') : '');
       modal.querySelector('#mrv-progress').setAttribute('value', groups.all.length ? Math.round(groups.decided.length / groups.all.length * 100) : 100);
       if (!groups.pending.length && coverageWasPending && getReview().initial.status === 'awaiting_review' && getReview().initial.checkStatus !== 'completed') modal.querySelector('#mrv-coverage-options').setAttribute('open', '');
@@ -850,12 +1495,14 @@
         getReview().initial.checkStatus !== 'completed' && !manualConfirmed ? t('rv_dashboard_coverage_next', 'Le decisioni sono complete. Resta da completare il controllo: trovi le opzioni nel riquadro Copertura del controllo.') :
         t('rv_dashboard_can_finish', 'Hai deciso tutto: puoi concludere col bottone in fondo.') + ' ' +
         (isFinal ? t('rv_dashboard_finish', 'Completa la revisione per aggiornare i materiali e preparare i percorsi per i tuoi studenti.') : t('rv_dashboard_generate', 'Continua per creare i materiali a partire dai contenuti approvati.'));
+      const piede = strato ? strato.piede() : '';
+      if (piede) modal.querySelector('#mrv-next-step').textContent += ' ' + piede;
       return groups;
     }
     function issueTarget(issue) {
       const item = itemFor(issue, getReview());
       return referenceView(issue.target.kind === 'item' ? item?.title || item?.question || item?.text || t('rv_material', 'Materiale') :
-        issue.target.kind === 'link' ? readable(issue.before, issue.target) : nodeLabel(issue.target.id)).text;
+        issue.target.kind === 'link' ? readable(issue.before, issue.target) : nodeLabel(issue.target.id), issue.target.kind === 'item' ? item : null).text;
     }
     async function navigate(issueId) {
       if (busy || invalidEditors.size) return;
@@ -906,14 +1553,24 @@
       };
       filters.appendChild(button);
     }
-    function close() { closed = true; if (fonte) fonte.smonta(); modal.remove(); if (previousFocus && previousFocus.isConnected) previousFocus.focus(); }
+    function close() { if (closed) return; closed = true; if (fonte) fonte.smonta(); if (veste) veste.smonta(); modal.remove(); if (previousFocus && previousFocus.isConnected) previousFocus.focus(); if (reading && typeof options.onClose === 'function') options.onClose(); }
     function errorText(e) {
       return e && /^(persisted_revision_mismatch|applying_snapshot_mismatch)$/.test(e.code || e.message)
         ? t('rv_readback_failed', 'La copia salvata non coincide con le decisioni. La revisione resta in attesa.') : e.message;
     }
+    // Packet 0026 (d): l'avanzamento del Giudice, lotto per lotto, su #mrv-status.
+    function judgeProgress(p) {
+      if (!p || closed) return;
+      const count = Number.isFinite(p.done) && Number.isFinite(p.total) ? ' (' + p.done + '/' + p.total + ')' : '';
+      const lot = Number.isFinite(p.lotto) && Number.isFinite(p.totale)
+        ? ' ' + t('rv_judge_lot', 'Lotto {k} di {n}').replace('{k}', p.lotto).replace('{n}', p.totale) : '';
+      status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + count + lot +
+        (p.etichetta ? ' · ' + p.etichetta : '') +
+        (p.modo === 'mirata' ? ' · ' + t('rv_judge_retry_failed_only', 'si ripetono solo i lotti non riusciti') + ' (' + p.daRifare + ')' : '');
+    }
     function save() {
       status.textContent = t('rv_saving', 'Salvataggio…');
-      pendingSave = R.writeManifest(vaultPath, manifest).then(() => {
+      pendingSave = R.writeManifest(vaultPath, manifest, reading ? reading.assertCurrent : undefined).then(() => {
         saveError = null; retrySave.hidden = true;
         /* ⚠️ E SE L'APPROVAZIONE È DECADUTA, LO SI DICE QUI (21/9). Il messaggio
            non può stare in `invalidateManualCheck`: `decide()` la chiama a OGNI
@@ -927,7 +1584,7 @@
         status.textContent = t('rv_saved', 'Decisioni salvate') +
           (approvazioneDecaduta ? ' · ' + t('rv_manual_reset', 'Le tue decisioni restano; va rimessa la spunta «completo io il controllo», perché il controllo è tornato indietro.') : '');
         approvazioneDecaduta = false;
-        cache();
+        if (!reading) cache();
       }).catch(e => { saveError = e; retrySave.hidden = false; status.textContent = errorText(e); });
       return pendingSave;
     }
@@ -1021,6 +1678,7 @@
     // decision. An occurrence is edited individually even when an older
     // identical proposal was displayed as a shared correction.
     async function openMaterialField(itemId, field) {
+      if (veste) return veste.apri(itemId, field);   // 0073: «Rivedi questo campo» apre la scheda della veste
       if (busy || invalidEditors.size || getReview().initial.status !== 'awaiting_review') return;
       await pendingSave; if (saveError || closed || busy) return;
       let next = getReview();
@@ -1051,7 +1709,12 @@
       (modal.querySelector('[' + selector + '="' + ids[0] + '"]') || modal.querySelector('#mrv-title'))?.focus();
     }
 
+    // 0074, punto 10: con la veste, dopo ogni disegno del pannello il suo divisore (c'è solo a pannello aperto) e l'altezza
     function renderOccurrences() {
+      disegnaOccorrenze();
+      if (seguiOccorrenze) seguiOccorrenze();
+    }
+    function disegnaOccorrenze() {
       const host = modal.querySelector('#mrv-occurrences-host'), helper = window.MappAIReviewContext;
       if (!host || !helper?.searchOccurrences || !helper?.occurrenceSnapshot) return;
       occurrenceSearch.dirty = false;
@@ -1121,7 +1784,7 @@
       found.matches.forEach((match, index) => {
         const item = match.item, target = { kind: 'item', id: match.id };
         const row = document.createElement('details'); row.className = 'mrv-occurrence'; row.setAttribute('data-occurrence-item', match.id);
-        row.innerHTML = '<summary>' + (index + 1) + '. ' + esc(referenceView(item.title || item.question || item.text || t('rv_material', 'Materiale')).text) + '</summary>' + chips([{ target }]);
+        row.innerHTML = '<summary>' + (index + 1) + '. ' + esc(referenceView(item.title || item.question || item.text || t('rv_material', 'Materiale'), item).text) + '</summary>' + chips([{ target }]);
         const context = document.createElement('details'); context.className = 'mrv-item-context';
         context.innerHTML = '<summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary><p class="mrv-coverage-text">' +
           esc(displayValue(item, { field: '$item' }, item)) + '</p>';
@@ -1136,11 +1799,13 @@
           // reference rendering leaves its positions intact.
           const shown = referenceView(foundField.text).text;
           if (shown === foundField.text) {
+            // 0069, giro 15: sulla scheda le note dell'item col nome del blocco, pezzo per pezzo, senza spostare le evidenze
+            const nota = s => fonteScheda ? referenceView(s, item).text : s;
             let cursor = 0;
             quote.innerHTML = foundField.ranges.map(([start, end]) => {
-              const html = esc(shown.slice(cursor, start)) + '<mark>' + esc(shown.slice(start, end)) + '</mark>'; cursor = end; return html;
-            }).join('') + esc(shown.slice(cursor));
-          } else quote.textContent = shown;
+              const html = esc(nota(shown.slice(cursor, start))) + '<mark>' + esc(nota(shown.slice(start, end))) + '</mark>'; cursor = end; return html;
+            }).join('') + esc(nota(shown.slice(cursor)));
+          } else quote.textContent = referenceView(foundField.text, item).text;
           field.appendChild(quote);
           if (getReview().initial.status === 'awaiting_review') {
             const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'pm-btn-cancel';
@@ -1158,15 +1823,21 @@
       occurrenceSearch.sourceIssueId = issue.id; occurrenceSearch.open = true;
       renderOccurrences(); modal.querySelector('#mrv-occurrence-query')?.focus();
     }
-    function coverageFailureText(row) {
-      const cause = window.MappAIReviewContext.coverageFailure(row);
-      const messages = {
-        foreign_ids: t('rv_failure_foreign_ids', 'La risposta del controllo contiene identificativi che non corrispondono ai materiali inviati.'),
-        unverified_claims: t('rv_failure_claims', 'Il controllo non ha restituito un esito verificabile per tutte le affermazioni.'),
-        unverified_issues: t('rv_failure_issues', 'La risposta contiene una segnalazione che non è stato possibile verificare.'),
-        unknown: t('rv_failure_unknown', 'Il controllo automatico non è completo. Il rapporto non permette di precisare la causa.')
-      };
-      return messages[cause] + ' ' + t('rv_failure_saved', 'Il materiale è conservato: puoi confrontarlo con la fonte e revisionarlo manualmente.');
+    /* 0053 (Giacomo, 27/09): la causa tecnica del controllo non si mostra al
+       docente — «un insegnante non saprebbe che cosa significa», e un blocco di
+       testo in ogni materiale è solo sovraccarico. Ogni materiale ancora da
+       rileggere ha un pallino; una legenda sola, in cima, dice che cosa vuol
+       dire. La causa resta nel rapporto del giudice (pipeline.json), per
+       l'assistenza, e `coverageFailure` la classifica ancora. */
+    const SVG_APPROVATO = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg>';
+    function pallinoRevisione() {
+      return '<span class="mrv-pallino" data-coverage-pallino role="img" aria-label="' + esc(t('rv_review_needed', 'Revisione necessaria')) +
+        '" title="' + esc(t('rv_review_needed_help', 'Il controllo automatico non ha verificato questo materiale: rileggilo con la fonte.')) + '"></span>';
+    }
+    function legendaRevisione() {
+      return '<p class="mrv-coverage-legenda" data-coverage-legenda>' +
+        '<span class="mrv-legenda-voce"><span class="mrv-pallino" aria-hidden="true"></span>' + esc(t('rv_review_needed', 'Revisione necessaria')) + '</span>' +
+        '<span class="mrv-legenda-voce"><span class="mrv-teacher-approved" aria-hidden="true">' + SVG_APPROVATO + '</span>' + esc(t('rv_coverage_legend_approved', 'Approvato da te')) + '</span></p>';
     }
     function renderMaterialCoverage(r, rows, editable, pending, approvazioni) {
       approvazioni = approvazioni || statoApprovazioni(r);
@@ -1181,13 +1852,15 @@
       if (coverageExpanded ?? (!pending || stalled)) box.setAttribute('open', '');
       box.ontoggle = () => { coverageExpanded = box.open; };
       box.innerHTML = '<summary id="mrv-coverage-heading" tabindex="-1">' + esc(onlyExcluded ? t('rv_excluded_materials', 'Materiali esclusi') : t('rv_coverage_materials', 'Materiali con controllo incompleto')) + ' (' + (onlyExcluded ? rows.length : rows.filter(row => !approvazioni.esclusi.has(row.id)).length) + ')</summary>' +
+        (onlyExcluded ? '' : legendaRevisione()) +
         (stalled ? '<p id="mrv-no-progress" role="status">' + esc(t('rv_coverage_stalled', 'L’ultimo tentativo non ha completato nuovi controlli. Esamina le frasi qui sotto: riprovare può recuperare una risposta mancante, ma non aggiunge prove alla fonte.')) + '</p>' : '') +
-        '<p>' + esc(t('rv_coverage_count_help', 'Questo numero conta i materiali con almeno una verifica automatica incompleta, non gli errori. Ogni tentativo riesamina tutti i residui e conserva i controlli validi.')) + '</p>' +
+        // 0053, Giacomo 27/09: «Questo numero conta i materiali…» esce — il «non sono errori» lo dice la legenda.
+        // `rv_coverage_version` qui sotto esce col 0047, quando il contatore misurerà il lavoro del docente.
         '<p>' + esc(t('rv_coverage_version', 'Le frasi segnalate appartengono alle bozze originali controllate. Le correzioni scelte qui vengono applicate quando completi la revisione: non sono valutate dal pulsante di ricontrollo e non abbassano questo conteggio.')) + '</p>';
       // Show the exact archived source text, never generated node descriptions
       // as evidence for an uncertain claim. Unknown relevance stays unknown.
       const sources = document.createElement('details'); sources.className = 'mrv-coverage-sources';
-      sources.innerHTML = '<summary>' + esc(t('rv_coverage_sources', 'Consulta il testo delle fonti usato dal controllo')) + '</summary>';
+      sources.innerHTML = '<summary>' + esc(fonteScheda ? t('rv_scheda_coverage_sources', 'Consulta il testo della scheda usato dal controllo') : t('rv_coverage_sources', 'Consulta il testo delle fonti usato dal controllo')) + '</summary>';
       let pages = 0;
       (r.sources || []).forEach(source => {
         (source.pages || [{ text: source.text || source.content, n: null }]).forEach(page => {
@@ -1207,7 +1880,7 @@
           approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') + ')';
       }
       const labels = {
-        uncertain: t('rv_coverage_uncertain', 'Riscontro nella fonte non confermato'),
+        uncertain: fonteScheda ? t('rv_scheda_uncertain', 'Riscontro nella scheda non confermato') : t('rv_coverage_uncertain', 'Riscontro nella fonte non confermato'),
         missing: t('rv_coverage_missing', 'Il modello non ha restituito un esito'),
         unverified: t('rv_coverage_unverified', 'Esito non validato')
       };
@@ -1217,14 +1890,14 @@
         const item = row.item, issue = { target: { kind: 'item', id: row.id } };
         const detail = document.createElement('details'); detail.className = 'mrv-coverage-material'; detail.setAttribute('data-coverage-item', row.id);
         const approvato = approvazioni.approvati.has(row.id);
-        detail.innerHTML = '<summary>' + (index + 1) + '. ' + esc(issueTarget(issue)) +
-          (approvato ? ' <span class="mrv-teacher-approved" data-teacher-approved role="img" tabindex="0" aria-label="' + esc(t('rv_teacher_approved', 'Approvato dal docente')) + '" title="' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 4 4L19 6"/></svg><span class="mrv-approval-help">' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '</span></span>' : '') +
+        // 0053: il pallino accanto al numero finché il materiale è da rileggere; niente testo della causa nella scheda.
+        // La spunta dell'approvazione prende lo stesso posto del pallino (Giacomo, 02/10): lo stato si legge in una colonna sola.
+        detail.innerHTML = '<summary>' + (!approvato && !excluded ? pallinoRevisione() + ' ' : '') +
+          (approvato ? '<span class="mrv-teacher-approved" data-teacher-approved role="img" tabindex="0" aria-label="' + esc(t('rv_teacher_approved', 'Approvato dal docente')) + '" title="' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '">' + SVG_APPROVATO + '<span class="mrv-approval-help">' + esc(t('rv_teacher_approved_help', 'Hai approvato questa versione. Il controllo automatico resta distinto.')) + '</span></span> ' : '') +
+          (index + 1) + '. ' + esc(issueTarget(issue)) +
           (excluded ? ' · ' + esc(t('rv_material_excluded', 'Escluso')) : '') + '</summary>' + chips([issue]) +
-          (row.claims.length && (row.error || row.reason) ? '<p>' + esc(coverageFailureText(row)) + '</p>' : '') +
           (row.claims.length ? '<ul class="mrv-coverage-claims">' + row.claims.map(claim => '<li><strong>' + esc(fieldName(claim.field, item)) + ' · ' + esc(labels[claim.status]) +
-            '</strong><p class="mrv-coverage-text">' + esc(referenceView(claim.text).text) + '</p></li>').join('') + '</ul>' :
-            '<p>' + esc(row.error || row.reason ? coverageFailureText(row) : t('rv_coverage_no_verdict', 'Il rapporto non contiene un controllo completo per questo materiale. Non indica quali frasi siano state verificate.')) + '</p>') +
-          (row.error || row.reason ? '<details class="mrv-coverage-technical"><summary>' + esc(t('rv_coverage_detail', 'Dettaglio del controllo')) + '</summary><p>' + esc(row.error || row.reason) + '</p></details>' : '');
+            '</strong><p class="mrv-coverage-text">' + esc(referenceView(claim.text, item).text) + '</p></li>').join('') + '</ul>' : '');
         if (item) {
           const version = document.createElement('details'); version.className = 'mrv-coverage-version';
           const chosen = preview.ok && preview.db.items.find(item => String(item.id) === row.id);
@@ -1281,7 +1954,7 @@
             if (fonte && citazioni.length) {
               const vedi = document.createElement('button'); vedi.type = 'button'; vedi.className = 'pm-btn-cancel';
               vedi.setAttribute('data-coverage-source', row.id);
-              vedi.textContent = t('rv_source_show', 'Mostra le fonti citate');
+              vedi.textContent = fonteScheda ? t('rv_scheda_show', 'Mostra i blocchi della scheda citati') : t('rv_source_show', 'Mostra le fonti citate');
               vedi.onclick = () => fonte.mostra(citazioni);
               actions.appendChild(vedi);
             }
@@ -1305,7 +1978,166 @@
       show.onclick = () => { coverageExpanded = true; box.setAttribute('open', ''); modal.querySelector('#mrv-coverage-heading').focus(); };
       modal.querySelector('#mrv-coverage-details').appendChild(show);
     }
+    /* La traccia e la storia del giudice (solo G1), in elementi pronti: il Banco di prima li mette in «Copertura del
+       controllo», la veste (0075, Q2) nella sezione «Il controllo» in fondo alla barra. */
+    function tracciaDelGiudice(r) {
+      if (isFinal || !(r.initial.report?.modelliGiro || r.initial.report?.contratto === 'mappai-giudice@2' ||
+          r.initial.previousReports?.some(report => report?.modelliGiro || report?.contratto === 'mappai-giudice@2'))) return [];
+      const out = [];
+      const traceLine = report => {
+        const p = document.createElement('p'); p.className = 'text-sm break-words';
+        const run = report?.modelliGiro, calls = (run?.chiamate || []).filter(c => c.phase === 'giudice');
+        const models = Array.from(new Set(calls.map(c => c.provider + ' · ' + c.requestedModel + ' → ' +
+          (c.actualModel || t('rv_model_unknown_actual', 'modello effettivo non comunicato')))));
+        const requested = run?.profilo;
+        const model = models.join('; ') || (requested?.modelli?.giudice ? requested.provider + ' · ' + requested.modelli.giudice + ' · ' +
+          t('rv_model_no_response', 'nessuna risposta del modello registrata') : t('rv_model_unknown', 'Modello non registrato'));
+        const date = report?.quando && new Date(report.quando);
+        const coverage = ['saltato', 'errore', 'in-corso'].includes(report?.stato) ? null : report?.copertura;
+        p.textContent = (date && !Number.isNaN(date.getTime()) ? date.toLocaleString() + ' · ' : '') + model +
+          (coverage ? ' · ' + (report.contratto === 'mappai-giudice@2' ? t('rv_examined_descriptions', 'Descrizioni esaminate:') : t('rv_checked_nodes', 'Nodi controllati:')) + ' ' + (coverage.nodiEsaminati || []).length +
+            ' · ' + t('rv_checked_links', 'Collegamenti controllati:') + ' ' + (coverage.linkEsaminati || []).length +
+            ' · ' + t('rv_remaining_checks', 'Parti ancora da controllare:') + ' ' +
+              ((coverage.nodiSaltati || []).length + (coverage.linkSaltati || []).length) : '') +
+          (report?.motivoSkip ? ' · ' + report.motivoSkip : '');
+        return p;
+      };
+      const result = traceLine(r.initial.report); result.id = 'mrv-judge-model-result';
+      out.push(result);
+      const sourceView = judgeEvidenceView(r.initial.report, r.baseSnapshot.nodes);
+      if (sourceView) out.push(sourceView);
+      if (r.initial.previousReports?.length) {
+        const history = document.createElement('details'); history.id = 'mrv-judge-history';
+        history.innerHTML = '<summary>' + esc(t('rv_previous_checks', 'Controlli precedenti')) + ' (' + r.initial.previousReports.length + ')</summary>';
+        r.initial.previousReports.forEach(report => {
+          history.appendChild(traceLine(report));
+          const evidence = judgeEvidenceView(report, r.baseSnapshot.nodes); if (evidence) history.appendChild(evidence);
+        });
+        out.push(history);
+      }
+      return out;
+    }
+    /* «Apri la bozza locale conservata» / «…copia della cartella conservata» (solo G1): il Banco di prima li mette in
+       fondo alla scheda, la veste (0075, Q2) nella sezione «Il controllo». */
+    function bozzeConservate() {
+      if (isFinal || reading) return [];
+      return ['Local', 'Disk'].map(kind => {
+        const draft = state()['_review' + kind + 'Draft'];
+        if (!draft || draft.vaultPath !== vaultPath) return null;
+        const recover = document.createElement('button'); recover.type = 'button'; recover.className = 'pm-btn-cancel';
+        recover.textContent = kind === 'Local' ? t('rv_recover_local', 'Apri la bozza locale conservata') : t('rv_recover_disk', 'Apri la copia della cartella conservata');
+        recover.onclick = async () => { applySnapshot(state().db, draft.db); cache(); close(); await R.requireApproved(); };
+        return recover;
+      }).filter(Boolean);
+    }
+    /* «Nuovo controllo con i modelli del Setup» (solo G1, revisione modificabile), col suo riquadro d'anteprima: il
+       Banco di prima lo mette in «Copertura del controllo», la veste (0075, Q2) nella sezione «Il controllo». */
+    function nuovoControllo() {
+      const newCheck = document.createElement('button'); newCheck.type = 'button'; newCheck.id = 'mrv-setup-judge';
+      newCheck.className = 'pm-btn-cancel mt-3 whitespace-normal';
+      newCheck.textContent = t('rv_setup_judge', 'Nuovo controllo con i modelli del Setup');
+      const preview = document.createElement('div'); preview.id = 'mrv-setup-preview'; preview.hidden = true;
+      preview.className = 'mrv-summary text-sm'; preview.setAttribute('role', 'group');
+      preview.setAttribute('aria-label', t('rv_setup_preview', 'Anteprima del nuovo controllo'));
+      newCheck.onclick = async () => {
+        if (busy || invalidEditors.size) return;
+        try {
+          await pendingSave; if (saveError) throw saveError;
+          if (closed || busy) return;
+          const prepared = R.prepareSetupJudge(vaultPath, manifest);
+          preview.replaceChildren();
+          const model = document.createElement('p'); model.id = 'mrv-setup-model'; model.className = 'font-bold break-words';
+          model.textContent = t('rv_setup_model', 'Giudice del nuovo controllo:') + ' ' + prepared.provider + ' · ' + prepared.model;
+          const saved = manifest.config?.modelli;
+          const previous = document.createElement('p'); previous.className = 'break-words';
+          previous.textContent = saved?.modelli?.giudice
+            ? t('rv_saved_judge', '«Riprova controllo automatico» conserva:') + ' ' + saved.provider + ' · ' + saved.modelli.giudice
+            : t('rv_saved_judge_legacy', 'Questo progetto non ha assegnazioni per fase salvate.');
+          const scope = document.createElement('p');
+          scope.textContent = t('rv_setup_scope', 'Controlla la mappa e le fonti salvate, prima delle correzioni ancora da confermare. Le tue decisioni e i rapporti precedenti restano conservati. Non genera nuovi materiali.');
+          const frozen = document.createElement('p');
+          frozen.textContent = t('rv_setup_frozen', 'Questo controllo userà il modello mostrato qui. Per leggere nuove scelte del Setup, annulla e riapri l’anteprima.');
+          const cancel = document.createElement('button'); cancel.type = 'button'; cancel.id = 'mrv-setup-cancel'; cancel.className = 'pm-btn-cancel';
+          cancel.textContent = t('cancel', 'Annulla');
+          cancel.onclick = () => { if (busy) return; preview.hidden = true; preview.replaceChildren(); newCheck.hidden = false; newCheck.focus(); };
+          const start = document.createElement('button'); start.type = 'button'; start.id = 'mrv-setup-start'; start.className = 'pm-btn-primary';
+          start.textContent = t('rv_setup_start', 'Avvia controllo');
+          start.onclick = async () => {
+            if (busy || invalidEditors.size || closed || !start.isConnected) return;
+            freeze(true);
+            status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.');
+            try {
+              await pendingSave; if (saveError) throw saveError;
+              await prepared.run({ onProgress: judgeProgress });
+              const eraConfermato = manualConfirmed; manualConfirmed = false;
+              freeze(false); render(); modal.querySelector('#mrv-coverage-options').setAttribute('open', '');
+              modal.querySelector('#mrv-title').focus();
+              // 0075: con la veste la spunta tolta è quella della SUA casella, nel piede (come dopo «Riprova»)
+              const tolta = veste ? veste.spuntaTolta() : '';
+              status.textContent = checkMessage() + ' ' + t('rv_saved', 'Decisioni salvate') +
+                (eraConfermato ? ' · ' + t('rv_manual_reset', 'Le tue decisioni restano; va rimessa la spunta «completo io il controllo», perché il controllo è cambiato.') : '') +
+                (tolta ? ' · ' + tolta : '');
+            } catch (e) {
+              status.textContent = errorText(e);
+              preview.hidden = true; newCheck.hidden = false;
+            } finally { if (busy) freeze(false); }
+          };
+          [model, previous, scope, frozen, cancel, start].forEach(el => preview.appendChild(el));
+          preview.hidden = false; newCheck.hidden = true; cancel.focus();
+        } catch (e) { status.textContent = errorText(e); }
+      };
+      return [newCheck, preview];
+    }
+    function renderReadingSource(r, editable) {
+      const preview = core().preview(r, currentDb(), { sources: r.sources });
+      const rows = (preview.ok ? preview.db : currentDb()).items.slice().sort((x, y) => x.order - y.order);
+      const section = document.createElement('section'); section.setAttribute('data-reading-source', '');
+      section.innerHTML = '<h3>' + esc(t('rv_reading_recomposed', 'Testo ricomposto da verificare')) + '</h3>';
+      rows.forEach((item, i) => {
+        const block = document.createElement('div'); block.setAttribute('data-reading-paragraph', item.id);
+        const paragraph = { id: item.id, type: item.blockType, text: item.text, emphasis: item.emphasis || [] };
+        try {
+          if (!window.MappAIPercorsoLetturaView?.paragraphHtml) throw new Error('missing_renderer');
+          block.innerHTML = window.MappAIPercorsoLetturaView.paragraphHtml(paragraph);
+        } catch (_) {
+          block.innerHTML = '<p class="whitespace-pre-wrap">' + esc(item.text) + '</p><p role="alert">' +
+            esc(t('rv_reading_structure', 'Verifica struttura ed enfasi nell’editor della fonte prima di confermare.')) + '</p>';
+        }
+        if (editable) {
+          const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'pm-btn-cancel';
+          edit.setAttribute('data-reading-edit', item.id);
+          edit.textContent = t('rv_reading_edit', 'Correggi il paragrafo') + ' ' + (i + 1);
+          edit.onclick = async () => {
+            if (busy || invalidEditors.size) return;
+            await pendingSave; if (saveError || closed) return;
+            try {
+              reading.assertCurrent();
+              const target = { kind: 'item', id: item.id, field: 'text' };
+              const existing = getReview().initial.issues.find(issue => issue.origin === 'teacher' && issue.target.kind === 'item' && issue.target.id === item.id && issue.target.field === 'text');
+              const next = existing ? getReview() : core().addIssue(getReview(), { target, origin: 'teacher', blocking: true,
+                problem: t('rv_reading_edit', 'Correggi il paragrafo') + ' ' + (i + 1) }, currentDb());
+              invalidateManualCheck(); setReview(next);
+              activeIssueId = existing?.id || next.initial.issues[next.initial.issues.length - 1].id;
+              activeFilter = 'all'; search = ''; modal.querySelector('#mrv-search').value = '';
+              Object.keys(facets).forEach(key => { facets[key] = ''; });
+              await save(); if (!saveError && !closed) { render(); modal.querySelector('#mrv-current-title')?.focus(); }
+            } catch (e) { status.textContent = errorText(e); }
+          };
+          block.appendChild(edit);
+        }
+        section.appendChild(block);
+      });
+      if (!fonte) {
+        const original = document.createElement('details'); original.open = true;
+        original.innerHTML = '<summary>' + esc(t('rv_original_source', 'Fonte originale')) + '</summary>';
+        const pages = window.MappAIGroundingCore?.sourcePages(r.sources) || [];
+        pages.forEach(page => { const p = document.createElement('p'); p.className = 'whitespace-pre-wrap'; p.textContent = page.text; original.appendChild(p); });
+        content.appendChild(original);
+      }
+      content.appendChild(section);
+    }
     function render() {
+      if (veste) return veste.render();   // 0073: barra, scheda e piede sono della veste
       const r = getReview(), approved = r.initial.status === 'approved', editable = r.initial.status === 'awaiting_review';
       /* Lo scorrimento non torna in cima a ogni ridisegno (Giacomo, 19/9/2026).
          `render()` ricostruisce tutto da zero, quindi dopo OGNI decisione l'area
@@ -1364,7 +2196,7 @@
         const conflict = groups.conflicts.some(c => c.code === 'conflicting_decisions' && group.some(i => i.id === c.issueId));
         const isNew = group.some(i => (r.initial.retrySummary?.newIssueIds || []).includes(i.id));
         button.innerHTML = chips(group, true) + (isNew ? '<span class="mrv-new-finding">' + esc(t('rv_context_new', 'Nuova segnalazione')) + '</span>' : '') + '<span class="mrv-queue-meta">' + (index + 1) + ' · ' + esc(fieldName(issue.target.field, itemFor(issue, r))) +
-          (group.length > 1 ? ' · ' + group.length + ' ' + esc(t('rv_dashboard_targets', 'contenuti')) : '') + '</span><strong>' + esc(issueTarget(issue)) + '</strong><span class="mrv-queue-problem">' + esc(issue.problem || fieldName(issue.target.field)) + '</span><span class="mrv-queue-state" data-pending="' + pending + '">' + esc(conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? outcomes.pending : outcomes[core().decisionOutcome(issue, r.initial.decisions[issue.id])]) + '</span>';
+          (group.length > 1 ? ' · ' + group.length + ' ' + esc(t('rv_dashboard_targets', 'contenuti')) : '') + '</span><strong>' + esc(issueTarget(issue)) + '</strong><span class="mrv-queue-problem">' + esc(issue.problem || fieldName(issue.target.field)) + '</span><span class="mrv-queue-state" data-pending="' + pending + '">' + esc(conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? statoDaDecidere(group, outcomes.pending) : outcomes[core().decisionOutcome(issue, r.initial.decisions[issue.id])]) + '</span>';
         button.onclick = () => navigate(issue.id); queue.appendChild(button);
       });
       modal.querySelector('#mrv-queue-count').textContent = visibleGroups.length + ' ' + t('rv_dashboard_in_list', 'voci in elenco') +
@@ -1381,16 +2213,22 @@
       modal.querySelector('#mrv-prev').disabled = selectedIndex <= 0;
       modal.querySelector('#mrv-next').disabled = selectedIndex < 0 || selectedIndex === visibleGroups.length - 1;
       modal.querySelector('#mrv-coverage-status').textContent = checkMessage() + (approved && r.initial.manualReview ? ' ' + t('rv_dashboard_teacher_checked', 'La revisione è stata completata dal docente.') : '');
-      modal.querySelector('#mrv-coverage-label').textContent = r.initial.checkStatus === 'completed' ? t('rv_dashboard_complete', 'Completa') : t('rv_dashboard_partial', 'Parziale');
+      modal.querySelector('#mrv-coverage-label').textContent = (r.initial.checkStatus === 'completed' ? t('rv_dashboard_complete', 'Completa') : t('rv_dashboard_partial', 'Parziale')) +
+        (strato ? strato.suffissoCopertura() : '');
       modal.querySelector('#mrv-coverage-details').replaceChildren();
+      tracciaDelGiudice(r).forEach(el => modal.querySelector('#mrv-coverage-details').appendChild(el));
+      // il blocco «Affermazioni delle descrizioni», in sola lettura (packet 0042)
+      const affermazioni = strato ? strato.blocco() : null;
+      if (affermazioni) modal.querySelector('#mrv-coverage-details').appendChild(affermazioni);
       const info = document.createElement('p');
       info.className = 'mrv-info';
-      const currentDb = isFinal ? { items: manifest.review.final.items } : state().db;
-      info.textContent = approved ? (core().gate(r, currentDb, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
+      const dbNow = currentDb();
+      info.textContent = approved ? (core().gate(r, dbNow, r.sources).allowed ? t('rv_approved', 'Le decisioni sono state salvate. Questi contenuti sono approvati.') : t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.')) :
         !r.initial.issues.length ? (r.initial.checkStatus === 'completed' ? t('rv_none', 'Nessuna proposta di correzione. Puoi leggere i contenuti e continuare.') : checkMessage()) :
         groups.pending.length ? t('rv_dashboard_decide_help', 'Confronta il testo e la proposta, poi scegli. Dopo una decisione passerai alla segnalazione successiva.') :
         t('rv_decisions_complete', 'Tutte le segnalazioni hanno una decisione. Verifica la copertura del controllo prima di continuare.');
       content.appendChild(info);
+      if (readingSource) renderReadingSource(r, editable);
       if (isFinal) {
         const shortBatches = Object.values(manifest.review.drafts?.B || {}).filter(draft =>
           Number.isFinite(draft.generation?.requested) && Number.isFinite(draft.generation?.produced) && draft.generation.produced < draft.generation.requested);
@@ -1436,13 +2274,28 @@
           (approvazioni.approvati.size ? ' · ' + approvazioni.approvati.size + ' ' + t('rv_coverage_approved_count', 'approvati da te') : '') + '.</p>' : '') +
           '<p>' + esc(t('rv_retry_help', 'Le bozze e le decisioni sono salvate. Puoi riprovare il controllo senza rigenerare i materiali, oppure riprendere più tardi.')) + '</p>';
         modal.querySelector('#mrv-coverage-details').appendChild(box);
+        if (!isFinal && report.contratto === 'mappai-giudice@2' && (coverage.nodiSaltati || []).length) {
+          const list = document.createElement('ul'); list.setAttribute('data-judge-unchecked-nodes', '');
+          const labels = new Map((r.baseSnapshot.nodes || []).map(n => [n.id, n.label || n.id]));
+          coverage.nodiSaltati.forEach(node => {
+            const row = document.createElement('li');
+            row.textContent = (labels.get(node.id) || node.label || node.id) + ': ' +
+              t('rv_description_unchecked', 'Descrizione da controllare') + ' · ' + (node.motivo || t('rv_link_unchecked', 'Controllo non completato.'));
+            list.appendChild(row);
+          });
+          box.appendChild(list);
+        }
         if (!isFinal && (coverage.linkSaltati || []).length) {
           const list = document.createElement('ul');
           const labels = new Map((r.baseSnapshot.nodes || []).map(n => [n.id, n.label || n.id]));
           coverage.linkSaltati.forEach(link => {
             const row = document.createElement('li');
+            const uncertain = report.contratto === 'mappai-giudice@2' && (report.esitiLink || []).some(result =>
+              result.source === link.source && result.target === link.target && result.rel === link.rel && result.esito === 'non_verificabile');
             row.textContent = (labels.get(link.source) || link.source) + ' → ' + (link.rel || '') + ' → ' +
-              (labels.get(link.target) || link.target) + ': ' + (link.motivo || t('rv_link_unchecked', 'Controllo non completato.'));
+              (labels.get(link.target) || link.target) + ': ' + (report.contratto === 'mappai-giudice@2' ?
+                (uncertain ? t('rv_link_insufficient', 'Prove insufficienti') : t('rv_link_technical', 'Risposta del controllo non utilizzabile')) + ' · ' : '') +
+              (link.motivo || t('rv_link_unchecked', 'Controllo non completato.'));
             list.appendChild(row);
           });
           box.appendChild(list);
@@ -1489,14 +2342,14 @@
           '<p class="mrv-reason" data-review-reason="' + esc(reasonFor(issue)) + '">' + esc(reasonLabels[reasonFor(issue)]) + '</p><h3' + (!card.hidden ? ' id="mrv-current-title"' : '') + ' tabindex="-1">' + esc(title) + '</h3>' +
           (itemContext ? '<details class="mrv-item-context"><summary>' + esc(t('rv_dashboard_full_item', 'Leggi l’attività completa')) + '</summary>' + itemContext + '</details>' : '') +
           (group.length > 1 ? '<details class="mb-2" data-review-targets open><summary>' + esc(t('rv_context_shared', 'La stessa decisione riguarda questi contenuti')) + ' (' + group.length + ')</summary><ul>' + targets.map((x, i) => '<li>' +
-            chips([group[i]]) + esc(referenceView(x).text) + '</li>').join('') + '</ul></details>' : '') +
+            chips([group[i]]) + esc(referenceView(x, group[i].target.kind === 'item' ? itemFor(group[i], r) : null).text) + '</li>').join('') + '</ul></details>' : '') +
           '<div data-conflict></div><div class="mrv-comparison"><div class="mrv-before"><p class="mrv-field-label">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[0] + '</p></div>' +
           (issue.hasProposal ? '<div class="mrv-proposal"><p class="mrv-field-label">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap mb-3">' + highlighted[1] + '</p></div></div>' +
             (compact ? '<details data-full-change class="mb-3"><summary>' + esc(t('rv_full_change', 'Leggi il testo completo prima e dopo')) + '</summary><p class="font-bold">' + esc(t('rv_before', 'Testo attuale')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.before, issue.target, item)) + '</p><p class="font-bold">' + esc(t('rv_proposal', 'Proposta')) + '</p><p class="whitespace-pre-wrap">' + esc(displayValue(issue.after, issue.target, item)) + '</p></details>' : '') +
             (issue.citationAdditions?.length ? '<p data-added-sources class="mb-3">' + esc(t('rv_added_sources', 'La proposta collega anche le fonti originali dei nuovi richiami.')) + '</p>' : '') :
             '</div><p class="mb-3" data-no-proposal>' + esc(issue.origin === 'teacher' ? t('rv_coverage_teacher_edit', 'Hai aperto questa scheda per rivedere il materiale. Puoi modificarlo o mantenere il testo dopo averlo verificato.') : t('rv_no_proposal', 'Il giudice segnala un problema, ma non propone una correzione pronta. Puoi modificare il contenuto oppure mantenerlo senza modifiche.')) + '</p>') +
-          (references.length ? '<details class="mb-3" data-references><summary>' + esc(t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : t('rv_reference_unknown', 'Fonte da verificare'))) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
-          (issue.origin === 'teacher' && !evidenceRows(issue.evidence).length ? '' : evidencePreview(issue, r, value => referenceView(value).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value).text) + '</details>') +
+          (references.length ? '<details class="mb-3" data-references><summary>' + esc(fonteScheda ? t('rv_scheda_references', 'Blocchi della scheda richiamati nel testo') : t('rv_text_references', 'Fonti richiamate nel testo')) + '</summary>' + references.map(ref => '<p class="mt-2"><strong>' + esc(ref.label + ' — ' + (ref.source ? ref.source.title + (ref.source.page ? ' · ' + t('rv_page', 'Pagina') + ' ' + ref.source.page : '') : referenceOptions.unknownLabel)) + '</strong></p>' + (ref.source ? '<p class="whitespace-pre-wrap">' + esc(ref.source.text) + '</p>' : '')).join('') + '</details>' : '') +
+          (issue.origin === 'teacher' && !evidenceRows(issue.evidence).length ? '' : evidencePreview(issue, r, value => referenceView(value, item).text) + '<details class="mb-3"><summary>' + esc(t('rv_evidence', 'Fonte e motivo della segnalazione')) + '</summary>' + evidenceHtml(issue, r, value => referenceView(value, item).text) + '</details>') +
           (isFinal && issue.target.kind === 'item' ? '<button type="button" class="pm-btn-cancel mrv-find-occurrences" data-find-occurrences>' + esc(t('rv_occurrences_other', 'Cerca altre occorrenze')) + '</button>' : '') +
           '<div data-editor></div><div data-relation-preview></div><p data-choice class="text-sm mt-2" aria-live="polite"></p><div data-actions></div>';
         const occurrenceButton = card.querySelector('[data-find-occurrences]');
@@ -1615,7 +2468,7 @@
             const state = decisionState(), pending = state.pending.some(i => group.some(g => g.id === i.id));
             const conflict = state.conflicts.some(c => c.code === 'conflicting_decisions' && group.some(g => g.id === c.issueId));
             const label = entry.querySelector('.mrv-queue-state');
-            label.textContent = conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? outcomes.pending : choiceLabel.textContent;
+            label.textContent = conflict ? t('rv_decision_conflict', 'Scelte in conflitto') : pending ? statoDaDecidere(group, outcomes.pending) : choiceLabel.textContent;
             label.setAttribute('data-pending', String(pending));
           }
         }
@@ -1654,7 +2507,7 @@
                 list.forEach((entry, index) => {
                   const row = document.createElement('label'); row.className = 'block mt-2';
                   row.textContent = fieldName(field) + ' ' + (field === 'options' ? String.fromCharCode(65 + index) : index + 1);
-                  const input = document.createElement('textarea'), refs = referenceView(typeof entry === 'string' ? entry : ''); input.rows = 2; input.className = 'w-full border rounded p-2'; input.value = refs.text;
+                  const input = document.createElement('textarea'), refs = referenceView(typeof entry === 'string' ? entry : '', object || item); input.rows = 2; input.className = 'w-full border rounded p-2'; input.value = refs.text;
                   input.oninput = () => { list[index] = restoreReferences(input.value, refs); update(list.slice()); };
                   row.appendChild(input); listBox.appendChild(row);
                   const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'pm-btn-cancel'; remove.textContent = t('rv_remove_entry', 'Rimuovi questa voce');
@@ -1676,8 +2529,21 @@
               input = document.createElement('select'); input.innerHTML = (state().db.nodes || []).map(n => '<option value="' + esc(n.id) + '">' + esc(n.label) + '</option>').join(''); input.value = value;
             } else if (field === 'lines') {
               input = document.createElement('input'); input.type = 'number'; input.min = '3'; input.max = '12'; input.step = '1'; input.value = value;
-            } else { input = document.createElement('textarea'); input.rows = 4; refs = referenceView(typeof value === 'string' ? value : ''); input.value = refs.text;
-              if (refs.mapping.length) { const hint = document.createElement('p'); hint.className = 'text-sm'; hint.textContent = t('rv_reference_edit_help', 'I richiami alle fonti restano collegati quando modifichi il testo.'); label.appendChild(hint); }
+            } else { input = document.createElement('textarea'); input.rows = 4; refs = referenceView(typeof value === 'string' ? value : '', object || item); input.value = refs.text;
+              // 0069, giro 16: sulla scheda i richiami sono nomi, e un nome corretto a mano non si ricollega: lo si dice.
+              // Giro 17 (Giacomo): quella frase in arancione — #b45309, l'ambra di `--ui-mod` (tema chiaro, mappai-ui.css) e amber-700,
+              // la stessa famiglia del pallino «Revisione necessaria» (#d97706, che sul bianco della card fa 3,19:1); questo fa 5,02:1
+              if (refs.mapping.length || refs.note?.length) { const hint = document.createElement('p'); hint.className = 'text-sm'; hint.textContent = fonteScheda ? t('rv_scheda_edit_help', 'Non modificare i nomi fra parentesi quadre: sono i richiami alla scheda.') : t('rv_reference_edit_help', 'I richiami alle fonti restano collegati quando modifichi il testo.'); if (fonteScheda) hint.style.color = '#b45309'; label.appendChild(hint); }
+            }
+            let avvisoRichiami = '';
+            function avvisaRichiami(valore) {
+              // 0069, giro 16: un avviso, non un blocco — nella riga di stato, tolto appena il nome torna giusto
+              const rotti = fonteScheda && refs && DFc && typeof DFc.richiamiRotti === 'function' ? DFc.richiamiRotti(valore, { prima: typeof value === 'string' ? value : '', etichette: (refs.mapping || []).map(m => m.label).concat((refs.note || []).map(n => n.label)) }) : [];
+              const avviso = rotti.length ? t('rv_scheda_richiamo_rotto', '{x} non è più un richiamo alla scheda: arriverà all’allievo come testo. Rimetti il nome com’era.').replace('{x}', rotti.join(', ')) : '';
+              if (avviso === avvisoRichiami && (!avviso || status.textContent.includes(avviso))) return;
+              const resto = avvisoRichiami ? status.textContent.split(avvisoRichiami).join('').trim() : status.textContent;
+              status.textContent = [resto, avviso].filter(Boolean).join(' ');
+              avvisoRichiami = avviso;
             }
             input.className = 'w-full border rounded p-3 font-sans';
             input.setAttribute('data-review-field', field);
@@ -1688,7 +2554,9 @@
                 invalidEditors.add(errorKey); proceed.disabled = true; status.textContent = t('rv_invalid_edit', 'Completa il campo della modifica prima di continuare.'); return;
               }
               invalidEditors.delete(errorKey);
-              update(number ? Number(input.value) : refs ? restoreReferences(input.value, refs) : input.value);
+              const nuovo = number ? Number(input.value) : refs ? restoreReferences(input.value, refs) : input.value;
+              update(nuovo);
+              if (refs && fonteScheda) avvisaRichiami(nuovo);
             };
             label.appendChild(input); parent.appendChild(label);
           }
@@ -1756,7 +2624,7 @@
         if (!editable) editor.querySelectorAll('button,input,textarea,select').forEach(el => { el.disabled = true; });
         content.appendChild(card);
       }
-      if (!isFinal && editable) {
+      if (!isFinal && !reading && editable) {
         const box = document.createElement('details'); box.id = 'mrv-other-nodes';
         const summary = document.createElement('summary'); summary.textContent = t('rv_other', 'Correggi anche un nodo non segnalato'); box.appendChild(summary);
         const label = document.createElement('label'); label.className = 'block font-bold'; label.textContent = t('rv_other', 'Correggi anche un nodo non segnalato');
@@ -1784,14 +2652,7 @@
         };
         label.appendChild(select); box.appendChild(field); box.appendChild(label); box.appendChild(preview); box.appendChild(add); content.appendChild(box);
       }
-      if (!isFinal) ['Local', 'Disk'].forEach(kind => {
-        const draft = state()['_review' + kind + 'Draft'];
-        if (!draft || draft.vaultPath !== vaultPath) return;
-        const recover = document.createElement('button'); recover.type = 'button'; recover.className = 'pm-btn-cancel';
-        recover.textContent = kind === 'Local' ? t('rv_recover_local', 'Apri la bozza locale conservata') : t('rv_recover_disk', 'Apri la copia della cartella conservata');
-        recover.onclick = async () => { applySnapshot(state().db, draft.db); cache(); close(); await R.requireApproved(); };
-        content.appendChild(recover);
-      });
+      bozzeConservate().forEach(b => content.appendChild(b));
       const manual = modal.querySelector('#mrv-manual'); manual.replaceChildren();
       proceed.hidden = editable && r.initial.checkStatus !== 'completed' && !manualConfirmed && !statoApprovazioni(r).tutti;
       if (r.initial.checkStatus !== 'completed' && editable) {
@@ -1802,13 +2663,22 @@
           ? t('rv_check_continue_help_final', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare approva uno per uno i materiali rimasti, oppure conferma in blocco di averli verificati. Riprovare il controllo serve solo quando è mancata una risposta.')
           : t('rv_check_continue_help', 'Anche senza nuove segnalazioni, il controllo può restare parziale. Per continuare serve un controllo completo oppure la tua conferma di aver verificato anche le parti rimaste scoperte.');
         manual.appendChild(help);
+        /* 0067 (toppa in attesa dello 0069, ADR 0016): per un dossier da immagine la
+           fonte della revisione nasce vuota, quindi il controllo automatico non ha un
+           testo con cui confrontare. Si dice perché la spunta compare. */
+        /* 0069: quando la scheda È la fonte, il controllo un testo ce l'ha — la frase mentirebbe */
+        if (manifest && manifest.config && manifest.config.dossier && !fonteScheda) {
+          const perche = document.createElement('p'); perche.className = 'text-sm'; perche.id = 'mrv-manual-immagine';
+          perche.textContent = t('rv_manual_immagine', 'La fonte di questo dossier è un\'immagine: il controllo automatico non ha un testo con cui confrontare la scheda, quindi resta parziale. La verifica la fai tu, rileggendo la scheda e i materiali.');
+          manual.appendChild(perche);
+        }
         const manualOption = document.createElement('details'); manualOption.id = 'mrv-manual-option'; manualOption.className = 'mt-3 text-sm';
         manualOption.innerHTML = '<summary>' + esc(t('rv_manual_option', 'Scelgo di completare io il controllo')) + '</summary>';
         const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.id = 'mrv-manual-confirm'; input.checked = manualConfirmed;
         label.className = 'block mt-2';
         input.onchange = () => { manualConfirmed = input.checked; proceed.hidden = !manualConfirmed && !statoApprovazioni(getReview()).tutti; updateFilters(); };
-        label.appendChild(input); label.appendChild(document.createTextNode(' ' + t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.'))); manualOption.appendChild(label);
-        {
+        label.appendChild(input); label.appendChild(document.createTextNode(' ' + (readingSource ? t('rv_reading_confirm', 'Ho confrontato tutto il testo con l’originale e confermo parole, ordine e struttura.') : t('rv_manual_confirm', 'Ho verificato personalmente anche le parti non coperte dal controllo automatico e approvo i contenuti.')))); manualOption.appendChild(label);
+        if (!reading || typeof reading.options.retry === 'function' && isFinal) {
           const retry = document.createElement('button'); retry.id = 'mrv-retry-judge'; retry.type = 'button';
           /* Se l'ultimo tentativo non ha completato nuovi controlli, riprovare non è
              la strada: il bottone smette di sembrare quella principale. */
@@ -1821,11 +2691,12 @@
             status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.');
             try {
               await pendingSave; if (saveError) throw saveError;
-              if (isFinal) await R.retryMaterialJudge(vaultPath, manifest, { onProgress: p => {
+              if (reading) await retryReading(vaultPath, manifest, reading, judgeProgress);
+              else if (isFinal) await R.retryMaterialJudge(vaultPath, manifest, { onProgress: p => {
                 status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')' +
                   (p.reused ? ' · ' + p.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
               } });
-              else await R.retryJudge(vaultPath, manifest);
+              else await R.retryJudge(vaultPath, manifest, { onProgress: judgeProgress });
               /* La spunta «completo io il controllo» si azzera, ed è corretto: il
                  controllo è cambiato, quindi la conferma di prima non vale più.
                  Ma prima si azzerava in SILENZIO, e con lei spariva il bottone che
@@ -1850,12 +2721,17 @@
         }
         manual.appendChild(manualOption);
       }
-      const resume = !!options.onContinue || pendingOutputs(manifest);
+      if (!isFinal && !reading && editable) nuovoControllo().forEach(el => manual.appendChild(el));
+      const resume = hasResume();
       proceed.textContent = approved && !resume ? t('rv_close', 'Chiudi') : approved ? t('rv_resume', 'Continua dai contenuti approvati') :
         isFinal ? t('rv_finalize', 'Salva le decisioni e completa i materiali') : t('rv_continue', 'Salva le decisioni e continua');
       if (fonte) {
         const attiva = r.initial.issues.find(i => i.id === activeIssueId);
-        if (attiva) fonte.mostra(evidenceRows(attiva.evidence));
+        if (readingSource && !evidenceRows(attiva?.evidence).length) {
+          const first = fonte.pagine()[0];
+          if (first) fonte.mostra([{ docId: first.docId, title: first.title, page: first.page, text: first.text }]);
+        }
+        else if (attiva) fonte.mostra(evidenceRows(attiva.evidence));
         /* Accanto alla fonte viene prima la scheda che la fonte sta mostrando: il
            riquadro dei materiali rimasti, spesso lungo e aperto, va dopo. */
         const rimasti = content.querySelector('#mrv-material-coverage');
@@ -1863,22 +2739,140 @@
       }
       if (issuePrima && issuePrima === activeIssueId && scrollPrima) content.scrollTop = scrollPrima;
     }
+    if (vesteAccesa) {
+      /* La veste usa ciò che R.open ha già (stato, salvataggio, richiami, etichette): non scrive su disco
+         da sé, e la revisione si cambia solo coi core (0073 §2). */
+      try {
+        veste = window.MappAIBancoVeste.monta({ document, modal, t, core: core(), bancoCore: window.MappAIBancoCore,
+          contesto: window.MappAIReviewContext, confronto: window.MappAIConfrontoCore, dossierFonte: DFc, fonteScheda, fonte,
+          finestra: window, validatore: window.MappAIMaterialReview,
+          /* 0075: il regime. In G1 la veste scrive con `regime: 'g1'` sui bersagli della mappa (`db`, la mappa viva) e
+             riceve lo strato delle affermazioni (0042, 0041), i pezzi della sezione «Il controllo» (Q2) e la fonte
+             unica dei verbi per i suggerimenti dei collegamenti (regola 12) */
+          regime: isFinal ? 'g2' : 'g1', db: () => state().db, strato,
+          controllo: { traccia: () => tracciaDelGiudice(getReview()), bozze: () => bozzeConservate(),
+            nuovo: () => !isFinal && getReview().initial.status === 'awaiting_review' ? nuovoControllo() : [] },
+          relazioni: window.MappAIRelations, lingua: /^en/.test(window.currentLanguage || '') ? 'en' : 'it',
+          // 0075, giro 2 (D4): le parole di un collegamento passano per l'editor della mappa (packet 0022), non per un secondo
+          linkEditor: window.MappAILinkEditorCore,
+          // le righe del rapporto senza esito (frasi non verificate, materiali assenti), come le legge `render`; la veste le tiene per rapporto
+          residuiDelRapporto: () => getReview().initial.checkStatus === 'completed' || !window.MappAIReviewContext ? []
+            : window.MappAIReviewContext.incompleteMaterials(getReview().initial.report || {}, getReview().baseSnapshot.items),
+          getReview, setReview, items: () => (isFinal ? manifest.review.final.items : []), save, attendi: () => pendingSave,
+          stato: () => ({ busy, committing, closed, saveError }), status, proceed, checkMessage,
+          referenceView, restoreReferences, readable, displayValue, fieldName, canonicalFields, improntaTesto,
+          // in G1 (0075) la riga dice se è un nodo o un collegamento: le macroaree vengono dai suoi estremi
+          areeDi: (id, riga) => areaRows(contextFor(isFinal ? { target: { kind: 'item', id: String(id) } }
+            : riga && riga.source != null ? { target: { kind: 'link', source: riga.source, target: riga.target } } : { target: { kind: 'node', id: String(id) } })),
+          // 0074, F1: quante prove della scheda hanno trovato una pagina; il divisore apre o chiude la Fonte
+          passiNellaFonte: (id, passi) => { if (seguiFonte) seguiFonte(id, passi); },
+          testoChiusura: () => {
+            const approved = getReview().initial.status === 'approved', resume = hasResume();
+            return approved && !resume ? t('rv_close', 'Chiudi') : approved ? t('rv_resume', 'Continua dai contenuti approvati')
+              : isFinal ? t('rv_finalize', 'Salva le decisioni e completa i materiali')
+                // 0075, B.1: in G1 «…e continua» quando c'è da continuare, «…e chiudi» sulla strada «solo mappa»
+                : resume ? t('rv_continue', 'Salva le decisioni e continua') : t('rv_veste_salva_chiudi', 'Salva le decisioni e chiudi');
+          },
+          mac: (() => { try { const n = typeof navigator !== 'undefined' ? navigator : null; return /mac|iphone|ipad/i.test(n ? ((n.userAgentData && n.userAgentData.platform) || n.platform || '') : ''); } catch (e) { return false; } })(),
+          fieldSizing: (() => { try { return !!(window.CSS && window.CSS.supports && window.CSS.supports('field-sizing', 'content')); } catch (e) { return false; } })(),
+          // «Riprova il controllo automatico dei residui», come nel modale di prima; la veste azzera la pila (R2)
+          riprova: async () => {
+            if (busy || closed) return false;
+            freeze(true);
+            status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.');
+            try {
+              await pendingSave; if (saveError) throw saveError;
+              // 0075: in G1 «Riprova il controllo automatico» è quello della mappa (packet 0026, lotto per lotto)
+              if (reading) await retryReading(vaultPath, manifest, reading, judgeProgress);
+              else if (!isFinal) await R.retryJudge(vaultPath, manifest, { onProgress: judgeProgress });
+              else await R.retryMaterialJudge(vaultPath, manifest, { onProgress: p => {
+                status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.') + ' (' + p.done + '/' + p.total + ')' +
+                  (p.reused ? ' · ' + p.reused + ' ' + t('rv_context_reused', 'controlli riutilizzati') : '');
+              } });
+              freeze(false); render(); modal.querySelector('#mrv-title').focus();
+              // 0073, sesto giro, punto 1: la spunta della casella (R10) tolta dal controllo nuovo si dice, come qui sopra,
+              // con la frase della veste, che nomina la sua casella (settimo giro, punto 2)
+              const tolta = veste ? veste.spuntaTolta() : '';
+              status.textContent = checkMessage() + ' ' + t('rv_saved', 'Decisioni salvate') + (tolta ? ' · ' + tolta : '');
+              return true;
+            } catch (e) { status.textContent = errorText(e); return false; }
+            finally { if (busy) freeze(false); }
+          } });
+      } catch (e) { veste = null; console.warn('[Revisione] veste del Banco non disponibile:', e); }
+    }
     render();
-    modal.querySelector('#mrv-later').onclick = async () => { if (busy || invalidEditors.size) { status.textContent = t('rv_edit_draft', 'Modifica non salvata. Salva oppure annulla prima di continuare.'); return; } await pendingSave; if (!saveError && !busy) close(); };
+    /* B14 (0088): «Salva e continua più tardi» è `chiudiPiuTardi()`, che dice se la finestra si è chiusa davvero;
+       il bottone (ed ESC, che lo preme) chiama poi `options.dopoChiusura` SOLO a chiusura avvenuta — la pipeline
+       la passa alla G2 di un giro partito da CREA per uscire da CREA e aprire ELABORA. «Continua» non la chiama:
+       lì è la continuazione a sapere da dove viene. Il clic di B10 chiama `chiudiPiuTardi()` e non `dopoChiusura`. */
+    let chiudiPiuTardi = async () => { if (busy || invalidEditors.size) { status.textContent = t('rv_edit_draft', 'Modifica non salvata. Salva oppure annulla prima di continuare.'); return false; } await pendingSave; if (!saveError && !busy) close(); return closed; };
+    const dopoChiusura = () => { if (typeof options.dopoChiusura !== 'function') return; try { options.dopoChiusura(); } catch (e) { console.warn('[Revisione] dopoChiusura:', e && e.message); } };
+    modal.querySelector('#mrv-later').onclick = async () => { if (await chiudiPiuTardi()) dopoChiusura(); };
+    function completionError(error) {
+      status.textContent = errorText(error);
+      if (reading) {
+        let notice = modal.querySelector('#mrv-reading-completion-error');
+        if (!notice) { notice = document.createElement('p'); notice.id = 'mrv-reading-completion-error'; notice.setAttribute('role', 'alert'); proceed.parentNode.insertBefore(notice, proceed); }
+        notice.textContent = errorText(error);
+      }
+    }
     proceed.onclick = async () => {
       if (closed || busy || committing || invalidEditors.size || proceed.hidden) return;
       freeze(true);
       try {
         await pendingSave; if (saveError) throw saveError;
-        const resume = !!options.onContinue || pendingOutputs(manifest);
-        if (getReview().initial.status !== 'approved' || resume) await R.approve(vaultPath, manifest, { final: isFinal, manualReview: manualConfirmed || statoApprovazioni(getReview()).tutti });
+        const resume = hasResume();
+        if (getReview().initial.status !== 'approved' || resume) await approve(manualConfirmed || statoApprovazioni(getReview()).tutti);
         close(); busy = false;
+        /* 0090 (gate, 12/10): `resume` è letto PRIMA di approvare; per una G2 riaperta senza continuazione
+           (chip, «Rivedi contenuti», `runApprovedMaterials`) diventa vero solo DOPO (`final.stage = 'approved'`):
+           si richiede, altrimenti il primo clic approvava e chiudeva senza generare i materiali */
         if (options.onContinue) await options.onContinue(manifest);
-        else if (resume && window.MappAIPipelineCore.hasOutput(manifest.config)) await window.MappAIPipeline.run(manifest.config, { only: ['B', 'C', 'D', 'E'], vaultPath, manifest });
-      } catch (e) { status.textContent = errorText(e); }
+        else if (!reading && (resume || hasResume()) && window.MappAIPipelineCore.hasOutput(manifest.config)) await window.MappAIPipeline.run(manifest.config, Object.assign({ only: ['B', 'C', 'D', 'E'], vaultPath, manifest }, options.continua || {}));
+        else dopoChiusura();   // 0090: «Chiudi» senza niente da continuare torna dove torna «più tardi»
+      } catch (e) { completionError(e); }
       finally { freeze(false); }
     };
+    if (veste) {
+      /* R1: «Salva e continua più tardi» salva prima il campo aperto. R4: G2 si chiude senza la spunta,
+         quando ogni materiale è rivisto, approvato o escluso; con il controllo parziale è il docente ad aver
+         completato il controllo, materiale per materiale (manualReview). */
+      chiudiPiuTardi = async () => {
+        if (busy) return false;
+        if (!veste.salvaAperto()) return false;
+        await pendingSave; if (!saveError && !busy) close();
+        return closed;
+      };
+      modal.querySelector('#mrv-later').onclick = async () => { if (await chiudiPiuTardi()) dopoChiusura(); };
+      proceed.onclick = async () => {
+        if (closed || busy || committing || proceed.hidden) return;
+        if (!veste.salvaAperto()) return;
+        freeze(true);
+        try {
+          await pendingSave; if (saveError) throw saveError;
+          const r = getReview(), resume = hasResume();
+          if (r.initial.status !== 'approved' && !veste.puoChiudere()) return;
+          // 0075: anche G1; con il controllo parziale la casella del piede è la conferma esplicita (rev. 4, B.1)
+          if (r.initial.status !== 'approved' || resume) await approve(r.initial.checkStatus !== 'completed');
+          close(); busy = false;
+          if (options.onContinue) await options.onContinue(manifest);
+          else if (!reading && (resume || hasResume()) && window.MappAIPipelineCore.hasOutput(manifest.config)) await window.MappAIPipeline.run(manifest.config, Object.assign({ only: ['B', 'C', 'D', 'E'], vaultPath, manifest }, options.continua || {}));
+          else dopoChiusura();   // 0090: «Chiudi» senza niente da continuare torna dove torna «più tardi»
+        } catch (e) { completionError(e); }
+        finally { freeze(false); }
+      };
+    }
+    /* B10: il clic chiude G2 esattamente come «Salva e continua più tardi» (salva il campo aperto, nessuna
+       decisione persa; se il salvataggio non riesce la finestra resta) e solo se si è chiusa apre G1, con la
+       stessa chiamata di «Rivedi i contenuti» (`#mps-rivedi`): sopra la console che l'ha aperta. */
+    const passoContenuti = modal.querySelector('#mrv-step-contenuti');
+    if (passoContenuti) passoContenuti.onclick = async () => {
+      if (busy || closed) return;
+      await chiudiPiuTardi();              // B14: senza `dopoChiusura` — G1 si apre sopra CREA, non ELABORA
+      if (closed && typeof R.open === 'function') R.open(vaultPath, manifest, { alza: true });
+    };
     modal.addEventListener('keydown', e => {
+      if (veste && veste.tasto(e)) return;   // 0073: ⌘Z, ⇧⌘Z (Ctrl+Shift+Z, Ctrl+Y), Esc dentro un campo
       if (e.key === 'Escape') { e.preventDefault(); if (!busy) modal.querySelector('#mrv-later').click(); }
       if (e.key === 'Tab') {
         const focusable = Array.from(modal.querySelectorAll('button:not(:disabled),textarea:not(:disabled),select:not(:disabled),input:not(:disabled),summary')).filter(x => !x.hidden && x.getClientRects().length);

@@ -105,39 +105,39 @@ ${_fontDoc(o.font)}
 @font-face { font-family:'OpenDyslexic'; font-weight:400; font-display:swap; src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff'); }
 @font-face { font-family:'OpenDyslexic'; font-weight:700; font-display:swap; src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff'); }
 * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-body { font-family:var(--doc-font, 'Space Mono', monospace); font-size:12px; color:#1e293b; margin:0 auto; padding:24px 32px; max-width:900px; background:#f8fafc; --sd-ls:0em; --sd-ws:0em; }
+body { font-family:var(--doc-font, 'Space Mono', monospace); font-size:12px; color:var(--mm-testo, #404040); margin:0 auto; padding:24px 32px; max-width:900px; background:#f8fafc; --sd-ls:0em; --sd-ws:0em; }
 .sd-header { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:16px; margin-bottom:24px; border-bottom:2px solid ${accent}; }
-.sd-title { font-size:22px; font-weight:900; color:#1e293b; }
+.sd-title { font-size:22px; font-weight:900; color:var(--mm-testo, #404040); }
 .sd-sub { font-size:10px; color:#64748b; margin-top:5px; }
 .sd-body { background:#fff; border-radius:16px; padding:24px 28px; }
 .sd-sec { margin:0 0 22px; break-inside:avoid; }
 .sd-sec-h { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:900; margin:0 0 12px; padding-bottom:6px; border-bottom:2px solid; }
 .sd-dot { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
-.sd-count { margin-left:auto; font-size:10px; font-weight:700; color:#94a3b8; background:#f1f5f9; border-radius:999px; padding:1px 9px; }
-.sd-item { font-size:12px; line-height:1.7; color:#334155; padding:8px 12px; margin:0 0 7px; border-radius:0 6px 6px 0; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
-.sd-body p { font-size:12px; line-height:1.85; color:#334155; margin:0 0 12px; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
+.sd-count { margin-left:auto; font-size:10px; font-weight:700; color:var(--mm-testo-3, #64748b); background:#f1f5f9; border-radius:999px; padding:1px 9px; }
+.sd-item { font-size:12px; line-height:1.7; color:var(--mm-testo, #404040); padding:8px 12px; margin:0 0 7px; border-radius:0 6px 6px 0; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
+.sd-body p { font-size:12px; line-height:1.85; color:var(--mm-testo, #404040); margin:0 0 12px; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
 .sd-source span { border-radius:3px; }
-.sd-empty { font-size:11px; color:#94a3b8; font-style:italic; }
-.sd-footer { text-align:center; margin-top:22px; font-size:9px; color:#94a3b8; }
+.sd-empty { font-size:11px; color:var(--mm-testo-3, #64748b); font-style:italic; }
+.sd-footer { text-align:center; margin-top:22px; font-size:9px; color:var(--mm-testo-3, #64748b); }
 b.sd-bio { font-weight:700; color:inherit; }
 /* OpenDyslexic (toggle nel pannello Leggibilità) */
 body.sd-odys { background:#f6efdd; }
 body.sd-odys .sd-body { background:#fffdf6; max-width:none; }
 body.sd-odys .sd-body p, body.sd-odys .sd-item { font-family:'OpenDyslexic',Verdana,'Trebuchet MS',sans-serif; font-size:15px; line-height:2.05; color:#33312e; }
 body.sd-odys .sd-sec-h { font-family:'OpenDyslexic',Verdana,sans-serif; }
-.sd-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid #e2e8f0; padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:12px; }
+.sd-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid var(--mm-bordo, #cbd5e1); padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:12px; }
 .sd-brand { font-weight:bold; color:${accent}; white-space:nowrap; }
 .sd-btn { border:none; border-radius:8px; padding:6px 14px; cursor:pointer; font:bold 11px var(--doc-font, 'Space Mono', monospace); }
 .sd-btn-primary { background:${accent}; color:#fff; }
-.sd-btn-ghost { background:#fff; color:${accent}; border:1px solid #e2e8f0; }
+.sd-btn-ghost { background:#fff; color:${accent}; border:1px solid var(--mm-bordo, #cbd5e1); }
 .sd-btn-ghost.on { background:#eef2ff; }
 .sd-btn-close { background:#f1f5f9; color:#475569; }
-.sd-read-panel { position:fixed; top:54px; right:14px; background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:12px 16px; z-index:101; box-shadow:0 12px 34px rgba(15,23,42,.14); min-width:236px; }
+.sd-read-panel { position:fixed; top:54px; right:14px; background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:14px; padding:12px 16px; z-index:101; box-shadow:0 12px 34px rgba(15,23,42,.14); min-width:236px; }
 /* Nascosto di default: .sd-read-panel.no-print (2 classi) batte .no-print{display:block};
    .sd-read-panel.open, più sotto, riapre. */
 .sd-read-panel.no-print { display:none; }
 .sd-read-panel.open { display:block; }
-.sd-read-h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:8px; }
+.sd-read-h { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--mm-testo-3, #64748b); margin-bottom:8px; }
 .sd-read-row { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:9px 0; font-size:11px; font-weight:700; color:#475569; cursor:pointer; }
 .sd-read-row input[type=range] { width:112px; accent-color:${accent}; }
 .sd-read-row input[type=checkbox] { width:16px; height:16px; accent-color:${accent}; }

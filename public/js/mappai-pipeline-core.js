@@ -253,13 +253,35 @@
     });
   }
 
+  /* La risposta esatta con un segno DAVANTI (6/10/26, packet 0080). Al gate 3,
+     su «Da Roma al Medioevo», 4 domande su 35 avevano «correct» scritto dal
+     modello con una virgola in testa — «，» (la virgola cinese) tre volte, «, »
+     una: nessuna opzione coincideva, e né il rimescolamento né il punto la
+     riconoscevano. Lo stesso guasto c'era già una volta nei quiz del 27/9.
+     Giacomo, 6/10: «1, correggilo qui». Virgole, punti e virgola, due punti
+     (anche a larghezza piena) e spazi in testa non contano per riconoscerla.
+     Vale anche a interruttore mappai_mc_punto spento: è il riconoscimento di
+     sempre, non il punto. Se dopo non resta niente, torna l'originale: una
+     risposta fatta solo di segni resta non riconosciuta, come prima. */
+  function _rispostaPulita(c) {
+    var s = String(c);
+    var p = s.replace(/^[\s,，、;；:：]+/, '');
+    return p.trim() ? p : s;
+  }
+
   // Dov'è la risposta esatta fra le opzioni: per testo, per indice 1-based, per
   // lettera («B»). Sono le tre convenzioni che i modelli usano davvero.
   function _indiceCorretta(it, opts) {
     var c = it.correct;
     if (typeof it.correctIndex === 'number' && it.correctIndex >= 0 && it.correctIndex < opts.length) return it.correctIndex;
     if (c == null) return -1;
-    var s = String(c).trim();
+    // prima il testo così com'è, poi quello pulito: nessun passo indietro rispetto
+    // a prima della pulizia (un'opzione che comincia anch'essa con «, »)
+    var grezza = String(c).trim().toLowerCase();
+    for (var g = 0; g < opts.length; g++) {
+      if (String(opts[g]).trim().toLowerCase() === grezza) return g;
+    }
+    var s = _rispostaPulita(c).trim();
     for (var i = 0; i < opts.length; i++) {
       if (String(opts[i]).trim().toLowerCase() === s.toLowerCase()) return i;
     }
@@ -270,6 +292,93 @@
       if (k >= 0 && k < opts.length) return k;
     }
     return -1;
+  }
+
+  /* ══ IL PUNTO IN FONDO ALLE OPZIONI (6/10/26, packet 0080) ══════════════════
+     Giacomo, 3/10: «tutte le risposte dei Quiz MC appaiono scritte senza il
+     "." alla fine delle frasi, è importante che il "." sia sempre presente»
+     (ADR 0012, revisione 5, punto E). Nessun codice toglieva il punto: le
+     opzioni uscivano come le scriveva il modello, che le scrive spesso senza.
+     E non è solo una questione di forma: se il modello mette il punto alla
+     risposta giusta e non ai distrattori (o il contrario), la PUNTEGGIATURA
+     indica la risposta a chi non sa la materia — lo stesso indizio della
+     risposta più lunga (vedi corretteTroppoLunghe). Chiudendole tutte allo
+     stesso modo l'indizio sparisce.
+
+     Che cosa conta come fine frase (bivio B2, scelta a): «.», «?», «!», «…»,
+     anche seguiti da virgolette o parentesi di chiusura, restano come sono;
+     «,» «;» «:» in fondo diventano il punto; altrimenti il punto si aggiunge.
+     Un'opzione vuota, o che non è testo, non si tocca.
+
+     ⚠️ La risposta esatta non deve spostarsi. Se è scritta per testo, segue il
+     testo nuovo («Milano» → «Milano.»); per indice, numero o lettera resta. E
+     se la chiusura rendesse uguali due opzioni che prima non lo erano («Roma»
+     e «Roma.»), chi legge non saprebbe più quale delle due è la giusta: in quel
+     caso, e in ogni caso in cui la risposta esatta cadrebbe altrove, l'item
+     resta com'era. Meglio un'opzione senza punto che una domanda sbagliata.
+     Le due forme e il riconoscimento sono quelli di mescolaOpzioni; gli
+     oggetti ricevuti non si modificano. */
+  function _chiudiFrase(s) {
+    if (typeof s !== 'string') return s;
+    var t = s.replace(/\s+$/, '');
+    if (!t) return s;                          // vuota: resta com'è, spazi compresi
+    if (/[.?!…]["”»)]*$/.test(t)) return t;
+    if (/[,;:]$/.test(t)) return t.slice(0, -1) + '.';
+    return t + '.';
+  }
+
+  function _stessaOpzione(a, b) {
+    return String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  }
+
+  function chiudiOpzioni(items) {
+    return (items || []).map(function (it) {
+      if (!it) return it;
+      var tri = (it.a1 != null && it.a2 != null && it.a3 != null);
+      var opts = tri ? [it.a1, it.a2, it.a3] : (Array.isArray(it.options) ? it.options.slice() : null);
+      if (!opts || opts.length < 2) return it;
+
+      var ci = _indiceCorretta(it, opts);
+      if (ci < 0) return it;                  // chiave non riconosciuta: si lascia com'è
+
+      var nuovo = opts.map(_chiudiFrase);
+      // due opzioni diventate uguali: la risposta non si saprebbe più dove sta
+      for (var i = 0; i < nuovo.length; i++) {
+        for (var j = i + 1; j < nuovo.length; j++) {
+          if (_stessaOpzione(nuovo[i], nuovo[j]) && !_stessaOpzione(opts[i], opts[j])) return it;
+        }
+      }
+
+      var out = Object.assign({}, it);
+      if (tri) { out.a1 = nuovo[0]; out.a2 = nuovo[1]; out.a3 = nuovo[2]; }
+      else out.options = nuovo;
+      // la risposta scritta per testo segue il testo nuovo della sua opzione
+      if (typeof it.correct === 'string') {
+        /* prima l'opzione scritta ESATTAMENTE così, poi la prima che le somiglia:
+           con due opzioni che differiscono solo per le maiuscole («Roma», «roma»)
+           la risposta segue quella che nominava davvero, non la prima.
+           Il confronto è anche sulla risposta senza segni davanti
+           (_rispostaPulita): dove non c'è rimescolamento esce comunque pulita.
+           Il testo così com'è viene sempre prima di quello pulito: nessun passo
+           indietro per un'opzione che comincia anch'essa con un segno. */
+        var cc = _rispostaPulita(it.correct);
+        var prove = [
+          function (o) { return String(o) === it.correct; },
+          function (o) { return String(o) === cc; },
+          function (o) { return _stessaOpzione(o, it.correct); },
+          function (o) { return _stessaOpzione(o, cc); }
+        ];
+        var kc = -1;
+        for (var pr = 0; pr < prove.length && kc < 0; pr++) {
+          for (var k = 0; k < opts.length; k++) {
+            if (prove[pr](opts[k])) { kc = k; break; }
+          }
+        }
+        if (kc >= 0 && typeof nuovo[kc] === 'string') out.correct = nuovo[kc];
+      }
+      if (_indiceCorretta(out, nuovo) !== ci) return it;
+      return out;
+    });
   }
 
   // Distribuzione delle posizioni: serve al rapporto, non alla correzione.
@@ -1503,7 +1612,7 @@
     ordinaGraduazione: ordinaGraduazione,
     estimateCalls: estimateCalls,
     budgetDallaFonte: budgetDallaFonte, FRASI_PER_DOMANDA: FRASI_PER_DOMANDA,
-    semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, posizioniCorrette: posizioniCorrette,
+    semeDa: semeDa, mescolaOpzioni: mescolaOpzioni, chiudiOpzioni: chiudiOpzioni, posizioniCorrette: posizioniCorrette,
     similitudine: similitudine, deduplicaDomande: deduplicaDomande,
     livelloVerificato: livelloVerificato, criteriDaItem: criteriDaItem,
     corretteTroppoLunghe: corretteTroppoLunghe, verificaEvidenza: verificaEvidenza, idEvidenze: idEvidenze,

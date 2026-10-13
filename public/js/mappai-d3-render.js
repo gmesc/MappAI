@@ -1122,11 +1122,6 @@ window.getCanvasFlags = function () {
     return { pinned: isPinned, attrazione: attractionEnabled, labels: relLabelMode };
 };
 
-// Il passo +/- storico, ora un involucro: muove entrambe insieme, com'era.
-window.changeFontScale = function (dir) {
-    window.setNodeFontScale(globalFontScale + dir * 0.1);
-    window.setRelFontScale(relFontScale + dir * 0.1);
-};
 
 window.exportSnapshot = async function () {
     try {

@@ -128,6 +128,32 @@ test('materialeDaScheda: i blocchi in ordine di griglia, i vuoti senza intestazi
     assert.ok(!/VUOLE OTTENERE/.test(vuota), 'blocco vuoto = nessuna intestazione');
 });
 
+/* La scheda come testo della sintesi (0079, portata dal reader): il markdown
+   che `_mdToHtml` di mappai-branch-synthesis legge. */
+test('markdownDaScheda: un titolo per blocco pieno, «interpretazione» dove serve, * e [n] neutralizzati', () => {
+    const md = V.markdownDaScheda({
+        titolo: 'X',
+        identita: { genere: 'manifesto', data: '1917' },
+        interpretazione: { finalita: 'mobilitare [1] i *civili*' }
+    });
+    assert.strictEqual(md, [
+        "## Carta d'identità", '**Genere della fonte:** manifesto\n\n**Data o periodo:** 1917',
+        '## Che cosa vuole ottenere (interpretazione)', '**Finalità:** mobilitare (1) i ∗civili∗'
+    ].join('\n\n'));
+    assert.strictEqual(V.markdownDaScheda(null), '');
+    assert.strictEqual(V.markdownDaScheda({ titolo: 'vuota' }), '', 'nessun campo pieno = niente titoli a vuoto');
+    assert.strictEqual(V.markdownDaScheda(SCHEDA, V.BLOCCHI), V.markdownDaScheda(SCHEDA), 'i blocchi di default sono BLOCCHI');
+    assert.ok(V.markdownDaScheda(SCHEDA).startsWith("## Carta d'identità"));
+});
+
+test('markdownDaScheda: formule e richiami della sintesi neutralizzati, spazi compressi', () => {
+    const md = V.markdownDaScheda({ identita: { titolo: 'costa  5$ e\n3$ [[src-a1]] \\(x\\) \\[y\\]' } });
+    assert.ok(!/\$/.test(md), 'nessun $: _protectMath lo leggerebbe come formula');
+    assert.ok(!/\\[([]/.test(md), 'nessun \\( né \\[');
+    assert.ok(!/\[\[?src-/.test(md), 'nessun richiamo [src-…]');
+    assert.ok(md.includes('costa 5＄ e 3＄ (src-a1) ⧵(x\\) ⧵[y\\]'), md);
+});
+
 test('testoBlocco: solo i campi pieni, con la loro etichetta', () => {
     const t = V.testoBlocco(SCHEDA, 'identita');
     assert.ok(t.includes('Genere della fonte: Manifesto'));

@@ -1,0 +1,391 @@
+/* =========================================================================
+   mappai-crea-iconografica.css — CREA con una foto (0067, ADR 0015)
+
+   Le due card che il guscio (`mappai-crea-iconografica.js`) mette al posto di
+   Mappa / Knowledge Graph e del tema centrale, e il verde bloccato. (La spunta
+   «Manda la fonte all'allievo» con una foto si nasconde: stile inline del guscio.) Solo token esistenti: nessun token nuovo.
+   Il riquadro è quello del tema centrale che sostituisce (`#mn-genere-dx`,
+   mappai-stile-manifesto.css): stesso fondo, stesso raggio, stesso padding,
+   stessa altezza modulare — una card nuova che si legge come quella di prima.
+
+   Contrasti misurati (inv. 16, sul fondo che si vede, `--man-card` #f1f4f8):
+     testo principale  --man-su-verde #404040 → 9,40:1
+     testo secondario  --mm-testo-2   #475569 → 6,87:1   (il #8a93a0 del mockup: 2,82, bocciato;
+                       anche la stima dei materiali, che di suo era --mm-testo-3 #64748b: 4,31, bocciato)
+     campo del titolo  #404040 sul riempimento composito #e5e7eb → 8,37:1
+     bottoni           #404040 su color-mix 14% (#d8dbde) → 7,46:1 · al passaggio su
+                       --man-verde 6,48:1
+   ========================================================================= */
+
+html.manifesto #mn-bento .ci-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: var(--mn-h-modulo);
+    background: var(--man-card);
+    border: 1px solid var(--man-card);
+    border-radius: var(--mnc-card-r, var(--mm-r-card));
+    padding: 14px 18px;
+    color: var(--man-su-verde);
+    box-sizing: border-box;
+}
+html.manifesto #mn-bento .ci-card p { margin: 0; }
+
+/* ── la foto ─────────────────────────────────────────────────────────────── */
+html.manifesto #mn-bento .ci-card--foto { align-items: center; text-align: center; }
+/* 260px: lo stesso tetto dell'anteprima dentro la scheda (`_mostraFoto`,
+   mappai-visione.js) — la foto si riconosce, la riga non diventa una pagina */
+html.manifesto #mn-bento .ci-foto__img {
+    display: block;
+    max-width: 100%;
+    max-height: 260px;
+    object-fit: contain;
+    border-radius: var(--mm-r-campo);
+}
+html.manifesto #mn-bento .ci-foto__formato {
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    color: var(--man-su-verde);
+}
+html.manifesto #mn-bento .ci-foto__nome {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    color: var(--mm-testo-2);
+}
+
+/* ── la scheda letta ─────────────────────────────────────────────────────── */
+html.manifesto #mn-bento .ci-etichetta {
+    font-size: var(--bn-fs-titolo);
+    font-weight: var(--bn-fw-titolo);
+    color: var(--man-su-verde);
+}
+/* Il campo del titolo. `font: inherit` PRIMA del corpo: senza, un input cade sul
+   carattere di sistema (misurato sul mockup del 30/09). Il corpo è 19px (§5 del
+   packet), derivato dal corpo delle azioni come chiede `npm run stile --vicino`.
+   L'id nel selettore e `!important` battono `#landing-view .glass-card
+   input[type="text"]` di style.css (corpo e padding con !important). */
+html.manifesto #mn-bento input.ci-titolo {
+    font: inherit !important;
+    font-size: calc(var(--bn-fs-azione) + 4px) !important;
+    font-weight: var(--bn-fw-titolo) !important;
+    line-height: 1.25 !important;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--man-su-verde) !important;
+    /* il riempimento del tema centrale che questo campo sostituisce */
+    background: rgba(64, 64, 64, .07) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--mm-r-campo) !important;
+    padding: 8px 12px !important;
+    box-shadow: none !important;
+}
+/* 0069, giro 3: con il riquadro il titolo si corregge lì, e nella card si LEGGE —
+   lo stesso corpo e peso del campo che sostituisce, senza riempimento */
+html.manifesto #mn-bento .ci-titolo-testo {
+    font-size: calc(var(--bn-fs-azione) + 4px);
+    font-weight: var(--bn-fw-titolo);
+    line-height: 1.25;
+    color: var(--man-su-verde);
+    overflow-wrap: anywhere;
+}
+html.manifesto #mn-bento input.ci-titolo:focus-visible {
+    outline: 2px solid var(--man-verde);
+    outline-offset: 1px;
+}
+html.manifesto #mn-bento .ci-identita,
+html.manifesto #mn-bento .ci-stato,
+html.manifesto #mn-bento .ci-avviso {
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    line-height: 1.45;
+    color: var(--mm-testo-2);
+}
+html.manifesto #mn-bento .ci-manca {
+    font-size: var(--bn-fs-titolo);
+    font-weight: var(--bn-fw-titolo);
+    line-height: 1.4;
+    color: var(--man-su-verde);
+}
+html.manifesto #mn-bento .ci-azioni { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── il verde bloccato: la foto non è ancora letta ───────────────────────────
+   Lo stesso aspetto di `mn-card--spento` (che è di `aggiornaGate` e che il guscio
+   non tocca). Il motivo sta in `title` e `aria-label`, scritti dal guscio. */
+html.manifesto #mn-genera.ci-bloccato {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+/* 0069, giro 13: bloccato perché la scheda è da confermare — stessa veste, ma il
+   clic arriva (lo ferma il guscio, in cattura) e porta in vista «Confermo la scheda» */
+html.manifesto #mn-genera.ci-bloccato.ci-da-confermare {
+    pointer-events: auto;
+}
+
+/* ── la scheda, in CREA: categorie e angoli in griglia (01/10) ────────────────
+   La griglia la fa il motore (`colonne` → `.mm-campi--N`); qui solo che un'etichetta
+   lunga vada a capo invece di essere tagliata. */
+.vs-superficie--crea .mm-campi > * { min-width: 0; }
+.vs-superficie--crea .mm-campi label,
+.vs-superficie--crea .mm-campi span { white-space: normal; overflow-wrap: break-word; }
+
+/* ── il riquadro della scheda, largo quattro colonne (0069, ADR 0016 rev. 1) ──
+   Giro 4 (Giacomo, 03/10): prende il posto della riga della foto e del titolo,
+   e tutto sta in UNA colonna larga quanto il riquadro: il titolo con «Aa+», la
+   foto intera, i campi uno per riga (fondo bianco, crescono col testo), le
+   opzioni dei materiali su due colonne, gli avvisi, lo stato e la conferma.
+   Solo token esistenti; gli stessi colori delle card dello 0067, quindi gli
+   stessi contrasti misurati (testo #404040 su --man-card 9,40:1 · --mm-testo-2
+   6,87:1); nei campi bianchi #404040 su --mm-fondo #fff fa 10,37:1.
+   `--ci-zoom` (1 · 1,25 · 1,5) lo scrive il guscio sul riquadro, per «Aa+».
+   Giro 5 (Giacomo, 03/10), la gerarchia dei corpi, tutti derivati dai token del
+   bento (nessun token da 16 o 20px nel suo mondo: `--ui-fs-*` vale solo dentro
+   `.ui`): descrizioni `--bn-fs-titolo` × 1,4 = 19,6px (× lo zoom); etichette
+   dei campi e «Titolo della fonte» `--bn-fs-voce` + 4px = 16px; intestazioni dei
+   blocchi `--bn-fs-titolo` × 1,6 = 22,4px, più grandi delle descrizioni. */
+html.manifesto #mn-bento .ci-riquadro {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: var(--mn-gap);
+}
+html.manifesto #mn-bento .ci-rq-testa {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--mm-gap);
+}
+html.manifesto #mn-bento .ci-rq-titolo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--mm-btn-gap) / 2);
+}
+/* il titolo del riquadro: campo bianco come le textarea. «Aa+» NON lo tocca
+   (Giacomo, 03/10: «basta ingrandire solo testi delle descrizioni modificabili»):
+   il corpo resta quello del campo del titolo dello 0067 */
+html.manifesto #mn-bento .ci-riquadro input.ci-titolo {
+    background: var(--mm-fondo) !important;
+    /* giro 6: lo stesso peso normale delle descrizioni (era 700 dal campo dello 0067) */
+    font-weight: normal !important;
+}
+/* «Aa+»: un bottone di testo. Il corpo NON si scrive: resta quello di ogni
+   `button` dell'app (16px, style.css:109) — un `.mn-btn` lo porterebbe a 12px.
+   La veste è quella di `.mn-btn`, con gli stessi token. */
+html.manifesto #mn-bento .ci-zoom {
+    flex: none;
+    font-family: inherit;
+    font-weight: var(--bn-fw-titolo);
+    color: var(--man-su-verde);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border: 1px solid transparent;
+    border-radius: var(--mm-r-btn);
+    padding: var(--mm-btn-gap) var(--mm-gap);
+    cursor: pointer;
+}
+html.manifesto #mn-bento .ci-zoom:hover,
+html.manifesto #mn-bento .ci-zoom[aria-pressed="true"] { background: var(--man-verde); border-color: var(--man-verde); }
+html.manifesto #mn-bento .ci-zoom:focus-visible { outline: 2px solid var(--man-su-verde); outline-offset: 1px; }
+html.manifesto #mn-bento .ci-riquadro__foto {
+    text-align: center;
+    min-width: 0;
+}
+/* la foto larga quanto il riquadro, intera: proporzioni sue, niente ritaglio */
+html.manifesto #mn-bento .ci-riquadro__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 auto;
+    border-radius: var(--mm-r-campo);
+}
+html.manifesto #mn-bento .ci-riquadro__senza {
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    line-height: 1.45;
+    color: var(--man-su-verde);
+}
+html.manifesto #mn-bento .ci-riquadro__campi {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mm-gap);
+}
+/* i blocchi uno sotto l'altro, i campi uno per riga, tutti larghi quanto il riquadro */
+html.manifesto #mn-bento .ci-riquadro__blocchi {
+    display: flex;
+    flex-direction: column;
+    /* giro 5: fra l'ultimo campo di un blocco e l'intestazione del blocco dopo,
+       il passo del corpo delle finestre (era --mn-gap, 14px) */
+    gap: var(--mm-pad);
+}
+/* giro 5 (Giacomo: «aumenta la spaziatura verticale tra la fine di una text input
+   area e il titoletto successivo»): etichetta e campo restano stretti (il `gap`
+   del blocco, 4px), e prima dell'etichetta di un campo nuovo si aggiunge
+   --mm-gap — da 4 a 16px */
+html.manifesto #mn-bento .ci-blocco textarea + label.ci-campo {
+    margin-top: var(--mm-gap);
+}
+html.manifesto #mn-bento .ci-blocco {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    /* etichetta e campo stanno insieme: metà dello spazio fra i bottoni (derivato, §6 gradino 3) */
+    gap: calc(var(--mm-btn-gap) / 2);
+}
+html.manifesto #mn-bento .ci-blocco legend {
+    padding: 0 0 calc(var(--mm-btn-gap) / 2);
+    /* giro 5: l'intestazione del blocco sta sopra le descrizioni (19,6px) — 22,4px */
+    font-size: calc(var(--bn-fs-titolo) * 1.6);
+    font-weight: var(--bn-fw-titolo);
+    color: var(--man-su-verde);
+}
+html.manifesto #mn-bento .ci-campo {
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    color: var(--mm-testo-2);
+}
+/* `#landing-view .glass-card textarea` (style.css) impone corpo, padding e raggio
+   con !important: l'id nel selettore e !important, come per il campo del titolo. */
+html.manifesto #mn-bento textarea.ci-campo__testo {
+    font: inherit !important;
+    /* giro 5: base +40% (14 × 1,4 = 19,6px; nessun token vicino), poi × lo zoom di «Aa+» */
+    font-size: calc(var(--bn-fs-titolo) * 1.4 * var(--ci-zoom, 1)) !important;
+    /* giro 6 (Giacomo: «una versione light o medium»): il peso NORMALE. Il
+       grassetto veniva da qui (`--bn-fw-voce`, 600), e i caratteri dell'app
+       (Space Mono, TM Sans, TM Alt, Atkinson: `mappai-font-core.js`, `facce`)
+       hanno solo le facce 400 e 700 — 600 cade sulla 700. Light (300) e medium
+       (500) cadrebbero sulla 400 per la regola di scelta del browser: la 400 è la
+       più leggera che esiste, per qualunque carattere scelto in Cabina. */
+    font-weight: normal !important;
+    line-height: 1.4 !important;
+    width: 100%;
+    box-sizing: border-box;
+    /* l'altezza la fa il testo (la tecnica di `.mm-campo--cresce`), senza tetto e
+       senza barra: si vede tutto. Il guscio ripiega su `scrollHeight` dove manca. */
+    field-sizing: content;
+    overflow: hidden;
+    resize: none;
+    color: var(--man-su-verde) !important;
+    /* dentro un riquadro grigio il campo è BIANCO (la regola di `.mm-sez .mm-campo`) */
+    background: var(--mm-fondo) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--mm-r-campo) !important;
+    /* il gemello è il campo del titolo (8px 12px): gli stessi due spazi, dai token */
+    padding: var(--mm-btn-gap) var(--mm-gap) !important;
+    box-shadow: none !important;
+}
+html.manifesto #mn-bento textarea.ci-campo__testo:focus-visible {
+    outline: 2px solid var(--man-verde);
+    outline-offset: 1px;
+}
+/* le opzioni dei materiali: UN box per materiale (giro 6, Giacomo: «vanno
+   raggruppati per items»), su DUE colonne lette riga per riga — Flashcard |
+   Domande aperte, poi Scelta multipla | Sintesi. Dentro il box la testa (Genera,
+   Quante), le parti della scheda e gli angoli sono sotto-sezioni SENZA bordo:
+   la veste di riquadro (fondo, bordo, raggio) passa dalle tre `.mm-sez` del
+   motore al box che le contiene, con gli stessi token del motore. Il nome del
+   materiale fa da titolo del box. I gruppi li fa `montaOpzioni`, la regola è del
+   core. La stima prende la riga intera, in fondo. */
+html.manifesto #mn-bento .ci-riquadro__materiali .vs-opzioni {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mn-gap);
+    align-items: start;
+}
+html.manifesto #mn-bento .ci-riquadro__materiali .vs-opz-genere {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mm-gap);
+    background: var(--mm-fondo-sez);
+    border: 1px solid var(--mm-bordo);
+    border-radius: calc(var(--mm-r-box) - 4px);
+    padding: var(--mm-gap) var(--mn-gap);
+}
+html.manifesto #mn-bento .ci-riquadro__materiali .vs-opz-genere > .mm-sez {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+}
+/* il nome del materiale (il titolo della prima sotto-sezione) è il titolo del box */
+html.manifesto #mn-bento .ci-riquadro__materiali .vs-opz-genere > .mm-sez:first-child > .mm-sez__t {
+    font-size: var(--bn-fs-titolo);
+    font-weight: var(--bn-fw-titolo);
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--man-su-verde);
+}
+/* giro 18: la stima è un `.mm-piede-nota` del motore, di suo --mm-testo-3 #64748b,
+   che su --man-card #f1f4f8 fa 4,31:1 (sotto 4,5): qui il testo secondario della
+   card, --mm-testo-2, 6,87:1 */
+html.manifesto #mn-bento .ci-riquadro__materiali [data-vs-stima] { grid-column: 1 / -1; color: var(--mm-testo-2); }
+/* giro 7: la risposta grezza di una lettura fallita, chiusa in un <details>:
+   si legge se serve, non è un campo da rivedere */
+html.manifesto #mn-bento .ci-riquadro__grezzo summary {
+    cursor: pointer;
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    color: var(--mm-testo-2);
+}
+html.manifesto #mn-bento .ci-riquadro__grezzo-testo {
+    margin: var(--mm-btn-gap) 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: var(--bn-fs-voce);
+    color: var(--mm-testo-2);
+}
+/* `#landing-view .glass-card label` (style.css:758) porta OGNI etichetta della
+   landing a 16px × lo zoom, con !important: nel riquadro le etichette dei campi
+   e quelle del motore («Quante per categoria») diventavano più grandi dei titoli
+   dei blocchi (misurato sul banco: 19,2px contro 14px). Tornano al corpo delle
+   voci del bento; due id nel selettore battono quella regola. */
+html.manifesto #landing-view #mn-bento .ci-riquadro label.mm-label {
+    font-size: var(--bn-fs-voce) !important;
+}
+/* giro 5: i titoletti (etichette dei campi e «Titolo della fonte») salgono a 16px,
+   derivati dal corpo delle voci come il campo del titolo dello 0067 (+4px).
+   Le etichette delle opzioni dei materiali restano qui sopra, a 12px. */
+html.manifesto #landing-view #mn-bento .ci-riquadro label.ci-campo {
+    font-size: calc(var(--bn-fs-voce) + 4px) !important;
+}
+html.manifesto #mn-bento .ci-riquadro__fondo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mm-gap);
+}
+html.manifesto #mn-bento .ci-riquadro__piede {
+    display: flex;
+    align-items: center;
+    gap: var(--mn-gap);
+    flex-wrap: wrap;
+}
+html.manifesto #mn-bento .ci-riquadro__stato {
+    /* prende lo spazio che resta accanto al bottone: nessuna larghezza scritta a mano */
+    flex: 1;
+    min-width: 0;
+    font-size: var(--bn-fs-voce);
+    font-weight: var(--bn-fw-voce);
+    line-height: 1.45;
+    color: var(--mm-testo-2);
+}
+/* giro 13/14 (Giacomo: «sempre … con un font con la medesima dimensione per i due
+   stati, le due frasi del messaggio devono stare su due righe»): nessuno stato ha
+   più un corpo o un peso suo (prima «cambiata» era grassetta e più grande); ogni
+   messaggio sono due righe a blocco. Vale anche per la lettura in corso e la
+   lettura fallita, al posto dei campi (`.ci-manca.ci-riquadro__stato`). */
+html.manifesto #mn-bento .ci-riquadro__riga { display: block; }
+/* lo stato spento è `opacity` sul pezzo (§6), la stessa del verde bloccato qui sopra */
+html.manifesto #mn-bento .ci-riquadro button[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
+}

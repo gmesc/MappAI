@@ -33,6 +33,21 @@ function _contestoDellaMappa() {
         /* la generazione può aver dichiarato una disciplina sua (il modale
            classe+disciplina di `ensureGenerationContext`): quella vince, è la
            materia con cui la mappa è stata pensata */
+        /* 0082 (gate 3 del 08/10; Giacomo: «1 a»): col cassetto solo indice acceso
+           la cartella si scrive da sola anche solo aprendo una mappa, e la classe e
+           la materia ATTIVE di chi guarda finivano nell'`index.yaml` di una mappa di
+           un'altra classe (una cartella sotto 2A che dichiarava 1A). Ad acceso la
+           mappa porta le sue: quelle della RIGA del progetto aperto (`cls`, `disc`,
+           fissate quando è nato; mai la riga di un altro progetto, inv. 20-bis). Una
+           riga che non le ha (mappa appena generata, voce vecchia): come prima. */
+        var VCc = window.MappAIVistaCore;
+        if (VCc && VCc.cassettoSoloIndice && VCc.cassettoSoloIndice() && typeof StorageManager !== 'undefined' && StorageManager.currentProjectId) {
+            var riga = (JSON.parse(localStorage.getItem('tutor_ai_projects') || '[]') || []).filter(function (p) {
+                return p && p.id === StorageManager.currentProjectId;
+            })[0];
+            if (riga && riga.cls) out.classe = String(riga.cls);
+            if (riga && riga.disc) out.materia = String(riga.disc);
+        }
         if (appState && appState.generationDiscipline) out.materia = appState.generationDiscipline;
     } catch (e) { }
     /* un vault RIAPERTO porta già le sue: non si sovrascrivono con il contesto di
@@ -74,15 +89,33 @@ try {
 
 window.buildVaultMapData = function () {
     var ctx = _contestoDellaMappa();
+    /* 0061 (29/09, ADR 0013): l'id del progetto entra in `index.yaml` SOLO per la
+       cartella che lo porta — adottata in questo percorso, con un id che si può
+       scrivere e che è ancora quello della mappa a schermo. In ogni altro caso resta
+       `undefined`, e `save-vault` conserva quello già su disco (per esempio dopo uno
+       spostamento fatto da INSEGNA, che riscrive `activeVaultPath` senza adottare).
+       `typeof` (inv. 3): nel browser `window.StorageManager` è la classe nativa, e
+       leggerlo lì darebbe sempre «niente id» — `app.js:2300` ci è cascato. */
+    var idDellaCartella;
+    try {
+        if (typeof StorageManager !== 'undefined') {
+            var ic = StorageManager.idInCartella;
+            if (ic && ic.id && ic.percorso === appState.activeVaultPath && ic.id === StorageManager.currentProjectId) idDellaCartella = ic.id;
+        }
+    } catch (e) { idDellaCartella = undefined; }
     return {
         reviewRevision: appState._reviewRevision,
         reviewCommit: appState._reviewCommit,
+        projectId: idDellaCartella,
         extractionMode: appState.extractionMode,
         rootNodeLabel: appState.rootNodeLabel,
         /* DOSSIER di fonte (20/8): lo dice il grafo stesso — la radice dei
            dossier è `fonte_0` (nodiDaScheda), deterministico. Va in index.yaml
-           perché le sidebar scelgono l'icona SENZA aprire il vault (inv. 7). */
-        dossier: !!(appState.db.nodes && appState.db.nodes[0] && appState.db.nodes[0].id === 'fonte_0'),
+           perché le sidebar scelgono l'icona SENZA aprire il vault (inv. 7).
+           0067 (01/10): `fonte_0` fra i nodi, non per forza il PRIMO — dopo la
+           revisione o una riapertura l'ordine cambia, e i dossier si salvavano
+           `dossier: false` (icona della mappa). */
+        dossier: !!(appState.db.nodes && appState.db.nodes.some(function (n) { return n && n.id === 'fonte_0'; })),
         classe: ctx.classe,
         materia: ctx.materia,
         nodes: appState.db.nodes,
@@ -108,6 +141,17 @@ window.buildVaultMapData = function () {
 window.saveMapVault = async function () {
     if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
 
+    /* 0061: l'identità com'era prima del gesto (cartella, classe, materia, id, id della
+       cartella), da rimettere se la scrittura fallisce — la cartella scelta non è
+       diventata della mappa. */
+    let prima = null, scritta = false;
+    const rimetti = () => {
+        appState.activeVaultPath = prima.percorso;
+        appState.activeVaultClassDir = prima.classe;
+        appState.activeVaultDiscDir = prima.materia;
+        if (typeof StorageManager !== 'undefined') { StorageManager.currentProjectId = prima.id; StorageManager.idInCartella = prima.idInCartella; }
+    };
+
     try {
         if (appState._reviewRestoring || appState._reviewRestoreError) return null;
         const result = await window.electronAPI.pickFolder({ createOnly: true });
@@ -115,32 +159,68 @@ window.saveMapVault = async function () {
 
         window.showLoadingOverlay(true, "Esportazione Vault in corso...");
 
+        /* Fonti/ (0059): la finestra di sistema lascia scegliere anche un vault
+           che c'è già, e lì la fonte si legge e non si scrive (ADR 0011 rev. 1).
+           Se il vault nasce ADESSO lo dice `index.yaml`, guardato PRIMA di
+           salvare. `read-vault-file` non lancia: ogni errore torna come
+           { ok:false, error } (main.js:1011-1025). Vale «nuovo» SOLO se la
+           risposta dice che `index.yaml` non c'è («file non trovato: …») o che
+           la cartella non c'è («vault inesistente»); qualunque altro errore —
+           permessi, file troppo grande, una risposta che non arriva o il canale
+           che lancia — vale «c'era», e lì nel dubbio non si scrive. `var`: la
+           risposta serve al flush più sotto, dentro la stessa guardia — fuori
+           dalla guardia (l'iPad, senza ELABORA) qui non succede niente. */
+        if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
+            var esisteva = true;
+            try {
+                const yaml = await window.electronAPI.readVaultFile({ vaultPath: result.folderPath, relPath: 'index.yaml' });
+                esisteva = !(yaml && yaml.ok === false && /^(file non trovato|vault inesistente)/.test(String(yaml.error || '')));
+            } catch (e) { esisteva = true; }
+        }
+
+        /* Adottare la cartella, non solo scriverne il percorso (11/9): senza,
+           `activeVaultClassDir`/`activeVaultDiscDir` restano quelli della mappa di
+           prima e il progetto si registra in una posizione che non è la sua. Da lì
+           un'altra mappa può rivendicare la stessa cartella e sovrascriverla — è
+           successo davvero.
+           0061 (29/09, D2; ADR 0013): l'adozione viene PRIMA della scrittura, col
+           gesto `per-la-mappa`, così `index.yaml` nasce con l'id della mappa in
+           memoria: la mappa porta la sua identità dove il docente la salva. Prima si
+           scriveva e poi si adottava per NOME, e la mappa in memoria prendeva l'id
+           della mappa che stava sovrascrivendo. Se la mappa è già legata a un'ALTRA
+           cartella (`percorsoPrima`), il gesto è una copia: la cartella scelta riceve
+           un id nuovo, e quella di prima tiene il suo e la sua voce. `activeVaultPath`
+           si scrive DOPO l'adozione (packet 0061 §4, «L'ordine»). */
+        prima = { percorso: appState.activeVaultPath, classe: appState.activeVaultClassDir, materia: appState.activeVaultDiscDir,
+            id: (typeof StorageManager !== 'undefined') ? StorageManager.currentProjectId : undefined,
+            idInCartella: (typeof StorageManager !== 'undefined') ? StorageManager.idInCartella : undefined };
+        try {
+            if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+                await StorageManager.adottaVault(result.folderPath, appState, { gesto: 'per-la-mappa', percorsoPrima: prima.percorso || null });
+            }
+        } catch (e) { console.warn('[Vault] adozione non riuscita:', e && e.message); }
+        appState.activeVaultPath = result.folderPath;
+
         const saveRes = await window.electronAPI.saveVault({
             folderPath: result.folderPath,
             mapData: window.buildVaultMapData()
         });
+        scritta = !!(saveRes && saveRes.success);
 
         window.showLoadingOverlay(false);
         if (saveRes.success) {
             window.avvisaIstantanea(saveRes);
-            appState.activeVaultPath = result.folderPath;
-            /* Adottare la cartella, non solo scriverne il percorso (11/9): senza,
-               `activeVaultClassDir`/`activeVaultDiscDir` restano quelli della
-               mappa di prima e il progetto si registra in una posizione che non
-               è la sua. Da lì un'altra mappa può rivendicare la stessa cartella
-               e sovrascriverla — è successo davvero. */
-            try {
-                if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
-                    await StorageManager.adottaVault(result.folderPath, appState);
-                }
-            } catch (e) { console.warn('[Vault] adozione non riuscita:', e && e.message); }
             /* il disco è cambiato: chi mostra elenchi rilegge (9/8) */
             try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-salvata', { vaultPath: result.folderPath }); } catch (e) { }
 
             // Fonti/: ora che il vault esiste, salva gli originali PDF delle
             // sources ancora in memoria (22/7/26 — anteprima ELABORA persistente)
+            /* 0059: ATTESO, e con `vaultNuovo` — su un vault che c'era e senza
+               `Fonti/` non si scrive niente. Un fallimento non fa fallire il
+               salvataggio della mappa, che è già sul disco. */
             if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
-                window.MappAIElabora.flushSourcesToVault();
+                try { await window.MappAIElabora.flushSourcesToVault({ vaultNuovo: esisteva === false }); }
+                catch (e) { console.warn('[Vault] fonti non scritte in Fonti/:', e && e.message); }
             }
             /* Sorgenti/: i fogli di domande aperte che l'archivio tiene ancora
                per questa mappa (6/9) — stessa strada di `flushSourcesToVault` */
@@ -169,9 +249,11 @@ window.saveMapVault = async function () {
 
             window.showToast(window.t('tst_vault_created', "Vault creato e collegato!"), "success");
         } else {
+            rimetti();   // 0061: la cartella scelta non è diventata della mappa
             window.showAlert("Errore Salvataggio", saveRes.error);
         }
     } catch (e) {
+        if (prima && !scritta) rimetti();   // 0061: idem, se la scrittura ha lanciato
         window.showLoadingOverlay(false);
         console.error(e);
         window.showAlert("Errore", e.message);
@@ -188,6 +270,52 @@ window.saveMapVault = async function () {
 // stessa classe → suffisso « · 0N » (stesso schema della pipeline 011).
 // Kill-switch: localStorage 'mappai_autovault' === '0'. Ritorna
 // { created, folderPath, classDir } oppure null (skip/errore, mai bloccante).
+/* 0070: crea soltanto la cartella del percorso. L'adozione della sessione
+   avviene nel controller DOPO fonte e riferimento nel manifest salvati: un
+   errore di I/O non deve cambiare identità o cartella del progetto aperto. */
+window.createReadingVault = async function (opts) {
+    const o = opts || {};
+    const FC = window.MappAIFilesCore;
+    const api = window.electronAPI;
+    const fail = function (code) { const e = new Error(code); e.code = code; throw e; };
+    if (!FC || !FC.idProgettoValido || !FC.idProgettoValido(o.projectId) ||
+        typeof o.title !== 'string' || !o.title.trim() || typeof o.language !== 'string' || !o.language.trim() ||
+        typeof o.assertCurrent !== 'function') fail('reading_vault_invalid');
+    if (!api || !api.filesRootGet || !api.getAllVaults || !api.readVaultFile || !api.saveVault) fail('reading_vault_unavailable');
+    const assertCurrent = o.assertCurrent;
+    const check = function () { if (assertCurrent() === false) fail('reading_vault_stale'); };
+    check();
+    const projectId = o.projectId, title = o.title.trim();
+    const ctx = _contestoDellaMappa();
+    if (o.context) { ctx.classe = o.context.className || ''; ctx.materia = o.context.discipline || ''; }
+    const cls = window.MappAIClasses && window.MappAIClasses.getActive ? window.MappAIClasses.getActive() : null;
+    const allievo = window.MappAIClasses && window.MappAIClasses.activeStudentName ? window.MappAIClasses.activeStudentName() : '';
+    const classDir = cls && cls.name ? FC.mapClassFolder(cls.sede, cls.name) : null;
+    const discDir = classDir ? FC.disciplineFolder(o.context ? ctx.materia : appState.generationDiscipline || '') : '';
+    const name = 'Lettura-' + projectId;
+    const info = await api.filesRootGet();
+    check();
+    if (!info || !info.mapsBaseDir) fail('reading_vault_unavailable');
+    const root = FC.mapVaultRoot({ maps: info.mapsBaseDir, students: info.studentsBaseDir }, allievo);
+    const folderPath = [root].concat(FC.mapVaultParentsFor(allievo, classDir, discDir), [name]).join('/');
+    const vaults = await api.getAllVaults();
+    check();
+    if (!Array.isArray(vaults)) fail('reading_vault_unavailable');
+    if (vaults.some(v => v && (String(v.folderName || '').toLowerCase() === name.toLowerCase() || v.projectId === projectId))) fail('reading_vault_exists');
+    /* Anche una cartella senza index.yaml può contenere lavoro: si crea solo
+       quando il canale dichiara assente il VAULT, non il solo file. */
+    const existing = await api.readVaultFile({ vaultPath: folderPath, relPath: 'index.yaml' });
+    check();
+    if (!existing || existing.ok !== false || existing.error !== 'vault inesistente') fail('reading_vault_exists');
+    const saved = await api.saveVault({ folderPath, mapData: {
+        projectId, extractionMode: 'lettura', rootNodeLabel: title,
+        classe: ctx.classe, materia: ctx.materia, nodes: [], links: [], studySets: [], sourcesDict: {}, customColors: {}
+    } });
+    check();
+    if (!saved || !saved.success) fail((saved && saved.error) || 'reading_vault_write_failed');
+    return { folderPath, classDir: allievo ? null : classDir, discDir: allievo ? null : (discDir || null) };
+};
+
 window.ensureProjectVault = async function (opts) {
     opts = opts || {};
     try {
@@ -207,6 +335,15 @@ window.ensureProjectVault = async function (opts) {
             try {
                 if (upd && upd.success && window.MappAIQuizPrint && window.MappAIQuizPrint.ripescaSorgenti) window.MappAIQuizPrint.ripescaSorgenti(appState.activeVaultPath, appState.rootNodeLabel || '');
             } catch (e) { }
+            /* Fonti/ (0059): è la strada che prende la generazione CON i materiali
+               (la pipeline ha già adottato la sua cartella), e qui il flush non
+               c'era — riaperto, il vault non aveva la fonte. La cartella non è
+               nata adesso: si scrive solo dove `Fonti/` c'è già. Interruttore
+               `mappai_fonte_in_fonti` = '0' → senza flush, come prima. */
+            if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault && window.MappAIElabora.fonteInFonti && window.MappAIElabora.fonteInFonti()) {
+                try { await window.MappAIElabora.flushSourcesToVault({ vaultNuovo: false }); }
+                catch (e) { console.warn('[autovault] fonti non scritte in Fonti/:', e && e.message); }
+            }
             return { created: false, folderPath: appState.activeVaultPath, classDir: appState.activeVaultClassDir || null, discDir: appState.activeVaultDiscDir || null };
         }
 
@@ -214,8 +351,26 @@ window.ensureProjectVault = async function (opts) {
         //     a vicenda: con un allievo la mappa è sua, con una classe si annida
         //     per classe/disciplina, senza nessuno dei due va in Mappe/Generico/ (FilesCore.GENERICO, 15/8 sera).
         var cls = null, allievo = '';
-        try { cls = (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { cls = null; }
-        try { allievo = (window.MappAIClasses && window.MappAIClasses.activeStudentName) ? window.MappAIClasses.activeStudentName() : ''; } catch (e) { allievo = ''; }
+        /* 0082 (B1 (a), B2 (a)): chi riapre un progetto senza cartella («Riprendi»,
+           col cassetto solo indice acceso) passa la classe della SUA riga
+           (`opts.clsId`, letta prima che lo stato si sostituisca): la cartella nasce
+           lì, non sotto la classe attiva in quel momento, e l'allievo attivo non
+           conta. Una riga senza classe, o con una classe che non esiste più, va in
+           `Generico` come «Riordina». Ma se l'elenco delle classi è ancora vuoto e la
+           riga HA una classe (non caricato: `get` darebbe null anche per una classe
+           che c'è) la cartella non nasce: la copia resta, e ci si riprova alla
+           prossima apertura. Una riga SENZA classe va in `Generico` anche con
+           l'elenco vuoto: è il docente senza classi (Giacomo, 07/10: «Va in
+           «Generico»»). Senza la chiave `clsId`, tutto come prima. */
+        if (Object.prototype.hasOwnProperty.call(opts, 'clsId')) {
+            var elenco = [];
+            try { elenco = (window.MappAIClasses && window.MappAIClasses.list) ? (window.MappAIClasses.list() || []) : []; } catch (e) { elenco = []; }
+            if (opts.clsId != null && (!Array.isArray(elenco) || !elenco.length)) return null;
+            try { cls = (opts.clsId != null && window.MappAIClasses.get) ? (window.MappAIClasses.get(opts.clsId) || null) : null; } catch (e) { cls = null; }
+        } else {
+            try { cls = (window.MappAIClasses && window.MappAIClasses.getActive()) || null; } catch (e) { cls = null; }
+            try { allievo = (window.MappAIClasses && window.MappAIClasses.activeStudentName) ? window.MappAIClasses.activeStudentName() : ''; } catch (e) { allievo = ''; }
+        }
         var info = await window.electronAPI.filesRootGet();
         var base = info && info.mapsBaseDir;
         if (!base) return null;
@@ -252,21 +407,51 @@ window.ensureProjectVault = async function (opts) {
           ? FC.mapVaultParentsFor(allievo, classDir, discDir)
           : FC.mapVaultParents(classDir, discDir);
         var folderPath = [radice].concat(parents, [finalName]).join('/');
-        var saveRes = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: window.buildVaultMapData() });
-        if (!saveRes || !saveRes.success) return null;
-
+        /* 0061 (29/09; ADR 0013): la cartella si ADOTTA prima di scriverla, come fa già
+           la pipeline, col gesto che dice il motivo: `generation` → `nuova` (nessuna
+           ricerca per nome: la mappa appena generata non eredita l'id di un'omonima),
+           `open`/`review` → `per-la-mappa` (la cartella nasce per la mappa che è già in
+           memoria). Così `index.yaml` nasce con l'id. `adottaVault` allinea anche classe
+           e materia (cura (a) dell'11/9), e l'elenco delle cartelle, già letto qui sopra
+           per i fratelli, gli basta. `activeVaultPath` si scrive SOLO DOPO l'adozione: un
+           autosave che cadesse nell'attesa non deve far dichiarare la cartella alla voce
+           del giro prima della decisione (packet 0061 §4, «L'ordine»). Se la scrittura
+           fallisce, l'identità torna com'era prima del gesto, e si ritorna null come prima. */
+        var prima = { percorso: appState.activeVaultPath, classe: appState.activeVaultClassDir, materia: appState.activeVaultDiscDir,
+            id: (typeof StorageManager !== 'undefined') ? StorageManager.currentProjectId : undefined,
+            idInCartella: (typeof StorageManager !== 'undefined') ? StorageManager.idInCartella : undefined };
+        var rimetti = function () {
+            appState.activeVaultPath = prima.percorso;
+            appState.activeVaultClassDir = prima.classe;
+            appState.activeVaultDiscDir = prima.materia;
+            if (typeof StorageManager !== 'undefined') { StorageManager.currentProjectId = prima.id; StorageManager.idInCartella = prima.idInCartella; }
+        };
+        if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
+            var TCg = window.MappAITeachCore;
+            await StorageManager.adottaVault(folderPath, appState, {
+                gesto: (TCg && TCg.gestoDiCreazione) ? TCg.gestoDiCreazione(opts.reason) : 'nuova',
+                cartelle: all || []
+            });
+        } else {
+            appState.activeVaultClassDir = classDir;
+            appState.activeVaultDiscDir = discDir || null;
+        }
         appState.activeVaultPath = folderPath;
-        appState.activeVaultClassDir = classDir;
-        appState.activeVaultDiscDir = discDir || null;
-        if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) await StorageManager.adottaVault(folderPath, appState);
+        var saveRes;
+        try { saveRes = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: window.buildVaultMapData() }); }
+        catch (e) { rimetti(); throw e; }
+        if (!saveRes || !saveRes.success) { rimetti(); return null; }
         /* AUTO-VAULT a fine generazione: è il caso che Giacomo vedeva più spesso —
            la mappa appena fatta non compariva negli elenchi finché non si
            riapriva la finestra. Ora lo dice (9/8). */
         try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-creata', { vaultPath: folderPath }); } catch (e) { }
 
         // Fonti/: travasa gli originali PDF ancora in memoria (come saveMapVault).
+        /* 0059: la cartella è nata adesso. ATTESO: prima il `try` stava attorno a
+           una funzione async non attesa, e un rifiuto gli sfuggiva. */
         if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
-            try { window.MappAIElabora.flushSourcesToVault(); } catch (e) { }
+            try { await window.MappAIElabora.flushSourcesToVault({ vaultNuovo: true }); }
+            catch (e) { console.warn('[autovault] fonti non scritte in Fonti/:', e && e.message); }
         }
         // Base64 → path locali su disco.
         if (saveRes.upgrades) {
@@ -288,7 +473,6 @@ window.ensureProjectVault = async function (opts) {
 
 window.loadDemoGraph = async function (url) {
     try {
-        window.closeVaultManager();
         window.showLoadingOverlay(true, "Caricamento Demo...");
         const res = await fetch(url);
         if (!res.ok) throw new Error("File demo non trovato.");
@@ -305,6 +489,8 @@ window.loadDemoGraph = async function (url) {
             delete n.fx; delete n.fy;
         });
 
+        // 0061 (29/09, D6): una demo è una mappa NUOVA — stacca id e cartella della mappa di prima (ADR 0013)
+        if (window.resetVaultState) window.resetVaultState();
         appState.db = { nodes: data.nodes, links: data.links };
         appState.extractionMode = data.mode || data.extractionMode || "mindmap";
 
@@ -362,10 +548,6 @@ window.loadMapVault = async function () {
     // Vista studio (1/8): smonta l'overlay e riporta il ciclo al default —
     // senza, cambiando mappa o tornando alla home l'overlay resterebbe orfano
     // sopra il canvas nuovo e layoutMode 'studio' verrebbe persistito.
-    if (window.MappAIStudioView && appState.layoutMode === 'studio') {
-        window.MappAIStudioView.exit();
-        appState.layoutMode = 'default';
-    }
     try {
         const result = await window.electronAPI.pickFolder({ importOnly: true });
         if (result.canceled) return;
@@ -376,6 +558,15 @@ window.loadMapVault = async function () {
 
         window.showLoadingOverlay(false);
         if (loadRes.success) {
+            if (loadRes.data && loadRes.data.extractionMode === 'lettura') {
+                const reading = window.MappAIPercorsoLettura;
+                if (!reading || typeof reading.openVault !== 'function') throw new Error(window.t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+                return await reading.openVault({ folderPath: result.folderPath, data: loadRes.data });
+            }
+            if (window.MappAIStudioView && appState.layoutMode === 'studio') {
+                window.MappAIStudioView.exit();
+                appState.layoutMode = 'default';
+            }
             appState._reviewRestoring = true;
             delete appState._reviewRestoreError;
             delete appState._reviewCommit;
@@ -384,8 +575,13 @@ window.loadMapVault = async function () {
             appState.activeVaultPath = result.folderPath;
             /* stessa adozione di directLoadVault (15/8): l'identità del
                progetto appartiene alla mappa a schermo, mai alla precedente */
+            /* 0061 (29/09, ADR 0013): gesto `apri` — vince l'id scritto nella cartella
+               (anche spostata in Analisi e rinominata); senza id, per nome come prima;
+               una cartella vuota e senza id è una creazione. `loadRes` c'è già: nessuna
+               attesa in più (il tetto delle microtask di tests/review-store.test.js). */
             if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
-                await StorageManager.adottaVault(result.folderPath, appState);
+                await StorageManager.adottaVault(result.folderPath, appState, { gesto: 'apri', idCartella: loadRes.data.projectId,
+                    vuota: !(loadRes.data.nodes || []).length && !loadRes.data._pipelineManifest });
             }
             appState.extractionMode = loadRes.data.extractionMode || "mindmap";
             /* la mappa PORTA la sua classe e la sua materia (9/8): un vault
@@ -428,6 +624,21 @@ window.loadMapVault = async function () {
                 });
             }
 
+            /* 0078 (§4.2): l'interruttore `mappai_cartella_completa` (il suo
+               lettore unico sta nel core della vista). Acceso, «Apri cartella»
+               fa quello che fa già `directLoadVault`: lo stato di generazione
+               della mappa di PRIMA si azzera PRIMA di leggere la cartella, poi
+               la cartella porta la sua vista e i suoi consumi, e vincono.
+               Spento o senza core: come prima — niente azzeramento, niente
+               vista, niente consumi. */
+            const _cartellaCompleta = !!(window.MappAIVistaCore && window.MappAIVistaCore.cartellaCompleta
+                && window.MappAIVistaCore.cartellaCompleta());
+            if (_cartellaCompleta) {
+                window.MappAIVistaCore.azzeraGenerazione(appState);
+                /* il layout torna quello di base: il bottone deve dirlo */
+                if (window.updateLayoutButtonLabel) { try { window.updateLayoutButtonLabel(); } catch (e) { } }
+            }
+
             appState.db = {
                 nodes: nodesList,
                 links: linksList,
@@ -436,6 +647,24 @@ window.loadMapVault = async function () {
                 customColors: loadRes.data.customColors || {}
             };
 
+            /* 0078: «Apri cartella» non applicava `vista.json` — timeline, foglio
+               dei nodi, catena rivista, copie e nodi fissati si perdevano. La
+               stessa sequenza di `directLoadVault`: si azzera ciò che la vista
+               governa (è della mappa di prima), poi si applica la vista, DOPO i
+               nodi della cartella (marca solo quelli che ci sono) e prima del
+               ripristino della revisione. */
+            if (_cartellaCompleta) {
+                appState.studioProfile = undefined;
+                appState.focusTopic = '';
+                appState.db.timelineEvents = [];
+                appState.db.timelineAI = [];
+                appState.db.nodeSheet = undefined;
+                if (loadRes.data.vista) {
+                    const _vApplicati = window.MappAIVistaCore.applica(appState, loadRes.data.vista);
+                    if (_vApplicati.length) console.log('[Vault] vista.json applicata:', _vApplicati.join(', '));
+                }
+            }
+
             if (window.MappAIJigsaw) {
                 window.MappAIJigsaw.syncModeToVault(loadRes.data.branchLocks);
                 window.MappAIJigsaw.applyLocks(appState.db.nodes, loadRes.data.branchLocks);
@@ -443,6 +672,26 @@ window.loadMapVault = async function () {
 
             // Ripristina le chat del vault (o azzera: mai ereditare quelle della mappa precedente)
             window.setTutorState(loadRes.data.tutorState || null);
+
+            /* 0078 (aggiunta del 06/10): i consumi dalla cartella, con le stesse
+               righe di `directLoadVault` (la provenienza col profilo dei modelli
+               compresa). Azzerati e basta, il salvataggio dopo scriverebbe
+               `generationUsage: null` nell'`index.yaml`. Provider e modello no:
+               quelle righe scrivono localStorage, e qui non ci sono mai state. */
+            if (_cartellaCompleta) {
+                const profiloAttivo = window.MappAIModelli && window.MappAIModelli.acceso();
+                if (loadRes.data.generationUsage) {
+                    appState.generationUsage = loadRes.data.generationUsage;
+                    if (window.updateCostDisplay) window.updateCostDisplay();
+                }
+                if (profiloAttivo) {
+                    // La provenienza della mappa viaggia separata dal Setup del prossimo giro.
+                    appState.generationUsage = Object.assign({}, loadRes.data.generationUsage || {}, {
+                        provenienzaMappa: { provider: loadRes.data.aiProvider || loadRes.data.generationUsage?.usedProvider || '',
+                            model: loadRes.data.generationUsage?.usedModel || loadRes.data.aiModel || '' }
+                    });
+                }
+            }
 
             /* Un dizionario già in `mapData` (non lo scrive `save-vault`, ma può
                arrivare da un demo o da un import) ha la precedenza; per tutto il
@@ -550,10 +799,6 @@ window.handleIPadVaultFileSelected = async function (event) {
             window.showLoadingOverlay(false);
             if (saveRes && saveRes.success) {
                 window.showToast(window.t('tst_vault_imported', "Vault importato con successo!"), "success");
-                // Ricarica la lista dei vault nel modale
-                if (typeof window.loadVaultList === 'function') {
-                    await window.loadVaultList();
-                }
             } else {
                 window.showAlert("Errore", "Impossibile salvare il Vault nel dispositivo.");
             }

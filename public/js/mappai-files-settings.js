@@ -6,7 +6,7 @@
  * struttura. Tutto passa dagli IPC di main.js (filesRootGet/Choose/
  * MigratePreview/Setup/OpenRoot). Su browser (no electronAPI) degrada a nota.
  *
- * API: window.MappAIFiles.openSettings() · maybePromptFirstRun() (una volta).
+ * API: window.MappAIFiles.openSettings() · maybePromptFirstRun() (a ogni avvio finché la cartella non è organizzata o non si spunta «Non chiederlo più»).
  * Solo I/O + DOM: la logica pura è in mappai-files-core.js (lato main).
  */
 (function () {
@@ -20,11 +20,23 @@
   function api() { return (window.electronAPI && window.electronAPI.filesRootGet) ? window.electronAPI : null; }
   function toast(m, l) { if (window.showToast) window.showToast(m, l || 'info'); }
 
+  /* Sopra le console del motore (Cabina, ELABORA, INSEGNA stanno a 12100 e oltre): a 9994 fisso, aperto
+     DALLA Cabina («Gestione cartelle» › «Cambia posizione») il velo restava dietro e la finestra non si
+     vedeva. Il piano si CHIEDE al motore, come fa la finestra delle classi; senza motore resta 9994
+     (0088, D4). */
+  function zSopra() {
+    try {
+      var MM = window.MappAIModal;
+      if (MM && MM.aperti > 0 && typeof MM.prossimoZ === 'function') return MM.prossimoZ();
+    } catch (e) { /* motore assente */ }
+    return 9994;
+  }
+
   // Overlay minimale (pattern .pm-* compatibile col resto dell'app).
   function overlay(titleIcon, title, innerHtml, maxW) {
     var ov = document.createElement('div');
     ov.className = 'mappai-files-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:9994;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:' + zSopra() + ';background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
     ov.innerHTML = '<div role="dialog" aria-modal="true" style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.4);width:min(' + (maxW || '540px') + ',95vw);max-height:88vh;overflow-y:auto;padding:22px 24px">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
       '<div style="display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px;color:#0f172a"><i data-lucide="' + titleIcon + '" style="width:20px;height:20px;color:#4f46e5"></i>' + esc(title) + '</div>' +
@@ -73,13 +85,19 @@
         var btn = ov.querySelector('.fx-confirm'); btn.disabled = true; btn.textContent = _t('fx_working', 'Sto organizzando…');
         window.electronAPI.filesSetup({ filesRoot: filesRoot, migrate: doMove }).then(function (r) {
           if (!r || !r.success) { toast((r && r.error) || _t('fx_err', 'Errore durante l\'organizzazione'), 'error'); btn.disabled = false; btn.textContent = _t('fx_confirm', 'Crea e organizza'); return; }
-          // best-effort: aggiorna il path del vault attualmente caricato se è stato spostato
+          // best-effort: aggiorna il path del vault attualmente caricato se è stato spostato.
+          // ⚠️ `appState` è un `let` di app.js e NON sta su `window` (invariante 3):
+          // con `window.appState` questo ramo non scattava mai, e la mappa aperta
+          // restava legata alla cartella che la migrazione aveva appena spostato.
           try {
-            if (r.vaultMap && window.appState && window.appState.activeVaultPath && r.vaultMap[window.appState.activeVaultPath]) {
-              window.appState.activeVaultPath = r.vaultMap[window.appState.activeVaultPath];
+            var st = (typeof appState !== 'undefined') ? appState : null;
+            if (r.vaultMap && st && st.activeVaultPath && r.vaultMap[st.activeVaultPath]) {
+              st.activeVaultPath = r.vaultMap[st.activeVaultPath];
             }
           } catch (e) { }
           ov.remove();
+          /* organizzata davvero: da qui la domanda non serve più (0088, D4) */
+          try { localStorage.setItem(LS_PROMPTED, '1'); } catch (e) { }
           toast(_t('fx_done', 'Fatto! I documenti di MappAI ora vivono in una cartella sola.') + (r.moved ? ' (' + r.moved + ' ' + _t('fx_moved', 'spostati') + ')' : ''), 'success');
           if (window.MappAITeach && window.MappAITeach.refresh) window.MappAITeach.refresh();
         });
@@ -122,21 +140,31 @@
     });
   }
 
-  // Prompt gentile al primo avvio (una volta sola per installazione).
+  // Prompt gentile all'avvio, finché la cartella non è organizzata o non si spunta «Non chiederlo più».
   function maybePromptFirstRun() {
     if (!api()) return;
     try { if (localStorage.getItem(LS_PROMPTED) === '1') return; } catch (e) { return; }
     window.electronAPI.filesRootGet().then(function (st) {
       if (st && st.organized) { try { localStorage.setItem(LS_PROMPTED, '1'); } catch (e) { } return; }
-      try { localStorage.setItem(LS_PROMPTED, '1'); } catch (e) { }
-      var inner = '<p style="font-size:13.5px;color:#334155;line-height:1.6;margin-bottom:16px">' +
+      /* ⚠️ Il segno NON si scrive più qui, all'apertura: chiusa con «Più tardi», con la × o con ESC la
+         domanda andava persa per sempre (0088, D4). Si scrive solo a cartella organizzata, oppure se
+         chi legge spunta «Non chiederlo più» — e allora vale con qualunque modo di chiudere. */
+      var inner = '<p style="font-size:13.5px;color:#334155;line-height:1.6;margin-bottom:12px">' +
         esc(_t('fx_fr_body', 'Vuoi che MappAI raccolga tutti i suoi documenti (mappe, report, file condivisi, classi) in una sola cartella a tua scelta? Potrai spostare anche quelli già esistenti.')) + '</p>' +
+        '<label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:12.5px;color:#475569;cursor:pointer">' +
+        '<input type="checkbox" class="fx-never" style="width:16px;height:16px">' + esc(_t('fx_never', 'Non chiederlo più')) + '</label>' +
         '<div style="display:flex;justify-content:flex-end;gap:10px">' +
         '<button type="button" class="fx-later" style="' + btnGhost + '">' + esc(_t('fx_later', 'Più tardi')) + '</button>' +
         '<button type="button" class="fx-now" style="' + btnPrimary + '">' + esc(_t('fx_setup_now', 'Scegli la posizione')) + '</button></div>';
       var ov = overlay('folder-cog', _t('fx_fr_title', 'Organizza i documenti di MappAI'), inner, '500px');
       ov.querySelector('.fx-later').onclick = function () { ov.remove(); };
       ov.querySelector('.fx-now').onclick = function () { doChoose(ov); };
+      var mai = ov.querySelector('.fx-never');
+      if (mai) mai.onchange = function () {
+        try {
+          if (mai.checked) localStorage.setItem(LS_PROMPTED, '1'); else localStorage.removeItem(LS_PROMPTED);
+        } catch (e) { }
+      };
     });
   }
 

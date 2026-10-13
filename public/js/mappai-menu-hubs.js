@@ -89,7 +89,16 @@
     window.MappAITips = { show: showTip, hide: hideTip };
 
     /* ── Modale hub (stesso linguaggio visivo del launcher Studio attivo) ── */
-    function esc(s) { return String(s || '').replace(/"/g, '&quot;'); }
+    /* L'escape toccava solo `"`: bastava per i fumetti, che sono attributi, ma
+       qui passano anche titolo, classe e id dei DOCUMENTI SALVATI, cioè nomi di
+       mappe e di nodi (vault passati fra colleghi) messi come TESTO. Un titolo
+       `<img src=x onerror=…>` era codice all'apertura di «Documenti salvati», con
+       `window.electronAPI` in mano (25/9/2026). Ora i cinque caratteri, sempre:
+       il nucleo (mappai-html-sicuro.js) o, se manca, lo stesso escape qui. */
+    function esc(s) {
+        if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(s || '');
+        return String(s || '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    }
 
     // titolo con icona Lucide SVG (mai emoji — richiesta utente 11/7/26)
     function buildHubModal(icon, title, bodyHtml, maxWidth) {
@@ -97,11 +106,11 @@
         overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.45);' +
             'display:flex;align-items:center;justify-content:center;padding:18px;';
         overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);
-            width:min(${maxWidth || '760px'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
+            width:min(${maxWidth || 'var(--mm-l)'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:#0f172a">
+                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">
                     <i data-lucide="${icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>${title}</div>
-                <button type="button" class="hub-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
+                <button type="button" class="hub-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
             </div>
             ${bodyHtml}
         </div>`;
@@ -115,7 +124,7 @@
     }
 
     const sectionHeader = (txt) =>
-        `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:14px 0 8px">${txt}</div>`;
+        `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin:14px 0 8px">${txt}</div>`;
 
     // card pulita: icona + titolo; spiegazione SOLO nel tooltip hover.
     // ok=false → card spenta con motivo nel tooltip (niente attributo disabled:
@@ -124,10 +133,10 @@
         const off = !c.ok;
         return `<button type="button" class="hub-card" data-act="${c.key}" data-tip="${esc(off ? c.offTip : c.tip)}"
             style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;
-            border:1px solid #e2e8f0;border-radius:12px;padding:13px 14px;cursor:${off ? 'default' : 'pointer'};
+            border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:13px 14px;cursor:${off ? 'default' : 'pointer'};
             transition:border-color .15s;${off ? 'opacity:.45' : ''}">
             <i data-lucide="${c.icon}" style="width:20px;height:20px;color:#4f46e5;flex:0 0 auto"></i>
-            <span style="font-weight:700;font-size:13.5px;color:#0f172a">${c.title}</span>
+            <span style="font-weight:700;font-size:13.5px;color:var(--mm-testo, #404040)">${c.title}</span>
         </button>`;
     }
 
@@ -140,7 +149,7 @@
             const act = actions[btn.dataset.act];
             if (!act || !act.ok) return;
             btn.onmouseenter = () => btn.style.borderColor = '#4f46e5';
-            btn.onmouseleave = () => btn.style.borderColor = '#e2e8f0';
+            btn.onmouseleave = () => btn.style.borderColor = 'var(--mm-bordo, #cbd5e1)';
             btn.onclick = () => { hideTip(); overlay.remove(); act.fn(); };
         });
     }
@@ -151,6 +160,9 @@
     // e l'import JSON bulk NON devono comparire (prima li nascondeva
     // _syncStudentUI sui bottoni del menu; ora il gate vive qui).
     const jigsawStudentOn = () => ['1', 'true'].includes(localStorage.getItem('mappai_jigsaw_mode'));
+    // Il set del lavoro a gruppi (JIGSAW, «Revisione lacune», meta-analisi) è
+    // parcheggiato (ADR 0007): la sezione torna solo con `mappai_set_gruppi = '1'`.
+    const setGruppiOn = () => !!(window.MappAISetGruppi && window.MappAISetGruppi.on());
 
     /* ── 🖨 Materiali di studio ────────────────────────────────────────────── */
     window.openStudyMaterialsModal = function () {
@@ -186,11 +198,11 @@
             grid([defs.pdf, defs.sheet, defs.synth, defs.dossier, defs.timeline, defs.causal]) +
             sectionHeader(t('sd_section', 'Salvati')) +
             grid([defs.saved]);
-        if (!jigsawStudentOn()) {   // funzioni docente: nascoste sulle copie studente
+        if (!jigsawStudentOn() && setGruppiOn()) {   // funzioni docente: nascoste sulle copie studente e col set parcheggiato
             body += sectionHeader(t('mh_section_jigsaw', 'JIGSAW — lavoro a gruppi')) +
                 grid([defs.jexport, defs.jmerge, defs.jgap]);
         }
-        const overlay = buildHubModal('printer', t('ui_materials_hub', 'Materiali di studio'), body, '720px');
+        const overlay = buildHubModal('printer', t('ui_materials_hub', 'Materiali di studio'), body, 'var(--mm-l)');
         wire(overlay, defs);
     };
 
@@ -202,11 +214,11 @@
         const docs = window.MappAIStudyDocs ? window.MappAIStudyDocs.list() : [];
         let body;
         if (!docs.length) {
-            body = '<div style="color:#94a3b8;font-size:13px;padding:10px 2px;line-height:1.6">' +
+            body = '<div style="color:var(--mm-testo-3, #64748b);font-size:13px;padding:10px 2px;line-height:1.6">' +
                 esc(t('sd_empty', 'Nessun documento salvato. Genera una Sintesi o un Dossier: verranno archiviati qui e potrai riaprirli o condividerli via QR senza rigenerare.')) + '</div>';
         } else {
             const GRID = 'display:grid;grid-template-columns:88px minmax(0,1fr) 120px 96px 120px;align-items:center;gap:10px;padding:8px 10px';
-            const head = '<div style="' + GRID + ';border-bottom:1px solid #e0e7ff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">' +
+            const head = '<div style="' + GRID + ';border-bottom:1px solid #e0e7ff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b)">' +
                 '<span>' + esc(t('sd_col_kind', 'Tipo')) + '</span>' +
                 '<span>' + esc(t('sd_col_title', 'Titolo')) + '</span>' +
                 '<span>' + esc(t('sd_col_class', 'Classe')) + '</span>' +
@@ -230,9 +242,9 @@
                     : '<span style="color:#cbd5e1">—</span>';
                 return '<div style="' + GRID + ';border-bottom:1px solid #f1f5f9">' +
                     '<span style="display:inline-flex;align-items:center;gap:5px;color:#4f46e5;font-size:10px;font-weight:700;text-transform:uppercase"><i data-lucide="' + icon + '" style="width:15px;height:15px;flex:0 0 auto"></i>' + esc(kindLbl) + '</span>' +
-                    '<span style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.title) + '">' + esc(d.title) + '</span>' +
+                    '<span style="font-size:13px;font-weight:700;color:var(--mm-testo, #404040);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.title) + '">' + esc(d.title) + '</span>' +
                     cls +
-                    '<span style="font-size:11px;color:#94a3b8">' + esc(dt) + '</span>' +
+                    '<span style="font-size:11px;color:var(--mm-testo-3, #64748b)">' + esc(dt) + '</span>' +
                     '<span style="display:flex;justify-content:flex-end;gap:4px">' +
                         '<button type="button" class="sd-open" data-id="' + esc(d.id) + '" data-tip="' + esc(t('sd_open', 'Riapri il documento')) + '" style="background:#eef2ff;border:none;border-radius:8px;padding:6px;cursor:pointer;color:#4f46e5;display:inline-flex" aria-label="' + esc(t('sd_open', 'Riapri')) + '"><i data-lucide="external-link" style="width:16px;height:16px"></i></button>' +
                         '<button type="button" class="sd-qr" data-id="' + esc(d.id) + '" data-tip="' + esc(t('sd_qr', 'Condividi via QR')) + '" style="background:#ecfdf5;border:none;border-radius:8px;padding:6px;cursor:pointer;color:#059669;display:inline-flex" aria-label="' + esc(t('sd_qr', 'QR')) + '"><i data-lucide="qr-code" style="width:16px;height:16px"></i></button>' +
@@ -241,7 +253,7 @@
             }).join('');
             body = '<div style="max-height:52vh;overflow-y:auto">' + head + rows + '</div>';
         }
-        const overlay = buildHubModal('folder-clock', t('sd_title', 'Documenti salvati'), body, '820px');
+        const overlay = buildHubModal('folder-clock', t('sd_title', 'Documenti salvati'), body, 'var(--mm-l)');
         overlay.setAttribute('data-hub', 'saved-docs');
 
         overlay.querySelectorAll('.sd-open').forEach(b => b.onclick = () => {
@@ -282,22 +294,19 @@
                        title: t('ui_import_vault', 'Importa dal Vault'), tip: t('tt_open_vault', 'Riapre una mappa salvata come vault Markdown.') },
             jimport: { icon: 'upload',      ok: !!document.getElementById('menu-import-json'), fn: () => clickInput('menu-import-json'),
                        title: t('import_json', 'Importa JSON'),          tip: t('tt_import_json', 'Importa una mappa da file JSON.') },
-            jmergef: { icon: 'merge',       ok: !!document.getElementById('sidebar-merge'), fn: () => clickInput('sidebar-merge'),
-                       title: t('ui_merge_maps', 'Unisci Mappe'),        tip: t('tt_merge_json', 'Unisce un altro JSON alla mappa corrente.') },
             notes:   { icon: 'file-text',   ok: !!window.exportNotesMarkdown, fn: () => window.exportNotesMarkdown(),
                        title: t('ui_export_notes', 'Esporta Appunti'),   tip: t('tt_export_notes_md', 'Esporta gli appunti della mappa in Markdown.') },
         };
         Object.keys(defs).forEach(k => { defs[k].key = k; defs[k].offTip = offTip; });
-        // JIGSAW studente: niente import JSON (bypass dei lock di ramo)
-        const jsonCards = jigsawStudentOn() ? [defs.jmergef] : [defs.jimport, defs.jmergef];
+        // JIGSAW studente: niente import JSON (bypass dei lock di ramo). «Unisci mappe» è uscito il 12/10/2026 (0087, lotto 10-modali).
+        const jsonCards = jigsawStudentOn() ? [] : [defs.jimport];
         const body =
             sectionHeader(t('gm_section_vault', 'Vault (salvataggio consigliato)')) +
             grid([defs.vexport, defs.vimport]) +
-            sectionHeader(t('gm_section_json', 'File JSON')) +
-            grid(jsonCards) +
+            (jsonCards.length ? sectionHeader(t('gm_section_json', 'File JSON')) + grid(jsonCards) : '') +
             sectionHeader(t('gm_section_notes', 'Appunti')) +
             grid([defs.notes]);
-        const overlay = buildHubModal('folder-cog', t('ui_graph_manager', 'Graph manager'), body, '720px');
+        const overlay = buildHubModal('folder-cog', t('ui_graph_manager', 'Graph manager'), body, 'var(--mm-l)');
         wire(overlay, defs);
     };
 

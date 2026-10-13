@@ -82,7 +82,10 @@ before(async () => {
     srv = createCollabServer({ repoRoot: ROOT, dir, session: { name: 'Prova', rootLabel: 'Prova' } });
     porta = await srv.listen(0, '127.0.0.1');
 });
-after(async () => { if (srv) await srv.stop(); });
+after(async () => {
+    if (srv) await srv.stop();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });   // la cartella temporanea non resta in /tmp
+});
 
 test('il server LAN serve davvero il .ttf al telefono', async () => {
     const r = await chiedi('/public/fonts/SpaceMono-Regular.ttf');

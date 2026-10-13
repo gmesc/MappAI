@@ -2,7 +2,8 @@
 (function () {
     'use strict';
     const state = () => typeof appState !== 'undefined' ? appState : window.appState;
-    const storage = () => typeof StorageManager !== 'undefined' ? StorageManager : window.StorageManager;
+    // Niente ripiego su `window.StorageManager`: in Chromium è la classe nativa del browser.
+    const storage = () => typeof StorageManager !== 'undefined' ? StorageManager : null;
     const core = () => window.MappAILinkEditorCore;
     const t = (k, s) => window.t ? window.t(k, s) : s;
     const clone = x => JSON.parse(JSON.stringify(x));

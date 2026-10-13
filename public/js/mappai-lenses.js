@@ -262,11 +262,17 @@ window.renderLensesUI = function () {
 
     var html = '';
 
+    // ⚠️ type="button" su OGNI bottone qui sotto: il pannello sta dentro #setup-form,
+    // e un <button> senza tipo è un bottone d'invio. Il clic non inviava il form
+    // solo per caso (ridisegnando il pannello il bottone si stacca dal documento),
+    // ma il primo preset, «Storia», diventava il bottone PREDEFINITO del form: un
+    // Invio nel campo del tema accendeva le lenti di Storia invece di premere «Genera».
+
     // Preset buttons
     html += '<div class="lenses-presets">';
     Object.keys(window.MAPPAI_PRESETS).forEach(function (id) {
         var preset = window.MAPPAI_PRESETS[id];
-        html += '<button onclick="window.applyPreset(\'' + id + '\')" class="preset-btn" title="' + preset.focusSuggestion + '">' +
+        html += '<button type="button" onclick="window.applyPreset(\'' + id + '\')" class="preset-btn" title="' + preset.focusSuggestion + '">' +
             preset.icon + ' ' + preset.label + '</button>';
     });
     html += '</div>';
@@ -284,7 +290,7 @@ window.renderLensesUI = function () {
                 ? 'background:' + lens.color + ';color:white;border-color:' + lens.color + ';'
                 : 'color:' + lens.color + ';border-color:' + lens.color + '40;';
 
-            html += '<button onclick="window.toggleLens(\'' + lens.id + '\')" class="lens-chip' + (active ? ' active' : '') + '" style="' + activeStyle + '" title="' + lens.tooltip + '">' +
+            html += '<button type="button" onclick="window.toggleLens(\'' + lens.id + '\')" class="lens-chip' + (active ? ' active' : '') + '" style="' + activeStyle + '" title="' + lens.tooltip + '">' +
                 lens.icon + ' ' + lens.label + '</button>';
         });
 

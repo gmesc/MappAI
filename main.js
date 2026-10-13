@@ -34,6 +34,9 @@ const FilesCore = require('./public/js/mappai-files-core.js');
 // Leggere un'immagine con un modello di visione locale (20/8): formati, misure,
 // prompt e diagnosi dei guasti stanno nel core, qui c'è solo l'I/O.
 const VisioneCore = require('./public/js/mappai-visione-core.js');
+// Lo stream SSE di Infomaniak (25/9): righe spezzate fra due pezzi, lettere UTF-8
+// tagliate e finish_reason perso stanno nel core; qui restano rete e log.
+const SseCore = require('./public/js/mappai-sse-core.js');
 
 let mainWindow;
 let launcherWindow;
@@ -381,82 +384,96 @@ ipcMain.handle('generate-gemini', async (event, { apiKey, payload, model }) => {
 
 // Chiamata Infomaniak (stream SSE obbligatorio per bypassare il Gateway Timeout).
 // Estratta dall'IPC per essere riusata dal tutor-server (007).
-async function callInfomaniakChat({ apiKey, payload, productId }) {
+async function callInfomaniakChat({ apiKey, payload, productId, guardia }) {
     // Infomaniak endpoint: https://api.infomaniak.com/2/ai/{product_id}/openai/v1/chat/completions
     const url = `https://api.infomaniak.com/2/ai/${productId}/openai/v1/chat/completions`;
+
+    /* 0091: la GUARDIA DEL SILENZIO (mappai-sse-core.js). Conta da quando parte
+       la richiesta: se la risposta non arriva, o lo stream smette di mandare
+       dati senza chiudersi, la chiamata si chiude con un errore leggibile invece
+       di restare aperta per sempre. `guardia === false` (renderer:
+       localStorage.mappai_infomaniak_guardia = '0') = la chiamata di prima. */
+    const conGuardia = guardia !== false;
+    const annulla = conGuardia ? new AbortController() : null;
+    let stream = null;
+    let rifiutaStream = null;
+    let scaduta = null;
+    const sentinella = conGuardia ? SseCore.creaGuardia(Object.assign(
+        SseCore.tempiGuardia(process.env.MAPPAI_INFOMANIAK_GUARDIA_MS), {
+            alloScadere: (info) => {
+                scaduta = info;
+                console.warn('[Infomaniak] Nessun dato da', info.secondi, 's',
+                    info.primoDato ? '(prima risposta)' : '(stream fermo)', '| modello:', payload.model,
+                    '→ richiesta interrotta');
+                if (rifiutaStream) rifiutaStream(new Error(SseCore.messaggioGuardia(info.secondi)));
+                if (stream) { try { stream.destroy(); } catch (_) { } }
+                try { annulla.abort(); } catch (_) { }
+            }
+        })) : null;
 
     try {
         // Forza stream per bypassare il Gateway Timeout
         payload.stream = true;
 
+        if (sentinella) sentinella.avvia();
         const response = await axios.post(url, payload, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            responseType: 'stream'
+            responseType: 'stream',
+            ...(annulla ? { signal: annulla.signal } : {})
         });
 
         return new Promise((resolve, reject) => {
-            let fullText = '';
-            let lastChunk = null;
+            const lettore = SseCore.creaLettoreSSE();
+            stream = response.data;
+            rifiutaStream = reject;
+            /* scaduta fra le intestazioni e qui: niente da leggere */
+            if (scaduta) {
+                reject(new Error(SseCore.messaggioGuardia(scaduta.secondi)));
+                try { stream.destroy(); } catch (_) { }
+                return;
+            }
 
             response.data.on('data', (chunk) => {
-                const lines = chunk.toString().split('\n');
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.slice(6);
-                        if (dataStr.trim() === '[DONE]') continue;
-                        try {
-                            const dataObj = JSON.parse(dataStr);
-                            lastChunk = dataObj;
-                            const delta = dataObj.choices && dataObj.choices[0] && dataObj.choices[0].delta;
-                            if (delta && delta.content) {
-                                fullText += delta.content;
-                            }
-                        } catch (e) {
-                            // ignora errori di parsing parziali
-                        }
-                    }
-                }
+                if (sentinella) sentinella.tocca();
+                lettore.aggiungi(chunk);
             });
 
             response.data.on('end', () => {
+                if (sentinella) sentinella.ferma();
+                lettore.chiudi();
+                // Il formato standard atteso da InfomaniakBridge (lo ricostruisce il core)
+                const risposta = lettore.risposta(payload.model);
+                const { finishReason, righeScartate, ultimoChunk } = lettore.stato();
                 // Diagnostica: stream vuoto = problema lato provider (param rifiutati, ecc.)
-                if (!fullText) {
+                if (!risposta.choices[0].message.content) {
                     console.warn('[Infomaniak] Stream VUOTO. finish_reason:',
-                        lastChunk?.choices?.[0]?.finish_reason,
-                        '| lastChunk:', JSON.stringify(lastChunk));
+                        finishReason || 'ASSENTE', '| righe data: scartate:', righeScartate,
+                        '| lastChunk:', JSON.stringify(ultimoChunk));
                     console.warn('[Infomaniak] Payload inviato (max_tokens, model):',
                         payload.max_tokens, payload.model,
                         '| response_format:', JSON.stringify(payload.response_format));
+                } else if (righeScartate || !finishReason) {
+                    // Testo arrivato ma forse monco: il ripiego 'stop' nasconderebbe un troncamento
+                    console.warn('[Infomaniak] Stream anomalo. finish_reason:',
+                        finishReason || 'ASSENTE (ripiego stop)', '| righe data: scartate:', righeScartate,
+                        '| lastChunk:', JSON.stringify(ultimoChunk));
                 }
-                // Ricostruisci il formato standard atteso da InfomaniakBridge
-                resolve({
-                    id: lastChunk?.id || 'stream',
-                    object: 'chat.completion',
-                    created: lastChunk?.created || Math.floor(Date.now() / 1000),
-                    model: lastChunk?.model || payload.model,
-                    choices: [
-                        {
-                            index: 0,
-                            message: {
-                                role: 'assistant',
-                                content: fullText
-                            },
-                            finish_reason: lastChunk?.choices?.[0]?.finish_reason || 'stop'
-                        }
-                    ],
-                    usage: lastChunk?.usage || {}
-                });
+                resolve(risposta);
             });
 
             response.data.on('error', (err) => {
-                reject(new Error(err.message));
+                if (sentinella) sentinella.ferma();
+                reject(new Error(scaduta ? SseCore.messaggioGuardia(scaduta.secondi) : err.message));
             });
         });
 
     } catch (error) {
+        if (sentinella) sentinella.ferma();
+        // La richiesta annullata dalla guardia prima della risposta: il messaggio è il suo
+        if (scaduta) throw new Error(SseCore.messaggioGuardia(scaduta.secondi));
         let errorMsg = error.message;
         if (error.response) {
             const status = error.response.status;
@@ -483,8 +500,8 @@ async function callInfomaniakChat({ apiKey, payload, productId }) {
 }
 
 // IPC handler for proxying Infomaniak requests (delega a callInfomaniakChat)
-ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId }) => {
-    return callInfomaniakChat({ apiKey, payload, productId });
+ipcMain.handle('generate-infomaniak', async (event, { apiKey, payload, productId, guardia }) => {
+    return callInfomaniakChat({ apiKey, payload, productId, guardia });
 });
 
 // IPC handler per embeddings Infomaniak (default: bge-multilingual-gemma2).
@@ -648,13 +665,17 @@ ipcMain.handle('list-models', async (event, { apiKey }) => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     try {
                         const parsed = JSON.parse(data);
-                        // Filter only models that support generateContent
+                        // I modelli di chat (generateContent) e quelli dei vettori (embedContent, 10/10/26):
+                        // `servizi` dice al renderer quali sono quali — la tendina principale li separa
+                        // già per nome, il deposito `gemini_embedding_models` della Cabina per servizio.
                         const models = (parsed.models || [])
-                            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                            .filter(m => Array.isArray(m.supportedGenerationMethods)
+                                && (m.supportedGenerationMethods.includes('generateContent') || m.supportedGenerationMethods.includes('embedContent')))
                             .map(m => ({
                                 id: m.name.replace('models/', ''),
                                 displayName: m.displayName || m.name.replace('models/', ''),
-                                description: m.description || ''
+                                description: m.description || '',
+                                servizi: m.supportedGenerationMethods.slice()
                             }));
                         resolve(models);
                     } catch(e) {
@@ -1524,8 +1545,32 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             }
         } catch (e) { console.warn('[Vault] rete di sicurezza non applicata:', e.message); }
 
+        /* 0061 (29/09, ADR 0013): la cartella porta l'id del suo progetto, in cima a
+           `index.yaml`, in colonna 0. Qui sotto il file si riscrive da una lista
+           chiusa: prima si legge l'id che c'è già, così un `mapData` senza un id valido
+           (quelli scritti a mano, le copie JIGSAW) lo CONSERVA e non lo cancella. Solo la
+           chiave in colonna 0: quelle annidate in `generationUsage` sono record dei
+           consumi, spesso con l'id ereditato, e non sono mai l'identità. La forma la dice
+           FilesCore (una fonte sola, inv. 6); nessuna decisione d'identità qui (inv. 19). */
+        let idSuDisco;
+        try {
+            const vecchioIndex = path.join(folderPath, 'index.yaml');
+            if (fs.existsSync(vecchioIndex)) {
+                const testo = fs.readFileSync(vecchioIndex, 'utf-8');
+                try { idSuDisco = (yaml.load(testo) || {}).projectId; }
+                catch (e) {
+                    const riga = testo.split('\n').find(l => l.startsWith('projectId:'));
+                    if (riga) idSuDisco = riga.slice('projectId:'.length).trim().replace(/^["']|["']$/g, '');
+                }
+            }
+        } catch (e) { idSuDisco = undefined; }
+
         // 1. Save index.yaml (Global Map Config) — serializzato con js-yaml
         const indexData = {
+            // 0061: l'id della mappa, se ne porta uno valido; se no quello già su disco; se no niente
+            // (js-yaml salta le chiavi `undefined`: una versione vecchia dell'app la scarta al suo salvataggio)
+            projectId: FilesCore.idProgettoValido(mapData.projectId) ? mapData.projectId
+                : (FilesCore.idProgettoValido(idSuDisco) ? idSuDisco : undefined),
             extractionMode: mapData.extractionMode,
             rootNodeLabel: mapData.rootNodeLabel,
             /* il DOSSIER di fonte si dichiara nel vault: le sidebar leggono da
@@ -1882,6 +1927,8 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                 if (parsed.userProfile)     mapData.userProfile     = parsed.userProfile;
                 if (parsed.customColors)    mapData.customColors    = parsed.customColors;
                 if (parsed.generationUsage !== undefined) mapData.generationUsage = parsed.generationUsage;
+                // 0061 (ADR 0013): l'id del progetto, solo nella forma che l'app conia
+                if (FilesCore.idProgettoValido(parsed.projectId)) mapData.projectId = parsed.projectId;
             } catch(e) {
                 console.warn('[MappAI] Errore parsing index.yaml con js-yaml, fallback manuale:', e.message);
                 // Fallback legacy per vault creati con il vecchio formato
@@ -1892,6 +1939,11 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
                     if (line.startsWith('userProfile:'))    { try { mapData.userProfile     = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
                     if (line.startsWith('customColors:'))   { try { mapData.customColors    = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
                     if (line.startsWith('generationUsage:')){ try { mapData.generationUsage = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); } catch(_){} }
+                    // 0061: solo in colonna 0 — le chiavi `projectId` annidate nei consumi non sono l'identità
+                    if (line.startsWith('projectId:')) {
+                        const pid = line.substring(line.indexOf(':') + 1).trim().replace(/^["']|["']$/g, '');
+                        if (FilesCore.idProgettoValido(pid)) mapData.projectId = pid;
+                    }
                 });
             }
         }
@@ -3246,6 +3298,8 @@ ipcMain.handle('get-all-vaults', async () => {
                 vaultInfo.classeDichiarata  = parsed.classe  || '';
                 vaultInfo.materiaDichiarata = parsed.materia || '';
                 vaultInfo.lastUpdated    = parsed.lastUpdated    || '';
+                // 0061 (ADR 0013): l'id del progetto, solo nella forma che l'app conia
+                if (FilesCore.idProgettoValido(parsed.projectId)) vaultInfo.projectId = parsed.projectId;
                 if (parsed.userProfile) {
                     vaultInfo.nickname = parsed.userProfile.nickname;
                     vaultInfo.age      = parsed.userProfile.age;
@@ -3258,6 +3312,11 @@ ipcMain.handle('get-all-vaults', async () => {
                     if (line.startsWith('extractionMode:')) vaultInfo.extractionMode = line.split(':')[1].trim();
                     if (line.startsWith('rootNodeLabel:'))  vaultInfo.rootNodeLabel  = line.substring(line.indexOf(':') + 1).trim();
                     if (line.startsWith('lastUpdated:'))    vaultInfo.lastUpdated    = line.split('lastUpdated:')[1].trim();
+                    // 0061: solo in colonna 0 — le chiavi `projectId` annidate nei consumi non sono l'identità
+                    if (line.startsWith('projectId:')) {
+                        const pid = line.substring(line.indexOf(':') + 1).trim().replace(/^["']|["']$/g, '');
+                        if (FilesCore.idProgettoValido(pid)) vaultInfo.projectId = pid;
+                    }
                     if (line.startsWith('userProfile:')) {
                         try { const p = JSON.parse(line.substring(line.indexOf(':') + 1).trim()); vaultInfo.nickname = p.nickname; vaultInfo.age = p.age; } catch(_){}
                     }

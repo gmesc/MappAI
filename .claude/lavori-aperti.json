@@ -1,0 +1,54 @@
+{
+  "lavori": [
+    {
+      "packet": "docs/tasks/0024-giudice-fonte-intera-prove.md",
+      "aperto": "2026-09-24T22:27:32.356Z",
+      "base": "8737ef2",
+      "visto": 1790370443426,
+      "blocchi": 0,
+      "impronta": "f199cf81573c",
+      "stato": "chiuso",
+      "chiuso": "2026-09-25T21:07:23.426Z"
+    },
+    {
+      "packet": "docs/tasks/0014-catalogo-prezzi-infomaniak.md",
+      "aperto": "2026-09-22T06:30:07.463Z",
+      "base": "c23f282",
+      "visto": 1790200832628,
+      "blocchi": 0,
+      "impronta": "f9beedee801d",
+      "stato": "chiuso",
+      "chiuso": "2026-09-23T22:00:32.629Z"
+    },
+    {
+      "packet": "docs/tasks/0013-modelli-per-fase-nei-flussi.md",
+      "aperto": "2026-09-21T23:24:14.298Z",
+      "base": "c23f282",
+      "visto": 1790375077310,
+      "blocchi": 0,
+      "impronta": "40edeb800c95",
+      "stato": "chiuso",
+      "chiuso": "2026-09-25T22:24:37.310Z"
+    },
+    {
+      "packet": "docs/tasks/0012-profilo-e-contesto-per-fase.md",
+      "aperto": "2026-09-21T22:14:39.119Z",
+      "base": "57ae54e",
+      "visto": 1790030259332,
+      "blocchi": 0,
+      "impronta": "7cc0fca68c92",
+      "stato": "chiuso",
+      "chiuso": "2026-09-21T22:37:39.332Z"
+    },
+    {
+      "packet": "docs/tasks/0010-vettori-magazzino.md",
+      "aperto": "2026-09-21T20:54:51.710Z",
+      "base": "57ae54e",
+      "visto": 1790027092873,
+      "blocchi": 1,
+      "impronta": "9c20e4080ba2",
+      "stato": "chiuso",
+      "chiuso": "2026-09-21T21:44:52.873Z"
+    }
+  ]
+}

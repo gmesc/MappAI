@@ -45,7 +45,8 @@ html.manifesto, .manifesto {
        perché il segno si INVERTE — chiaro sotto, scuro sopra. Il token resta
        dichiarato: serve se si vuole tornare a distinguere «spento» da «a
        riposo». */
-    --man-grigio: #989898;
+    /* --man-grigio #989898 tolto l'11/10 (0087 lotto 10b): nessun lettore; il suo posto nel budget dei colori
+       (41) l'ha preso --mm-focus, l'anello di fuoco, in mappai-modal-tokens.css */
     /* Lo stato NEUTRO di ogni bottone grigio: bottoni-fonte, MM/KG non attivo,
        chip vuoto, i tre avvii. Un token solo — così «tutti i bottoni non attivi
        allo stesso grigio» resta vero anche al prossimo pezzo che si aggiunge,
@@ -574,14 +575,22 @@ html.manifesto #mn-genere-dx span {
    (decisione del 31/7 — a distinguerlo è il riempimento, non una riga che su
    fondo chiaro fa 1,23:1) */
 html.manifesto #mn-genere-dx input[type="text"] {
-    background: rgba(64, 64, 64, .07) !important;
-    border: 1px solid transparent !important;
+    /* 09/10 (packet 0087 lotto 4): bianco, perché il box è grigio chiaro («in un
+       riquadro grigio chiaro i campi sono bianchi e senza bordo», Giacomo 08/10),
+       alto come i controlli gemelli; il bordo senza `!important`, così il
+       passaggio del mouse lo può colorare (regola sotto) */
+    background: var(--mm-fondo) !important;
+    border: var(--mm-bordo-spessore) solid transparent;
     border-radius: 12px !important;
-    padding: 10px 14px !important;
+    height: var(--mm-ctl-h);
+    padding: 0 14px !important;
     font-size: var(--bn-fs-voce) !important;
     font-weight: var(--bn-fw-voce) !important;
     color: var(--man-su-verde) !important;
     box-shadow: none !important;
+}
+html.manifesto #mn-genere-dx input[type="text"]:hover:not(:focus) {
+    border-color: var(--mm-bordo);
 }
 html.manifesto #mn-genere-dx input[type="text"]:focus-visible {
     outline: 2px solid var(--man-verde);
@@ -1217,8 +1226,8 @@ html.manifesto #mn-bento .mn-card:not(.mn-card--nuda) .mn-str > .mn-spostato {
     align-items: center !important;
     justify-content: flex-start !important;
     gap: 8px !important;
-    min-height: 30px !important;
-    height: auto !important;
+    min-height: var(--mn-sp-min-h, 30px) !important;
+    height: var(--mn-sp-h, auto) !important;
     padding: 4px 8px !important;
     border-radius: 9px !important;
     background: color-mix(in srgb, currentColor 14%, transparent) !important;
@@ -1384,8 +1393,8 @@ html.manifesto #mn-bento .mn-str--et.mn-str--pieno > input.mn-spostato,
 html.manifesto #mn-bento .mn-str--et.mn-str--pieno > select.mn-spostato {
     flex: 1 1 auto !important;
     max-width: 60% !important;
-    min-height: 30px;
-    height: 32px !important;      /* una riga: qui si scrive una frase, non un testo */
+    min-height: var(--mn-sp-min-h, 30px);
+    height: var(--mn-sp-h, 32px) !important;      /* una riga: qui si scrive una frase, non un testo */
     resize: none !important;
 }
 /* ⚠️ Le righe NON si allungano con lo spazio che avanza. Senza, alzare l'altezza
@@ -1986,8 +1995,8 @@ html.manifesto #mn-bento .mn-card--extra.mn-card--str :is(button, select, textar
     border: none !important;
     box-shadow: none !important;
     padding: 4px 10px !important;
-    min-height: 26px;
-    height: auto !important;          /* `.btn_mode_selector_sm` porta h-12: qui è una pillola come le altre */
+    min-height: var(--mn-sp-min-h, 26px);
+    height: var(--mn-sp-h, auto) !important;          /* `.btn_mode_selector_sm` porta h-12: qui è una pillola come le altre */
     line-height: 1.3 !important;
 }
 html.manifesto #mn-bento .mn-card--extra.mn-card--str .mn-spostato button,
@@ -2345,3 +2354,208 @@ html.manifesto .mn-briciole__sep {
 /* col percorso a vista il titolo del motore sparisce: sarebbe lo stesso nome,
    scritto due volte sulla stessa riga */
 html.manifesto .mm-head__testi.ha-briciole .mm-title { display: none !important; }
+
+/* ── CONTROLLI GEMELLI nel bento di CREA (09/10, packet 0087 lotto 4) ─────────
+   Tendine, numeri e bottoni alti come i controlli del motore (`--mm-ctl-h`, 40) e
+   scritti a `--mm-ctl-fs` (12), scelte di Giacomo sul banco del bento:
+   - il riempimento resta quello che si ADATTA al box (giallo, scuro): col mouse
+     si fa un gradino più forte, dallo stesso `currentColor`;
+   - bianco solo nel box grigio chiaro (il campo del TEMA: «in un riquadro grigio
+     chiaro i campi sono bianchi e senza bordo», 08/10), col mouse il bordo;
+   - pillole e lenti restano compatte (26): sono interruttori, non azioni;
+   - il passaggio del mouse dei bottoni resta VERDE (decisione del 5/8).
+   Solo nell'app del docente, tranne il campo del TEMA: quello è corretto dentro la
+   sua regola (`#mn-genere-dx input[type="text"]`), e il reader non monta il bento
+   di CREA. */
+html[data-app="docente"] #mn-bento :is(.mn-sel, .mn-num) {
+    height: var(--mm-ctl-h);
+    padding-top: 0;
+    padding-bottom: 0;
+}
+html[data-app="docente"] #mn-bento :where(.mn-sel, .mn-num):hover:not(:focus):not([disabled]) {
+    background: color-mix(in srgb, currentColor 26%, transparent);
+    border-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+html[data-app="docente"] #mn-bento .mn-btn {
+    min-height: var(--mm-ctl-h);
+}
+/* «Livello» e FOCUS: le regole del bento che li governano (riga montata,
+   pillole, riga di una frase) leggono `--mn-sp-*` col ripiego di oggi; qui le
+   si dichiarano solo su questi due, così le pillole non si muovono e nessuno
+   scavalca nessuno. Il corpo del FOCUS è l'unica eccezione: lo fissa lo zoom
+   della landing in style.css (`#landing-view .glass-card .text-sm`, con
+   `!important`), e la regola del bento che porta i campi a 12 è anche quella
+   che li mette in grassetto. */
+html[data-app="docente"] #mn-bento #gen-depth-select {
+    --mn-sp-h: var(--mm-ctl-h);
+    --mn-sp-min-h: var(--mm-ctl-h);
+    font-size: var(--mm-ctl-fs);
+}
+html[data-app="docente"] #mn-bento #focus-input {
+    --mn-sp-min-h: var(--mm-ctl-h);
+    font-size: var(--mm-ctl-fs) !important;
+}
+
+/* ═══ «OUTPUT» e i posti d'attesa (0087, lotto 10-crea, 12/10/2026) ═════════════
+   Il box «Output» della prima riga, la terza riga d'attesa della modalità
+   iconografica e i formati sotto l'elenco vuoto. Lo stato lo scrive
+   mappai-crea-output.js su <html data-crea-output>; le card si prendono dal loro
+   posto (`.mn-card:has([data-sposta="#…"])`), come fa il foglio della Lettura. */
+/* i pezzi vivono in index.html e il bento li sposta: finché non sono spostati stanno spenti */
+#mn-output-campo:not(.mn-spostato), .mn-attesa:not(.mn-spostato) { display: none; }
+html.manifesto #mn-bento .mn-output-campo { width: 100%; }
+html.manifesto #mn-bento .mn-attesa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--mn-h-modulo);
+    border: 2px dashed var(--mm-bordo);
+    border-radius: var(--mm-r-box);
+    color: var(--mm-testo-3);
+    font-size: var(--bn-fs-voce);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    text-align: center;
+}
+/* la riga d'attesa si vede solo con «Analisi iconografica», e sparisce quando il guscio
+   (0067) ha montato i pezzi veri (#ci-foto, o il riquadro del giro 4) */
+html.manifesto:not([data-crea-output="iconografica"]) #mn-bento .mn-card:has([data-sposta="#mn-foto-attesa"]),
+html.manifesto:not([data-crea-output="iconografica"]) #mn-bento .mn-card:has([data-sposta="#mn-scheda-attesa"]),
+html.manifesto #mn-bento:has(#ci-foto, #ci-riquadro) .mn-card:has([data-sposta="#mn-foto-attesa"]),
+html.manifesto #mn-bento:has(#ci-foto, #ci-riquadro) .mn-card:has([data-sposta="#mn-scheda-attesa"]) { display: none; }
+/* Metacomprensione (12/10 sera, Giacomo): «non c'è una mappa o un kg da generare, quindi la
+   riga due del bento può essere nascosta» — la riga del genere (Mappa / Knowledge Graph e il
+   tema centrale) si spegne; la Lettura, che nella composizione sta subito dopo, diventa la
+   seconda riga. Il foglio della Lettura la nasconde comunque finché il suo host è `hidden`,
+   e l'host lo accende mappai-crea-output.js solo con questa scelta. */
+html.manifesto[data-crea-output="metacomprensione"] #mn-bento .mn-card:has([data-sposta="#setup-form .mode-buttons-container"]),
+html.manifesto[data-crea-output="metacomprensione"] #mn-bento .mn-card:has([data-sposta="#mn-genere-dx"]) { display: none; }
+/* «usa il BG grigio e i testi scuri (con i token presi dai box standard del bento)»: il
+   modulo è NUDO e il planner è il box — fondo grigio dei box standard (--man-card), raggio e
+   imballaggio della card. Il suo foglio (mappai-percorso-lettura.css, ~330) lo vestiva per
+   la card scura con pannelli trasparenti e bordi da currentColor: qui, con un id in più, i
+   token chiari del motore — la stessa mappa che quel foglio fa per la console di ELABORA. */
+/* ⚠️ Il foglio della Lettura (righe ~127-133) spoglia con `!important` sia il planner sia
+   il suo host (fondo trasparente, imballaggio 0, colore ereditato): era pensato per la card
+   scura. Non si scavalca con altri `!important`: il box lo fa il CORPO della card nuda, un
+   livello sopra, che nessuna regola forte tocca — host e planner ereditano il colore scuro. */
+html.manifesto #mn-bento .mn-card--nuda:has([data-sposta="#lettura-crea-host"]) > .mn-card__b {
+    background: var(--man-card);
+    border-radius: var(--mm-r-card);
+    padding: 18px 20px;          /* come .mn-card */
+    color: var(--mm-testo);
+    box-sizing: border-box;
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner--bento {
+    --ui-fondo: var(--mm-fondo);
+    --ui-pannello: var(--mm-fondo);
+    --ui-pannello-attivo: var(--mm-accent-soft);
+    --ui-testo: var(--mm-testo);
+    --ui-testo-2: var(--mm-testo-2);
+    --ui-bordo: var(--mm-bordo);
+    --ui-accento: var(--mm-accent);
+}
+/* «in fondo al box è presente una linea orizzontale di separazione: eliminala e mantieni la
+   spaziatura» — la linea è il bordo del piede del planner */
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner--bento footer { border-top: 0; padding-top: var(--mm-gap); }
+/* i formati accettati sotto l'elenco vuoto dei file (Giacomo: «inserisci la lista con i formati accettati») */
+html.manifesto[data-crea-output="iconografica"] #mn-files .mn-files__box--vuoto::after {
+    content: var(--crea-formati, "");
+    margin-top: auto;
+    font-size: var(--bn-fs-voce);
+    color: var(--mm-testo-3);
+}
+
+/* ═══ Il box della Lettura, secondo giro (0087, lotto 10-lettura, 12/10/2026) ════════════
+   Giacomo, con tre schermate: «1) Allinea la dimensione dei titoli dei box "Leggere e
+   lavorare sul testo" alle dimensioni del titolo del box "Output". 2) applica ai menu a
+   tendina di "Leggere e lavorare sul testo" e del box giallo lo stile del menu a tendina
+   (altezza del bottone e dimensione del font del testo) del box "Output". 3) a) usa bold,
+   normal per differenziare descrizioni da titoli; b) crea dei sotto-box con BG bianco per
+   ognuno dei tre tipi di percorsi e poi aumenta lo spazio tra il paragrafo descrittivo dei
+   percorsi e i bottoni "Usa questo percorso"».
+   ⚠️ Il foglio della Lettura (mappai-percorso-lettura.css, file 0070, vietato) scrive corpo
+   e peso di p, label, select e dei titoli con `!important` (righe ~137-142), ma li LEGGE
+   dalle variabili del bento (--bn-fs-voce, --bn-fw-voce, --bn-fs-titolo…): qui si ridefinisce
+   la VARIABILE sul pezzo, e la sua regola forte dà il valore nuovo. Zero `!important`, zero
+   corpi nuovi. Il carattere dell'app ha solo i pesi 400 e 700 (public/fonts/): il 600 delle
+   voci si rende già come 700, perciò «normal» è 400 e «bold» è 700. */
+/* 1) «Scopo di lettura» e «Tipo di testo» sono i titoli dei due campi: il corpo e il peso
+   del titolo del box («Output», .mn-card__t: --bn-fs-titolo 14/700). La tendina dentro la
+   label eredita la variabile e torna da sé al corpo dei campi del motore (--mm-ctl-fs, 12)
+   e al tondo delle tendine (2). */
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-context > label {
+    --bn-fs-voce: var(--bn-fs-titolo);
+    --bn-fw-voce: var(--bn-fw-titolo);
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-context > label > select {
+    --bn-fs-voce: var(--mm-ctl-fs);
+    --bn-fw-voce: 400;           /* il tondo delle tendine, regola (2) qui sotto */
+}
+/* 3a) descrizioni in tondo, titoli in neretto: ogni <p> del planner (le descrizioni dei tre
+   percorsi, la nota, le descrizioni delle attività, il piede) prende il peso normale; h2,
+   h3, summary e strong restano al peso del titolo. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner--bento p { --bn-fw-voce: 400; }
+/* 3b) i tre percorsi pronti sono sotto-box bianchi nel grigio della card: fondo --mm-fondo e
+   raggio --mm-r-box (i riquadri dentro una card); l'imballaggio resta quello del planner
+   (--ui-pad = --mn-gap, 14). Il bottone sta in fondo, staccato dalla descrizione di --mm-gap,
+   e i tre bottoni restano sulla stessa riga anche quando le descrizioni hanno righe diverse. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-presets > .mn-lettura-preset {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: var(--mm-fondo);
+    border-radius: var(--mm-r-box);
+}
+html.manifesto #mn-bento #lettura-crea-host .mn-lettura-preset > p { margin-bottom: var(--mm-gap); }
+html.manifesto #mn-bento #lettura-crea-host .mn-lettura-preset > button { margin-top: auto; }
+/* 2) «B, e metti il testo della tendina a peso normal» (Giacomo, 12/10): la tendina «Output»
+   era fuori dallo standard 40/12 dei lotti 4 e 10b per caso — è il pezzo spostato in sé e le
+   regole dei campi del bento non la colpiscono, così prendeva il corpo del documento (16) con
+   l'altezza del contenuto (34). Qui va come le altre, con le stesse leve di «Livello»
+   (--mn-sp-h / --mn-sp-min-h); e il testo di TUTTE le tendine del bento del docente (Output,
+   planner, box giallo, Preset…) è in tondo (400): le regole che fissano il peso con
+   `!important` leggono --bn-fw-voce, quindi si ridefinisce la variabile sul pezzo. */
+html[data-app="docente"] #mn-bento #mn-output-campo {
+    --mn-sp-h: var(--mm-ctl-h);
+    --mn-sp-min-h: var(--mm-ctl-h);
+    font-size: var(--mm-ctl-fs);
+}
+/* «sì a tutti e due» (12/10): anche il campo numerico (.mn-num, «Quantità») va a 400 come le tendine */
+html[data-app="docente"] #mn-bento :is(.mn-sel, .mn-num, #mn-output-campo) {
+    --bn-fw-voce: 400;
+    font-weight: 400;
+}
+/* Il piede su una riga sola (Giacomo, 12/10 notte: «puoi mettere le tre frasi su una riga sola e
+   mettere in BOLD solo i numeri, ed eventualmente un alert se le soglie non sono bilanciate»):
+   totale, limite e stato in fila, allineati alla base, staccati di --mm-gap. Il neretto sui soli
+   numeri e l'avviso sulle soglie nascono nell'editor del planner (mappai-percorso-lettura-editor.js,
+   file 0070): il testo è un nodo di testo e un foglio non può ingrassarne una parte. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner--bento footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mm-gap);
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner--bento footer p { margin: 0; max-width: none; }  /* il 65ch del foglio della Lettura spezzava l'avviso su due righe */
+/* Tema 3 del box (Giacomo, 12/10: «sì a tutti e due, con A»):
+   - i sotto-box `details` come i tre percorsi: senza bordo, raggio --mm-r-box (erano bordati a 18:
+     due specie di sotto-box bianchi nella stessa card); il filetto fra le righe di attività resta;
+   - A: le etichette dei campi nelle righe («Quantità», «Risposta»…) a 400, così nella riga resta in
+     neretto solo il nome dell'attività (lo <strong>);
+   - l'avviso del piede: l'editor marca lo stato con data-stato («limite» quando una soglia salta,
+     «errore» se la preparazione fallisce); qui peso 700 e il rosso dell'errore di campo (--mm-danger,
+     la stessa promessa di .is-errore del motore). Il colore passa da -webkit-text-fill-color perché
+     il foglio della Lettura impone `color: inherit !important` a ogni <p> del planner. I numeri
+     in neretto non hanno bisogno di regole: <strong> non è nella lista di quella regola forte. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-groups details {
+    border: 0;
+    border-radius: var(--mm-r-box);
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-row > label { --bn-fw-voce: 400; }
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-status[data-stato="limite"],
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-status[data-stato="errore"] {
+    --bn-fw-voce: 700;
+    -webkit-text-fill-color: var(--mm-danger);
+}

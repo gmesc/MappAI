@@ -526,8 +526,113 @@
       ? { allowed: true, reason: 'approved', legacy: false } : { allowed: false, reason: 'stale_revision' };
   }
 
+  /* ── LA GUARDIA DELLA SCRITTURA (25/9/2026) ──────────────────────────────────
+     Alle 01:20 del 25/9 la revisione di «Svizzera e 2a GM» (19 segnalazioni,
+     sei decisioni, cinque controlli) è stata sostituita da un rapporto vuoto,
+     «saltato». La copia installata dell'app aveva in memoria il manifesto di
+     «Officina Project E», versione 176, e l'ha scritto nella cartella di
+     Svizzera, versione 16 sul disco. Il file scritto ha la forma esatta del
+     successore di `requireApproved`: una revisione nuova, con `previous` = la
+     revisione di OFFICINA. Il confronto delle versioni è passato perché la
+     versione attesa si cerca per PERCORSO (16, come sul disco), e nessuno
+     guardava che cosa stava per sostituire che cosa. Lo si guarda qui, fra il
+     file sul disco e il manifesto intero, prima di scrivere. Tre regole,
+     nell'ordine in cui spiegano meglio il guasto:
+     · CARTELLA — `vaultPath` diverso dalla cartella in cui si scrive E da
+       quello del file che c'è: il manifesto è di un altro progetto. Il secondo
+       confronto tiene buone le cartelle dove i due già divergono (Svizzera,
+       ripristinata solo nella `review`, dichiara ancora la cartella di
+       Officina). Normalizzati NFC, separatori e barra finale (trappola 25).
+     · VERSIONE — il manifesto porta una versione PIÙ ALTA di quella sul disco.
+       La memoria impara le versioni solo da questo file, che cresce e basta:
+       un numero più alto viene da un altro file, o da un disco riportato
+       indietro. Una versione più BASSA non si rifiuta, perché può essere
+       legittima: `R.writeManifest` serializza il manifesto quando lo si
+       chiama, prima che il salvataggio precedente in coda risponda, e due
+       decisioni battute in fretta arrivano con lo stesso numero mentre il disco
+       è già avanti di uno. Una copia vecchia che porta la SUA versione come
+       attesa la ferma il magazzino; una che arriva con l'attesa aggiornata non
+       si distingue dalla coda. Quando `R.writeManifest` serializzerà dentro la
+       coda, questa regola si potrà stringere all'uguaglianza.
+     · REVISIONE — sul disco c'è una revisione e quella nuova ha un altro
+       `generationId` senza conservarla come `previous`: le decisioni salvate
+       sparirebbero. Il successore di `requireApproved` la conserva, e passa.
+     Una `review` che manca del tutto la rifiuta il magazzino, col suo
+     messaggio di sempre. Pura, niente disco: restituisce null oppure
+     { regola, motivo }, e il motivo è italiano perché arriva così com'è
+     all'utente. */
+  function percorso(p) {
+    var s = typeof p === 'string' ? p : '';
+    try { s = s.normalize('NFC'); } catch (e) { /* runtime senza normalize */ }
+    s = s.replace(/[\\/]+/g, '/');
+    return s.length > 1 ? s.replace(/\/$/, '') : s;
+  }
+  function nomeCartella(p) { var s = percorso(p); return s.slice(s.lastIndexOf('/') + 1) || s || '?'; }
+  /* due cartelle con lo stesso nome (la stessa mappa in due classi): il nome da
+     solo darebbe «del progetto X, non di X» — allora si dicono classe e materia */
+  function nomiDistinti(a, b) {
+    var na = nomeCartella(a), nb = nomeCartella(b);
+    if (na !== nb) return [na, nb];
+    var coda = function (p) { return percorso(p).split('/').filter(Boolean).slice(-3).join(' › ') || '?'; };
+    return [coda(a), coda(b)];
+  }
+  /* L'identità di una revisione è la COPPIA generazione + revisione di base (25/9,
+     dalla revisione del ramo): il successore di `requireApproved` nasce con lo
+     stesso `generationId` della sessione, quindi il solo id non distingue la
+     revisione approvata da quella che la segue, e una copia vecchia della prima
+     poteva tornare sopra alla seconda. La base cambia solo con `createReview`. */
+  function _coppia(r) {
+    return String((r && r.generationId) || '') + '\u0000' + String((r && r.baseRevision) || '');
+  }
+  /* …e dentro c'è anche la coppia di `previous`: se il docente riporta il contenuto
+     alla base, il successore ha la stessa coppia dell'approvata, e solo `previous`
+     li distingue (dalla seconda revisione del ramo, 25/9). mergeRetry conserva
+     `previous`, quindi i nuovi controlli sulla stessa revisione restano la stessa. */
+  function identitaRevisione(r) {
+    return _coppia(r) + '\u0001' + _coppia(r && r.previous);
+  }
+  function numeroVersione(m) {
+    var v = m && m._storageVersion;
+    if (v == null || v === '') return null;
+    v = Number(v);
+    return isFinite(v) ? v : null;
+  }
+  function contenutoRevisione(review) {
+    var i = review.initial || {}, decisions = i.decisions || {}, decise = 0, n = (i.issues || []).length;
+    Object.keys(decisions).forEach(function (id) {
+      if (['accept', 'reject', 'manual'].indexOf((decisions[id] || {}).choice) >= 0) decise++;
+    });
+    return n + (n === 1 ? ' segnalazione, ' : ' segnalazioni, ') + decise + (decise === 1 ? ' decisione' : ' decisioni');
+  }
+  function conflittoDiScrittura(disco, nuovo, cartella) {
+    disco = disco && typeof disco === 'object' ? disco : null;
+    nuovo = nuovo && typeof nuovo === 'object' ? nuovo : {};
+    var coda = '; il file sul disco non è stato toccato, riapri il progetto';
+    var suo = percorso(nuovo.vaultPath);
+    if (suo && suo !== percorso(cartella) && suo !== percorso(disco && disco.vaultPath)) {
+      var nomi = nomiDistinti(suo, cartella);
+      return { regola: 'cartella', motivo: 'i dati in memoria sono del progetto «' + nomi[0] +
+        '», non di «' + nomi[1] + '»' + coda };
+    }
+    var vn = numeroVersione(nuovo), vd = numeroVersione(disco);
+    if (vn != null && vn > (vd || 0)) {
+      return { regola: 'versione', motivo: 'i dati in memoria sono alla versione ' + vn +
+        (!disco ? ' e sul disco il file non c\'è' : vd == null ? ' e il file sul disco non ne ha' : ' e il file sul disco alla ' + vd) +
+        ', quindi vengono da un altro progetto o da una copia più recente' + coda };
+    }
+    var salvata = disco && disco.review, proposta = nuovo.review;
+    if (salvata && proposta && typeof salvata.generationId === 'string' && salvata.generationId &&
+        identitaRevisione(proposta) !== identitaRevisione(salvata) &&
+        !(proposta.previous && identitaRevisione(proposta.previous) === identitaRevisione(salvata))) {
+      return { regola: 'revisione', motivo: 'la revisione salvata (' + contenutoRevisione(salvata) +
+        ') sarebbe sostituita da un\'altra che non la conserva' + coda };
+    }
+    return null;
+  }
+
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
     revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, setManualCheck: setManualCheck, decisionOutcome: decisionOutcome, textChange: textChange,
     preview: preview, previewItem: previewItem, setItemExcluded: setItemExcluded,
-    beginApproval: beginApproval, completeApproval: completeApproval, gate: gate };
+    beginApproval: beginApproval, completeApproval: completeApproval, gate: gate,
+    conflittoDiScrittura: conflittoDiScrittura };
 }));

@@ -48,11 +48,17 @@ function runtime(options = {}) {
     d.querySelector = () => domElement(GOLD); d.querySelectorAll = selector => selector === '.l1-topic-input' ? [domElement('Resistenza')] : [];
     d.createElement = domElement; d.createComment = () => ({}); d.addEventListener = () => {};
     d.body = domElement(); d.documentElement = domElement(); d.activeElement = domElement();
-    h.storageManager.adottaVault = async v => { h.storageManager.currentProjectId = 'id:' + v; };
-    h.storageManager.saveCurrentProject = () => {};
+    // 0061: i tre finti registrano gesto e ordine in `h.ordine` (e le scritture per cartella in
+    // `h.scrittureMappa`); quello che FANNO resta com'era.
+    h.storageManager.adottaVault = async (v, _stato, opts) => { (h.ordine || (h.ordine = [])).push({ evento: 'adotta', percorso: v, gesto: opts && opts.gesto,
+        scrittureGiaFatte: (h.scrittureMappa || {})[v] || 0, activeVaultPath: st.activeVaultPath }); h.storageManager.currentProjectId = 'id:' + v; };
+    h.storageManager.saveCurrentProject = () => { (h.ordine || (h.ordine = [])).push({ evento: 'voce', activeVaultPath: st.activeVaultPath,
+        manifesti: h.writes.filter(x => x.relPath === 'pipeline.json').length }); };
     const api = w.electronAPI;
     w.electronAPI = { ...api, filesRootGet: async () => ({ mapsBaseDir: '/vault' }), getAllVaults: async () => [],
-        saveVault: async args => { h.mapSaved = B1.plain(args); return { success: true }; },
+        saveVault: async args => { const sm = h.scrittureMappa || (h.scrittureMappa = {}); sm[args.folderPath] = (sm[args.folderPath] || 0) + 1;
+            (h.ordine || (h.ordine = [])).push({ evento: 'saveVault', percorso: args.folderPath, activeVaultPath: st.activeVaultPath });
+            h.mapSaved = B1.plain(args); return { success: true }; },
         htmlToPdf: async () => ({ ok: true, base64: Buffer.from('%PDF-1.4\n' + 'test '.repeat(100)).toString('base64') }) };
     Object.assign(w, { setTimeout, clearTimeout, addEventListener() {}, crypto: { randomUUID: () => 'generation-test' },
         MappAIPipelineCore: PC, MappAIReviewCore: require('../../public/js/mappai-review-core.js'),

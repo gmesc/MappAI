@@ -39,11 +39,11 @@
     var _z = 9991;
     try { if (window.MappAIModal && window.MappAIModal.prossimoZ) _z = window.MappAIModal.prossimoZ(); } catch (e) { }
     ov.style.cssText = 'position:fixed;inset:0;z-index:' + _z + ';background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
-    ov.innerHTML = '<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxWidth || '780px') + ',96vw);max-height:90vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">' +
+    ov.innerHTML = '<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxWidth || 'var(--mm-l)') + ',96vw);max-height:90vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-      '<div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:#0f172a">' +
+      '<div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">' +
       '<i data-lucide="' + icon + '" style="width:22px;height:22px;color:#4f46e5"></i>' + esc(title) + '</div>' +
-      '<button type="button" class="lh-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>' +
+      '<button type="button" class="lh-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>' +
       '</div>' + bodyHtml + '</div>';
     ov.addEventListener('click', function (e) { if (e.target === ov) closeModal(); });
     ov.querySelector('.lh-close').onclick = closeModal;
@@ -69,11 +69,11 @@
 
   function card(icon, title, desc, tip) {
     return '<button type="button" class="lh-card" ' + (tip ? 'data-tip="' + esc(tip) + '" ' : '') +
-      'style="display:flex;align-items:center;gap:14px;text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;cursor:pointer;width:100%">' +
+      'style="display:flex;align-items:center;gap:14px;text-align:left;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:16px 18px;cursor:pointer;width:100%">' +
       '<div style="width:44px;height:44px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
       '<i data-lucide="' + icon + '" style="width:22px;height:22px;color:#4f46e5"></i></div>' +
-      '<div style="flex:1"><div style="font-weight:800;color:#0f172a;font-size:15px">' + esc(title) + '</div>' +
-      '<div style="font-size:12px;color:#94a3b8;margin-top:2px">' + esc(desc) + '</div></div>' +
+      '<div style="flex:1"><div style="font-weight:800;color:var(--mm-testo, #404040);font-size:15px">' + esc(title) + '</div>' +
+      '<div style="font-size:12px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + esc(desc) + '</div></div>' +
       '<i data-lucide="chevron-right" style="width:18px;height:18px;color:#cbd5e1"></i></button>';
   }
 
@@ -102,18 +102,18 @@
       t('lv_hub_intro', 'Attività di classe via QR: gli allievi entrano dal telefono sulla rete d\'aula.') + '</p>' +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
       card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue — con report finali'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.')) +
-      card('presentation', t('lv_card_board', 'Lavagna collaborativa'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
+      card('presentation', t('lv_card_board', 'Mappa LIVE'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
       card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
-      card('message-circle', t('lv_card_tutor', 'Chatta e Scrivi (Tutor AI)'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
+      card('message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
       card('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lv_card_timeline_d', 'Completa o costruisci insieme la timeline della mappa'), t('lv_card_timeline_tip', 'Due modalità: Completa (domande autovalutate sulle date) o Costruisci (gli allievi propongono le date mancanti, tu approvi). Zero costi AI.')) +
       (_sceltaOn() ? card('list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere'), t('lv_card_scelta_tip', 'Nessuna generazione: usa i fogli «Domande aperte» e i set a scelta multipla già nel vault. Il taglio di ogni domanda resta nascosto: alla consegna si scopre quali tipi di richiamo funzionano per ciascuno.')) : '') +
       '</div>';
-    var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, '560px');
+    var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, 'var(--mm-m)');
     var cards = ov.querySelectorAll('.lh-card');
     cards[0].onclick = function () { openLiveSetup(); };
-    cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Lavagna non disponibile', 'error'); };
+    cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Mappa LIVE non disponibile', 'error'); };
     cards[2].onclick = function () { openMaterialsPanel(); };
-    cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chatta e Scrivi non disponibile', 'error'); };
+    cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chiedi e Rispondi non disponibile', 'error'); };
     cards[4].onclick = function () { closeModal(); if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
     if (cards[5]) cards[5].onclick = function () { closeModal(); if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
     if (window.safeCreateIcons) window.safeCreateIcons();
@@ -214,21 +214,23 @@
       : '<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px">' +
         t('lv_no_class', 'Nessuna classe. Creala in Profilo → Account classi.') +
         ' <button type="button" id="lvs-goclass" style="background:none;border:0;color:#4f46e5;font-weight:700;cursor:pointer;text-decoration:underline">' + t('lv_open_class', 'Apri Account classi') + '</button></div>';
-    var body = '<style>.lv-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff}' +
+    /* 11/10 (0087 lotto 10b): il campo del motore — neutro senza bordo, 40/12, al mouse bianco col bordo, a fuoco l'anello --mm-focus */
+    var body = '<style>.lv-in{width:100%;height:var(--mm-ctl-h, 40px);border:var(--mm-bordo-spessore, 1px) solid transparent;border-radius:var(--mm-r-campo, 10px);padding:0 12px;font:inherit;font-size:var(--mm-ctl-fs, 12px);color:var(--mm-testo, #404040);background:var(--mm-neutro, #f1f4f8)}' +
+      '.lv-in:hover:not(:focus){background:var(--mm-fondo, #fff);border-color:var(--mm-bordo, #cbd5e1)}.lv-in:focus{outline:none;box-shadow:0 0 0 2px var(--mm-focus, #ea580c)}' +
       '.lv-lab{display:block;font-size:11px;font-weight:700;color:#475569;margin:12px 0 4px}</style>' +
       '<div style="font-size:12px;color:#475569;background:#f1f5f9;border-radius:10px;padding:10px 12px">' +
         t('lv_from_set_hint', 'Avvia una sessione live con le domande GIÀ pronte di questo set — nessuna nuova generazione AI.') + '</div>' +
       '<span class="lv-lab">' + t('lv_class', 'Classe') + '</span>' + classField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qtype', 'Tipo') + '</span>' +
-        '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font-weight:700;color:#4f46e5;background:#eef2ff">' + esc(modeLabel) + ' · ' + set.items.length + ' ' + t('lv_questions', 'domande') + '</div></div>' +
+        '<div style="border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:9px 11px;font-weight:700;color:#4f46e5;background:#eef2ff">' + esc(modeLabel) + ' · ' + set.items.length + ' ' + t('lv_questions', 'domande') + '</div></div>' +
       '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lvs-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
       '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
         '<input type="checkbox" id="lvs-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
         '<span>' + t('lv_reveal', 'A fine sessione mostra allo studente le soluzioni (giuste/sbagliate + spiegazione), salvabili sul suo dispositivo.') + '</span></label>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
-      '<button type="button" id="lvs-back" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
+      '<button type="button" id="lvs-back" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
       '<button type="button" id="lvs-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
-    var ov = modal('radio', t('lv_from_set_title', 'Avvia quiz live'), body, '560px');
+    var ov = modal('radio', t('lv_from_set_title', 'Avvia quiz live'), body, 'var(--mm-m)');
     var gc = ov.querySelector('#lvs-goclass');
     if (gc) gc.onclick = function () { closeModal(); if (window.openClassAccountsModal) window.openClassAccountsModal(); };
     ov.querySelector('#lvs-back').onclick = closeModal;
@@ -364,7 +366,7 @@
     var _zf = 10001;
     try { if (window.MappAIModal && window.MappAIModal.prossimoZ) _zf = window.MappAIModal.prossimoZ(); } catch (e) { }
     ov.style.cssText = 'position:fixed;inset:0;z-index:' + _zf + ';background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:zoom-out';
-    ov.innerHTML = '<img src="' + big + '" alt="QR" style="width:min(70vh,70vw);image-rendering:pixelated"><div style="font-size:22px;font-weight:800;color:#0f172a">' + esc(url) + '</div>';
+    ov.innerHTML = '<img src="' + big + '" alt="QR" style="width:min(70vh,70vw);image-rendering:pixelated"><div style="font-size:22px;font-weight:800;color:var(--mm-testo, #404040)">' + esc(url) + '</div>';
     ov.onclick = function () { ov.remove(); };
     document.body.appendChild(ov);
   }
@@ -386,17 +388,17 @@
   function dashBodyHtml(url, qrSrc) {
     return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;align-items:start">' +
       '<div style="text-align:center">' +
-      (qrSrc ? '<img id="lv-qr" src="' + qrSrc + '" alt="QR" style="width:210px;height:210px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">'
+      (qrSrc ? '<img id="lv-qr" src="' + qrSrc + '" alt="QR" style="width:210px;height:210px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">'
              : '<div style="color:#b45309;font-size:12px">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.info.urls.map(esc).join('<br>') + '</div>' +
       (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.info) : '') +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_qr_hint', 'Clic sul QR per proiettarlo (LIM)') + '</div></div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_qr_hint', 'Clic sul QR per proiettarlo (LIM)') + '</div></div>' +
       '<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
-      '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">' + t('lv_roster', 'Allievi') + '</span>' +
+      '<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b)">' + t('lv_roster', 'Allievi') + '</span>' +
       '<span id="lv-phase" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#4f46e5"></span>' +
-      '<span style="flex:1"></span><span id="lv-count" style="font-size:11px;color:#94a3b8"></span></div>' +
+      '<span style="flex:1"></span><span id="lv-count" style="font-size:11px;color:var(--mm-testo-3, #64748b)"></span></div>' +
       '<div id="lv-rosterlist" style="display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto">' +
-      '<div style="color:#94a3b8;font-size:12.5px">' + t('lv_waiting', 'In attesa degli allievi…') + '</div></div></div></div>' +
+      '<div style="color:var(--mm-testo-3, #64748b);font-size:12.5px">' + t('lv_waiting', 'In attesa degli allievi…') + '</div></div></div></div>' +
       '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;font-size:11.5px;color:#92400e;margin-top:14px">' +
       t('lv_net_note', 'Rete: usa l\'hotspot del PC o un router d\'aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.') + '</div>' +
       '<div id="lv-actions" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center"></div>';
@@ -434,13 +436,13 @@
     var fp = document.createElement('div');
     fp.id = 'lv-float-panel';
     fp.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:9985;width:min(420px,92vw);' +
-      'max-height:86vh;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;' +
+      'max-height:86vh;overflow:auto;background:#f8fafc;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;' +
       'box-shadow:0 20px 50px -12px rgba(0,0,0,.35)';
     fp.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef2ff;position:sticky;top:0">' +
       '<i data-lucide="radio" style="width:16px;height:16px;color:#4f46e5"></i>' +
-      '<span style="flex:1;font-weight:800;font-size:13px;color:#0f172a">' + esc(t('lv_dash_title', 'Sessione live')) + '</span>' +
+      '<span style="flex:1;font-weight:800;font-size:13px;color:var(--mm-testo, #404040)">' + esc(t('lv_dash_title', 'Sessione live')) + '</span>' +
       '<button type="button" class="lv-fp-collapse" title="' + esc(t('lv_collapse', 'Riduci')) + '" style="background:none;border:0;cursor:pointer;color:#64748b;font-size:16px;line-height:1;padding:2px 6px">–</button>' +
-      '<button type="button" class="lv-fp-dock" title="' + esc(t('lv_dock', 'Riporta al centro')) + '" style="background:none;border:0;cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 6px">×</button>' +
+      '<button type="button" class="lv-fp-dock" title="' + esc(t('lv_dock', 'Riporta al centro')) + '" style="background:none;border:0;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:18px;line-height:1;padding:2px 6px">×</button>' +
       '</div><div class="lv-fp-body" style="padding:14px 16px">' + dashBodyHtml(url, qrDataUrl(url)) + '</div>';
     document.body.appendChild(fp);
     if (window.safeCreateIcons) window.safeCreateIcons();
@@ -479,14 +481,14 @@
         html += actBtn('lv-rep-q', t('lv_rep_q', 'Report domande'), '#4f46e5', '#fff');
         html += actBtn('lv-rep-s', t('lv_rep_s', 'Report allievi'), '#4f46e5', '#fff');
       }
-      html += actBtn('lv-folder', t('lv_folder', 'Apri cartella'), '#f1f5f9', '#334155');
-      html += actBtn('lv-end', t('lv_end', 'Chiudi pannello'), '#f1f5f9', '#334155');
+      html += actBtn('lv-folder', t('lv_folder', 'Apri cartella'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
+      html += actBtn('lv-end', t('lv_end', 'Chiudi pannello'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
     }
     /* «Stacca» solo quando la dashboard sta nel modale: dentro il pannello
        fluttuante il gesto inverso è già la × della sua testata. */
     if (!document.getElementById('lv-float-panel')) {
       html += (phase === 'closed' ? '' : '<span style="flex:1"></span>') +
-        actBtn('lv-detach', t('lv_detach', 'Stacca'), '#f1f5f9', '#334155');
+        actBtn('lv-detach', t('lv_detach', 'Stacca'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
     }
     if (phase !== 'closed') { html += '<span style="flex:1"></span>' + actBtn('lv-stop', t('lv_stop', 'Ferma server'), '#f1f5f9', '#64748b'); }
     box.innerHTML = html;
@@ -572,9 +574,9 @@
         : r.finished ? '<span style="color:#166534;font-weight:700">✓ ' + t('lv_done', 'consegnato') + '</span>'
         : '<span style="color:#4f46e5;font-weight:700">' + r.answered + ' ' + t('lv_ans', 'risposte') + '</span>';
       var relBtn = (r.present && !r.finished) ? '<button type="button" class="lv-rel" data-e="' + r.emojiKey + '" data-n="' + r.num + '" title="' + t('lv_release', 'Sblocca (device staccato)') + '" style="background:#f1f5f9;color:#64748b;border:0;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:700">' + t('lv_unlock', 'Sblocca') + '</button>' : '';
-      return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:6px 10px">' +
+      return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:6px 10px">' +
         '<span style="font-size:18px">' + esc(r.emoji) + '</span><span style="font-weight:700;color:#4f46e5;width:26px">' + esc(r.num) + '</span>' +
-        '<span style="flex:1;font-size:12px;color:#334155">' + esc(r.name || '') + '</span>' + status + relBtn + '</div>';
+        '<span style="flex:1;font-size:12px;color:var(--mm-testo, #404040)">' + esc(r.name || '') + '</span>' + status + relBtn + '</div>';
     }).join('');
     box.querySelectorAll('.lv-rel').forEach(function (b) {
       b.onclick = function () {
@@ -617,20 +619,20 @@
     var qrSrc = qrDataUrl(url);
     var files = LT.matInfo.files || [];
     var list = files.length
-      ? files.map(function (f) { return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:7px 10px;font-size:12.5px"><span style="flex:1;word-break:break-all">' + esc(f.file) + '</span><span style="color:#94a3b8">' + Math.max(1, Math.round(f.size / 1024)) + ' KB</span></div>'; }).join('')
-      : '<div style="color:#94a3b8;font-size:12.5px">' + t('lv_no_files', 'Nessun file. Aggiungine con il bottone qui sotto.') + '</div>';
+      ? files.map(function (f) { return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:7px 10px;font-size:12.5px"><span style="flex:1;word-break:break-all">' + esc(f.file) + '</span><span style="color:var(--mm-testo-3, #64748b)">' + Math.max(1, Math.round(f.size / 1024)) + ' KB</span></div>'; }).join('')
+      : '<div style="color:var(--mm-testo-3, #64748b);font-size:12.5px">' + t('lv_no_files', 'Nessun file. Aggiungine con il bottone qui sotto.') + '</div>';
     var body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start">' +
-      '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">' : '') +
+      '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">' : '') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
       (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.matInfo) : '') +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div></div>' +
-      '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div></div>' +
+      '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
       actBtn('lv-madd', t('lv_add_file', 'Aggiungi file…'), '#4f46e5', '#fff') +
       actBtn('lv-mstop', t('lv_mstop', 'Ferma server materiali'), '#f1f5f9', '#64748b') +
-      '<span style="flex:1"></span>' + actBtn('lv-mback', t('lv_back', 'Indietro'), '#f1f5f9', '#334155') + '</div>';
-    var ov = modal('folder-down', t('lv_mat_title', 'Materiali di studio'), body, '620px');
+      '<span style="flex:1"></span>' + actBtn('lv-mback', t('lv_back', 'Indietro'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)') + '</div>';
+    var ov = modal('folder-down', t('lv_mat_title', 'Materiali di studio'), body, 'var(--mm-m)');
     var qrImg = ov.querySelector('#lv-mqr'); if (qrImg) qrImg.onclick = function () { openQrFull(url); };
     ov.querySelector('#lv-madd').onclick = function () {
       window.electronAPI.liveMaterialsAdd().then(function (r) {
@@ -695,12 +697,12 @@
     var bar =
       '<style>@media print{#mai-stu-pdf{display:none!important}}</style>' +
       '<div id="mai-stu-pdf-spacer" style="height:92px"></div>' +
-      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid #e2e8f0;box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:5px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+      '<div id="mai-stu-pdf" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#ffffff;border-top:1px solid var(--mm-bordo, #cbd5e1);box-shadow:0 -6px 18px rgba(15,23,42,.08);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:5px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
       '<div style="display:flex;gap:8px;width:100%;max-width:440px">' +
       '<button onclick="window.print()" style="flex:1;background:#4f46e5;color:#fff;border:none;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(label) + '</button>' +
       '<button onclick="window.__maiSaveHtml()" style="flex:1;background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:800;cursor:pointer">' + esc(labelHtml) + '</button>' +
       '</div>' +
-      '<div style="font-size:11.5px;color:#94a3b8;text-align:center">' + esc(hint) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--mm-testo-3, #64748b);text-align:center">' + esc(hint) + '</div>' +
       '</div>' + saveScript;
     return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, bar + '</body>') : (html + bar);
   }
@@ -728,13 +730,13 @@
   function openDocQr(url, name) {
     var qrSrc = qrDataUrl(url, 9);
     var body = '<div style="text-align:center">' +
-      (qrSrc ? '<img id="lv-docqr" src="' + qrSrc + '" style="width:230px;height:230px;image-rendering:pixelated;border-radius:12px;border:1px solid #e2e8f0;cursor:zoom-in">' : '<div style="color:#b45309">QR non disponibile</div>') +
+      (qrSrc ? '<img id="lv-docqr" src="' + qrSrc + '" style="width:230px;height:230px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">' : '<div style="color:#b45309">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:8px;word-break:break-all">' + esc(url) + '</div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + t('sd_qr_studente', 'Nell\'app MappAI studente: Docente › Ricevi — inquadra il QR o scrivi questo indirizzo') + '</div></div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + t('sd_qr_studente', 'Nell\'app MappAI studente: Docente › Ricevi — inquadra il QR o scrivi questo indirizzo') + '</div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">' +
-      actBtn('lv-docqr-close', t('lv_back', 'Indietro'), '#f1f5f9', '#334155') + '</div>';
-    var ov = modal('qr-code', t('sd_qr_title', 'Condividi documento'), body, '440px');
+      actBtn('lv-docqr-close', t('lv_back', 'Indietro'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)') + '</div>';
+    var ov = modal('qr-code', t('sd_qr_title', 'Condividi documento'), body, 'var(--mm-s)');
     var img = ov.querySelector('#lv-docqr'); if (img) img.onclick = function () { openQrFull(url); };
     ov.querySelector('#lv-docqr-close').onclick = closeModal;
   }

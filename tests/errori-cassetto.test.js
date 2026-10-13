@@ -135,3 +135,133 @@ test('kill-switch: con mappai_error_log=0 non si registra nulla', () => {
     assert.strictEqual(E.controllaCassetto('prova', true), null);
     assert.strictEqual(scritte.length, 0);
 });
+
+/* Il contesto di ogni errore dice su quale mappa è successo. Lo leggeva da
+   `window.appState`, che non esiste (`appState` è un `let` di app.js,
+   invariante 3): il campo `mappa` mancava da OGNI riga del registro. Qui
+   `global.appState` fa la parte del `let` lessicale — si vede per nome, e il
+   `window` finto di `carica` non lo ha. */
+test('registra: il contesto porta la mappa aperta, letta da appState lessicale', () => {
+    const { E, scritte } = carica();
+    global.appState = { rootNodeLabel: 'La Rivoluzione francese' };
+    try {
+        E.registra({ dove: 'prova', messaggio: 'boom' });
+        assert.strictEqual(scritte[0].ctx.mappa, 'La Rivoluzione francese');
+    } finally { delete global.appState; }
+});
+
+// ── dedup e tetto di sessione (25/9: le due regole del registro non avevano prove) ──
+test('registra: lo stesso errore entro 60 s è una riga sola; dopo, una riga nuova', (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: 1_000_000 });
+    const { E, scritte } = carica();
+    const err = { dove: 'renderer', messaggio: 'x is undefined', file: 'a.js', riga: 3 };
+    assert.ok(E.registra(err));
+    assert.strictEqual(E.registra(err), null, 'ripetizione immediata: nessuna riga');
+    t.mock.timers.tick(59_000);
+    assert.strictEqual(E.registra(err), null, 'ancora dentro la finestra');
+    t.mock.timers.tick(60_001);
+    assert.ok(E.registra(err), 'fuori dalla finestra: di nuovo una riga');
+    // un errore diverso (altro file o altra riga) non è «lo stesso»
+    assert.ok(E.registra({ ...err, riga: 4 }));
+    assert.strictEqual(scritte.length, 3);
+});
+
+test('registra: oltre 200 errori distinti si smette, con UNA riga che lo dice', () => {
+    const { E, scritte } = carica();
+    for (let i = 0; i < 205; i++) E.registra({ dove: 'renderer', messaggio: 'errore ' + i });
+    assert.strictEqual(scritte.length, 201, '200 errori + la riga del tetto');
+    assert.match(scritte[200].messaggio, /Tetto di 200 errori raggiunto/);
+    E.registra({ dove: 'renderer', messaggio: 'dopo il tetto' });
+    assert.strictEqual(scritte.length, 201, 'la riga del tetto non si ripete');
+});
+
+// ── 0076 (ADR 0018, punto 4): il PREAVVISO all'80%, B2 (a) ───────────────────
+// Una finestra MappAIModal una volta per sessione, con [Libera spazio] che apre
+// la Cabina su «Gestione cartelle». Indipendente da `mappai_error_log`; acceso
+// solo con `mappai_cassetto_snello` = '1' (spento: il modulo è quello di oggi).
+function finestre(siRisponde) {
+    const aperte = [], cabine = [];
+    global.window.MappAIModal = {
+        conferma(o) { aperte.push(o); return Promise.resolve(!!siRisponde); }
+    };
+    global.window.openCabina = (v, o) => cabine.push(o === undefined ? v : [v, o]);
+    global.window.t = (_k, f) => f;
+    return { aperte, cabine };
+}
+const MB = n => 'x'.repeat(n * 1048576);
+
+test('0076: preavviso all\'80% — UNA finestra nella sessione, anche col registro spento', () => {
+    const { E, scritte } = carica({ mappai_cassetto_snello: '1', mappai_error_log: '0', g: MB(40) });   // 83%
+    const { aperte } = finestre(false);
+    const m = E.controllaCassetto('avvio', true);
+    assert.ok(m, 'col registro spento si misura lo stesso');
+    assert.strictEqual(m.livello, 'alto');
+    assert.strictEqual(aperte.length, 1, 'la finestra si apre');
+    assert.match(aperte[0].testo, /La memoria rapida dell'app si sta riempiendo: libera spazio prima che si riempia del tutto\./);
+    assert.strictEqual(aperte[0].conferma, 'Libera spazio');
+    assert.strictEqual(aperte[0].annulla, 'Più tardi');
+    E.controllaCassetto('salvataggio', true);
+    global.localStorage.setItem('g2', MB(5));   // ora critico: è sempre la stessa sessione
+    E.controllaCassetto('salvataggio', true);
+    assert.strictEqual(aperte.length, 1, 'una volta per sessione, anche se peggiora');
+    assert.strictEqual(scritte.length, 0, 'il registro resta spento');
+});
+
+test('0076: preavviso — [Libera spazio] apre la Cabina su «Gestione cartelle»', async () => {
+    const { E } = carica({ mappai_cassetto_snello: '1', g: MB(40) });
+    const { cabine } = finestre(true);
+    E.controllaCassetto('avvio', true);
+    await new Promise(r => setImmediate(r));
+    assert.deepStrictEqual(cabine, [['profilo', { sezione: 'pr-cartelle' }]],
+        'la vista della Cabina che contiene «Gestione cartelle», e la sezione portata in vista');
+});
+
+test('0076: preavviso — sotto l\'80% nessuna finestra', () => {
+    const { E } = carica({ mappai_cassetto_snello: '1', g: MB(36) });   // 75%: «avviso», non «alto»
+    const { aperte } = finestre(false);
+    assert.strictEqual(E.controllaCassetto('avvio', true).livello, 'avviso');
+    assert.strictEqual(aperte.length, 0);
+});
+
+test('0076 M7: preavviso — interruttore spento, nessuna finestra (oggi)', () => {
+    const { E, scritte } = carica({ g: MB(44) });   // 92%
+    const { aperte } = finestre(false);
+    E.controllaCassetto('avvio', true);
+    assert.strictEqual(aperte.length, 0, 'spento: si scrive solo nel registro, come oggi');
+    assert.strictEqual(scritte.length, 1);
+    // e col registro spento resta il silenzio di oggi
+    const b = carica({ mappai_error_log: '0', g: MB(44) });
+    const f2 = finestre(false);
+    assert.strictEqual(b.E.controllaCassetto('avvio', true), null);
+    assert.strictEqual(f2.aperte.length, 0);
+});
+
+test('0076: preavviso — `{ preavviso: false }` lo salta in QUELLA misura, non per la sessione', () => {
+    const { E } = carica({ mappai_cassetto_snello: '1', g: MB(46) });
+    const { aperte } = finestre(false);
+    E.controllaCassetto('salvataggio perso', true, { preavviso: false });
+    assert.strictEqual(aperte.length, 0, 'il cassetto pieno sta per parlare lui');
+    E.controllaCassetto('avvio', true);
+    assert.strictEqual(aperte.length, 1, 'il ramo del cassetto pieno può uscire in silenzio: allora il preavviso resta dovuto');
+});
+
+test('0076: preavviso — solo una finestra VISTA lo spegne per la sessione (la sua, o quella del cassetto pieno)', () => {
+    const { E } = carica({ mappai_cassetto_snello: '1', g: MB(46) });
+    const { aperte } = finestre(false);
+    E.segnaFinestraCassetto();            // la finestra del cassetto pieno si è vista
+    E.controllaCassetto('avvio', true);
+    assert.strictEqual(aperte.length, 0, 'due finestre sullo stesso guasto sarebbero una di troppo');
+    // senza il motore dei modali nessuna finestra si vede: il preavviso resta dovuto
+    const b = carica({ mappai_cassetto_snello: '1', g: MB(46) });
+    delete global.window.MappAIModal;
+    b.E.controllaCassetto('avvio', true);
+    const f = finestre(false);
+    b.E.controllaCassetto('avvio', true);
+    assert.strictEqual(f.aperte.length, 1);
+});
+
+test('0076: preavviso — senza il motore dei modali niente finestra e niente errore', () => {
+    const { E } = carica({ mappai_cassetto_snello: '1', g: MB(40) });
+    delete global.window.MappAIModal;
+    assert.doesNotThrow(() => E.controllaCassetto('avvio', true));
+});

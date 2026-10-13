@@ -216,17 +216,41 @@
          chiede; questo lo impone, perché un modello le istruzioni ogni tanto
          le ignora. `critica` è esente: «che cosa tace» parla per assenza, e
          un appiglio all'assenza non esiste. */
+    /* GLI A CAPO DENTRO LE STRINGHE (0066). Ministral 3 scrive la scheda intera
+       e nei blocchi giusti, ma va a capo DENTRO un valore (il «testo» trascritto
+       riga per riga): il JSON non è valido, e la scheda cadeva tutta in
+       «descrizione». Qui un a capo dentro una stringa diventa `\n`; fuori dalle
+       stringhe non si tocca nulla, e un JSON valido esce identico (un a capo
+       vero non può stare in una stringa JSON valida). Banco del 30/09 riletto:
+       Ministral da 101 a 147 campi pieni su 171, Qwen e Mistral Small invariati. */
+    function _aCapoNelleStringhe(t) {
+        var o = '', dentro = false, esc = false;
+        for (var i = 0; i < t.length; i++) {
+            var ch = t.charAt(i);
+            if (!dentro) { if (ch === '"') dentro = true; o += ch; continue; }
+            if (esc) { esc = false; o += ch; continue; }
+            if (ch === '\\') { esc = true; o += ch; continue; }
+            if (ch === '"') { dentro = false; o += ch; continue; }
+            if (ch === '\n') { o += '\\n'; continue; }
+            if (ch === '\r') continue;
+            if (ch === '\t') { o += '\\t'; continue; }
+            o += ch;
+        }
+        return o;
+    }
     function normalizzaAnalisi(raw, salvage) {
         var testo = String(raw == null ? '' : raw)
             .split('```json').join('').split('```').join('').trim();
+        // la riparazione serve a LEGGERE il JSON; il ripiego del testo nudo usa l'originale
+        var json = _aCapoNelleStringhe(testo);
         var o = null;
         if (typeof salvage === 'function') {
-            try { o = salvage(testo); } catch (e) { o = null; }
+            try { o = salvage(json); } catch (e) { o = null; }
         }
         if (!o || typeof o !== 'object' || Array.isArray(o)) {
-            var a = testo.indexOf('{'), b = testo.lastIndexOf('}');
+            var a = json.indexOf('{'), b = json.lastIndexOf('}');
             if (a >= 0 && b > a) {
-                try { o = JSON.parse(testo.slice(a, b + 1)); } catch (e) { o = null; }
+                try { o = JSON.parse(json.slice(a, b + 1)); } catch (e) { o = null; }
             }
         }
         var out = {};
@@ -263,6 +287,35 @@
             if (v) righe.push(c.et + ': ' + v);
         });
         return righe.join('\n');
+    }
+
+    /* ── LA SCHEDA COME TESTO DELLA SINTESI (0079) ───────────────────────────
+       Il documento di una scheda esce dal costruttore della SINTESI
+       (mappai-branch-synthesis), che legge un markdown ridotto: `##` → titolo
+       del blocco, un paragrafo «**Etichetta:** valore» per campo — il lettore
+       e il karaoke li trovano come in una sintesi. I blocchi che INTERPRETANO
+       lo dicono nel titolo. Nei valori si neutralizza ciò che quel markdown
+       leggerebbe come comando: `*` (corsivo), `[n]` e `[src-…]` (richiami di
+       nota), `$` e `\(` `\[` (formule: senza KaTeX il documento non uscirebbe).
+       Portata dal reader (studia-core, 5/10), che ora può usare questa. */
+    function markdownDaScheda(sch, blocchi) {
+        blocchi = blocchi || BLOCCHI;
+        if (!sch || !Array.isArray(blocchi)) return '';
+        var pulito = function (v) {
+            return _riga(v).replace(/\*/g, '∗').replace(/\[(\d+)\]/g, '($1)')
+                .replace(/\[{1,2}(src-[\w-]+)\]{1,2}/g, '($1)')
+                .replace(/\$/g, '＄').replace(/\\(?=[([])/g, '⧵');
+        };
+        var out = [];
+        blocchi.forEach(function (bl) {
+            var campi = sch[bl.id] || {};
+            var righe = (bl.campi || []).filter(function (c) { return pulito(campi[c.id]); })
+                .map(function (c) { return '**' + c.et + ':** ' + pulito(campi[c.id]); });
+            if (!righe.length) return;
+            out.push('## ' + bl.titolo + (bl.interpretativo ? ' (interpretazione)' : ''));
+            out.push(righe.join('\n\n'));
+        });
+        return out.join('\n\n');
     }
 
     /* ── IL MATERIALE CHE VA AL GENERATORE ────────────────────────────────────
@@ -367,8 +420,8 @@
                 rimedio: _tSafe('vs_e_off_r', 'Controlla la connessione e riprova.') };
         }
         if (b.indexOf('provider') >= 0 && b.indexOf('infomaniak') >= 0) {
-            return { codice: 'provider', messaggio: _tSafe('vs_e_prov', 'La lettura delle immagini passa da Google Gemini.'),
-                rimedio: _tSafe('vs_e_prov_r', 'Scegli il provider Google nelle Impostazioni AI e riprova.') };
+            return { codice: 'provider', messaggio: _tSafe('vs_e_prov', 'Per leggere la foto con Infomaniak servono il token, il Product ID e un modello per le foto.'),
+                rimedio: _tSafe('vs_e_prov_r', 'Completali nelle Impostazioni AI, nel riquadro Infomaniak, e riprova.') };
         }
         if (b.indexOf('vuota') >= 0 || b.indexOf('finishreason') >= 0) {
             return { codice: 'vuota', messaggio: _tSafe('vs_e_empty', 'Il modello non ha risposto su questa immagine.'),
@@ -437,6 +490,7 @@
         promptAnalisi: promptAnalisi,
         normalizzaAnalisi: normalizzaAnalisi,
         testoBlocco: testoBlocco,
+        markdownDaScheda: markdownDaScheda,
         materialeDaScheda: materialeDaScheda,
         contestoBreve: contestoBreve,
         stimaDossier: stimaDossier,

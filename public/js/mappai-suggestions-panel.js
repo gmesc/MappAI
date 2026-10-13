@@ -37,10 +37,20 @@
         }[c]));
     }
 
+    /* L'id di un nodo come ARGOMENTO di un `onclick="…"` (25/9/2026). Stava fra
+       apici, `'${id}'`, senza escape: gli id vengono dal vault, che si passa fra
+       colleghi, e un id `'),alert(1),('` chiudeva la stringa e diventava codice —
+       con `window.electronAPI` in mano. Ora è un letterale JSON (virgolette, barre
+       e a capo protetti), e sopra c'è l'escape dell'attributo: il parser HTML
+       rende il letterale intatto al JavaScript, che riceve l'id e nient'altro. */
+    function _arg(id) {
+        return _esc(JSON.stringify(String(id == null ? '' : id)));
+    }
+
     function _renderGenericCard(s) {
         const style = SEVERITY_STYLE[s.severity] || SEVERITY_STYLE.low;
         const goBtn = s.nodeId
-            ? `<button onclick="window.executeSidebarSingleClick('${s.nodeId}')" class="mt-2 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1">
+            ? `<button onclick="window.executeSidebarSingleClick(${_arg(s.nodeId)})" class="mt-2 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center gap-1">
                  <i data-lucide="crosshair" class="w-3 h-3"></i> Vai al nodo
                </button>`
             : '';
@@ -62,7 +72,7 @@
                 ? '<span class="text-[9px] font-bold text-indigo-500 uppercase tracking-wide">Resta</span>'
                 : '';
             const mergeBtn = (i === 0 || !anchor) ? '' : `
-                <button onclick="window.MappAISuggestionsPanel.mergeClusterMember('${m.id}','${anchor.id}', this)"
+                <button onclick="window.MappAISuggestionsPanel.mergeClusterMember(${_arg(m.id)},${_arg(anchor.id)}, this)"
                     title="Fondi questo nodo nell'altro contrassegnato 'Resta'"
                     class="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 transition flex items-center gap-1 flex-shrink-0">
                     <i data-lucide="git-merge" class="w-3 h-3"></i> Fondi qui
@@ -74,7 +84,7 @@
                     </span>
                     <span class="flex items-center gap-2 flex-shrink-0">
                         ${stayTag}
-                        <button onclick="window.executeSidebarSingleClick('${m.id}')" title="Vai al nodo" class="text-slate-400 hover:text-indigo-600 transition">
+                        <button onclick="window.executeSidebarSingleClick(${_arg(m.id)})" title="Vai al nodo" class="text-slate-400 hover:text-indigo-600 transition">
                             <i data-lucide="crosshair" class="w-3 h-3"></i>
                         </button>
                         ${mergeBtn}

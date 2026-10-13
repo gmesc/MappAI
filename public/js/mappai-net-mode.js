@@ -47,14 +47,14 @@
         var cur = NM.get();
         function btn(m, icon, label) {
             var sel = cur === m;
-            return '<button type="button" data-m="' + m + '" class="' + prefix + '-net-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:2px solid ' + (sel ? '#4f46e5' : '#e2e8f0') + ';background:' + (sel ? '#eef2ff' : '#fff') + ';border-radius:10px;padding:9px;cursor:pointer;font-weight:700;font-size:12px;color:#334155">' +
+            return '<button type="button" data-m="' + m + '" class="' + prefix + '-net-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:2px solid ' + (sel ? '#4f46e5' : 'var(--mm-bordo, #cbd5e1)') + ';background:' + (sel ? '#eef2ff' : '#fff') + ';border-radius:10px;padding:9px;cursor:pointer;font-weight:700;font-size:12px;color:var(--mm-testo, #404040)">' +
                 '<i data-lucide="' + icon + '" style="width:14px;height:14px"></i>' + escHtml(label) + '</button>';
         }
-        return '<label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin:12px 0 5px">' + escHtml(tt('net_mode_label', 'Rete studenti')) + '</label>' +
+        return '<label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mm-testo-3, #64748b);margin:12px 0 5px">' + escHtml(tt('net_mode_label', 'Rete studenti')) + '</label>' +
             '<div style="display:flex;gap:8px">' +
             btn('lan', 'wifi', tt('net_mode_lan', 'WiFi aula')) +
             btn('web', 'globe', tt('net_mode_web', 'Internet')) + '</div>' +
-            '<div class="' + prefix + '-net-hint" style="font-size:11px;color:#94a3b8;margin-top:5px;' + (cur === 'web' ? '' : 'display:none') + '">' +
+            '<div class="' + prefix + '-net-hint" style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:5px;' + (cur === 'web' ? '' : 'display:none') + '">' +
             escHtml(tt('net_web_hint', 'Gli allievi usano la LORO connessione (dati o WiFi qualunque): la sessione passa dal relay MappAI su server svizzero. Serve internet sul PC.')) + '</div>';
     };
 
@@ -67,7 +67,7 @@
                 NM.set(m);
                 btns.forEach(function (x) {
                     var on = x === b;
-                    x.style.borderColor = on ? '#4f46e5' : '#e2e8f0';
+                    x.style.borderColor = on ? '#4f46e5' : 'var(--mm-bordo, #cbd5e1)';
                     x.style.background = on ? '#eef2ff' : '#fff';
                 });
                 var hint = ov.querySelector('.' + prefix + '-net-hint');

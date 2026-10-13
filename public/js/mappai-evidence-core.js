@@ -4,7 +4,7 @@
  * invariante 22). Passi 1 e 2 del piano Evidence (docs/tasks/0001-evidence-core.md,
  * docs/tasks/0002-evidence-indice.md).
  *
- * Sei funzioni, tutte pure (niente DOM, IPC, modelli, timer):
+ * Funzioni pure (niente DOM, IPC, modelli, timer):
  *   · tipizza(unita)            → la stessa unità con un `genere`;
  *   · costruisciPacchetto(...)  → da una query, le unità che un generatore leggerà,
  *                                 con tetto e scarti contati;
@@ -15,6 +15,8 @@
  *   · materialeRamo(...)        → il testo che la pipeline dà a un generatore per
  *                                 un ramo: le etichette come struttura, le frasi
  *                                 vere della fonte come contenuto (passo 3).
+ *   · registroGiudice(fonti)    → tutto il testo originale del giro, senza
+ *                                 recupero o filtri, con riferimenti (0024).
  *
  * Che cosa NON si rifà qui (invariante 6, una verità una fonte):
  *   · il BM25 e il filtro delle frasi sono di `lexical()` (local-search-core →
@@ -37,17 +39,20 @@
      Deterministiche, zero AI. Sul percorso del pacchetto arrivano solo
      concetto/definizione/dato (le altre tre le toglie già l'àncora attraverso
      `lexical`); domanda/consegna/didascalia servono all'indice del passo 2.
-     ⚠️ Due regex sono COPIE dichiarate delle regole B e A di
-     `MappAIBoilerplate.isStructuralLine`, che risponde solo sì/no e qui serve
-     il nome del genere. Se nascerà `structuralKind` (packet 0002), le due
-     righe si appoggiano lì. */
+     Nell'app questo vale da quando `mappai-boilerplate-core.js` si carica PRIMA
+     di `mappai-anchor-core.js` (packet 0030; la guardia è tests/ordine-script.test.js):
+     prima l'àncora trovava `MappAIBoilerplate` indefinito e il filtro delle
+     righe strutturali non girava.
+     Le righe strutturali le classifica UNA funzione, `structuralKind` di
+     MappAIBoilerplate ('spazio' | 'stem' | 'riferimento' | 'titolo' | ''):
+     qui si legge il suo verdetto, `kind`, e non si ricopiano le sue regex. */
   var REGOLE = [
-    // 1. domanda: finisce con «?» (lo stesso test di mappai-anchor-core.js:230) o apre con uno stem numerato «1)» «2.» (regola B di isStructuralLine, copiata)
-    { genere: 'domanda', vale: function (t) { return /\?\s*$/.test(t) || /^\d{1,2}\s*[\).]\s+\S/.test(t); } },
-    // 2. consegna: apre con un verbo dell'elenco chiuso — senza badare alla maiuscola, come ESERCIZIO dell'àncora: dopo un due punti la consegna arriva minuscola — o è una riga di soli puntini/trattini, lo spazio risposta (regola A di isStructuralLine, copiata)
-    { genere: 'consegna', vale: function (t) { return /^(Completa|Indica|Spiega|Descrivi|Calcola|Rispondi|Osserva|Collega|Scrivi|Leggi|Sottolinea|Elenca|Confronta|Disegna|Riordina)\b/i.test(t) || (/^[.·_…—–\-\s]{6,}$/.test(t) && !/[0-9A-Za-zÀ-ſ]/.test(t)); } },
-    // 3. didascalia: ciò che resta di isStructuralLine quando 1 e 2 non valgono (regole C e D: «Doc. 1», «Fig. 2», «Tab. 3», titoli tutti maiuscoli)
-    { genere: 'didascalia', vale: function (t) { return !!(BP && typeof BP.isStructuralLine === 'function' && BP.isStructuralLine(t)); } },
+    // 1. domanda: finisce con «?» (lo stesso test di mappai-anchor-core.js:230) o apre con uno stem numerato «1)» «2.» (kind 'stem')
+    { genere: 'domanda', vale: function (t, kind) { return /\?\s*$/.test(t) || kind === 'stem'; } },
+    // 2. consegna: apre con un verbo dell'elenco chiuso — senza badare alla maiuscola, come ESERCIZIO dell'àncora: dopo un due punti la consegna arriva minuscola — o è una riga di soli puntini/trattini, lo spazio risposta (kind 'spazio')
+    { genere: 'consegna', vale: function (t, kind) { return /^(Completa|Indica|Spiega|Descrivi|Calcola|Rispondi|Osserva|Collega|Scrivi|Leggi|Sottolinea|Elenca|Confronta|Disegna|Riordina)\b/i.test(t) || kind === 'spazio'; } },
+    // 3. didascalia: ciò che resta delle righe strutturali quando 1 e 2 non valgono (kind 'riferimento' e 'titolo': «Doc. 1», «Fig. 2», «Tab. 3», titoli tutti maiuscoli)
+    { genere: 'didascalia', vale: function (t, kind) { return !!kind; } },
     // 4. definizione: fra la 2ª e la 12ª parola compare « è » / « sono » / «si chiama» / «si definisce» / «si dice» (parola 1, poi da 0 a 10 parole, poi il marcatore)
     { genere: 'definizione', vale: function (t) { return /^\S+(?:\s+\S+){0,10}\s+(?:è|sono|si\s+chiama|si\s+definisce|si\s+dice)\s/i.test(t); } },
     // 5. dato: un numero con unità o «%» (il \b sta solo dopo le unità a lettere: dopo «%» non c'è mai un confine di parola e la regola sarebbe morta), un anno a quattro cifre, una data
@@ -65,8 +70,9 @@
   function tipizza(unita) {
     var copia = unita && typeof unita === 'object' ? Object.assign({}, unita) : { text: unita };
     var t = String(copia.text == null ? '' : copia.text).trim();
+    var kind = BP && typeof BP.structuralKind === 'function' ? BP.structuralKind(t) : '';
     for (var i = 0; i < REGOLE.length; i++) {
-      if (REGOLE[i].vale(t)) { copia.genere = REGOLE[i].genere; return copia; }
+      if (REGOLE[i].vale(t, kind)) { copia.genere = REGOLE[i].genere; return copia; }
     }
     copia.genere = 'concetto';   // irraggiungibile: la regola 6 vale sempre
     return copia;
@@ -275,6 +281,111 @@
     return firmaFonti(indice.fonti) !== firmaFonti(costruisciIndice(sources).fonti);
   }
 
+  /* Packet 0024: registro per il Giudice, NON un pacchetto di recupero.
+     L'indice conserva le pagine; lexical/frasiDaPagine ne perderebbero parti.
+     Gli offset sono UTF-16 nel testo della pagina, spazi e ritorni inclusi.
+     `citabile` controlla la provenienza, non dimostra la verità del passaggio. */
+  function registroGiudice(sources) {
+    var diagnostica = [], ammesse = [];
+    var copertura = { pagineTotali: 0, pagineConTesto: 0, pagineVuote: 0, pagineNonNumerate: 0, caratteri: 0 };
+    function segnala(code, details, bloccante) {
+      diagnostica.push(Object.assign({ code: code }, details || {}, bloccante ? { bloccante: true } : {}));
+    }
+    if (!Array.isArray(sources)) segnala('judge_sources_invalid', {}, true);
+    (Array.isArray(sources) ? sources : []).forEach(function (raw, sourceIndex) {
+      var f = typeof raw === 'string' ? { text: raw } : raw;
+      if (!f || typeof f !== 'object' || Array.isArray(f)) {
+        segnala('judge_source_invalid', { sourceIndex: sourceIndex }, true); return;
+      }
+      var origin = f.origin;
+      // Ogni isTeacherAmendment ha origin=teacher: si esclude tutta l'origine,
+      // prima del default original di local-search, non soltanto le rettifiche.
+      if (origin === 'teacher' || origin === 'generated') {
+        segnala('judge_source_excluded', { sourceIndex: sourceIndex, origin: origin }); return;
+      }
+      if (origin !== undefined && origin !== 'original' && origin !== 'reference') {
+        segnala('judge_source_origin_unknown', { sourceIndex: sourceIndex, origin: origin }, true); return;
+      }
+      if (origin === undefined) segnala('judge_source_legacy_origin', { sourceIndex: sourceIndex });
+      var pagine = Array.isArray(f.pages) && f.pages.length ? f.pages
+        : [{ n: f.page || f.n || 0, text: f.content || f.text || '' }];
+      if (f.pages !== undefined && !Array.isArray(f.pages)) segnala('judge_pages_invalid', { sourceIndex: sourceIndex }, true);
+      var copia = Object.assign({}, f, { origin: origin || 'original' });
+      // L'adattatore storico non legge documentId: qui l'identità esplicita
+      // del giro viene rispettata, senza cambiare l'indice dei materiali.
+      if (!copia.sourceId && !copia.docId && !copia.id && copia.documentId) copia.sourceId = copia.documentId;
+      copia.pages = pagine.map(function (p, pageIndex) {
+        if (!p || typeof p !== 'object' || Array.isArray(p)) {
+          segnala('judge_page_invalid', { sourceIndex: sourceIndex, pageIndex: pageIndex }, true); p = {};
+        }
+        var text = p.text || p.content || '';
+        if (typeof text !== 'string') {
+          segnala('judge_page_text_invalid', { sourceIndex: sourceIndex, pageIndex: pageIndex }, true); text = '';
+        }
+        var page = Number(p.n || p.page || 0);
+        if (!Number.isInteger(page) || page < 0) {
+          segnala('judge_page_number_invalid', { sourceIndex: sourceIndex, pageIndex: pageIndex }); page = 0;
+        }
+        copertura.pagineTotali++;
+        copertura[text.trim() ? 'pagineConTesto' : 'pagineVuote']++;
+        if (!page) copertura.pagineNonNumerate++;
+        copertura.caratteri += text.length;
+        return Object.assign({}, p, { n: page, text: text });
+      });
+      ammesse.push(copia);
+    });
+    var indice = costruisciIndice(ammesse), identita = new Set();
+    indice.fonti.forEach(function (f) {
+      if (identita.has(f.sourceId)) segnala('judge_source_identity_ambiguous', { sourceId: f.sourceId }, true);
+      identita.add(f.sourceId);
+    });
+    diagnostica = diagnostica.concat(indice.diagnostica);
+    var firme = indice.fonti.map(function (f, i) { return [f.sourceId, f.sourceRevision, f.title, ammesse[i].origin, ammesse[i].pages]; })
+      .sort(function (a, b) { var x = JSON.stringify(a), y = JSON.stringify(b); return x < y ? -1 : x > y ? 1 : 0; });
+    var revisione = RC.revision({ items: [{ id: 'fonti-giudice', value: firme }] }, []);
+    var passaggi = [], ids = new Set();
+    function titoloPiatto(text) {
+      return String(text || '').replace(/\.pdf\s*$/i, '').normalize('NFKC')
+        .toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').trim();
+    }
+    ammesse.forEach(function (f, sourceIndex) {
+      var fonte = indice.fonti[sourceIndex];
+      f.pages.forEach(function (p, pageIndex) {
+        var recordId = 'source:' + fonte.sourceId + ':' + pageIndex;
+        var record = indice.records.find(function (r) { return r.recordId === recordId && r.text === p.text; });
+        // Le pagine di soli spazi non diventano records nell'indice: restano
+        // qui per rendere la ricomposizione esatta anche su quelle pagine.
+        var text = record ? record.text : p.text, start = 0;
+        while (start < text.length) {
+          var end = Math.min(start + 900, text.length), newline = text.indexOf('\n', start);
+          if (newline >= start && newline < end) end = newline + 1;
+          else if (end < text.length) {
+            var prefix = text.slice(start, end), boundary = /[.!?]\s+|\s+/g, match, last = 0;
+            while ((match = boundary.exec(prefix))) last = match.index + match[0].length;
+            if (last > 450) end = start + last;
+            // Non separare la coppia UTF-16 di un carattere fuori dal BMP.
+            if (/[\uD800-\uDBFF]/.test(text.charAt(end - 1)) && /[\uDC00-\uDFFF]/.test(text.charAt(end))) end--;
+          }
+          var value = text.slice(start, end);
+          var id = 'jg-' + RC.revision({ items: [{ id: 'passaggio', value: [revisione, fonte.sourceId,
+            fonte.sourceRevision, recordId, p.n, pageIndex, start, end, value] }] }, []).slice(3);
+          if (ids.has(id)) {
+            segnala('judge_passage_identity_collision', { sourceId: fonte.sourceId, pageIndex: pageIndex }, true);
+            id += '-duplicato-' + sourceIndex;
+          }
+          ids.add(id);
+          passaggi.push({ id: id, text: value, sourceId: fonte.sourceId, sourceRevision: fonte.sourceRevision,
+            recordId: recordId, page: p.n, pageIndex: pageIndex, start: start, end: end,
+            title: fonte.title, origin: f.origin,
+            citabile: !!value.trim() && titoloPiatto(value) !== titoloPiatto(fonte.title) && titoloPiatto(text) !== titoloPiatto(fonte.title) });
+          start = end;
+        }
+      });
+    });
+    return { schema: 'mappai-fonti-giudice@1', revisione: revisione, passaggi: passaggi,
+      copertura: copertura, diagnostica: diagnostica };
+  }
+
   /* ── IL MATERIALE DI UN RAMO (passo 3, docs/tasks/0003-evidence-materiale-ramo.md) ─
      Ciò che `_branchMaterial` (mappai-material-pipeline.js) consegna a un
      generatore al posto delle desc con i passaggi: le ETICHETTE dei nodi come
@@ -327,5 +438,5 @@
     return { materiale: materiale, unita: unita.length, scartate: scartate, caratteri: materiale.length };
   }
 
-  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt, costruisciIndice: costruisciIndice, indiceStantio: indiceStantio, materialeRamo: materialeRamo };
+  return { tipizza: tipizza, costruisciPacchetto: costruisciPacchetto, formattaPerPrompt: formattaPerPrompt, costruisciIndice: costruisciIndice, indiceStantio: indiceStantio, materialeRamo: materialeRamo, registroGiudice: registroGiudice };
 }));

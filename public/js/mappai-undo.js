@@ -8,6 +8,18 @@
 
     const MAX_UNDO = 10;
 
+    /* LA SCORCIATOIA A SCHERMO (09/10/26, packet 0087 lotto 8). Giacomo: «tutti
+       i bottoni 'Annulla' devono diventare '⌘Z'»: un bottone che DISFA dice il
+       tasto che fa la stessa cosa. «⌘Z» sul Mac, «Ctrl+Z» su Windows e Linux;
+       `maiuscolo` aggiunge il tasto delle maiuscole (⌘⇧Z, per quando ci sarà il
+       «rifai»). Gli «Annulla» che chiudono una finestra restano parole. */
+    // `typeof`: i banchi di prova caricano questo file in un contesto senza `navigator`
+    const _nav = typeof navigator !== 'undefined' ? navigator : {};
+    const _MAC = /Mac|iPhone|iPad/i.test((_nav.userAgentData && _nav.userAgentData.platform) || _nav.platform || _nav.userAgent || '');
+    window.MappAIScorciatoia = function (tasto, maiuscolo) {
+        return _MAC ? '⌘' + (maiuscolo ? '⇧' : '') + tasto : 'Ctrl+' + (maiuscolo ? 'Shift+' : '') + tasto;
+    };
+
     function _getAppState() {
         try { return (typeof appState !== 'undefined') ? appState : window.appState; }
         catch (e) { return window.appState; }
@@ -99,8 +111,12 @@
         btn.style.opacity = n === 0 ? '0.4' : '1';
         const countEl = btn.querySelector('.undo-count');
         if (countEl) countEl.textContent = n > 0 ? ' (' + n + ')' : '';
+        const tastoEl = btn.querySelector('.undo-tasto');
+        const tasto = window.MappAIScorciatoia('Z');
+        if (tastoEl) tastoEl.textContent = tasto;
         const top = n > 0 ? window.undoStack[n - 1].label : '';
-        btn.title = n > 0 ? 'Annulla: ' + top : 'Nulla da annullare';
+        btn.title = n > 0 ? 'Annulla: ' + top + ' (' + tasto + ')' : 'Nulla da annullare';
+        btn.setAttribute('aria-label', btn.title);
     }
 
     // Esponi per l'aggiornamento UI da altri moduli

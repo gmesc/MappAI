@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>MappAI — Lavagna collaborativa</title>
+<title>MappAI — Mappa LIVE</title>
 <!-- Stesso font della viewport mappa dell'app + emoji Android (Noto) come le altre pagine LAN
      (fallback monospace / emoji di sistema se la LAN è offline) -->
 <!-- SPACE MONO È LOCALE (15/9/2026), come in index.html dal 18/8: lo serve il
@@ -32,7 +32,7 @@
   * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
       font-family: 'Space Mono', var(--emoji), ui-monospace, monospace; }
   html, body { height: 100%; }
-  body { background: #fafbff; color: #0f172a; display: flex; flex-direction: column; overflow: hidden; }
+  body { background: #fafbff; color: var(--mm-testo, #404040); display: flex; flex-direction: column; overflow: hidden; }
   button { cursor: pointer; border: 0; }
 
   /* ── Join ── */
@@ -42,7 +42,7 @@
   #join h1 { font-size: 22px; font-weight: 700; }
   #join .map-name { color: #4f46e5; font-weight: 700; font-size: 15px; }
   #join input { width: min(320px, 84vw); padding: 13px 16px; border-radius: 12px;
-                border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
+                border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff; color: var(--mm-testo, #404040);
                 font-size: 16px; text-align: center; outline: none; }
   #join input:focus { border-color: #6366f1; }
   #join button { width: min(320px, 84vw); padding: 13px; border-radius: 12px;
@@ -53,8 +53,8 @@
   #emoji-grid { display: grid; grid-template-columns: repeat(4, 60px); gap: 10px;
                 justify-content: center; width: min(320px, 84vw); margin: 0 auto 10px; }
   #join .emoji-btn { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;
-               padding: 0; font-size: 30px; line-height: 1; border: 2px solid #e2e8f0;
-               border-radius: 14px; background: #fff; color: #0f172a; font-family: var(--emoji); }
+               padding: 0; font-size: 30px; line-height: 1; border: 2px solid var(--mm-bordo, #cbd5e1);
+               border-radius: 14px; background: #fff; color: var(--mm-testo, #404040); font-family: var(--emoji); }
   #join .emoji-btn.sel { border-color: #4f46e5; background: #eef2ff; }
   /* Login a gruppi: 3 file di emoji (animali/frutti/mezzi), una scelta per fila */
   #join-group { width: min(380px, 92vw); margin: 0 auto 6px; }
@@ -74,8 +74,8 @@
   /* ── Editor ── */
   #editor { flex: 1; display: none; flex-direction: column; min-height: 0; }
   header { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-           background: #fff; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
-  header .title { font-weight: 700; font-size: 13px; color: #334155; flex: 1;
+           background: #fff; border-bottom: 1px solid var(--mm-bordo, #cbd5e1); flex-wrap: wrap; }
+  header .title { font-weight: 700; font-size: 13px; color: var(--mm-testo, #404040); flex: 1;
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nick-badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: #fff; }
   #sync { font-size: 11px; color: #64748b; }
@@ -85,9 +85,9 @@
   #done-btn { background: #16a34a; color: #fff; border-radius: 8px; padding: 5px 12px;
               font-size: 11px; font-weight: 700; }
   #done-btn.is-done { background: #dcfce7; color: #166534; cursor: default; }
-  #board-toggle { background: #f1f5f9; color: #94a3b8; border-radius: 8px;
+  #board-toggle { background: #f1f5f9; color: var(--mm-testo-3, #64748b); border-radius: 8px;
                   padding: 5px 10px; font-size: 11px; font-weight: 700; }
-  #board-toggle.ready { background: #e2e8f0; color: #334155; }
+  #board-toggle.ready { background: #e2e8f0; color: var(--mm-testo, #404040); }
   #board-toggle.on { background: #4f46e5; color: #fff; }
 
   /* Canvas = viewport mappa dell'app: stesso sfondo a puntini */
@@ -116,26 +116,26 @@
                padding: 6px 14px; border-radius: 999px; display: none; white-space: nowrap; }
 
   /* ── Toolbar ── */
-  #toolbar { background: #fff; border-top: 1px solid #e2e8f0; padding: 10px 12px;
+  #toolbar { background: #fff; border-top: 1px solid var(--mm-bordo, #cbd5e1); padding: 10px 12px;
              display: flex; flex-direction: column; gap: 8px; }
   #toolbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #node-text { flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 10px;
-               border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
+               border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff; color: var(--mm-testo, #404040);
                font-size: 15px; outline: none; }
   #node-text:focus { border-color: #6366f1; }
   .chip { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; }
   .chip.sel { border-color: #0f172a; transform: scale(1.15); }
-  .size-btn { background: #f1f5f9; color: #334155; border-radius: 8px; padding: 6px 10px;
+  .size-btn { background: #f1f5f9; color: var(--mm-testo, #404040); border-radius: 8px; padding: 6px 10px;
               font-size: 12px; font-weight: 800; }
   .size-btn.sel { background: #6366f1; color: #fff; }
   #add-btn { background: #16a34a; color: #fff; border-radius: 10px; padding: 10px 18px;
              font-weight: 800; font-size: 14px; }
-  #link-btn { background: #f1f5f9; color: #334155; border-radius: 10px; padding: 10px 14px;
+  #link-btn { background: #f1f5f9; color: var(--mm-testo, #404040); border-radius: 10px; padding: 10px 14px;
               font-weight: 700; font-size: 13px; }
   #link-btn.on { background: #4f46e5; color: #fff; }
   #del-btn { background: #fee2e2; color: #b91c1c; border-radius: 10px; padding: 10px 14px;
              font-weight: 700; font-size: 13px; display: none; }
-  #hint { font-size: 10.5px; color: #94a3b8; }
+  #hint { font-size: 10.5px; color: var(--mm-testo-3, #64748b); }
 
   /* ── Dialog keyword collegamento ── */
   #dlg { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none;
@@ -143,17 +143,17 @@
   #dlg .box { background: #fff; border-radius: 14px; padding: 18px; width: min(360px, 90vw);
               display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
   #dlg .box b { font-size: 13px; }
-  #dlg input { padding: 10px 12px; border-radius: 10px; border: 2px solid #e2e8f0;
+  #dlg input { padding: 10px 12px; border-radius: 10px; border: 2px solid var(--mm-bordo, #cbd5e1);
                font-size: 15px; outline: none; }
   #dlg input:focus { border-color: #6366f1; }
   #dlg .btns { display: flex; gap: 8px; justify-content: flex-end; }
   #dlg .btns button { border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 13px; }
   #dlg-ok { background: #4f46e5; color: #fff; }
-  #dlg-cancel { background: #f1f5f9; color: #334155; }
+  #dlg-cancel { background: #f1f5f9; color: var(--mm-testo, #404040); }
   #dlg-del { background: #fee2e2; color: #b91c1c; margin-right: auto; display: none; }
   #center-btn { position: absolute; top: 10px; right: 10px; z-index: 5;
-                background: rgba(255,255,255,.95); border: 1px solid #e2e8f0; border-radius: 999px;
-                padding: 7px 12px; font-size: 12px; font-weight: 700; color: #334155; cursor: pointer;
+                background: rgba(255,255,255,.95); border: 1px solid var(--mm-bordo, #cbd5e1); border-radius: 999px;
+                padding: 7px 12px; font-size: 12px; font-weight: 700; color: var(--mm-testo, #404040); cursor: pointer;
                 box-shadow: 0 4px 12px rgba(0,0,0,.12); display: flex; align-items: center; gap: 5px; }
   #center-btn:active { background: #eef2ff; }
 </style>
@@ -161,7 +161,7 @@
 <body>
 
 <div id="join">
-  <h1>Lavagna collaborativa</h1>
+  <h1>Mappa LIVE</h1>
   <div class="map-name" id="join-map"></div>
   <input id="nick" maxlength="24" placeholder="Nome del gruppo (es. I Leoni)" autocomplete="off" style="display:none">
   <div id="join-group" style="display:none">
@@ -770,11 +770,11 @@
     closeNodeMenu();
     var m = document.createElement('div');
     m.id = 'node-menu';
-    m.style.cssText = 'position:fixed;z-index:60;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.2);padding:6px;display:flex;flex-direction:column;min-width:170px';
+    m.style.cssText = 'position:fixed;z-index:60;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.2);padding:6px;display:flex;flex-direction:column;min-width:170px';
     [['child', '＋ Crea figlio'], ['link', '⇢ Crea link'], ['edit', '✎ Modifica']].forEach(function (it) {
       var b = document.createElement('button');
       b.type = 'button'; b.textContent = it[1];
-      b.style.cssText = 'background:none;border:0;text-align:left;padding:11px 12px;font-size:14px;font-weight:700;color:#0f172a;border-radius:8px;cursor:pointer';
+      b.style.cssText = 'background:none;border:0;text-align:left;padding:11px 12px;font-size:14px;font-weight:700;color:var(--mm-testo, #404040);border-radius:8px;cursor:pointer';
       b.onpointerdown = function (ev) { ev.stopPropagation(); };
       b.onclick = function () { nodeMenuAction(it[0], n); closeNodeMenu(); };
       m.appendChild(b);

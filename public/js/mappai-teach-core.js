@@ -274,6 +274,145 @@
     return null;
   }
 
+  /* ── CREARE NON È APRIRE (0061, 29/09; ADR 0013) ──────────────────────────
+     Fino al 28/9 creare una cartella e riaprirne una erano lo stesso gesto: a
+     fine generazione l'app chiamava `adottaVault`, che cercava per NOME una voce
+     di `tutor_ai_projects` (progettoDelVault, qui sopra: quattro livelli, e
+     l'ultimo è «il nome e basta») e ne prendeva l'id. Una mappa nuova col titolo
+     di una vecchia ereditava la sua identità: la «Svizzera e 2a GM» generata il
+     28/9 in 4R/Storia ha preso `proj_1788975818955`, nato il 9/9 — e con l'id la
+     fotografia, i consumi, l'indice dei set, le sessioni.
+     Ora chi chiama dice QUALE gesto sta facendo, e questa funzione decide l'id e
+     se lo si può scrivere nella cartella (`index.yaml › projectId`):
+       · nuova         la cartella nasce per una mappa appena generata. Nessuna
+                       ricerca per nome: si tiene l'id solo se è nato in questa
+                       generazione (la sua voce manca o non dichiara un vault),
+                       altrimenti si conia.
+       · per-la-mappa  la cartella nasce per la mappa già in memoria («Esporta
+                       nel Vault», il backfill all'apertura): si tiene il suo id,
+                       tranne quando così nascerebbero due cartelle vive con lo
+                       stesso id — la mappa è legata a un'ALTRA cartella, o
+                       un'altra cartella dell'elenco dichiara già quell'id. Allora
+                       è una copia, e la copia riceve un id nuovo.
+       · apri          si riapre una cartella che c'è già: vince l'id scritto
+                       nella cartella, tranne quando la cartella è la copia di
+                       quella che sta dove la voce la registra. Senza un id
+                       valido, per nome come prima (progettoDelVault, invariata),
+                       ma senza adottare la voce che un'altra cartella dell'elenco
+                       dichiara già (D3). Una cartella VUOTA e senza id è una
+                       creazione: si conia.
+       · voce          si riapre una voce di localStorage che porta con sé la sua
+                       cartella: l'id resta quello della voce. Se la cartella
+                       dichiara un altro id è di un'altra mappa, e la voce la
+                       lascia (`stacca`). Senza id nella cartella, la voce ce lo
+                       scrive solo se è quella che la posizione riconosce.
+     q = { gesto, idCartella, idAttuale, pos: { vault, classDir, discDir },
+           fullPath, percorsoPrima, vuota, cartelle }   (cartelle = get-all-vaults)
+     Esce { id, fonte, stacca, scrivi }: `id: null` vuol dire «conia» (il core non
+     ha l'orologio, il chiamante fa 'proj_' + Date.now()); `fonte` è 'cartella',
+     'attuale', 'nome', 'nuovo' o 'copia'; `scrivi` dice se l'id deciso si può
+     scrivere nella cartella.
+     SCRIVI_NEI_VAULT_VECCHI è il bivio 2 dell'ADR 0013 (Giacomo, 28/9: «A:
+     migrazione pigra»): un vault vecchio, riconosciuto per nome, riceve l'id al
+     primo salvataggio. `false` = solo le cartelle nate da ora (opzione B). */
+  var SCRIVI_NEI_VAULT_VECCHI = true;
+
+  /* La forma dell'id la dice FilesCore (`idProgettoValido`, una fonte sola per
+     renderer e main.js — inv. 6), risolto al momento della chiamata: in Node con
+     `require`, nel browser da `window` (files-core si carica DOPO teach-core).
+     Senza FilesCore nessun id è valido, e si torna al comportamento di prima. */
+  function _idProgettoValido(x) {
+    var F = null;
+    try {
+      if (typeof module !== 'undefined' && module.exports && typeof require === 'function') F = require('./mappai-files-core.js');
+    } catch (e) { F = null; }
+    if (!F && typeof window !== 'undefined') F = window.MappAIFilesCore || null;
+    return !!(F && F.idProgettoValido && F.idProgettoValido(x));
+  }
+  /* Due percorsi della stessa cartella arrivano in forme diverse: dal disco
+     scomposti (NFD), dalla memoria composti, a volte con la barra finale. Si
+     confrontano nella stessa forma (trappole 25 e 50).
+     0061, 30/09: anche le barre. Su Windows lo stesso percorso arriva con `\`
+     (nativo) o con `/` (costruito dall'app), a volte misto: si porta tutto a `/`
+     su tutti e due i lati, o la cartella in cui la mappa sta già sembrerebbe
+     un'altra, e l'esportazione una copia. */
+  function _stessoPercorso(a, b) {
+    var forma = function (s) { return nfc(s).replace(/\\/g, '/').replace(/\/+$/, ''); };
+    var x = forma(a), y = forma(b);
+    return !!x && x === y;
+  }
+  // Una cartella dell'elenco (nome, classe, materia dal disco) sta nella posizione che una voce registra?
+  function _stessaPosizione(v, p) {
+    return !!v && !!p && !!nfc(v.folderName) && nfc(v.folderName) === nfc(p.vault)
+      && nfc(v.classDir || '') === nfc(p.classDir || '') && nfc(v.discDir || '') === nfc(p.discDir || '');
+  }
+
+  function identitaDellaCartella(projects, q) {
+    q = q || {};
+    var voci = Array.isArray(projects) ? projects.filter(Boolean) : [];
+    var cartelle = Array.isArray(q.cartelle) ? q.cartelle.filter(Boolean) : [];
+    var esito = function (id, fonte, scrivi, stacca) { return { id: id, fonte: fonte, stacca: !!stacca, scrivi: !!scrivi }; };
+    var gesto = q.gesto || 'apri';
+
+    if (gesto === 'nuova') {
+      // una voce del giro che dichiara già una cartella, anche proprio questa, vuol
+      // dire che l'id non è nato con questa creazione
+      if (_idProgettoValido(q.idAttuale)) {
+        var delGiro = voci.filter(function (p) { return p.id === q.idAttuale; })[0];
+        if (!delGiro || !delGiro.vault) return esito(q.idAttuale, 'attuale', true);
+      }
+      return esito(null, 'nuovo', true);
+    }
+
+    if (gesto === 'per-la-mappa') {
+      if (!_idProgettoValido(q.idAttuale)) return esito(null, 'nuovo', true);
+      if (q.percorsoPrima && !_stessoPercorso(q.percorsoPrima, q.fullPath)) return esito(null, 'copia', true);
+      var altrove = cartelle.some(function (c) { return c.projectId === q.idAttuale && !_stessoPercorso(c.fullPath, q.fullPath); });
+      return altrove ? esito(null, 'copia', true) : esito(q.idAttuale, 'attuale', true);
+    }
+
+    if (gesto === 'voce') {
+      var dichiarato = _idProgettoValido(q.idCartella);
+      var scrivi = dichiarato ? q.idCartella === q.idAttuale
+        : (SCRIVI_NEI_VAULT_VECCHI && (progettoDelVault(voci, q.pos) || {}).id === q.idAttuale);
+      return esito(q.idAttuale, 'attuale', scrivi, dichiarato && q.idCartella !== q.idAttuale);
+    }
+
+    // apri
+    if (_idProgettoValido(q.idCartella)) {
+      var suaVoce = voci.filter(function (p) { return p.id === q.idCartella; })[0];
+      var copia = !!suaVoce && cartelle.some(function (c) {
+        return c.projectId === q.idCartella && !_stessoPercorso(c.fullPath, q.fullPath) && _stessaPosizione(c, suaVoce);
+      });
+      // anche se nessuna voce ha quell'id: altro computer, app installata contro `dev`, voce potata
+      return copia ? esito(null, 'copia', true) : esito(q.idCartella, 'cartella', true);
+    }
+    // vuota e senza id: è una creazione, e la mappa aperta prima non conta
+    if (q.vuota) return esito(null, 'nuovo', true);
+    var casaAltrove = {};
+    cartelle.forEach(function (c) {
+      if (_idProgettoValido(c.projectId) && !_stessoPercorso(c.fullPath, q.fullPath)) casaAltrove[c.projectId] = true;
+    });
+    var perNome = progettoDelVault(voci.filter(function (p) { return !casaAltrove[p.id]; }), q.pos);
+    return perNome ? esito(perNome.id, 'nome', SCRIVI_NEI_VAULT_VECCHI) : esito(null, 'nuovo', SCRIVI_NEI_VAULT_VECCHI);
+  }
+
+  // Il gesto di chi CREA una cartella, dal motivo che `ensureProjectVault` riceve.
+  function gestoDiCreazione(reason) {
+    return (reason === 'open' || reason === 'review') ? 'per-la-mappa' : 'nuova';
+  }
+
+  /* La voce che corrisponde a una cartella dell'elenco (INSEGNA, D4). Se la
+     cartella dichiara un id valido la risposta è DECISA: l'unica voce con
+     quell'id nella stessa posizione della cartella, oppure nessuna — mai
+     un'omonima. Senza id valido `{ decisa: false }`, e il chiamante fa il suo
+     ripiego di prima. */
+  function voceDellaCartella(projects, v) {
+    if (!v || !_idProgettoValido(v.projectId)) return { decisa: false };
+    var conId = (Array.isArray(projects) ? projects : []).filter(function (p) { return p && p.id === v.projectId; });
+    return { decisa: true, voce: (conId.length === 1 && _stessaPosizione(v, conId[0])) ? conId[0] : null };
+  }
+
   // ── anteprimaPotatura (15/8 sera) ────────────────────────────────────────
   // La stessa potatura di vociDaPotare, ma RACCONTATA prima di farla: quante
   // copie per mappa, e il riassunto per la conferma. `pesoDi(id)` la passa il
@@ -286,7 +425,7 @@
     var byte = 0;
     (projects || []).forEach(function (p) {
       if (!p || !viaSet[p.id]) return;
-      var k = nfc(p.vault || p.name || '');
+      var k = etichettaPotatura(p);
       perMappa[k] = (perMappa[k] || 0) + 1;
       if (pesoDi) { try { byte += pesoDi(p.id) || 0; } catch (e) { } }
     });
@@ -303,13 +442,28 @@
   // — che nessuna schermata sa aprire (chi apre passa dal match, che prende
   // sempre la più recente) — invece di fallire a metà. `protectedId` non si
   // tocca mai: è la voce che si sta salvando.
+  // ⚠️ La chiave è la POSIZIONE esatta della mappa, come il primo livello di
+  // progettoDelVault: vault + classe + disciplina (25/9/2026). Prima era
+  // `vault || name`, e `vault` è il NOME della cartella: due «La Carta» di
+  // classi diverse si contavano come una mappa sola, e una voce SENZA vault
+  // finiva raggruppata per nome — con «Mappa Senza Nome» o due omonime, la più
+  // vecchia spariva. Ma una voce senza vault è un progetto solo-localStorage,
+  // cioè l'UNICA copia: non è il doppione di niente, e non si pota mai.
+  function chiavePotatura(p) {
+    if (!p || !p.vault) return null;
+    return nfc(p.vault) + '\u0000' + nfc(p.classDir || '') + '\u0000' + nfc(p.discDir || '');
+  }
+  function etichettaPotatura(p) {
+    return [p.vault, p.classDir, p.discDir].filter(Boolean).map(nfc).join(' · ');
+  }
   function vociDaPotare(projects, keep, protectedId) {
     if (!Array.isArray(projects)) return [];
     var n = Math.max(1, keep || 1);
     var gruppi = {};
     projects.forEach(function (p) {
       if (!p || !p.id) return;
-      var k = nfc(p.vault || p.name || '');
+      var k = chiavePotatura(p);
+      if (k == null) return;
       (gruppi[k] = gruppi[k] || []).push(p);
     });
     var via = [];
@@ -332,6 +486,10 @@
     filterByClass: filterByClass,
     matchesSelectedProject: matchesSelectedProject,
     progettoDelVault: progettoDelVault,
+    identitaDellaCartella: identitaDellaCartella,   // 0061: creare non è aprire (ADR 0013)
+    gestoDiCreazione: gestoDiCreazione,
+    voceDellaCartella: voceDellaCartella,
+    SCRIVI_NEI_VAULT_VECCHI: SCRIVI_NEI_VAULT_VECCHI,
     nfc: nfc,
     stessoNome: stessoNome,
     vociDaPotare: vociDaPotare,

@@ -124,6 +124,17 @@
   function _persist(key, store) {
     try { localStorage.setItem(key, JSON.stringify(store)); } catch (e) { /* quota/SSR */ }
   }
+  // Scrive E RILEGGE: vero solo se in localStorage c'è davvero lo store appena
+  // serializzato. `_persist` tace sugli errori, e per chi registra un risultato
+  // va bene così; non per chi, DOPO aver scritto, cancella qualcos'altro: quello
+  // deve sapere se la scrittura è avvenuta, e lo sa solo rileggendo.
+  function _persistVerificato(key, store) {
+    const json = JSON.stringify(store);
+    try {
+      localStorage.setItem(key, json);
+      return localStorage.getItem(key) === json;
+    } catch (e) { return false; /* quota piena */ }
+  }
   // Risolve un id-nodo da un'etichetta (per gli entry che salvano solo la label).
   function _defaultResolve(label) {
     const st = _getAppState();
@@ -157,7 +168,16 @@
       if (legacyKey === pathKey || !localStorage.getItem(legacyKey)) return;
       const legacy = _load(legacyKey);
       Object.keys(legacy).forEach(kk => { if (!_store[kk]) _store[kk] = legacy[kk]; });
-      _persist(pathKey, _store);
+      /* ⚠️ La legacy si toglie SOLO se la chiave nuova è stata scritta davvero
+         (25/9/2026). Con la quota di localStorage piena `setItem` lancia,
+         `_persist` tace e la fusione vive solo in memoria: cancellare la legacy
+         lo stesso voleva dire perdere la padronanza dello studente al riavvio.
+         Se la scrittura non c'è, la legacy resta e la migrazione si ritenta al
+         prossimo avvio: la fusione è ripetibile, la chiave-path vince sui doppioni. */
+      if (!_persistVerificato(pathKey, _store)) {
+        console.warn('[MappAIMastery] migrazione rinviata: la chiave nuova non si scrive, la legacy resta', legacyKey);
+        return;
+      }
       localStorage.removeItem(legacyKey);
       console.log('[MappAIMastery] migrata padronanza legacy →', pathKey);
     } catch (e) { /* localStorage assente */ }

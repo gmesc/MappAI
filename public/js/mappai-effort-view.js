@@ -79,11 +79,11 @@
     document.getElementById('ev-legend')?.remove();
     const box = document.createElement('div');
     box.id = 'ev-legend';
-    box.style.cssText = 'position:fixed;bottom:20px;left:150px;z-index:9996;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;font-family:system-ui,sans-serif;font-size:12px;color:#334155';
-    box.innerHTML = '<div style="font-weight:700;color:#0f172a;margin-bottom:5px">Lavoro svolto</div>' +
-      '<div style="height:12px;width:150px;border-radius:6px;background:linear-gradient(90deg,#eef2f7,#6366f1);border:1px solid #e2e8f0"></div>' +
-      '<div style="display:flex;justify-content:space-between;margin-top:3px;color:#94a3b8"><span>poco</span><span>molto</span></div>' +
-      '<div style="margin-top:5px;color:#94a3b8;max-width:170px">Indipendente dalla padronanza</div>';
+    box.style.cssText = 'position:fixed;bottom:20px;left:150px;z-index:9996;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;font-family:system-ui,sans-serif;font-size:12px;color:var(--mm-testo, #404040)';
+    box.innerHTML = '<div style="font-weight:700;color:var(--mm-testo, #404040);margin-bottom:5px">Lavoro svolto</div>' +
+      '<div style="height:12px;width:150px;border-radius:6px;background:linear-gradient(90deg,#eef2f7,#6366f1);border:1px solid var(--mm-bordo, #cbd5e1)"></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:3px;color:var(--mm-testo-3, #64748b)"><span>poco</span><span>molto</span></div>' +
+      '<div style="margin-top:5px;color:var(--mm-testo-3, #64748b);max-width:170px">Indipendente dalla padronanza</div>';
     document.body.appendChild(box);
   }
 

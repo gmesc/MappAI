@@ -117,3 +117,31 @@ test('doppio clic ricalcola tutte le larghezze e conserva ordine e stato al ridi
     tab = table([a,b]); render({});
     assert.equal(tab.events.dblclick, undefined, 'default delle altre tabelle invariato');
 });
+
+test('cornice più larga delle colonne salvate: a schermo la differenza va alla colonna del nome, lo stato resta', () => {
+    /* 0087 lotto 10c (Giacomo, 12/10): «le colonne devono occupare tutta la larghezza dello spazio della
+       tabella… puoi allargare la colonna del nome». Misurato in Consumi AI: 929 px salvati in 1240 di cornice. */
+    tab = table([]);
+    tab.parentElement = { clientWidth: 600 };
+    const stato = { larghezze: [200, 150] };
+    render({ colonneIndipendenti: true, statoColonne: stato });
+    assert.deepEqual(tab.cols.map(c => c.style.width), ['450px', '150px']);
+    assert.equal(tab.style.width, '600px');
+    assert.deepEqual(stato.larghezze, [200, 150]);
+    // una cornice più stretta della somma non toglie nulla: le colonne salvate valgono e la tabella scorre
+    tab = table([]);
+    tab.parentElement = { clientWidth: 300 };
+    render({ colonneIndipendenti: true, statoColonne: { larghezze: [200, 150] } });
+    assert.deepEqual(tab.cols.map(c => c.style.width), ['200px', '150px']);
+    assert.equal(tab.style.width, '350px');
+    // il trascinamento riparte dalle larghezze salvate, non da quelle a schermo
+    tab = table([]);
+    tab.parentElement = { clientWidth: 600 };
+    const stato2 = { larghezze: [200, 150] };
+    render({ colonneIndipendenti: true, statoColonne: stato2 });
+    const grip = { getAttribute: () => '0', closest: () => tab.heads[0] };
+    tab.events.mousedown({ target: { closest: () => grip }, preventDefault() {}, stopPropagation() {}, clientX: 50 });
+    documentEvents.mousemove({ clientX: 110 }); documentEvents.mouseup();
+    assert.deepEqual(stato2.larghezze, [260, 150]);
+    assert.deepEqual(tab.cols.map(c => c.style.width), ['450px', '150px']);
+});

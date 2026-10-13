@@ -64,6 +64,10 @@
         return function () { document.removeEventListener(EVENTO, h); };
     }
 
-    window.MappAIVaults = { EVENTO: EVENTO, segnala: segnala, quando: quando };
-    if (typeof module === 'object' && module.exports) module.exports = window.MappAIVaults;
+    var API = { EVENTO: EVENTO, segnala: segnala, quando: quando };
+    /* Guardia su `window`: in Node (i test) non c'è, e il require lanciava
+       «window is not defined» prima di arrivare all'export. Nel browser non
+       cambia niente: window.MappAIVaults è lo stesso oggetto di prima. */
+    if (typeof window !== 'undefined') window.MappAIVaults = API;
+    if (typeof module === 'object' && module.exports) module.exports = API;
 })();

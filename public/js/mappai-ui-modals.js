@@ -9,6 +9,27 @@
    UTILITIES E UI MODALS CUSTOM (NO ALERT/PROMPT)
    ========================================== */
 
+/* ── IL TESTO DEI DATI ENTRA COME TESTO (25/9/2026) ──────────────────────────
+   Da qui passano etichette e id dei nodi (l'albero della barra laterale, la
+   domanda del collegamento), il colore scelto per un ramo e i messaggi degli
+   avvisi: dati che arrivano da un vault, cioè anche da un collega. Nella finestra
+   principale ogni JavaScript ha in mano window.electronAPI, il disco del docente.
+   L'escape sta nel nucleo puro mappai-html-sicuro.js; se una copia non lo carica
+   ancora (il reader dell'iPad copia questo file byte per byte) si ripiega su un
+   escape identico, qui. */
+function _escModali(v) {
+    const H = window.MappAIHtmlSicuro;
+    return H ? H.esc(v) : String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
+
+/* Un colore che finisce in `style="background:…"`: solo #esadecimale o rgb()/rgba()
+   di soli numeri. Il selettore della scheda scrive sempre #rrggbb; un `"` che esce
+   dall'attributo o un `;background:url(…)` si scartano, e resta il colore di prima. */
+function _coloreModali(v) {
+    const s = String(v == null ? '' : v).trim();
+    return (/^#[0-9a-f]{3,8}$/i.test(s) || /^rgba?\([\d\s.,%]+\)$/i.test(s)) ? s : '';
+}
+
 window.showToast = function (message, type = 'error') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -18,8 +39,12 @@ window.showToast = function (message, type = 'error') {
     toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slideIn transition-opacity duration-300`;
     toast.innerHTML = `
                 <i data-lucide="${icon}" class="w-5 h-5 shrink-0"></i>
-                <span class="text-sm font-bold">${message}</span>
+                <span class="text-sm font-bold"></span>
             `;
+    /* Il messaggio è TESTO: nessuno dei ~280 chiamanti (né i loro `toast()` locali)
+       passa markup, e molti ci mettono un'etichetta di nodo, un nome di file o un
+       err.message (undo, fondi con…, cambia link). */
+    toast.querySelector('span').textContent = `${message}`;
     container.appendChild(toast);
     window.safeCreateIcons();
     setTimeout(() => {
@@ -147,7 +172,11 @@ window.showLinkFamilyPrompt = function (srcLabel, tgtLabel, onConfirm) {
     const btnCancel = document.getElementById('link-family-cancel');
     const btnOk = document.getElementById('link-family-ok');
 
-    question.innerHTML = window.t('lfm_question', `Che relazione c'è tra <strong>{a}</strong> e <strong>{b}</strong>?`).replace('{a}', srcLabel).replace('{b}', tgtLabel);
+    /* Il <strong> è del dizionario; le due etichette sono dei nodi (i tre chiamanti
+       passano cleanLabel(label), che non fa escape). Una sostituzione sola: un «{b}»
+       o un «$&» dentro la prima etichetta non vengono più riletti come segnaposto. */
+    question.innerHTML = window.t('lfm_question', `Che relazione c'è tra <strong>{a}</strong> e <strong>{b}</strong>?`)
+        .replace(/\{([ab])\}/g, (_, k) => _escModali(k === 'a' ? srcLabel : tgtLabel));
     input.value = '';
     grid.innerHTML = '';
     chipsDiv.innerHTML = '';
@@ -661,32 +690,42 @@ window.renderTreeView = function () {
         }
     }
 
+    /* L'albero si ridisegna a OGNI mappa aperta (initD3Visualization): etichette,
+       livelli e colori di un vault ricevuto finivano nell'HTML così com'erano, e
+       gli id dentro `onclick="…('${id}')"`, protetti dal solo apice — un `"` usciva
+       dall'attributo, un `\'` chiudeva la stringa e il resto diventava codice.
+       Ora ogni bottone porta solo un numero d'ordine nostro (`data-albero-*`):
+       l'id vero, col suo tipo, sta in `idsAlbero` e lo leggono i due ascolti
+       delegati in fondo, riassegnati a ogni disegno. */
+    const esc = _escModali;
+    const idsAlbero = [];
+    const segna = id => idsAlbero.push(id) - 1;
+
     let html = '';
     rootNodes.forEach(rn => {
         const isRootL1 = rn.level === 1;
-        const baseColor = (appState.db.customColors && appState.db.customColors[rn.group])
-            ? appState.db.customColors[rn.group]
-            : (colorScale[rn.group] || colorScale[rn.level !== undefined ? rn.level : 1] || '#4f46e5');
+        const baseColor = _coloreModali(appState.db.customColors && appState.db.customColors[rn.group])
+            || _coloreModali(colorScale[rn.group]) || _coloreModali(colorScale[rn.level !== undefined ? rn.level : 1]) || '#4f46e5';
         const mColor = (!isMindmap && !isRootL1) ? '#94a3b8' : baseColor; // slate-400 per hub non-L1 nel KG
-        const degreeInfo = !isMindmap ? ` <span class="text-[9px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${rn.degree} conn.)</span>` : '';
+        const degreeInfo = !isMindmap ? ` <span class="text-[9px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${esc(rn.degree)} conn.)</span>` : '';
 
         const hasKids = hasChildNodes(rn.id);
         const isCollapsed = window.collapsedTreeNodes.has(rn.id);
         const arrowIcon = isCollapsed ? 'chevron-right' : 'chevron-down';
 
-        const idEsc = rn.id.replace(/'/g, "\\'");
+        const k = segna(rn.id);
         // Pallino colorato GRAFICO: se il nodo ha figli è il toggle collassa/espandi
         // (segno bianco al centro: "+" collassato, "−" esteso); altrimenti dot statico.
         const sign = isCollapsed ? '+' : '−'; // + / − (minus U+2212)
         html += `<div class="mb-1 w-full">`;
         html += `<div class="w-full flex items-center gap-2 pl-1 pr-2 rounded-lg hover:bg-indigo-50/50 group transition">`;
         if (hasKids) {
-            html += `<button type="button" onclick="event.stopPropagation(); window.toggleTreeCollapse('${idEsc}')" class="tree-dot-toggle shrink-0" style="background:${mColor}" title="${treeCollapseTitle}" aria-label="${treeCollapseTitle}"><span class="tree-dot-sign">${sign}</span></button>`;
+            html += `<button type="button" data-albero-apri="${k}" class="tree-dot-toggle shrink-0" style="background:${mColor}" title="${esc(treeCollapseTitle)}" aria-label="${esc(treeCollapseTitle)}"><span class="tree-dot-sign">${sign}</span></button>`;
         } else {
             html += `<span class="tree-dot-static shrink-0" style="background:${mColor}"></span>`;
         }
-        html += `<button onclick="window.onSidebarNodeClick(event, '${idEsc}')" ondblclick="window.onSidebarNodeDblClick(event, '${idEsc}')" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left py-1.5">`;
-        html += `${rn.label}${degreeInfo}`;
+        html += `<button data-albero-nodo="${k}" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left py-1.5">`;
+        html += `${esc(rn.label)}${degreeInfo}`;
         html += `</button>`;
         html += `</div>`;
 
@@ -708,8 +747,8 @@ window.renderTreeView = function () {
                         html += `<div class="w-5 h-5 flex-shrink-0"></div>`; // no chevron button for flat child
                         html += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
                         html += `<span class="tree-child-dot flex-shrink-0"></span>`;
-                        html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
-                        html += `<span class="font-semibold text-indigo-400 mr-1">L${c.level}</span> ${c.label}`;
+                        html += `<button data-albero-nodo="${segna(c.id)}" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+                        html += `<span class="font-semibold text-indigo-400 mr-1">L${esc(c.level)}</span> ${esc(c.label)}`;
                         html += `</button>`;
                         html += `</div>`;
                         html += `</div>`;
@@ -731,9 +770,9 @@ window.renderTreeView = function () {
                 if (children.length > 0) {
                     html += `<div class="ml-5 pl-2 border-l border-slate-200/60 space-y-0.5">`;
                     children.forEach(c => {
-                        html += `<button onclick="window.onSidebarNodeClick(event, '${c.id.replace(/'/g, "\\'")}')" ondblclick="window.onSidebarNodeDblClick(event, '${c.id.replace(/'/g, "\\'")}')" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
+                        html += `<button data-albero-nodo="${segna(c.id)}" class="w-full text-left py-1 px-2 rounded hover:bg-slate-50 transition flex items-center gap-1.5">`;
                         html += `<span class="tree-child-dot flex-shrink-0"></span>`;
-                        html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${c.label}</span>`;
+                        html += `<span class="text-xs text-slate-500 hover:text-indigo-500 truncate">${esc(c.label)}</span>`;
                         html += `</button>`;
                     });
                     html += `</div>`;
@@ -744,6 +783,20 @@ window.renderTreeView = function () {
     });
 
     container.innerHTML = html;
+    /* Gli stessi gesti di prima: il pallino apre/chiude il ramo e il clic si ferma
+       lì (era il suo `event.stopPropagation()`); il nome risponde al clic e al
+       doppio clic con onSidebarNodeClick/DblClick, che il loro stop lo fanno da sé. */
+    const bersaglio = (e, attr) => (e && e.target && e.target.closest) ? e.target.closest('[' + attr + ']') : null;
+    container.onclick = function (e) {
+        const apri = bersaglio(e, 'data-albero-apri');
+        if (apri) { e.stopPropagation(); window.toggleTreeCollapse(idsAlbero[apri.getAttribute('data-albero-apri')]); return; }
+        const nodo = bersaglio(e, 'data-albero-nodo');
+        if (nodo) window.onSidebarNodeClick(e, idsAlbero[nodo.getAttribute('data-albero-nodo')]);
+    };
+    container.ondblclick = function (e) {
+        const nodo = bersaglio(e, 'data-albero-nodo');
+        if (nodo) window.onSidebarNodeDblClick(e, idsAlbero[nodo.getAttribute('data-albero-nodo')]);
+    };
     setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
 };
 
@@ -1102,6 +1155,11 @@ function renderModelSelect(models, selectEl, currentValue) {
 }
 
 window.refreshGeminiModels = async function () {
+    /* La gara (0064): due ricaricamenti possono essere in volo insieme (quello di
+       switchAIProvider, non atteso, e uno dopo la scelta del modello). Vale solo
+       l'ultimo partito: gli altri, dopo l'attesa della rete, escono senza toccare
+       la tendina. Il contatore sta sulla funzione, così vive fra le chiamate. */
+    const giro = window.refreshGeminiModels._giro = (window.refreshGeminiModels._giro || 0) + 1;
     const isInfomaniak = (appState.aiProvider === 'infomaniak');
     const apiKey = window.getSystemKey();
     const selectEl = document.getElementById('model-select');
@@ -1122,7 +1180,10 @@ window.refreshGeminiModels = async function () {
 
     let productId = null;
     if (isInfomaniak) {
-        productId = document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId;
+        /* Il Product ID si ripulisce PRIMA di usarlo (0088, B7): uno spazio incollato in coda a un
+           numero ben scritto dava un errore che il docente non sapeva leggere. Stessa regola di
+           main.js (`/^\d+$/`, rerank-infomaniak). */
+        productId = String(document.getElementById('infomaniak-product-id')?.value || appState.infomaniakProductId || '').trim();
         if (!productId) {
             if (selectEl) selectEl.innerHTML = '<option value="">' + window.t('opt_no_model_pid', 'Nessun modello (manca Product ID)') + '</option>';
             window.showToast(window.t('tst_need_pid', "Inserisci il Product ID per caricare i modelli Infomaniak."), "error");
@@ -1130,10 +1191,17 @@ window.refreshGeminiModels = async function () {
             if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
             return;
         }
+        if (!/^\d+$/.test(productId)) {
+            /* non è un numero: la chiamata non parte, e la tendina e le scelte restano come sono */
+            if (statusEl) {
+                statusEl.innerText = window.t('catalog_err_pid', 'Infomaniak non trova un prodotto AI con questo Product ID: controllalo, sono solo cifre («Dove lo trovo?»).') +
+                    ' ' + window.t('catalog_kept', 'Le ultime scelte sono conservate.');
+                statusEl.classList.remove('hidden');
+            }
+            if (window.updateTokenCostEstimator) window.updateTokenCostEstimator();
+            return;
+        }
     }
-
-    const storageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
-    const currentValue = localStorage.getItem(storageKey) || (selectEl ? selectEl.value : '');
 
     if (statusEl) { statusEl.innerText = "Caricamento modelli in corso..."; statusEl.classList.remove('hidden'); }
     if (refreshIcon) refreshIcon.style.animation = 'spin 1s linear infinite';
@@ -1151,10 +1219,13 @@ window.refreshGeminiModels = async function () {
             }
             rawModels = await window.electronAPI.listModels({ apiKey });
         }
+        // superata da un ricaricamento partito dopo: la tendina è sua (0064)
+        if (giro !== window.refreshGeminiModels._giro) return;
 
         if (!rawModels || rawModels.error || !Array.isArray(rawModels)) {
             const errMsg = (rawModels && rawModels.error) ? rawModels.error : "Risposta non valida o errore di connessione.";
-            if (selectEl) selectEl.innerHTML = `<option value="">${window.t('opt_error', 'Errore')}: ${errMsg}</option>`;
+            // l'errore lo scrive il server del fornitore (o chi sta in mezzo): è testo
+            if (selectEl) selectEl.innerHTML = `<option value="">${window.t('opt_error', 'Errore')}: ${_escModali(errMsg)}</option>`;
             if (statusEl) statusEl.innerText = `Errore: ${errMsg}`;
             return;
         }
@@ -1178,6 +1249,18 @@ window.refreshGeminiModels = async function () {
                 if (kb && kb.deprecated) return false;
                 return true;
             });
+            /* I modelli dei VETTORI vanno in un deposito loro (10/10/26). Dalla tendina
+               principale restano fuori — `excludePatterns` ha già 'embed' — ma servono alla
+               tendina dell'analisi semantica in Cabina. Chiave separata apposta:
+               `gemini_available_models` è dei modelli di chat, e ci pescano dentro sia il
+               selettore sia `matchModelKB`.
+               Si scrive solo se c'è qualcosa: con un `main.js` di prima del 10/10 `servizi`
+               non arriva, e un deposito buono non va cancellato per una risposta muta. */
+            const perVettori = rawModels
+                .filter(m => Array.isArray(m.servizi) && m.servizi.includes('embedContent'))
+                .map(m => ({ id: m.id, displayName: m.displayName || m.id }));
+            if (perVettori.length) localStorage.setItem('gemini_embedding_models', JSON.stringify(perVettori));
+            if (window.MappAIModelliUI) window.MappAIModelliUI.aggiornaCatalogo();
         }
 
         if (filteredModels.length === 0) {
@@ -1210,6 +1293,9 @@ window.refreshGeminiModels = async function () {
 
         // Populate select with optgroups
         if (selectEl) {
+            // il modello salvato si legge DOPO l'attesa della rete: una scelta fatta nel frattempo vale (0064)
+            const storageKey = isInfomaniak ? 'infomaniak_selected_model' : 'gemini_selected_model';
+            const currentValue = localStorage.getItem(storageKey) || (selectEl ? selectEl.value : '');
             renderModelSelect(filteredModels, selectEl, currentValue);
             const availableModelsKey = isInfomaniak ? 'infomaniak_available_models' : 'gemini_available_models';
             if (!isInfomaniak) localStorage.setItem(availableModelsKey, JSON.stringify(filteredModels.map(m => ({ id: m.id, displayName: m.displayName, kb: m.kb }))));
@@ -1218,14 +1304,33 @@ window.refreshGeminiModels = async function () {
         if (statusEl) { statusEl.innerText = `${filteredModels.length} modelli compatibili trovati.`; }
 
     } catch (err) {
+        // superata: l'errore di una chiamata vecchia non tocca catalogo, stato e pannello dell'ultima (0064)
+        if (giro !== window.refreshGeminiModels._giro) return;
         if (isInfomaniak) {
             let old = {}; try { old = JSON.parse(localStorage.getItem('infomaniak_catalogue_state') || '{}'); } catch (_) { /* cache precedente */ }
             localStorage.setItem('infomaniak_catalogue_state', JSON.stringify({ ...old, stale: true }));
             if (window.MappAIModelliUI) window.MappAIModelliUI.aggiornaCatalogo();
         }
-        if (statusEl) statusEl.innerText = window.t('catalog_refresh_failed', 'Catalogo non aggiornato. Le ultime scelte sono conservate.');
+        if (statusEl) {
+            let msg = window.t('catalog_refresh_failed', 'Catalogo non aggiornato. Le ultime scelte sono conservate.');
+            if (isInfomaniak) {
+                /* Il numero HTTP viaggia nel testo dell'errore («… (HTTP 401).», main.js, list-infomaniak-models):
+                   da lì si capisce che cosa dire al docente. Il testo grezzo dell'errore non si mostra mai
+                   (0088, D6). Senza numero: rete staccata se il sistema lo sa, altrimenti il testo di prima. */
+                const codice = Number((/HTTP (\d{3})/.exec(String((err && err.message) || '')) || [])[1]) || 0;
+                const conservate = ' ' + window.t('catalog_kept', 'Le ultime scelte sono conservate.');
+                if (codice === 401) msg = window.t('catalog_err_401', 'Infomaniak non riconosce il token: copialo di nuovo dal Manager Infomaniak («Come crearlo?»).') + conservate;
+                else if (codice === 403) msg = window.t('catalog_err_403', 'Il token non apre questo Product ID: controlla il Product ID («Dove lo trovo?») e che token e prodotto siano dello stesso account.') + conservate;
+                else if (codice === 400 || codice === 404 || codice === 422) msg = window.t('catalog_err_pid', 'Infomaniak non trova un prodotto AI con questo Product ID: controllalo, sono solo cifre («Dove lo trovo?»).') + conservate;
+                else if (codice === 429) msg = window.t('catalog_err_429', 'Infomaniak chiede di aspettare: riprova fra qualche minuto.') + conservate;
+                else if (codice >= 500) msg = window.t('catalog_err_5xx', 'Infomaniak non risponde in questo momento: riprova più tardi.') + conservate;
+                else if (!codice && typeof navigator !== 'undefined' && navigator && navigator.onLine === false) msg = window.t('catalog_err_offline', 'Il computer non è collegato a Internet.') + conservate;
+            }
+            statusEl.innerText = msg;
+        }
     } finally {
-        if (refreshIcon) refreshIcon.style.animation = '';
+        // la rotellina la ferma solo l'ultima chiamata partita (0064)
+        if (refreshIcon && giro === window.refreshGeminiModels._giro) refreshIcon.style.animation = '';
     }
 }
 

@@ -38,14 +38,31 @@
     loaded: false
   };
 
+  /* ⚠️ classi.json che c'è ma NON si legge (troncato, corrotto: main.js risponde
+     success:false) non è un elenco vuoto (25/9/2026). Prima si partiva da zero,
+     e il primo salvataggio — creare una classe — scriveva l'elenco vuoto sopra al
+     file E sopra alla copia in localStorage: classi e credenziali degli allievi
+     perse. Ora si mostra la copia locale (se c'è) e non si scrive niente finché
+     un caricamento non riesce: il file resta com'è, e si può ancora ricuperare. */
+  function _illeggibile(motivo) {
+    STORE.illeggibile = String(motivo || 'errore di lettura');
+    try { var raw = localStorage.getItem(LS_KEY); if (raw) STORE.data = JSON.parse(raw); } catch (e) { /* copia locale assente o rotta */ }
+    console.warn('[Classi] classi.json illeggibile, salvataggio sospeso:', STORE.illeggibile);
+    toast(t('cls_illeggibile', 'Il file delle classi non si legge: mostro la copia locale e non salvo modifiche finché il file non torna leggibile.'), 'error');
+  }
   STORE.load = function () {
     if (hasIPC()) {
       return window.electronAPI.liveClassesLoad().then(function (r) {
-        if (r && r.success && r.data) STORE.data = r.data;
+        if (r && r.success && r.data) { STORE.data = r.data; STORE.illeggibile = null; }
+        else _illeggibile(r && r.error);
         if (!STORE.data.classes) STORE.data.classes = [];
         STORE.loaded = true;
         return STORE.data;
-      }).catch(function () { STORE.loaded = true; return STORE.data; });
+      }).catch(function (e) {
+        _illeggibile(e && e.message);
+        if (!STORE.data.classes) STORE.data.classes = [];
+        STORE.loaded = true; return STORE.data;
+      });
     }
     try {
       var raw = localStorage.getItem(LS_KEY);
@@ -57,9 +74,17 @@
   };
 
   STORE.save = function () {
+    if (STORE.illeggibile) {
+      toast(t('cls_illeggibile_save', 'Modifica non salvata: il file delle classi (classi.json) non si legge. Riapri MappAI; se il problema resta, va controllato quel file prima di salvare di nuovo.'), 'error');
+      return Promise.resolve({ success: false, error: 'classi-illeggibili' });
+    }
     try { localStorage.setItem(LS_KEY, JSON.stringify(STORE.data)); } catch (e) { /* quota */ }
     _annuncia();
-    if (hasIPC()) return window.electronAPI.liveClassesSave(STORE.data).catch(function (e) { console.warn('[Classi] save', e); });
+    if (hasIPC()) return window.electronAPI.liveClassesSave(STORE.data).then(function (r) {
+      // main.js non rifiuta: risponde success:false, e prima nessuno lo guardava
+      if (r && r.success === false) { console.warn('[Classi] save', r.error); toast(t('cls_save_ko', 'Classi non salvate su disco: ') + (r.error || ''), 'error'); }
+      return r;
+    }).catch(function (e) { console.warn('[Classi] save', e); });
     return Promise.resolve();
   };
 
@@ -193,6 +218,17 @@
   // (crea/modifica) la lasciano vuota: lì Invio resta il tasto dei campi.
   var _onEnter = null;
   var _keyHandler = null;
+
+  /* Chi ha aperto la schermata. Le quattro `STORE.open*` le chiama solo la console
+     «Cabina»; la lista storica (LIM › «Account classi», il chip) passa da
+     `openClassAccountsModal`, che riporta il segno a `false`. Da «Annulla»,
+     «Indietro», dal salvataggio e dall'eliminazione si torna a chi ti ha aperto:
+     prima si finiva sempre nella vecchia lista, sopra la Cabina (0088, D10). */
+  var _daCabina = false;
+  function tornaAllaLista(tab) {
+    if (_daCabina) { closeModal(); return; }
+    if (tab === 'studenti') renderStudents(); else renderList();
+  }
 
   function _bindEnter(ov) {
     if (_keyHandler) document.removeEventListener('keydown', _keyHandler, true);
@@ -506,7 +542,7 @@
       var c = clsSel.value ? STORE.get(clsSel.value) : null;
       if (c && c.gradeNum && schoolKeyOf(c.system)) gnSel.value = schoolKeyOf(c.system) + ':' + c.gradeNum;
     };
-    var bk = ov.querySelector('[data-back]'); if (bk) bk.onclick = renderStudents;
+    var bk = ov.querySelector('[data-back]'); if (bk) bk.onclick = function () { tornaAllaLista('studenti'); };
     var sv = ov.querySelector('[data-ssave]'); if (sv) sv.onclick = function () {
       var nick = (ov.querySelector('#stu-nick').value || '').trim();
       if (!nick) { toast(t('stu_need_nick', 'Inserisci il nome dell\'allievo.'), 'error'); return; }
@@ -546,7 +582,7 @@
         if (i >= 0) saveStudentCredentialPdf(suaClasse, i);
       }
       toast(t('stu_saved', 'Scheda studente salvata.'), 'success');
-      renderStudents();
+      tornaAllaLista('studenti');
     };
   }
   function renderStudentCreate() {
@@ -577,7 +613,7 @@
       act.textContent = t('stu_is_active', 'Attiva ✓'); act.disabled = true; act.style.opacity = '0.65'; act.style.cursor = 'default';
     };
     var del = ov.querySelector('[data-sdel]'); if (del) del.onclick = function () {
-      var go = function () { var a = _getAppState(); if (a && a.allProfiles) { if (active) _setActiveStudent(null); a.allProfiles.splice(idx, 1); _saveProfiles(); } renderStudents(); };
+      var go = function () { var a = _getAppState(); if (a && a.allProfiles) { if (active) _setActiveStudent(null); a.allProfiles.splice(idx, 1); _saveProfiles(); } tornaAllaLista('studenti'); };
       /* ⚠️ `showConfirm(title, message, onConfirm)` vuole TRE argomenti: qui
          gliene arrivavano due, quindi la funzione finiva stampata come messaggio
          e `onConfirm` restava undefined — il modale appariva sotto (z-index del
@@ -683,7 +719,7 @@
       btn(t('cls_create', 'Crea classe'), PRIMARY).replace('<button', '<button data-save="1"') +
       '</div>';
     var ov = overlay(body, '820px', t('cls_new_title', 'Nuovo profilo classe'));
-    ov.querySelector('[data-back]').onclick = renderList;
+    ov.querySelector('[data-back]').onclick = function () { tornaAllaLista(); };
     wireDisciplineField(ov);
     wireTuningHelp(ov);
 
@@ -893,7 +929,7 @@
       '</div></div>';
 
     var ov = overlay(body, null, t('cls_edit_title', 'Profilo classe') + ' · ' + c.name);
-    ov.querySelector('[data-back]').onclick = renderList;
+    ov.querySelector('[data-back]').onclick = function () { tornaAllaLista(); };
     wireDisciplineField(ov);
     wireTuningHelp(ov);
 
@@ -971,26 +1007,35 @@
          aperto sopra questa finestra (che a sua volta si alza sopra la console)
          finiva DIETRO — il bottone sembrava non fare niente. Col motore la pila
          la governa lui, e la finestra è dove ci si aspetta che sia. */
-      var chiedi = t('cls_del_confirm', 'Scrivi "elimina" per cancellare la classe') + ' ' + c.name;
+      /* La parola da scrivere è UNA, nel dizionario: etichetta e confronto la leggono dallo
+         stesso posto, così in inglese («delete») non resta una domanda a cui nessuna risposta
+         basta (0088, D11). */
+      var parola = t('cls_del_parola_chiave', 'elimina');
+      var chiedi = t('cls_del_confirm', 'Scrivi "{parola}" per cancellare la classe').replace('{parola}', parola) + ' ' + c.name;
+      var provaEliminare = function (val) {
+        if (val === null || val === undefined) return;             // Annulla: niente
+        if (String(val).trim().toLowerCase() === String(parola).toLowerCase()) { doDelete(c.id); return; }
+        toast(t('cls_del_parola', 'Classe non eliminata: per cancellarla scrivi «{parola}».').replace('{parola}', parola), 'info');
+      };
       if (window.MappAIModal) {
         window.MappAIModal.chiedi({
           titolo: t('cls_del_title', 'Elimina la classe'),
           etichetta: chiedi, conferma: t('cls_delete', 'Elimina')
-        }).then(function (val) {
-          if ((val || '').trim().toLowerCase() === 'elimina') doDelete(c.id);
-        });
+        }).then(provaEliminare);
       } else if (window.showPrompt) {
-        window.showPrompt(chiedi, '', function (val) {
-          if ((val || '').trim().toLowerCase() === 'elimina') doDelete(c.id);
-        });
+        window.showPrompt(chiedi, '', provaEliminare);
       } else if (confirm(t('cls_del_confirm2', 'Eliminare la classe') + ' ' + c.name + '?')) doDelete(c.id);
     };
   }
 
   function doDelete(id) {
+    /* Una classe eliminata non può restare «attiva»: la chiave dell'attiva puntava a una
+       classe che non c'è più, e ogni generazione successiva si tarava su un fantasma. */
+    var eraAttiva = STORE.activeId() === id;
     STORE.data.classes = STORE.list().filter(function (c) { return c.id !== id; });
     STORE.save();
-    renderList();
+    if (eraAttiva) STORE.setActive('');
+    tornaAllaLista();
   }
 
   function printCredentials(c) {
@@ -1072,14 +1117,16 @@
   /* Le schermate di gestione, aperte dal punto giusto invece che dalla prima
      schermata del modale a due tab. */
   STORE.openClassEdit = function (id) {
-    var go = function () { if (STORE.get(id)) renderEdit(id); else renderList(); };
+    _daCabina = true;
+    var go = function () { if (STORE.get(id)) renderEdit(id); else tornaAllaLista(); };
     if (!STORE.loaded) STORE.load().then(go); else go();
   };
   STORE.openClassCreate = function () {
+    _daCabina = true;
     if (!STORE.loaded) STORE.load().then(renderCreate); else renderCreate();
   };
-  STORE.openStudentEdit = function (idx) { renderStudentEdit(idx); };
-  STORE.openStudentCreate = function () { renderStudentCreate(); };
+  STORE.openStudentEdit = function (idx) { _daCabina = true; renderStudentEdit(idx); };
+  STORE.openStudentCreate = function () { _daCabina = true; renderStudentCreate(); };
   /* Chi apre questo modale da sopra (la Cabina) deve poterlo chiudere: senza,
      ESC chiuderebbe la console sotto e lascerebbe questa finestra orfana. */
   STORE.closeModal = closeModal;
@@ -1369,6 +1416,7 @@
   // Entry point — il modale a due tab (Classi / Studenti); il chip lo apre direttamente
   window.openClassAccountsModal = function () {
     if (!LC) { toast('MappAI Live core non caricato.', 'error'); return; }
+    _daCabina = false;   // la lista storica: da qui «Annulla» e «Indietro» tornano alla lista (D10)
     var open = function () { if (_accountTab === 'studenti') renderStudents(); else renderList(); };
     if (!STORE.loaded) STORE.load().then(open); else open();
   };

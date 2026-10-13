@@ -4,7 +4,8 @@
    ritrova uscendo. Comandi nel tab «Vista studio» della sidebar (visibile
    solo qui). Il profilo vive in appState.studioProfile → viaggia col
    progetto (autosave); la scrittura nel vault arriva in una fase successiva.
-   Kill-switch: localStorage mappai_studio_view='0' (gestito in toggleLayout).
+   Kill-switch: localStorage mappai_studio_view='0' (gestito in toggleLayout);
+   i due cursori dello spessore (25/9): mappai_studio_spessori='0'.
    Dipende da: mappai-studio-layouts.js (motori), mappai-studio-draw.js
    (renderer), jsPDF + svg2pdf (export), appState (scope lessicale condiviso).
    ========================================================================= */
@@ -28,7 +29,8 @@
         gapLayer: 156, gapNode: 30, w: 118, h: 54,
         fsNode: 12, fsRel: 10, hier: 'no', depth: 999,
         bands: false, centerId: null,
-        hops: false, ports: true, hl: 'vicini'
+        hops: false, ports: true, hl: 'vicini',
+        swLink: 100, swCross: 100
     };
 
     /* ── UNA TARATURA PER MOTORE (16/8) ──────────────────────────────────────
@@ -45,9 +47,15 @@
        Albero e DAG sono la stessa geometria: cambia solo QUALI archi si
        disegnano — «solo gerarchia» contro «gerarchia + cross», che è esattamente
        la differenza fra i due motori. */
+    /* `swLink` / `swCross` (25/9): lo spessore dei collegamenti e dei
+       cross-link, in PERCENTUALE del tratto di oggi (la tabella TRATTO di
+       mappai-studio-draw.js). 100 = le linee di sempre, quindi il default non
+       cambia la mappa di nessuno e non serve un marcatore di versione
+       (invariante 17). */
     const DEF_BASE = {
         orient: 'td', routing: 'curva', hier: 'no', hl: 'parenti', depth: 999,
-        bands: false, hops: false, ports: true, fsRel: 9
+        bands: false, hops: false, ports: true, fsRel: 9,
+        swLink: 100, swCross: 100
     };
     const DEF_MOTORE = {
         // Albero: la gerarchia e basta, card da leggere
@@ -65,8 +73,52 @@
        barra governa anche le viste di studio, «fino a che livello guardo» è UNA
        domanda sola. Se restasse per-motore, passare da Albero a Fasci
        cambierebbe in silenzio il numero che la barra sta mostrando. */
+    /* Gli spessori viaggiano col motore come le card e i corpi, per la stessa
+       ragione: ingrossare le linee dell'Albero (card da leggere da vicino) non
+       deve ingrossare in silenzio i Fasci (dove si guarda l'intreccio). */
     const LEVE_MOTORE = ['orient', 'routing', 'set', 'labels', 'hier', 'hl',
-        'gapLayer', 'gapNode', 'w', 'h', 'fsNode', 'fsRel', 'bands', 'hops', 'ports'];
+        'gapLayer', 'gapNode', 'w', 'h', 'fsNode', 'fsRel', 'bands', 'hops', 'ports',
+        'swLink', 'swCross'];
+    const CHIAVI_SPESSORE = ['swLink', 'swCross'];
+
+    /* ── IL PROFILO ARRIVA DA FUORI (25/9) ───────────────────────────────────
+       `studioProfile` viaggia in vista.json, cioè nel vault che un collega
+       passa a un altro, e il rientro automatico (`riprendi`, chiamato da
+       `initD3Visualization`) lo mette nel pannello appena la mappa è a schermo,
+       senza un clic. Le leve numeriche ci entravano COSÌ COM'ERANO, dentro
+       `value="…"` e nel testo del cursore: una larghezza `1"><img src=x
+       onerror=…>` era codice con tutto `window.electronAPI` in mano, e un
+       `mode` fatto così finiva nel bottone «Ripristina default · …».
+       Qui ogni leva numerica diventa un numero dentro la scala del SUO cursore:
+       una tabella sola, la stessa da cui il pannello disegna i cursori, quindi
+       un valore che il cursore non saprebbe produrre non esiste. Illeggibile =
+       il default del motore; fuori scala = il bordo della scala, la regola
+       degli spessori. Le scale sono solo cresciute (1/8 → 12/8): nessun profilo
+       scritto dall'app cade fuori. [min, max, passo] */
+    const SCALA = {
+        gapLayer: [20, 260, 2], gapNode: [6, 110, 2], w: [80, 320, 2], h: [30, 120, 2],
+        fsNode: [8, 22, 1], fsRel: [7, 18, 1]
+    };
+    function numeroIn(v, min, max, ripiego) {
+        const n = (typeof v === 'number') ? v
+            : ((typeof v === 'string' && v.trim() !== '') ? Number(v) : NaN);
+        if (!Number.isFinite(n)) return ripiego;
+        return Math.min(max, Math.max(min, n));
+    }
+    /* Le leve numeriche di UN pezzo di profilo: la vista, una taratura riposta
+       in `perMotore`, il focus. Una leva assente resta assente: in una taratura
+       riposta vuol dire «salvata prima che la leva esistesse», e al suo posto
+       va il default (vedi `cambiaMotore`). */
+    function normLeve(o, base) {
+        if (!o || typeof o !== 'object') return;
+        Object.keys(SCALA).forEach(k => {
+            if (o[k] !== undefined) o[k] = numeroIn(o[k], SCALA[k][0], SCALA[k][1], base[k]);
+        });
+    }
+    // un motore che esiste (l'uscita verso la mappa libera non è un motore)
+    function motoreValido(m) {
+        return m !== USCITA && MOTORI.concat(MOTORI_ALT).some(o => o[0] === m);
+    }
 
     /* La taratura di partenza di un motore. I quattro motori di «Altre opzioni»
        non hanno una taratura loro: ereditano quella dell'albero, che è la più
@@ -130,10 +182,14 @@
     // Chiudendo l'app non passa da `exit()`: l'ultimo stato si salva qui.
     try { window.addEventListener('beforeunload', scriviUtente); } catch (e) { /* noop */ }
 
-    const S = { active: false, lastRes: null, lastNodes: null, focus: null, avanzate: false };
+    /* `vistaIndietro`: col focus aperto una leva di RESA è cambiata, e la vista
+       d'insieme che resta sotto disegna ancora quella di prima (vedi `ridisegna`). */
+    const S = { active: false, lastRes: null, lastNodes: null, focus: null, avanzate: false, vistaIndietro: false };
 
     function profile() {
-        if (!appState.studioProfile) {
+        // un vista.json con un testo o un elenco al posto del profilo vale «nessun profilo»
+        const sp = appState.studioProfile;
+        if (!sp || typeof sp !== 'object' || Array.isArray(sp)) {
             appState.studioProfile = Object.assign({}, DEF_PROFILE, letto() || {});
         }
         const p = appState.studioProfile;
@@ -148,6 +204,20 @@
             p.defv = DEF_VER;
         }
         if (!p.perMotore || typeof p.perMotore !== 'object') p.perMotore = {};
+        /* I valori vengono da fuori (vedi SCALA): il motore è uno di quelli che
+           esistono, le leve numeriche numeri nella loro scala, la profondità un
+           intero (999 = tutti i livelli). Le tarature riposte si normalizzano
+           qui e non quando tornano: `cambiaMotore` le copia su `p` così come
+           sono. Una chiave di `perMotore` che non è un motore non si legge mai. */
+        if (!motoreValido(p.mode)) p.mode = DEF_PROFILE.mode;
+        normLeve(p, defaultsDi(p.mode));
+        p.depth = Math.round(numeroIn(p.depth, 0, 999, DEF_PROFILE.depth));
+        Object.keys(p.perMotore).forEach(m => { if (motoreValido(m)) normLeve(p.perMotore[m], defaultsDi(m)); });
+        /* Uno spessore illeggibile (un vista.json scritto a mano, una versione
+           futura) torna al tratto di sempre; fuori scala, al bordo della scala.
+           La regola è UNA e sta nel renderer, che la applica comunque. */
+        const D = DRAW();
+        if (D && D.normSpessore) CHIAVI_SPESSORE.forEach(k => { p[k] = D.normSpessore(p[k]); });
         return p;
     }
 
@@ -173,13 +243,19 @@
        ⚠️ `set` va ricontrollato dopo: le scelte disponibili («solo gerarchia»
        esiste solo dove c'è una gerarchia) dipendono dalla MAPPA, non dal
        motore, e un valore che quella mappa non offre lascerebbe il segmento
-       senza nessuna scelta accesa. */
+       senza nessuna scelta accesa.
+       ⚠️ Il default va SOTTO la taratura riposta, non al posto suo: una taratura
+       salvata prima che una leva esistesse (gli spessori, 25/9) non la porta, e
+       senza il default quella leva resterebbe al valore del motore appena
+       lasciato — il travaso che la taratura per motore esiste per impedire.
+       Per le leve che la taratura porta non cambia niente: vince lei. */
     function cambiaMotore(p, nuovo) {
         if (p.mode === nuovo) return;
         p.perMotore[p.mode] = leveCorrenti(p);
         p.mode = nuovo;
         const salvato = p.perMotore[nuovo];
-        if (salvato) applicaLeve(p, salvato); else applicaDefault(p, nuovo);
+        applicaDefault(p, nuovo);
+        if (salvato) applicaLeve(p, salvato);
         const ok = currentData().choices.map(c => c.v);
         if (ok.indexOf(p.set) < 0) p.set = ok[0];
     }
@@ -220,10 +296,11 @@
     }
     function fprofile() {
         const p = profile();
-        if (!p.focus || typeof p.focus !== 'object') p.focus = Object.assign({}, DEF_FOCUS);
+        if (!p.focus || typeof p.focus !== 'object' || Array.isArray(p.focus)) p.focus = Object.assign({}, DEF_FOCUS);
         Object.keys(DEF_FOCUS).forEach(k => {
             if (p.focus[k] === undefined) p.focus[k] = DEF_FOCUS[k];
         });
+        normLeve(p.focus, DEF_FOCUS);     // anche il focus viaggia in vista.json
         return p.focus;
     }
     // Quale profilo governa QUESTA leva adesso: col focus aperto la geometria
@@ -316,7 +393,7 @@
         ov = document.createElement('div');
         ov.id = 'studio-overlay';
         ov.style.cssText = 'position:absolute;inset:0;z-index:5;background:#fafbff;' +
-            'background-image:radial-gradient(#e2e8f0 1px,transparent 1px);background-size:22px 22px;';
+            'background-image:radial-gradient(var(--mm-bordo, #cbd5e1) 1px,transparent 1px);background-size:22px 22px;';
         ov.innerHTML = '<svg id="studio-svg" style="width:100%;height:100%;display:block;cursor:grab"></svg>';
         host.appendChild(ov);
         return ov;
@@ -363,11 +440,44 @@
             custom: (appState.db && appState.db.customColors) || {},
             fsNode: +p.fsNode, fsRel: +p.fsRel,
             labels: p.labels, hier: p.hier, bands: p.bands, hover: p.hl,
+            spessori: spessoriDi(p),
             onNodeContext: openNodeMenu, onLinkContext: openLinkMenu
         });
         handle.fit('read');
         S.handle = handle;
+        S.vistaIndietro = false;
         updateMetricsRow(res, m, d, maxD);
+        // col focus aperto il pannello parla del focus: ci pensa renderFocus
+        if (!S.focus) mostraSpessori(res);
+    }
+
+    /* Kill-switch degli spessori (invariante 1): localStorage
+       mappai_studio_spessori='0' → niente cursori e il tratto di sempre,
+       qualunque cosa dica il profilo. I valori restano nel profilo: riaccendendo
+       tornano quelli scelti. */
+    function spessoriAccesi() {
+        try { return localStorage.getItem('mappai_studio_spessori') !== '0'; } catch (e) { return true; }
+    }
+    // le due leve dello spessore, nella forma che il renderer si aspetta
+    function spessoriDi(p) {
+        return spessoriAccesi() ? { link: p.swLink, cross: p.swCross } : undefined;
+    }
+
+    /* I due cursori dello spessore si vedono solo se il disegno ha qualcosa da
+       ingrossare: con «Solo gerarchia» i cross-link non ci sono, la matrice non
+       ha linee, un focus può non toccarne nessuno (invariante 21: un comando
+       inerte è peggio di uno assente). Si decide sul disegno VERO, dopo ogni
+       ridisegno — la profondità cambia il disegno senza ricostruire il
+       pannello — e alla costruzione del pannello, sull'ultimo disegno fatto. */
+    function mostraSpessori(res) {
+        const panel = document.getElementById('sidebar-panel-vista');
+        if (!panel || !panel.querySelector) return;
+        const D = DRAW();
+        const c = (res && D && D.trattiPresenti) ? D.trattiPresenti(res) : { link: true, cross: true };
+        [['swLink', c.link], ['swCross', c.cross]].forEach(([k, on]) => {
+            const f = panel.querySelector('[data-sv-spessore="' + k + '"]');
+            if (f) f.style.display = on ? '' : 'none';
+        });
     }
 
     function updateMetricsRow(res, m, d, maxD) {
@@ -421,14 +531,33 @@
                 : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50') + '">' + o[1] + '</button>'
         ).join('') + '</div>';
     }
-    function fld(label, inner) {
-        return '<div class="mb-3"><div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">' +
+    // `attr`: un attributo in più sul campo, per chi lo deve ritrovare (gli spessori)
+    function fld(label, inner, attr) {
+        return '<div class="mb-3"' + (attr ? ' ' + attr : '') + '><div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">' +
             label + '</div>' + inner + '</div>';
     }
+    /* L'unità viaggia con la lettura (`data-sv-suff`): il gestore del
+       trascinamento la rilegge da lì, invece di scrivere «px» dappertutto. */
+    /* `val` viene dal profilo: è un numero dopo `profile()`/`fprofile()`, e
+       passa lo stesso dall'escape — il cursore è il posto dove arrivava il dato. */
     function slider(k, min, max, step, val, suff) {
         return '<div class="flex items-center gap-2">' +
-            '<input type="range" data-sv-sl="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" class="flex-1 accent-indigo-600">' +
-            '<b class="text-[11px] tabular-nums w-11 text-right" data-sv-out="' + k + '">' + val + (suff || 'px') + '</b></div>';
+            '<input type="range" data-sv-sl="' + k + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + esc(val) + '" class="flex-1 accent-indigo-600">' +
+            '<b class="text-[11px] tabular-nums w-11 text-right" data-sv-out="' + k + '"' +
+            (suff ? ' data-sv-suff="' + suff + '"' : '') + '>' + esc(val) + (suff || 'px') + '</b></div>';
+    }
+    // il cursore di una leva numerica, con la scala di SCALA
+    function sliderLeva(k, val) {
+        const s = SCALA[k];
+        return slider(k, s[0], s[1], s[2], val);
+    }
+    /* Lo spessore si legge in PERCENTUALE del tratto di sempre, come le scale
+       del testo sulla mappa libera: «×1.3» dice poco, «130%» si legge. La scala
+       sta nel renderer (SPESSORE), che è anche chi la applica. */
+    function sliderSpessore(k, label, val) {
+        const D = DRAW(), sc = D.SPESSORE;
+        return fld(label, slider(k, sc.min, sc.max, sc.passo, D.normSpessore(val), '%'),
+            'data-sv-spessore="' + k + '"');
     }
     function chk(k, label, on, mb) {
         return '<label class="flex items-center gap-2 text-[11px] font-bold text-slate-500 ' + (mb || 'mb-1.5') + ' cursor-pointer">' +
@@ -573,12 +702,19 @@
                 '<div class="flex items-center gap-2">' +
                 '<input type="range" id="sv-depth" data-sv-sl="depth" min="0" max="' + Math.max(1, maxD) + '" step="1" value="' + Math.min(p.depth, maxD) + '" class="flex-1 accent-indigo-600">' +
                 '<b class="text-[11px] tabular-nums w-11 text-right" id="sv-depth-out">' + ((p.depth >= maxD) ? t('sv_tutti', 'tutti') : ('0–' + p.depth)) + '</b></div>') +
-            fld(t('sv_gap_layer', 'Spazio fra livelli'), slider('gapLayer', 20, 260, 2, g.gapLayer)) +
-            fld(t('sv_gap_node', 'Spazio fra card'), slider('gapNode', 6, 110, 2, g.gapNode)) +
-            fld(t('sv_card_w', 'Larghezza card'), slider('w', 80, 320, 2, g.w)) +
-            fld(t('sv_card_h', 'Altezza card'), slider('h', 30, 120, 2, g.h)) +
-            fld(t('sv_fs_node', 'Testo dei nodi'), slider('fsNode', 8, 22, 1, g.fsNode)) +
-            fld(t('sv_fs_rel', 'Testo linking words'), slider('fsRel', 7, 18, 1, g.fsRel)) +
+            fld(t('sv_gap_layer', 'Spazio fra livelli'), sliderLeva('gapLayer', g.gapLayer)) +
+            fld(t('sv_gap_node', 'Spazio fra card'), sliderLeva('gapNode', g.gapNode)) +
+            fld(t('sv_card_w', 'Larghezza card'), sliderLeva('w', g.w)) +
+            fld(t('sv_card_h', 'Altezza card'), sliderLeva('h', g.h)) +
+            fld(t('sv_fs_node', 'Testo dei nodi'), sliderLeva('fsNode', g.fsNode)) +
+            fld(t('sv_fs_rel', 'Testo linking words'), sliderLeva('fsRel', g.fsRel)) +
+            /* Due leve e non una (25/9): i collegamenti e i cross-link si
+               ingrossano ognuno per conto suo. Vanno sul profilo della vista
+               anche nel focus (`p`, non `g`): sono resa, non geometria. */
+            (spessoriAccesi()
+                ? sliderSpessore('swLink', t('sv_sw_link', 'Spessore collegamenti'), p.swLink) +
+                  sliderSpessore('swCross', t('sv_sw_cross', 'Spessore cross-link'), p.swCross)
+                : '') +
             chk('ports', t('sv_ports', 'Frecce separate sul nodo'), p.ports !== false, 'mb-1.5') +
             chk('bands', t('sv_bands', 'Bande delle macro-aree'), !!p.bands, 'mb-3') +
             '<div id="sv-metrics" class="text-[11px] text-slate-400 font-bold mb-3"></div>' +
@@ -592,12 +728,13 @@
                cosa sta per tornare indietro (e quanto). */
             '<button type="button" id="sv-reset" class="w-full mt-2 py-2 rounded-xl bg-white border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 hover:text-indigo-600 flex items-center justify-center gap-2">' +
             '<i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>' +
-            t('sv_reset', 'Ripristina default') + ' · ' + nomeMotore(p.mode) + '</button>' +
+            t('sv_reset', 'Ripristina default') + ' · ' + esc(nomeMotore(p.mode)) + '</button>' +
             avanzate(p) +
             '<div class="text-[10px] text-slate-400 mt-2">' +
             t('sv_hint', 'Tasto destro su una card: Descrizione, Focus sui vicini o sulla parentela.') + '</div>';
         if (window.safeCreateIcons) window.safeCreateIcons();
         bindControls(panel);
+        mostraSpessori(f ? f.res : S.lastRes);
     }
 
     function testataFocus(f) {
@@ -639,10 +776,18 @@
        cioè l'insieme da cui il focus è stato ritagliato. Ridisegnare il focus
        com'è lo lascerebbe pieno di card che nella vista non ci sono più — va
        ritagliato di nuovo dallo stesso nodo. */
+    /* ⚠️ 25/9: col focus aperto le leve di RESA (spessori, linking words,
+       gerarchia, bande, frecce, evidenzia, motore…) sono della vista INTERA
+       (`profiloDi`), ma si ridisegnava solo il focus: chiuso il focus, il
+       pannello diceva 200% e la vista sotto era ancora al tratto di prima. Non
+       si ridisegna la vista a ogni leva — sta sotto l'overlay e non si vede —
+       ma si segna che è rimasta indietro, e la rimette in pari `closeFocus`.
+       La geometria (CHIAVI_FOCUS) col focus aperto è del focus: non la tocca. */
     function ridisegna(k) {
         if (S.focus) {
             if (k === 'set' || k === 'depth') { render(); openFocus(S.focus.id, S.focus.mode); return; }
             renderFocus();
+            if (CHIAVI_FOCUS.indexOf(k) < 0) S.vistaIndietro = true;
             return;
         }
         render();
@@ -734,7 +879,7 @@
             const k = sl.getAttribute('data-sv-sl');
             profiloDi(k)[k] = +sl.value;
             const out = panel.querySelector('[data-sv-out="' + k + '"]');
-            if (out) out.textContent = sl.value + 'px';
+            if (out) out.textContent = sl.value + (out.getAttribute('data-sv-suff') || 'px');
             persist(); ridisegna(k);
             // la profondità è condivisa con la barra: si scrive anche là
             if (k === 'depth') scriviLivelloInBarra();
@@ -805,7 +950,7 @@
             'font-weight:700;padding:7px 11px 4px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
             esc(label) + '</div>' +
             voci.map((v, i) => '<button type="button" data-i="' + i + '" style="display:block;width:100%;text-align:left;' +
-                'font:inherit;font-size:12.5px;font-weight:700;border:0;background:none;color:#334155;' +
+                'font:inherit;font-size:12.5px;font-weight:700;border:0;background:none;color:var(--mm-testo, #404040);' +
                 'padding:8px 11px;border-radius:8px;cursor:pointer">' + v[0] + '</button>').join('');
         document.body.appendChild(m);
         const r = m.getBoundingClientRect();
@@ -830,7 +975,15 @@
         const ov = document.getElementById('sv-focus-ov');
         if (ov) ov.remove();
         S.focus = null;
-        if (S.active) buildControls();
+        if (!S.active) return;
+        buildControls();
+        /* La vista sotto si ridisegna solo se è rimasta indietro (`ridisegna`):
+           «Archi usati», la profondità e «Ripristina» l'hanno già rimessa in
+           pari, e riaprire il focus su un altro nodo passa di qui — senza il
+           segno sarebbero due disegni per un gesto. Dopo il pannello, come in
+           `enter()`: `render` scrive le misure in #sv-metrics, che
+           `buildControls` ricrea vuoto. */
+        if (S.vistaIndietro) render();
     }
     function openFocus(id, mode) {
         const wasOpen = !!S.focus;
@@ -880,17 +1033,17 @@
             // una riga sola, mai a capo: se la testata crescesse si mangerebbe
             // l'altezza del disegno (flex:1 → 0 in un contenitore basso)
             '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;' +
-            'border-bottom:1px solid #e2e8f0;background:rgba(255,255,255,.94);' +
+            'border-bottom:1px solid var(--mm-bordo, #cbd5e1);background:rgba(255,255,255,.94);' +
             'flex-wrap:nowrap;flex:0 0 auto;overflow:hidden">' +
             '<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;' +
             'text-transform:uppercase;letter-spacing:.06em;color:#4f46e5;background:#eef2ff;' +
             'padding:3px 8px;border-radius:999px;flex:0 0 auto">FOCUS</span>' +
-            '<b style="font-size:14px;color:#0f172a;white-space:nowrap;overflow:hidden;' +
+            '<b style="font-size:14px;color:var(--mm-testo, #404040);white-space:nowrap;overflow:hidden;' +
             'text-overflow:ellipsis;flex:0 1 auto">' + esc(centro.label || id) + '</b>' +
             '<span id="sv-focus-sub" style="font-size:11px;color:#64748b;font-weight:700;' +
             'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto"></span>' +
             '<button type="button" id="sv-f-close" style="margin-left:auto;flex:0 0 auto;font:inherit;font-size:11px;' +
-            'font-weight:700;color:#475569;background:#fff;border:1px solid #e2e8f0;border-radius:9px;' +
+            'font-weight:700;color:#475569;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:9px;' +
             'padding:6px 11px;cursor:pointer">' + t('sv_focus_exit', 'Chiudi il focus') + '</button>' +
             '</div>' +
             '<svg id="sv-focus-svg" style="flex:1;min-height:0;width:100%;display:block;cursor:grab"></svg>';
@@ -932,15 +1085,19 @@
         if (p.hops !== false && ['dag', 'td', 'colonne'].indexOf(res.kind) >= 0) {
             L().addHops(res, { r: Math.max(8, Math.min(14, Math.round((+fp.gapNode) / 2.2))) });
         }
+        // lo spessore è RESA, non geometria: lo governa il profilo della vista,
+        // così entrando nel focus le linee restano quelle scelte
         const handle = DRAW().draw(svgEl, res, nodes, {
             d3: window.d3, prefix: 'svf',
             custom: (appState.db && appState.db.customColors) || {},
             fsNode: +fp.fsNode, fsRel: +fp.fsRel,
             labels: p.labels, hier: p.hier, bands: p.bands, hover: p.hl, evidenzia: id,
+            spessori: spessoriDi(p),
             onNodeContext: openNodeMenu, onLinkContext: openLinkMenu
         });
         handle.fit('all');
         S.focus.res = res; S.focus.handle = handle;
+        mostraSpessori(res);
 
         const sub = document.getElementById('sv-focus-sub');
         if (sub) sub.textContent =
@@ -977,7 +1134,7 @@
         if (typeof window.openSourceModal === 'function') { window.openSourceModal(id); return; }
         // Ripiego (harness/banco, dove il canvas dell'app non esiste).
         const desc = String(n.desc || n.content || '').trim();
-        const col = DRAW().colorOf(n, (appState.db && appState.db.customColors) || {});
+        const col = coloreHex(DRAW().colorOf(n, (appState.db && appState.db.customColors) || {}));
         const mo = document.createElement('div');
         mo.id = 'sv-desc-modal';
         // posizionamento TUTTO inline: il velo non deve dipendere da Tailwind
@@ -993,14 +1150,14 @@
             '<i data-lucide="file-text" class="w-5 h-5" style="color:' + col + '"></i></div>' +
             '<div style="min-width:0;flex:1">' +
             '<div class="pm-title" style="word-break:break-word">' + esc(n.label || n.id) + '</div>' +
-            '<div class="pm-subtitle">' + (n.level != null ? t('sv_lv', 'Livello') + ' ' + n.level : t('sv_nodo', 'nodo')) + '</div>' +
+            '<div class="pm-subtitle">' + (n.level != null ? t('sv_lv', 'Livello') + ' ' + esc(n.level) : t('sv_nodo', 'nodo')) + '</div>' +
             '</div>' +
             '<button type="button" id="sv-desc-x" style="font:inherit;border:0;background:none;cursor:pointer;' +
-            'color:#94a3b8;padding:2px"><i data-lucide="x" class="w-5 h-5"></i></button>' +
+            'color:var(--mm-testo-3, #64748b);padding:2px"><i data-lucide="x" class="w-5 h-5"></i></button>' +
             '</div>' +
             '<div style="padding:0 22px 6px;overflow:auto;flex:1">' +
             (desc
-                ? '<div style="font-size:16px;line-height:1.75;color:#334155;white-space:pre-wrap;' +
+                ? '<div style="font-size:16px;line-height:1.75;color:var(--mm-testo, #404040);white-space:pre-wrap;' +
                   'hyphens:auto;-webkit-hyphens:auto">' + esc(desc) + '</div>'
                 : '<div class="pm-body-text">' + t('sv_desc_none', 'Questo nodo non ha ancora una descrizione.') + '</div>') +
             '</div>' +
@@ -1033,10 +1190,26 @@
 
     /* ── export PDF (A4 orizzontale, vettoriale) ────────────────────────── */
     function safeName(s) { return String(s).replace(/[^\wÀ-ɏ -]+/g, '').trim().slice(0, 60) || 'mappa'; }
+    /* L'escape è quello del nucleo (mappai-html-sicuro.js, caricato prima): i
+       cinque caratteri, apice compreso. Il reader dell'iPad copia questo file
+       byte per byte e il nucleo non lo carica ancora: lì vale il ripiego, che
+       fa la stessa cosa. */
     function esc(s) {
-        return String(s == null ? '' : s)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+        if (window.MappAIHtmlSicuro && window.MappAIHtmlSicuro.esc) return window.MappAIHtmlSicuro.esc(s);
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    }
+    /* Un colore dei DATI (`customColors` arriva col vault) che entra in uno
+       `style="…"`: solo un esadecimale, che `tint` sa leggere — `normColor`
+       dell'editor dei documenti quando c'è, altrimenti la stessa regola qui.
+       Tutto il resto diventa il grigio della scheda. */
+    function coloreHex(c) {
+        const DE = window.MappAIDocEdit;
+        const n = (DE && DE.normColor) ? DE.normColor(c) : null;
+        if (n) return n;
+        const v = String(c == null ? '' : c).trim();
+        if (/^#[0-9a-f]{6}$/i.test(v)) return v;
+        if (/^#[0-9a-f]{3}$/i.test(v)) return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+        return '#64748b';
     }
 
     async function exportPdfFromSvg(svgEl, bbox, fileName) {
@@ -1229,7 +1402,9 @@
     function cicloLabels(giro) {
         const p = profile();
         p.labels = (giro && giro[p.labels]) || 'off';
-        render(); buildControls(); persist();
+        /* Dalla stessa strada delle leve del pannello: col focus aperto si
+           ridisegnava la vista sotto l'overlay e non il focus che si guarda. */
+        buildControls(); ridisegna('labels'); persist();
         if (window.aggiornaBottoneTesto) window.aggiornaBottoneTesto();
     }
     /* Che cosa mostrare sul bottone TESTO adesso: dentro una vista di studio è

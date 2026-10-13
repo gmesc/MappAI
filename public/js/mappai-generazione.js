@@ -80,6 +80,7 @@
         var el = document.getElementById('loading-overlay');
         var area = document.getElementById('build-content');
         if (!el || !area || _segno) return;
+        if (_presa) return;   /* 0062: il giro di CREA tiene il velo a tutta finestra */
         _segno = document.createComment(' velo: ora dentro CREA ');
         el.parentNode.insertBefore(_segno, el);
         if (getComputedStyle(area).position === 'static') area.style.position = 'relative';
@@ -95,9 +96,63 @@
         _segno = null;
     }
 
+    /* ── LA PRESA DEL GIRO DI CREA (packet 0062) ───────────────────────────
+       Giacomo, 12/10: il velo che parte da CREA copre tutta la finestra, topbar
+       compresa, a fondo pieno, e resta acceso fino alla fine del giro. Il giro
+       è fatto di pezzi che spengono il velo da sé (la mappa, a fine generazione,
+       fa `showLoadingOverlay(false)` dal motore): la presa dice «il giro è
+       ancora vivo», e `showLoadingOverlay` e lo spinner della topbar la leggono.
+       ⚠️ È un segnale SUO, non `stato.attiva`: `attiva()` è la domanda «posso
+       caricare una mappa?», e se la presa la rendesse vera il passo A della
+       pipeline si rifiuterebbe da solo (`mappaiOccupato`, trappola del passo A).
+       Il numero (non un sì/no) serve al rilascio: un giro che riparte da
+       «Continua» prende una presa nuova, e il rilascio del giro vecchio, che
+       arriva dopo, non deve spegnere il velo di quello nuovo.
+       Interruttore `mappai_velo_finestra`: acceso se manca, `'0'` lo spegne e
+       tutto torna come prima (nessuna presa, nessuna classe, CSS di prima). */
+    /* Due fasi (Giacomo 12/10, scelta «b» dal gate dello 0090): fino alla mappa
+       il velo a tutta finestra; quando la mappa è pronta il velo cade, si vede
+       la mappa, e il giro continua con lo spinner in un cerchio bianco dove
+       stava il vecchio bottone a11y (`mappai-lavori.js`), fino al riepilogo.
+       `prendi('tela')` comincia già dalla seconda fase: un giro che riparte da
+       «Continua» non ha una mappa da aspettare. */
+    var _presa = 0, _prese = 0, _tela = false;
+    function veloFinestra() {
+        try { return localStorage.getItem('mappai_velo_finestra') !== '0'; } catch (e) { return true; }
+    }
+    function prendi(fase) {
+        if (!veloFinestra()) return 0;
+        veloACasa();                       /* se era dentro CREA, torna nel body */
+        _presa = ++_prese;
+        _tela = fase === 'tela';
+        try { document.documentElement.classList.toggle('mappai-velo-finestra', !_tela); } catch (e) { }
+        return _presa;
+    }
+    /* La mappa è pronta: il velo cade, la presa resta (il giro non è finito). */
+    function allaMappa() {
+        if (!_presa || _tela) return;
+        _tela = true;
+        try { document.documentElement.classList.remove('mappai-velo-finestra'); } catch (e) { }
+        try { var el = document.getElementById('loading-overlay'); if (el) el.classList.remove('visible'); } catch (e) { }
+    }
+    function lascia(n) {
+        if (!_presa || (n && n !== _presa)) return;
+        _presa = 0; _tela = false;
+        try { document.documentElement.classList.remove('mappai-velo-finestra'); } catch (e) { }
+        /* lasciare la presa spegne il velo: un errore o «Salva e continua più
+           tardi» non devono lasciare un velo orfano davanti a tutta l'app */
+        try { if (window.showLoadingOverlay) window.showLoadingOverlay(false); } catch (e) { }
+    }
+
     var API = {
         veloNellArea: veloNellArea,
         veloACasa: veloACasa,
+        prendi: prendi,
+        lascia: lascia,
+        presa: function () { return !!_presa; },
+        allaMappa: allaMappa,
+        /* vero quando il giro tiene la presa ma il velo è caduto sulla mappa */
+        tela: function () { return !!_presa && _tela; },
         /* Marca un progetto come APPENA NATO. */
         segnaNuovo: function (info) {
             if (!info) return;

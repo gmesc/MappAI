@@ -34,10 +34,10 @@
     ov.id = 'tl-live-modal';
     ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit';
     ov.innerHTML =
-      '<div style="background:#fff;border-radius:18px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:24px 26px;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
+      '<div style="background:#fff;border-radius:18px;max-width:var(--mm-m);width:100%;max-height:90vh;overflow:auto;padding:24px 26px;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">' +
           '<div style="width:40px;height:40px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center"><i data-lucide="calendar-clock" style="color:#4f46e5"></i></div>' +
-          '<div><div style="font-weight:800;font-size:17px;color:#0f172a">' + esc(title) + '</div>' +
+          '<div><div style="font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">' + esc(title) + '</div>' +
           '<div style="font-size:12px;color:#64748b">' + esc(subtitle || '') + '</div></div>' +
         '</div>' +
         '<div id="tl-live-body" style="margin-top:14px">' + bodyHtml + '</div>' +
@@ -52,10 +52,10 @@
   TL.openSetup = function () {
     var p = pool();
     if (!p.length) {
-      var b = '<p style="font-size:13.5px;color:#334155;line-height:1.6">' +
+      var b = '<p style="font-size:13.5px;color:var(--mm-testo, #404040);line-height:1.6">' +
         esc(_t('tl_need_pool', 'Nessuna data disponibile. Genera prima la Timeline della mappa: le date estratte (e quelle che aggiungi a mano) diventano le domande dell\'attività.')) + '</p>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
-        '<button type="button" id="tl-cancel" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_cancel', 'Annulla')) + '</button>' +
+        '<button type="button" id="tl-cancel" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_cancel', 'Annulla')) + '</button>' +
         '<button type="button" id="tl-gen" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_generate', 'Genera la Timeline')) + '</button></div>';
       var ov = modal(_t('tl_title', 'Timeline live'), _t('tl_sub_nopool', 'Serve un pool di date'), b);
       ov.querySelector('#tl-cancel').onclick = closeModal;
@@ -77,10 +77,12 @@
         esc(_t('tl_no_class', 'Nessuna classe. Creala in Profilo → Account classi.')) + '</div>';
 
     var body = '<style>' +
-      '.tl-in{width:100%;border:1px solid #e2e8f0;border-radius:10px;padding:9px 11px;font:inherit;color:#0f172a;background:#fff}' +
+      /* 11/10 (0087 lotto 10b): il campo del motore — neutro senza bordo, 40/12, al mouse bianco col bordo, a fuoco --mm-focus */
+      '.tl-in{width:100%;height:var(--mm-ctl-h, 40px);border:var(--mm-bordo-spessore, 1px) solid transparent;border-radius:var(--mm-r-campo, 10px);padding:0 12px;font:inherit;font-size:var(--mm-ctl-fs, 12px);color:var(--mm-testo, #404040);background:var(--mm-neutro, #f1f4f8)}' +
+      '.tl-in:hover:not(:focus){background:var(--mm-fondo, #fff);border-color:var(--mm-bordo, #cbd5e1)}.tl-in:focus{outline:none;box-shadow:0 0 0 2px var(--mm-focus, #ea580c)}' +
       '.tl-lab{display:block;font-size:11px;font-weight:700;color:#475569;margin:12px 0 4px}' +
-      '.tl-cards{display:flex;gap:8px}.tl-cards button{flex:1;border:2px solid #e2e8f0;background:#fff;border-radius:12px;padding:12px;cursor:pointer;text-align:left}' +
-      '.tl-cards button.sel{border-color:#4f46e5;background:#eef2ff}.tl-cards b{display:block;font-size:13px;color:#0f172a;margin-bottom:3px}.tl-cards span{font-size:11px;color:#64748b}' +
+      '.tl-cards{display:flex;gap:8px}.tl-cards button{flex:1;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;border-radius:12px;padding:12px;cursor:pointer;text-align:left}' +
+      '.tl-cards button.sel{border-color:#4f46e5;background:#eef2ff}.tl-cards b{display:block;font-size:13px;color:var(--mm-testo, #404040);margin-bottom:3px}.tl-cards span{font-size:11px;color:#64748b}' +
       '.tl-row{display:flex;gap:12px}.tl-row>div{flex:1}</style>' +
 
       '<span class="tl-lab">' + esc(_t('tl_class', 'Classe')) + '</span>' + classField +
@@ -139,7 +141,7 @@
       (window.MappAINetMode ? window.MappAINetMode.fieldHtml('tl') : '') +
 
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
-        '<button type="button" id="tl-cancel" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_cancel', 'Annulla')) + '</button>' +
+        '<button type="button" id="tl-cancel" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_cancel', 'Annulla')) + '</button>' +
         '<button type="button" id="tl-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_go', 'Avvia sessione')) + '</button></div>';
 
     var ov = modal(_t('tl_title', 'Timeline live'), esc(p.length) + ' ' + esc(_t('tl_dates', 'date disponibili')), body);
@@ -252,7 +254,7 @@
         '</div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid #f1f5f9;padding-top:14px">' +
-        '<button type="button" id="tl-openfolder" style="background:#fff;border:1px solid #e2e8f0;color:#334155;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_openfolder', 'Apri cartella')) + '</button>' +
+        '<button type="button" id="tl-openfolder" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_openfolder', 'Apri cartella')) + '</button>' +
         '<button type="button" id="tl-close" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_close_report', 'Chiudi e apri report')) + '</button></div>';
 
     var ov = modal(_t('tl_build_title', 'Costruisci la timeline'), esc(info.name || ''), body);
@@ -281,7 +283,7 @@
     var list = document.getElementById('tl-proplist'); if (!list) return;
     document.getElementById('tl-pcount').textContent = proposals.length + ' · ' +
       proposals.filter(function (p) { return p.status === 'approved'; }).length + ' ✓';
-    if (!proposals.length) { list.innerHTML = '<div class="muted" style="color:#94a3b8;font-size:12px">' + esc(_t('tl_no_prop', 'Nessuna proposta ancora.')) + '</div>'; return; }
+    if (!proposals.length) { list.innerHTML = '<div class="muted" style="color:var(--mm-testo-3, #64748b);font-size:12px">' + esc(_t('tl_no_prop', 'Nessuna proposta ancora.')) + '</div>'; return; }
     list.innerHTML = proposals.slice().sort(function (a, b) { return a.anno - b.anno; }).map(function (p) {
       var flags = '';
       if (p.flags && p.flags.duplicate) flags += ' <span style="font-size:9px;background:#f1f5f9;color:#64748b;border-radius:5px;padding:1px 5px">duplicato</span>';
@@ -356,13 +358,13 @@
     ov.id = 'tl-projection';
     ov.style.cssText = 'position:fixed;inset:0;z-index:10005;background:#f8fafc;overflow:auto;padding:24px 32px';
     ov.innerHTML =
-      '<div style="position:fixed;top:16px;right:16px;text-align:center;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);z-index:2">' +
+      '<div style="position:fixed;top:16px;right:16px;text-align:center;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);z-index:2">' +
         (qr ? '<img src="' + qr + '" style="width:150px;height:150px">' : '') +
         '<div style="font-size:11px;color:#4f46e5;font-weight:700;margin-top:4px">' + esc(_t('tl_scan', 'Inquadra per proporre')) + '</div></div>' +
-      '<div style="text-align:center;margin-bottom:8px"><div style="font-size:24px;font-weight:900;color:#0f172a">' + esc(info.name || '') + '</div>' +
+      '<div style="text-align:center;margin-bottom:8px"><div style="font-size:24px;font-weight:900;color:var(--mm-testo, #404040)">' + esc(info.name || '') + '</div>' +
         '<div style="font-size:12px;color:#64748b" id="tl-proj-count"></div></div>' +
       '<div id="tl-proj-body" style="max-width:960px;margin:0 auto"></div>' +
-      '<div style="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:#94a3b8">ESC ' + esc(_t('tl_exit', 'per uscire')) + '</div>';
+      '<div style="position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--mm-testo-3, #64748b)">ESC ' + esc(_t('tl_exit', 'per uscire')) + '</div>';
     document.body.appendChild(ov);
 
     function rerender() {
@@ -379,13 +381,13 @@
         '#tl-proj-body .tl-right{flex-direction:row-reverse;justify-content:flex-end;padding-left:calc(50% + 30px)}' +
         '#tl-proj-body .tl-connector{position:absolute;left:50%;top:14px;transform:translateX(-50%)}' +
         '#tl-proj-body .tl-dot{width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #cbd5e1}' +
-        '#tl-proj-body .dossier-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;max-width:380px;width:100%}' +
+        '#tl-proj-body .dossier-card{background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;overflow:hidden;max-width:380px;width:100%}' +
         '#tl-proj-body .dossier-card-header{padding:10px 14px;display:flex;justify-content:space-between;gap:8px}' +
         '#tl-proj-body .tl-date-label{font-size:18px;font-weight:900;color:#fff}' +
         '#tl-proj-body .dossier-title{font-size:14px;font-weight:700;color:#fff;margin:2px 0 0}' +
         '#tl-proj-body .dossier-level-tag{font-size:9px;color:rgba(255,255,255,.8);text-transform:uppercase}' +
         '#tl-proj-body .tl-event-num,#tl-proj-body .no-print{display:none}' +
-        '#tl-proj-body::before{content:"";position:absolute;left:50%;top:120px;bottom:40px;width:2px;background:#e2e8f0}';
+        '#tl-proj-body::before{content:"";position:absolute;left:50%;top:120px;bottom:40px;width:2px;background:var(--mm-bordo, #cbd5e1)}';
       document.head.appendChild(st);
     }
     rerender();

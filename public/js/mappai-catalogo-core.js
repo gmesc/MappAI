@@ -84,5 +84,30 @@
         return p.inputCost + ' CHF / 1M ' + translate('catalog_input', 'ingresso') +
             (p.kind === 'chat' ? ' · ' + p.outputCost + ' CHF / 1M ' + translate('catalog_output', 'uscita') : '');
     }
-    return { DATE, SOURCE, canonical, kb, catalogue, forPhase, priceLabel };
+    /* CHI LEGGE LE IMMAGINI (0066). Se la riga dichiara le sue modalità vale
+       quello; altrimenti ogni modello di chat legge, salvo i «solo testo» della
+       pagina dei modelli di Infomaniak. Così un modello nuovo compare da solo.
+       ⚠️ L'elenco è VUOTO dal 12/10/2026 (0088, D8): i due elenchi di Infomaniak
+       (`GET /2/ai/{product_id}/openai/v1/models`, `GET /1/ai/models`) non hanno
+       nessun campo sulle modalità di input, e Giacomo ha verificato che oggi tutti i
+       modelli del catalogo leggono immagini (Gemma compresa; Nemotron non c'è più).
+       Così «Modello per le foto» mostra il catalogo vivo, tutto. Un modello solo
+       testo che arrivasse domani si rimette qui, minuscolo, in una riga. */
+    const SOLO_TESTO = [];
+    function modalita(riga) {
+        for (const v of [riga.input_modalities, riga.inputModalities, riga.modalities,
+            riga.architecture && riga.architecture.input_modalities]) {
+            if (Array.isArray(v)) return v.map(x => String(x).toLowerCase());
+            if (typeof v === 'string' && v.trim()) return v.toLowerCase().split(/[^a-z]+/);
+        }
+        return null;
+    }
+    function leggeImmagini(riga) {
+        if (!riga || typeof riga.id !== 'string' || !riga.id.trim()) return false;
+        if (forPhase([riga], 'chat').length !== 1) return false;   // embeddings e reranker mai, anche se multimodali
+        const m = modalita(riga);
+        if (m) return m.includes('image');
+        return !SOLO_TESTO.includes(canonical(riga.id));
+    }
+    return { DATE, SOURCE, canonical, kb, catalogue, forPhase, priceLabel, leggeImmagini };
 }));

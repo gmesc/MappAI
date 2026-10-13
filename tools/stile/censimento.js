@@ -168,7 +168,17 @@ if (!SOLO) {
           è un nome in più che non fa crescere il sistema, ed è anzi il modo giusto di dare
           un nome nuovo a un valore vecchio. I tetti sono CONGELATI al 13/9/26 sui numeri di
           quel giorno: non sono un ideale, dicono «da qui non si cresce per inerzia». ── */
-    const TETTO = { colore: 41, raggi: 4, fs: 4, ombre: 2, spazi: 15 };
+    /* spazi 15 → 16 il 09/10/26 (Giacomo, packet 0087 lotto 2): entra lo spessore
+       del bordo, un ruolo che prima non aveva token */
+    /* corpi 4 → 7 il 12/10/26 (Giacomo, packet 0087 lotto 10c, sul banco dei corpi: «per i banchi
+       C2 e C va bene famiglia»): entrano i tre corpi della famiglia --mm-fs-* che prima erano
+       letterali del motore — testo 13, etichetta 11, sezione 10 (titolo 15 e controlli 12 c'erano già);
+       i mezzi punti 11,5 · 12,5 · 13,5 · 10,5 · 9,5 muoiono nell'app del docente */
+    /* colore 41 → 46 il 13/10/26 (Giacomo, packet 0087 lotto 10d: «mantieni i colori differenziati per
+       tipi di materiali» e «falli diventare token»): entrano i colori di genere dei materiali --mm-genere-*
+       che l'editor scriveva a mano — flash tenue #dcfce7, foglio #f97316 col testo #c2410c e il tenue #fff7ed,
+       aree #0f766e (quiz = accento e flash = --mm-ok sono alias, non contano) */
+    const TETTO = { colore: 46, raggi: 4, fs: 7, ombre: 2, spazi: 16 };
     const perFam = {};
     for (const t of registro) {
         const fam = V.famigliaDi(t.nome);

@@ -45,3 +45,47 @@ test('nessun vault disponibile: lo storico resta completo e i totali si riconcil
  assert.ok(out.every(x=>!x.nelVault));
  assert.equal(C.aggregate(out.flatMap(x=>x.records)).totals.calls,C.aggregate(records).totals.calls);
 });
+
+// ── 0061: una cartella che dichiara il suo id (ADR 0013) ─────────────────────
+// Gli id sono nella forma che l'app conia: quelli dei casi sopra ('a', 'b') sono
+// fuori forma e restano sul ripiego per posizione, come oggi.
+const PV='proj_1789000000010', PN='proj_1789000000011', PX='proj_1789000000012';
+const vi=(path,projectId,over)=>({...v(path),projectId,...over});
+test('0061: U1. una cartella che dichiara il suo id riceve i suoi consumi, anche con due voci nella stessa posizione', () => {
+ const records=[r(PN),r(PN),r(PV)];
+ // la vecchia orfana (PV) e la nuova (PN) stanno nella stessa posizione: per posizione nessuna delle due vincerebbe
+ const out=C.vaultProjects(records,[vi('/nuova',PN)],[p(PV),p(PN)]);
+ const riga=out.find(x=>x.nelVault);
+ assert.equal(riga.records.length,2);
+ assert.ok(riga.records.every(x=>x.projectId===PN));
+ assert.equal(riga.projectId,PN);
+ assert.equal(riga.created,123);
+ assert.deepEqual(out.filter(x=>!x.nelVault).map(x=>[x.projectId,x.records.length]),[[PV,1]]);
+});
+test('0061: U2. due cartelle con lo stesso id: nessuna riceve i record, che restano nello storico', () => {
+ const records=[r(PN),r(PN)];
+ // la voce sta nella posizione della prima; la seconda è una copia in un'altra classe
+ const out=C.vaultProjects(records,[vi('/prima',PN),vi('/copia',PN,{classDir:'3A'})],[p(PN)]);
+ assert.deepEqual(out.filter(x=>x.nelVault).map(x=>x.records.length),[0,0]);
+ assert.equal(out.filter(x=>!x.nelVault).reduce((n,x)=>n+x.records.length,0),2);
+});
+test('0061: U3. una cartella con id e senza voce riceve i record con quell\'id, non quelli dell\'omonima', () => {
+ const records=[r(PX),r(PV),r(PV)];
+ // l'omonima PV sta nella stessa posizione, con un altro id; nessuna voce PX
+ const out=C.vaultProjects(records,[vi('/x',PX)],[p(PV)]);
+ const riga=out.find(x=>x.nelVault);
+ assert.deepEqual(riga.records.map(x=>x.projectId),[PX]);
+ assert.equal(riga.projectId,PX);
+ assert.equal(riga.created,null);
+ assert.deepEqual(out.filter(x=>!x.nelVault).map(x=>[x.projectId,x.records.length]),[[PV,2]]);
+});
+// Aggiunta del 30/09 (§6, scelta B di Giacomo): la guardia D3 portata ai consumi.
+test('0061: U4. i record di una voce vanno una volta sola: alla cartella che dichiara il suo id, non anche per posizione', () => {
+ const records=[r(PN),r(PN)];
+ // la voce PN registra 4R/Storia/Omonimo; la cartella che la dichiara ora sta in 4R/Geografia; in 4R/Storia c'è una cartella senza id
+ const out=C.vaultProjects(records,[vi('/geografia',PN,{discDir:'Geografia'}),v('/storia')],[p(PN)]);
+ const geo=out.find(x=>x.key==='vault:/geografia'), sto=out.find(x=>x.key==='vault:/storia');
+ assert.equal(geo.records.length,2,'alla cartella che dichiara PN');
+ assert.equal(sto.records.length,0,'la cartella senza id non riceve i record di una voce che ha già la sua casa');
+ assert.equal(out.reduce((n,x)=>n+x.records.length,0),records.length,'ogni record contato una volta sola');
+});

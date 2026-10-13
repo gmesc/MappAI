@@ -3,8 +3,23 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const path = require('path');
 const { createGardenServer } = require('../garden-server.js');
+
+/* una riga di richiesta che `fetch` non manderebbe mai: si scrive sul socket.
+   Torna la riga di stato, o 'appesa' se il server non risponde. */
+function grezza(target) {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET ' + target + ' HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+    let dati = '';
+    s.setEncoding('utf8');
+    s.setTimeout(2000, () => { s.destroy(); resolve('appesa'); });
+    s.on('data', d => { dati += d; });
+    s.on('end', () => resolve(dati.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+}
 
 // template 20×20 tutto floor con 2 parcelle disegnate
 function mkTemplate() {
@@ -41,6 +56,11 @@ test('GET / → redirect a garden.html col token', async () => {
   const r = await fetch(base() + '/', { redirect: 'manual' });
   assert.equal(r.status, 302);
   assert.ok(r.headers.get('location').includes('garden.html?s=' + tok));
+});
+
+test('una richiesta malformata (GET //[) riceve 400 e il server resta in piedi', async () => {
+  assert.equal(await grezza('//['), 'HTTP/1.1 400 Bad Request');
+  assert.equal((await fetch(base() + '/api/session?s=' + tok)).status, 200);
 });
 
 test('GET /api/session senza token → 403; col token → sessione completa', async () => {

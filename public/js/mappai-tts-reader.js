@@ -3,8 +3,10 @@
 // ==========================================
 // Motore di sintesi vocale RIUSABILE + controllo a chip (−10s / play-pausa /
 // +5s / velocità) con BARRA DI AVANZAMENTO scrubabile, EVIDENZIAZIONE karaoke
-// della frase letta e AVVIO PER SEZIONE. Attivato dal toggle "Ascolto testo"
-// nel pannello Strumenti Compensativi (localStorage `mappai_tts_tool_enabled`).
+// della frase letta e AVVIO PER SEZIONE. Nell'app del docente c'è sempre (la sua
+// pagina lo dichiara con `data-voce-sempre` su <html>, 26/9/2026, packet 0039);
+// altrove — l'app dell'allievo, che copia questo file — lo accende e lo spegne
+// `MappAITTS.toggle` (localStorage `mappai_tts_tool_enabled`).
 //
 // Ogni modale che espone uno slot `.mai-tts-slot` (con `data-tts-body="#sel"`)
 // riceve automaticamente il controllo. `data-tts-sections` sullo slot aggiunge
@@ -43,7 +45,13 @@
     function _t(k, f) { try { return (window.t ? window.t(k, f) : f) || f; } catch (e) { return f; } }
     function _icons() { try { if (window.safeCreateIcons) window.safeCreateIcons(); } catch (e) {} }
 
-    function isEnabled() { try { return localStorage.getItem(LS_ENABLED) === '1'; } catch (e) { return false; } }
+    /* Due app, una regola ciascuna (Giacomo, 26/9: «V2 per l'app docente e V1 per iPad»):
+       la pagina del docente dichiara `data-voce-sempre` e il lettore c'è sempre; il reader
+       copia questo file ma non il suo `index.html`, e lì vale l'interruttore. */
+    function isEnabled() {
+        try { if (document.documentElement.hasAttribute('data-voce-sempre')) return true; } catch (e) { }
+        try { return localStorage.getItem(LS_ENABLED) === '1'; } catch (e) { return false; }
+    }
     function _rateIdx() {
         try { var n = parseInt(localStorage.getItem(LS_RATE_IDX), 10); return (n >= 0 && n < SPEEDS.length) ? n : 1; }
         catch (e) { return 1; }
@@ -72,13 +80,26 @@
         try { var ml = window.getMapLanguage && window.getMapLanguage(); if (ml === 'en') return 'en-US'; } catch (e) {}
         return 'it-IT';
     }
+    /* LA VOCE LA SCEGLIE IL SISTEMA, NON NOI (Giacomo, 25/9/26).
+       Prendere la PRIMA voce della lingua scavalcava la voce che l'utente ha
+       scelto — su iPad in Impostazioni › Accessibilità › Contenuto letto › Voci,
+       dove si scarica anche quella di qualità migliore. Ora:
+       1) se c'è una voce dichiarata `default` per quella lingua, è quella (è il
+          modo in cui il browser dice «questa è la voce di sistema»);
+       2) altrimenti NON si assegna nessuna voce: lasciando `utterance.voice`
+          vuoto, iPadOS legge con la voce predefinita della lingua di `u.lang`.
+       Il ripiego sulla prima voce resta solo se la lingua chiesta non esiste
+       proprio (altrimenti l'utterance resterebbe muta). */
     function _pickVoice(lang) {
         if (!_voices.length) _refreshVoices();
         var pre = lang.slice(0, 2).toLowerCase();
-        var exact = _voices.filter(function (v) { return (v.lang || '').toLowerCase().replace('_', '-') === lang.toLowerCase(); });
-        if (exact.length) return exact[0];
-        var loose = _voices.filter(function (v) { return (v.lang || '').toLowerCase().indexOf(pre) === 0; });
-        return loose.length ? loose[0] : null;
+        var norm = function (v) { return (v.lang || '').toLowerCase().replace('_', '-'); };
+        var esatte = _voices.filter(function (v) { return norm(v) === lang.toLowerCase(); });
+        var dellaLingua = esatte.length ? esatte : _voices.filter(function (v) { return norm(v).indexOf(pre) === 0; });
+        if (!dellaLingua.length) return null;
+        var sistema = dellaLingua.filter(function (v) { return v.default; })[0];
+        if (sistema) return sistema;
+        return esatte.length ? null : dellaLingua[0];   // lingua presente: decide il sistema
     }
 
     // ── Highlight (CSS Custom Highlight API) ───────────────────────────────
@@ -672,7 +693,7 @@
             var b = document.createElement('button');
             b.type = 'button'; b.className = 'mai-fila-bt';
             b.title = etichetta; b.setAttribute('aria-label', etichetta);
-            b.innerHTML = '<i data-lucide="' + icona + '"></i>';
+            if (icona) b.innerHTML = '<i data-lucide="' + icona + '"></i>';
             b.addEventListener('click', azione);
             row.appendChild(b);
             return b;
@@ -684,8 +705,14 @@
             b.appendChild(document.createElement('span'));
             disegna(b);
         }
-        if (opts.aa) conStato(_t('tts_scale', 'Grandezza del testo'), 'a-large-small', opts.aa, function (b) {
-            b.querySelector('span').textContent = opts.aa.leggi();
+        /* IL COMANDO «Aa» (09/10, packet 0087 lotto 6): a schermo solo «Aa», niente
+           icona né fattore; il fattore lo dicono aria-label e suggerimento, scritti da
+           `MappAIAa` (mappai-a11y.js). `leggi()` dà il NUMERO del fattore. */
+        if (opts.aa) conStato(_t('tts_scale', 'Grandezza del testo'), null, opts.aa, function (b) {
+            var AA = window.MappAIAa, f = opts.aa.leggi(), nome = _t('tts_scale', 'Grandezza del testo');
+            var a = AA ? AA.aria(nome, f) : nome + ': ×' + f;
+            b.querySelector('span').textContent = AA ? AA.etichetta : 'Aa';
+            b.title = a; b.setAttribute('aria-label', a);
         });
         if (opts.riga) conStato(_t('tts_riga', 'Riga di lettura'), 'align-justify', opts.riga, function (b) {
             var st = opts.riga.leggi() || {};
@@ -792,7 +819,7 @@
             aa: {
                 leggi: function () {
                     var i = 0; try { i = parseInt(localStorage.getItem('mappai-a11y-zoom') || '0', 10) || 0; } catch (e) {}
-                    return '×' + ([1, 1.5, 2][i] || 1);
+                    return [1, 1.5, 2][i] || 1;
                 },
                 premi: function () { if (window.cycleTextZoom) window.cycleTextZoom(); }
             },
@@ -801,8 +828,8 @@
                     var r = document.getElementById('reading-ruler'), on = !!(r && r.classList.contains('active'));
                     return { t: on ? _t('tts_si', 'sì') : _t('tts_no', 'no'), on: on };
                 },
-                // accesa da qui → si spegne quando la scheda si chiude (closeSourceModal);
-                // accesa dal pannello degli strumenti resta: è una scelta per tutta l'app
+                // accesa da qui → si spegne quando la scheda si chiude (closeSourceModal)
+                // (il pannello degli strumenti che la accendeva per tutta l'app è stato tolto il 26/9)
                 premi: function () {
                     var r = document.getElementById('reading-ruler'); if (!r) return;
                     r.classList.toggle('active');
@@ -883,7 +910,7 @@
         document.body.appendChild(f);
         var wrap = fila(ctrl, {
             corpo: function () { return bodyEl; },
-            aa: { leggi: function () { return '×' + _scale(); }, premi: function () { _cycleScale(f); } },
+            aa: { leggi: function () { return _scale(); }, premi: function () { _cycleScale(f); } },
             veloce: function () {
                 if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.apri({ titolo: opts.title || '', testo: opts.text || '' });
             }
@@ -911,7 +938,7 @@
         var css =
             '.mai-tts-slot{display:inline-flex;align-items:center;flex:1 1 auto;min-width:0;vertical-align:middle}' +
             '.mai-tts-wrap{display:inline-flex;align-items:center;gap:10px;max-width:100%;flex:1 1 auto;min-width:0;vertical-align:middle;font-family:"Space Mono",monospace}' +
-            '.mai-tts-chip{display:inline-flex;align-items:stretch;height:40px;border-radius:9999px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(15,23,42,.12);overflow:hidden;flex:0 0 auto}' +
+            '.mai-tts-chip{display:inline-flex;align-items:stretch;height:40px;border-radius:9999px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);box-shadow:0 4px 6px -1px rgba(15,23,42,.12);overflow:hidden;flex:0 0 auto}' +
             '.mai-tts-seg{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:46px;padding:0 12px;border:0;background:transparent;color:#4f46e5;cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;transition:background .15s,color .15s;border-left:1px solid #eef2ff}' +
             '.mai-tts-seg:first-child{border-left:0}.mai-tts-seg:hover{background:#eef2ff}.mai-tts-seg:active{background:#e0e7ff}' +
             '.mai-tts-seg i{width:16px;height:16px}.mai-tts-seg span{font-size:10px;line-height:1;font-weight:700}' +
@@ -925,20 +952,20 @@
             '.mai-tts-sec{display:none;align-items:center;justify-content:center;width:22px;height:22px;margin-right:8px;padding:0;border:0;border-radius:9999px;background:#eef2ff;color:#4f46e5;cursor:pointer;vertical-align:middle}' +
             '.mai-tts-sec.on{display:inline-flex}.mai-tts-sec:hover{background:#e0e7ff}.mai-tts-sec i{width:13px;height:13px}' +
             '.mai-tts-block{background:rgba(253,230,138,.30);border-radius:5px;box-shadow:0 0 0 3px rgba(253,230,138,.30)}' +
-            '::highlight(mai-tts-read){background-color:#fde68a;color:#0f172a}' +
-            '.mai-tts-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4000;width:min(560px,92vw);background:#fff;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 18px 44px rgba(15,23,42,.30);padding:16px 18px 14px;font-family:"Space Mono",monospace}' +
-            '.mai-tts-float-close{position:absolute;top:9px;right:12px;border:0;background:transparent;color:#94a3b8;cursor:pointer;font-size:15px;line-height:1;width:22px;height:22px;border-radius:9999px}' +
+            '::highlight(mai-tts-read){background-color:#fde68a;color:var(--mm-testo, #404040)}' +
+            '.mai-tts-float{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:4000;width:min(560px,92vw);background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:16px;box-shadow:0 18px 44px rgba(15,23,42,.30);padding:16px 18px 14px;font-family:"Space Mono",monospace}' +
+            '.mai-tts-float-close{position:absolute;top:9px;right:12px;border:0;background:transparent;color:var(--mm-testo-3, #64748b);cursor:pointer;font-size:15px;line-height:1;width:22px;height:22px;border-radius:9999px}' +
             '.mai-tts-float-close:hover{background:#f1f5f9;color:#475569}' +
             '.mai-tts-float-body{max-height:32vh;overflow:auto;margin:0 0 12px;padding-right:6px}' +
             '.mai-tts-float-body h4{font-size:14px;font-weight:800;color:#4338ca;margin:0 0 6px}' +
-            '.mai-tts-float-body p{font-size:13px;line-height:1.75;color:#334155;margin:0}' +
+            '.mai-tts-float-body p{font-size:13px;line-height:1.75;color:var(--mm-testo, #404040);margin:0}' +
             '.mai-tts-float-ctrl{display:flex}' +
             // effetti parola per parola
             '::highlight(mai-tts-word-u){text-decoration:underline;text-decoration-color:#4f46e5;text-decoration-thickness:3px;text-underline-offset:5px;background-color:rgba(199,210,254,.55)}' +
             '.mai-tts-fx-parola,.mai-tts-fx-parola *{color:rgba(100,116,139,.35) !important}' +
-            '::highlight(mai-tts-word-lit){color:#0f172a;background-color:rgba(253,230,138,.6)}' +
+            '::highlight(mai-tts-word-lit){color:var(--mm-testo, #404040);background-color:rgba(253,230,138,.6)}' +
             // una parola alla volta: la lettera di fuoco ferma al centro, fra due tacche
-            '.mai-rsvp{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:1.9em;padding:.35em 0;margin:0 0 10px;border-radius:12px;background:#f8fafc;color:#0f172a;font-size:34px;font-weight:700;line-height:1.1;font-family:var(--app-font,"Space Mono",monospace);overflow:hidden}' +
+            '.mai-rsvp{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:1.9em;padding:.35em 0;margin:0 0 10px;border-radius:12px;background:#f8fafc;color:var(--mm-testo, #404040);font-size:34px;font-weight:700;line-height:1.1;font-family:var(--app-font,"Space Mono",monospace);overflow:hidden}' +
             '.mai-rsvp::before,.mai-rsvp::after{content:"";position:absolute;left:50%;width:2px;height:.3em;background:#ef4444;transform:translateX(-50%)}' +
             '.mai-rsvp::before{top:4px}.mai-rsvp::after{bottom:4px}' +
             '.mai-rsvp__w{display:grid;grid-template-columns:1fr auto 1fr;width:100%;white-space:pre}' +
@@ -954,7 +981,7 @@
             // il chip non si schiaccia sotto la sua misura: la fila va a capo
             '.mai-fila .mai-tts-wrap{flex:1 1 420px;min-width:min(100%,420px)}' +
             '.mai-fila .mai-tts-progress{min-width:80px}' +
-            '.mai-fila-bt{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:40px;padding:0 11px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#4338ca;cursor:pointer;white-space:nowrap;font:700 12px "Space Mono",monospace}' +
+            '.mai-fila-bt{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:44px;height:40px;padding:0 11px;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;background:#fff;color:#4338ca;cursor:pointer;white-space:nowrap;font:700 12px "Space Mono",monospace}' +
             '.mai-fila-bt svg,.mai-fila-bt i{width:18px;height:18px;flex:0 0 auto}' +
             '.mai-fila-bt span:empty{display:none}' +
             '.mai-fila-bt[aria-pressed="true"]{background:#eef2ff;border-color:#c7d2fe}' +
@@ -965,10 +992,10 @@
             // la testata è anche la maniglia: alta 44, tutta da afferrare
             '.mai-tts-float-t{position:absolute;top:0;left:0;right:44px;height:44px;line-height:44px;margin:0;padding-left:18px;font-size:13px;font-weight:800;color:#4338ca;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
             '.mai-maniglia{cursor:move;touch-action:none;user-select:none;-webkit-user-select:none}' +
-            '.mai-maniglia::before{content:"⠿";margin-right:8px;color:#94a3b8;font-weight:400}' +
-            '.mai-fila-grip{min-width:30px;padding:0 3px;border-color:transparent;background:transparent;color:#94a3b8;cursor:grab;touch-action:none}' +
+            '.mai-maniglia::before{content:"⠿";margin-right:8px;color:var(--mm-testo-3, #64748b);font-weight:400}' +
+            '.mai-fila-grip{min-width:30px;padding:0 3px;border-color:transparent;background:transparent;color:var(--mm-testo-3, #64748b);cursor:grab;touch-action:none}' +
             '.mai-fila-rimetti{display:none}' +
-            '.mai-fila--libera{position:fixed;z-index:4100;width:max-content;max-width:calc(100vw - 24px);padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 44px rgba(15,23,42,.28)}' +
+            '.mai-fila--libera{position:fixed;z-index:4100;width:max-content;max-width:calc(100vw - 24px);padding:8px 10px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;box-shadow:0 18px 44px rgba(15,23,42,.28)}' +
             '.mai-fila--libera .mai-fila-rimetti{display:inline-flex}' +
             '.mai-fila--libera .mai-fila-grip{cursor:grabbing}' +
             '.mai-tts-float--x15{width:min(880px,96vw)}' +

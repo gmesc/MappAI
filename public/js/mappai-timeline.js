@@ -94,7 +94,9 @@ MappAITimeline._db = function () {
 
 MappAITimeline._persist = function () {
     try {
-        if (window.StorageManager && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
+        // `typeof`, non `window.StorageManager`: quello è la classe nativa del browser
+        // (invariante 3) — la guardia era vera per caso.
+        if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
     } catch (e) { console.warn('[Timeline] persist date manuali fallito:', e); }
 };
 
@@ -136,11 +138,36 @@ MappAITimeline._hl = function (context, dateRaw) {
     var escd = String(dateRaw || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (!escd) return context;
     return context.replace(new RegExp(escd, 'gi'),
-        '<strong style="color:#1e293b;background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>');
+        '<strong style="color:var(--mm-testo, #404040);background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>');
 };
 MappAITimeline._color = function (macroArea) {
     var core = _TLC();
     return core ? core.categoryColor(macroArea) : '#6366f1';
+};
+/* ── I DATI ENTRANO COME TESTO (25/9/2026) ──────────────────────────────────
+   La timeline si apre con `window.open('')` + `document.write` (stessa origine
+   della finestra principale: da lì `opener.electronAPI` è a portata di mano) e
+   le sue card finiscono anche nella proiezione della classe, dentro la finestra
+   principale (mappai-timeline-teacher.js). Le date manuali stanno in
+   `appState.db.timelineEvents`, cioè nel vault che si passa fra colleghi:
+   l'`id` di una data andava in `onclick="TL_del('…')"` protetto dal solo apice,
+   e `'),alert(1),('` ne usciva. Ora l'id entra come letterale JSON, con
+   l'escape dell'attributo sopra; il colore della card passa da un filtro (dentro
+   `style` un `red;background:url(javascript:…)` non ha bisogno di `<`). */
+MappAITimeline._coloreSicuro = function (c) {
+    var DE = window.MappAIDocEdit;
+    if (DE && DE.normColor) return DE.normColor(c) || '#6366f1';
+    var s = String(c == null ? '' : c).trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(s) ? s : '#6366f1';
+};
+/* Il nome della mappa nel piè stampato è una stringa CSS DENTRO il <style>:
+   là il `</style>` di un nome chiude il foglio di stile e il resto diventa HTML
+   (l'escape della cornice protegge solo virgolette e barre). Senza `<` non c'è
+   tag che si chiuda. */
+MappAITimeline._perCss = function (s) {
+    /* il nome entra com'è: MappAIDocHead fa l'escape da sé (escCss/esc, 25/9);
+       prima il «<» diventava «‹» e il piè di «x < 3» diceva «x ‹ 3» */
+    return String(s == null ? '' : s);
 };
 MappAITimeline._key = function (e) {
     var core = _TLC();
@@ -189,16 +216,17 @@ MappAITimeline._cardHtml = function (e, idx, side, showContext) {
     var dateLabel = MappAITimeline._fmtDate(e);
     var ctxH = MappAITimeline._hl(esc(e.chunkText), esc(e.raw));
     var num = String(idx + 1).padStart(2, '0');
+    var col = MappAITimeline._coloreSicuro(e.macroColor);
     var delBtn = e._manual
-        ? '<button type="button" class="no-print" onclick="TL_del(\'' + e._id + '\')" title="Rimuovi data" ' +
+        ? '<button type="button" class="no-print" onclick="TL_del(' + esc(JSON.stringify(String(e._id))) + ')" title="Rimuovi data" ' +
           'style="background:rgba(255,255,255,.28);border:none;color:white;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;">✕</button>'
         : '';
     var originTag = e._origin === 'student' ? ' · 🎓 studente'
                   : e._origin === 'manual'  ? ' · ✏️ aggiunta' : '';
     return '<div class="tl-event tl-' + side + '">' +
-        '<div class="tl-connector"><div class="tl-dot" style="background:' + e.macroColor + ';"></div></div>' +
+        '<div class="tl-connector"><div class="tl-dot" style="background:' + col + ';"></div></div>' +
         '<div class="dossier-card tl-card' + (e._manual ? ' tl-card-manual' : '') + '">' +
-            '<div class="dossier-card-header" style="background:' + e.macroColor + ';color:white;">' +
+            '<div class="dossier-card-header" style="background:' + col + ';color:white;">' +
                 '<div class="dossier-card-header-main">' +
                     '<div class="tl-date-label">' + esc(dateLabel) + '</div>' +
                     '<h2 class="dossier-title">' + esc(e.nodeLabel) + '</h2>' +
@@ -211,7 +239,7 @@ MappAITimeline._cardHtml = function (e, idx, side, showContext) {
             (showContext && e.chunkText
                 ? '<div class="dossier-body">' +
                     '<span class="dossier-section-label">CONTESTO DALLA FONTE</span>' +
-                    '<div class="tl-chunk-source" style="color:' + e.macroColor + ';">' +
+                    '<div class="tl-chunk-source" style="color:' + col + ';">' +
                         '▌ ' + esc(e.chunkTitle) + ' — <em>' + esc(e.chunkSource) + '</em>' +
                     '</div>' +
                     '<p class="dossier-desc tl-context-text">“' + ctxH + '”</p>' +
@@ -369,7 +397,7 @@ window.openTimelineGeneratorModal = function () {
                     '</div>' +
                     '<div>' +
                         '<div class="pm-title">Crea Timeline</div>' +
-                        '<div class="pm-subtitle">' + mapName + '</div>' +
+                        '<div class="pm-subtitle">' + MappAITimeline._esc(mapName) + '</div>' +
                     '</div>' +
                 '</div>' +
 
@@ -846,7 +874,7 @@ window.openTimelineView = function (aiTimelineData, mapNameOverride, opts) {
         var escaped = dateRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         return context.replace(
             new RegExp(escaped, 'gi'),
-            '<strong style="color:#1e293b;background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>'
+            '<strong style="color:var(--mm-testo, #404040);background:#fef9c3;padding:1px 2px;border-radius:2px;font-style:normal;">$&</strong>'
         );
     }
 
@@ -959,7 +987,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
     function _tlDH() { return (typeof window !== 'undefined' && window.MappAIDocHead) || null; }
     function _tlCornice(mapName) {
         var DH = _tlDH();
-        return DH ? DH.stile({ accento: '#4f46e5', mappa: mapName }) : '';
+        return DH ? DH.stile({ accento: '#4f46e5', mappa: window.MappAITimeline._perCss(mapName) }) : '';
     }
     function _tlTestata(mapName, now, eventCount) {
         var DH = _tlDH();
@@ -980,7 +1008,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '    --pdf-card-padding: 18pt; --pdf-card-border-radius: 8pt;',
         '    --pdf-accent-color: #4f46e5; --pdf-text-primary: #1e293b;',
         '    --pdf-text-secondary: #475569; --pdf-text-muted: #94a3b8;',
-        '    --pdf-border: #e2e8f0; --pdf-bg-subtle: #f8fafc;',
+        '    --pdf-border: var(--mm-bordo, #cbd5e1); --pdf-bg-subtle: #f8fafc;',
         '}',
         // Cornice ALLINEATA agli altri fogli stampabili (quiz, flashcard, sintesi):
         // stessa header card, stesso badge pillola, stesso piè di pagina. Cambia
@@ -1013,12 +1041,12 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
         '.tl-gap { border: 2px dashed #cbd5e1 !important; }',
         '.tl-toolbtn { display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:bold; font-family:inherit; }',
         '.tl-guide { max-width:960px; margin:0 auto 14px; padding:0 4px; font-size:10.5pt; color:#475569; line-height:1.5; }',
-        '.tl-guide b { color:#1e293b; }',
-        '.tl-addform { max-width:960px; margin:0 auto 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px 18px; display:none; }',
+        '.tl-guide b { color:var(--mm-testo, #404040); }',
+        '.tl-addform { max-width:960px; margin:0 auto 18px; background:#f8fafc; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:12px; padding:16px 18px; display:none; }',
         '.tl-addform input, .tl-addform select, .tl-addform textarea { width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px 11px; font-family:inherit; font-size:11pt; background:#fff; }',
         '.tl-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }',
         '.tl-field-label { display:block; font-size:9pt; font-weight:700; color:#64748b; margin-bottom:4px; }',
-        '.tl-req { color:#dc2626; } .tl-opt { color:#94a3b8; font-weight:400; }',
+        '.tl-req { color:#dc2626; } .tl-opt { color:var(--mm-testo-3, #64748b); font-weight:400; }',
         '.tl-ex-banner { max-width:960px; margin:0 auto 18px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:10px; padding:11px 14px; font-size:10pt; color:#4338ca; line-height:1.5; display:none; }',
         '.tl-ex-banner .dash { border-bottom:2px dashed #6366f1; }',
         '@media print { body { background: white; padding: 10mm; } .tl-container::before { background: #cbd5e1; } .dossier-card { box-shadow: none; } .tl-event { page-break-inside: avoid; } .tl-gap { display: none !important; } .no-print { display: none !important; } }'
@@ -1032,7 +1060,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
 
     // Barra fissa (solo azioni) + riga-guida + form + banner esercizio (in flusso,
     // sotto lo spacer \u2192 non coprono pi\u00F9 il titolo della timeline).
-    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid #e2e8f0;padding:9px 20px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;gap:12px;flex-wrap:wrap;">' +
+    var printBar = '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:white;border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:9px 20px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px;gap:12px;flex-wrap:wrap;">' +
         '<span style="font-weight:bold;color:#4f46e5;">MappAI \u00b7 Timeline</span>' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
             '<button onclick="TL_toggleForm()" class="tl-toolbtn" style="background:#ede9fe;color:#4f46e5;">+ Aggiungi data</button>' +
@@ -1058,7 +1086,7 @@ window._renderTimeline = function (uniqueEvents, mapName, opts) {
 
         // Form "Nuova data" (in flusso, nascosto di default)
         '<div class="tl-addform" id="tl-addform">' +
-            '<div style="font-weight:bold;color:#1e293b;margin-bottom:12px;font-size:11pt;">Nuova data</div>' +
+            '<div style="font-weight:bold;color:var(--mm-testo, #404040);margin-bottom:12px;font-size:11pt;">Nuova data</div>' +
             '<div class="tl-form-grid">' +
                 '<div><label class="tl-field-label">Anno <span class="tl-req">*</span></label>' +
                     '<input id="tl-f-anno" type="number" placeholder="es. 1945"></div>' +

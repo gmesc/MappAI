@@ -80,7 +80,9 @@
             if (sel && sel.value) c.modello = sel.value;
         } catch (e) { }
         try {
-            var A = window.appState;
+            /* `appState` è un `let` di app.js, NON sta su `window` (invariante 3):
+               con `window.appState` il campo `mappa` mancava da ogni errore. */
+            var A = (typeof appState !== 'undefined') ? appState : null;
             if (A && A.rootNodeLabel) c.mappa = String(A.rootNodeLabel).slice(0, 80);
         } catch (e) { }
         try { c.vista = location.hash || ''; } catch (e) { }
@@ -251,13 +253,56 @@
        registro direbbe cento volte la stessa cosa, che è il modo più veloce di
        rendere illeggibile un registro. (La dedup normale non basta: il testo
        porta i MB, che cambiano ogni volta → sarebbero tutte righe «nuove».) */
-    function controllaCassetto(motivo, forza) {
-        if (!attivo()) return null;
+    /* ── IL PREAVVISO ALL'80% (0076, ADR 0018 punto 4, B2 (a)) ──────────────
+       Il registro dice la saturazione a chi legge le segnalazioni, non a chi
+       lavora: il 03/10 il docente ha saputo del muro solo quando ci ha sbattuto.
+       Quando il livello è «alto» o peggio, UNA finestra nella sessione, col
+       bottone che porta dove si libera spazio (Cabina › Gestione cartelle).
+       Indipendente da `mappai_error_log`; acceso con `mappai_cassetto_snello`
+       = '1' (spento: questo modulo fa quello che faceva). Il cassetto si misura
+       dove si misurava (avvio, dopo un salvataggio con il limite di un minuto):
+       nessuna lettura in più. Il preavviso si spegne per la sessione solo quando
+       una finestra sul cassetto si è VISTA: la sua, o quella del cassetto pieno
+       (`segnaFinestraCassetto`, chiamata da mappai-storage-lang.js). Chi sta per
+       mostrare il cassetto pieno lo salta in QUELLA misura (`opts.preavviso ===
+       false`), e basta: se poi esce in silenzio, il preavviso resta dovuto. */
+    var preavvisoFatto = false;
+    function _tSafe(k, f) {
+        try { return (typeof window !== 'undefined' && window.t) ? window.t(k, f) : f; } catch (e) { return f; }
+    }
+    function _snelloAcceso() {
+        try { return localStorage.getItem('mappai_cassetto_snello') === '1'; } catch (e) { return false; }
+    }
+    function _preavviso(m) {
+        if (preavvisoFatto || !m || (RANGO[m.livello] || 0) < RANGO.alto) return;
+        var MM = (typeof window !== 'undefined') ? window.MappAIModal : null;
+        if (!MM || !MM.conferma) return;
+        preavvisoFatto = true;
+        try {
+            MM.conferma({
+                titolo: _tSafe('cp_preavviso_t', 'Memoria rapida quasi piena'),
+                icona: 'hard-drive',
+                testo: _tSafe('cp_preavviso', 'La memoria rapida dell\'app si sta riempiendo: libera spazio prima che si riempia del tutto.'),
+                conferma: _tSafe('cp_preavviso_si', 'Libera spazio'),
+                annulla: _tSafe('cp_preavviso_no', 'Più tardi')
+            }).then(function (si) {
+                if (si && typeof window !== 'undefined' && window.openCabina) window.openCabina('profilo', { sezione: 'pr-cartelle' });
+            }, function () { });
+        } catch (e) { /* il preavviso è un di più */ }
+    }
+    function segnaFinestraCassetto() { preavvisoFatto = true; }
+
+    function controllaCassetto(motivo, forza, opts) {
+        var snello = _snelloAcceso();
+        var log = attivo();
+        if (!log && !snello) return null;
         var ora = Date.now();
         if (!forza && (ora - ultimoControllo) < FINESTRA) return null;
         ultimoControllo = ora;
         var m = cassetto();
         if (!m) return null;
+        if (snello && !(opts && opts.preavviso === false)) _preavviso(m);
+        if (!log) return m;
         var rango = RANGO[m.livello] || 0;
         if (rango && rango > saturRango) {
             saturRango = rango;
@@ -355,7 +400,7 @@
     var API = {
         registra: registra, ultimi: ultimi, blocco: blocco,
         pulisci: pulisci, apriCartella: apriCartella, attivo: attivo,
-        cassetto: cassetto, controllaCassetto: controllaCassetto,
+        cassetto: cassetto, controllaCassetto: controllaCassetto, segnaFinestraCassetto: segnaFinestraCassetto,
         livelloSaturazione: livelloSaturazione, diagnosi: diagnosi,
         CAP: CAP, QUOTA_MB: QUOTA_MB, SOGLIE: SOGLIE
     };
@@ -371,7 +416,10 @@
            ⚠️ setTimeout e non requestAnimationFrame: a finestra non in primo
            piano il rAF non scatta affatto, e il controllo non partirebbe mai
            (trappola già pagata due volte in questo repo). */
-        setTimeout(function () { try { controllaCassetto('avvio', true); } catch (e) { } }, 8000);
+        var attesa = setTimeout(function () { try { controllaCassetto('avvio', true); } catch (e) { } }, 8000);
+        /* in Node (i test) un timer armato tiene vivo il processo per 8 s a ogni
+           caricamento; `unref` c'è solo lì, nel browser il timer è un numero */
+        if (attesa && typeof attesa.unref === 'function') attesa.unref();
         console.log('[MappAIErrori] registro locale degli errori attivo');
     }
     /* Caricabile anche in Node: le soglie si provano senza un browser. */

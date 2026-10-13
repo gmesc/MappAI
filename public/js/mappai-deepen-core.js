@@ -119,12 +119,197 @@
     }
 
     // ── Frasi ───────────────────────────────────────────────────────────────
-    function splitSentences(text) {
+    // V1, tenuta com'era (packet 0030): spezza dopo OGNI [.!?;:] seguito da uno
+    // spazio. Resta esportata per confronto e per le misure sugli id salvati.
+    // ⚠️ Il `replace(/\s+/g,' ')` viene prima dello split, quindi l'alternativa
+    // `\n+` non scatta mai: un a-capo vale uno spazio. La V2 lo conserva, perché
+    // gli id delle evidenze (hash di fonte, pagina e testo) dipendono dal confine
+    // delle frasi, e un confine nuovo su ogni a-capo li cambierebbe.
+    function splitSentencesV1(text) {
         return String(text || '')
             .replace(/\s+/g, ' ')
             .split(/(?<=[.!?;:])\s+|\n+/)
             .map(s => s.trim())
             .filter(Boolean);
+    }
+
+    /* V2 (packet 0030, 26/9/2026): le frasi si spezzano dove finisce davvero una
+       frase. La V1 spezzava dopo ogni punto e sbagliava 16 casi su 20 di italiano
+       realistico («Fig. 1», «p. 12», «G. Guisan», «1. settembre», «a.C.»…): la
+       didascalia «Fig. 1 Il circuito…» diventava «Fig.» + «1 Il circuito…», e la
+       coda passava ogni filtro come una frase qualunque.
+       La V2 TOGLIE soltanto confini alla V1, non ne aggiunge mai: un testo senza
+       abbreviazioni dà lo stesso risultato, e una frase che la V1 teneva intera
+       resta identica (quindi anche il suo id). `!` `?` `;` `:` spezzano come prima.
+       Dopo un punto seguito da spazio NON si spezza se:
+         1. la parola prima è in ABBR_SEMPRE ed è scritta minuscola («es.», «cfr.»,
+            «ca.», «vs.»; «Es.» e «Cfr.» anche in testa): «Ca» è il calcio e «VS»
+            il Vallese, e lì la frase finisce;
+         2. è in ABBR_NUMERO («Fig.», «p.», «art.», «pag.»…) e segue una cifra o un
+            numero romano — «pag.» davanti a una maiuscola è l'intestazione «…pag.
+            Il contenuto…», e lì si spezza; dopo «p.» e «n.», abbreviazioni di una
+            lettera, il romano deve averne almeno due («p. XII»), perché «tipo p. I
+            portatori» è l'articolo «I»;
+         3. è in ABBR_TITOLO («Sig.», «Dott.», «Gen.»…) e segue una maiuscola;
+         4. è una sigla puntata («a.C.», «U.S.A.», «N.B.», «S.p.A.») e la frase
+            non ricomincia: segue una minuscola, o la sigla è una di SIGLA_SEMPRE
+            («N.B. Il multimetro»), o — per «a.C.» e «d.C.» davanti a un nome — la
+            data sta in TESTA alla frase: la frase comincia con una preposizione
+            di tempo o con una cifra (TESTA_DATA: «Nel 44 a.C. Cesare», «Il 15
+            marzo del 44 a.C. Cesare», «753 a.C. Fondazione») e ha al più 8
+            parole prima della sigla. Contare le parole non basta: «Roma nasce
+            nel 753 a.C. Romolo…», la frase corta della lingua semplificata, ne
+            ha 4 e la data è in coda. Una sigla seguita da una parola che apre
+            una frase («753 a.C. Secondo la leggenda», «l'O.N.U. Il suo scopo»,
+            «l'O.N.U. Quale…?») chiude la frase; e così, davanti a una
+            maiuscola, le sigle che vengono sempre DOPO il loro nome
+            (SIGLA_IN_CODA: «4478 m s.l.m. Locarno», «Rossi S.p.A. La ditta»);
+         5. è un'iniziale maiuscola latina e segue un nome, non una parola che apre
+            una frase («G. Guisan», «S. Gottardo» restano; «formula E. Il team»,
+            «vitamina C. È», «in A. Traccia», «in A. Quanto…?» si spezzano). Si spezza anche quando
+            la lettera è un'etichetta o un simbolo: dopo una parola di ETICHETTA
+            («punto B.», «resistenza R.», «piano B.»), dopo un operatore («R · I.»)
+            e se non è latina («ohm Ω.»);
+         6. segue una minuscola, tranne un marcatore d'elenco «a.» «b)»
+            («1. settembre», «E. coli», «ecc. e altro» restano; «conflitto. a.
+            Quale…?» si spezza).
+       I punti di sospensione e i vuoti da riempire («.....») spezzano come nella
+       V1: la frase che finisce in un vuoto l'àncora la scarta apposta
+       (TRONCA_NEL_VUOTO), e incollarla alla seguente la farebbe passare.
+       Decimali («3.5») e migliaia («1.200») non hanno spazio dopo il punto: non
+       sono mai stati un confine.
+       ⚠️ LINEARE. Lo splitter riceve anche il corpus INTERO (deepening,
+       enrich-core, ELABORA), sul thread dell'interfaccia: ogni lettura attorno a
+       un punto guarda solo la parola prima e quella dopo (`lastIndexOf`,
+       `indexOf`), mai il testo da capo. Un `/\S+$/` sul prefisso, la prima
+       stesura, costava 71 s su un milione di caratteri. Guardia di tempo in
+       tests/split-frasi.test.js. */
+    const ABBR_SEMPRE = new Set(['es', 'cfr', 'ca', 'vs']);
+    const ABBR_NUMERO = new Set(['fig', 'figg', 'tab', 'tabb', 'tav', 'doc', 'docc', 'all', 'art', 'artt',
+        'n', 'nn', 'nr', 'p', 'pp', 'pag', 'pagg', 'cap', 'capp', 'vol', 'voll', 'par', 'sez', 'cod']);
+    const ROMANO = /^[IVXLCDM]+(?!\p{L})/u;
+    const ROMANO_LUNGO = /^[IVXLCDM]{2,}(?!\p{L})/u;
+    const SIGLA = /^(?:\p{L}\.)+\p{L}$/u;
+    // Sigle che aprono una nota o un inciso: dopo, la maiuscola non chiude niente.
+    const SIGLA_SEMPRE = /^(?:N\.B|P\.S|c\.d|i\.e|e\.g)$/i;
+    // Niente parole che in inglese chiudono una frase («so on.», «to ten.», «a card.»).
+    const ABBR_TITOLO = new Set(['sig', 'sigg', 'dott', 'dr', 'prof', 'gen', 'col', 'magg', 'ing',
+        'avv', 'sen', 'mons', 'ss', 'st', 'mr', 'mrs']);
+    // Parole funzionali: dopo un'iniziale maiuscola aprono una frase nuova, non un cognome.
+    const PAROLE_FUNZIONALI = new Set(('il lo la i gli le un uno una l ' +
+        'di a da in con su per tra fra ' +
+        'del dello della dei degli delle dell al allo alla ai agli alle all ' +
+        'dal dallo dalla dai dagli dalle dall nel nello nella nei negli nelle nell ' +
+        'col coi sul sullo sulla sui sugli sulle sull ' +
+        'e ed o ma però poi quindi infatti inoltre anche così se quando mentre dopo prima ' +
+        'come perché dove non questo questa questi queste quello quella quelli quelle quel ' +
+        'quest quell ciò esso essa essi esse egli ella lui lei loro ci si ne ' +
+        'the an of on at to for from by with and but or this that these those it he she they we')
+        .split(' '));
+    // Altre parole che, maiuscole dopo un'iniziale o una sigla, aprono una frase
+    // nuova: avverbi e quantificatori di testa, gli interrogativi e gli
+    // imperativi delle consegne.
+    // Gli INTERROGATIVI contano più di tutto: se la frase che segue è una
+    // domanda, la fusione finisce con «?» e l'àncora la scarta intera, frase
+    // buona compresa («rettangolo in A. Quanto misura…?», «morsetto B. Che cosa
+    // succede…?», «s.l.m. Quale vetta…?»). Non possono essere un cognome. Le
+    // forme elise («Cos'è», «Com'è», «Dov'è», «Quand'è») arrivano qui tronche
+    // all'apostrofo: «cos», «com», «dov», «quand».
+    // ⚠️ Gli imperativi NON sono l'elenco delle consegne (quello vive, in due
+    // copie divergenti, nella regola 2 di mappai-evidence-core.js e in
+    // ESERCIZIO di mappai-anchor-core.js, e va unificato con Giacomo): qui
+    // servono solo a dire «dopo "in A." comincia un'altra frase», e sono
+    // l'unione delle due più i verbi di geometria e fisica delle schede.
+    // Un elenco resta un elenco: una parola che non c'è («Watt è…», «Dato il
+    // triangolo…») dopo un'iniziale viene letta come un cognome.
+    const APRE_FRASE = new Set(('è ad ogni ognuno tutti tutto tutte altri altre alcuni alcune molti molte ' +
+        'durante secondo oggi ora qui successivamente infine tuttavia pertanto dunque allora invece grazie ' +
+        'senza verso contro oltre sotto sopra entrambi nessuno nessun qualche ' +
+        'suo sua suoi sue tale tali pochi poche ciascun ciascuno ciascuna ' +
+        'nonostante poiché siccome già solo spesso sempre anzi cioè ' +
+        'chi che cosa quale quali qual quanto quanta quanti quante cos com dov quand ' +
+        'traccia misura calcola disegna osserva scrivi leggi collega completa indica spiega descrivi rispondi ' +
+        'sottolinea elenca confronta riordina esamina ricopia inserisci sviluppa verifica trova determina dimostra ' +
+        'costruisci chiudi apri unisci considera sapendo sia siano rappresenta ricava risolvi esprimi applica ' +
+        'usa utilizza colora segna congiungi prolunga motiva giustifica cerca')
+        .split(' '));
+    // Parole dopo cui una lettera maiuscola è un'etichetta («il punto B.», «la
+    // resistenza R.», «il piano B.»), non l'iniziale di un nome.
+    const ETICHETTA = new Set(('punto vertice lato segmento retta angolo vitamina tipo gruppo classe piano ' +
+        'lettera fase serie allegato documento figura carica corrente resistenza simbolo insieme zona settore')
+        .split(' '));
+    const OPERATORE = /^[=·×+\-−/<>≤≥]$/;
+    const APERTURA = /^[«"'“‘(\[]+/;
+    // Sigle che vengono sempre DOPO il loro nome («4478 m s.l.m.», «Rossi
+    // S.p.A.»): davanti a una maiuscola la frase è finita.
+    const SIGLA_IN_CODA = /^(?:s\.l\.m|S\.p\.A|S\.A|S\.r\.l)$/;
+    // Come comincia una frase con la data in testa: una preposizione di tempo
+    // («Nel», «Nella primavera del», «Verso il», «Dopo il», «Nell'anno»…) o una
+    // cifra («753 a.C.», «Il 15 marzo del 44 a.C.», «L'8 marzo…»). La parola
+    // deve finire lì: «Tra» sì, «Traiano» no; «Fra» sì, «Francesco» no.
+    const TESTA_DATA = new RegExp('^(?:(?:nel|nello|nella|nei|negli|nelle|dal|dallo|dalla|dai|dagli|dalle|' +
+        'verso|intorno|attorno|entro|fino|tra|fra|sin|già|circa|durante|dopo|prima)(?!\\p{L})|' +
+        '(?:nell|dall)[\'’]|ca\\.|\\d|(?:il|l[\'’])\\s*\\d)', 'iu');
+
+    // La frase in corso, da `inizio` a `fino`, è una data in testa: comincia
+    // come TESTA_DATA e ha al più 8 parole. Legge al più 200 caratteri.
+    function _dataInTesta(s, inizio, fino) {
+        if (fino - inizio > 200) return false;
+        const t = s.slice(inizio, fino).trim().replace(APERTURA, '');
+        return TESTA_DATA.test(t) && t.split(' ').length <= 8;
+    }
+
+    // `s` ha gli spazi già compressi in uno solo (' ' è l'unico spazio rimasto);
+    // s[p] è lo spazio, s[p-1] la punteggiatura; `inizio` è dove comincia la
+    // frase in corso. Ogni lettura resta attorno a `p`: vedi «LINEARE» sopra.
+    function _confineVero(s, p, inizio) {
+        if (s[p - 1] !== '.') return true;                        // ! ? ; : come la V1
+        if (s[p - 2] === '.') return true;                        // «...» «.....»: come la V1
+        const da = s.lastIndexOf(' ', p - 2) + 1;                 // dove comincia la parola prima del punto
+        const prima = s.slice(da, p - 1).replace(APERTURA, '');
+        const parola = prima.split(/['’]/).pop();                 // «dell'art» → «art»
+        const wOrig = parola.split('.').pop();                    // «p.es» → «es»
+        const w = wOrig.toLowerCase();
+        const fine = s.indexOf(' ', p + 1);
+        const dopo = s.slice(p + 1, fine < 0 ? s.length : fine).replace(APERTURA, '');
+        if (!dopo) return true;
+        const nome = dopo.split(/['’]/)[0].replace(/[^\p{L}]+$/u, '').toLowerCase();
+        const apre = PAROLE_FUNZIONALI.has(nome) || APRE_FRASE.has(nome);
+        if (ABBR_SEMPRE.has(w) && (/^\p{Ll}+$/u.test(wOrig) || /^(?:Es|Cfr)$/.test(wOrig))) return false;
+        if (ABBR_NUMERO.has(w) && (/^\d/.test(dopo) || (w.length > 1 ? ROMANO : ROMANO_LUNGO).test(dopo))) return false;
+        if (ABBR_TITOLO.has(w) && /^\p{Lu}/u.test(dopo)) return false;
+        if (SIGLA.test(parola)) {                                 // sigla puntata
+            if (SIGLA_SEMPRE.test(parola) || /^\p{Ll}/u.test(dopo)) return false;
+            if (apre) return true;                                // «a.C. Secondo», «O.N.U. Quale»
+            if (/^[ad]\.C$/.test(parola)) return !_dataInTesta(s, inizio, da);   // «Nel 476 d.C. Odoacre» resta
+            if (SIGLA_IN_CODA.test(parola)) return true;          // «s.l.m. Locarno»
+            return false;                                         // «Negli U.S.A. Roosevelt»
+        }
+        if (/^\p{Lu}$/u.test(parola) && /^\p{Lu}/u.test(dopo)) {
+            if (!/^\p{Script=Latin}$/u.test(parola)) return true;  // «ohm Ω.»: un simbolo
+            const davanti = da > 0
+                ? s.slice(s.lastIndexOf(' ', da - 2) + 1, da - 1).replace(APERTURA, '').split(/['’]/).pop().toLowerCase()
+                : '';
+            if (ETICHETTA.has(davanti) || OPERATORE.test(davanti)) return true;   // «punto B.», «R · I.»
+            if (!apre) return false;                              // iniziale di un nome
+        }
+        if (/^\p{Ll}/u.test(dopo) && !/^\p{Ll}[.)]$/u.test(dopo)) return false;
+        return true;
+    }
+
+    function splitSentences(text) {
+        const s = String(text || '').replace(/\s+/g, ' ');
+        const out = [];
+        const re = /[.!?;:] /g;
+        let da = 0, m;
+        while ((m = re.exec(s)) !== null) {
+            const p = m.index + 1;
+            if (!_confineVero(s, p, da)) continue;
+            out.push(s.slice(da, p));
+            da = p + 1;
+        }
+        out.push(s.slice(da));
+        return out.map(x => x.trim()).filter(Boolean);
     }
 
     // Similarità di Jaccard sui token-contenuto di due testi (0..1).
@@ -437,6 +622,7 @@
         lexicalOverlap,
         jaccardSim,
         splitSentences,
+        splitSentencesV1,
         residueSentences,
         buildResidueMaterial,
         assignResidues,

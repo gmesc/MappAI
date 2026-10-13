@@ -42,7 +42,7 @@ html.ui, .ui {
     --ui-fs-titolo: 44px;    --ui-lh-titolo: 1.05;
     --ui-fs-sotto: 16px;
     --ui-fs-chip: 28px;      --ui-fs-chip-eti: 11px;  --ui-ls-eti: .12em;
-    --ui-fs-btn: 16px;       /* ≥16: style.css:87 scarta ogni corpo minore sui bottoni */
+    --ui-fs-btn: 16px;       /* il gradino dei bottoni della scala (regola 10 §3) */
     --ui-fs-corpo: 14px;     --ui-lh-corpo: 1.5;
 
     color-scheme: dark;

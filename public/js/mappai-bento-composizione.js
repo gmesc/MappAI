@@ -177,7 +177,11 @@
         { id: 'mp-syn-on', aiuto: 'Un testo continuo che riassume la mappa, da leggere o da ascoltare.', et: 'Sintesi della mappa', tipo: 'spunta', chiave: 'synthesis', master: true, seFuori: 'niente sintesi' },
         { id: 'mp-syn-audio', aiuto: 'Legge la sintesi con la voce naturale di Google e salva l\u0027audio accanto al testo. Costa chiamate AI.', et: 'Voce naturale (audio)', tipo: 'spunta', chiave: 'synthesis.audio', figlioDi: 'mp-syn-on', seFuori: 'sintesi solo testo' },
 
-        { id: 'mp-src-pdf', aiuto: 'Copia il file di partenza dentro il vault, in «Allegati»: la cartella dell\u0027allievo basta a sé stessa.', et: 'Salva la fonte in «Allegati»', tipo: 'spunta', chiave: 'sourcePdf', seFuori: 'la fonte non viene copiata nel vault' },
+        /* 0067 (0068 fuso, strada A): l'aiuto parla anche delle foto. Un dossier da
+           immagine mette SEMPRE la foto piena in «Allegati», che l'allievo riceve:
+           con una foto la spunta non ha niente da decidere, e il guscio la nasconde
+           (Giacomo, 01/10). Il comportamento col PDF non cambia. */
+        { id: 'mp-src-pdf', aiuto: 'Un PDF resta sempre nel vault, in «Fonti»: con la spunta ne va una copia in «Allegati», che l\u0027allievo riceve. Con una foto la spunta non compare: la foto va in «Allegati» comunque.', et: 'Manda la fonte all\'allievo', tipo: 'spunta', chiave: 'sourcePdf', seFuori: 'l\'allievo non riceve il PDF della fonte (resta in «Fonti»); la foto di un dossier la riceve lo stesso, da «Allegati»' },
         { id: 'mp-estimate', aiuto: 'Quante chiamate all\u0027AI costerà quello che hai spuntato, aggiornato mentre scegli.', et: 'Stima chiamate AI', tipo: 'esito', chiave: '—',
           seFuori: '⚠️ si sceglie senza vedere quanto costa: è la ragione per cui il modale è stato portato in pagina' },
 
@@ -236,6 +240,12 @@
           vuoto: 'Premi «Testo» fra le fonti: qui compare l\'area dove incollare gli appunti.',
           seFuori: '⚠️ premendo «Testo» il campo dove incollare gli appunti compare nell\'elenco delle fonti, stretto in una riga' },
 
+        /* 0070: il configuratore ha un solo host reale; il runtime lo rivela
+           soltanto quando il percorso testuale è acceso e montato. */
+        { id: 'mn-lettura', aiuto: 'Prepara attività di comprensione e metacomprensione da un testo, senza richiedere una mappa.', et: 'Leggere e lavorare sul testo', tipo: 'strumento', forma: 'pannello', chiave: '—',
+          sposta: '#lettura-crea-host', gruppo: 'Contenuto', grande: true, nascondiEt: true,
+          seFuori: 'il configuratore del percorso di lettura non compare nella sezione estesa di CREA' },
+
         /* ── I QUATTRO PEZZI DELLA PRIMA SEZIONE (5/8, richiesta di Giacomo) ───
            Il bottone che carica i documenti, l'elenco delle fonti, la scelta del
            genere di mappa e le sue opzioni erano impaginati da `RIGHE`, cioè FUORI
@@ -248,6 +258,23 @@
            ⚠️ Chi li toglie dalla composizione se li ritrova dove stavano prima:
            `impagina()` costruisce le due righe storiche solo per i pezzi che il
            bento non ha preso. Niente resta orfano. */
+        /* ── «OUTPUT» (0087 lotto 10-crea, Giacomo 12/10) ─────────────────────
+           Che cosa vuole ottenere il docente: Differenziazione · Analisi
+           iconografica · Metacomprensione. Le tre voci governano quali box del
+           bento si vedono (mappai-crea-output.js). Il campo è una tendina di
+           index.html (#mn-output-campo) che il bento sposta nel suo box; i due
+           posti d'attesa della terza riga annunciano dove compariranno l'anteprima
+           dell'immagine e il titolo (Analisi iconografica), finché il guscio
+           iconografico non monta i pezzi veri. */
+        { id: 'mn-output', aiuto: 'Che cosa vuoi ottenere: Differenziazione (il bento di sempre), Analisi iconografica (i formati delle immagini e i posti dell\u0027anteprima e del titolo), Metacomprensione (il configuratore della Lettura).', et: 'Output', tipo: 'strumento', forma: 'campo', chiave: '—',
+          sposta: '#mn-output-campo', gruppo: 'Contenuto', grande: true,
+          seFuori: 'la scelta dell\u0027output sparisce dal bento: resta quella ricordata (mappai_crea_output), senza modo di cambiarla' },
+        { id: 'mn-foto-attesa', aiuto: 'Il posto dell\u0027anteprima dell\u0027immagine, vuoto finché non si carica una foto. Compare solo con Output = Analisi iconografica.', et: 'Posto dell\u0027anteprima', tipo: 'strumento', forma: 'pannello', chiave: '—',
+          sposta: '#mn-foto-attesa', gruppo: 'Contenuto', grande: true,
+          seFuori: 'con Output = Analisi iconografica la terza riga non annuncia dove comparirà l\u0027anteprima dell\u0027immagine' },
+        { id: 'mn-scheda-attesa', aiuto: 'Il posto del titolo letto dall\u0027AI, vuoto finché non si carica una foto. Compare solo con Output = Analisi iconografica.', et: 'Posto del titolo', tipo: 'strumento', forma: 'pannello', chiave: '—',
+          sposta: '#mn-scheda-attesa', gruppo: 'Contenuto', grande: true,
+          seFuori: 'con Output = Analisi iconografica la terza riga non annuncia dove comparirà il titolo' },
         { id: 'mn-upload', aiuto: 'Carica PDF, testo, CSV o Markdown: il testo viene estratto sul computer prima di andare all\u0027AI.', et: 'Carica documenti', tipo: 'strumento', forma: 'bottone', chiave: '—',
           sposta: '#btn-src-doc', gruppo: 'Fonti', grande: true,
           seFuori: '⚠️ il bottone da cui si carica un PDF torna nella riga storica sopra il bento: la prima fase resta a schermo ma non si compone' },
@@ -260,6 +287,18 @@
         { id: 'mn-genere-opz', aiuto: 'Il tema centrale della mappa mentale, oppure quanti concetti generare nel grafo.', et: 'Tema centrale / numero di nodi', tipo: 'strumento', forma: 'campo', chiave: '—',
           sposta: '#mn-genere-dx', gruppo: 'Contenuto', grande: true,
           seFuori: 'il tema centrale (MindMap) e lo slider dei nodi (KG) tornano nella riga storica' },
+        /* ── LA MODALITÀ ICONOGRAFICA (0067, ADR 0015) ─────────────────────────
+           Con una scheda di fonte iconografica confermata, il guscio
+           (`mappai-crea-iconografica.js`) mette questi due pezzi AL POSTO di
+           `mn-genere` e `mn-genere-opz`, con gli stessi span. Non stanno nella
+           composizione: nascono e muoiono con la foto. Sono nell'inventario perché
+           l'Officina §7 li veda e il validatore sappia che esistono. */
+        { id: 'mn-foto', aiuto: 'L\'anteprima della foto caricata fra le fonti. Compare solo con una fonte iconografica, al posto della scelta Mappa / Knowledge Graph.', et: 'Anteprima della foto', tipo: 'strumento', forma: 'pannello', chiave: '—',
+          sposta: '#ci-foto', gruppo: 'Contenuto', grande: true,
+          seFuori: 'nessuna perdita a schermo: il guscio della modalità iconografica la monta da sé al posto del genere di mappa' },
+        { id: 'mn-scheda', aiuto: 'La scheda letta dall\'AI: il titolo si corregge qui e diventa il nome del dossier; «Rivedi la scheda» riapre i quattro blocchi.', et: 'Scheda letta (titolo correggibile)', tipo: 'strumento', forma: 'pannello', chiave: '—',
+          sposta: '#ci-scheda', gruppo: 'Contenuto', grande: true,
+          seFuori: 'nessuna perdita a schermo: il guscio la monta da sé al posto del tema centrale, quando c\'è una scheda confermata' },
 
         /* — le altre quattro fonti — */
         { id: 'mn-src-url', aiuto: 'Parti da una pagina web: MappAI ne scarica il contenuto.', et: 'Link web', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#btn-src-url',
@@ -476,10 +515,31 @@
            ⚠️ Niente `altezza` dichiarata: il pezzo dentro è già alto un modulo
            (`--mn-h-modulo`, 145px). Dichiararla qui vorrebbe dire due numeri per la
            stessa misura, e al primo ritocco del token uno dei due resta indietro. */
+        /* 0087 lotto 10-crea (Giacomo, 12/10): «Output» a sinistra del bottone DOCUMENTI,
+           e l'elenco dei file «da 3/4 a 1/2». Il box ha fondo chiaro: non è nascondibile.
+           ⚠️ L'id è `output-scelta`: `output` è già il box «Output automatici» del 20/8
+           (le spunte dei materiali), e le migrazioni lo cercano per id. */
+        { id: 'output-scelta', titolo: 'Output', icona: 'sliders-horizontal', span: 1,
+          stile: { bg: '#ffffff', testo: '#404040', bordoPx: 1, bordoCol: '#cbd5e1' }, voci: ['mn-output'] },
         { id: 'upload', titolo: '', icona: '', span: 1, nuda: true, voci: ['mn-upload'] },
-        { id: 'elenco', titolo: '', icona: '', span: 3, nuda: true, voci: ['mn-elenco'] },
+        { id: 'elenco', titolo: '', icona: '', span: 2, nuda: true, voci: ['mn-elenco'] },
         { id: 'genere', titolo: '', icona: '', span: 1, nuda: true, voci: ['mn-genere'] },
         { id: 'genere-opz', titolo: '', icona: '', span: 3, nuda: true, voci: ['mn-genere-opz'] },
+        /* 0070 (il configuratore della Lettura) — dal 12/10 sera (0087 lotto 10-crea, Giacomo:
+           «Sposta il box 'Leggere e lavorare sul testo' nella seconda riga del bento … usa il BG
+           grigio e i testi scuri») sta QUI, a tutta riga, subito dopo la riga del genere, col
+           grigio dei box standard: non è più un «extra» della vista estesa. NUDO, come il
+           tema centrale: il planner È il box (fondo grigio, raggio e imballaggio della card
+           glieli dà mappai-stile-manifesto.css), e le regole dei pezzi spostati nelle card
+           vestite non lo toccano. Si vede solo con Output = Metacomprensione (il suo host è
+           `hidden` altrimenti: mappai-crea-output.js), e in quello stato la riga del genere
+           si nasconde (niente mappa da generare). */
+        { id: 'lettura', titolo: '', icona: '', span: 4, nuda: true,
+          layout: { colonneVoci: 1 }, voci: ['mn-lettura'] },
+        /* la terza riga d'attesa della modalità iconografica (10-crea): la vede solo chi ha
+           scelto «Analisi iconografica», finché il guscio non monta foto e scheda vere */
+        { id: 'foto-attesa', titolo: '', icona: '', span: 1, nuda: true, voci: ['mn-foto-attesa'] },
+        { id: 'scheda-attesa', titolo: '', icona: '', span: 3, nuda: true, voci: ['mn-scheda-attesa'] },
 
         /* ══ IL MEGA-BENTO — sempre a schermo, anche in vista compatta ══════════
            Composizione di Giacomo (5/8). Le prime due righe sono la vista compatta
@@ -569,7 +629,7 @@
           voci: [{ id: 'mp-ns-title', et: 'Titolo' }, 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
               { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
         { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1,
-          voci: [{ id: 'mp-src-pdf', et: 'Allega PDF' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
+          voci: [{ id: 'mp-src-pdf', et: 'Manda la fonte all\'allievo' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
         /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
            sta nel box «Quiz» sopra, quindi le sta sotto e non dentro — dentro
            sarebbe una spunta come le altre, e non lo è (sette generazioni). */
@@ -1003,20 +1063,75 @@
         return out;
     }
 
+    /* 0087 lotto 10-crea (12/10): chi ha composto il bento in Officina ha un layout
+       salvato senza «Output» e senza i posti d'attesa — glieli porta questa, come
+       `withMaterialControls` fa coi materiali: Output davanti al bottone dei documenti,
+       l'elenco a 2 colonne, i posti d'attesa dopo la riga del genere. Pura. */
+    function withOutput(moduli) {
+        var ha = function (m, id) { return vociDi(m).some(function (v) { return v.id === id; }); };
+        var out = moduli;
+        if (!out.some(function (m) { return ha(m, 'mn-output'); })) {
+            out = out.slice();
+            var i = out.findIndex(function (m) { return ha(m, 'mn-upload'); });
+            out.splice(i < 0 ? 0 : i, 0, Object.assign({}, MODULI.find(function (m) { return m.id === 'output-scelta'; }), { voci: ['mn-output'] }));
+            var e = out.findIndex(function (m) { return ha(m, 'mn-elenco'); });
+            if (e >= 0 && out[e].span === 3) out[e] = Object.assign({}, out[e], { span: 2 });
+        }
+        /* 12/10 sera: la Lettura va subito dopo la riga del genere, col grigio dei box
+           standard; un layout salvato che la tiene in fondo (o scura) si riallinea */
+        var li = out.findIndex(function (m) { return ha(m, 'mn-lettura'); });
+        if (li >= 0) {
+            var gi = out.findIndex(function (m) { return ha(m, 'mn-genere-opz'); });
+            if (gi < 0) gi = out.findIndex(function (m) { return ha(m, 'mn-genere'); });
+            var mod = out[li];
+            var vestito = !mod.nuda;
+            var posto = gi < 0 ? li : gi + 1;
+            if (vestito || posto !== li) {
+                out = out.slice();
+                var nuovo = mod;
+                if (vestito) { nuovo = Object.assign({}, mod, { nuda: true }); delete nuovo.stile; }
+                out.splice(li, 1);
+                if (posto > li) posto -= 1;
+                out.splice(posto, 0, nuovo);
+            }
+        }
+        if (!out.some(function (m) { return ha(m, 'mn-foto-attesa'); })) {
+            out = out.slice();
+            var g = out.findIndex(function (m) { return ha(m, 'mn-genere-opz'); });
+            if (g < 0) g = out.findIndex(function (m) { return ha(m, 'mn-genere'); });
+            var dove = g < 0 ? out.length : g + 1;
+            out.splice(dove, 0,
+                Object.assign({}, MODULI.find(function (m) { return m.id === 'foto-attesa'; }), { voci: ['mn-foto-attesa'] }),
+                Object.assign({}, MODULI.find(function (m) { return m.id === 'scheda-attesa'; }), { voci: ['mn-scheda-attesa'] }));
+        }
+        return out;
+    }
+
     function withMaterialControls(moduli) {
-        var out = withMixedOutput(moduli);
-        if (out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-fc-count'; }); })) return out;
+        var out = withOutput(withMixedOutput(moduli));
+        if (!out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-fc-count'; }); })) {
+            out = out.slice();
+            var quizIndex = out.findIndex(function (m) { return m.id === 'quiz'; });
+            if (quizIndex >= 0) out[quizIndex] = Object.assign({}, out[quizIndex], { voci: (out[quizIndex].voci || []).concat(['mp-fc-count']) });
+            else out.push(Object.assign({}, MODULI.find(function (m) { return m.id === 'quiz'; }), { voci: ['mp-fc-count'] }));
+        }
+        /* Anche chi ha già migrato i materiali riceve il nuovo host. Il core
+           resta puro: visibilità e interruttore appartengono al runtime. */
+        if (out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mn-lettura'; }); })) return out;
         out = out.slice();
-        var index = out.findIndex(function (m) { return m.id === 'quiz'; });
-        if (index >= 0) out[index] = Object.assign({}, out[index], { voci: (out[index].voci || []).concat(['mp-fc-count']) });
-        else out.push(Object.assign({}, MODULI.find(function (m) { return m.id === 'quiz'; }), { voci: ['mp-fc-count'] }));
+        /* 12/10 sera: subito dopo la riga del genere (prima stava davanti al testo libero) */
+        var gIdx = out.findIndex(function (m) { return vociDi(m).some(function (v) { return v.id === 'mn-genere-opz'; }); });
+        if (gIdx < 0) gIdx = out.findIndex(function (m) { return vociDi(m).some(function (v) { return v.id === 'mn-genere'; }); });
+        var lettura = MODULI.find(function (m) { return m.id === 'lettura'; });
+        out.splice(gIdx < 0 ? out.length : gIdx + 1, 0, Object.assign({}, lettura,
+            { voci: lettura.voci.slice(), layout: Object.assign({}, lettura.layout) }));
         return out;
     }
 
     return {
         SCALA: SCALA, VOCI: VOCI, MODULI: MODULI, COLONNE: COLONNE, ICONE: ICONE, STILE_BASE: STILE_BASE,
         voce: voce, vociDi: vociDi, soloAzioni: soloAzioni, stileDi: stileDi, contrasto: contrasto,
-        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate, withMixedOutput: withMixedOutput, withMaterialControls: withMaterialControls,
+        valida: valida, forma: forma, mastersDerivati: mastersDerivati, gate: gate, withMixedOutput: withMixedOutput, withMaterialControls: withMaterialControls, withOutput: withOutput,
         RIGHE: RIGHE, riga: riga, validaRighe: validaRighe, nascondibile: nascondibile,
         firma: firma, FORME: FORME, formaDi: formaDi,
         /* i controlli granulari (5/8): layout delle voci e colori dei bottoni interni */

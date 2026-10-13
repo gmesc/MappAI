@@ -329,7 +329,7 @@
     }
 
     function _sectTitle(t) {
-        return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin:12px 0 4px;">' + t + '</div>';
+        return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mm-testo-3, #64748b);margin:12px 0 4px;">' + t + '</div>';
     }
     // Heatmap del lavoro per nodo (effort), indipendente dalla mastery.
     function _effortHeatmap(effort) {
@@ -342,7 +342,7 @@
             return '<span title="' + _escTxt(e.label) + ' · effort ' + e.score + '" style="font-size:10px;padding:3px 7px;border-radius:6px;background:' + bg + ';color:' + (t > 0.5 ? '#fff' : '#334155') + ';">' + _escTxt(lab) + '</span>';
         }).join('');
         return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' + cells + '</div>' +
-            '<p style="font-size:11px;color:#94a3b8;margin:4px 0 0;">Colore = lavoro svolto (tentativi di studio + chat + scrittura), <b>indipendente dalla padronanza</b>. ' + effort.workedNodes + '/' + effort.nodes.length + ' nodi toccati.</p>';
+            '<p style="font-size:11px;color:var(--mm-testo-3, #64748b);margin:4px 0 0;">Colore = lavoro svolto (tentativi di studio + chat + scrittura), <b>indipendente dalla padronanza</b>. ' + effort.workedNodes + '/' + effort.nodes.length + ' nodi toccati.</p>';
     }
     function _studentCard(s, tiers) {
         const has = id => !tiers || tiers.has(id);
@@ -356,7 +356,7 @@
             const mr = s.masteryReal;
             if (mr) sec += _sectTitle('Mastery (padronanza reale — Precision Teaching)') +
                 _bar('Fluente', mr.counts.fluente, mr.withData || 1) + _bar('Acquisito', mr.counts.acquisito, mr.withData || 1) + _bar('In corso', mr.counts['in-corso'], mr.withData || 1) +
-                '<p style="font-size:11px;color:#94a3b8;margin:2px 0 0;">' + mr.withData + ' nodi con dati' + (mr.fluencyRate != null ? ' · fluenza media <b>' + mr.fluencyRate + '</b> corrette/min' : '') + '</p>';
+                '<p style="font-size:11px;color:var(--mm-testo-3, #64748b);margin:2px 0 0;">' + mr.withData + ' nodi con dati' + (mr.fluencyRate != null ? ' · fluenza media <b>' + mr.fluencyRate + '</b> corrette/min' : '') + '</p>';
             else sec += _sectTitle('Mastery (semaforo)') +
                 _bar('Imparato', m.counts.done, m.total || 1) + _bar('Da ripassare', m.counts.review, m.total || 1) + _bar('Non toccato', m.counts.none, m.total || 1);
         }
@@ -375,30 +375,35 @@
         if (has('t2') && ch.byMode) {
             const ml = { socratic: 'Socratico', explain: 'Spiega tu', ask: 'Interroga tu', devil: 'Dubbio', connect: 'Collega', recall: 'Ripasso' };
             const modes = Object.keys(ch.byMode).filter(k => k !== 'untagged' && ch.byMode[k].turns > 0);
+            /* La chiave è il `mode` di un turno del tutor, cioè del `tutorState`
+               che sta nel vault dell'ALLIEVO (25/9/2026): una modalità che la
+               tabella non conosce finiva qui così com'era, dentro la dashboard
+               (finestra principale, con window.electronAPI) e dentro il report
+               aperto con document.write. Ora è testo. */
             if (modes.length) sec += '<p style="font-size:12px;color:#64748b;margin:4px 0 0;">Per modalità: ' +
-                modes.map(k => (ml[k] || k) + ' (' + ch.byMode[k].turns + ' turni, ragionamento ' + ch.byMode[k].reasoning + ')').join(' · ') + '</p>';
+                modes.map(k => _escTxt(ml[k] || k) + ' (' + ch.byMode[k].turns + ' turni, ragionamento ' + ch.byMode[k].reasoning + ')').join(' · ') + '</p>';
         }
         if (has('t10') && s._chatAI) sec += _sectTitle('Analisi chat approfondita (AI)') +
-            '<div style="font-size:13px;color:#334155;line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;white-space:pre-wrap;">' + s._chatAI.replace(/[<>]/g, '') + '</div>';
+            '<div style="font-size:13px;color:var(--mm-testo, #404040);line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;white-space:pre-wrap;">' + s._chatAI.replace(/[<>]/g, '') + '</div>';
         if (has('t9') && s.effort) sec += _sectTitle('Heatmap del lavoro (effort)') + _effortHeatmap(s.effort);
         if (has('t7') && s._neuro) sec += _sectTitle('Neurofeedback (AI)') +
-            '<div style="font-size:13px;color:#334155;line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;white-space:pre-wrap;">' + s._neuro.replace(/[<>]/g, '') + '</div>';
+            '<div style="font-size:13px;color:var(--mm-testo, #404040);line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px;white-space:pre-wrap;">' + s._neuro.replace(/[<>]/g, '') + '</div>';
         const flagChip = s._flag
             ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:' + (s._flag === 'basso impegno' ? '#fef2f2;color:#b91c1c' : '#fffbeb;color:#b45309') + ';">' + s._flag + '</span>'
             : '';
-        return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin:12px 0;page-break-inside:avoid;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;"><h3 style="margin:0;font-size:18px;color:#1e293b;">' + _escTxt(s.owner) + ' ' + flagChip + '</h3>' +
-            '<span style="font-size:12px;color:#94a3b8;">' + _escTxt(s.branchKey || 'mappa intera') + (ch.confidence ? ' · chat: conf. ' + ch.confidence : '') + '</span></div>' +
+        return '<div style="border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:16px;margin:12px 0;page-break-inside:avoid;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;"><h3 style="margin:0;font-size:18px;color:var(--mm-testo, #404040);">' + _escTxt(s.owner) + ' ' + flagChip + '</h3>' +
+            '<span style="font-size:12px;color:var(--mm-testo-3, #64748b);">' + _escTxt(s.branchKey || 'mappa intera') + (ch.confidence ? ' · chat: conf. ' + ch.confidence : '') + '</span></div>' +
             sec + '</div>';
     }
 
     function _classCard(klass) {
         let fr = '';
         if (klass.flagged && klass.flagged.length) {
-            fr = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">' +
+            fr = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--mm-bordo, #cbd5e1);">' +
                 '<p style="font-size:13px;color:#475569;margin:0 0 4px;"><b>Da attenzionare</b> (mediana effort ' + klass.effortMedian + '):</p>' +
                 klass.flagged.map(f => '<p style="font-size:13px;margin:2px 0;color:' + (f.flag === 'basso impegno' ? '#b91c1c' : '#b45309') + ';">• ' + _escTxt(f.owner) + ' — ' + f.flag + ' (effort ' + f.effort + ')</p>').join('') +
-                '<p style="font-size:11px;color:#94a3b8;margin:4px 0 0;">«basso impegno» = possibile assenza (dati quasi nulli) · «in difficoltà» = lavora ma non consolida → sostenere, non punire.</p></div>';
+                '<p style="font-size:11px;color:var(--mm-testo-3, #64748b);margin:4px 0 0;">«basso impegno» = possibile assenza (dati quasi nulli) · «in difficoltà» = lavora ma non consolida → sostenere, non punire.</p></div>';
         } else {
             fr = '<p style="font-size:13px;color:#16a34a;margin:6px 0 0;">Nessun free-rider evidente: impegno distribuito.</p>';
         }
@@ -406,15 +411,15 @@
             '<h2 style="font-size:18px;margin:0 0 8px;">Vista classe & free-rider</h2>' +
             '<p style="font-size:14px;color:#475569;margin:2px 0;">Ponti totali: <b>' + klass.totalBridges + '</b> · aree che hanno costruito ponti: ' + klass.areasBridging + '/' + klass.students + '</p>' +
             '<p style="font-size:14px;color:#475569;margin:2px 0;">Accuratezza media classe: ' + (klass.avgAccuracy != null ? klass.avgAccuracy + '%' : 'n/d') + '</p>' +
-            '<p style="font-size:14px;color:#475569;margin:2px 0;">Dispersione dell\'impegno (CV, equità): ' + klass.effortCV + ' <span style="color:#94a3b8;">(alto = un gruppo traina, rischio Cohen)</span></p>' + fr + '</div>';
+            '<p style="font-size:14px;color:#475569;margin:2px 0;">Dispersione dell\'impegno (CV, equità): ' + klass.effortCV + ' <span style="color:var(--mm-testo-3, #64748b);">(alto = un gruppo traina, rischio Cohen)</span></p>' + fr + '</div>';
     }
 
     function _report(students, klass, tiers) {
         const has = id => !tiers || tiers.has(id);
-        let h = '<div style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:#1e293b;padding:24px;">' +
+        let h = '<div style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:var(--mm-testo, #404040);padding:24px;">' +
             '<h1 style="font-size:26px;margin:0 0 4px;">Meta-analisi didattica</h1>' +
             '<p style="color:#64748b;margin:0 0 4px;">' + students.length + ' studenti · generato ' + new Date().toLocaleString('it') + '</p>' +
-            '<p style="font-size:12px;color:#94a3b8;margin:0 0 20px;">Identificazione solo per <b>gruppo</b> (anonimo). Nessun dato personale nei vault.</p>';
+            '<p style="font-size:12px;color:var(--mm-testo-3, #64748b);margin:0 0 20px;">Identificazione solo per <b>gruppo</b> (anonimo). Nessun dato personale nei vault.</p>';
         if (has('t8')) h += _classCard(klass);
         students.forEach(s => { h += _studentCard(s, tiers); });
         h += '<p style="font-size:11px;color:#cbd5e1;margin-top:24px;">Analisi formativa (non voto), anonima per gruppo. La padronanza fine è disponibile se lo studente ha esportato lo store nel vault; altrimenti stimata dalle sessioni. Campioni piccoli → bassa confidenza.</p></div>';
@@ -439,19 +444,19 @@
         const ov = document.createElement('div');
         ov.id = 'meta-dashboard';
         ov.className = 'fixed inset-0 z-[3500] bg-white flex flex-col';
-        ov.style.color = '#1e293b';
+        ov.style.color = 'var(--mm-testo, #404040)';
         const tierChips = TIERS.map(t => '<button data-tier="' + t.id + '" class="dash-tier" title="' + t.label + '" style="font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid #cbd5e1;cursor:pointer;background:#fff;color:#64748b;">' + t.label.split(' ')[0] + '</button>').join('');
         ov.innerHTML =
-            '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;">' +
+            '<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--mm-bordo, #cbd5e1);flex-wrap:wrap;">' +
                 '<div style="font-size:18px;font-weight:600;">Meta-analisi didattica</div>' +
-                '<div style="font-size:12px;color:#94a3b8;">' + students.length + ' gruppi · anonimo</div>' +
+                '<div style="font-size:12px;color:var(--mm-testo-3, #64748b);">' + students.length + ' gruppi · anonimo</div>' +
                 '<div style="flex:1;min-width:20px;"></div>' +
                 '<div id="dash-tiers" style="display:flex;gap:4px;flex-wrap:wrap;">' + tierChips + '</div>' +
                 '<button id="dash-print" style="font-size:13px;padding:6px 12px;border:1px solid #6366f1;background:#6366f1;color:#fff;border-radius:8px;cursor:pointer;">Stampa / PDF</button>' +
                 '<button id="dash-close" style="font-size:13px;padding:6px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer;">Chiudi</button>' +
             '</div>' +
             '<div style="flex:1;display:flex;min-height:0;">' +
-                '<div id="dash-nav" style="width:220px;border-right:1px solid #e2e8f0;overflow-y:auto;padding:12px;background:#fafafa;"></div>' +
+                '<div id="dash-nav" style="width:220px;border-right:1px solid var(--mm-bordo, #cbd5e1);overflow-y:auto;padding:12px;background:#fafafa;"></div>' +
                 '<div id="dash-content" style="flex:1;overflow-y:auto;padding:20px;font-family:system-ui,sans-serif;"></div>' +
             '</div>';
         document.body.appendChild(ov);
@@ -476,7 +481,7 @@
         }
         function renderContent() {
             ov.querySelector('#dash-content').innerHTML =
-                '<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;">Anonimo — identificazione solo per gruppo.</p>' +
+                '<p style="font-size:12px;color:var(--mm-testo-3, #64748b);margin:0 0 12px;">Anonimo — identificazione solo per gruppo.</p>' +
                 (current === 'class' ? _classCard(klass) : _studentCard(students[+current], activeTiers));
         }
         function rerender() { renderTiers(); renderNav(); renderContent(); }

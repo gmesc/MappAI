@@ -8,6 +8,48 @@ const R = require('../public/js/mappai-review-core.js');
 const BEFORE = 'La Svizzera scambia oro con la Germania per ottenere franchi.';
 const AFTER = 'La Germania scambia oro con la Svizzera per ottenere franchi.';
 const SOURCES = [{ id: 'pdf-1', title: 'Svizzera', pages: [{ n: 4, text: AFTER }] }];
+test('full-source outcomes and original evidence survive retry/reload while uncertainty never becomes deletion or approval', () => {
+  const db = { nodes: [{ id: 'a', label: 'Oro', desc: BEFORE }, { id: 'b', label: 'Valuta', desc: 'Franchi.' }],
+    links: [{ source: 'a', target: 'b', rel: 'richiede' }] };
+  const proof = { evidenzaId: 'ev-1', docId: 'pdf-1', sourceRevision: 'rev-1', recordId: 'page-4', start: 0, end: AFTER.length,
+    page: 4, title: 'Svizzera', source: 'pagina 4', text: AFTER, verbatim: true };
+  const full = { contratto: 'mappai-giudice@2', stato: 'completato',
+    fonte: { revisione: 'registry-1', fornita: true, copertura: { pagineTotali: 1, pagineConTesto: 1, pagineVuote: 0, pagineNonNumerate: 0 } },
+    esitiLink: [{ source: 'a', target: 'b', rel: 'richiede', esito: 'contraddetto', problema: 'La fonte sostiene la direzione opposta.',
+      prove: [proof.evidenzaId], evidenze: [proof] }],
+    linkTolti: [{ source: 'a', target: 'b', rel: 'richiede', problema: 'La fonte sostiene la direzione opposta.', evidenze: [proof] }],
+    copertura: { nodiEsaminati: ['a', 'b'], linkEsaminati: [{ source: 'a', target: 'b', rel: 'richiede' }], nodiSaltati: [], linkSaltati: [] } };
+  let previous = R.createReview({ db, sources: SOURCES, report: full });
+  const issue = previous.initial.issues[0]; assert.equal(issue.after, null); assert.deepEqual(issue.evidence, [proof]);
+  previous = R.setDecision(previous, issue.id, 'reject');
+  const nextReport = JSON.parse(JSON.stringify(full)); nextReport.stato = 'parziale'; nextReport.linkTolti = [];
+  nextReport.esitiLink[0] = { source: 'a', target: 'b', rel: 'richiede', esito: 'non_verificabile', problema: 'Prove insufficienti.', prove: [], evidenze: [] };
+  nextReport.copertura.linkEsaminati = []; nextReport.copertura.linkSaltati = [{ source: 'a', target: 'b', rel: 'richiede', motivo: 'Prove insufficienti.' }];
+  const next = R.createReview({ db, sources: SOURCES, report: nextReport });
+  assert.equal(next.initial.issues.length, 0); assert.equal(next.initial.checkStatus, 'incomplete');
+  const restored = JSON.parse(JSON.stringify(R.mergeRetry(previous, next)));
+  assert.deepEqual(restored.initial.report, nextReport); assert.deepEqual(restored.initial.previousReports, [full]);
+  assert.deepEqual(restored.initial.decisions, previous.initial.decisions);
+  assert.equal(R.beginApproval(restored, db).ok, false);
+  assert.equal(db.links.length, 1); assert.equal(db.nodes[0].desc, BEFORE);
+});
+test('retry archives each model run unchanged and keeps partial coverage and teacher choices across JSON reload', () => {
+  const db = { nodes: [{ id: 'a', label: 'Oro', desc: BEFORE }], links: [] };
+  const issue = { id: 'edit', target: { kind: 'node', id: 'a', field: 'desc' }, after: AFTER };
+  const report = { checkStatus: 'completed', issues: [issue], quando: '2026-09-24T10:00:00Z', modelliGiro: { runId: 'old-check' } };
+  const old = R.setDecision(R.createReview({ db, sources: SOURCES, report }), 'edit', 'manual', { text: AFTER });
+  const saved = JSON.stringify(old);
+  const nextReport = { stato: 'parziale', copertura: { nodiEsaminati: [], nodiSaltati: [{ id: 'a' }] },
+    quando: '2026-09-24T11:00:00Z', modelliGiro: { runId: 'new-check', chiamate: [{ phase: 'giudice', actualModel: 'gemma' }] } };
+  const next = R.mergeRetry(old, R.createReview({ db, sources: SOURCES, report: nextReport }));
+  const restored = JSON.parse(JSON.stringify(next));
+  assert.equal(restored.initial.checkStatus, 'incomplete');
+  assert.deepEqual(restored.initial.decisions, old.initial.decisions);
+  assert.deepEqual(restored.initial.previousReports, [report]);
+  assert.deepEqual(restored.initial.report, nextReport);
+  restored.initial.previousReports[0].modelliGiro.runId = 'different';
+  assert.equal(JSON.stringify(old), saved);
+});
 test('material preview isolates pending and conflicting decisions without weakening global guards', () => {
   const data = { items: [{ id: 'a', text: 'Prima A' }, { id: 'b', text: 'Prima B' }] };
   const issue = (id, target, after) => ({ id, target: { kind: 'item', id: target, field: 'text' }, after });

@@ -141,7 +141,14 @@
 #mappai-teacher-review .mrv-coverage-claims { padding-left: 20px; }
 #mappai-teacher-review .mrv-coverage-claims li { margin: 14px 0; }
 #mappai-teacher-review .mrv-coverage-text { white-space: pre-wrap; }
-#mappai-teacher-review .mrv-coverage-technical { color: var(--mm-testo-2, #475569); font-size: .75rem; }
+/* 0053 (27/09): il pallino «Revisione necessaria» al posto dei messaggi tecnici nelle schede, e la sua legenda.
+   L'ambra è quella già usata qui per gli avvisi (#mrv-no-progress, .mrv-relation-hint): 3,2:1 sul bianco,
+   sopra il 3:1 degli oggetti grafici (WCAG 1.4.11). */
+#mappai-teacher-review .mrv-pallino { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #d97706; vertical-align: middle; }
+#mappai-teacher-review .mrv-coverage-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin: 10px 0; color: var(--mm-testo-2, #475569); font-size: .8rem; }
+#mappai-teacher-review .mrv-legenda-voce { display: inline-flex; align-items: center; gap: 6px; }
+#mappai-teacher-review .mrv-coverage-legenda .mrv-teacher-approved { padding: 2px; }
+#mappai-teacher-review .mrv-coverage-legenda .mrv-teacher-approved svg { width: 12px; height: 12px; }
 #mappai-teacher-review .mrv-coverage-version, #mappai-teacher-review .mrv-coverage-sources { background: var(--mm-fondo-sez, #f8fafc); border-radius: 8px; padding: 12px; margin: 12px 0; }
 #mappai-teacher-review .mrv-coverage-sources details { margin-top: 10px; }
 #mappai-teacher-review .mrv-coverage-version h4 { font-size: .8rem; font-weight: 700; margin: 16px 0 6px; }
@@ -245,15 +252,37 @@
    Nessun colore nuovo: token del modale e dello stesso foglio. */
 #mappai-teacher-review.mrv-banco { padding: 0; }
 #mappai-teacher-review.mrv-banco .mrv-dashboard { width: 100%; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
-/* Testata compatta (Giacomo, 16/9): solo titolo e fasi, su una riga; l'avanzamento su una riga sola. */
-#mappai-teacher-review.mrv-banco .mrv-header { padding: 6px 20px; gap: 16px; }
+/* Testata compatta (Giacomo, 16/9): solo titolo e fasi, su una riga; l'avanzamento su una riga sola.
+   ALTEZZA FISSA (Giacomo, 25/9): prima un avanzamento o uno stato lunghi andavano a capo e la
+   testata passava da 35 a 121 px. Ora è una riga sola alta quanto le righe accanto (testata della
+   fonte 43,5 px, navigazione delle schede 43 px: alias di --mm-ctx-h) e non cresce. Corpo e stile
+   dei testi non cambiano. Quando manca posto si cede in quest'ordine:
+     1. la barra e lo stato, che si dividono lo spazio che avanza: la barra fino a 60 px (ripete a
+        colpo d'occhio il numero), lo stato fino a 5,5rem («Errore di…» resta visibile);
+     2. il titolo, con «…»;
+     3. solo col titolo già a zero, il numero «n / N decise».
+   Le fasi e «Riprova il salvataggio» restano sempre intere. Un testo accorciato si legge intero
+   passandoci sopra col mouse (title, mappai-review.js). */
+#mappai-teacher-review.mrv-banco { --mrv-testata-h: var(--mm-ctx-h, 43px); }
+#mappai-teacher-review.mrv-banco .mrv-header { display: flex; flex: 0 0 var(--mrv-testata-h); flex-wrap: nowrap; height: var(--mrv-testata-h); padding: 0 20px; gap: 16px; overflow: hidden; }
 #mappai-teacher-review.mrv-banco #mrv-title { font-size: 1.1rem; }
-#mappai-teacher-review.mrv-banco .mrv-stages { align-items: center; gap: 12px; }
-#mappai-teacher-review.mrv-banco .mrv-stages li { display: flex; align-items: center; gap: 6px; }
+#mappai-teacher-review.mrv-banco :is(#mrv-title, #mrv-progress-label, #mrv-status) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mappai-teacher-review.mrv-banco .mrv-stages { flex: 0 0 auto; align-items: center; gap: 12px; margin-top: 0; }
+#mappai-teacher-review.mrv-banco .mrv-stages li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #mappai-teacher-review.mrv-banco .mrv-stages span { width: 22px; height: 22px; font-size: .7rem; }
-#mappai-teacher-review.mrv-banco .mrv-heading { flex: 0 0 auto; }
-#mappai-teacher-review.mrv-banco .mrv-header .mrv-overview { flex: 1; min-width: 0; padding: 0; gap: 14px; background: none; border: 0; }
-#mappai-teacher-review.mrv-banco .mrv-header .mrv-overview progress { flex: 0 1 180px; min-width: 60px; }
+/* Titolo e numero cedono entrambi, ma col peso 100000 contro 1 il numero si accorcia solo quando
+   il titolo è già a zero (con 1000 perdeva già un pixel e mostrava «…»): è l'ultima risorsa, e
+   così le fasi non si tagliano mai. */
+#mappai-teacher-review.mrv-banco .mrv-heading { flex: 0 100000 auto; min-width: 0; }
+/* Il blocco dell'avanzamento non fa scatola (display: contents): numero, barra, stato e «Riprova»
+   diventano elementi della riga, e l'ordine in cui cedono si decide qui. Barra e stato partono da
+   zero e si dividono solo lo spazio che avanza, fino ai loro minimi. */
+#mappai-teacher-review.mrv-banco .mrv-header .mrv-overview { display: contents; }
+#mappai-teacher-review.mrv-banco .mrv-header progress { flex: 1 1 0; min-width: 60px; max-width: 180px; }
+#mappai-teacher-review.mrv-banco #mrv-progress-label { min-width: 0; }
+#mappai-teacher-review.mrv-banco #mrv-status { flex: 1 1 0; min-width: 5.5rem; max-width: none; margin-left: 0; text-align: right; }
+#mappai-teacher-review.mrv-banco #mrv-status:empty { min-width: 0; }
+#mappai-teacher-review.mrv-banco #mrv-save-retry { flex: 0 0 auto; min-height: 32px; padding: 3px 10px; white-space: nowrap; }
 /* «0 da rivedere · 12 già decise» ripete l'etichetta «12 / 12 segnalazioni decise» e i
    contatori dei filtri (Giacomo, 16/9). Sparisce alla vista ma resta ai lettori di
    schermo: è la riga aria-live che annuncia ogni decisione presa. */
@@ -261,7 +290,7 @@
 /* il piede: la frase su una riga accanto ai bottoni */
 #mappai-teacher-review.mrv-banco .mrv-footer { padding: 6px 20px; gap: 16px; }
 #mappai-teacher-review.mrv-banco #mrv-next-step { flex: 1; max-width: none; min-width: 0; }
-#mappai-teacher-review.mrv-banco .mrv-overview > div:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+#mappai-teacher-review.mrv-banco .mrv-overview > div:first-child { display: flex; flex: 0 1 auto; min-width: 0; align-items: baseline; flex-wrap: nowrap; gap: 4px 10px; }
 #mappai-teacher-review.mrv-banco .mrv-workspace { position: relative; transition: grid-template-columns .28s ease; }
 #mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa { grid-template-columns: 0 minmax(0, 1fr); }
 #mappai-teacher-review.mrv-banco .mrv-workspace.is-nav-chiusa .mrv-sidebar { visibility: hidden; padding: 0; border: 0; overflow: hidden; }
@@ -288,6 +317,10 @@
 #mappai-teacher-review .mrv-fonte-testa { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 10px 5px var(--mrv-man-posto); border-bottom: 1px solid var(--mm-bordo, #e2e8f0); }
 #mappai-teacher-review .mrv-fonte-testa h3 { flex: 0 0 auto; margin: 0; font-size: .875rem; font-weight: 700; }
 #mappai-teacher-review .mrv-fonte-prove { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
+/* 0074, F3 (Giacomo, 06/10: «Sì, anche a veste spenta»): la regola di G3 dello 0073 vale per ogni Banco — a finestra
+   stretta la fila dei bottoni dei blocchi va a capo dentro la colonna della Fonte invece di sbordare nella scheda.
+   È l'unica eccezione dichiarata a «a veste spenta il Banco è quello di oggi». */
+#mappai-teacher-review .mrv-fonte-prove { flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
 #mappai-teacher-review .mrv-fonte-testa .pm-btn-cancel { flex: 0 0 auto; min-height: 32px; padding: 3px 10px; white-space: nowrap; }
 /* Bottoni a icona (chevron, adatta): quadrati da 32px con l'svg di Lucide */
 #mappai-teacher-review .mrv-icona { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-height: 32px; height: 32px; padding: 0 !important; }
@@ -389,4 +422,274 @@
 #mappai-teacher-review .mrv-teacher-approved svg { width: 20px; height: 20px; }
 #mappai-teacher-review .mrv-approval-help { display: none; position: absolute; z-index: 5; top: 100%; right: 0; width: min(230px, 65vw); padding: 8px; border-radius: 6px; background: #dcfce7; color: #166534; font-size: .8rem; font-weight: 400; }
 #mappai-teacher-review .mrv-teacher-approved:is(:hover, :focus) .mrv-approval-help { display: block; }
+/* Nella riga del materiale la spunta sta al posto del pallino (02/10): stessa casella di 16 px, così i numeri restano in colonna. */
+#mappai-teacher-review .mrv-coverage-material > summary .mrv-pallino { margin: 0 3px; }
+#mappai-teacher-review .mrv-coverage-material > summary .mrv-teacher-approved { padding: 2px; }
+#mappai-teacher-review .mrv-coverage-material > summary .mrv-teacher-approved svg { width: 12px; height: 12px; }
+#mappai-teacher-review .mrv-coverage-material > summary .mrv-approval-help { left: 0; right: auto; }
 #mappai-teacher-review [data-editor] > button { margin: 10px 8px 0 0; }
+
+/* Lo strato delle affermazioni (packet 0042): il blocco in sola lettura nella copertura.
+   Solo token esistenti: l'accento per ciò che resta fuori dai materiali (non il rosso,
+   che promette una perdita), il verde di stato per le frasi del docente, il bordo per le altre. */
+#mappai-teacher-review .mrv-aff { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--mm-bordo, #e2e8f0); }
+#mappai-teacher-review .mrv-aff details { margin-top: 8px; }
+#mappai-teacher-review .mrv-aff summary { font-weight: 700; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review .mrv-aff-riga { margin: 8px 0; padding: 6px 10px; border-left: 3px solid var(--mm-bordo, #e2e8f0); background: #fff; border-radius: 6px; overflow-wrap: anywhere; }
+#mappai-teacher-review .mrv-aff-riga[data-corsia^="fuori"] { border-left-color: var(--mm-accent, #4f46e5); background: var(--mm-accent-soft, #eef2ff); }
+#mappai-teacher-review .mrv-aff-riga[data-corsia="docente"] { border-left-color: var(--mm-ok, #059669); }
+#mappai-teacher-review .mrv-aff-nodo { font-size: .7rem; font-weight: 700; color: var(--mm-testo-2, #475569); } /* testo-3 sul fondo accento fa 4,26:1 */
+#mappai-teacher-review .mrv-aff-fonte { font-size: .72rem; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review .mrv-aff-riga button { margin: 6px 6px 0 0; }
+
+/* ── LA VESTE DI G2 (packet 0073; ADR 0012 revisioni 3, 4 e 5) ──────────────────────────────────────────
+   Tutto sotto `.mrv-veste`, che `mappai-banco-veste.js` mette sul guscio solo con l'interruttore
+   `mappai_banco_veste` acceso: toglierla ridà il Banco di oggi. Stile nei token `--mm-*` (rev. 3, punto 8);
+   i colori che i token non avevano hanno un nome di RUOLO qui sotto, con la misura del contrasto (04/10,
+   regola WCAG 1.4.3, sul fondo che si vede):
+     tolto      testo #7f1d1d su #fee2e2 (--mm-danger-soft)   8,20:1 — barrato
+     aggiunto   testo #14532d su #dcfce7 (il verde della spunta) 8,30:1 — sottolineato;
+                nel campo in cui si scrive il testo è --mm-testo #404040 sul verde: 9,44:1
+     nota       testo #78350f su #fffbeb 8,75:1; filo #b45309 4,84:1
+     ambra      #b45309 sul bianco 5,02:1 (pallino e avviso dei richiami della scheda); il #d97706 dello
+                0053 faceva 3,19:1. Sulla riga attiva (#eef2ff) l'ambra farebbe 4,49:1: il pallino porta un
+                anello bianco, e il colore accanto è il bianco
+     attesa     #92400e sul bianco 7,09:1, sulla riga attiva 6,34:1
+   Il colore non è mai il solo segnale: barrato, sottolineato, spunta e segno dell'escluso hanno forma. */
+#mappai-teacher-review.mrv-veste {
+  --mrv-veste-tolto-fondo: var(--mm-danger-soft, #fee2e2); --mrv-veste-tolto-testo: #7f1d1d;
+  --mrv-veste-aggiunto-fondo: #dcfce7; --mrv-veste-aggiunto-testo: #14532d;
+  --mrv-veste-nota-fondo: #fffbeb; --mrv-veste-nota-testo: #78350f; --mrv-veste-ambra: #b45309; --mrv-veste-attesa: #92400e;
+}
+/* la barra: i filtri in testa, ricerca e Macroarea su una riga, l'elenco prende tutta l'altezza */
+@media (min-width: 901px) {
+  #mappai-teacher-review.mrv-veste .mrv-sidebar { display: flex; flex-direction: column; overflow: hidden; padding: 10px 10px 8px; }
+  #mappai-teacher-review.mrv-veste #mrv-list { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); grid-template-rows: auto auto minmax(0, 1fr); align-items: end; gap: 6px; flex: 1; min-height: 0; }
+  #mappai-teacher-review.mrv-veste #mrv-filters, #mappai-teacher-review.mrv-veste #mrv-queue { grid-column: 1 / -1; }
+  #mappai-teacher-review.mrv-veste #mrv-queue { align-self: stretch; max-height: none; min-height: 0; }
+  #mappai-teacher-review.mrv-veste .mrv-coverage { flex: none; max-height: 45%; overflow-y: auto; margin-top: 6px; padding-top: 8px; }
+}
+#mappai-teacher-review.mrv-veste #mrv-filters { margin: 0; }
+#mappai-teacher-review.mrv-veste #mrv-filters button { flex: 1 1 auto; min-height: 36px; padding: 6px; white-space: nowrap; }
+#mappai-teacher-review.mrv-veste .mrv-facets { margin: 0; }
+#mappai-teacher-review.mrv-veste #mrv-queue { display: block; gap: 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-gruppo { position: sticky; top: 0; z-index: 1; margin: 0; padding: 9px 8px 4px; background: #fff; color: var(--mm-testo-2, #475569); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#mappai-teacher-review.mrv-veste .mrv-veste-riga { display: flex; align-items: center; gap: 7px; min-height: 30px; margin: 1px 0; padding: 4px 8px; border-radius: 8px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-segno { display: inline-flex; flex: none; justify-content: center; width: 16px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-segno .mrv-teacher-approved { padding: 2px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-segno .mrv-teacher-approved svg { width: 12px; height: 12px; }
+#mappai-teacher-review.mrv-veste .mrv-pallino { background: var(--mrv-veste-ambra); }
+#mappai-teacher-review.mrv-veste .mrv-veste-riga .mrv-pallino { box-shadow: 0 0 0 2px #fff; }
+#mappai-teacher-review.mrv-veste .mrv-veste-escluso { display: inline-flex; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-escluso svg { width: 14px; height: 14px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-num { flex: none; min-width: 2ch; text-align: right; color: var(--mm-testo-2, #475569); font-size: .72rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-titolo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; line-height: 1.3; }
+#mappai-teacher-review.mrv-veste .mrv-veste-riga[aria-current=true] .mrv-veste-titolo { font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-riga:is([data-stato=rivisto], [data-stato=approvato], [data-stato=escluso], [data-stato=assente]) .mrv-veste-titolo { color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-riga[data-stato=escluso] .mrv-veste-titolo { text-decoration: line-through; }
+/* il contatore «N note» della riga (span): lo stesso nome di classe ha il contenitore delle note sopra il campo (div),
+   che col `nowrap` qui sopra non andava più a capo (0075, punto 12; Giacomo al gate dello 0080) */
+#mappai-teacher-review.mrv-veste span.mrv-veste-note { flex: none; color: var(--mrv-veste-attesa); font-size: .68rem; font-weight: 700; white-space: nowrap; }
+#mappai-teacher-review.mrv-veste .mrv-veste-vuoto { padding: 16px 8px; color: var(--mm-testo-2, #475569); font-size: .8rem; }
+/* la testata: il riepilogo accanto all'avanzamento, su una riga (0034: 43 px, non cresce) */
+#mappai-teacher-review.mrv-veste .mrv-veste-riepilogo { min-width: 0; overflow: hidden; color: var(--mm-testo-2, #475569); font-size: .75rem; white-space: nowrap; text-overflow: ellipsis; }
+/* il centro: bianco come barra e Fonte, campi bianco su bianco con un filo (rev. 3, 2) */
+#mappai-teacher-review.mrv-veste .mrv-detail { background: #fff; }
+#mappai-teacher-review.mrv-veste #mrv-content { padding: 4px 22px 18px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-scheda { max-width: 780px; overflow-wrap: anywhere; }
+#mappai-teacher-review.mrv-veste .mrv-veste-dove { margin: 12px 0 2px; color: var(--mm-testo-2, #475569); font-size: .78rem; font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-fisso { margin: 12px 0 0; font-size: 1rem; font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testa { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 14px 0 4px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-etichetta { display: block; margin: 14px 0 4px; color: var(--mm-testo-2, #475569); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testa .mrv-veste-etichetta { margin: 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testo { display: block; width: 100%; max-width: 100%; min-height: 0; margin: 0; padding: 7px 10px; field-sizing: content; resize: none; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 8px; background: #fff; color: var(--mm-testo, #404040); font: inherit; font-size: calc(.875rem * var(--mrv-testo, 1)); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+#mappai-teacher-review.mrv-veste textarea.mrv-veste-testo:focus { border-color: var(--mm-accent, #4f46e5); outline: 2px solid var(--mm-accent-soft, #eef2ff); }
+#mappai-teacher-review.mrv-veste .mrv-veste-forte { font-size: calc(1rem * var(--mrv-testo, 1)); font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testo p { margin: 0 0 6px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testo p:last-child { margin: 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-fermo { background: var(--mm-fondo-sez, #f8fafc); color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-lettura { cursor: text; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testo del { background: var(--mrv-veste-tolto-fondo); color: var(--mrv-veste-tolto-testo); text-decoration: line-through; text-decoration-thickness: 1px; border-radius: 2px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-testo ins { background: var(--mrv-veste-aggiunto-fondo); color: var(--mrv-veste-aggiunto-testo); text-decoration: underline; text-underline-offset: 3px; border-radius: 2px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-sotto { margin: 8px 0 3px; color: var(--mm-testo-2, #475569); font-size: .72rem; font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-aiuto { margin: 5px 0 0; color: var(--mm-testo-2, #475569); font-size: .75rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-aiuto--scheda { color: var(--mrv-veste-ambra); }
+/* 0075, decimo giro (Q16): «Testo salvato» sotto il campo, dopo un salvataggio che ne ha cambiato il testo. Il verde della
+   spunta (.mrv-teacher-approved, 0053 e 0073), #166534: sul bianco della scheda sotto la veste (.mrv-detail) 7,13:1. Vuota
+   non occupa spazio; resta nella pagina perché la regione annunciata (role status) ci sia prima del testo. */
+#mappai-teacher-review.mrv-veste .mrv-veste-salvato { margin: 0; color: #166534; font-size: .75rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-salvato:not(:empty) { margin-top: 4px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-link { display: inline-block; min-height: 0; margin: 6px 0 0; padding: 0; border: 0; background: none; color: var(--mm-accent, #4f46e5); font-size: .78rem; font-weight: 700; text-decoration: underline; }
+/* «Differenze / Testi» accanto all'etichetta (rev. 4, A.1) */
+#mappai-teacher-review.mrv-veste .mrv-veste-seg { display: inline-flex; flex: none; overflow: hidden; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 8px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-seg button { min-height: 26px; padding: 3px 10px; border: 0; background: #fff; color: var(--mm-testo-2, #475569); font-size: .72rem; font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-seg button[aria-pressed=true] { background: var(--mm-accent-soft, #eef2ff); color: var(--mm-accent, #4f46e5); }
+/* le parole aggiunte restano verdi anche nel campo in cui si scrive (rev. 4, A.3): uno strato dietro l'area
+   di testo con lo STESSO testo e le stesse misure; l'area sopra è trasparente */
+#mappai-teacher-review.mrv-veste .mrv-veste-vivo { position: relative; }
+#mappai-teacher-review.mrv-veste .mrv-veste-sfondo { position: absolute; inset: 0; overflow: hidden; border-color: transparent; color: transparent; pointer-events: none; }
+#mappai-teacher-review.mrv-veste .mrv-veste-sfondo ins { color: transparent; text-decoration-color: var(--mrv-veste-aggiunto-testo); }
+/* gate 3, G9: il richiamo alla scheda rotto, segnato in rosso nello strato dietro il campo. Solo fondo e sottolineatura:
+   niente che cambi la larghezza dei caratteri, così lo strato combacia col testo. */
+#mappai-teacher-review.mrv-veste .mrv-veste-sfondo .mrv-veste-rotto { background: var(--mrv-veste-tolto-fondo); color: transparent; text-decoration: underline wavy #b91c1c; text-decoration-thickness: 2px; text-underline-offset: 3px; border-radius: 2px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-vivo textarea.mrv-veste-testo { position: relative; background: transparent; }
+/* la nota del controllo: riquadro giallo SENZA titoletto, sopra il campo (rev. 3, 2; rev. 4, A.7) */
+#mappai-teacher-review.mrv-veste .mrv-veste-nota { margin: 0 0 6px; padding: 8px 12px 10px; border-left: 3px solid var(--mrv-veste-ambra); background: var(--mrv-veste-nota-fondo); color: var(--mrv-veste-nota-testo); font-size: .82rem; line-height: 1.5; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota p { margin: 0 0 6px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota:is([data-esito=applied], [data-esito=kept], [data-esito=edited], [data-esito=excluded]) { border-left-color: var(--mm-bordo, #e2e8f0); background: var(--mm-fondo-sez, #f8fafc); color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota[data-esito=conflitto] { border-left-color: var(--mm-danger, #dc2626); background: #fef2f2; color: var(--mrv-veste-tolto-testo); }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota-esito { font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-nota-proposta { white-space: pre-wrap; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-nota-azioni .pm-btn-cancel { min-height: 32px; padding: 4px 12px; }
+/* 0075, tredicesimo giro (Q20): con una nota sola i suoi bottoni stanno nella barra in fondo, dopo la frase, grandi come
+   ⌘Z (i bottoni piccoli restano dentro la nota); la nota dice in piccolo dove rispondere */
+#mappai-teacher-review.mrv-veste .mrv-veste-azioni .mrv-veste-risposta { flex: none; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota-in-fondo { font-size: .75rem; font-style: italic; }
+/* 0086, giro 3b (ADR 0012 rev. 12, D36): sulle schede dei nodi la nota del controllo non ha bottoni — la spunta nativa
+   («Tieni la frase»), che non toglie il fuoco al campo, e l'area «Proposta» che con un clic (o Invio) si copia nel campo.
+   Misurati: il nome della spunta nel colore della nota, 8,72:1 sul giallo (#78350f su #fffbeb); l'area sul bianco col
+   testo del token, 10,36:1; l'avviso accanto al bottone in fondo nel colore dell'attesa, 7,09:1 sul bianco della barra.
+   La casella prende accent-color dal token (`--mm-accent`, la regola di tutte le caselle del Banco). Nessuna icona. */
+#mappai-teacher-review.mrv-veste .mrv-veste-spunta { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 0; color: var(--mrv-veste-nota-testo); font-size: .82rem; font-weight: 700; cursor: pointer; }
+#mappai-teacher-review.mrv-veste .mrv-veste-spunta input[type=checkbox] { flex: none; margin: 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-copia { margin: 0 0 6px; padding: 6px 10px; border: 1px dashed var(--mrv-veste-ambra); border-radius: var(--mm-r-campo, 10px); background: var(--mm-fondo, #fff); color: var(--mm-testo, #404040); cursor: pointer; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-copia:hover { background: var(--mm-neutro, #f1f4f8); }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-copia:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: 2px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota .mrv-veste-copia .mrv-veste-sotto { margin: 0 6px 0 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-costo { flex: none; color: var(--mrv-veste-attesa); font-size: .78rem; font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-avviso { margin: 8px 0; padding: 8px 12px; border-radius: 8px; background: var(--mrv-veste-nota-fondo); color: var(--mrv-veste-nota-testo); font-size: .8rem; }
+/* la scelta multipla: un pallino per alternativa, le lettere A, B, C; la corretta in grassetto col filo verde */
+#mappai-teacher-review.mrv-veste .mrv-veste-opzione { display: grid; grid-template-columns: 18px 2ch minmax(0, 1fr) 32px; align-items: center; gap: 8px; margin-top: 5px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-voce { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; gap: 8px; margin-top: 5px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-opzione input[type=radio] { width: 16px; height: 16px; margin: 0; padding: 0; border: 0; accent-color: #166534; }
+#mappai-teacher-review.mrv-veste .mrv-veste-opzione.is-corretta :is(.mrv-veste-testo, .mrv-veste-lettera) { font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-opzione.is-corretta .mrv-veste-testo { border-color: #166534; }
+#mappai-teacher-review.mrv-veste .mrv-veste-lettera { font-size: .875rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-togli { display: grid; place-items: center; width: 32px; height: 32px; min-height: 32px; padding: 0; border: 1px solid transparent; border-radius: 8px; background: #fff; color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-togli:hover { background: var(--mm-neutro, #f1f4f8); }
+#mappai-teacher-review.mrv-veste .mrv-veste-togli svg { width: 16px; height: 16px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-numero { display: inline-block; width: 6ch; margin-left: 8px; padding: 4px 6px; text-transform: none; letter-spacing: 0; }
+/* la catena causale su una riga, con la frase risultante sotto */
+#mappai-teacher-review.mrv-veste .mrv-veste-catena { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .5fr) minmax(0, 1fr); align-items: start; gap: 10px; }
+/* sotto la scheda: ⌘Z, Escludi / Ripristina, il perché del bottone spento, il bottone (sempre in vista) */
+#mappai-teacher-review.mrv-veste .mrv-veste-azioni { display: flex; flex: none; align-items: center; gap: 12px; padding: 8px 22px; border-top: 1px solid var(--mm-bordo, #e2e8f0); background: #fff; }
+#mappai-teacher-review.mrv-veste .mrv-veste-azioni .pm-btn-cancel, #mappai-teacher-review.mrv-veste .mrv-veste-azioni .pm-btn-primary { flex: 0 0 auto; }
+#mappai-teacher-review.mrv-veste .mrv-veste-attesa { flex: 1; text-align: right; color: var(--mrv-veste-attesa); font-size: .78rem; font-weight: 700; }
+/* gate 3, G4 («deve essere in grigio come il bottone '⌘Z'»): lo stesso aspetto del ⌘Z spento — fondo, bordo e testo
+   di `.pm-btn-cancel`, e l'opacità di ogni bottone spento (`button:disabled`) */
+#mappai-teacher-review.mrv-veste .mrv-veste-azioni .pm-btn-primary:disabled { background: #fff; border-color: var(--mm-bordo, #e2e8f0); color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste .mrv-veste-annulla { min-width: 8ch; }
+/* giro 2: la riga di un materiale strutturalmente non valido («da correggere», colore dell'attesa: 7,09:1) e la
+   conferma esplicita di R5 nel piede, solo col controllo parziale e niente da cliccare */
+#mappai-teacher-review.mrv-veste .mrv-veste-riga[data-invalido=true] { box-shadow: inset 3px 0 0 var(--mrv-veste-attesa); }
+#mappai-teacher-review.mrv-veste .mrv-veste-conferma { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--mm-testo, #404040); font-weight: 700; }
+#mappai-teacher-review.mrv-veste .mrv-veste-conferma input[type=checkbox] { flex: none; }
+/* punto 13: le frasi che il controllo non ha verificato, in una sezione chiusa di default */
+#mappai-teacher-review.mrv-veste .mrv-veste-frasi { margin: 8px 0; padding: 6px 10px; border-radius: 8px; background: var(--mm-fondo-sez, #f8fafc); font-size: .8rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-frasi .mrv-coverage-claims { margin: 6px 0 0; }
+#mappai-teacher-review.mrv-veste .mrv-veste-frasi .mrv-coverage-claims li { margin: 8px 0; }
+@media (max-width: 900px) {
+  #mappai-teacher-review.mrv-veste .mrv-veste-catena { grid-template-columns: 1fr; }
+}
+/* gate 3, G3: la fila dei bottoni dei blocchi della Fonte che va a capo è passata a ogni Banco con lo 0074 (F3), accanto
+   alla regola della fila (`.mrv-fonte-prove`, più su). */
+/* gate 3, G6: ciò che ⌘Z o il ripristino hanno toccato, evidenziato per un attimo (la classe si toglie al gesto dopo) */
+#mappai-teacher-review.mrv-veste .mrv-veste-evidenza { border-radius: 8px; animation: mrv-veste-evidenza 1.8s ease-out 1; }
+@keyframes mrv-veste-evidenza {
+  0%, 35% { box-shadow: 0 0 0 3px var(--mm-accent, #4f46e5); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mappai-teacher-review.mrv-veste .mrv-veste-evidenza { animation: none; box-shadow: 0 0 0 3px var(--mm-accent, #4f46e5); }
+}
+
+/* ── LA FONTE A DESTRA (packet 0074; ADR 0012 rev. 3, p. 5) ───────────────────────────────────────────────────────
+   Con la veste l'ordine è barra · scheda · Fonte (anche nel DOM, `mappai-review.js`) e il divisore si specchia: la
+   Fonte è la colonna di destra, larga `--mrv-fonte-w` (la stessa variabile, la stessa preferenza); chiusa, la linguetta
+   verde sta sul bordo DESTRO. La maniglia della barra ora sta sopra la scheda: il posto le si riserva sulla riga dei
+   comandi e sulle occorrenze (lo stesso token), non più sulla testata della Fonte. */
+@media (min-width: 901px) {
+  #mappai-teacher-review.mrv-veste .mrv-colonne { grid-template-columns: minmax(0, 1fr) var(--mrv-fonte-w, 50%); }
+  #mappai-teacher-review.mrv-veste .mrv-fonte { border-right: 0; border-left: 1px solid var(--mm-bordo, #e2e8f0); }
+  #mappai-teacher-review.mrv-veste .mrv-colonne.is-fonte-chiusa .mrv-fonte { border: 0; }
+  #mappai-teacher-review.mrv-veste .mrv-divisore { left: auto; right: var(--mrv-fonte-w, 50%); margin-left: 0; margin-right: -6px; transition: right .28s ease; }
+  #mappai-teacher-review.mrv-veste .mrv-colonne.is-fonte-chiusa .mrv-divisore { right: 0; left: auto; margin: -36px 0 0 0; border-radius: 8px 0 0 8px; box-shadow: -1px 0 3px rgba(0, 0, 0, .15); }
+  /* F10: il chip verde del divisore delle occorrenze, girato, al posto di quello grigio del 17/9 (style.css, che tiene
+     la scossa e lo toglie a Fonte chiusa: lì c'è la linguetta) */
+  #mappai-teacher-review.mrv-veste .mrv-colonne:not(.is-fonte-chiusa) .mrv-divisore::after { width: 10px; height: 40px; margin: -20px 0 0 -5px; border-radius: 5px; background: linear-gradient(#fff, #fff) 3px center / 1.5px 20px no-repeat, linear-gradient(#fff, #fff) 6px center / 1.5px 20px no-repeat, var(--mm-ok, #059669); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); animation: mrv-chip-scossa .45s ease-in-out .8s 2; }
+  /* chiusa la Fonte la scheda resta dov'è: il posto per la maniglia di oggi (fonte a sinistra chiusa) qui non serve */
+  #mappai-teacher-review.mrv-veste .mrv-colonne.is-fonte-chiusa #mrv-content { padding-left: 22px; }
+  #mappai-teacher-review.mrv-veste .mrv-colonne :is(#mrv-detail-nav, #mrv-occurrences-host) { padding-left: var(--mrv-man-posto); }
+}
+@media (max-width: 900px) {
+  /* impilate: la Fonte viene dopo la scheda, il filo le sta sopra */
+  #mappai-teacher-review.mrv-veste .mrv-fonte { border-bottom: 0; border-top: 1px solid var(--mm-bordo, #e2e8f0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mappai-teacher-review.mrv-veste .mrv-divisore { transition: none; }
+  #mappai-teacher-review.mrv-veste .mrv-colonne:not(.is-fonte-chiusa) .mrv-divisore::after { animation: none; }
+}
+/* F10, Giacomo: «riduci l'ampiezza della scossa verde» — la metà di `mm-chip-nudge` (style.css, ±4 px) */
+@keyframes mrv-chip-scossa { 0%, 100% { translate: 0 0; } 25% { translate: -2px 0; } 75% { translate: 2px 0; } }
+#mappai-teacher-review.mrv-veste .mrv-fonte-testa { padding-left: 10px; }
+/* Il segno col colore della macroarea (richiesta del 28/09): sottolineato, sul fondo bianco della pagina, al posto del
+   giallo. Il colore arriva dalla Fonte (`--mrv-fonte-segno`, sul pannello) già portato a 3:1 sul bianco
+   (`MappAIReviewFonte.coloreSegno`, WCAG 1.4.11). Misure del 06/10 sul bianco, tavolozza `colorScale` e grigio delle
+   aree: #f59e0b 2,15 → #ce8509 3,01 · #10b981 2,54 → #0fa875 3,05 · #0ea5e9 2,77 → #0d9ee0 3,01; restano com'erano
+   #ef4444 3,76 · #d946ef 3,46 · #8b5cf6 4,23 · #6366f1 4,47 · #64748b 4,76 · #0f172a 17,85. Il testo resta il suo
+   (#404040 sul bianco). Senza colore d'area resta il giallo di oggi (#fef08a, testo sopra 8,91:1). */
+#mappai-teacher-review.mrv-veste .mrv-fonte--segno-area .mrv-fonte-righe mark { background: transparent; color: inherit; padding: 0; border-radius: 0; text-decoration: underline; text-decoration-color: var(--mrv-fonte-segno); text-decoration-thickness: 3px; text-underline-offset: 3px; text-decoration-skip-ink: none; }
+
+/* ── IL DIVISORE DELLE OCCORRENZE (packet 0074, punto 10; F7, F8: solo con la veste) ─────────────────────────────────
+   Fra il pannello delle occorrenze e la riga dei comandi, solo a pannello aperto (`hidden` lo toglie, `mappai-review.js`).
+   Il gemello orizzontale del divisore della Fonte: una fascia di 12 px che non occupa posto (margini negativi), il filo
+   --mm-ok (#059669 sul bianco 3,77:1) al passaggio e durante il trascinamento, il contorno --mm-accent col fuoco. L'altezza
+   scelta è in percento dell'area dei materiali (`.mrv-carte`, che ha un'altezza definita: già oggi il pannello si ferma
+   al 60% di lei), al più il 75%. Solo con le colonne affiancate: sotto i 900 px l'area scorre intera e il pannello resta
+   quello di oggi. */
+#mappai-teacher-review.mrv-veste .mrv-occ-divisore { display: none; }
+@media (min-width: 901px) {
+  #mappai-teacher-review.mrv-veste .mrv-occ-divisore:not([hidden]) { display: block; position: relative; z-index: 4; flex: none; height: 12px; margin: -6px 0; cursor: row-resize; touch-action: none; }
+  #mappai-teacher-review.mrv-veste .mrv-occ-divisore::before { content: ''; position: absolute; left: 0; right: 0; top: 5px; height: 2px; background: transparent; transition: background .15s; }
+  #mappai-teacher-review.mrv-veste .mrv-occ-divisore:hover::before, #mappai-teacher-review.mrv-veste .mrv-carte.is-trascinando-occ .mrv-occ-divisore::before { background: var(--mm-ok, #059669); }
+  /* F10: la maniglia, sempre visibile — la linguetta della Fonte chiusa messa in orizzontale (verde, due righe bianche) */
+  #mappai-teacher-review.mrv-veste .mrv-occ-divisore::after { content: ''; position: absolute; left: 50%; top: 1px; width: 40px; height: 10px; margin-left: -20px; border-radius: 5px; background: linear-gradient(#fff, #fff) center 3px / 20px 1.5px no-repeat, linear-gradient(#fff, #fff) center 6px / 20px 1.5px no-repeat, var(--mm-ok, #059669); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); pointer-events: none; }
+  #mappai-teacher-review.mrv-veste .mrv-occ-divisore:focus-visible { outline: 3px solid var(--mm-accent, #4f46e5); outline-offset: -3px; }
+  #mappai-teacher-review.mrv-veste .mrv-carte.is-trascinando-occ { user-select: none; cursor: row-resize; }
+  #mappai-teacher-review.mrv-veste #mrv-occurrences-host.is-regolato { height: var(--mrv-occ-h, auto); max-height: 75%; }
+  #mappai-teacher-review.mrv-veste #mrv-occurrences-host.sta-chiudendo { opacity: .35; }
+}
+
+/* ── LA VESTE IN G1 (packet 0075; ADR 0012 rev. 3 p. 6, rev. 4 B) ─────────────────────────────────────────────────
+   Sotto `.mrv-veste-g1`, che la veste mette sul guscio solo nella «Revisione pre-materiali». Il cerchio vuoto dei non letti
+   dal controllo (B.2: fuori dal da fare; il filo --mm-testo-2 sul bianco 7,58:1), la nota già decisa ridotta a una riga con
+   l'esito (B.4), le parole di un collegamento coi suggerimenti (B.5), «Riprova il controllo automatico» nella stessa riga
+   della casella del piede (B.1). Token --mm-*, come il resto del Banco (rev. 3, p. 8). */
+#mappai-teacher-review.mrv-veste .mrv-veste-cerchio { display: inline-block; flex: none; width: 10px; height: 10px; border: 2px solid var(--mm-testo-2, #475569); border-radius: 50%; background: #fff; }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-riga[data-stato=non-letto] .mrv-veste-titolo { color: var(--mm-testo-2, #475569); }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-nota:not([data-esito="pending"]):not([data-esito="conflitto"]) .mrv-veste-nota-testo { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#mappai-teacher-review.mrv-veste .mrv-veste-nota-quarantena { font-size: .78rem; font-style: italic; }
+#mappai-teacher-review.mrv-veste input.mrv-veste-parole:focus { border-color: var(--mm-accent, #4f46e5); outline: 2px solid var(--mm-accent-soft, #eef2ff); }
+#mappai-teacher-review.mrv-veste .mrv-veste-famiglie { display: flex; align-items: center; gap: 8px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-famiglie select { min-height: 28px; padding: 2px 6px; border: 1px solid var(--mm-bordo, #e2e8f0); border-radius: 8px; background: #fff; color: var(--mm-testo, #404040); font-size: .78rem; }
+#mappai-teacher-review.mrv-veste .mrv-veste-scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-scelte .mrv-veste-parola { min-height: 28px; padding: 2px 10px; border-radius: 999px; }
+#mappai-teacher-review.mrv-veste .mrv-veste-scelte .mrv-veste-parola[aria-pressed=true] { border-color: var(--mm-accent, #4f46e5); background: var(--mm-accent-soft, #eef2ff); color: var(--mm-accent, #4f46e5); }
+#mappai-teacher-review.mrv-veste-g1 #mrv-next-step { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+#mappai-teacher-review.mrv-veste-g1 #mrv-next-step [data-veste-passo] { flex: 1 1 100%; }
+#mappai-teacher-review.mrv-veste-g1 #mrv-next-step [data-veste-passo]:empty { display: none; }
+/* giro di correzione del 07/10 (D3): «Riprova» è anche `#mrv-retry-judge`, che la regola di prima (#mappai-teacher-review
+   #mrv-retry-judge, due id) porta a width: 100% — da solo su una riga. Qui due id e due classi: vince, e il bottone si
+   stringe sul suo testo. La casella cede spazio (va a capo dentro di sé), così stanno nella stessa riga; sotto i 20rem
+   più il bottone «Riprova» scende sotto, come ogni elemento di una riga a capo. */
+#mappai-teacher-review.mrv-veste-g1 #mrv-next-step .mrv-veste-riprova { flex: 0 0 auto; width: auto; }
+#mappai-teacher-review.mrv-veste-g1 #mrv-next-step .mrv-veste-conferma { flex: 1 1 20rem; min-width: 0; }
+/* settimo giro, Q14: «Il controllo» in parti. In vista una riga sola — l'esito e «Nuovo controllo con i modelli del Setup»,
+   che si stringe sul suo testo (senza il margine `mt-3` che porta da R.open) e va a capo solo se manca spazio —, poi le
+   parti chiuse, ognuna col suo filo come i materiali della copertura. */
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-controllo-esito { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 6px 0 10px; }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-controllo-stato { flex: 1 1 auto; min-width: 0; font-weight: 700; color: var(--mm-testo, #404040); }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-controllo-esito #mrv-setup-judge { flex: 0 0 auto; width: auto; margin-top: 0; }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-controllo-parte { border-top: 1px solid var(--mm-bordo, #e2e8f0); padding: 8px 0; }
+#mappai-teacher-review.mrv-veste-g1 .mrv-veste-controllo-parte > summary { font-weight: 700; cursor: pointer; }

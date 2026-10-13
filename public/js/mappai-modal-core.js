@@ -664,6 +664,22 @@
     }
     function bersaglioOk(h) { return { ok: h >= 44, minimo: 44, wcag: h >= 24 }; }
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       TASTIERA — una riga di tabella che si sceglie (`role="button"` su un
+       <tr>) non ha l'attivazione nativa di un <button>: senza questa regola
+       col Tab ci si arriva e poi non succede niente, oppure Invio preme
+       l'azione primaria della finestra al posto della riga (rilievo del
+       banco 0017, 23/9/2026). Il contratto ARIA di role=button chiede
+       Invio E Spazio.
+       ═══════════════════════════════════════════════════════════════════════ */
+    function rigaDaTastiera(el, tasto) {
+        if (!el || typeof el.getAttribute !== 'function') return false;
+        if (String(el.tagName || '').toUpperCase() === 'BUTTON') return false;
+        if (el.getAttribute('role') !== 'button') return false;
+        if (typeof el.hasAttribute === 'function' ? !el.hasAttribute('data-azione') : el.getAttribute('data-azione') == null) return false;
+        return tasto === 'Enter' || tasto === ' ' || tasto === 'Spacebar';
+    }
+
     return {
         TAGLIE: TAGLIE, ORDINE: ORDINE, LAYOUT: LAYOUT, RUOLI: RUOLI, CAMPI: CAMPI,
         taglia: taglia, larghezza: larghezza, tagliaVicina: tagliaVicina, layoutValido: layoutValido,
@@ -674,6 +690,7 @@
         validaSchema: validaSchema,
         rgb: rgb, luminanza: luminanza, contrasto: contrasto, esitoContrasto: esitoContrasto,
         verificaPaletta: verificaPaletta,
-        altezzaBersaglio: altezzaBersaglio, bersaglioOk: bersaglioOk
+        altezzaBersaglio: altezzaBersaglio, bersaglioOk: bersaglioOk,
+        rigaDaTastiera: rigaDaTastiera
     };
 }));

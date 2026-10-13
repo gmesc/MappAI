@@ -109,7 +109,7 @@ window.openNodeLabelsPrintModal = function () {
                     '</div>' +
                     '<div>' +
                         '<div class="pm-title">Foglio Nodi</div>' +
-                        '<div class="pm-subtitle">' + mapName + '</div>' +
+                        '<div class="pm-subtitle">' + _escDossier(mapName) + '</div>' +
                     '</div>' +
                 '</div>' +
 
@@ -310,7 +310,8 @@ window.printAllNodeLabels = async function (opts) {
     var modal = document.getElementById('node-labels-print-modal');
     if (modal) modal.remove();
 
-    const allNodes = appState.db.nodes || [];
+    // `opts.nodes` (packet 0042): i nodi della vista della quarantena; senza, quelli della mappa
+    const allNodes = (Array.isArray(opts.nodes) ? opts.nodes : null) || appState.db.nodes || [];
     const nodes = editedCards ? [] : (maxLevel !== null
         ? allNodes.filter(function (n) { return (n.level || 0) <= maxLevel; })
         : allNodes);
@@ -1402,6 +1403,43 @@ function _dsPieSchermo(mapName) {
     return DH ? DH.pieSchermo({ mappa: mapName }) : '';
 }
 
+/* ── IL TESTO DEI DATI ENTRA COME TESTO (25/9/2026) ──────────────────────────
+   Il dossier si apre con `window.open('')` + `document.write`: la finestra ha la
+   stessa origine della principale, e uno script lì dentro arriva a
+   `opener.electronAPI`, cioè al disco del docente. Quello che ci si scrive sono
+   DATI: etichette e desc dei nodi e verbi dei collegamenti (vault passati fra
+   colleghi), frasi della fonte (sourcesDict), colori delle macro-aree
+   (customColors, dal vault anche loro). `cleanLabel` non fa escape. Il foglio li
+   ha sempre stampati come testo semplice: nessuno porta HTML per disegno. Così
+   ogni valore passa da `_escDossier`, ogni colore da `_coloreDossier` — dentro
+   `style` un `red;background:url(javascript:…)` non ha bisogno di `<` — e il
+   nome della mappa che finisce nel piè stampato (una stringa CSS DENTRO il
+   <style>, dove un `</style>` chiude il foglio di stile e il resto diventa HTML)
+   perde il `<`. Senza il nucleo (il reader dell'iPad copia questo file byte per
+   byte) il ripiego fa lo stesso escape. */
+function _escDossier(v) {
+    if (typeof window !== 'undefined' && window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(v);
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
+/* Le frasi della fonte: prima dell'escape via le <mark> che il vecchio
+   `openSourceModal` scriveva DENTRO le note (solo a stampa, il dato resta). */
+function _notaDossier(v) {
+    const HS = (typeof window !== 'undefined') ? window.MappAIHtmlSicuro : null;
+    return _escDossier(HS ? HS.togliEvidenziazioniVecchie(v) : v);
+}
+function _coloreDossier(c) {
+    const DE = (typeof window !== 'undefined') ? window.MappAIDocEdit : null;
+    if (DE && DE.normColor) return DE.normColor(c) || '#6366f1';
+    const s = String(c == null ? '' : c).trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(s) ? s : '#6366f1';
+}
+/* Il nome della mappa entra nel piè stampato così com'è: MappAIDocHead lo protegge
+   da sé (`escCss` nei margini, `esc` nell'HTML, dal 25/9). Qui prima diventava «‹»,
+   e il piè di «x < 3» diceva «x ‹ 3» (dalla seconda revisione del ramo). */
+function _cssDossier(v) {
+    return String(v == null ? '' : v);
+}
+
 window.printAllNodeDossiers = function () {
     window.openDossierPrintModal();
 };
@@ -1479,8 +1517,14 @@ window.onDossierNodeChange = function (mode) {
 window.generateDossierPDFFromOptions = async function () {
     console.log('[Dossier] generateDossierPDFFromOptions avviata');
     try {
-        // Carica l'icona MappAI in base64 — verrà iniettata nell'header di ogni card PDF
-        const mappaiIconBase64 = await loadMappaiIconBase64();
+        // Carica l'icona MappAI in base64 — verrà iniettata nell'header di ogni card PDF.
+        // ⚠️ `loadMappaiIconBase64` stava in app.js ed è andata via con FISSA (8510e1a,
+        // 16/8/2026): da allora questa riga lanciava e «Stampa dossier» non partiva più
+        // (trovato il 25/9). Senza icona l'intestazione ripiega già sul testo «MappAI»
+        // e su MappAI_icon.png (più sotto).
+        const mappaiIconBase64 = (typeof window.loadMappaiIconBase64 === 'function')
+            ? await window.loadMappaiIconBase64().catch(() => null)
+            : null;
         const isMM = appState.extractionMode === 'mindmap';
         const selectId = isMM ? 'print-mm-node-select' : 'print-kg-node-select';
         const selectedNodeId = document.getElementById(selectId)?.value;
@@ -1578,9 +1622,9 @@ window.generateDossierPDFFromOptions = async function () {
         function getNodeColor(node) {
             if (!node) return '#6366f1';
             if (appState.db.customColors && appState.db.customColors[node.group] !== undefined) {
-                return appState.db.customColors[node.group];
+                return _coloreDossier(appState.db.customColors[node.group]);
             }
-            return colorScale[node.group] || colorScale[1] || '#6366f1';
+            return _coloreDossier(colorScale[node.group] || colorScale[1] || '#6366f1');
         }
 
         // ─── Helper: ottieni il colore della MACROAREA del nodo (group L1) ──────────
@@ -1591,9 +1635,9 @@ window.generateDossierPDFFromOptions = async function () {
             // Per nodi più profondi: usa node.group che identifica la macroarea L1
             const macroGroup = node.group;
             if (appState.db?.customColors?.[macroGroup] !== undefined) {
-                return appState.db.customColors[macroGroup];
+                return _coloreDossier(appState.db.customColors[macroGroup]);
             }
-            return colorScale[macroGroup] || colorScale[1] || '#6366f1';
+            return _coloreDossier(colorScale[macroGroup] || colorScale[1] || '#6366f1');
         }
 
         // ─── Helper: genera una riga di citazione stile modale ───────────────────
@@ -1607,7 +1651,7 @@ window.generateDossierPDFFromOptions = async function () {
             const originLabel = originNode ? cleanLabel(originNode.label) : '';
             const nodeColor = originNode ? getNodeColor(originNode) : '#6366f1';
             const nodeTag = (showNodeLabel && originLabel)
-                ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>`
+                ? `<span class="citation-origin" style="color:${nodeColor};">${_escDossier(originLabel)}</span>`
                 : '';
             return `<div class="citation-row">
             <div class="citation-num">${idx + 1}</div>
@@ -1616,9 +1660,9 @@ window.generateDossierPDFFromOptions = async function () {
                     <span class="citation-type-tag">TESTO DI ORIGINE</span>
                     ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
                     <span class="citation-sep">\u2014</span>
-                    <span class="citation-source">${sourceName}</span>
+                    <span class="citation-source">${_escDossier(sourceName)}</span>
                 </div>
-                <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                <p class="citation-text">&ldquo;${_notaDossier(sourceText)}&rdquo;</p>
             </div>
         </div>`;
         }
@@ -1668,8 +1712,8 @@ window.generateDossierPDFFromOptions = async function () {
                     .filter(Boolean);
 
                 let html = '';
-                if (fromRefs.length) html += `<span class="dossier-rel-hint">&#8592; ${fromRefs.join(' / ')}</span>`;
-                if (toRefs.length)   html += `<span class="dossier-rel-hint">&#8594; ${toRefs.join(' / ')}</span>`;
+                if (fromRefs.length) html += `<span class="dossier-rel-hint">&#8592; ${_escDossier(fromRefs.join(' / '))}</span>`;
+                if (toRefs.length)   html += `<span class="dossier-rel-hint">&#8594; ${_escDossier(toRefs.join(' / '))}</span>`;
                 return html;
             })();
 
@@ -1690,14 +1734,14 @@ window.generateDossierPDFFromOptions = async function () {
             <!-- ── HEADER: rettangolo colorato full-width ──────────────────────── -->
             <div class="${headerClass}" style="background:${headerColor};color:white;">
                 <div class="dossier-card-header-main">
-                    <h2 class="dossier-title">${cleanLabel(node.label)}</h2>
+                    <h2 class="dossier-title">${_escDossier(cleanLabel(node.label))}</h2>
                     ${headerRelHints}
                 </div>
             </div>
 
             <!-- ── CORPO NODO ───────────────────────────────────────────────────── -->
             <div class="dossier-body">
-                <p class="dossier-desc">${cleanLabel(node.desc || node.content || 'Nessuna descrizione presente.')}</p>
+                <p class="dossier-desc">${_escDossier(cleanLabel(node.desc || node.content || 'Nessuna descrizione presente.'))}</p>
 
                 <!-- ── SEZIONE FONTI E CITAZIONI ────────────────────────── -->
                 ${citationsSection}
@@ -1762,11 +1806,11 @@ window.generateDossierPDFFromOptions = async function () {
             if (!isMM && document.getElementById('print-kg-relations')?.checked) {
                 const outgoing = appState.db.links
                     .filter(l => ((l.source?.id || l.source) === n.id))
-                    .map(l => { const t = appState.db.nodes.find(nd => nd.id === (l.target?.id || l.target)); return t ? `<li><span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${l.rel || 'collega'}]</span> <strong class="rel-target">[${cleanLabel(t.label)}]</strong></li>` : ''; })
+                    .map(l => { const t = appState.db.nodes.find(nd => nd.id === (l.target?.id || l.target)); return t ? `<li><span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${_escDossier(l.rel || 'collega')}]</span> <strong class="rel-target">[${_escDossier(cleanLabel(t.label))}]</strong></li>` : ''; })
                     .filter(Boolean).join('');
                 const incoming = appState.db.links
                     .filter(l => ((l.target?.id || l.target) === n.id))
-                    .map(l => { const s2 = appState.db.nodes.find(nd => nd.id === (l.source?.id || l.source)); return s2 ? `<li><strong class="rel-target">[${cleanLabel(s2.label)}]</strong> <span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${l.rel || 'collega'}]</span></li>` : ''; })
+                    .map(l => { const s2 = appState.db.nodes.find(nd => nd.id === (l.source?.id || l.source)); return s2 ? `<li><strong class="rel-target">[${_escDossier(cleanLabel(s2.label))}]</strong> <span class="rel-arrow">&#8212;&#9658;</span> <span class="rel-word">[${_escDossier(l.rel || 'collega')}]</span></li>` : ''; })
                     .filter(Boolean).join('');
                 if (outgoing || incoming) {
                     relationsHtml = `<h3 class="dossier-section-title">RELAZIONI DEL NODO</h3><div class="kg-relations">
@@ -1793,11 +1837,11 @@ window.generateDossierPDFFromOptions = async function () {
             <div class="dossier-header">
                 <div>
                     <h2 class="dossier-title">Diagramma ad Albero Globale</h2>
-                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Tutta la mappa</span>
+                    <span class="dossier-tag">${_escDossier(cleanLabel(rootNode.label))} &#xB7; Tutta la mappa</span>
                 </div>
             </div>
             <div class="dossier-divider"></div>
-            <pre class="ascii-tree">${treeText}</pre>
+            <pre class="ascii-tree">${_escDossier(treeText)}</pre>
         </div>`;
 
             // Stampa la card del Root Node
@@ -1832,7 +1876,7 @@ window.generateDossierPDFFromOptions = async function () {
                     perNodeHtml += `<div class="node-citations-group">
                     <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
                         <span class="node-group-dot" style="background:${nodeColor};"></span>
-                        <span class="node-group-label">${cleanLabel(n.label)}</span>
+                        <span class="node-group-label">${_escDossier(cleanLabel(n.label))}</span>
                         <span class="node-group-count">${nodeSources.length} cit.</span>
                     </div>`;
                     nodeSources.forEach(s => {
@@ -1860,7 +1904,7 @@ window.generateDossierPDFFromOptions = async function () {
                         const originNode = (s.nodeId && appState.db.nodes) ? appState.db.nodes.find(nd => nd.id === s.nodeId) : null;
                         const originLabel = originNode ? cleanLabel(originNode.label) : '';
                         const nodeColor = originNode ? getNodeColor(originNode) : l1Color;
-                        const nodeTag = originLabel ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>` : '';
+                        const nodeTag = originLabel ? `<span class="citation-origin" style="color:${nodeColor};">${_escDossier(originLabel)}</span>` : '';
                         return `<div class="citation-row">
                         <div class="citation-num">${idx + 1}</div>
                         <div class="citation-content">
@@ -1868,9 +1912,9 @@ window.generateDossierPDFFromOptions = async function () {
                                 <span class="citation-type-tag">TESTO DI ORIGINE</span>
                                 ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
                                 <span class="citation-sep">&mdash;</span>
-                                <span class="citation-source">${sourceName}</span>
+                                <span class="citation-source">${_escDossier(sourceName)}</span>
                             </div>
-                            <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                            <p class="citation-text">&ldquo;${_notaDossier(sourceText)}&rdquo;</p>
                         </div>
                     </div>`;
                     }).filter(Boolean).join('');
@@ -1886,7 +1930,7 @@ window.generateDossierPDFFromOptions = async function () {
                 <div class="dossier-header">
                     <div class="dossier-header-icon">&#128218;</div>
                     <div>
-                        <h2 class="dossier-title">Fonti e Note: ${cleanLabel(l1.label)}</h2>
+                        <h2 class="dossier-title">Fonti e Note: ${_escDossier(cleanLabel(l1.label))}</h2>
                         <span class="dossier-tag">Tutte le citazioni del ramo (Macro-Area)</span>
                     </div>
                 </div>
@@ -1919,11 +1963,11 @@ window.generateDossierPDFFromOptions = async function () {
             <div class="dossier-header">
                 <div>
                     <h2 class="dossier-title">Struttura del Ramo</h2>
-                    <span class="dossier-tag">${cleanLabel(rootNode.label)} &#xB7; Diagramma ASCII</span>
+                    <span class="dossier-tag">${_escDossier(cleanLabel(rootNode.label))} &#xB7; Diagramma ASCII</span>
                 </div>
             </div>
             <div class="dossier-divider"></div>
-            <pre class="ascii-tree">${treeText}</pre>
+            <pre class="ascii-tree">${_escDossier(treeText)}</pre>
         </div>`;
 
             targetNodes.forEach(n => {
@@ -1939,7 +1983,7 @@ window.generateDossierPDFFromOptions = async function () {
                 perNodeHtml += `<div class="node-citations-group">
                 <div class="node-group-header" style="border-left:4px solid ${nodeColor};">
                     <span class="node-group-dot" style="background:${nodeColor};"></span>
-                    <span class="node-group-label">${cleanLabel(n.label)}</span>
+                    <span class="node-group-label">${_escDossier(cleanLabel(n.label))}</span>
                     <span class="node-group-count">${nodeSources.length} cit.</span>
                 </div>`;
                 nodeSources.forEach(s => {
@@ -1969,7 +2013,7 @@ window.generateDossierPDFFromOptions = async function () {
                     const originLabel = originNode ? cleanLabel(originNode.label) : '';
                     const nodeColor = originNode ? getNodeColor(originNode) : rootColor;
                     const nodeTag = originLabel
-                        ? `<span class="citation-origin" style="color:${nodeColor};">${originLabel}</span>`
+                        ? `<span class="citation-origin" style="color:${nodeColor};">${_escDossier(originLabel)}</span>`
                         : '';
                     return `<div class="citation-row">
                     <div class="citation-num">${idx + 1}</div>
@@ -1978,9 +2022,9 @@ window.generateDossierPDFFromOptions = async function () {
                             <span class="citation-type-tag">TESTO DI ORIGINE</span>
                             ${nodeTag ? `<span class="citation-sep">|</span>${nodeTag}` : ''}
                             <span class="citation-sep">\u2014</span>
-                            <span class="citation-source">${sourceName}</span>
+                            <span class="citation-source">${_escDossier(sourceName)}</span>
                         </div>
-                        <p class="citation-text">&ldquo;${sourceText}&rdquo;</p>
+                        <p class="citation-text">&ldquo;${_notaDossier(sourceText)}&rdquo;</p>
                     </div>
                 </div>`;
                 }).filter(Boolean).join('');
@@ -1996,7 +2040,7 @@ window.generateDossierPDFFromOptions = async function () {
                 <div class="dossier-header-icon">&#128218;</div>
                 <div>
                     <h2 class="dossier-title">Fonti e Note Approfondite</h2>
-                    <span class="dossier-tag">Tutte le citazioni del ramo &#xB7; ${cleanLabel(rootNode.label)}</span>
+                    <span class="dossier-tag">Tutte le citazioni del ramo &#xB7; ${_escDossier(cleanLabel(rootNode.label))}</span>
                 </div>
             </div>
             <div class="dossier-divider"></div>
@@ -2034,7 +2078,7 @@ window.generateDossierPDFFromOptions = async function () {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>${_dsNomeFile(projectTitle, dossierSubtitle, isMM)}</title>
+            <title>${_escDossier(_dsNomeFile(projectTitle, dossierSubtitle, isMM))}</title>
             <style>
                 ${_fontDoc()}
                 ${_dsCornice()}
@@ -2080,7 +2124,7 @@ window.generateDossierPDFFromOptions = async function () {
                            tutte, e in più si può contare le pagine — cosa che un
                            elemento del documento non sa fare (il contatore fuori
                            da @page vale 0). */
-${_dsPie(rootMapName, mappaiIconPie)}
+${_dsPie(_cssDossier(rootMapName), mappaiIconPie)}
                     }
                     body {
                         margin: 0;

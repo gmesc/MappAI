@@ -1,0 +1,421 @@
+/* Packet 0070: soltanto la vista del percorso. Il contenitore ha un'altezza
+   finita affinché testo e risposte possano scorrere indipendentemente. */
+.lettura-layout {
+  --lettura-split: 50%;
+  display: flex; flex-direction: column; min-height: 0;
+  height: 100%; color: var(--text-primary, #172033);
+  background: var(--bg-primary, #fff);
+  font-family: var(--lettura-font, sans-serif);
+  font-size: var(--lettura-size, 18px); line-height: var(--lettura-line, 1.65);
+  letter-spacing: var(--lettura-spacing, 0);
+}
+.lettura-layout [hidden] { display: none !important; }
+.lettura-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; flex: none; }
+.lettura-layout button, .lettura-layout textarea { font: inherit; color: inherit; }
+.lettura-layout button {
+  cursor: pointer; min-height: 44px; padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--border-color, #64748b); background: var(--bg-secondary, #f1f5f9);
+}
+.lettura-layout :focus-visible { outline: 3px solid var(--accent-color, #2563eb); outline-offset: 3px; }
+.lettura-split { display: grid; grid-template-columns: minmax(0, var(--lettura-split)) 16px minmax(0, 1fr); flex: 1; min-height: 0; }
+.lettura-source-pane, .lettura-questions { overflow: auto; min-width: 0; min-height: 0; padding: 16px; overscroll-behavior: contain; }
+.lettura-paragraph, .lettura-question legend { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lettura-paragraph { margin: 0 0 var(--lettura-gap, 1em); }
+.lettura-paragraph:focus { outline: 2px solid var(--accent-color, #2563eb); outline-offset: 5px; }
+.lettura-heading { font-size: 1.3em; font-weight: 700; }
+.lettura-list { padding-inline-start: 1.5em; margin: 0; }
+.lettura-separator { cursor: col-resize; touch-action: none; background: var(--bg-secondary, #e2e8f0); border-inline: 1px solid var(--border-color, #64748b); }
+.lettura-question { min-width: 0; margin: 0 0 24px; padding: 12px; border: 1px solid var(--border-color, #64748b); border-radius: 8px; }
+.lettura-question legend { font-weight: 600; padding: 0 6px; max-width: 100%; }
+.lettura-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.lettura-option { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; cursor: pointer; }
+.lettura-option input { flex: none; width: 20px; height: 20px; }
+.lettura-option span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lettura-question textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 100px; background: var(--bg-primary, #fff); border: 1px solid var(--border-color, #64748b); padding: 8px; }
+.lettura-layout[data-expanded="source"] .lettura-split,
+.lettura-layout[data-expanded="questions"] .lettura-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+@media (orientation: portrait), (max-width: 700px) {
+  .lettura-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, var(--lettura-split)) 16px minmax(0, 1fr); }
+  .lettura-separator { cursor: row-resize; border-inline: 0; border-block: 1px solid var(--border-color, #64748b); }
+}
+
+/* Configurazione CREA: registro unico mappai-ui.css, regole 09–10.
+   Il chiamante carica il foglio comune; qui soltanto layout del percorso.
+   Le misure locali derivano dalla scala comune, senza una palette parallela. */
+.lettura-planner { box-sizing: border-box; font-family: var(--ui-font); font-size: var(--ui-fs-corpo); line-height: var(--ui-lh-corpo); max-width: var(--ui-tetto); margin: auto; padding: var(--ui-pad); color: var(--ui-testo); background: var(--ui-fondo); }
+.lettura-planner [hidden] { display: none !important; }
+.lettura-planner h2 { font-size: var(--ui-fs-chip); line-height: var(--ui-lh-titolo); margin: var(--ui-gap) 0 calc(var(--ui-gap) * 2); }
+.lettura-planner h3 { font-size: var(--ui-fs-sotto); margin: 0 0 var(--ui-gap); }
+.lettura-planner:not(.lettura-planner--bento) :is(button, input, select) { min-height: calc(var(--ui-gap) * 4); }
+.lettura-planner:not(.lettura-planner--bento) :is(input, select) { box-sizing: border-box; width: 100%; min-width: 0; font: inherit; font-size: var(--ui-fs-btn); color: var(--ui-testo); background: var(--ui-pannello); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); padding: calc(var(--ui-gap) / 2); }
+.lettura-planner:not(.lettura-planner--bento) :is(input, select):disabled { color: var(--ui-testo-2); }
+.lettura-planner :focus-visible { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
+.lettura-planner label { display: flex; flex-direction: column; gap: calc(var(--ui-gap) / 2); min-width: 0; color: var(--ui-testo-2); }
+.lettura-plan-context { display: flex; flex-wrap: wrap; gap: var(--ui-gap); margin-bottom: calc(var(--ui-gap) * 2); }
+.lettura-plan-context label { flex: 1 1 auto; }
+.lettura-plan-modes { flex-wrap: wrap; margin-bottom: calc(var(--ui-gap) * 2); }
+.lettura-plan-modes button[aria-pressed="true"] { background: var(--ui-pannello-attivo); color: var(--ui-testo); }
+.lettura-plan-presets { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--ui-gap); margin-bottom: calc(var(--ui-gap) * 2); }
+.lettura-plan-presets > :is(.ui-pannello,.mn-lettura-preset) { margin: 0; padding: var(--ui-pad); min-width: 0; }
+.lettura-plan-presets p { color: var(--ui-testo-2); }
+.lettura-plan-presets > p { grid-column: 1 / -1; margin: 0; }
+.lettura-plan-groups details { border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); margin: var(--ui-gap) 0; background: var(--ui-pannello); }
+.lettura-plan-groups summary { padding: var(--ui-pad); font-size: var(--ui-fs-sotto); font-weight: 700; cursor: pointer; }
+.lettura-plan-groups summary span { float: right; color: var(--ui-testo-2); font-variant-numeric: tabular-nums; margin-inline-start: var(--ui-gap); }
+.lettura-plan-row { display: grid; grid-template-columns: minmax(20ch,2fr) calc(var(--ui-gap) * 7) repeat(3,minmax(10ch,1fr)); gap: var(--ui-gap); padding: var(--ui-pad); border-top: 1px solid var(--ui-bordo); align-items: start; }
+.lettura-plan-type { min-width: 0; }
+.lettura-plan-row p { margin: calc(var(--ui-gap) / 2) 0 0; max-width: 65ch; color: var(--ui-testo-2); }
+.lettura-plan-row-actions { display: flex; flex-wrap: wrap; gap: var(--ui-gap); }
+.lettura-plan-row-actions { grid-column: 1 / -1; justify-self: start; }
+.lettura-planner footer { position: sticky; bottom: 0; border-top: 1px solid var(--ui-bordo); background: var(--ui-fondo); padding: var(--ui-gap) 0; }
+.lettura-plan-total { font-size: var(--ui-fs-sotto); font-weight: 700; margin: 0; }
+.lettura-plan-limit, .lettura-plan-status { margin: calc(var(--ui-gap) / 2) 0; color: var(--ui-testo-2); max-width: 65ch; }
+@media (max-width: 760px) {
+  .lettura-plan-presets { grid-template-columns: 1fr; }
+  .lettura-plan-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .lettura-plan-type { grid-column: 1 / -1; }
+  .lettura-planner { padding: var(--ui-gap); }
+  .lettura-plan-modes { display: flex; }
+  .lettura-plan-modes button { flex: 1 1 auto; }
+  .lettura-planner footer { position: static; }
+}
+
+/* Variante incorporata: occupa l'intera griglia CREA a quattro colonne.
+   Il wrapper della composizione governa la vista estesa; il modulo resta montato. */
+.lettura-planner--bento { grid-column: span 4; width: 100%; min-width: 0; max-width: none; margin: 0; border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); background: var(--ui-pannello); }
+.lettura-planner--bento h2 { font-size: var(--ui-fs-sotto); margin-top: 0; }
+.lettura-planner--bento footer { position: static; background: transparent; }
+
+/* Lo stesso configuratore, ospitato da ELABORA, legge i token della console. */
+.lettura-planner--console {
+  --ui-font: var(--app-font); --ui-pad: var(--mm-gap); --ui-gap: var(--mm-gap);
+  --ui-fondo: var(--mm-fondo); --ui-pannello: var(--mm-neutro);
+  --ui-testo: var(--mm-testo); --ui-testo-2: var(--mm-testo-2); --ui-bordo: var(--mm-bordo);
+  --ui-accento: var(--mm-accent); --ui-r-riquadro: var(--mm-r-card);
+  --ui-fs-sotto: var(--mm-btn-fs); --ui-lh-titolo: normal;
+  font: inherit; border: 0; background: transparent; padding: 0 !important;
+}
+.lettura-planner--console > h2 { display: none; }
+.lettura-planner--console .mm-campo { box-sizing: border-box; min-width: 0; }
+.lettura-planner--console .lettura-plan-presets > .mm-sez { margin: 0; }
+.lettura-planner--console .lettura-plan-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mm-gap); align-items: start; }
+.lettura-planner--console .lettura-plan-groups details { margin: 0; min-width: 0; }
+.lettura-planner--console .lettura-plan-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lettura-planner--console .lettura-plan-type { grid-column: 1 / -1; }
+.lettura-planner--console .lettura-plan-row .mm-campo { background: var(--mm-fondo); }
+.lettura-planner--console .lettura-plan-row-actions .mm-btn { white-space: normal; }
+.lettura-additional-console .mm-console__sez {
+  padding-inline-start: calc(var(--mnc-man-size, 34px) + var(--mm-gap));
+  padding-inline-end: var(--mm-gap);
+}
+/* La navigazione della console occupa parte della finestra: ridurre le colonne
+   prima del breakpoint del bento evita menu troncati nella tela più stretta. */
+@media (max-width: 1000px) {
+  .lettura-planner--console .lettura-plan-groups { grid-template-columns: minmax(0, 1fr); }
+  .lettura-planner--console .lettura-plan-presets { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* L'host nascosto non lascia una carta vuota: il core del Bento non legge
+   interruttori. Questa regola copre anche il breve montaggio dello strumento. */
+#lettura-crea-host[hidden] { display: none !important; }
+html.manifesto #mn-bento .mn-card:has([data-sposta="#lettura-crea-host"]):not(:has(#lettura-crea-host:not([hidden]))) { display: none !important; }
+html.manifesto #mn-bento .mn-card:has([data-sposta="#lettura-crea-host"]) { height: auto !important; max-height: none !important; }
+html.manifesto #mn-bento .mn-card:has([data-sposta="#lettura-crea-host"]) > .mn-card__t { display: none !important; }
+html.manifesto #mn-bento .mn-card:has([data-sposta="#lettura-crea-host"]) > .mn-card__b { display: block; max-height: none !important; overflow: visible !important; }
+html.manifesto #mn-bento [data-sposta="#lettura-crea-host"] { display: block !important; min-height: 0 !important; width: 100%; }
+/* Due ID isolano il planner dalle regole legacy !important di .mn-spostato. */
+html.manifesto #mn-bento #lettura-crea-host:not([hidden]) { display: block !important; padding: 0 !important; min-height: 0 !important; color: inherit !important; }
+/* Lo strumento incorporato usa i controlli del bento; il planner in finestra
+   conserva i propri campi. Nessuna altezza o padding alternativo sui controlli. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner {
+  padding: 0 !important; border: 0 !important; background: transparent !important;
+  color: inherit !important;
+}
+/* Il pannello non è un bottone: l'hover generico degli strumenti non deve
+   scurire tutti i testi sul fondo scuro. I controlli tengono i propri colori. */
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner :is(h2,h3,p,span,label,strong,summary,div,section,footer,details) { color: inherit !important; }
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner :is(p,span,label,button,input,select) {
+  font-size: var(--bn-fs-voce) !important; font-weight: var(--bn-fw-voce) !important;
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner :is(h2,h3,summary) {
+  font-size: var(--bn-fs-titolo) !important; font-weight: var(--bn-fw-titolo) !important;
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-context label { flex: 0 1 auto; }
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-row {
+  grid-template-columns: repeat(2,minmax(0,1fr));
+}
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-type { grid-column: 1 / -1; }
+html.manifesto #mn-bento #lettura-crea-host .lettura-plan-row .mn-sel { width: 100%; min-width: 0; }
+html.manifesto #mn-bento #lettura-crea-host :is(.mn-sel,.mn-num) { border-radius: var(--mm-r-campo) !important; }
+@media (max-width: 760px) {
+  html.manifesto #mn-bento #lettura-crea-host .lettura-plan-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+/* Controllo della fonte: originale stabile a fianco dei blocchi correggibili. */
+.lettura-source-editor { box-sizing: border-box; min-width: 0; width: 100%; padding: var(--ui-pad); color: var(--ui-testo); background: var(--ui-fondo); font-family: var(--ui-font); font-size: var(--ui-fs-corpo); line-height: var(--ui-lh-corpo); }
+.lettura-source-editor h2 { margin: 0 0 var(--ui-gap); font-size: var(--ui-fs-chip); }
+.lettura-source-editor h3 { margin: 0 0 var(--ui-gap); font-size: var(--ui-fs-sotto); }
+.lettura-source-provenance, .lettura-source-notice { margin: var(--ui-gap) 0; color: var(--ui-testo-2); overflow-wrap: anywhere; }
+.lettura-source-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: calc(var(--ui-gap) * 2); align-items: start; }
+.lettura-source-original, .lettura-source-blocks { min-width: 0; max-height: 65vh; overflow: auto; overscroll-behavior: contain; padding: var(--ui-pad); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); background: var(--ui-pannello); }
+.lettura-source-original pre { margin: 0; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lettura-source-block { min-width: 0; padding: var(--ui-pad); margin: 0 0 calc(var(--ui-gap) * 2); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); }
+.lettura-source-block legend { padding: 0 var(--ui-gap); font-weight: 700; }
+.lettura-source-block label { display: flex; flex-direction: column; gap: calc(var(--ui-gap) / 2); margin-bottom: var(--ui-gap); color: var(--ui-testo-2); }
+.lettura-source-editor:not(.lettura-source-editor--console) :is(textarea,select) { box-sizing: border-box; width: 100%; min-width: 0; font: inherit; color: var(--ui-testo); background: var(--ui-fondo); padding: var(--ui-gap); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); }
+.lettura-source-editor:not(.lettura-source-editor--console) textarea { min-height: 8em; resize: vertical; }
+.lettura-source-editor:not(.lettura-source-editor--console) :is(button,select) { min-height: calc(var(--ui-gap) * 4); }
+.lettura-source-editor :focus-visible { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
+.lettura-source-actions { display: flex; flex-wrap: wrap; gap: var(--ui-gap); }
+.lettura-source-editor footer { padding-top: var(--ui-gap); }
+.lettura-source-status { min-height: 1.5em; margin: var(--ui-gap) 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .lettura-source-columns { grid-template-columns: minmax(0,1fr); }
+  .lettura-source-original, .lettura-source-blocks { max-height: 45vh; }
+  .lettura-source-editor { padding: var(--ui-gap); }
+}
+
+/* La tela legacy impone bianco e fit-content a ogni figlio con una regola
+   che contiene #provider-google. Solo i due editor possiedono la superficie. */
+.mm-tela--colonna > :is(.lettura-source-editor, .lettura-materials-editor) {
+  flex: 0 0 100%; width: 100% !important; max-width: 100%;
+  background: var(--ui-fondo) !important; color: var(--ui-testo);
+  padding: var(--ui-pad) !important;
+}
+.lettura-materials-editor { box-sizing: border-box; width: 100%; min-width: 0; padding: var(--ui-pad); color: var(--ui-testo); background: var(--ui-fondo); font: var(--ui-fs-corpo)/var(--ui-lh-corpo) var(--ui-font); }
+.lettura-materials-editor h2 { margin-top: 0; font-size: var(--ui-fs-chip); }
+.lettura-materials-editor h3 { margin: 0; font-size: var(--ui-fs-sotto); }
+.lettura-materials-editor h4 { margin: var(--ui-gap) 0; font-size: var(--ui-fs-corpo); }
+.lettura-materials-select, .lettura-materials-block { min-width: 0; margin-bottom: var(--ui-gap); padding: var(--ui-pad); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r-riquadro); background: var(--ui-pannello); overflow-wrap: anywhere; }
+.lettura-materials-block[hidden], .lettura-materials-editor [hidden] { display: none !important; }
+.lettura-materials-actions, .lettura-materials-move { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-gap); }
+.lettura-materials-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, .6fr); align-items: end; gap: var(--ui-gap); }
+.lettura-materials-select > .lettura-materials-content > .lettura-materials-actions { margin-top: var(--ui-gap); }
+.lettura-materials-move { flex-wrap: nowrap; }
+.lettura-materials-move button { width: calc(var(--ui-gap) * 3); min-width: calc(var(--ui-gap) * 3); min-height: calc(var(--ui-gap) * 3); padding: 0; }
+.lettura-materials-filters label, .lettura-materials-title { display: flex; flex-direction: column; gap: calc(var(--ui-gap) / 2); min-width: 0; }
+.lettura-materials-filters label { flex: 1 1 10ch; }
+.lettura-materials-title { margin-top: var(--ui-gap); }
+.lettura-materials-editor:not(.lettura-materials-editor--console) :is(input,select) { box-sizing: border-box; max-width: 100%; min-width: 0; padding: var(--ui-gap); border: 1px solid var(--ui-bordo); border-radius: var(--ui-r); color: var(--ui-testo); background: var(--ui-fondo); font: inherit; }
+.lettura-materials-editor input[type=number] { width: 9ch; }
+.lettura-materials-editor:not(.lettura-materials-editor--console) :is(button,select):not([data-material-move]) { min-height: calc(var(--ui-gap) * 4); }
+.lettura-materials-pick { display: flex; align-items: center; gap: var(--ui-gap); min-height: calc(var(--ui-gap) * 4); }
+.lettura-materials-editor input[type=checkbox] { width: 1.3em; height: 1.3em; }
+.lettura-materials-meta { color: var(--ui-testo-2); }
+.lettura-materials-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lettura-materials-guide { padding: var(--ui-gap) 0; border-top: 1px solid var(--ui-bordo); }
+.lettura-materials-editor summary { cursor: pointer; font-weight: 700; }
+.lettura-materials-editor dt { font-weight: 700; margin-top: var(--ui-gap); }
+.lettura-materials-editor dd { margin: calc(var(--ui-gap) / 2) 0; }
+.lettura-materials-status { min-height: 1.5em; overflow-wrap: anywhere; }
+.lettura-materials-editor :focus-visible { outline: 2px solid var(--ui-accento); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .lettura-materials-editor { padding: var(--ui-gap); }
+  .lettura-materials-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+  .lettura-materials-filters label { flex-basis: 100%; }
+  .lettura-materials-filters button { width: 100%; }
+}
+
+.lettura-materials-editor { overflow-wrap: anywhere; }
+.lettura-materials-editor button, .lettura-source-editor button { box-sizing: border-box; max-width: 100%; white-space: normal; }
+@media (max-width: 760px) {
+  .mm-body--console:has(:is(.lettura-source-editor, .lettura-materials-editor)) { flex-direction: column; }
+  .mm-body--console:has(:is(.lettura-source-editor, .lettura-materials-editor)) > .mm-console__side { flex: 0 0 auto; max-height: 20vh; border-right: 0; border-bottom: 1px solid var(--mm-bordo); }
+  .mm-body--console:has(:is(.lettura-source-editor, .lettura-materials-editor)) > .mm-console__man { display: none; }
+  .mm-tela--colonna:has(> :is(.lettura-source-editor, .lettura-materials-editor)) { padding: var(--mm-pad); }
+  .mm-tela--colonna > :is(.lettura-source-editor, .lettura-materials-editor) { padding: var(--ui-gap) !important; }
+}
+
+/* Il foglio ha la propria superficie e tipografia; l'iframe non eredita la
+   larghezza fit-content assegnata dalla tela legacy a qualsiasi figlio. */
+[data-tela="lettura-anteprima"] > .lettura-print-preview {
+  display: block; box-sizing: border-box; flex: 1 1 100%;
+  width: 100% !important; max-width: 100%; min-height: 70vh;
+  padding: 0 !important; border: 1px solid var(--mm-bordo);
+  background: var(--mm-fondo);
+}
+@media (max-width: 760px) {
+  .mm-body--console:has(.lettura-print-preview) { flex-direction: column; }
+  .mm-body--console:has(.lettura-print-preview) > .mm-console__side { flex: 0 0 auto; max-height: 20vh; }
+  [data-tela="lettura-anteprima"] { padding: var(--mm-pad); }
+}
+
+/* L'editor di una singola attività usa campi e sezioni del modale comune. */
+.lettura-activity-modal .lettura-activity-status { flex: 1 1 100%; margin: 0 0 var(--mm-gap, 12px); color: var(--mm-danger); font-size: var(--mm-fs, 14px); overflow-wrap: anywhere; }
+.lettura-activity-modal .lettura-activity-status:empty { display: none; }
+.lettura-activity-modal textarea { min-height: 6em; }
+/* Il foglio usa larghezza e gradini de-sheet del motore comune (0087).
+   Qui restano soltanto gli adattamenti delle schede specifiche della lettura. */
+.lettura-materials-editor--inline.de-sheet { padding: 0; background: var(--mm-fondo); }
+.lettura-materials-editor--inline .lettura-materials-block {
+  background: var(--mm-fondo); border: var(--mm-bordo-spessore) solid var(--mm-bordo);
+  box-shadow: none; padding: var(--mm-gap);
+}
+.lettura-materials-editor--inline .de-item { border-left-width: calc(var(--mm-bordo-spessore) * 4); border-left-color: var(--mm-accent); }
+.lettura-materials-editor--inline .lettura-materials-block[open] > summary .lettura-materials-text { display: none; }
+.lettura-inline-fields { display: flex; flex-direction: column; gap: var(--mm-gap); }
+.lettura-inline-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mm-gap); }
+.lettura-inline-section > :is(h4,p,.lettura-materials-actions), .lettura-inline-field:has(textarea), .lettura-inline-check { grid-column: 1 / -1; }
+.lettura-inline-section > h4 { margin: var(--mm-gap) 0 0; }
+.lettura-inline-section > p { margin: 0; color: var(--mm-testo-3); }
+.lettura-inline-hint { grid-column: 1 / -1; color: var(--mm-testo-2); font-size: var(--mm-btn-fs); }
+.lettura-inline-hint > summary { font-weight: normal; }
+.lettura-inline-hint p { margin: calc(var(--mm-gap) / 2) 0; }
+.lettura-inline-help[open] > summary { margin-bottom: var(--mm-gap); }
+.lettura-inline-field { display: flex; flex-direction: column; gap: calc(var(--mm-gap) / 2); min-width: 0; font-size: var(--mm-btn-fs); }
+.lettura-inline-field small { color: var(--mm-testo-3); }
+.lettura-inline-fields textarea.mm-campo { resize: vertical; min-height: var(--mnc-campo-h); }
+html[data-app="docente"] .lettura-inline-fields [data-rich].mm-campo {
+  min-height: var(--mnc-campo-h); height: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  padding: calc(var(--mm-gap) / 2); line-height: normal;
+}
+html[data-app="docente"] .lettura-inline-fields textarea.mm-campo { field-sizing: content; height: auto; }
+.lettura-inline-fields [data-rich]:focus { outline: var(--mm-bordo-spessore) solid var(--mm-accent); }
+.lettura-inline-section { gap: calc(var(--mm-gap) / 2) var(--mm-gap); }
+.lettura-inline-field:has([data-rich]) { grid-column: 1 / -1; }
+.lettura-inline-field:has([data-campo^="option-"]) { grid-column: auto; }
+.lettura-materials-editor--inline .lettura-inline-fields { gap: var(--mm-gap); }
+.lettura-materials-editor--inline .lettura-materials-content { margin-top: calc(var(--mm-gap) / 2); }
+.lettura-materials-editor--console.lettura-materials-editor--inline .lettura-materials-move .mm-btn--icona {
+  width: var(--mm-icona); min-width: var(--mm-icona); min-height: var(--mm-icona); height: var(--mm-icona);
+}
+.lettura-editor-title { width: 100%; border: 0; background: transparent; text-align: center; }
+.lettura-editor-bar { flex-wrap: wrap; }
+/* 09/10/26, Giacomo: comandi della toolbar 40 px / 12 px, token comuni. */
+.lettura-editor-bar :is(button,select,input[type="color"]) {
+  box-sizing: border-box; height: var(--mm-ctl-h); min-height: var(--mm-ctl-h); font-size: var(--mm-ctl-fs);
+}
+.lettura-editor-bar :is(.de-sbtn,.de-color) { width: var(--mm-ctl-h); }
+.lettura-editor-bar .de-style { padding: 0 calc(var(--mm-gap) / 2); }
+.lettura-editor-bar .de-slot {
+  width: var(--mm-icona); border: 0; background-clip: content-box;
+  padding: calc((var(--mm-ctl-h) - var(--mm-icona)) / 2) 0;
+}
+.lettura-editor-bar .de-zoom {
+  border: 0; background: transparent; padding: 0; margin: 0; gap: var(--mm-btn-gap);
+}
+.lettura-editor-bar :is(i,svg) { width: var(--mm-icona); height: var(--mm-icona); flex: none; }
+.lettura-toolbar-check { display: inline-flex; align-items: center; gap: calc(var(--mm-gap) / 2); font-size: var(--mm-btn-fs); white-space: nowrap; }
+.lettura-toolbar-status { flex-basis: 100%; margin: 0; font-size: var(--mm-btn-fs); color: var(--mm-testo-2); }
+.lettura-toolbar-status:empty { display: none; }
+.lettura-materials-editor--inline > p { font-size: var(--mm-btn-fs); margin: 0 0 var(--mm-gap); color: var(--mm-testo-2); }
+@container (max-width: 680px) {
+  .lettura-materials-editor--inline .lettura-inline-section { grid-template-columns: minmax(0, 1fr); }
+}
+.lettura-inline-check { flex-direction: row; align-items: center; flex-wrap: wrap; }
+.lettura-inline-check input { order: -1; flex: 0 0 auto; }
+.lettura-inline-fields .lettura-materials-guide { display: block; }
+.lettura-inline-fields .lettura-materials-guide > summary { margin-bottom: var(--mm-gap); }
+/* 10/10: guide nella console comune, righe risposta/criteri come Domande aperte;
+   misure dei controlli dal motore modale, nessuna palette aggiuntiva. */
+.lettura-inline-fields .de-expl-row { margin: 0; }
+.lettura-inline-fields .de-lbl { font-size: var(--mm-ctl-fs); margin: 0; color: var(--mm-testo-2); }
+.lettura-inline-fields .de-expl {
+  background: var(--mm-neutro); color: var(--mm-testo); border-radius: var(--mm-r-campo);
+  font-size: var(--mm-ctl-fs); font-style: normal; min-height: var(--mm-ctl-h);
+}
+.lettura-inline-fields .lettura-materials-guide > .lettura-inline-hint { margin-top: var(--mm-gap); }
+.lettura-additional-modal [data-sez="lettura-aggiuntive"] { min-width: 0; }
+@media (max-width: 680px) { .lettura-inline-section { grid-template-columns: minmax(0, 1fr); } }
+.lettura-materials-editor [data-material-summary] dl { margin-bottom: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12em), 1fr)); gap: var(--ui-gap); }
+
+/* Il percorso dentro CREA appartiene al bento: usa la sua palette e scala,
+   senza cambiare le console del testo o i materiali allievo. */
+html.manifesto #lettura-crea-host .lettura-planner--bento {
+  --ui-font: var(--app-font);
+  --ui-pad: var(--mn-gap);
+  --ui-lh-corpo: normal;
+  --ui-lh-titolo: normal;
+  --ui-fondo: transparent;
+  --ui-pannello: transparent;
+  --ui-pannello-attivo: var(--man-verde);
+  --ui-testo: currentColor;
+  --ui-testo-2: currentColor;
+  --ui-bordo: color-mix(in srgb, currentColor 14%, transparent);
+  --ui-accento: var(--man-viola);
+  --ui-r-riquadro: var(--mm-r-card);
+  --ui-fs-corpo: var(--bn-fs-voce);
+  --ui-fs-sotto: var(--bn-fs-titolo);
+  --ui-fs-btn: var(--bn-fs-azione);
+  --ui-gap: var(--mn-gap);
+  color-scheme: light;
+}
+html.manifesto #lettura-crea-host .lettura-plan-groups {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mn-gap); align-items: start;
+}
+html.manifesto #lettura-crea-host .lettura-plan-groups details { margin: 0; min-width: 0; }
+@media (max-width: 760px) {
+  html.manifesto #lettura-crea-host .lettura-plan-groups { grid-template-columns: minmax(0, 1fr); }
+}
+
+html.manifesto #mn-bento #lettura-crea-host .lettura-planner [hidden] { display: none !important; }
+.mm-box .ui:is(.lettura-source-editor,.lettura-materials-editor,.lettura-planner):not([data-theme="dark"]) {
+  --ui-fondo: var(--mm-fondo);
+  --ui-pannello: var(--mm-neutro);
+  --ui-pannello-attivo: var(--mm-fondo-sez);
+  --ui-testo: var(--mm-testo);
+  --ui-testo-2: var(--mm-testo-2);
+  --ui-bordo: var(--mm-bordo);
+}
+
+/* Controlla il testo usa la console e i controlli del motore comune. */
+.lettura-source-console .lettura-source-editor {
+  --ui-font: var(--app-font); --ui-pad: var(--mm-gap); --ui-gap: var(--mm-gap);
+  --ui-fondo: var(--mm-fondo); --ui-pannello: var(--mm-neutro);
+  --ui-testo: var(--mm-testo); --ui-testo-2: var(--mm-testo-2); --ui-bordo: var(--mm-bordo);
+  --ui-r-riquadro: var(--mm-r-campo); --ui-fs-sotto: var(--bn-fs-titolo); --ui-lh-corpo: normal;
+  display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; min-height: 0;
+  font: inherit; padding: 0 !important; background: transparent !important;
+}
+.lettura-source-console .lettura-source-editor > h2 { display: none; }
+.lettura-source-console .lettura-source-columns { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; overflow: hidden; }
+.lettura-source-console :is(.lettura-source-original,.lettura-source-blocks) { box-sizing: border-box; height: 100%; max-height: 100%; min-height: 0; }
+.lettura-source-console .lettura-source-block { display: flex; flex-direction: column; gap: var(--mm-gap); }
+.lettura-source-console .lettura-source-block :is(label,p,ul) { margin: 0; }
+.lettura-source-console .lettura-source-status:empty { display: none; }
+.lettura-source-console .lettura-source-editor :is(textarea,select) { box-sizing: border-box; min-width: 0; }
+.lettura-source-console .mm-body--console { flex: 1 1 auto; min-height: 0; }
+.lettura-source-console .mm-tela { box-sizing: border-box; padding: var(--mm-gap) var(--mm-pad); }
+.lettura-source-console .mm-console__area > .mm-foot { flex: none; flex-wrap: wrap; margin: 0; padding: var(--mm-gap) var(--mm-pad); border-top: 1px solid var(--mm-bordo); }
+@media (max-width: 760px) {
+  .lettura-source-console .lettura-source-editor { height: auto; }
+  .lettura-source-console .lettura-source-columns { flex: none; grid-template-rows: auto; overflow: visible; }
+  .lettura-source-console :is(.lettura-source-original,.lettura-source-blocks) { height: auto; max-height: 45vh; }
+}
+
+.lettura-source-console .lettura-source-block .mm-campo { background: var(--mm-fondo); }
+.lettura-source-console .mm-console__area > .mm-sez { padding-left: calc(var(--mm-pad) + var(--mnc-man-size, 34px)); }
+
+/* Attività e verifiche appartiene alla console: stessa scala e stessi controlli
+   del motore, senza importare il sistema delle pagine autonome. */
+.lettura-materials-editor--console {
+  --ui-font: var(--app-font); --ui-pad: var(--mm-pad); --ui-gap: var(--mm-gap);
+  --ui-fondo: var(--mm-fondo); --ui-pannello: var(--mm-neutro);
+  --ui-testo: var(--mm-testo); --ui-testo-2: var(--mm-testo-2); --ui-bordo: var(--mm-bordo);
+  --ui-accento: var(--mm-accent); --ui-r-riquadro: var(--mm-r-card);
+  --ui-fs-corpo: inherit; --ui-fs-sotto: inherit; --ui-fs-chip: inherit;
+  --ui-lh-corpo: normal;
+  font: inherit;
+}
+.lettura-materials-editor--console > h2 { display: none; }
+.lettura-materials-editor--console .mm-campo { box-sizing: border-box; width: 100%; min-width: 0; background: var(--mm-fondo); }
+.lettura-materials-editor--console .lettura-materials-filters label { font-size: var(--mm-btn-fs); }
+.lettura-materials-block > .lettura-materials-heading {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start;
+  gap: var(--ui-gap); list-style: none;
+}
+.lettura-materials-heading::-webkit-details-marker { display: none; }
+.lettura-materials-heading > :is(i,svg), .lettura-materials-move :is(i,svg) { width: var(--mm-icona); height: var(--mm-icona); flex: none; }
+.lettura-materials-block[open] > .lettura-materials-heading > :is(i,svg) { transform: rotate(90deg); }
+.lettura-materials-summary-copy { display: grid; gap: calc(var(--ui-gap) / 2); min-width: 0; font-weight: normal; }
+.lettura-materials-summary-copy > strong { font-size: var(--ui-fs-sotto); }
+.lettura-materials-summary-copy .lettura-materials-meta { font-size: var(--mm-btn-fs); }
+.lettura-materials-content { margin-top: var(--ui-gap); }
+.lettura-materials-content > :first-child { margin-top: 0; }
+.lettura-materials-content > :last-child { margin-bottom: 0; }
+.lettura-materials-move { gap: calc(var(--ui-gap) / 2); }
+.lettura-materials-editor--console .lettura-materials-move .mm-btn--icona {
+  width: var(--mnc-campo-h); min-width: var(--mnc-campo-h); min-height: var(--mnc-campo-h); padding: 0;
+}
+.lettura-materials-console .mm-console__area > .mm-foot { flex: none; flex-wrap: wrap; gap: var(--mm-gap); margin: 0; padding: var(--mm-gap) var(--mm-pad); border-top: 1px solid var(--mm-bordo); }
+.lettura-materials-status:empty { display: none; }

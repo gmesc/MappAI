@@ -462,7 +462,7 @@
         {
             id: 'p2', chiave: 'cb_tu_p2',
             titolo: 'Passo 2 — la mappa la costruisce l’allievo',
-            testo: 'Con la stessa scheda, stampa il Foglio dei nodi con i soli titoli, oppure apri la Lavagna: gli allievi costruiscono, e la mappa dell’AI si mostra alla fine come confronto. È qui che si impara: costruire vale più che studiare una mappa già fatta.'
+            testo: 'Con la stessa scheda, stampa il Foglio dei nodi con i soli titoli, oppure apri la Mappa LIVE: gli allievi costruiscono, e la mappa dell’AI si mostra alla fine come confronto. È qui che si impara: costruire vale più che studiare una mappa già fatta.'
         },
         {
             id: 'p3', chiave: 'cb_tu_p3',
@@ -538,7 +538,7 @@
         });
         s.sezioni.push({
             id: 'tc-classe', titolo: t('cb_tc_classe_t', 'Uso con gli allievi'),
-            testo: t('cb_tc_classe_d', 'Lavagna, attività LIVE e Tutor QR aprono un server sul tuo computer a cui i dispositivi si collegano via Wi-Fi. Chi somministra l’attività risponde dei dati che raccoglie e delle regole del proprio istituto: prima di usarle con minori, verifica cosa prevede la tua scuola.')
+            testo: t('cb_tc_classe_d', 'Mappa LIVE, attività LIVE e Chiedi e Rispondi aprono un server sul tuo computer a cui i dispositivi si collegano via Wi-Fi. Chi somministra l’attività risponde dei dati che raccoglie e delle regole del proprio istituto: prima di usarle con minori, verifica cosa prevede la tua scuola.')
         });
         s.sezioni.push({
             id: 'tc-fonti', titolo: t('cb_tc_fonti_t', 'Le fonti che carichi'),
@@ -564,7 +564,7 @@
         });
         s.sezioni.push({
             id: 'pv-lan', titolo: t('cb_pv_lan_t', 'Le attività in classe'),
-            testo: t('cb_pv_lan_d', 'Lavagna, quiz LIVE e Tutor restano sulla rete locale: i telefoni parlano col tuo computer, non con Internet, e le risposte finiscono in una cartella tua. L’eccezione è il Tutor QR, dove i messaggi che gli allievi scrivono vengono inoltrati all’AI per ottenere la risposta.')
+            testo: t('cb_pv_lan_d', 'Mappa LIVE, quiz LIVE e Chiedi e Rispondi restano sulla rete locale: i telefoni parlano col tuo computer, non con Internet, e le risposte finiscono in una cartella tua. L’eccezione è Chiedi e Rispondi, dove i messaggi che gli allievi scrivono vengono inoltrati all’AI per ottenere la risposta.')
         });
         s.sezioni.push({
             id: 'pv-errori', titolo: t('cb_pv_errori_t', 'Il registro degli errori'),
@@ -617,14 +617,25 @@
            per sempre. Idempotente: al secondo giro lo stato non è più vuoto. */
         if (C.stato === 'vuoto') { _caricaCartelle(); C = _st.cart; }
         var sez = { id: 'pr-cartelle', titolo: t('cb_ca_t', 'Gestione cartelle'), largo: true };
+        /* 0076 (ADR 0018): a interruttore acceso «Libera spazio» c'è SEMPRE quando
+           c'è l'app, e la riga «Spazio di lavoro» anche negli stati in cui prima
+           mancava — il 03/10 il docente col cassetto pieno non aveva niente da
+           premere. Spento: la sezione di prima. */
+        var sn = _snelloAcceso();
         if (C.stato === 'nonapp') {
             sez.testo = t('cb_ca_nonapp', 'I file di MappAI si gestiscono dall’app installata: qui, nel browser, non c’è un disco da mostrare.');
+            if (sn) _conSpazio(sez, _anteprimaCassetto(), false);
             return sez;
         }
-        if (C.stato !== 'pronto') { sez.testo = t('cb_ca_leggo', 'Cerco la cartella…'); return sez; }
+        if (C.stato !== 'pronto') {
+            sez.testo = t('cb_ca_leggo', 'Cerco la cartella…');
+            if (sn) _conSpazio(sez, _anteprimaCassetto(), true);
+            return sez;
+        }
         if (!C.organizzata) {
             sez.testo = t('cb_ca_sparsi', 'I documenti che MappAI produce sono sparsi in più cartelle dentro Documenti. Puoi raccoglierli in una sola — «MappAI - file» — nella posizione che scegli tu: quelli che ci sono già vengono spostati, non copiati.');
             sez.azioni = [{ id: 'cart-cambia', etichetta: t('cb_ca_scegli', 'Scegli la posizione'), ruolo: 'primario', icona: 'folder-plus', chiude: false }];
+            if (sn) _conSpazio(sez, _anteprimaCassetto(), true);
             return sez;
         }
         sez.testo = t('cb_ca_d', 'Tutto quello che MappAI scrive — mappe e vault, materiali, sessioni delle attività, profili, registri — vive in questa cartella sul tuo computer. È una cartella normale: puoi aprirla, copiarla su un disco esterno, metterla in un backup.');
@@ -637,35 +648,146 @@
            chiavi già in memoria, e mostrare un numero vecchio in un riquadro
            che offre di liberarlo sarebbe una bugia. */
         var ant = _anteprimaCassetto();
-        if (ant) {
-            /* La PERCENTUALE, non solo i MB: «17,4 MB» non dice se è tanto o
-               poco, «36% di ~48» sì — ed è lo stesso numero su cui il registro
-               alza l'allarme, letto dalla stessa funzione (due conti diversi
-               per la stessa cosa sarebbero due verità). */
-            var sat = '';
-            try {
-                var E = window.MappAIErrori;
-                if (E && E.cassetto) {
-                    var m = E.cassetto();
-                    if (m) sat = ' · ' + m.pct + '% ' + t('cb_ca_di_quota', 'dello spazio disponibile') +
-                        (m.livello ? ' — ' + t('cb_ca_sat_' + m.livello, m.livello.toUpperCase()) : '');
-                }
-            } catch (e) { }
-            sez.dati.push({
-                etichetta: t('cb_ca_spazio', 'Spazio di lavoro'),
-                valore: ant.totMB + ' MB' + sat + (ant.via.length
-                    ? ' · ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') + ' (' + ant.MB + ' MB)'
-                    : ' · ' + t('cb_ca_pulito', 'nessuna copia in eccesso'))
-            });
-        }
+        if (ant) sez.dati.push(_rigaSpazio(ant));
         sez.azioni = [
             { id: 'cart-apri', etichetta: t('cb_ca_apri', 'Apri la cartella'), ruolo: 'primario', icona: 'folder-open', chiude: false },
             { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cambia posizione'), icona: 'folder-cog', chiude: false }
         ];
-        if (ant && ant.via.length) {
-            sez.azioni.push({ id: 'cart-pota', etichetta: t('cb_ca_pota', 'Libera spazio'), icona: 'brush-cleaning', chiude: false });
+        if (sn || (ant && ant.via.length)) {
+            sez.azioni.push(_azionePota());
         }
         return sez;
+    }
+
+    function _azionePota() {
+        return { id: 'cart-pota', etichetta: t('cb_ca_pota', 'Libera spazio'), icona: 'brush-cleaning', chiude: false };
+    }
+    function _snelloAcceso() {
+        try { return localStorage.getItem('mappai_cassetto_snello') === '1'; } catch (e) { return false; }
+    }
+    /* 0076: la riga «Spazio di lavoro» (e, con l'app, «Libera spazio») negli
+       stati della sezione che non arrivano all'elenco completo */
+    function _conSpazio(sez, ant, conBottone) {
+        if (ant) sez.dati = (sez.dati || []).concat([_rigaSpazio(ant)]);
+        if (conBottone) sez.azioni = (sez.azioni || []).concat([_azionePota()]);
+    }
+    function _rigaSpazio(ant) {
+        /* La PERCENTUALE, non solo i MB: «17,4 MB» non dice se è tanto o
+           poco, «36% di ~48» sì — ed è lo stesso numero su cui il registro
+           alza l'allarme, letto dalla stessa funzione (due conti diversi
+           per la stessa cosa sarebbero due verità). */
+        var sat = '';
+        try {
+            var E = window.MappAIErrori;
+            if (E && E.cassetto) {
+                var m = E.cassetto();
+                if (m) sat = ' · ' + m.pct + '% ' + t('cb_ca_di_quota', 'dello spazio disponibile') +
+                    (m.livello ? ' — ' + t('cb_ca_sat_' + m.livello, m.livello.toUpperCase()) : '');
+            }
+        } catch (e) { }
+        return {
+            etichetta: t('cb_ca_spazio', 'Spazio di lavoro'),
+            valore: ant.totMB + ' MB' + sat + (ant.via.length
+                ? ' · ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') + ' (' + ant.MB + ' MB)'
+                : ' · ' + t('cb_ca_pulito', 'nessuna copia in eccesso'))
+        };
+    }
+
+    /* ── «LIBERA SPAZIO» A INTERRUTTORE ACCESO (0076, ADR 0018) ──────────────
+       La potatura di prima (le copie doppie della stessa mappa) E la copia
+       snella dei progetti con una cartella: nel cassetto resta solo ciò che la
+       cartella non ha (la regola è di MappAIVistaCore, la stessa del
+       salvataggio). Un progetto SENZA cartella non si tocca: lì il cassetto è
+       l'unica copia. Prima si dice quanto si libera e che cosa, poi si fa, e
+       alla fine si dice quanto si è liberato davvero (misurato, non stimato). */
+    /* Un percorso di cartella nella forma con cui si confronta: NFC (trappola 25:
+       il disco può dare i nomi scomposti, la memoria composti), `\` portate a `/`,
+       senza la barra finale (trappola 50: lo stesso percorso nella stessa forma). */
+    function _percorso(x) {
+        var s = String(x == null ? '' : x);
+        try { s = s.normalize('NFC'); } catch (e) { }
+        return s.replace(/\\/g, '/').replace(/\/+$/, '');
+    }
+    function _pesoCassetto() {
+        var tot = 0;
+        try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); tot += k.length + (localStorage.getItem(k) || '').length; } } catch (e) { }
+        return tot;
+    }
+    /* L'esistenza di una cartella si decide sul PERCORSO INTERO, con l'elenco
+       delle cartelle delle mappe (`getAllVaults`, Mappe/<classe>/<materia>/<mappa>),
+       letto una volta al momento di «Libera spazio». Gate 3 (05/10): l'elenco di
+       prima, `validVaultFolders`, è il PRIMO livello di Mappe/ — le classi —, e
+       confrontato coi nomi teneva fuori tutti i dossier veri e lasciava passare una
+       riga rovinata che puntava alla cartella di classe. Se l'elenco non si legge:
+       `null`, e nessuna copia con cartella si alleggerisce (niente ripiego sulla
+       riga d'indice: è il ripiego che ha ingannato). */
+    function _cartelleDelleMappe() {
+        var api = window.electronAPI;
+        if (!api || !api.getAllVaults) return Promise.resolve(null);
+        return Promise.resolve()
+            .then(function () { return api.getAllVaults(); })
+            .then(function (all) {
+                if (!Array.isArray(all)) return null;
+                var insieme = {};
+                all.forEach(function (v) { if (v && v.fullPath) insieme[_percorso(v.fullPath)] = 1; });
+                return insieme;
+            }, function () { return null; });
+    }
+    function _liberaSpazio() {
+        _cartelleDelleMappe().then(function (cartelle) { _liberaSpazioCon(cartelle); });
+    }
+    function _liberaSpazioCon(cartelle) {
+        var ant = _anteprimaCassetto();
+        var VCc = window.MappAIVistaCore;
+        var senzaElenco = t('cb_ca_no_cartelle', 'Non riesco a leggere le cartelle: alleggerisco solo le copie doppie.');
+        if (!ant) { toast(t('cb_ca_pulito', 'nessuna copia in eccesso'), 'info'); return; }
+        var viaSet = {};
+        ant.via.forEach(function (vid) { viaSet[vid] = 1; });
+        var piano = (cartelle && VCc && VCc.pianoLiberaSpazio)
+            ? VCc.pianoLiberaSpazio(ant.progetti, function (id) { return localStorage.getItem(id); }, viaSet,
+                function (p, voce) { return !!(voce && voce.activeVaultPath && cartelle[_percorso(voce.activeVaultPath)] === 1); })
+            : { voci: [], byte: 0 };
+        if (!ant.via.length && !piano.voci.length) {
+            toast(cartelle ? t('cb_ca_niente', 'Non c’è niente da liberare: le copie dei progetti con una cartella sono già leggere, e quelle senza cartella restano intere.')
+                : senzaElenco, 'info');
+            return;
+        }
+        var mb = function (b) { return (b / 1048576).toFixed(1); };
+        var righe = [];
+        if (ant.via.length) {
+            var prime = ant.perMappa.slice(0, 5).map(function (r) { return r.mappa + ' (' + r.tolte + ')'; }).join(' · ');
+            var altre = ant.perMappa.length > 5 ? ' · +' + (ant.perMappa.length - 5) + ' ' + t('cb_ca_altre', 'altre mappe') : '';
+            righe.push(t('cb_ca_pota_via', 'Vanno via') + ' ' + ant.via.length + ' ' + t('cb_ca_copie', 'copie vecchie dei progetti') +
+                ' (' + ant.MB + ' MB): ' + prime + altre);
+        }
+        if (piano.voci.length) {
+            righe.push(t('cb_ca_snella', 'Si alleggeriscono {n} progetti con una cartella ({mb} MB): nella memoria rapida resta solo ciò che la cartella non ha.')
+                .replace('{n}', piano.voci.length).replace('{mb}', mb(piano.byte)));
+        }
+        if (!cartelle) righe.push(senzaElenco);
+        MM().conferma({
+            titolo: t('cb_ca_pota', 'Libera spazio'),
+            testo: t('cb_ca_libera_d', 'Le mappe su disco non vengono toccate, e i progetti senza una cartella restano interi: lì la memoria rapida è l’unica copia.') +
+                '\n\n' + righe.join('\n\n') +
+                '\n\n' + t('cb_ca_libera_tot', 'In tutto si liberano {mb} MB.').replace('{mb}', mb((ant.byte || 0) + piano.byte)),
+            conferma: t('cb_ca_pota', 'Libera spazio')
+        }).then(function (si) {
+            if (!si) return;
+            var prima = _pesoCassetto();
+            if (ant.via.length) {
+                ant.via.forEach(function (vid) { try { localStorage.removeItem(vid); } catch (e) { } });
+                try {
+                    localStorage.setItem('tutor_ai_projects',
+                        JSON.stringify(ant.progetti.filter(function (p) { return !viaSet[p.id]; })));
+                } catch (e) { }
+            }
+            /* una copia snella è più corta di quella che sostituisce: entra anche
+               a cassetto pieno. Se una non entra resta quella di prima, intera. */
+            piano.voci.forEach(function (v) { try { localStorage.setItem(v.id, v.testo); } catch (e) { } });
+            toast(t('cb_ca_liberati', 'Liberati {mb} MB.').replace('{mb}', mb(Math.max(0, prima - _pesoCassetto()))), 'success');
+            _st.cart.stato = 'vuoto';
+            _ridisegna();
+        });
     }
 
     /* La potatura RACCONTATA prima di farla: per ogni mappa resta la copia più
@@ -704,6 +826,23 @@
         { id: 'ins:ig', url: 'https://www.instagram.com/insegnai.ch/', chiave: 'cb_in_ig', testo: 'Instagram', icona: 'instagram' },
         { id: 'ins:fb', url: 'https://www.facebook.com/insegnai.ch/', chiave: 'cb_in_fb', testo: 'Facebook', icona: 'facebook' }
     ];
+    /* Il codice e le versioni del progetto (0088, R3). Stanno in una lista a parte:
+       «Dove trovarmi» mostra TUTTI i collegamenti di LINK_INSEGNAI, e questi due
+       sono del software, non della persona. Li apre lo stesso gestore `ins:`. */
+    var LINK_PROGETTO = [
+        { id: 'ins:codice', url: 'https://github.com/gmesc/MappAI', chiave: 'cb_in_codice', testo: 'Codice sorgente', icona: 'code-xml' },
+        { id: 'ins:versioni', url: 'https://github.com/gmesc/MappAI/releases', chiave: 'cb_in_versioni', testo: 'Versioni e note di rilascio', icona: 'tag' }
+    ];
+    /* La versione sta nello user agent: Electron ci mette `<nome>/<versione>` (la stessa
+       cifra di `package.json`), quindi non c'è una seconda copia da tenere allineata.
+       Fuori da Electron, o senza `navigator`, si dice «—» invece di inventarla. */
+    function _versioneApp() {
+        try {
+            var ua = (typeof navigator !== 'undefined' && navigator && navigator.userAgent) || '';
+            var m = /\bmappai\/(\d\S*)/i.exec(ua);
+            return m ? m[1] : '—';
+        } catch (e) { return '—'; }
+    }
     function _vistaInsegnai(s) {
         s.area = 'due';
         s.sezioni.push({
@@ -725,13 +864,23 @@
             testo: t('cb_in_prog_d', 'insegnai.ch è il posto dove il lavoro viene pubblicato. Oltre allo sviluppo di MappAI e delle altre applicazioni, il sito propone approfondimenti ad ampio spettro sull’AI literacy: come funzionano davvero questi strumenti, che cosa cambiano nel modo di pensare, di scrivere e di insegnare, e come portarli in classe con criterio.')
         });
         s.sezioni.push({
+            id: 'in-ver', titolo: t('cb_in_ver_t', 'Versione e licenza'), largo: true,
+            dati: [
+                { etichetta: t('cb_in_ver_v', 'Versione'), valore: _versioneApp() },
+                { etichetta: t('cb_in_ver_l', 'Licenza'), valore: t('cb_in_ver_lic', 'Software libero: GNU GPL v3 o successiva') }
+            ],
+            azioni: LINK_PROGETTO.map(function (l) {
+                return { id: l.id, etichetta: t(l.chiave, l.testo), icona: l.icona, chiude: false };
+            })
+        });
+        s.sezioni.push({
             id: 'in-link', titolo: t('cb_in_link_t', 'Dove trovarmi'), largo: true,
             testo: t('cb_in_link_d', 'Sito, posta e i due profili su cui pubblico il lavoro su AI e didattica. Si aprono nel browser di sistema, fuori da MappAI.'),
             azioni: LINK_INSEGNAI.map(function (l) {
                 return { id: l.id, etichetta: t(l.chiave, l.testo), icona: l.icona, chiude: false };
             })
         });
-        s.nota = t('cb_in_nota', 'Questa vista crescerà: qui finiranno versione, note di rilascio e i canali dove seguire lo sviluppo.');
+        s.nota = t('cb_in_nota', 'Le novità di ogni versione stanno nelle note di rilascio, su GitHub.');
         return s;
     }
 
@@ -944,7 +1093,7 @@
             { id: 'ctx-generico', etichetta: t('cls_generic', 'Generico'), icona: 'circle-dashed', chiude: false },
             { id: 'nuovo-allievo', etichetta: t('cb_crea_profilo', 'Crea profilo'), icona: 'user-plus', ruolo: 'primario', chiude: false }
         ];
-        s.nota = t('cb_allievi_nota', 'Le schede allievo sono la taratura individuale: si aprono dichiarando il ruolo «Docente di sostegno / OPI» nel profilo.') +
+        s.nota = t('cb_allievi_nota', 'Le schede allievo sono la taratura individuale: si creano qui con «Crea profilo», qualunque sia il tuo ruolo.') +
             ' · ' + _notaContesto();
         return s;
     }
@@ -978,11 +1127,11 @@
                 {
                     id: 'ud-tasso', tipo: 'numero', larghezza: 'breve',
                     valore: (window.MappAIUsageDash && window.MappAIUsageDash.rate) ? window.MappAIUsageDash.rate() : 0.9,
-                    etichetta: t('ud_rate', 'Tasso USD→CHF'), min: 0.1, max: 3,
-                    /* Coi campi a solo segnaposto un numero già scritto resta un
-                       numero NUDO: «0.9» accanto a due tendine non dice niente a
-                       chi guarda. Qui l'indicazione deve restare visibile. */
-                    aiuto: t('ud_rate', 'Tasso USD→CHF')
+                    /* Niente `aiuto` col nome ripetuto sotto: un campo con un valore
+                       ha già il nome SOPRA (lo emette `campoHtml` del motore dal
+                       16/8), e la copia sotto spingeva il campo fuori dalla riga
+                       dei bottoni (packet 0087, 8/10). */
+                    etichetta: t('ud_rate', 'Tasso USD→CHF'), min: 0.1, max: 3
                 }
             ],
             azioni: [
@@ -1228,12 +1377,28 @@
         if (!_st || !_st.rid) return null;
         var box = _st.rid(schema());
         _riempiTela(box);
+        _inVista(box);
         return box;
     }
 
-    function apri(voce) {
+    /* 0076: chi apre la Cabina per un motivo preciso (il cassetto pieno, il
+       preavviso dell'80%) chiede anche la SEZIONE: `apri('profilo', { sezione:
+       'pr-cartelle' })` porta «Gestione cartelle» in vista, che sta in coda al
+       profilo. La sezione si ridisegna quando la cartella è stata letta: si
+       riporta in vista fino a quel ridisegno, poi si lascia scorrere chi legge. */
+    function _inVista(box) {
+        if (!_st || !_st.sezione || !box || !box.querySelector) return;
+        try {
+            var el = box.querySelector('[data-sez="' + _st.sezione + '"]');
+            if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+        } catch (e) { }
+        if (_st.voce !== 'profilo' || (_st.cart && (_st.cart.stato === 'pronto' || _st.cart.stato === 'nonapp'))) _st.sezione = null;
+    }
+
+    function apri(voce, opts) {
         if (!MM()) { if (window.showTeacherProfileModal) window.showTeacherProfileModal(); return; }
         _st = _vuoto();
+        _st.sezione = (opts && opts.sezione) ? String(opts.sezione) : null;
         var v = ALIAS[voce] || voce;
         _st.voce = IDS.indexOf(v) >= 0 ? v : 'profilo';
         var s = schema();
@@ -1251,6 +1416,7 @@
         s.suApertura = function (box, ridisegna) {
             _st.rid = ridisegna;
             _riempiTela(box);
+            _inVista(box);
             if (_st.voce === 'consumi') _caricaConsumi();
             if (_st.voce === 'feedback') _caricaErrori();
             if (_st.voce === 'profilo') _caricaCartelle();
@@ -1296,7 +1462,7 @@
 
             if (id === '__campo') {
                 if (_st.voce === 'profilo' &&
-                    ['ruolo-materia', 'ruolo-sostegno', 'ora-classe'].indexOf(ev.campo) >= 0) _ridisegna();
+                    ['ruolo-materia', 'ruolo-sostegno'].indexOf(ev.campo) >= 0) _ridisegna();
                 if (_st.voce === 'consumi') {
                     var v2 = ev.valori || {};
                     if (ev.campo === 'ud-vista') { _st.ud.storico = v2['ud-vista'] === 'storico'; _st.ud.sel = ''; _st.ud.drill = null; _st.ud.tabella = {}; }
@@ -1316,6 +1482,15 @@
                ridisegna NEL carattere nuovo — che è l'anteprima. */
             if (id.indexOf('fn:') === 0) {
                 if (window.MappAIFont) window.MappAIFont.imposta(id.slice(3));
+                _ridisegna();
+                return;
+            }
+            /* «Gestisci profili», nel riquadro degli allievi del profilo: porta alla voce
+               «Allievi» della STESSA console. Il profilo scritto fin qui è già stato
+               raccolto in testa a questa funzione, quindi tornando indietro è ancora lì
+               e uscendo con modifiche in sospeso scatta «Uscire senza salvare?» (D1). */
+            if (id === 'apri-prof') {
+                _st.voce = 'allievi';
                 _ridisegna();
                 return;
             }
@@ -1453,6 +1628,7 @@
             }
 
             if (id === 'cart-pota') {
+                if (_snelloAcceso()) { _liberaSpazio(); return; }   /* 0076; spento: la potatura di prima */
                 var ant = _anteprimaCassetto();
                 if (!ant || !ant.via.length) { toast(t('cb_ca_pulito', 'nessuna copia in eccesso'), 'info'); return; }
                 /* l'ANTEPRIMA sta nella conferma: si vede che cosa va via e
@@ -1522,7 +1698,7 @@
 
             // ── Sviluppo: i collegamenti di insegnai.ch ─────────────────────
             if (id.indexOf('ins:') === 0) {
-                var L = LINK_INSEGNAI.filter(function (x) { return x.id === id; })[0];
+                var L = LINK_INSEGNAI.concat(LINK_PROGETTO).filter(function (x) { return x.id === id; })[0];
                 if (!L) return;
                 if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(L.url);
                 else window.open(L.url, '_blank', 'noopener');

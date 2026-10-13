@@ -265,6 +265,30 @@ test('vociDaPotare: tiene le keep più recenti per mappa, mai la voce protetta',
     assert.deepStrictEqual(TC.vociDaPotare(Q, 1), ['n1']);
 });
 
+test('vociDaPotare: una voce SENZA vault è l\'unica copia e non si pota mai (25/9)', () => {
+    // prima: raggruppate per nome, la più vecchia delle omonime spariva da localStorage
+    const P = [
+        { id: 's1', name: 'Mappa Senza Nome', date: 1 }, { id: 's2', name: 'Mappa Senza Nome', date: 2 },
+        { id: 'g1', name: 'Giugno', date: 1 }, { id: 'g2', name: 'Giugno', vault: null, date: 5 },
+        { id: 'v0', name: '', date: 1 }, { id: 'v1', date: 2 }
+    ];
+    assert.deepStrictEqual(TC.vociDaPotare(P, 1), []);
+    assert.deepStrictEqual(TC.anteprimaPotatura(P, 1, null).via, []);
+});
+
+test('vociDaPotare: stesso nome in classi o discipline diverse sono mappe diverse (25/9)', () => {
+    const P = [
+        { id: 'a', vault: 'La Carta', classDir: '2A', discDir: 'Storia', date: 1 },
+        { id: 'b', vault: 'La Carta', classDir: '3B', discDir: 'Storia', date: 2 },
+        { id: 'c', vault: 'La Carta', classDir: '2A', discDir: 'Geografia', date: 3 },
+        // il doppione VERO: stessa posizione di «a», più recente
+        { id: 'a2', vault: 'La Carta', classDir: '2A', discDir: 'Storia', date: 4 }
+    ];
+    assert.deepStrictEqual(TC.vociDaPotare(P, 1), ['a']);
+    const ant = TC.anteprimaPotatura(P, 1, null);
+    assert.deepStrictEqual(ant.perMappa, [{ mappa: 'La Carta · 2A · Storia', tolte: 1 }]);
+});
+
 // ── anteprimaPotatura: la potatura raccontata prima di farla (15/8 sera) ────
 test('anteprimaPotatura: dice quante copie per mappa e quanto pesano', () => {
     const P = [
@@ -314,4 +338,237 @@ test('filterByClass: una classe accentata filtra anche in forma scomposta', () =
 
 test('matchesSelectedProject: nome mappa accentato, due forme', () => {
     assert.ok(TC.matchesSelectedProject({ mapName: 'Présent' }, { name: 'Présent' }));
+});
+
+// ── 0061: CREARE NON È APRIRE (ADR 0013) ─────────────────────────────────────
+// `identitaDellaCartella(projects, q)` → { id, fonte, stacca, scrivi }: il chiamante
+// dice quale gesto sta facendo (nuova · per-la-mappa · apri · voce) e il core decide
+// l'id e se si può scrivere nella cartella. `id: null` = «conia» (il core non ha
+// l'orologio). Gli id del caso sono tutti nella forma che l'app conia
+// (`proj_` + 13 cifre): uno fuori forma vale come assente, ed è un'altra prova (T7).
+const ID_VECCHIO = 'proj_1788975818955';     // la «Svizzera e 2a GM» del 9/9, caso vero del 28/9
+const ID_N = 'proj_1789000000001', ID_M = 'proj_1789000000002',
+    ID_E = 'proj_1789000000003', ID_P = 'proj_1789000000004';
+const POS_28 = { vault: 'Svizzera e 2a GM', classDir: '4R', discDir: 'Storia' };
+const PERCORSO_28 = '/M/4R/Storia/Svizzera e 2a GM';
+function voce0061(id, over) {
+    return Object.assign({ id: id, name: 'Svizzera e 2a GM', vault: 'Svizzera e 2a GM',
+        classDir: '4R', discDir: 'Storia', date: 1 }, over);
+}
+function cartella0061(fullPath, projectId, over) {
+    const segs = String(fullPath).split('/').filter(Boolean);
+    return Object.assign({ fullPath: fullPath, folderName: segs[segs.length - 1],
+        classDir: '4R', discDir: 'Storia', projectId: projectId }, over);
+}
+function decidi0061(projects, q) {
+    const r = TC.identitaDellaCartella(projects, q);
+    return { id: r.id, fonte: r.fonte, scrivi: r.scrivi, stacca: r.stacca };
+}
+
+test('0061: T1. nuova non cerca per nome: nessuna voce omonima presta il suo id, a nessuno dei quattro livelli', () => {
+    const livelli = {
+        'stessa posizione': voce0061(ID_VECCHIO, { date: 9 }),
+        'pre-disciplina': voce0061(ID_N, { discDir: null, date: 8 }),
+        'piatta': voce0061(ID_M, { classDir: null, discDir: null, date: 7 }),
+        'altra classe': voce0061(ID_E, { classDir: '3B', date: 6 })
+    };
+    const q = { gesto: 'nuova', idAttuale: null, pos: POS_28, fullPath: PERCORSO_28, cartelle: [] };
+    for (const [nome, v] of Object.entries(livelli)) {
+        // controllo del caso: da sola, ognuna è quella che la ricerca per nome troverebbe
+        assert.strictEqual(TC.progettoDelVault([v], POS_28).id, v.id, nome + ': combacia per nome');
+        const r = decidi0061([v], q);
+        assert.strictEqual(r.id, null, nome);
+        assert.strictEqual(r.fonte, 'nuovo', nome);
+        assert.strictEqual(r.scrivi, true, nome);
+        assert.ok(!r.stacca, nome);
+    }
+    const tutte = decidi0061(Object.values(livelli), q);
+    assert.deepStrictEqual([tutte.id, tutte.fonte, tutte.scrivi], [null, 'nuovo', true]);
+});
+
+test('0061: T2. nuova tiene l\'id nato in questa generazione, e solo quello', () => {
+    const q = id => ({ gesto: 'nuova', idAttuale: id, pos: POS_28, fullPath: PERCORSO_28, cartelle: [] });
+    const vecchia = voce0061(ID_VECCHIO, { date: 9 });
+    const casi = [
+        ['voce del giro senza cartella', [voce0061(ID_P, { vault: null }), vecchia], ID_P, [ID_P, 'attuale', true]],
+        ['voce del giro con vault vuoto', [voce0061(ID_P, { vault: '' }), vecchia], ID_P, [ID_P, 'attuale', true]],
+        ['voce del giro assente', [vecchia], ID_P, [ID_P, 'attuale', true]],
+        ['la voce dichiara un\'altra cartella', [voce0061(ID_P, { vault: 'Altra' }), vecchia], ID_P, [null, 'nuovo', true]],
+        ['la voce dichiara proprio questa posizione', [voce0061(ID_P, { date: 99 })], ID_P, [null, 'nuovo', true]],
+        ['id fuori forma', [vecchia], 'tutor_ai_projects', [null, 'nuovo', true]]
+    ];
+    for (const [nome, projects, idAttuale, atteso] of casi) {
+        const r = decidi0061(projects, q(idAttuale));
+        assert.deepStrictEqual([r.id, r.fonte, r.scrivi], atteso, nome);
+        assert.ok(!r.stacca, nome);
+    }
+});
+
+test('0061: T3. per-la-mappa tiene l\'id della mappa in memoria, tranne quando farebbe una copia', () => {
+    const omonime = [voce0061(ID_VECCHIO, { date: 9 }), voce0061(ID_E, { classDir: null, discDir: null, date: 8 })];
+    const q = over => Object.assign({ gesto: 'per-la-mappa', idAttuale: ID_P, pos: POS_28, fullPath: PERCORSO_28,
+        percorsoPrima: null, cartelle: [] }, over);
+    const esito = over => { const r = decidi0061(omonime, q(over)); return [r.id, r.fonte, r.scrivi]; };
+    assert.deepStrictEqual(esito({}), [ID_P, 'attuale', true], 'con le omonime, l\'id in memoria');
+    assert.deepStrictEqual(esito({ idAttuale: null }), [null, 'nuovo', true], 'senza id valido si conia');
+    assert.deepStrictEqual(esito({ idAttuale: 'tutor_ai_projects' }), [null, 'nuovo', true], 'id fuori forma');
+    assert.deepStrictEqual(esito({ percorsoPrima: '/M/4R/Storia/Altra' }), [null, 'copia', true],
+        'la mappa è legata a un\'altra cartella: è una copia');
+    // lo stesso percorso in un'altra forma (NFD dal disco, barra finale): non è una copia
+    const nfc = '/M/4R/Storia/Città'.normalize('NFC'), nfd = '/M/4R/Storia/Città'.normalize('NFD');
+    assert.notStrictEqual(nfc, nfd, 'se fossero uguali il test non proverebbe la forma');
+    const qui = { fullPath: nfc, pos: { vault: 'Città'.normalize('NFC'), classDir: '4R', discDir: 'Storia' } };
+    assert.deepStrictEqual(esito(Object.assign({ percorsoPrima: nfd + '/' }, qui)), [ID_P, 'attuale', true],
+        'stesso percorso in NFD e con la barra finale');
+    assert.deepStrictEqual(esito({ cartelle: [cartella0061('/M/4R/Storia/Altra', ID_P)] }), [null, 'copia', true],
+        'un\'altra cartella dell\'elenco dichiara già quell\'id');
+    assert.deepStrictEqual(esito(Object.assign({ cartelle: [cartella0061(nfd, ID_P)] }, qui)), [ID_P, 'attuale', true],
+        'la stessa cartella che sta nascendo, nell\'elenco con quell\'id');
+});
+
+// Aggiunta del 30/09 (§6): il sottocaso Windows di T3, in un test suo — T3 resta com'era.
+test('0061: T3 (sottocaso Windows). per-la-mappa: la stessa cartella con le barre in un\'altra forma non è una copia', () => {
+    const omonime = [voce0061(ID_VECCHIO, { date: 9 })];
+    const q = over => Object.assign({ gesto: 'per-la-mappa', idAttuale: ID_P, pos: { vault: 'X', classDir: '4R', discDir: 'Storia' },
+        fullPath: 'C:\\M\\4R\\Storia\\X', percorsoPrima: null, cartelle: [] }, over);
+    const esito = over => { const r = decidi0061(omonime, q(over)); return [r.id, r.fonte, r.scrivi]; };
+    assert.deepStrictEqual(esito({ percorsoPrima: 'C:\\M/4R/Storia/X' }), [ID_P, 'attuale', true],
+        'percorsoPrima con le barre miste, fullPath nativo di Windows: è la stessa cartella');
+    assert.deepStrictEqual(esito({ fullPath: 'C:/M/4R/Storia/X', cartelle: [cartella0061('C:\\M\\4R\\Storia\\X', ID_P)] }), [ID_P, 'attuale', true],
+        'la stessa cartella nell\'elenco, con le barre di Windows');
+    // controllo: un'altra cartella resta un'altra cartella, con qualunque barra
+    assert.deepStrictEqual(esito({ percorsoPrima: 'C:\\M\\4R\\Storia\\Y' }), [null, 'copia', true], 'controllo: Y non è X');
+});
+
+test('0061: T4. apri: l\'id scritto nella cartella vince sul nome', () => {
+    const projects = [voce0061(ID_M, { date: 99 }), voce0061(ID_N, { date: 1 })];
+    assert.strictEqual(TC.progettoDelVault(projects, POS_28).id, ID_M, 'per nome vincerebbe M');
+    const q = cartelle => ({ gesto: 'apri', idCartella: ID_N, idAttuale: ID_P, pos: POS_28, fullPath: PERCORSO_28,
+        vuota: false, cartelle: cartelle });
+    for (const cartelle of [[cartella0061(PERCORSO_28, ID_N)], []]) {
+        const r = decidi0061(projects, q(cartelle));
+        assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [ID_N, 'cartella', true]);
+        assert.ok(!r.stacca);
+    }
+});
+
+test('0061: T5. apri: un id che il cassetto non conosce si tiene (altro computer, voce potata)', () => {
+    const r = decidi0061([voce0061(ID_E, { date: 99 })], { gesto: 'apri', idCartella: ID_N, idAttuale: ID_P,
+        pos: POS_28, fullPath: PERCORSO_28, vuota: false, cartelle: [] });
+    assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [ID_N, 'cartella', true]);
+});
+
+test('0061: T6. apri: fra due cartelle con lo stesso id, la copia è quella fuori dalla posizione della voce', () => {
+    const nome = 'Città';
+    const nfd = s => s.normalize('NFD'), nfc = s => s.normalize('NFC');
+    // l'elenco viene dal disco (NFD), la voce e il percorso aperto sono composti (NFC)
+    const A = cartella0061(nfd('/M/4R/Storia/' + nome), ID_N);
+    const B = cartella0061(nfd('/M/4R/Geografia/' + nome), ID_N, { discDir: 'Geografia' });
+    const vN = voce0061(ID_N, { name: nfc(nome), vault: nfc(nome) });          // 4R/Storia
+    assert.notStrictEqual(A.folderName, vN.vault, 'se fossero uguali il test non proverebbe NFC');
+    const apri = (c, projects) => decidi0061(projects, { gesto: 'apri', idCartella: ID_N, idAttuale: ID_P,
+        pos: { vault: nfc(nome), classDir: c.classDir, discDir: c.discDir }, fullPath: nfc(c.fullPath),
+        vuota: false, cartelle: [A, B] });
+    let r = apri(B, [vN]);
+    assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [null, 'copia', true], 'B sta fuori dalla posizione della voce');
+    r = apri(A, [vN]);
+    assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [ID_N, 'cartella', true], 'A è dove la voce la registra');
+    // controprova: la voce sta altrove, nessuna delle due è la copia
+    const vAltrove = voce0061(ID_N, { name: nome, vault: nome, discDir: 'Arte' });
+    r = apri(B, [vAltrove]);
+    assert.deepStrictEqual([r.id, r.fonte], [ID_N, 'cartella'], 'controprova B');
+    r = apri(A, [vAltrove]);
+    assert.deepStrictEqual([r.id, r.fonte], [ID_N, 'cartella'], 'controprova A');
+});
+
+test('0061: T7. apri: un id fuori forma vale come assente', () => {
+    const projects = [voce0061(ID_M, { date: 99 }), voce0061(ID_E, { classDir: null, discDir: null, date: 5 })];
+    const atteso = TC.progettoDelVault(projects, POS_28);
+    assert.strictEqual(atteso.id, ID_M);
+    for (const x of ['tutor_ai_projects', 'mappai_language', 'proj_12', 'proj_1788975818955 ', 42, null, '']) {
+        const r = decidi0061(projects, { gesto: 'apri', idCartella: x, idAttuale: ID_P, pos: POS_28,
+            fullPath: PERCORSO_28, vuota: false, cartelle: [] });
+        assert.strictEqual(r.id, atteso.id, JSON.stringify(x));
+        assert.strictEqual(r.fonte, 'nome', JSON.stringify(x));
+    }
+    // e dove il nome non trova niente, si conia
+    const r = decidi0061(projects, { gesto: 'apri', idCartella: 'tutor_ai_projects', idAttuale: ID_P,
+        pos: { vault: 'Mai vista', classDir: '4R', discDir: 'Storia' }, fullPath: '/M/4R/Storia/Mai vista',
+        vuota: false, cartelle: [] });
+    assert.deepStrictEqual([r.id, r.fonte], [null, 'nuovo']);
+});
+
+test('0061: T8. apri senza id: non si adotta la voce che un\'altra cartella dichiara già (D3)', () => {
+    const N = voce0061(ID_N, { name: 'X', vault: 'X', date: 99 });                     // 4R/Storia, recente
+    const E = voce0061(ID_E, { name: 'X', vault: 'X', classDir: '3B', date: 5 });      // vecchia, livello 4
+    const pos = { vault: 'X', classDir: null, discDir: null };
+    assert.strictEqual(TC.progettoDelVault([N, E], pos).id, ID_N, 'per nome vincerebbe N');
+    const q = cartelle => ({ gesto: 'apri', idCartella: undefined, idAttuale: ID_P, pos: pos,
+        fullPath: '/Analisi/X', vuota: false, cartelle: cartelle });
+    let r = decidi0061([N, E], q([cartella0061('/M/4R/Storia/X', ID_N)]));
+    assert.deepStrictEqual([r.id, r.fonte], [ID_E, 'nome'], 'N ha già la sua casa: la voce vecchia');
+    assert.strictEqual(r.scrivi, TC.SCRIVI_NEI_VAULT_VECCHI);
+    r = decidi0061([N, E], q([]));
+    assert.deepStrictEqual([r.id, r.fonte], [ID_N, 'nome'], 'controprova senza elenco: come oggi');
+});
+
+test('0061: T9. voce: la cartella di un\'altra mappa si lascia; l\'id si scrive solo per la voce che la posizione riconosce', () => {
+    const E = voce0061(ID_E, { date: 1 });
+    const q = (idCartella, projects) => decidi0061(projects, { gesto: 'voce', idCartella: idCartella, idAttuale: ID_E,
+        pos: POS_28, fullPath: PERCORSO_28, cartelle: [] });
+    let r = q(ID_N, [E]);
+    assert.deepStrictEqual([r.id, r.fonte, r.stacca, r.scrivi], [ID_E, 'attuale', true, false], 'un altro id: si stacca');
+    r = q(ID_E, [E]);
+    assert.deepStrictEqual([r.id, r.fonte, r.stacca, r.scrivi], [ID_E, 'attuale', false, true], 'lo stesso id');
+    r = q(undefined, [E]);
+    assert.deepStrictEqual([r.id, r.stacca], [ID_E, false]);
+    assert.strictEqual(r.scrivi, TC.SCRIVI_NEI_VAULT_VECCHI, 'senza id, la voce che la posizione riconosce');
+    r = q(undefined, [E, voce0061(ID_N, { date: 99 })]);
+    assert.deepStrictEqual([r.id, r.stacca, r.scrivi], [ID_E, false, false], 'senza id, una voce più recente nella stessa posizione');
+});
+
+test('0061: T10. gestoDiCreazione e voceDellaCartella', () => {
+    assert.strictEqual(TC.gestoDiCreazione('generation'), 'nuova');
+    assert.strictEqual(TC.gestoDiCreazione(undefined), 'nuova');
+    assert.strictEqual(TC.gestoDiCreazione('open'), 'per-la-mappa');
+    assert.strictEqual(TC.gestoDiCreazione('review'), 'per-la-mappa');
+    const nome = 'Città';
+    const v = (projectId, over) => Object.assign({ folderName: nome.normalize('NFD'), classDir: '4R', discDir: 'Storia',
+        fullPath: '/M/4R/Storia/' + nome.normalize('NFD'), projectId: projectId }, over);
+    const pN = voce0061(ID_N, { name: nome, vault: nome.normalize('NFC') });
+    assert.notStrictEqual(v(ID_N).folderName, pN.vault, 'se fossero uguali il test non proverebbe NFC');
+    let d = TC.voceDellaCartella([voce0061(ID_M, { vault: nome, date: 99 }), pN], v(ID_N));
+    assert.strictEqual(d.decisa, true);
+    assert.strictEqual(d.voce && d.voce.id, ID_N, 'la voce con quell\'id, nella stessa posizione (NFD contro NFC)');
+    d = TC.voceDellaCartella([voce0061(ID_N, { vault: nome, discDir: 'Geografia' })], v(ID_N));
+    assert.deepStrictEqual([d.decisa, d.voce], [true, null], 'la voce con quell\'id sta in un\'altra posizione');
+    d = TC.voceDellaCartella([voce0061(ID_M, { vault: nome })], v(ID_N));
+    assert.deepStrictEqual([d.decisa, d.voce], [true, null], 'nessuna voce con quell\'id, solo un\'omonima');
+    d = TC.voceDellaCartella([pN, Object.assign({}, pN, { date: 2 })], v(ID_N));
+    assert.deepStrictEqual([d.decisa, d.voce], [true, null], 'id duplicato fra le voci');
+    for (const x of ['tutor_ai_projects', 'proj_12', undefined, null, '']) {
+        d = TC.voceDellaCartella([pN], v(x));
+        assert.strictEqual(d.decisa, false, JSON.stringify(x));
+    }
+});
+
+test('0061: T11. apri su una cartella vuota è una creazione', () => {
+    const projects = [voce0061(ID_VECCHIO, { date: 9 })];
+    const q = idCartella => ({ gesto: 'apri', idCartella: idCartella, idAttuale: ID_P, pos: POS_28,
+        fullPath: PERCORSO_28, vuota: true, cartelle: [] });
+    let r = decidi0061(projects, q(undefined));
+    assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [null, 'nuovo', true], 'né l\'omonima né la mappa aperta prima');
+    r = decidi0061(projects, q(ID_N));
+    assert.deepStrictEqual([r.id, r.fonte, r.scrivi], [ID_N, 'cartella', true], 'vuota ma con un id: vince la cartella');
+});
+
+test('0061: T12. il bivio 2 nel core: con A l\'id si scrive nei vault vecchi riconosciuti per nome', () => {
+    const q = pos => ({ gesto: 'apri', idCartella: undefined, idAttuale: ID_P, pos: pos,
+        fullPath: '/M/4R/Storia/' + pos.vault, vuota: false, cartelle: [] });
+    const r = decidi0061([voce0061(ID_VECCHIO)], q(POS_28));
+    assert.deepStrictEqual([r.id, r.fonte], [ID_VECCHIO, 'nome']);
+    assert.strictEqual(r.scrivi, TC.SCRIVI_NEI_VAULT_VECCHI);
+    const nuovo = decidi0061([voce0061(ID_VECCHIO)], q({ vault: 'Mai vista', classDir: '4R', discDir: 'Storia' }));
+    assert.deepStrictEqual([nuovo.id, nuovo.fonte, nuovo.scrivi], [null, 'nuovo', TC.SCRIVI_NEI_VAULT_VECCHI]);
+    assert.strictEqual(TC.SCRIVI_NEI_VAULT_VECCHI, true, 'Giacomo ha scelto A, migrazione pigra (testata del packet)');
 });

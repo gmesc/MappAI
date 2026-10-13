@@ -25,48 +25,48 @@
 
   var BASE_STYLES = [
     "*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;box-sizing:border-box}",
-    "body{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:#0f172a;margin:0 auto;padding:24px 28px;max-width:840px;background:#f8fafc}",
+    "body{font-family:'Space Mono',ui-monospace,monospace;font-size:12px;color:var(--mm-testo, #404040);margin:0 auto;padding:24px 28px;max-width:840px;background:#f8fafc}",
     ".lr-header{text-align:center;padding:24px 16px 18px;background:#fff;border-radius:16px;margin-bottom:22px;border-bottom:3px solid #4f46e5;page-break-after:avoid}",
-    ".lr-title{font-size:20px;font-weight:900;color:#0f172a}",
+    ".lr-title{font-size:20px;font-weight:900;color:var(--mm-testo, #404040)}",
     ".lr-sub{font-size:11px;color:#64748b;margin-top:6px;line-height:1.6}",
     ".lr-chips{margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}",
     ".lr-chip{display:inline-block;background:#eef2ff;color:#4f46e5;border-radius:999px;padding:2px 12px;font-size:10px;font-weight:bold}",
-    ".lr-q{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid}",
+    ".lr-q{background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid}",
     ".lr-q-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}",
     ".lr-q-n{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:#4f46e5;color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:12px}",
-    ".lr-q-text{font-weight:700;color:#1e293b;line-height:1.4}",
-    ".lr-q-meta{font-size:10px;color:#94a3b8;margin-top:2px}",
+    ".lr-q-text{font-weight:700;color:var(--mm-testo, #404040);line-height:1.4}",
+    ".lr-q-meta{font-size:10px;color:var(--mm-testo-3, #64748b);margin-top:2px}",
     ".lr-tag{display:inline-block;background:#f1f5f9;color:#475569;border-radius:6px;padding:1px 7px;font-size:9px;font-weight:bold;margin-left:4px}",
-    ".lr-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0;margin-top:6px}",
+    ".lr-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--mm-bordo, #cbd5e1);margin-top:6px}",
     ".lr-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#fff;min-width:0}",
     ".lr-seg-r{background:#16a34a}.lr-seg-w{background:#dc2626}.lr-seg-b{background:#94a3b8}.lr-seg-m{background:#7c3aed}",
     ".lr-legend{display:flex;gap:14px;font-size:10px;color:#64748b;margin-top:8px;flex-wrap:wrap}",
     ".lr-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}",
-    ".lr-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}",
+    ".lr-card{background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:16px 18px;margin-bottom:14px;page-break-inside:avoid}",
     ".lr-card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:10px}",
     ".lr-avatar{font-size:34px;line-height:1}",
-    ".lr-who{font-size:16px;font-weight:900;color:#0f172a}",
-    ".lr-who-sub{font-size:10px;color:#94a3b8;margin-top:2px}",
+    ".lr-who{font-size:16px;font-weight:900;color:var(--mm-testo, #404040)}",
+    ".lr-who-sub{font-size:10px;color:var(--mm-testo-3, #64748b);margin-top:2px}",
     ".lr-metrics{margin-left:auto;text-align:right}",
     ".lr-acc{font-size:22px;font-weight:900}",
-    ".lr-acc-sub{font-size:9px;color:#94a3b8}",
+    ".lr-acc-sub{font-size:9px;color:var(--mm-testo-3, #64748b)}",
     ".lr-strip{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}",
     ".lr-pill{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:#fff}",
     ".lr-pill-r{background:#16a34a}.lr-pill-w{background:#dc2626}.lr-pill-b{background:#cbd5e1;color:#475569}.lr-pill-m{background:#7c3aed}",
     ".lr-detail{margin:8px 0 4px;border-top:1px solid #f1f5f9;padding-top:8px}",
     ".lr-di-row{display:flex;gap:7px;align-items:baseline;padding:4px 0;border-bottom:1px dashed #f1f5f9}",
     ".lr-di-mark{flex:0 0 auto;width:16px;text-align:center;font-weight:bold}",
-    ".lr-di-right{color:#16a34a}.lr-di-wrong{color:#dc2626}.lr-di-blank{color:#94a3b8}.lr-di-manual{color:#7c3aed}",
+    ".lr-di-right{color:#16a34a}.lr-di-wrong{color:#dc2626}.lr-di-blank{color:var(--mm-testo-3, #64748b)}.lr-di-manual{color:#7c3aed}",
     ".lr-di-body{flex:1;min-width:0}",
-    ".lr-di-q{font-size:11px;color:#334155;line-height:1.5}",
+    ".lr-di-q{font-size:11px;color:var(--mm-testo, #404040);line-height:1.5}",
     ".lr-di-your{font-size:11px;color:#475569;margin-top:1px}",
     ".lr-di-correct{font-size:11px;color:#15803d;margin-top:1px}",
     ".lr-topics{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}",
     ".lr-topic-col{flex:1;min-width:180px}",
-    ".lr-topic-h{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:4px}",
+    ".lr-topic-h{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin-bottom:4px}",
     ".lr-topic-item{font-size:11px;padding:2px 0}",
     ".lr-good{color:#15803d}.lr-bad{color:#b45309}",
-    ".lr-footer{text-align:center;margin-top:28px;font-size:9px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px}",
+    ".lr-footer{text-align:center;margin-top:28px;font-size:9px;color:var(--mm-testo-3, #64748b);border-top:1px solid #f1f5f9;padding-top:12px}",
     ".cred-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}",
     ".cred{border:2px dashed #c7d2fe;border-radius:14px;padding:14px;text-align:center;page-break-inside:avoid}",
     /* L'emoji È l'identità dell'allievo: deve essere la STESSA figura che vede
@@ -77,13 +77,13 @@
     ".cred-emoji{font-size:40px;line-height:1;font-family:'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif}",
     ".cred-num{font-size:24px;font-weight:900;color:#4f46e5;margin-top:2px}",
     ".cred-class{font-size:11px;color:#64748b;margin-top:6px}",
-    ".cred-name{font-size:10px;color:#94a3b8;margin-top:8px;border-top:1px solid #e2e8f0;padding-top:6px;min-height:16px}",
+    ".cred-name{font-size:10px;color:var(--mm-testo-3, #64748b);margin-top:8px;border-top:1px solid var(--mm-bordo, #cbd5e1);padding-top:6px;min-height:16px}",
     ".no-print{display:block}",
     "@media print{.no-print{display:none !important}body{background:#fff;padding:8px}.cred-grid{grid-template-columns:repeat(3,1fr)}}"
   ].join('');
 
   function printBar(label) {
-    return '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px">' +
+    return '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:monospace;font-size:12px">' +
       '<span style="font-weight:bold;color:#4f46e5">MappAI Live · ' + esc(label) + '</span>' +
       '<div style="display:flex;gap:8px">' +
       '<button onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:11px;font-weight:bold">Stampa / PDF</button>' +
@@ -223,7 +223,7 @@
         '<div class="lr-topic-col"><div class="lr-topic-h">Punti deboli</div>' + weaks + '</div></div></div>';
     });
 
-    if (!(r.perStudent || []).length) body += '<div class="lr-q" style="text-align:center;color:#94a3b8">Nessun allievo ha partecipato.</div>';
+    if (!(r.perStudent || []).length) body += '<div class="lr-q" style="text-align:center;color:var(--mm-testo-3, #64748b)">Nessun allievo ha partecipato.</div>';
     return docShell((meta && meta.mapTitle || 'Report') + ' — allievi', 'Report allievi', body);
   }
 
@@ -256,12 +256,12 @@
     // Timeline finale di classe (solo approvate, cronologiche)
     var approved = (r.approved || []).slice().sort(function (a, b) { return a.anno - b.anno; });
     body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">Timeline finale della classe</div>';
-    if (!approved.length) body += '<div style="color:#94a3b8;font-size:11px">Nessuna proposta approvata.</div>';
+    if (!approved.length) body += '<div style="color:var(--mm-testo-3, #64748b);font-size:11px">Nessuna proposta approvata.</div>';
     approved.forEach(function (p) {
       body += '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9">' +
         '<div style="font-weight:900;color:#4f46e5;min-width:52px">' + esc(p.anno) + '</div>' +
         '<div><div style="font-weight:700">' + esc(p.evento) + '</div>' +
-        (p.contesto ? '<div style="font-size:10px;color:#94a3b8">' + esc(p.contesto) + '</div>' : '') + '</div></div>';
+        (p.contesto ? '<div style="font-size:10px;color:var(--mm-testo-3, #64748b)">' + esc(p.contesto) + '</div>' : '') + '</div></div>';
     });
     body += '</div>';
 
@@ -319,7 +319,7 @@
     // ── la classe: i tagli ──
     body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">I tagli — chi li ha evitati del tutto</div>';
     var ang = Array.isArray(r.angoli) ? r.angoli : [];
-    if (!ang.length) body += '<div style="color:#94a3b8;font-size:11px">Nessun dato.</div>';
+    if (!ang.length) body += '<div style="color:var(--mm-testo-3, #64748b);font-size:11px">Nessun dato.</div>';
     ang.forEach(function (a) {
       var q = a.allievi ? (a.evitatoDa / a.allievi) : 0;
       body += '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">' +
@@ -333,7 +333,7 @@
     // ── la classe: le aree ──
     body += '<div class="lr-q"><div class="lr-q-text" style="margin-bottom:8px">Le aree — dove la classe non si sente sicura</div>';
     var ar = Array.isArray(r.aree) ? r.aree : [];
-    if (!ar.length) body += '<div style="color:#94a3b8;font-size:11px">I fogli non dichiarano la macro-area.</div>';
+    if (!ar.length) body += '<div style="color:var(--mm-testo-3, #64748b);font-size:11px">I fogli non dichiarano la macro-area.</div>';
     ar.forEach(function (a) {
       var tot = (a.sceltaDa || 0) + (a.evitataDa || 0);
       body += '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f8fafc">' +

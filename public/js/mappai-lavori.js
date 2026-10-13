@@ -79,6 +79,16 @@
         '.mn-lav__ramo{transform-origin:100px 100px;animation:mn-lav-fiore 2.5s linear infinite}' +
         '.mn-lav__r1{animation-delay:0s}.mn-lav__r3{animation-delay:.5s}.mn-lav__r5{animation-delay:1s}' +
         '.mn-lav__r2{animation-delay:1.5s}.mn-lav__r4{animation-delay:2s}' +
+        /* 0062 (Giacomo 12/10): sulla MAPPA, durante il giro di CREA, lo spinner
+           sta in un cerchio bianco dove stava il vecchio bottone a11y
+           (`#a11y-panel-toggle`, tolto dallo 0039: fixed, 24px dall'alto e da
+           destra, 48px, fondo bianco, filetto #cbd5e1, la sua ombra). Il nome
+           non si scrive: sta nel suggerimento. */
+        '#mn-lavori.is-tela{top:24px;right:24px;width:48px;height:48px;justify-content:center;' +
+        'border-radius:9999px;background:var(--mm-fondo,#ffffff);border:1px solid var(--mm-bordo,#cbd5e1);' +
+        'box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);pointer-events:auto}' +
+        '#mn-lavori.is-tela .mn-lav__n,#mn-lavori.is-tela .mn-lav__piu{display:none}' +
+        '#mn-lavori.is-tela .mn-lav__s{width:32px;height:32px}' +
         '@media (prefers-reduced-motion: reduce){' +
         '.mn-lav__cuore,.mn-lav__ramo{animation:none}}';
 
@@ -127,11 +137,18 @@
         el.style.zIndex = String(z);
     }
 
+    /* 0062: il giro di CREA, dopo la mappa, lavora senza velo sulla tela */
+    function giroInTela() {
+        try { return !!(window.MappAIGen && window.MappAIGen.tela && window.MappAIGen.tela()); } catch (e) { return false; }
+    }
     function disegna() {
         monta();
         var n = lavori.length;
-        var ok = n > 0 && barraCPosto();
+        var barra = barraCPosto();
+        var tela = n > 0 && !barra && giroInTela();
+        var ok = n > 0 && (barra || tela);
         el.classList.toggle('is-on', ok);
+        el.classList.toggle('is-tela', tela);
         if (!ok) return;
         var ultimo = lavori[n - 1];
         elNome.textContent = ultimo.nome;
@@ -143,10 +160,14 @@
         alza();
     }
 
+    function nomeDelProgetto() {
+        // solo `typeof`: `appState` è un `let` e `window.appState` non esiste (invariante 3)
+        var s = '';
+        try { if (typeof appState !== 'undefined') s = appState.rootNodeLabel; } catch (e) { }
+        return String(s || '').trim();
+    }
     function nomeDiRipiego(testo) {
-        var s = window.appState && window.appState.rootNodeLabel;
-        try { if (!s && typeof appState !== 'undefined') s = appState.rootNodeLabel; } catch (e) { }
-        return String(s || testo || t('lav_generico', 'MappAI sta lavorando')).trim();
+        return String(nomeDelProgetto() || testo || t('lav_generico', 'MappAI sta lavorando')).trim();
     }
 
     var API = {
@@ -182,10 +203,16 @@
     /* ── l'aggancio: il velo di lavorazione ────────────────────────────────
        Un solo punto per tutta l'app. Chi chiama passa il nome come QUARTO
        argomento; gli altri ricadono sul titolo del progetto. */
+    /* 0062: col giro di CREA che tiene la presa, un «ho finito» di un pezzo del
+       giro (la mappa) non chiude il lavoro: il lavoro è il giro, e lo chiude il
+       `false` che arriva quando la presa è lasciata (`MappAIGen.lascia`). */
+    function presaDelGiro() {
+        try { return !!(window.MappAIGen && window.MappAIGen.presa && window.MappAIGen.presa()); } catch (e) { return false; }
+    }
     function aggancia() {
         var orig = window.showLoadingOverlay;
         if (typeof orig !== 'function' || orig.__lavori) return false;
-        var corrente = null, nomeCorrente = '';
+        var corrente = null, nomeCorrente = '', provvisorio = false;
         var patched = function (show, testo, mode, nome) {
             if (show) {
                 /* 🐛 IL NOME SI CATTURA ALL'AVVIO E APPARTIENE AL LAVORO (17/8).
@@ -202,16 +229,27 @@
                    lavoro in corso, non un lavoro nuovo: il nome resta quello di
                    quando è cominciato. Si ribattezza solo se arriva un nome
                    esplicito DIVERSO — cioè se è davvero un'altra cosa. */
+                /* 🐛 0062 (gate dello 0090, 12/10): un giro di CREA nasce senza progetto,
+                   e il ripiego prendeva il TESTO della prima fase — «Genero la mappa…»
+                   restava scritto per tutto il giro, a mappa finita da un quarto d'ora.
+                   Un nome preso dal testo è PROVVISORIO: con la presa del giro (in CREA,
+                   sotto il velo, nessun altro progetto si apre) ogni fase lo aggiorna,
+                   finché non c'è il titolo del progetto, che da lì resta. */
                 if (!corrente) {
+                    provvisorio = !nome && !nomeDelProgetto();
                     nomeCorrente = nome || nomeDiRipiego(testo);
                     corrente = API.inizia(nomeCorrente);
                 } else if (nome && nome !== nomeCorrente) {
                     API.fine(corrente);
-                    nomeCorrente = nome;
+                    nomeCorrente = nome; provvisorio = false;
                     corrente = API.inizia(nomeCorrente);
+                } else if (!nome && provvisorio && presaDelGiro()) {
+                    var nuovo = nomeDiRipiego(testo);
+                    provvisorio = !nomeDelProgetto();
+                    if (nuovo !== nomeCorrente) { nomeCorrente = nuovo; API.etichetta(corrente, nuovo); }
                 }
-            } else if (corrente) {
-                API.fine(corrente); corrente = null; nomeCorrente = '';
+            } else if (corrente && !presaDelGiro()) {
+                API.fine(corrente); corrente = null; nomeCorrente = ''; provvisorio = false;
             }
             return orig.apply(this, arguments);
         };

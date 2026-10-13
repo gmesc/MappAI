@@ -1,106 +1,21 @@
 // ==========================================
-// SPACED REPETITION & FLASHCARDS — estratto da app.js
+// SET DI STUDIO (sidebar «Studio») — estratto da app.js
 // ==========================================
 // Caricato DOPO app.js: appState e gli helper (window.* e bare) si risolvono
 // a runtime via scope lessicale globale condiviso.
 // ==========================================
-// SPACED REPETITION & FLASHCARDS
+// 12/10/2026 (0087, lotto 10-modali, decisione A di Giacomo): la catena dello
+// spaced repetition — quiz del nodo, `#quiz-modal`, flashcard del ramo — è USCITA:
+// nessuno la chiamava più (INTAKE 06/10). Restano i set di studio: elenco,
+// apertura nel player, cancellazione, rigenerazione.
 // ==========================================
-let currentQuizNode = null;
-
-window.generateFlashcardForNode = async function (node, silent = false, isBranch = false) {
-    if (window.mappaiOccupato && window.mappaiOccupato()) return;
-    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
-    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
-    const apiKey = window.getSystemKey();
-    if (!apiKey) {
-        if (!silent) window.showToast(window.t('tst_fc_no_key', "Nessuna API Key presente per generare le flashcard."), "error"); return;
-    }
-    if (!silent) window.showLoadingOverlay(true, window.t('lo_fc_gen', "Generazione Flashcard in corso..."), "flashcard");
-
-    const nodeContent = node.desc || node.content;
-    const promptText = window.fillPromptTemplate("MULTIPLE_CHOICE_QUIZ", {
-        nodeLabel: node.label,
-        nodeContent: nodeContent,
-        nonce: (window.quizNonce ? window.quizNonce() : String(Date.now()))
-    });
-    // Guardia: se il template risolve a stringa vuota (chiave mancante nel config),
-    // NON chiamare l'AI a vuoto — genererebbe domande scollegate dalla fonte.
-    if (!promptText || !promptText.trim()) {
-        if (!silent) { window.showLoadingOverlay(false); window.showToast(window.t('tst_quiz_no_tpl', "Template quiz non trovato: ripristina i prompt di default."), "error"); }
-        return;
-    }
-
-    const schema = {
-        type: "ARRAY",
-        items: {
-            type: "OBJECT",
-            properties: {
-                q: { type: "STRING" }, a1: { type: "STRING" }, a2: { type: "STRING" }, a3: { type: "STRING" }, correct: { type: "INTEGER" }
-            },
-            required: ["q", "a1", "a2", "a3", "correct"]
-        },
-        minItems: 5,
-        maxItems: 5
-    };
-
-    // Angolo 'auto' (misto + sintassi varia) anche sul quiz per-nodo → più varietà
-    // tra generazioni. Anteposto al payload, non a promptText (guardia template-vuoto).
-    const _angleB = window.quizAngleBlock ? window.quizAngleBlock('auto') : '';
-    /* anche il quiz per-nodo sceglie fra tre opzioni: vale la stessa regola sulla
-       lunghezza dei distrattori (vedi quizLengthBlock) */
-    const _lenB = window.quizLengthBlock ? window.quizLengthBlock() : '';
-    const payload = window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText + (_lenB ? '\n\n' + _lenB : '') }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } });
-
-    try {
-        if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
-        const data = await window.fetchModelAPI(payload, apiKey);
-        let rawText = data.candidates[0].content.parts[0].text;
-        let cleanText = rawText.split(MARKER_JSON).join('').split(MARKER_END).join('').trim();
-        const items = salvageTruncatedJSON(cleanText);
-        /* Stesso rimescolamento dei quiz di ramo (11/9): qui la forma è a tre
-           campi con l'indice 1-based, e `mescolaOpzioni` la riconosce. Il seme è
-           il nodo più il codice di variazione: due generazioni sullo stesso nodo
-           danno fogli diversi, ristampare lo stesso foglio no. */
-        let items2 = items;
-        try {
-            const PC = window.MappAIPipelineCore;
-            if (PC && PC.mescolaOpzioni && Array.isArray(items2)) {
-                items2 = PC.mescolaOpzioni(items2, String(node.id) + '|' + promptText.length);
-            }
-        } catch (e) { /* ripiego: ordine come è arrivato */ }
-        node.flashcardTest = items2;
-        node.nextReview = Date.now(); // Available right away
-
-        if (!isBranch) {
-            appState.db.studySets = appState.db.studySets || [];
-            const isKG = appState.db.extractionMode === 'knowledge_graph';
-            const nodePrefix = (isKG && node.level === 1) ? 'Hub' : 'Nodo';
-            appState.db.studySets.push({
-                id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                title: `${nodePrefix}: ${node.label}`,
-                mode: 'quiz', // Default mode for nodes is currently 'quiz' (multiple choice)
-                type: 'Multiple Choice',
-                items: items2,
-                // Sorgente per "Rigenera domande nuove" (vedi regenerateStudySet)
-                material: String((node.label ? node.label + ': ' : '') + (nodeContent || '')).slice(0, 12000),
-                nodeQuiz: true,   // usa il template MULTIPLE_CHOICE (schema a1/a2/a3)
-                date: new Date().toISOString()
-            });
-        }
-
-        if (!silent) {
-            window.showLoadingOverlay(false);
-            window.showToast(window.t('tst_fc_done', "Flashcard generata! Apri il menu per ripassare."), "success");
-        }
-    } catch (err) {
-        if (!silent) {
-            window.showLoadingOverlay(false);
-            window.showAlert("Errore Generazione", err.message);
-        }
-    }
-    if (window.renderStudySets) window.renderStudySets();
-};
+/* Il testo dei dati entra come testo (25/9/2026): l'escape del nucleo puro
+   mappai-html-sicuro.js, o uno identico se una copia non lo carica ancora (il
+   reader dell'iPad copia questo file byte per byte). */
+function _escSetStudio(v) {
+    const H = window.MappAIHtmlSicuro;
+    return H ? H.esc(v) : String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+}
 
 window.renderStudySets = function () {
     const container = document.getElementById('study-sets-container');
@@ -121,13 +36,34 @@ window.renderStudySets = function () {
     // Sort newest first
     const sortedSets = [...appState.db.studySets].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
+    /* L'elenco si ridisegna a ogni renderGraph, e i set arrivano anche dai file
+       `Materiale Studio/*.json` di un vault ricevuto: titolo, data e numero di
+       domande entravano nell'HTML così com'erano, e id e modo dentro
+       `onclick="…('${set.id}')"`, protetti dal solo apice. Ora ogni valore del set
+       passa dall'escape, e i bottoni portano solo il nome della loro azione:
+       l'id lo conosce la funzione qui sotto, non l'HTML. */
+    const esc = _escSetStudio;
     sortedSets.forEach(set => {
         const div = document.createElement('div');
         div.className = "flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer group shadow-sm mb-2";
-        div.onclick = () => window.loadStudySet(set.id);
+        const azioni = {
+            rigenera: () => window.regenerateStudySet(set.id),
+            elimina: () => window.deleteStudySet(set.id),
+            stampa: () => { if (set.mode === 'flashcard') window.printFlashcardSet(set.id); else window.printQuizSet(set.id); },
+            live: () => { if (window.MappAILive && window.MappAILive.launchFromSetPrompt) window.MappAILive.launchFromSetPrompt(set.id); }
+        };
+        // un clic su un bottone fa la sua azione e si ferma lì (era il suo
+        // `event.stopPropagation()`); altrove sulla riga apre il set, come prima
+        div.onclick = (e) => {
+            const b = (e && e.target && e.target.closest) ? e.target.closest('[data-set-azione]') : null;
+            const fa = b && azioni[b.getAttribute('data-set-azione')];
+            if (fa) { e.stopPropagation(); fa(); return; }
+            window.loadStudySet(set.id);
+        };
 
         let iconColor = set.mode === 'quiz' ? 'text-amber-500' : 'text-purple-500';
         let iconType = set.mode === 'quiz' ? 'help-circle' : 'brain-circuit';
+        const quante = Array.isArray(set.items) ? set.items.length : 0;
 
         div.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
@@ -135,21 +71,21 @@ window.renderStudySets = function () {
                      <i data-lucide="${iconType}" class="w-4 h-4 ${iconColor}"></i>
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <span class="text-xs font-bold text-slate-700 truncate leading-tight">${set.title}</span>
-                    <span class="text-[10px] text-slate-400">${set.items.length} domande &middot; ${new Date(set.date).toLocaleDateString()}</span>
+                    <span class="text-xs font-bold text-slate-700 truncate leading-tight">${esc(set.title)}</span>
+                    <span class="text-[10px] text-slate-400">${quante} domande &middot; ${esc(new Date(set.date).toLocaleDateString())}</span>
                 </div>
             </div>
             <div class="ml-3 shrink-0 flex items-center gap-1">
-                <button onclick="event.stopPropagation(); window.regenerateStudySet('${set.id}')" class="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition" title="${window.t('tt_regen_set', 'Genera domande nuove su questo materiale')}">
+                <button data-set-azione="rigenera" class="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition" title="${window.t('tt_regen_set', 'Genera domande nuove su questo materiale')}">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>${window.t('ui_regen', 'Rigenera')}</span>
                 </button>
-                <button onclick="event.stopPropagation(); window.deleteStudySet('${set.id}')" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
+                <button data-set-azione="elimina" class="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Elimina Set">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                 </button>
-                <button onclick="event.stopPropagation(); if('${set.mode}' === 'flashcard') { window.printFlashcardSet('${set.id}'); } else { window.printQuizSet('${set.id}'); }" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0" title="Stampa / Esporta PDF">
+                <button data-set-azione="stampa" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0" title="Stampa / Esporta PDF">
                     <i data-lucide="printer" class="w-4 h-4"></i>
                 </button>
-                ${set.mode === 'quiz' ? `<button onclick="event.stopPropagation(); window.MappAILive && window.MappAILive.launchFromSetPrompt && window.MappAILive.launchFromSetPrompt('${set.id}');" class="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors flex-shrink-0" title="${window.t('tt_launch_live', 'Avvia questo set come attività live (QR)')}">
+                ${set.mode === 'quiz' ? `<button data-set-azione="live" class="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors flex-shrink-0" title="${window.t('tt_launch_live', 'Avvia questo set come attività live (QR)')}">
                     <i data-lucide="qr-code" class="w-4 h-4"></i>
                 </button>` : ''}
                 <i data-lucide="play-circle" class="w-5 h-5 text-indigo-500 group-hover:text-indigo-700 transition"></i>
@@ -203,7 +139,7 @@ window.regenerateStudySet = async function (setId) {
     const set = appState.db.studySets.find(s => s.id === setId);
     if (!set) return;
     if (!set.material) {
-        window.showToast(window.t('tst_set_no_material', "Set storico senza materiale salvato: non rigenerabile. Rigeneralo dal nodo/ramo."), "warning");
+        window.showToast(window.t('tst_set_no_material', "Set storico senza materiale salvato: non rigenerabile. Creane uno nuovo da ELABORA › «Crea nuovo»."), "warning");
         return;
     }
     const apiKey = window.getSystemKey();
@@ -219,9 +155,19 @@ window.regenerateStudySet = async function (setId) {
             const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { q: { type: "STRING" }, a1: { type: "STRING" }, a2: { type: "STRING" }, a3: { type: "STRING" }, correct: { type: "INTEGER" } }, required: ["q", "a1", "a2", "a3", "correct"] }, minItems: 5, maxItems: 5 };
             if (window.MappAIUsage) window.MappAIUsage.setContext('study', 'node_quiz');
             const _angleB = window.quizAngleBlock ? window.quizAngleBlock(set.angle || 'auto') : '';
-            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
+            // il punto in fondo alle opzioni anche quando si rigenera (packet 0080)
+            const _puntoB = window.quizPuntoBlock ? window.quizPuntoBlock() : '';
+            const data = await window.fetchModelAPI(window.injectClassTuning({ contents: [{ parts: [{ text: (_angleB ? _angleB + '\n\n' : '') + promptText + (_puntoB ? '\n\n' + _puntoB : '') }] }], generationConfig: { temperature: (window.QUIZ_TEMPERATURE || 0.7), responseMimeType: "application/json", responseSchema: schema, _respectTemp: true } }), apiKey);
             const raw = data.candidates[0].content.parts[0].text;
             newItems = salvageTruncatedJSON(raw.split(MARKER_JSON).join('').split(MARKER_END).join('').trim());
+            /* qui non c'è rimescolamento: il passo viene subito dopo la lettura,
+               con le stesse guardie della generazione */
+            try {
+                const PC = window.MappAIPipelineCore;
+                if (PC && PC.chiudiOpzioni && Array.isArray(newItems) && window.quizPuntoAcceso && window.quizPuntoAcceso()) {
+                    newItems = PC.chiudiOpzioni(newItems);
+                }
+            } catch (e) { /* ripiego: le opzioni come sono */ }
         } else if (set.mode === 'flashcard') {
             const _PLfc = window.MappAIPrintLayout;
             const _regolaFc = _PLfc ? _PLfc.promptRule(_PLfc.flashGeom(), null, window.getMapLanguage ? window.getMapLanguage() : "it") : "";
@@ -276,248 +222,6 @@ window.getDescendants = function (nodeId) {
         }
     }
     return Array.from(descendants).map(id => appState.db.nodes.find(n => n.id === id)).filter(n => n);
-};
-
-window.generateBranchFlashcards = async function (node) {
-    const reviewGuard = window.MappAIReview?.requireStandalone || window.MappAIReview?.requireApproved;
-    if (reviewGuard && !await reviewGuard.call(window.MappAIReview)) return;
-    const apiKey = window.getSystemKey();
-    if (!apiKey) { window.showToast(window.t('tst_enter_key', "Inserisci API Key."), "error"); return; }
-
-    let nodes = [node, ...window.getDescendants(node.id)];
-    if (nodes.length > 10) nodes = nodes.slice(0, 10);
-
-    window.showLoadingOverlay(true, `Generazione per Ramo in corso (${nodes.length} nodi)...`, "flashcard");
-    let successCount = 0;
-    let branchItems = [];
-    for (const n of nodes) {
-        try {
-            await window.generateFlashcardForNode(n, true, true);
-            if (n.flashcardTest) {
-                successCount++;
-                branchItems = branchItems.concat(n.flashcardTest);
-            }
-        } catch (e) { console.error(e); }
-    }
-    window.showLoadingOverlay(false);
-    if (successCount > 0) {
-        appState.db.studySets = appState.db.studySets || [];
-        appState.db.studySets.push({
-            id: 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            title: `Ramo: ${node.label}`,
-            mode: 'quiz',
-            type: 'Multiple Choice',
-            items: branchItems,
-            date: new Date().toISOString()
-        });
-        if (window.renderStudySets) window.renderStudySets();
-
-        window.globalQuizQueue = nodes.filter(n => n.flashcardTest);
-        window.playNextGlobalQuiz();
-    } else {
-        window.showToast(window.t('tst_fc_none', "Nessuna flashcard generata."), "error");
-    }
-};
-
-window.testBranchFlashcards = function (node) {
-    let nodes = [node, ...window.getDescendants(node.id)].filter(n => n.flashcardTest);
-    if (nodes.length === 0) {
-        window.showToast(window.t('tst_fc_none_branch', "Nessuna flashcard trovata nel ramo. Generala prima!"), "error");
-        return;
-    }
-    window.globalQuizQueue = nodes;
-    window.playNextGlobalQuiz();
-};
-
-let currentSubQuestionIdx = 0;
-let correctSubAnswersCount = 0;
-
-window.openQuizModal = function (node) {
-    currentQuizNode = node;
-    const questions = node.flashcardTest;
-    if (!questions || !Array.isArray(questions)) {
-        // Fallback for old single-question format
-        if (questions && questions.q) {
-            node.flashcardTest = [questions];
-            window.openQuizModal(node);
-            return;
-        }
-        return;
-    }
-
-    currentSubQuestionIdx = 0;
-    correctSubAnswersCount = 0;
-    window._quizStartTs = Date.now(); // cronometro fluenza (corrette/min) per la padronanza
-    window.renderSubQuestion();
-
-    const iconElem = document.getElementById('quiz-modal-icon');
-    if (iconElem) {
-        iconElem.setAttribute('data-lucide', 'graduation-cap');
-    }
-
-    const modal = document.getElementById('quiz-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    const box = document.getElementById('quiz-modal-content');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        box.classList.remove('scale-95');
-    }, 10);
-    window.safeCreateIcons();
-};
-
-window.closeQuizModal = function () {
-    const modal = document.getElementById('quiz-modal');
-    const box = document.getElementById('quiz-modal-content');
-    modal.classList.add('opacity-0');
-    box.classList.add('scale-95');
-    setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
-    currentQuizNode = null;
-}
-
-window.renderSubQuestion = function () {
-    const questions = currentQuizNode.flashcardTest;
-    const fc = questions[currentSubQuestionIdx];
-
-    document.getElementById('quiz-node-title').innerText = `${currentQuizNode.label} (${currentSubQuestionIdx + 1}/${questions.length})`;
-    document.getElementById('quiz-question-container').innerText = fc.q;
-    document.getElementById('quiz-feedback-container').classList.add('hidden');
-    document.getElementById('quiz-sr-buttons').classList.add('hidden');
-    document.getElementById('quiz-next-container').classList.add('hidden');
-
-    const optsContainer = document.getElementById('quiz-options-container');
-    optsContainer.innerHTML = '';
-
-    const optionsArray = [1, 2, 3].filter(val => {
-        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
-        return t && t.trim() !== '';
-    });
-
-    const isTrueFalse = optionsArray.length === 2 && optionsArray.some(val => {
-        let t = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
-        const l = t.toLowerCase();
-        return l === 'vero' || l === 'falso' || l === 'true' || l === 'false';
-    });
-
-    if (isTrueFalse) {
-        optsContainer.className = "flex gap-4 mb-6";
-    } else {
-        optsContainer.className = "space-y-3 mb-6";
-    }
-
-    optionsArray.forEach(val => {
-        let text = val === 1 ? fc.a1 : (val === 2 ? fc.a2 : fc.a3);
-        let btn = document.createElement('div');
-
-        if (isTrueFalse) {
-            btn.className = "quiz-option flex-1 text-center";
-            const lowerText = text.toLowerCase();
-            if (lowerText === 'vero' || lowerText === 'true') {
-                btn.classList.add('tf-true');
-            } else if (lowerText === 'falso' || lowerText === 'false') {
-                btn.classList.add('tf-false');
-            }
-        } else {
-            btn.className = "quiz-option";
-        }
-
-        btn.innerText = text;
-        btn.onclick = () => window.handleQuizAnswer(btn, optsContainer, val === fc.correct);
-        optsContainer.appendChild(btn);
-    });
-};
-
-window.handleQuizAnswer = function (selectedBtn, container, isCorrect) {
-    if (isCorrect) correctSubAnswersCount++;
-
-    // Disable all
-    Array.from(container.children).forEach(b => {
-        b.onclick = null; b.style.cursor = 'default';
-    });
-
-    const questions = currentQuizNode.flashcardTest;
-    const feedbackTitle = document.getElementById('quiz-feedback-title');
-    const feedbackDesc = document.getElementById('quiz-feedback-desc');
-    const nextContainer = document.getElementById('quiz-next-container');
-    const srButtons = document.getElementById('quiz-sr-buttons');
-
-    if (isCorrect) {
-        selectedBtn.classList.add('correct');
-        feedbackTitle.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> Risposta Esatta!';
-    } else {
-        selectedBtn.classList.add('wrong');
-        feedbackTitle.innerHTML = '<i data-lucide="x-circle" class="w-4 h-4 text-red-500"></i> Sbagliato!';
-    }
-
-    if (currentSubQuestionIdx < questions.length - 1) {
-        feedbackDesc.innerText = "Continua con la prossima domanda del set.";
-        nextContainer.classList.remove('hidden');
-    } else {
-        const finalScore = `${correctSubAnswersCount}/${questions.length}`;
-        currentQuizNode.lastScore = finalScore;
-        // Padronanza per-concetto (Precision Teaching): senza questo il quiz — l'attività
-        // di studio più usata — non alimentava lo store EWMA né le sessioni per la meta-analisi.
-        try {
-            const _qScore = questions.length ? correctSubAnswersCount / questions.length : 0;
-            const _qRate = window._quizStartTs
-                ? correctSubAnswersCount / Math.max((Date.now() - window._quizStartTs) / 60000, 2 / 60)
-                : undefined;
-            if (window.MappAIStudyBus) {
-                window.MappAIStudyBus.begin('quiz', 'Quiz spaced repetition');
-                window.MappAIStudyBus.record(currentQuizNode.id, currentQuizNode.label, 'quiz', { score: _qScore, rate: _qRate });
-                window.MappAIStudyBus.end();
-            } else if (window.MappAIMastery && window.MappAIMastery.record) {
-                window.MappAIMastery.record(currentQuizNode.id, currentQuizNode.label, 'quiz', { score: _qScore, rate: _qRate });
-            }
-        } catch (e) { console.warn('[Quiz] mastery record', e); }
-        feedbackDesc.innerHTML = `Hai terminato questo set! Punteggio finale: <b class="text-indigo-600">${finalScore}</b>.<br>Valuta ora la difficoltà per programmare il prossimo ripasso:`;
-        srButtons.classList.remove('hidden');
-    }
-
-    window.safeCreateIcons();
-    document.getElementById('quiz-feedback-container').classList.remove('hidden');
-};
-
-window.showNextSubQuestion = function () {
-    currentSubQuestionIdx++;
-    window.renderSubQuestion();
-};
-
-window.processSRResponse = function (difficulty) {
-    if (!currentQuizNode) return;
-    const now = Date.now();
-    currentQuizNode.lastReviewed = now;
-
-    let intervalDays = 1;
-    if (difficulty === 'easy') intervalDays = 7;
-    else if (difficulty === 'good') intervalDays = 3;
-    else if (difficulty === 'hard') intervalDays = 0.5;
-
-    // Intervallo modulato dalla padronanza EWMA del nodo (0.5×–1.5×): a parità di
-    // autovalutazione, un concetto storicamente fragile torna prima. Gli intervalli
-    // fissi trattavano allo stesso modo primo incontro e concetto consolidato.
-    try {
-        if (window.MappAIMastery && window.MappAIMastery.node) {
-            const agg = window.MappAIMastery.node(currentQuizNode.id);
-            if (agg && agg.attempts) intervalDays *= (0.5 + agg.accuracy);
-        }
-    } catch (e) { /* store non disponibile: intervalli base */ }
-
-    // Aggiorna lo studyStatus
-    if (difficulty === 'easy') currentQuizNode.studyStatus = 'done';
-    else if (difficulty === 'good') currentQuizNode.studyStatus = 'review';
-    else currentQuizNode.studyStatus = 'todo';
-
-    currentQuizNode.nextReview = now + (intervalDays * 24 * 60 * 60 * 1000);
-
-    window.closeQuizModal();
-    renderGraph();
-
-    if (window.globalQuizQueue && window.globalQuizQueue.length > 0) {
-        setTimeout(() => window.playNextGlobalQuiz(), 300);
-    } else {
-        window.showToast(window.t('tst_sr_updated', "Stato aggiornato nel sistema Spaced Repetition."), "success");
-    }
 };
 
 window.handleImageUpload = function (input) {

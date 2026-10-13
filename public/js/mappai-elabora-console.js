@@ -77,9 +77,16 @@
     /* C'è una mappa aperta? Senza, la colonna non ha documenti da elencare: sono
        documenti DI una mappa. Il conto dei nodi è il segno più onesto — il nome
        da solo può restare da un caricamento precedente. */
+    function _lettura() { return window.MappAIPercorsoLettura; }
+    function _materialiLettura() {
+        var s = _appState(), L = _lettura();
+        if (!s || s.extractionMode !== 'lettura' || !s.activeVaultPath || !L || !L.elaboraMaterials) return [];
+        return L.elaboraMaterials();
+    }
     function _mappaAperta() {
         var s = _appState();
-        return !!(s && s.db && (s.db.nodes || []).length);
+        return !!(s && (s.extractionMode === 'lettura'
+            ? _materialiLettura().length : s.db && (s.db.nodes || []).length));
     }
     function _sintesi() {
         var out = [];
@@ -149,14 +156,72 @@
         });
     }
 
-    /* ── I TIPI DI DOCUMENTO — la fonte unica del popup «Crea nuovo» ──────────
+    /* ── I TIPI DI DOCUMENTO — il popup «+ Crea nuovo» e le righe dalla mappa ──
        `da` dice CHI lo produce: `mappa` = si costruisce dalla mappa, subito e
-       senza spendere niente; `ai` = lo genera un motore che sta altrove, e qui
-       si può solo portare l'utente dove quel motore vive. Distinguerli è ciò che
-       evita un popup che promette quattro cose e ne mantiene due. */
+       senza spendere niente; `mano` = un foglio vuoto che il docente scrive;
+       `foto` = l'AI lo scrive dalla scheda di un progetto nato da una foto;
+       `ai` = lo genera un motore che sta altrove, e qui si può solo portare
+       l'utente dove quel motore vive.
+       0091 (13/10/26, decisioni di Giacomo): «+ Crea nuovo» serve a fare un
+       documento A MANO; la via con l'AI è «Più materiali insieme». Quindi:
+         · Foglio dei nodi e Catena dei perché escono dal popup (`crea: false`)
+           ma RESTANO qui, perché da queste due voci nascono le loro righe nelle
+           tabelle (`_materiali`): si aprono e si correggono come prima;
+         · la Sintesi esce: si genera solo da «Più materiali insieme»;
+         · la voce «Quiz, Domande aperte e Flashcard» e i suoi due sotto-modali
+           escono: i loro bottoni a mano stanno qui, uno per genere (il V/F a
+           mano non c'è più);
+         · un progetto nato da una foto ha in più le tre voci `foto` (`dossier:
+           true`), che generano dalla sua scheda. */
+    function _nomeLibero(tipo) {
+        /* Il primo documento di un genere si chiama col nome base; dal secondo
+           in poi «2», «3»… — un secondo foglio col nome base si fermerebbe
+           (aperte) o avrebbe il nome di file del primo (set). */
+        var CL = window.MappAIClona;
+        var mat = []; try { mat = _materiali(); } catch (e) { mat = []; }
+        var preso = mat.some(function (m) { return m && m.tipo === tipo && !m.clone; });
+        if (!preso || !CL || !CL.nomeAuto) return '';
+        return CL.nomeAuto(tipo, CL.cloniDi(mat, tipo));
+    }
+    function _aMano(id, tipo) {
+        return {
+            id: 'mano_' + id, da: 'mano', icona: { mc: 'list-checks', open: 'pen-line', flashcards: 'copy' }[id],
+            et: function () {
+                return id === 'mc' ? t('cq_mc', 'Scelta multipla')
+                    : id === 'open' ? t('cq_open', 'Domande aperte') : t('cq_flash', 'Flashcard');
+            },
+            desc: function () { return t('ec_mano_d', 'Un foglio vuoto nell\'editor: scrivi tu le domande, una a una.'); },
+            puo: function () { return _nodi() > 0 && !!(window.MappAICreaQuiz && window.MappAICreaQuiz.aMano); },
+            perche: function () {
+                return _nodi() > 0 ? t('ec_quiz_no', 'Il percorso «crea un quiz» non è caricato.')
+                    : t('ec_mano_no', 'Apri prima una mappa.');
+            },
+            apri: function () { window.MappAICreaQuiz.aMano(id, _nomeLibero(tipo)); }
+        };
+    }
+    /* La scheda di un progetto nato da una foto: la porta con sé la sua
+       «Analisi della fonte» (la stessa che `_modificaAnalisi` riapre). */
+    function _schedaDelDossier() {
+        if (!_eDossierAperto() || !window.schedaFromAnalisiHtml) return null;
+        var d = _docArchivioAnalisi();
+        try { return (d && d.html) ? window.schedaFromAnalisiHtml(d.html) : null; } catch (e) { return null; }
+    }
+    function _daFoto(id) {
+        return {
+            id: 'foto_' + id, da: 'foto', dossier: true, icona: 'image',
+            et: function () {
+                return id === 'mc' ? t('ec_foto_mc', 'Scelta multipla dalla foto')
+                    : id === 'open' ? t('ec_foto_open', 'Domande aperte dalla foto') : t('ec_foto_flash', 'Flashcard dalla foto');
+            },
+            desc: function () { return t('ec_foto_d', 'L\'AI le scrive dalla scheda della foto: scegli quante e con che angolazione, poi le correggi qui.'); },
+            puo: function () { return !!(window.MappAICreaQuiz && window.MappAICreaQuiz.daFoto) && !!_schedaDelDossier(); },
+            perche: function () { return t('ec_foto_no', 'Questo progetto non ha la scheda della foto: rifalla dall\'«Analisi della fonte».'); },
+            apri: function () { window.MappAICreaQuiz.daFoto(id, _schedaDelDossier()); }
+        };
+    }
     var TIPI = [
         {
-            id: 'nodesheet', da: 'mappa', icona: 'scissors',
+            id: 'nodesheet', da: 'mappa', icona: 'scissors', crea: false,
             et: function () { return t('de_ns', 'Foglio dei nodi'); },
             desc: function () { return t('ec_ns_d', 'Le card dei nodi, pronte da ritagliare. Si costruisce dalla mappa: non serve generarlo prima.'); },
             puo: function () { return _nodi() > 0 && !!(DEd() && DEd().openNodeSheet); },
@@ -164,48 +229,15 @@
             apri: function () { DEd().openNodeSheet(); }
         },
         {
-            id: 'causal', da: 'mappa', icona: 'git-branch',
+            id: 'causal', da: 'mappa', icona: 'git-branch', crea: false,
             et: function () { return t('de_cc', 'Catena dei perché'); },
             desc: function () { return t('ec_cc_d', 'I nessi causali della mappa messi in fila. Come il foglio dei nodi, si ricava dalla mappa al volo.'); },
             puo: function () { return _mappaAperta() && !!(DEd() && DEd().openCausal && window.MappAICausalCore) && _nessiCausali() > 0; },
             perche: function () { return t('ec_cc_no', 'Questa mappa non dichiara nessi causali.'); },
             apri: function () { DEd().openCausal(); }
         },
-        {
-            /* 🐛 17/8: cliccare «Sintesi» non generava niente. La voce portava
-               all'hub «Materiali di studio» (`_vaiAlGeneratore`), che si disegna
-               a `z-index: 9990` mentre questa console parte da 12000: l'hub si
-               apriva DAVVERO, ma dietro alla console — invisibile. Due difetti
-               in uno, e tutti e due corretti:
-                 · il piano, che ora i modali della sintesi chiedono al motore;
-                 · il PONTE, che qui non serviva. Il generatore della sintesi è
-                   `openBranchSynthesisModal`: mandare l'utente in un hub di
-                   dodici card perché ne scelga una che si chiama ancora
-                   «Sintesi» non è un percorso, è un passaggio in più. Non è un
-                   secondo ingresso alla generazione (invariante 21): il motore
-                   resta uno solo, si chiama direttamente. */
-            id: 'synthesis', da: 'ai', icona: 'file-text',
-            et: function () { return t('de_synth', 'Sintesi'); },
-            desc: function () { return t('ec_syn_d2', 'Il testo disteso di un ramo o dell\'intera mappa, scritto dall\'AI con le citazioni alle fonti. Poi si rivede qui.'); },
-            puo: function () { return _nodi() > 0 && !!window.openBranchSynthesisModal; },
-            perche: function () {
-                return _nodi() > 0
-                    ? t('ec_syn_no_mod', 'Il generatore delle sintesi non è caricato.')
-                    : t('ec_syn_no', 'La mappa non ha nodi da sintetizzare.');
-            },
-            apri: function () { window.openBranchSynthesisModal(); }
-        },
-        {
-            /* 13/8: non è più un ponte verso l'hub dei materiali. Il percorso
-               (tipo → a mano o con l'AI → parametri) vive in
-               `mappai-crea-quiz.js`; il motore resta quello della pipeline. */
-            id: 'quiz', da: 'misto', icona: 'list-checks',
-            et: function () { return t('ec_quiz', 'Quiz, Domande aperte e Flashcard'); },
-            desc: function () { return t('ec_quiz_d2', 'Scelta multipla, Vero/Falso, domande aperte o flashcard: le scrivi tu o le genera l\'AI.'); },
-            puo: function () { return !!window.MappAICreaQuiz; },
-            perche: function () { return t('ec_quiz_no', 'Il percorso «crea un quiz» non è caricato.'); },
-            apri: function () { window.MappAICreaQuiz.apri(); }
-        },
+        _daFoto('open'), _daFoto('flashcards'), _daFoto('mc'),
+        _aMano('mc', 'Quiz MC'), _aMano('open', 'Domande aperte'), _aMano('flashcards', 'Flashcard'),
         {
             /* PIÙ MATERIALI INSIEME (21/9). Il pannello esisteva già — è quello
                del bottone grande di COSTRUISCI (`index.html`,
@@ -225,7 +257,12 @@
                dalla mappa senza AI, ma il gesto resta una generazione.) */
             id: 'batch', da: 'ai', icona: 'package',
             et: function () { return t('ec_batch', 'Più materiali insieme'); },
-            desc: function () { return t('ec_batch_d', 'Quiz, flashcard, domande aperte, fogli dei nodi e sintesi in un giro solo, per ogni ramo della mappa.'); },
+            desc: function () {
+                /* 0090 (parte C): con la G2 in attesa la voce lo DICE — il modale si
+                   apre sull'avviso e sul bottone «Completa validazione» */
+                if (_g2InAttesa()) return t('mp_g2_attesa', 'I materiali chiesti l\'ultima volta aspettano la tua validazione: completala prima di generarne altri.');
+                return t('ec_batch_d', 'Quiz, flashcard, domande aperte, fogli dei nodi e sintesi in un giro solo, per ogni ramo della mappa.');
+            },
             /* ⚠️ `fromApproved: true` NON è un dettaglio: è ciò che distingue le
                due strade di `_startFromModal` (material-pipeline.js:2254).
                Con esso il pannello lavora sulla mappa CHE C'È —
@@ -381,6 +418,16 @@
        (`_QT.tf.typeLabel`): quella è la fonte, l'ispezione degli item resta
        come ripiego per i set fatti a mano. */
     function _generePerSet(x) {
+        /* 0059 D11: le domande che ELABORA raccoglie dalla fonte
+           (`openQuestions`) hanno un genere loro, «Domande della fonte». Si
+           riconoscono da `origin`, che non dipende dalla lingua: `type` è
+           «Aperte» (o «Open») e cadeva nel ripiego, «Scelta Multipla». Il
+           genere NON è un genere di file di `buildFileName`: la riga non
+           reclama il PDF di un altro genere (con `quiz_mc` si contendeva
+           `Quiz-MC-<mappa>.pdf` col quiz vero, e nessuno dei due lo agganciava
+           più). Vale anche per i set nati «Domande della scheda» (stessa
+           `origin` dal 22/7): la riga cambia nome, il loro titolo no. */
+        if (x && x.origin === 'elabora-questions') return { genere: 'domande_fonte', tipo: 'Domande della fonte' };
         var kind = _kindOf(x);
         if (kind === 'flashcards') return { genere: 'flashcards', tipo: 'Flashcard' };
         var dichiarato = String((x && (x.type || x.quizType)) || '').toLowerCase();
@@ -455,6 +502,7 @@
         'Quiz V/F': ['ec_n_vf', 'Vero o Falso'],
         'Quiz': ['ec_n_quiz', 'Quiz'],
         'Domande aperte': ['ec_n_open', 'Domande Aperte'],
+        'Domande della fonte': ['ec_n_srcq', 'Domande della fonte'],
         'Flashcard': ['ec_n_flash', 'Flashcard'],
         'Sintesi': ['ec_n_syn', 'Sintesi'],
         'Foglio nodi': ['ec_n_ns', 'Foglio dei nodi'],
@@ -587,6 +635,10 @@
     }
 
     function _materiali() {
+        // Il percorso conserva sorgente e revisione nel suo controller: nessuna
+        // conversione nei vecchi studySet, che perderebbe i rimandi al testo.
+        var lettura = _materialiLettura();
+        if ((_appState() || {}).extractionMode === 'lettura') return lettura;
         var out = [];
         /* La FONTE è la prima voce (D2): il testo sempre, i PDF quanti sono.
            Stessa catena di fallback del nome usata dalla colonna. */
@@ -1006,7 +1058,8 @@
        lessicale (regola nota): si interroga con `typeof`. */
     function _salvaProgetto() {
         try {
-            var SM = (typeof StorageManager !== 'undefined') ? StorageManager : window.StorageManager;
+            // niente ripiego su `window.StorageManager`: è la classe nativa del browser
+            var SM = (typeof StorageManager !== 'undefined') ? StorageManager : null;
             if (SM && SM.saveCurrentProject) SM.saveCurrentProject();
         } catch (e) { /* la copia c'è comunque in memoria */ }
     }
@@ -1254,7 +1307,8 @@
         var voci = (_mappe || []).map(function (m) {
             return {
                 id: 'prog:' + m.id, etichetta: m.nome,
-                icona: (m.v && m.v.dossier) ? 'image' : (m.type === 'kg' ? 'network' : 'map'),
+                icona: (m.v && m.v.extractionMode === 'lettura') || (m.p && m.p.type === 'lettura') ? 'book-open'
+                    : (m.v && m.v.dossier) ? 'image' : (m.type === 'kg' ? 'network' : 'map'),
                 /* mentre una mappa si sta aprendo è LEI la scelta, non quella
                    ancora caricata sotto */
                 attiva: _inCorsoV2 ? _inCorsoV2 === m.id : !!(corrente && corrente.id === m.id),
@@ -1292,10 +1346,65 @@
 
     /* L'area in S1: la FONTE come prima tabella (D2 — `tabelleMateriali` non la
        conosce, il suo mestiere sono i generi di documento), poi i generi. */
+    /* ── LA FOTO DI UN DOSSIER, PER LA HOME (0069, giro 11) ─────────────────────
+       L'immagine originale vive in `Allegati/` (la copia la pipeline col nome del
+       titolo); l'elenco si legge una volta per vault, come `_disco`, e al suo
+       arrivo la console si ridisegna. Quale file: la regola del pannello di G2
+       (`MappAIReviewFonte.trovaFoto`: il nome del titolo, poi l'unica immagine). */
+    var _allegati = null, _allegatiVault = '';
+    function _eDossierAperto() {
+        try {
+            var st = _appState(), n0 = _mappaAperta() && st && st.db && st.db.nodes && st.db.nodes[0];
+            return !!(n0 && n0.id === 'fonte_0');     /* lo stesso segnale di `_montaAnteprimaFoto` */
+        } catch (e) { return false; }
+    }
+    function _fotoDelDossier() {
+        var s = _appState(), api = window.electronAPI, vp = (s && s.activeVaultPath) || '';
+        if (!vp || !api || !api.vaultMaterialsList) return '';
+        if (_allegatiVault !== vp) {
+            _allegatiVault = vp; _allegati = null;
+            api.vaultMaterialsList({ vaultPath: vp, dir: 'Allegati' }).then(function (r) {
+                if (_allegatiVault !== vp) return;
+                _allegati = ((r && r.files) || []).map(function (f) { return f && f.name; }).filter(Boolean);
+                rifaiEsterno();
+            }).catch(function () { if (_allegatiVault === vp) _allegati = []; });
+        }
+        if (!_allegati || !window.MappAIReviewFonte || !window.MappAIReviewFonte.trovaFoto) return '';
+        var nome = window.MappAIReviewFonte.trovaFoto(_allegati, (s && s.rootNodeLabel) || '');
+        return nome ? 'Allegati/' + nome : '';
+    }
     function _tabelleV2() {
         var lista = _materiali();
+        if ((_appState() || {}).extractionMode === 'lettura') {
+            var gruppi = [];
+            lista.forEach(function (m) {
+                var g = gruppi.find(function (x) { return x.titolo === m.tipo; });
+                if (!g) {
+                    g = { id: 'g:lettura-' + (m.format || gruppi.length), titolo: m.tipo,
+                        colonne: m.audience === 'source' ? [{ etichetta: t('lt_col_nome', 'Nome') }] : [{ etichetta: t('lt_col_nome', 'Nome') },
+                            { etichetta: t('pl_working_description', 'Contenuto') },
+                            { etichetta: t('mm_azioni', 'Azioni'), ordinabile: false, larghezza: 'calc(3 * var(--mm-ctl-h) + 2 * var(--mm-btn-gap))' }], righe: [] };
+                    gruppi.push(g);
+                }
+                var azioni = [];
+                if (m.modificabile) azioni.push({ id: 'modifica:' + m.id, icona: 'pencil', etichetta: t('ec_modifica', 'Modifica'), ruolo: 'quieto', soloIcona: true });
+                if (m.clonabile) azioni.push({ id: 'clona:' + m.id, icona: 'copy', etichetta: t('ec_clona_t', 'Fai una copia'), ruolo: 'quieto', soloIcona: true });
+                if (m.eliminabile) azioni.push({ id: 'del:' + m.id, icona: 'trash-2', etichetta: t('lt_sm_delete', 'Elimina'), ruolo: 'quieto', soloIcona: true });
+                g.righe.push({ id: 'm:' + m.id, chiude: false, celle: m.audience === 'source' ? [m.titolo] : [m.titolo, m.descrizione || '', { azioni: azioni }] });
+            });
+            return gruppi;
+        }
         var fonte = lista.filter(function (m) { return m.tipo === 'Fonte'; });
         var resto = lista.filter(function (m) { return m.tipo !== 'Fonte'; });
+        /* 0069, giro 11: per un dossier da foto, a interruttore acceso, «Fonte» è la
+           scheda «Analisi della fonte» più l'immagine originale (regola del core,
+           `fonteDellaHome`); spento, o un progetto da PDF, la riga sopra resta lei */
+        var DFc = window.MappAIDossierFonteCore, accesoDF = false;
+        try { accesoDF = !!(DFc && DFc.fonteDellaHome && DFc.acceso(window.localStorage)); } catch (e) { accesoDF = false; }
+        if (accesoDF && _eDossierAperto()) {
+            var div = DFc.fonteDellaHome({ acceso: true, dossier: true, materiali: lista, foto: _fotoDelDossier() });
+            fonte = div.fonte; resto = div.resto;
+        }
         var tabs = [{
             id: 'g:fonte', titolo: t('ec_g_fonte', 'Fonte'),
             colonne: [{ etichetta: t('lt_col_nome', 'Nome'), larghezza: '' }],
@@ -1303,11 +1412,61 @@
                 return { id: 'm:' + m.id, chiude: false, celle: [m.titolo] };
             })
         }];
+        var attesa = _righeInAttesa();
         var T = window.MappAITeach;
         if (T && T.tabelleMateriali) {
-            try { tabs = tabs.concat(T.tabelleMateriali(resto, false, 'elabora') || []); } catch (e) { }
+            try { tabs = tabs.concat(T.tabelleMateriali(attesa.length ? resto.concat(attesa) : resto, false, 'elabora') || []); } catch (e) { }
         }
+        if (attesa.length) _conChip(tabs);
         return tabs;
+    }
+
+    /* ── I MATERIALI CHE ASPETTANO LA G2 (0090, parte A) ──────────────────────
+       Giacomo, 12/10: nelle tabelle di ogni tipo «le righe con il chip sono solo
+       quelle dei materiali che necessitano la validazione per essere generati».
+       Le regole sono del core (`MappAIMaterialiAttesaCore.righe`): qui si danno
+       alla lista nella forma di `_materiali()`, e `tabelleMateriali` (letto e
+       mai modificato) le mette nella tabella della loro categoria. Interruttore
+       `mappai_elabora_attesa` ('0' = niente righe). */
+    function _g2InAttesa() {
+        var C = window.MappAIMaterialiAttesaCore;
+        try { return !!(C && C.acceso(window.localStorage) && C.g2InAttesa((_appState() || {})._pipelineManifest)); }
+        catch (e) { return false; }
+    }
+    function _righeInAttesa() {
+        var C = window.MappAIMaterialiAttesaCore;
+        try { if (!C || !C.acceso(window.localStorage)) return []; } catch (e) { return []; }
+        var st = _appState() || {};
+        if (st.extractionMode === 'lettura') return [];
+        return C.righe(st._pipelineManifest).map(function (r) {
+            return { id: r.id, titolo: t(r.chiave, r.nome), tipo: r.tipo, data: 0, archivio: false,
+                voce: false, cls: '', disc: '', attesa: true };
+        });
+    }
+    /* La riga in attesa non è un file né una sorgente: niente «Tipo», niente
+       comandi del file; nella colonna delle azioni il chip «Completa
+       validazione», che fa lo stesso gesto del clic sul nome (bivio 2:
+       «sia il click sul nome che il click sul chip portano a G2»). La colonna
+       delle azioni si allarga in TUTTE le tabelle, che stanno impilate e devono
+       restare allineate (vedi `_larghezzaComandi` di landing-teach). */
+    function _conChip(tabs) {
+        var C = window.MappAIMaterialiAttesaCore;
+        var et = t('ea_chip', 'Completa validazione');
+        /* Space Mono a 12px (`--mm-btn-fs`) ≈ 7,2px per carattere; imbottitura
+           14+14, bordo 1+1, cella 12+12 */
+        var serve = Math.ceil(et.length * 7.2) + 54;
+        tabs.forEach(function (tb) {
+            if (!tb || !tb.colonne || !tb.colonne.length || tb.id === 'g:fonte') return;
+            var ultima = tb.colonne[tb.colonne.length - 1];
+            var ora = parseInt(ultima.larghezza, 10) || 0;
+            if (ora < serve) ultima.larghezza = serve + 'px';
+            (tb.righe || []).forEach(function (r) {
+                var mid = String(r.id || '').replace(/^m:/, '');
+                if (!C.eRiga(mid) || !r.celle) return;
+                if (r.celle.length > 2) r.celle[1] = '—';
+                r.celle[r.celle.length - 1] = { azioni: [{ id: 'chip:' + mid, etichetta: et, ruolo: 'secondario' }] };
+            });
+        });
     }
 
     function _schemaV2() {
@@ -1533,6 +1692,41 @@
     function _fermaLettura() {
         try { if (window.MappAITTS && window.MappAITTS.stop) window.MappAITTS.stop(); } catch (e) { }
         try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) { }
+        /* 0069, giro 12: chi smonta l'anteprima passa di qui (vedi `_montaFile`,
+           `_montaAnteprimaSet`, `_montaHost`): anche il blob dell'immagine se ne va */
+        _revocaFoto();
+    }
+    /* ── L'IMMAGINE NELL'ANTEPRIMA (0069, giro 12) ───────────────────────────────
+       Un <img> con un blob URL, centrato, intero (`object-fit: contain`), sullo
+       stesso fondo dell'iframe. Un blob solo alla volta: si revoca quando se ne
+       crea un altro e quando l'anteprima si smonta (`_fermaLettura`). Se l'immagine
+       non si decodifica, la frase di sempre invece del bianco. */
+    var _urlFoto = null;
+    function _revocaFoto() {
+        if (!_urlFoto) return;
+        try { URL.revokeObjectURL(_urlFoto); } catch (e) { }
+        _urlFoto = null;
+    }
+    function _mostraImmagine(host, b64, mime, nome) {
+        _revocaFoto();
+        var ko = function () {
+            box.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('ec_file_ko', 'Non riesco ad aprire questo file') + '</p>';
+            _revocaFoto();
+        };
+        var box = document.createElement('div');
+        box.style.cssText = 'flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff';
+        host.appendChild(box);
+        try {
+            var bin = atob(b64), bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            _urlFoto = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        } catch (e) { ko(); return; }
+        var img = document.createElement('img');
+        img.alt = nome || '';
+        img.style.cssText = 'display:block;max-width:100%;max-height:100%;object-fit:contain';
+        img.onerror = ko;
+        img.src = _urlFoto;
+        box.appendChild(img);
     }
 
     /* Un documento del VAULT nella tela: sola lettura. È un file finito (HTML o
@@ -1548,6 +1742,28 @@
                             (`synfile:`), così la macchina a stati sa di essere
                             in S3 senza che questa funzione conosca `_doc`;
          · `esci`         → il bottone «Esci» in coda alla barra (S2 → S1). */
+    /* ── I LINK INTERNI DELL'ANTEPRIMA (0069, giro 11; Giacomo al gate 3) ───────
+       Un clic su un numero di nota della sintesi (`<a href="#bs-cite-…">`,
+       mappai-branch-synthesis.js) caricava la LANDING dentro il riquadro: in un
+       documento `srcdoc` un `href="#x"` si appoggia all'indirizzo della pagina
+       madre (`index.html#x`), e l'iframe ci naviga. Guasto di prima, che lo 0069
+       rende frequente (ogni dossier ha note cliccabili). Qui un clic su un link
+       interno resta nel documento: niente navigazione, si porta in vista
+       l'elemento con quell'id. Vale per tutte le sintesi, PDF compresi.
+       Una volta per documento: il segno sta sul documento stesso. */
+    function _agganciaNote(d) {
+        if (!d || !d.addEventListener || d.__ecNote) return;
+        d.__ecNote = true;
+        d.addEventListener('click', function (e) {
+            var a = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
+            if (!a) return;
+            e.preventDefault();
+            var id = String(a.getAttribute('href') || '').slice(1), dove = null;
+            if (!id) return;
+            try { dove = d.getElementById(decodeURIComponent(id)); } catch (er) { dove = d.getElementById(id); }
+            if (dove && dove.scrollIntoView) dove.scrollIntoView({ block: 'center' });
+        });
+    }
     function _montaFile(box, relPath, opts) {
         var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
         if (!tela) return;
@@ -1573,7 +1789,7 @@
         var vaultPath = s.activeVaultPath;
         host.innerHTML = '<p style="font-family:monospace;padding:24px;color:#64748b">' + t('ec_apro', 'Apro…') + '</p>';
         api.readVaultFile({ vaultPath: vaultPath, relPath: relPath }).then(function (r) {
-            if (_voce !== 'disk:' + relPath) return;          /* nel frattempo ha scelto altro */
+            if (_voce !== 'disk:' + relPath || !_aperta || !host.isConnected || (_appState() || {}).activeVaultPath !== vaultPath) return;          /* nel frattempo ha scelto altro */
             if (!r || !r.ok) {
                 host.innerHTML = '<p style="font-family:monospace;padding:24px">' +
                     t('ec_file_ko', 'Non riesco ad aprire questo file') + (r && r.error ? ': ' + r.error : '') + '</p>';
@@ -1583,6 +1799,16 @@
             var mime = /\.pdf$/i.test(relPath) ? 'application/pdf'
                 : eHtml ? 'text/html'
                     : /\.(mp3|m4a|wav)$/i.test(relPath) ? 'audio/mpeg' : 'application/octet-stream';
+            /* 0069, giro 12: un'IMMAGINE (l'originale di un dossier, da `Allegati/`)
+               non va all'iframe `data:` — 8,6 MB diventano un indirizzo di 11 MB,
+               oltre il limite di Chromium, e l'iframe resta bianco. Va a un <img>
+               con un blob URL (`_mostraImmagine`). La scelta è del core
+               (`anteprimaFile`); per HTML, PDF e audio le righe qui sopra e sotto
+               restano quelle di prima. */
+            var DFv = window.MappAIDossierFonteCore;
+            var vistaFile = (DFv && typeof DFv.anteprimaFile === 'function') ? DFv.anteprimaFile(relPath) : null;
+            var eImg = !!(vistaFile && vistaFile.modo === 'img');
+            if (eImg) mime = vistaFile.mime;
             var nomeFile = String(relPath).split('/').pop();
             _stiliEditor();
             host.innerHTML = '';
@@ -1592,7 +1818,7 @@
             barra.className = 'de-bar';
             var tit = document.createElement('div');
             tit.className = 'de-bar-t';
-            tit.textContent = nomeFile;
+            tit.textContent = opts && opts.titolo || nomeFile;
             barra.appendChild(tit);
             var sp = document.createElement('div');
             sp.className = 'de-spacer';
@@ -1654,8 +1880,38 @@
             }
 
             var fr = document.createElement('iframe');
+            function applicaFont(d, id) {
+                if (!opts || !opts.font || !id || !d || !d.head || !window.MappAIFont) return;
+                var style = d.getElementById('lettura-document-font');
+                if (!style) { style = d.createElement('style'); style.id = 'lettura-document-font'; d.head.appendChild(style); }
+                style.textContent = window.MappAIFont.styleDocumento(id);
+            }
+            if (opts && opts.font && window.MappAIFontCore && window.MappAIFont) {
+                var font = document.createElement('select');
+                font.className = 'de-ns-sel de-font';
+                font.setAttribute('aria-label', t('de_font_lbl', 'Carattere del documento'));
+                window.MappAIFontCore.elenco().forEach(function (item) {
+                    var option = document.createElement('option'); option.value = item.id;
+                    option.textContent = item.etichetta; font.appendChild(option);
+                });
+                font.value = opts.fontId || window.MappAIFont.attivo();
+                font.addEventListener('change', function () {
+                    var id = font.value, before = opts.fontId || window.MappAIFont.attivo();
+                    font.disabled = true;
+                    Promise.resolve().then(function () { return opts.font(id); }).then(function () {
+                        if (!host.isConnected || (_appState() || {}).activeVaultPath !== vaultPath) return;
+                        opts.fontId = id;
+                        applicaFont(fr.contentDocument, id);
+                    }).catch(function (e) {
+                        font.value = before;
+                        toast(e.message || t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'error');
+                    }).finally(function () { font.disabled = false; });
+                });
+                barra.appendChild(font);
+            }
 
-            bottone(t('de_print', 'Stampa')).addEventListener('click', function () {
+            bottone(opts && opts.stampa ? t('de_pdf', 'Crea PDF') : t('de_print', 'Stampa')).addEventListener('click', function () {
+                if (opts && opts.stampa) { opts.stampa(); return; }
                 /* 🐛 Prima era `f.contentWindow.print()` dentro un catch muto: con
                    l'iframe a origine opaca lancia SecurityError e il bottone non
                    faceva nulla senza dirlo. */
@@ -1670,8 +1926,9 @@
                sulla carta, una nelle mani dell'allievo. */
             if (eHtml) {
                 bottone(t('ec_html', 'HTML'),
-                    t('ec_html_tip', 'Scarica il documento come file unico, con la voce naturale incorporata: si manda all\'allievo e funziona da solo.'))
+                    opts && opts.consegna ? t('ec_html', 'HTML') : t('ec_html_tip', 'Scarica il documento come file unico, con la voce naturale incorporata: si manda all\'allievo e funziona da solo.'))
                     .addEventListener('click', function () {
+                        if (opts && opts.consegna) { opts.consegna(); return; }
                         _scaricaHtml(vaultPath, relPath, nomeFile, _testoDaBase64(r.base64));
                     });
             }
@@ -1720,6 +1977,11 @@
                 try { url = String((d.location && d.location.href) || ''); } catch (e) { url = ''; }
                 if (url === 'about:blank') return;
                 sistemato = true;
+                // Il ridisegno rilegge l'HTML di lavoro: il font scelto vive nel manifest.
+                applicaFont(d, opts && opts.fontId);
+                /* 0069, giro 11: PRIMA delle uscite qui sotto (l'audio incorporato
+                   esce presto), così vale per ogni documento */
+                _agganciaNote(d);
                 /* La lettura veloce accanto al lettore: il documento si
                    nasconde e al suo posto resta solo la parola. Prima
                    dell'eccezione dell'audio incorporato, che esce da qui. */
@@ -1780,6 +2042,7 @@
                 if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe(fr)) return;
                 _montaChip(chipHost, d);
             });
+            if (eImg) { _mostraImmagine(host, r.base64, mime, nomeFile); return; }
             if (eHtml) fr.srcdoc = _testoDaBase64(r.base64);
             else fr.src = 'data:' + mime + ';base64,' + r.base64;
             host.appendChild(fr);
@@ -1797,7 +2060,7 @@
         if (!barra || barra.querySelector('.ec-fn-nota')) return;
         var n = document.createElement('span');
         n.className = 'ec-fn-nota';
-        n.style.cssText = 'font-size:11px;color:#94a3b8;margin-left:10px;white-space:nowrap;' +
+        n.style.cssText = 'font-size:11px;color:var(--mm-testo-3, #64748b);margin-left:10px;white-space:nowrap;' +
             'overflow:hidden;text-overflow:ellipsis;max-width:38ch';
         n.textContent = t('ec_fn_nota', 'mostrato in') + ' ' + etichetta;
         n.title = t('ec_fn_tip',
@@ -1818,10 +2081,11 @@
        (`includeAnswers: true`) — è la revisione, non la copia da consegnare.
        «Stampa» stampa ciò che si vede; la stampa con/senza soluzioni resta
        nell'editor, dove c'era già. */
-    function _montaAnteprimaSet(box, setId, opts) {
-        opts = opts || {};
+    /* Il posto dell'ANTEPRIMA nella tela (#ec-file): lo usano i set d'archivio e, dal
+       12/10 (0087 lotto 10-modifica), le sorgenti senza file. */
+    function _hostAnteprima(box) {
         var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
-        if (!tela) return;
+        if (!tela) return null;
         _fermaLettura();
         var vecchio = tela.querySelector('#elab-doc-host'); if (vecchio) vecchio.remove();
         var vs = tela.querySelector('#ec-src'); if (vs) vs.remove();
@@ -1833,6 +2097,12 @@
             host.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;min-height:0';
             tela.appendChild(host);
         }
+        return host;
+    }
+    function _montaAnteprimaSet(box, setId, opts) {
+        opts = opts || {};
+        var host = _hostAnteprima(box);
+        if (!host) return;
         var set = _sets().filter(function (x) { return String(x.id) === String(setId); })[0];
         if (!set) {
             /* il set può sparire sotto i piedi (mappa ricaricata, set eliminato):
@@ -1854,9 +2124,14 @@
                 t('ec_anteprima_ko', 'Non riesco a costruire l\'anteprima di questo set.') + '</p>';
             return;
         }
+        _barraAnteprima(host, set.title || t('de_quiz', 'Quiz'), html, opts,
+            t('ec_modifica_tip2', 'Apri questo set nell\'editor per correggerlo.'));
+    }
+    /* La barra dell'anteprima («Modifica» · Stampa · «Esci») e l'iframe col documento. */
+    function _barraAnteprima(host, titolo, html, opts, tipModifica) {
+        opts = opts || {};
         _stiliEditor();
         host.innerHTML = '';
-        var titolo = set.title || t('de_quiz', 'Quiz');
 
         var barra = document.createElement('div');
         barra.className = 'de-bar';
@@ -1879,7 +2154,7 @@
         var fr = document.createElement('iframe');
         if (opts.modifica) {
             bottone(t('ec_modifica', 'Modifica'),
-                t('ec_modifica_tip2', 'Apri questo set nell\'editor per correggerlo.'), true)
+                tipModifica || t('ec_modifica_tip3', 'Apri questo documento nell\'editor: il PDF si crea da lì.'), true)
                 .addEventListener('click', function () { opts.modifica(); });
         }
         bottone(t('de_print', 'Stampa')).addEventListener('click', function () {
@@ -1895,8 +2170,84 @@
 
         fr.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:#fff';
         fr.setAttribute('title', titolo);
+        /* 0069, giro 11: anche qui un link interno resta nel documento */
+        fr.addEventListener('load', function () {
+            var d = null;
+            try { d = fr.contentDocument; } catch (e) { d = null; }
+            _agganciaNote(d);
+        });
         fr.srcdoc = html;
         host.appendChild(fr);
+    }
+
+    /* ── 0087 lotto 10-modifica (Giacomo, 12/10): l'anteprima SENZA file ──────────
+       «ELABORA › Sintesi › Modifica › Editor è il percorso giusto, invece gli altri
+       materiali hanno il percorso ELABORA › Foglio nodi › Editor e manca lo step del
+       bottone Modifica». La console mostrava l'anteprima solo quando il file prodotto
+       esisteva; senza, andava dritta in editor. Ora senza file si GUARDA la sorgente:
+       il documento vero dove c'è un costruttore (catena dei perché dalle catene,
+       domande aperte e sintesi dall'HTML d'archivio), una scheda di presentazione per
+       il foglio dei nodi (esce solo in PDF da jsPDF). «Modifica» apre l'editor come
+       per chi il file ce l'ha; il PDF resta un'istantanea, la sorgente è ciò che si
+       corregge. Se l'anteprima non si costruisce, in editor diritti come prima. */
+    function _escHtml(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+    }
+    function _schedaFoglioNodi(d, saved) {
+        var tp = TIPI.filter(function (x) { return x.id === 'nodesheet'; })[0];
+        var cards = (saved && Array.isArray(saved.cards)) ? saved.cards.length : 0;
+        var righe = [
+            _escHtml(d.titolo || _nomeFunz('Foglio nodi', d.clone)),
+            _escHtml(tp && tp.desc ? tp.desc() : ''),
+            _escHtml(t('ec_ns_scheda_nodi', 'Nodi della mappa: {n}').replace('{n}', _nodi())),
+            cards
+                ? _escHtml(t('ec_ns_scheda_card', 'Card salvate nel progetto: {n} (formato {f})').replace('{n}', cards).replace('{f}', saved.fmt || '2x2'))
+                : _escHtml(t('ec_ns_scheda_nuovo', 'Nessun foglio salvato ancora: l\'editor lo costruisce dalla mappa.')),
+            _escHtml(t('ec_ns_scheda_pdf', 'Il PDF si crea dall\'editor: premi «Modifica».'))
+        ];
+        return '<!doctype html><html><head><meta charset="utf-8"><style>' +
+            'body{font-family:ui-monospace,Menlo,monospace;color:#404040;padding:32px;max-width:720px}' +
+            'h1{font-size:18px;margin:0 0 12px}p{font-size:13px;line-height:1.6;margin:0 0 10px}.k{color:#64748b}' +
+            '</style></head><body><h1>' + righe[0] + '</h1><p>' + righe[1] + '</p><p class="k">' + righe[2] +
+            '</p><p class="k">' + righe[3] + '</p><p>' + righe[4] + '</p></body></html>';
+    }
+    /* L'HTML dell'anteprima per la sorgente in mano (`d` = il documento della console,
+       `voce` la sua voce); null se non si può costruire. */
+    function _htmlSorgente(d, voce) {
+        if (!d) return null;
+        var s = _appState(); var db = s && s.db; var CL = window.MappAIClona;
+        var leggi = function (campo) {
+            try { return (CL && CL.leggiDoc) ? CL.leggiDoc(db, campo, d.clone || '') : ((db && !d.clone) ? db[campo] : null); }
+            catch (e) { return null; }
+        };
+        if (d.dallaMappa === 'causal') {
+            var C = window.MappAICausalCore, CU = window.MappAICausal;
+            if (!C || !CU || !CU.buildDocHtml) return null;
+            var saved = leggi('causalDoc'), chains = null;
+            try {
+                chains = (saved && C.countRows && C.countRows(saved) && C.chainsFromDoc && C.normDoc)
+                    ? C.chainsFromDoc(C.normDoc(saved)) : CU.buildForCurrentMap();
+            } catch (e) { chains = null; }
+            if (!chains) return null;
+            try { return CU.buildDocHtml(chains, CU.mapName ? CU.mapName() : ((s && s.rootNodeLabel) || ''), (saved && saved.font) || '') || null; }
+            catch (e) { return null; }
+        }
+        if (d.dallaMappa === 'nodesheet') return _schedaFoglioNodi(d, leggi('nodeSheet'));
+        if (d.docId || d.natura === 'syn') {
+            var SD = window.MappAIStudyDocs;
+            var id = d.docId || String(voce || '').slice(4);
+            var rec = (SD && SD.get) ? SD.get(id) : null;
+            return (rec && rec.html) || null;
+        }
+        return null;
+    }
+    function _montaAnteprimaSorgente(box, d, voce, opts) {
+        var html = _htmlSorgente(d, voce);
+        if (!html) return false;
+        var host = _hostAnteprima(box);
+        if (!host) return false;
+        _barraAnteprima(host, d.titolo || '', html, opts || {});
+        return true;
     }
 
     /* Il posto della FONTE nella tela. Id `ec-src`: lo cita il foglio di
@@ -1920,13 +2271,18 @@
         return host;
     }
 
-    /* ── Il popup «Crea nuovo» ────────────────────────────────────────────────
+    /* ── Il popup «+ Crea nuovo» ──────────────────────────────────────────────
        Un elenco di TIPI, non di comandi: si sceglie che cosa si vuole ottenere.
-       I tipi che si costruiscono dalla mappa si aprono subito; quelli che
-       richiedono l'AI portano al loro motore, e la riga lo dice. */
+       0091: tre gruppi — «Dalla foto» (solo per un progetto nato da una foto),
+       «A mano» (l'editor si apre subito, senza altri modali), «Con l'AI»
+       («Più materiali insieme»). Le voci con `crea: false` non compaiono. */
+    function _vociCrea() {
+        var dossier = _eDossierAperto();
+        return TIPI.filter(function (tp) { return tp.crea !== false && (!tp.dossier || dossier); });
+    }
     function _popupCrea(poi) {
         if (!MM()) return;
-        var voci = TIPI.map(function (tp) {
+        function voce(tp) {
             var puo = true;
             try { puo = tp.puo(); } catch (e) { puo = false; }
             var seconda = puo ? tp.desc() : (tp.perche ? tp.perche() : '');
@@ -1934,10 +2290,21 @@
                 id: 'tipo:' + tp.id, icona: tp.icona,
                 etichetta: tp.et(), sotto: seconda,
                 badge: tp.da === 'ai' ? t('ec_da_ai', 'con l\'AI')
-                    : tp.da === 'misto' ? t('ec_da_misto', 'tu o l\'AI')
+                    : tp.da === 'foto' ? t('ec_da_foto', 'dalla foto')
+                    : tp.da === 'mano' ? t('ec_da_mano', 'a mano')
                     : t('ec_da_mappa', 'dalla mappa'),
             };
-        });
+        }
+        var tutte = _vociCrea();
+        var gruppi = [
+            { da: 'foto', titolo: t('ec_g_foto', 'Dalla foto') },
+            { da: 'mano', titolo: t('ec_g_mano', 'A mano') },
+            { da: 'ai', titolo: t('ec_g_ai', 'Con l\'AI') }
+        ];
+        var sezioni = gruppi.map(function (g) {
+            var v = tutte.filter(function (tp) { return tp.da === g.da; }).map(voce);
+            return v.length ? { titolo: g.titolo, voci: v } : null;
+        }).filter(Boolean);
         MM().open({
             /* `xl` (1160px, `--mm-xl` in mappai-modal-tokens.css:100) è la taglia
                PIÙ LARGA che i token prevedono, e la usano già Cabina, la console
@@ -1945,15 +2312,19 @@
                cinque e la seconda riga di ognuna è una frase intera, che a 600px
                veniva troncata con i puntini (richiesta di Giacomo, 21/9).
                Nessun token nuovo: regola 17, prima `npm run stile -- --vicino`. */
-            titolo: t('ec_crea_t', 'Crea un documento'), icona: 'plus', taglia: 'xl', invio: false,
-            sezioni: [{ voci: voci }]
+            /* «+ Crea nuovo» (0091): lo stesso nome del bottone che lo apre;
+               il «+» è l'icona, come sul bottone. */
+            titolo: t('ec_crea_t', 'Crea nuovo'), icona: 'plus', taglia: 'xl', invio: false,
+            sezioni: sezioni
         }).then(function (r) {
             if (!r || !r.azione || r.azione.indexOf('tipo:') !== 0) return;
             var tp = TIPI.filter(function (x) { return 'tipo:' + x.id === r.azione; })[0];
             if (!tp) return;
             var puo = true; try { puo = tp.puo(); } catch (e) { puo = false; }
             if (!puo) { toast(tp.perche ? tp.perche() : t('ec_no', 'Non disponibile.'), 'warning'); return; }
-            if (tp.da === 'ai' || tp.da === 'misto') { tp.apri(); return; }   /* il percorso continua altrove */
+            /* a mano, dalla foto, con l'AI: il percorso continua nel suo modulo,
+               che apre da sé l'editor dentro questa console (`_casaDocumenti`) */
+            if (tp.da !== 'mappa') { tp.apri(); return; }
             _voce = (tp.id === 'nodesheet') ? 'ns' : 'cc';
             if (poi) poi();
             try { tp.apri(); } catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
@@ -1977,7 +2348,9 @@
     /* ── Apertura ─────────────────────────────────────────────────────────────
        `MappAIElaboraConsole.open()` sostituisce il workspace classico quando il
        cablaggio bento è acceso. Con flag OFF non viene nemmeno chiamata. */
-    function open() {
+    var _apriLetturaEsterno = null;
+    function open(options) {
+        options = options || {};
         if (!MM()) { if (EL() && EL().open) EL().open(); return; }
         if (!DEd()) { toast(t('ec_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning'); return; }
         /* ⚠️ Guardia anti-impilamento (trovata pilotando l'app via CDP, 10/8):
@@ -1986,7 +2359,10 @@
            restava a schermo, ferma, con i dati di prima. Dal percorso utente
            non ci si arriva (il rail passa da `onCosa`, che chiude prima), ma
            una chiamata programmatica doppia sì. Aperta = non si riapre. */
-        if (_aperta) return;
+        if (_aperta) {
+            if (options.letturaId && _apriLetturaEsterno) _apriLetturaEsterno(options.letturaId);
+            return;
+        }
         _voce = '';
         _aperta = true;
         var ridisegna = null;
@@ -1995,9 +2371,16 @@
         _inCorsoV2 = null;
         _prog = null;
         _doc = null;
-
+        var letturaMount = null;
+        var letturaCreation = null;
+        function smontaLettura() {
+            var old = letturaMount; letturaMount = null;
+            if (old && old.handle && old.handle.destroy) old.handle.destroy();
+            if (old && old.host) old.host.remove();
+        }
         function rifai() {
             if (!ridisegna) return;
+            if (!_doc || !_doc.letturaId || !_doc.editing) smontaLettura();
             var box = ridisegna(_schema());
             _dipingi(box);
             montaBriciole(box);
@@ -2080,6 +2463,7 @@
                la fonte e si lascia andare l'editor, come al cambio di mappa. */
             function dopo(f) {
                 try { f(); } catch (e) { }
+                smontaLettura();
                 _contestoCambiato = true;      /* finché non si sa, la colonna tace */
                 /* ⚠️ Anche il caricamento IN CORSO va dimenticato: cambiando
                    contesto mentre una mappa si stava aprendo, la briciola restava
@@ -2244,6 +2628,7 @@
            quando la mappa nuova c'è DAVVERO (`apriMappa` aspetta l'identità: il
            caricamento da vault passa dal disco e non è sincrono). */
         function _cambiaMappa(m) {
+            smontaLettura();
             var T = window.MappAITeach;
             if (!T || !T.apriMappa) { toast(t('ec_map_ko', 'Non riesco a cambiare progetto da qui.'), 'warning'); return; }
             _voce = '';
@@ -2328,7 +2713,29 @@
                 esci: function () { _conSalvataggio(_chiudiDocumento); },
                 dopoModifica: function () { if (_doc) _doc.editing = true; }
             };
-            if (_doc && _doc.setId) o.modifica = function () { _apriEditorSet(_doc.setId); };
+            if (_doc && _doc.letturaId) {
+                var current = _doc, path = (_appState() || {}).activeVaultPath;
+                o.titolo = current.title;
+                o.fontId = current.fontId;
+                o.font = function (id) {
+                    if (_doc !== current || (_appState() || {}).activeVaultPath !== path) return Promise.reject(new Error(t('pl_stale', 'Il progetto è cambiato. Riapri il percorso prima di continuare.')));
+                    return Promise.resolve(_lettura().setElaboraFont(id, current.letturaId)).then(function () { current.fontId = id; });
+                };
+                if (current.modificabile !== false) o.modifica = function () {
+                    if (_doc !== current || (_appState() || {}).activeVaultPath !== path) return;
+                    _fermaLettura(); current.editing = true; rifai();
+                };
+                function crea(format) {
+                    if (_doc !== current || (_appState() || {}).activeVaultPath !== path) return;
+                    Promise.resolve().then(function () { return _lettura().createElaboraVersion({ format: format, materialId: current.letturaId }); })
+                        .catch(function (e) { toast(e.message || t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'error'); });
+                }
+                if (current.modificabile !== false) {
+                    o.stampa = function () { crea('pdf'); };
+                    o.consegna = function () { crea('html'); };
+                }
+            }
+            else if (_doc && _doc.setId) o.modifica = function () { _apriEditorSet(_doc.setId); };
             else if (_doc && _doc.analisiId) o.modifica = function () { _modificaAnalisi(_doc.analisiId); };
             else if (_doc && _doc.docId) o.modifica = function () { _apriEditorAperte(_doc.docId); };
             else if (_doc && _doc.dallaMappa) {
@@ -2341,6 +2748,39 @@
         }
         function _dipingi(box) {
             if (!_voce) return;
+            if (_doc && _doc.letturaId && (_doc.pending || _doc.editing)) {
+                var current = _doc, path = (_appState() || {}).activeVaultPath;
+                var readingHost = _montaHost(box);
+                if (!readingHost) return;
+                if (current.pending) { readingHost.textContent = t('ec_apro', 'Apro…'); return; }
+                // Il motore ricrea il box anche quando arriva l'elenco del disco.
+                // Riattaccare il medesimo host conserva collassi e selezione.
+                if (letturaMount && letturaMount.doc === current && letturaMount.path === path) {
+                    if (readingHost !== letturaMount.host) readingHost.replaceWith(letturaMount.host);
+                    return;
+                }
+                smontaLettura();
+                var mounted = { doc: current, path: path, host: readingHost, handle: null };
+                letturaMount = mounted;
+                Promise.resolve().then(function () {
+                    if (letturaMount !== mounted || !_aperta || _doc !== current || (_appState() || {}).activeVaultPath !== path) return null;
+                    return _lettura().mountElaboraEditor(readingHost, {
+                        materialId: current.letturaId,
+                        onExit: function () { if (_doc === current) _tornaAnteprima(); },
+                        onChanged: function () { /* il controller salva e aggiorna l'HTML; la vista resta montata */ }
+                    });
+                }).then(function (handle) {
+                    if (letturaMount !== mounted || !_aperta || _doc !== current || (_appState() || {}).activeVaultPath !== path) {
+                        if (handle && handle.destroy) handle.destroy(); return;
+                    }
+                    mounted.handle = handle;
+                }).catch(function (e) {
+                    if (letturaMount !== mounted || _doc !== current) return;
+                    toast(e.message || t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'error');
+                    current.editing = false; rifai();
+                });
+                return;
+            }
             /* ⚠️ S3 DELLE DOMANDE APERTE, PRIMA del ramo `disk:` — e l'ordine è
                la regola. Il documento viene da un FILE (quindi `_voce` dice
                `disk:`), ma in modifica l'editor lavora sulla sorgente
@@ -2403,6 +2843,28 @@
                 if (hostOq && DEd().render) { try { DEd().render(); } catch (e) { } }
                 return;
             }
+            /* 0087 lotto 10-modifica (12/10): SENZA file prodotto il documento si GUARDA
+               prima — anteprima al volo dalla sorgente — e «Modifica» apre l'editor, come
+               per chi il file ce l'ha. Se l'anteprima non si costruisce, in editor diritti
+               (al giro dopo: `rifai` sta già disegnando). */
+            if (_doc && _doc.editing === false && _doc.natura !== 'disk' && /^(ns|cc|oq|syn):/.test(_voce)) {
+                try { if (DEd().reset) DEd().reset(); } catch (e) { }
+                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
+                var apriEditor = function () {
+                    _fermaLettura();
+                    if (_doc.dallaMappa) { _apriEditorDallaMappa(_doc.dallaMappa, _doc.clone); return; }
+                    _doc.editing = true; rifai();
+                    if (_doc.docId) { _apriEditorAperte(_doc.docId); return; }
+                    try { DEd().openSynthesis(_voce.slice(4)); }
+                    catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
+                };
+                var ok = _montaAnteprimaSorgente(box, _doc, _voce, {
+                    modifica: apriEditor,
+                    esci: function () { _conSalvataggio(_chiudiDocumento); }
+                });
+                if (!ok) setTimeout(apriEditor, 0);
+                return;
+            }
             /* un documento del VAULT: sola lettura, host suo */
             if (_voce.indexOf('disk:') === 0) {
                 try { if (DEd().reset) DEd().reset(); } catch (e) { }
@@ -2462,6 +2924,7 @@
         }
         function _sporco() {
             try {
+                if (letturaMount && letturaMount.handle && letturaMount.handle.hasUnsaved) return !!letturaMount.handle.hasUnsaved();
                 if (DEd().haDocumento && DEd().haDocumento() && DEd().hasUnsaved && DEd().hasUnsaved()) return true;
                 /* l'editor della SCHEDA (analisi fonte) non passa dal doc-editor:
                    il suo stato sporco vive nella superficie della visione (③) */
@@ -2477,6 +2940,13 @@
            aver già risposto al motore (vedi `__esc`), o la console si chiude
            sotto la domanda. */
         function _conSalvataggio(poi) {
+            if (letturaMount && letturaMount.handle && letturaMount.handle.requestExit) {
+                var mounted = letturaMount;
+                mounted.handle.requestExit(function () { if (letturaMount === mounted) poi(); }); return;
+            }
+            if (letturaMount && letturaMount.handle && letturaMount.handle.hasUnsaved && letturaMount.handle.hasUnsaved()) {
+                toast(t('pl_operation_pending', 'Attendi che termini l’operazione.'), 'info'); return;
+            }
             if (!_sporco() || !MM().chiediSalvataggio) { poi(); return; }
             MM().chiediSalvataggio({ nome: _etichettaVoce(_voce) }).then(function (a) {
                 if (a === 'annulla') return;
@@ -2508,6 +2978,7 @@
            la colonna riappare da sé; aggiungere una riga per farlo sarebbe
            codice che non fa niente. */
         function _chiudiDocumento() {
+            smontaLettura();
             _voce = '';
             _doc = null;                       /* v2: si torna a S1 (per la v1 era già null) */
             /* la superficie dell'analisi ha un ascolto ESC sul documento: senza
@@ -2680,6 +3151,7 @@
 
         function _tornaAnteprima() {
             if (!_doc) return;
+            if (_doc.letturaId) { _apriPercorso(_doc.letturaId); return; }
             if (!_haAnteprima()) { _chiudiDocumento(); return; }
             _doc.editing = false;
             _fermaLettura();
@@ -2728,8 +3200,61 @@
            Un set FUSO (F1) si mostra dal suo FILE — è il prodotto, e mostrare
            il file è ciò che rende le due nature la stessa riga — ma
            «Modifica» apre il SET (D4: la sorgente c'è). */
+        function _apriPercorso(id, editing) {
+            var L = _lettura(), path = (_appState() || {}).activeVaultPath;
+            if (!L || !L.prepareElaboraDocument) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); return; }
+            if (!_materialiLettura().some(function (m) { return m.id === id; })) {
+                _chiudiDocumento(); return;
+            }
+            smontaLettura(); _fermaLettura();
+            var requested = { id: id, letturaId: id, natura: 'disk', pending: true };
+            _doc = requested; _voce = id; rifai();
+            Promise.resolve().then(function () {
+                if (!_aperta || _doc !== requested || (_appState() || {}).activeVaultPath !== path) return null;
+                return L.prepareElaboraDocument(id);
+            }).then(function (doc) {
+                if (!_aperta || _doc !== requested || (_appState() || {}).activeVaultPath !== path) return;
+                if (!doc || doc.id !== id || !doc.relPath) throw new Error(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'));
+                requested.pending = false; requested.relPath = doc.relPath; requested.title = doc.title; requested.fontId = doc.fontId;
+                requested.modificabile = doc.modificabile; requested.audience = doc.audience;
+                requested.editing = !!editing && doc.modificabile !== false;
+                _voce = 'disk:' + doc.relPath; rifai();
+            }).catch(function (e) {
+                if (!_aperta || _doc !== requested || (_appState() || {}).activeVaultPath !== path) return;
+                toast(e.message || t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'error');
+                _chiudiDocumento();
+            });
+        }
+        function _creaAttivitaLettura() {
+            if (letturaCreation) { toast(t('pl_operation_pending', 'Attendi che termini l’operazione.'), 'info'); return; }
+            var L = _lettura();
+            if (!L || !L.openAdditionalActivities) {
+                toast(t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'), 'warning'); return;
+            }
+            var state = _appState(), path = state.activeVaultPath, db = state.db, doc = _doc;
+            var request = {};
+            letturaCreation = request;
+            function current() {
+                return letturaCreation === request && _apriLetturaEsterno === _apriDocV2 && _aperta &&
+                    _appState() === state && state.extractionMode === 'lettura' && state.activeVaultPath === path && state.db === db && _doc === doc;
+            }
+            // La console ospita l'ingresso comune; piano, generazione e Banco
+            // restano nel controller. Una risposta tardiva non cambia progetto.
+            Promise.resolve().then(function () {
+                if (!current()) return;
+                return L.openAdditionalActivities({ onChanged: function () {
+                    if (!current()) return;
+                    _disco = null; _caricaDisco(); rifai();
+                } });
+            }).catch(function (e) {
+                if (current()) toast(e.message || t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'error');
+            }).finally(function () {
+                if (letturaCreation === request) letturaCreation = null;
+            });
+        }
         function _apriDocV2(mid) {
             _conSalvataggio(function () {
+                if (mid.indexOf('lettura:') === 0) { _apriPercorso(mid); return; }
                 if (mid.indexOf('set:') === 0) {
                     var m = _materiali().filter(function (x) { return x.id === mid; })[0];
                     if (m && m.relPath) {
@@ -2770,12 +3295,11 @@
                         _doc = { id: mid, natura: 'disk', relPath: mo.relPath, docId: mo.docId };
                         _voce = 'disk:' + mo.relPath;
                     } else {
-                        /* una copia appena fatta un PDF non ce l'ha ancora:
-                           niente da mostrare, si entra in editor */
-                        _doc = { id: mid, natura: 'crea', editing: true, docId: mo.docId };
+                        /* senza PDF si GUARDA la sorgente d'archivio (10-modifica, 12/10):
+                           «Modifica» apre l'editor */
+                        _doc = { id: mid, natura: 'crea', editing: false, docId: mo.docId, titolo: mo.titolo };
                         _voce = mid;
                         rifai();
-                        _apriEditorAperte(mo.docId);
                         return;
                     }
                 } else if (mid.indexOf('syn:') === 0) {
@@ -2786,13 +3310,12 @@
                         _doc = { id: mid, natura: 'disk', relPath: ms.relPath };
                         _voce = 'disk:' + ms.relPath;
                     } else {
-                        /* solo in archivio o in memoria: l'editor è l'unica resa
-                           (stesso patto di `natura:'syn'` più sotto) */
-                        _doc = { id: mid, natura: 'syn', editing: true };
+                        /* solo in archivio: si GUARDA l'HTML d'archivio (10-modifica,
+                           12/10) e «Modifica» apre l'editor (stesso patto di
+                           `natura:'syn'` più sotto) */
+                        _doc = { id: mid, natura: 'syn', editing: false, titolo: ms.titolo };
                         _voce = mid;
                         rifai();
-                        try { DEd().openSynthesis(mid.slice(4)); }
-                        catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
                         return;
                     }
                 } else if (mid.indexOf('ns:') === 0 || mid.indexOf('cc:') === 0) {
@@ -2814,9 +3337,13 @@
                         rifai();
                         return;
                     }
-                    /* niente ancora sul disco: non c'è un'anteprima da mostrare,
-                       e si entra diritti in editor (la strada di «Crea nuovo») */
-                    _apriEditorDallaMappa(quale, nomeCl);
+                    /* niente ancora sul disco: si GUARDA la sorgente — il documento
+                       vero per la catena, la scheda per il foglio nodi — e «Modifica»
+                       apre l'editor (10-modifica, 12/10; prima si entrava diritti) */
+                    _doc = { id: mid, natura: 'crea', editing: false, dallaMappa: quale, clone: nomeCl,
+                             titolo: riga && riga.titolo };
+                    _voce = mid;
+                    rifai();
                     return;
                 } else return;
                 rifai();
@@ -2999,6 +3526,7 @@
             })
             : function () { };
 
+        _apriLetturaEsterno = _apriDocV2;
         var s = _schema();
         /* il PRIMO disegno: `open()` non restituisce il box, lo consegna qui */
         s.suApertura = function (box, ridis) {
@@ -3010,6 +3538,7 @@
             _caricaMappe();
             rifaiEsterno = rifai;      /* il disco risponde dopo: serve ridisegnare */
             _caricaDisco();            /* i documenti già prodotti, dal vault */
+            if (options.letturaId) _apriDocV2(options.letturaId);
         };
         s.suAzione = function (ev, box, ridis) {
             ridisegna = ridis;
@@ -3037,6 +3566,7 @@
             }
 
             if (id === 'crea') {
+                if ((_appState() || {}).extractionMode === 'lettura') return _creaAttivitaLettura();
                 /* Un documento «dalla mappa» nasce direttamente in EDITOR (niente
                    anteprima: di ciò che non esiste ancora non c'è nulla da
                    mostrare). `_popupCrea` scrive `_voce` PRIMA di chiamare `poi`. */
@@ -3048,7 +3578,30 @@
 
             /* v2: i gesti delle tabelle e della barra della fonte */
             if (id === 'esci-doc') { _conSalvataggio(_chiudiDocumento); return; }
+            /* 0090: il nome di una riga in attesa e il suo chip riaprono la G2 dov'era —
+               la stessa strada di «Rivedi materiali» e di `runApprovedMaterials` */
+            if (id.indexOf('m:att:') === 0 || id.indexOf('chip:att:') === 0) {
+                if (window.MappAIPipeline && window.MappAIPipeline.completaValidazione) window.MappAIPipeline.completaValidazione();
+                return;
+            }
             if (id.indexOf('m:') === 0) { _apriDocV2(id.slice(2)); return; }
+            if (id.indexOf('modifica:lettura:') === 0) { _conSalvataggio(function () { _apriPercorso(id.slice(9), true); }); return; }
+            if (id.indexOf('clona:lettura:') === 0 || id.indexOf('del:lettura:') === 0) {
+                var cloning = id.indexOf('clona:') === 0, mid = id.slice(cloning ? 6 : 4);
+                var row = _materialiLettura().find(function (m) { return m.id === mid; });
+                if (!row || !(cloning ? row.clonabile : row.eliminabile)) return;
+                var state = _appState(), vault = state.activeVaultPath;
+                function apply(name) {
+                    if (!_aperta || _appState() !== state || state.activeVaultPath !== vault) return;
+                    return Promise.resolve().then(function () { return cloning ? _lettura().cloneElaboraMaterial(mid, name) : _lettura().deleteElaboraMaterial(mid); })
+                        .then(function () { if (_aperta && _appState() === state && state.activeVaultPath === vault) { _disco = null; rifai(); _caricaDisco(); } })
+                        .catch(function (e) { toast(e.message, 'error'); });
+                }
+                if (cloning) return MM().chiedi({ titolo: t('ec_clona_t', 'Fai una copia'), etichetta: t('ec_clona_n', 'Nome della copia — distingue anche il file nella cartella'),
+                    valore: row.titolo + ' — ' + t('pl_copy', 'Copia'), conferma: t('ec_clona_ok', 'Crea la copia') }).then(function (name) { if (name != null && name !== false) return apply(name); });
+                if (window.MappAITeach && window.MappAITeach.confirmDeleteText) window.MappAITeach.confirmDeleteText(row.titolo, function () { return apply(); });
+                return;
+            }
             if (id.indexOf('clona:') === 0) { _clonaV2(id.slice(6), rifai); return; }
             if (id.indexOf('del:') === 0) { _delV2(id.slice(4)); return; }
             if (id.indexOf('fnd:') === 0) { _finderV2(id.slice(4)); return; }
@@ -3108,6 +3661,7 @@
            giusta quando si guarda da fuori. */
         try { document.documentElement.dataset.manSezionePendente = 'elabora'; } catch (e) { }
         MM().open(s).then(function () {
+            smontaLettura(); _apriLetturaEsterno = null;
             /* uscendo si azzera l'editor: il documento aperto appartiene a
                questa sessione della console, non alla prossima */
             try { if (DEd().reset) DEd().reset(); } catch (e) { }
@@ -3136,7 +3690,17 @@
         materiali: _materiali,
         tipi: TIPI,
         attiva: _bentoApp,
-        aperta: function () { return _aperta; }
+        aperta: function () { return _aperta; },
+        /* 0090 (parte B): a console aperta il ritorno in ELABORA la AGGIORNA (righe
+           senza chip, file veri dal disco) invece di riaprirla: è il gesto di
+           `rifaiEsterno` all'arrivo del disco. */
+        aggiorna: function () {
+            if (!_aperta) return false;
+            _disco = null;
+            try { rifaiEsterno(); } catch (e) { }
+            try { _caricaDisco(); } catch (e) { }
+            return true;
+        }
     };
     console.log('[MappAIElaboraConsole] console di ELABORA caricata');
 })();

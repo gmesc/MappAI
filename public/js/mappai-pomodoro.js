@@ -9,6 +9,8 @@ let pomodoroInterval;
 let pomodoroDuration = 25 * 60;
 let pomodoroTimeLeft = 25 * 60;
 let isPomodoroRunning = false;
+// Il bottone play/pausa come il lettore (0079, Giacomo 09/10): icone Lucide a
+// contorno, alto e largo --mm-ctl-h; il colore dice ancora lo stato del timer.
 
 window.setPomodoroDuration = function (mins) {
     pomodoroDuration = mins * 60;
@@ -18,8 +20,8 @@ window.setPomodoroDuration = function (mins) {
 
     const btn = document.getElementById('pomodoro-btn');
     if (btn) {
-        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
-        btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i>`;
+        btn.className = "h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
     }
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
@@ -42,12 +44,12 @@ window.togglePomodoro = function () {
     if (isPomodoroRunning) {
         clearInterval(pomodoroInterval);
         isPomodoroRunning = false;
-        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
-        btn.className = "p-2 bg-amber-50 text-amber-600 rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm flex items-center justify-center";
+        btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i>`;
+        btn.className = "h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] bg-amber-50 text-amber-600 rounded-lg border border-amber-200 hover:bg-amber-100 transition shadow-sm flex items-center justify-center";
     } else {
         isPomodoroRunning = true;
-        btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 fill-current"></i>`;
-        btn.className = "p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm flex items-center justify-center";
+        btn.innerHTML = `<i data-lucide="pause" class="w-4 h-4"></i>`;
+        btn.className = "h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition shadow-sm flex items-center justify-center";
         pomodoroInterval = setInterval(() => {
             if (pomodoroTimeLeft > 0) {
                 pomodoroTimeLeft--;
@@ -74,8 +76,8 @@ window.resetPomodoro = function () {
     isPomodoroRunning = false;
     pomodoroTimeLeft = pomodoroDuration;
     const btn = document.getElementById('pomodoro-btn');
-    btn.innerHTML = `<i data-lucide="play" class="w-4 h-4 fill-current"></i>`;
-    btn.className = "p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
+    btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i>`;
+    btn.className = "h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center";
     updatePomodoroDisplay();
     if (window.safeCreateIcons) window.safeCreateIcons();
 };

@@ -6,7 +6,12 @@ window.InfomaniakBridge = {
     /**
      * Translates a Gemini payload to an OpenAI-compatible messages array.
      */
-    translatePayload: function(geminiPayload, modelName = "google/gemma-4-31B-it") {
+    translatePayload: function(geminiPayload, modelName = "google/gemma-4-31B-it", opzioni) {
+        // Le immagini viaggiano SOLO se chi chiama lo chiede (0066): oggi la visione, col
+        // modello per le foto. Gli altri chiamanti (per esempio le fonti-immagine di
+        // `app.js`, che vanno al modello principale, spesso Gemma, solo testo) restano
+        // come prima: parti multimediali scartate, col toast.
+        const conImmagini = !!(opzioni && opzioni.immagini === true);
         const messages = [];
 
         // 1. Extract System Instruction
@@ -22,18 +27,51 @@ window.InfomaniakBridge = {
             geminiPayload.contents.forEach(item => {
                 const role = item.role === 'model' ? 'assistant' : (item.role || 'user');
 
-                // Avvisa se ci sono parti multimediali (audio/video/file) che Infomaniak non supporta
-                const hasMediaParts = item.parts && item.parts.some(p => p.inline_data || p.file_data);
-                if (hasMediaParts) {
+                const parts = item.parts || [];
+                if (!conImmagini) {
+                    // Avvisa se ci sono parti multimediali (audio/video/file) che Infomaniak non supporta
+                    const hasMediaParts = parts.some(p => p.inline_data || p.file_data);
+                    if (hasMediaParts) {
+                        console.warn("[InfomaniakBridge] Parti multimediali (audio/video/file_data) rilevate nel payload. " +
+                            "Infomaniak non supporta file multimediali nativi: solo il testo estratto verrà inviato.");
+                        if (window.showToast) {
+                            window.showToast("⚠️ Infomaniak: file audio/video/immagini non supportati. Solo il testo estratto verrà analizzato.", "warning");
+                        }
+                    }
+                    const content = parts.map(p => p.text || '').join('\n').trim();
+                    if (content) {
+                        messages.push({ role, content });
+                    }
+                    return;
+                }
+
+                /* Con `immagini: true` (0066): la visione le scrive in camelCase
+                   (`inlineData`), altri in snake_case (`inline_data`); il rilevatore
+                   guarda le due forme. Diventano parti `image_url` accanto al testo,
+                   nell'ordine. Audio, video e `file_data` restano fuori, col toast. */
+                const immagini = [];
+                let altriMedia = false;
+                parts.forEach(p => {
+                    const d = p && (p.inlineData || p.inline_data);
+                    const mime = d && (d.mimeType || d.mime_type);
+                    if (d && typeof mime === 'string' && /^image\//i.test(mime) && typeof d.data === 'string') {
+                        immagini.push({ type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + d.data } });
+                    } else if (p && (d || p.file_data || p.fileData)) {
+                        altriMedia = true;
+                    }
+                });
+                if (altriMedia) {
                     console.warn("[InfomaniakBridge] Parti multimediali (audio/video/file_data) rilevate nel payload. " +
-                        "Infomaniak non supporta file multimediali nativi: solo il testo estratto verrà inviato.");
+                        "Infomaniak non supporta questi file: solo il testo estratto verrà inviato.");
                     if (window.showToast) {
-                        window.showToast("⚠️ Infomaniak: file audio/video/immagini non supportati. Solo il testo estratto verrà analizzato.", "warning");
+                        window.showToast("⚠️ Infomaniak: file audio e video non supportati. Solo il testo estratto verrà analizzato.", "warning");
                     }
                 }
 
-                const content = item.parts.map(p => p.text || '').join('\n').trim();
-                if (content) {
+                const content = parts.map(p => p.text || '').join('\n').trim();
+                if (immagini.length) {
+                    messages.push({ role, content: (content ? [{ type: 'text', text: content }] : []).concat(immagini) });
+                } else if (content) {
                     messages.push({ role, content });
                 }
             });
@@ -89,18 +127,26 @@ window.InfomaniakBridge = {
         if (isJsonMode && !openAIPayload.response_format) {
             const lastMsg = messages[messages.length - 1];
             if (lastMsg) {
+                /* Con le immagini `content` è un array (0066): le regole vanno nella
+                   parte di testo, creata se manca, mai concatenate all'array. */
+                let parteTesto = null;
+                if (Array.isArray(lastMsg.content)) {
+                    parteTesto = lastMsg.content.find(c => c.type === 'text');
+                    if (!parteTesto) { parteTesto = { type: 'text', text: '' }; lastMsg.content.unshift(parteTesto); }
+                }
+                const aggiungi = s => { if (parteTesto) parteTesto.text += s; else lastMsg.content += s; };
                 // Inietta lo schema PRIMA, poi le regole di output, sempre in coda al messaggio.
                 if (geminiPayload.generationConfig.responseSchema) {
                     const schemaStr = window.InfomaniakBridge._schemaToExample(geminiPayload.generationConfig.responseSchema);
-                    lastMsg.content += `\n\nSTRUTTURA JSON ATTESA (rispetta ESATTAMENTE chiavi e nidificazione):\n${schemaStr}`;
-                    lastMsg.content += '\nVINCOLI DELLO SCHEMA (enum e campi obbligatori):\n' + JSON.stringify(window.InfomaniakBridge._geminiSchemaToJsonSchema(geminiPayload.generationConfig.responseSchema));
+                    aggiungi(`\n\nSTRUTTURA JSON ATTESA (rispetta ESATTAMENTE chiavi e nidificazione):\n${schemaStr}`);
+                    aggiungi('\nVINCOLI DELLO SCHEMA (enum e campi obbligatori):\n' + JSON.stringify(window.InfomaniakBridge._geminiSchemaToJsonSchema(geminiPayload.generationConfig.responseSchema)));
                 }
-                lastMsg.content +=
+                aggiungi(
                     "\n\nREGOLE DI OUTPUT TASSATIVE:" +
                     "\n1. Rispondi SOLO con il JSON, nient'altro." +
                     "\n2. NIENTE testo introduttivo (es. \"Ecco il JSON:\"), NIENTE spiegazioni finali." +
                     "\n3. NIENTE blocchi markdown (vietati ```json e ```)." +
-                    "\n4. Il primo carattere della risposta deve essere { (o [) e l'ultimo } (o ]).";
+                    "\n4. Il primo carattere della risposta deve essere { (o [) e l'ultimo } (o ]).");
             }
         }
 

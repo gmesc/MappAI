@@ -1,9 +1,9 @@
 // ==========================================
-// STRUMENTI A11Y (sillabazione, interlinea, zoom testo, floating actions) — estratto da app.js
+// STRUMENTI A11Y (sillabazione, zoom testo, floating actions, regola di contesto) — estratto da app.js
 // ==========================================
 // Caricato DOPO app.js. NB: isHyphenated/originalModalHtml (reset da closeSourceModal),
-// currentZoomIdx/zooms (scritti da applyDirectZoom, letti dal DOMContentLoaded finale di
-// app.js) sono let/const top-level qui: i riferimenti bare cross-script si risolvono a
+// currentZoomIdx/zooms (scritti da applyTextZoom qui sotto, letti dal DOMContentLoaded finale
+// di app.js) sono let/const top-level qui: i riferimenti bare cross-script si risolvono a
 // runtime via scope lessicale globale condiviso (pattern batches 2-6).
 let isHyphenated = false;
 let originalModalHtml = "";
@@ -65,30 +65,26 @@ document.addEventListener('click', (e) => {
     }
 });
 
-let currentLineHeightIdx = 0;
-const lineHeights = [1.5, 2.0, 2.5];
-
-window.cycleLineHeight = function () {
-    currentLineHeightIdx = (currentLineHeightIdx + 1) % lineHeights.length;
-    const lh = lineHeights[currentLineHeightIdx];
-    const btn = document.getElementById('btn-line-height');
-    if (btn) btn.innerHTML = `<i data-lucide="move-vertical" class="w-3 h-3"></i> INTERLINEA x${lh.toFixed(1)}`;
-
-    // Applica a tutto il contenuto leggibile con forza !important
-    const containers = document.querySelectorAll('.markdown-body, .note-text, #source-modal-body, .ai-result-content, .rich-desc');
-    containers.forEach(c => {
-        c.style.setProperty('line-height', lh, 'important');
-        // Forza anche sui paragrafi e liste figli che potrebbero avere regole specifiche nel CSS
-        const children = c.querySelectorAll('p, li, span, div');
-        children.forEach(child => {
-            child.style.setProperty('line-height', lh, 'important');
-        });
-    });
-    window.safeCreateIcons();
-};
-
+/* L'interlinea viveva solo nel pannello del cerchio giallo, tolto il 26/9/2026
+   (packet 0039): se n'è andata con lui. */
 let currentZoomIdx = localStorage.getItem('mappai-a11y-zoom') ? parseInt(localStorage.getItem('mappai-a11y-zoom')) : 0;
 const zooms = [1.0, 1.5, 2.0];
+
+/* IL COMANDO «Aa» (09/10/26, packet 0087 lotto 6). Giacomo: «deve sempre essere
+   un bottone singolo 'Aa' con un ciclo loop di fattori di ingrandimento». A
+   schermo il bottone dice solo «Aa»; il fattore a cui si è arrivati lo dicono
+   l'aria-label e il suggerimento («Grandezza del testo: ×1,5»). I fattori sono
+   della superficie che lo monta; qui c'è soltanto come si scrive, in un posto
+   solo — virgola in italiano, punto in inglese (`aa_sep`). */
+window.MappAIAa = {
+    etichetta: 'Aa',
+    fattore: function (f) {
+        var n = Number(f) || 1;
+        var sep = window.t ? window.t('aa_sep', ',') : ',';
+        return '×' + String(n).replace('.', sep);
+    },
+    aria: function (nome, f) { return nome + ': ' + window.MappAIAa.fattore(f); }
+};
 
 window.cycleTextZoom = function () {
     window.applyTextZoom((currentZoomIdx + 1) % zooms.length);
@@ -98,13 +94,6 @@ window.applyTextZoom = function (idx) {
     currentZoomIdx = idx;
     localStorage.setItem('mappai-a11y-zoom', currentZoomIdx);
     const z = zooms[currentZoomIdx];
-
-    const label = `Testo x${(z === 1.0 ? '1' : z)}`;
-    const btnModal = document.getElementById('btn-text-zoom-modal');
-    const btnPanel = document.getElementById('btn-text-zoom-panel');
-
-    if (btnModal) btnModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
-    if (btnPanel) btnPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> ${label}`;
 
     // Fuori dal contesto di lettura (landing, COSTRUISCI, INSEGNA, workspace di
     // ELABORA) lo zoom vale 1: là gli strumenti compensativi non agiscono, e il
@@ -138,14 +127,10 @@ window.applyTextZoom = function (idx) {
         '#source-modal-content-box',
         '#ai-modal-content-box',
         '#study-player-modal > div',
-        '#quiz-modal-content',
         '#app-guide-modal > div',
         '#app-tutorial-modal > div',
         '#config-ai-modal > div',
-        '#merge-confirm-modal > div',
         '#validate-link-modal > div',
-        '#user-profile-box',
-        '#api-tutorial-modal > div',
         '#alert-box',
         '#prompt-box',
         '#confirm-box',
@@ -199,75 +184,27 @@ window.applyTextZoom = function (idx) {
     window.safeCreateIcons();
 };
 
-window.resetA11yTools = function () {
-    currentLineHeightIdx = 0;
-    currentZoomIdx = 0;
-    const btnLh = document.getElementById('btn-line-height');
-    const btnZModal = document.getElementById('btn-text-zoom-modal');
-    const btnZPanel = document.getElementById('btn-text-zoom-panel');
-
-    if (btnLh) btnLh.innerHTML = `<i data-lucide="move-vertical" class="w-3 h-3"></i> INTERLINEA x1.5`;
-    if (btnZModal) btnZModal.innerHTML = `<i data-lucide="zoom-in" class="w-6 h-6"></i>`;
-    if (btnZPanel) btnZPanel.innerHTML = `<i data-lucide="zoom-in" class="w-4 h-4"></i> Testo x1`;
-
-    document.documentElement.style.setProperty('--app-zoom', 1);
-    document.body.classList.remove('a11y-zoom-x1', 'a11y-zoom-x15', 'a11y-zoom-x2', 'a11y-zoomed-modals');
-    document.body.classList.add('a11y-zoom-x1');
-
-    const mainCard = document.querySelector('.glass-card.max-w-3xl');
-    const body = document.getElementById('source-modal-body');
-    const aiBody = document.getElementById('ai-modal-body');
-    const flashcardFront = document.getElementById('flashcard-front-text');
-    const flashcardBack = document.getElementById('flashcard-back-text');
-    const quizQuestion = document.getElementById('study-quiz-question');
-    const quizOptions = document.querySelectorAll('#study-quiz-options .quiz-option');
-
-    if (mainCard) {
-        mainCard.style.transform = '';
-        mainCard.style.transformOrigin = '';
-        mainCard.style.zoom = '';
-    }
-    if (body) {
-        body.style.lineHeight = '';
-        body.style.zoom = '';
-        body.style.removeProperty('font-size');
-    }
-    if (aiBody) {
-        aiBody.style.removeProperty('font-size');
-    }
-    if (flashcardFront) flashcardFront.style.removeProperty('font-size');
-    if (flashcardBack) flashcardBack.style.removeProperty('font-size');
-    if (quizQuestion) quizQuestion.style.removeProperty('font-size');
-    quizOptions.forEach(opt => {
-        opt.style.removeProperty('font-size');
-    });
-    document.documentElement.style.fontSize = '';
-};
-
 // ══════════════════════════════════════════════════════════════════════════
 // DOVE VIVONO GLI STRUMENTI COMPENSATIVI
 // ══════════════════════════════════════════════════════════════════════════
 // Servono a LEGGERE: la mappa, le schede dei nodi, il raccoglitore in sidebar.
 // Sulla landing (COSTRUISCI / INSEGNA / ELABORA) non hanno niente da compensare
-// e anzi fanno danno — invertono i colori di un'interfaccia di lavoro, ingrandiscono
-// una griglia di bottoni. Quindi lì il bottone sparisce.
+// e anzi fanno danno — ingrandiscono una griglia di bottoni, tirano una riga
+// sopra un'interfaccia di lavoro.
 //
-// Sparire non basta: se il docente aveva acceso «inverti colori» e poi entra in
-// ELABORA, senza il bottone resterebbe con lo schermo invertito e nessun modo di
-// tornare indietro. Quindi gli effetti si SOSPENDONO all'uscita e si RIPRISTINANO
-// al rientro — lo stato scelto non si perde, semplicemente non agisce dove non serve.
+// Quindi gli effetti — la riga di lettura e lo zoom del testo, che si accendono
+// dalla fila del modale della fonte — si SOSPENDONO fuori dalla lettura e si
+// RIPRISTINANO al rientro: lo stato scelto non si perde, semplicemente non agisce
+// dove non serve.
 //
-// ⚠️ Dal 19/9/2026 il BOTTONE non c'è su nessuna superficie: la regola di contesto
-// qui sotto governa ormai solo gli EFFETTI (riga di lettura e zoom, che si accendono
-// dalla fila del modale della fonte). Il perché e i due interruttori — `mappai_a11y_bottone`
-// e `mappai_a11y_everywhere` — stanno sopra a `sync()`, in fondo al file.
+// Il cerchio giallo che apriva il pannello degli strumenti (i filtri dei colori,
+// l'interlinea) è stato spento il 19/9/2026 e tolto il 26/9/2026 (packet 0039):
+// con lui sono usciti i due interruttori `mappai_a11y_bottone` e
+// `mappai_a11y_everywhere`, che adesso nessuno legge più.
 (function () {
     'use strict';
 
-    // Le classi che gli strumenti mettono su <html>: sono globali, quindi sono
-    // quelle che vanno sospese fuori contesto.
-    const HTML_FX = ['a11y-invert', 'a11y-low-contrast', 'a11y-high-contrast', 'a11y-grayscale', 'dyslexic-font'];
-    let _suspended = null;      // classi sospese (null = strumenti attivi)
+    let _suspended = null;      // stato sospeso fuori contesto (null = effetti attivi)
 
     /** Il contesto di lettura: mappa aperta e nessun workspace di ELABORA davanti. */
     function inReadingContext() {
@@ -301,23 +238,14 @@ window.resetA11yTools = function () {
 
     function suspend() {
         if (_suspended) return;
-        const html = document.documentElement;
         const ruler = document.getElementById('reading-ruler');
-        _suspended = {
-            html: HTML_FX.filter(function (c) { return html.classList.contains(c); }),
-            ruler: !!(ruler && ruler.classList.contains('active'))
-        };
-        _suspended.html.forEach(function (c) { html.classList.remove(c); });
+        _suspended = { ruler: !!(ruler && ruler.classList.contains('active')) };
         if (_suspended.ruler) ruler.classList.remove('active');
-        const panel = document.getElementById('a11y-panel');
-        if (panel) panel.classList.add('hidden-panel');
         if (window.applyTextZoom) window.applyTextZoom(_zoomIdx());   // fuori contesto → x1 (lo decide applyTextZoom)
     }
 
     function restore() {
         if (!_suspended) return;
-        const html = document.documentElement;
-        _suspended.html.forEach(function (c) { html.classList.add(c); });
         if (_suspended.ruler) {
             const r = document.getElementById('reading-ruler');
             if (r) r.classList.add('active');
@@ -331,52 +259,18 @@ window.resetA11yTools = function () {
         return isNaN(v) ? 0 : v;
     }
 
-    function mostraBottone(ok) {
-        const btn = document.getElementById('a11y-panel-toggle');
-        if (!btn) return;
-        // `!important` con `!important`: la regola in style.css impone
-        // display:flex, un inline normale non la batte.
-        if (ok) btn.style.removeProperty('display');
-        else btn.style.setProperty('display', 'none', 'important');
-        // Nascosto NON basta per la tastiera: fuori contesto esce dal giro del TAB.
-        if (ok) btn.removeAttribute('tabindex'); else btn.setAttribute('tabindex', '-1');
-        btn.setAttribute('aria-hidden', ok ? 'false' : 'true');
-    }
-
-    /* ── IL BOTTONE NON STA PIÙ SU NESSUNA SUPERFICIE (Giacomo, 19/9/2026) ──────
-       Il cerchio giallo era `position: fixed` in alto a destra con z-index 999999:
-       galleggiava sopra QUALUNQUE cosa, compresa la testata del Banco di revisione,
-       dove copriva la fase «Pronti da usare». Gli strumenti di lettura restano dove
-       si legge davvero e non se ne va nessuno di quelli: la fila del modale della
-       fonte (#modal-a11y-toolbar: sillabazione, spaziatura, voce, Aa, riga di
-       lettura, lettura veloce) e Cabina › Aspetto e leggibilità per il carattere.
-       Escono di scena i quattro filtri che vivevano SOLO nel pannello del bottone:
-       inverti colori, riduci contrasti, contrasti elevati, scala di grigi (più
-       l'interlinea).
-       ⚠️ Si nasconde il BOTTONE, non si spengono gli effetti: la riga di lettura e
-       lo zoom del testo si accendono anche dalla fila del modale e continuano a
-       valere dove si legge, con la regola di contesto dell'11/9.
-       Reversibile: localStorage `mappai_a11y_bottone = '1'` lo rimette (con quella
-       stessa regola di contesto); in più `mappai_a11y_everywhere = '1'` torna a
-       mostrarlo ovunque, come prima dell'11/9. Serve una riapertura della finestra. */
-    function bottoneAcceso() {
-        try { return localStorage.getItem('mappai_a11y_bottone') === '1'; } catch (e) { return false; }
-    }
-
+    /* ── IL CERCHIO GIALLO NON C'È PIÙ (spento il 19/9/2026, tolto il 26/9) ──────
+       Era `position: fixed` in alto a destra con z-index 999999: galleggiava sopra
+       QUALUNQUE cosa, compresa la testata del Banco di revisione. Gli strumenti di
+       lettura restano dove si legge davvero: la fila del modale della fonte
+       (#modal-a11y-toolbar: sillabazione, spaziatura, voce, Aa, riga di lettura,
+       lettura veloce) e Cabina › Aspetto e leggibilità per il carattere. Sono usciti
+       con lui i quattro filtri che vivevano SOLO nel suo pannello (inverti colori,
+       riduci contrasti, contrasti elevati, scala di grigi) e l'interlinea.
+       Qui resta la regola di contesto per riga di lettura e zoom. */
     function sync() {
-        const acceso = bottoneAcceso();
-        if (!acceso) {
-            mostraBottone(false);
-            // il pannello non si può più aprire: se era rimasto aperto, si chiude
-            const panel = document.getElementById('a11y-panel');
-            if (panel) panel.classList.add('hidden-panel');
-        }
-        if (localStorage.getItem('mappai_a11y_everywhere') === '1') return;
-        const ok = inReadingContext();
-        if (acceso) mostraBottone(ok);
-        if (ok) restore(); else suspend();
+        if (inReadingContext()) restore(); else suspend();
     }
-    window.syncA11yVisibility = sync;
 
     // Il contesto cambia in tre modi: map-view che si attiva/disattiva, l'overlay di
     // ELABORA che compare/sparisce, e i cambi di vista fatti da altri moduli. Un solo

@@ -51,11 +51,20 @@
      quella chiamata, che parte in modo SINCRONO — nessun gesto dell'utente può
      infilarsi in mezzo e passare per interno. */
   Pipeline.occupata = function () { return !!Pipeline._running && !Pipeline._interno; };
+  // 0070: il percorso testuale usa lo stesso lucchetto, senza attraversare i rami.
+  Pipeline.withReadingOperation = async function (work) {
+    if (typeof work !== 'function') throw new TypeError('reading_operation_required');
+    if (Pipeline._running || window.mappaiOccupato && window.mappaiOccupato() ||
+        window.MappAIReview && window.MappAIReview.isBusy()) throw new Error('reading_operation_busy');
+    Pipeline._running = true;
+    try { return await work(); } finally { Pipeline._running = false; }
+  };
   /* Aperta al banco (`tools/smoke/pipeline-lucchetto.js`): la regola più
      importante di questo modulo non si può provare dall'esterno senza una via
      d'accesso, e senza una prova torna a rompersi in silenzio. */
   Pipeline._sentinella = { identita: function () { return _identita(); }, controlla: function () { return _controllaIdentita(); } };
   Pipeline._branchMaterial = _branchMaterial;   // per il banco tools/smoke/evidenze-ramo.js
+  Pipeline._nomeCartellaLibero = function () { return _nomeCartellaLibero.apply(null, arguments); };   // 0069, giro 8: tests/dossier-fonte.test.js
   /* I due generatori che «Genera materiali» e «Crea un documento» si dividono:
      aperti al banco per lo stesso motivo di `_branchMaterial` — la richiesta
      della prova e la forma dello schema non si possono provare dall'esterno
@@ -72,6 +81,13 @@
        generando. */
     if (window.MappAIGen && window.MappAIGen.attiva()) {
       _toast(window.MappAIGen.motivo(), 'warning');
+      return true;
+    }
+    /* D10 (0059): anche «Aggiungi PDF» di ELABORA occupa l'app, dalla scelta
+       del file alla fine della scrittura: un progetto aperto a metà lettura
+       mescolava le fonti dei due. Chi legge è ELABORA, che sa anche il motivo. */
+    if (window.MappAIElabora && window.MappAIElabora.letturaPdfAttiva && window.MappAIElabora.letturaPdfAttiva()) {
+      _toast(window.MappAIElabora.motivoLetturaPdf(), 'warning');
       return true;
     }
     if (!window.MappAIPipeline || !window.MappAIPipeline.occupata()) return false;
@@ -167,10 +183,22 @@
      porta in `_materiale` e qui si crede a lui: senza, `getDescendants` di un
      id che nella mappa non esiste tornerebbe vuoto e il materiale sarebbe una
      riga sola col titolo. */
-  function _branchMaterial(branch, giro) {
+  /* `Q` (packet 0042): la vista della quarantena, da `MappAIAffermazioni.perMateriali`.
+     Senza, tutto come prima; con, `buildInput` legge i nodi dalla vista (le
+     frasi contestate tolte, le correzioni decise dentro) e le rettifiche dalla
+     sua revisione. I discendenti vengono dalla mappa VIVA: con la vista si
+     tengono solo i nodi che la vista conosce (giro 2 del 26/09) — un nodo
+     aggiunto sulla tela durante la generazione non l'ha esaminato nessuno, e
+     `buildInput` ripiegherebbe sul nodo vivo. */
+  function _branchMaterial(branch, giro, Q) {
     if (branch && typeof branch._materiale === 'string') return branch._materiale.slice(0, 12000);
     const kids = (window.getDescendants ? window.getDescendants(branch.id) : []) || [];
-    const all = [branch].concat(kids);
+    let all = [branch].concat(kids);
+    if (Q) {
+      const nellaVista = new Set(((Q.db && Q.db.nodes) || []).map(n => String(n.id)));
+      if (!nellaVista.has(String(branch.id))) return '';
+      all = all.filter(n => n && nellaVista.has(String(n.id)));
+    }
     /* Le evidenze (ADR 0002, passo 3): con l'interruttore acceso e un indice in memoria il
        materiale del ramo è il pacchetto di frasi vere della fonte, non le desc con i passaggi.
        Un ramo di cui la fonte non parla resta SENZA materiale e il giro lo salta (riga 831):
@@ -189,7 +217,8 @@
     }
     const srcs = window.MappAIReview ? window.MappAIReview.sources() : _state().sources;
     if (window.MappAIGroundingCore) {
-      const res = window.MappAIGroundingCore.buildInput(_state().db, all, srcs,
+      const res = Q ? window.MappAIGroundingCore.buildInput(Q.db, all, srcs, Q.review, { passaggi: _passaggiDelRamo(all, srcs) })
+        : window.MappAIGroundingCore.buildInput(_state().db, all, srcs,
         window.MappAIReview && window.MappAIReview.current(), { passaggi: _passaggiDelRamo(all, srcs) });
       /* Si dice quanti ne sono entrati: senza questa riga il capovolgimento
          tornerebbe in silenzio il giorno in cui le fonti non arrivano più fin qui
@@ -199,6 +228,7 @@
         ' dalla fonte (' + res.sourceCoverage.originalPagesAvailable + ' pagine disponibili) · materiale ' + res.material.length + ' car');
       return res.material;
     }
+    if (Q) return all.map(n => (Q.db.nodes || []).find(x => x.id === n.id) || n).map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n');
     return all.map(n => _clean(n.label) + ': ' + (n.desc || n.content || '')).join('\n');
   }
 
@@ -278,14 +308,66 @@
      che non è ancora stato deciso significa vederlo cambiare al passo dopo.
      Una causa sola, due guasti.
 
-     ⚠️ `adottaVault` è asincrona e va attesa PRIMA della fotografia. */
-  async function _adottaLaCartella(vaultPath) {
-    _state().activeVaultPath = vaultPath;
+     ⚠️ `adottaVault` è asincrona e va attesa PRIMA della fotografia.
+
+     0061 (29/09, ADR 0013): l'adozione porta il GESTO, e `activeVaultPath` si
+     scrive SOLO DOPO (anche se l'adozione fallisce, come prima). Con la cartella
+     nuova già attiva, un autosave che cadesse nell'attesa farebbe dichiarare la
+     cartella alla voce del giro prima della decisione, e `nuova` conierebbe un
+     secondo id lasciando un'orfana. */
+  async function _adottaLaCartella(vaultPath, gesto) {
     try {
       if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
-        await StorageManager.adottaVault(vaultPath, _state());
+        await StorageManager.adottaVault(vaultPath, _state(), { gesto: gesto || 'apri' });
       }
     } catch (e) { if (_state()._reviewRequested || _state()._pipelineManifest?.review) throw e; console.warn('[Pipeline] adozione della cartella non riuscita:', e && e.message); }
+    finally { _state().activeVaultPath = vaultPath; }
+  }
+
+  /* ── LA CREAZIONE DELLA CARTELLA, IN UN POSTO SOLO (0061, 29/09; ADR 0013) ──
+     Il dossier e il passo A ripetevano gli stessi passi, nell'ordine di prima:
+     scrivere la cartella e POI adottarla — e l'adozione cercava per nome, quindi una
+     mappa nuova col titolo di una vecchia ne ereditava l'id. Ora la sequenza è una
+     (inv. 6), e l'ordine è il punto:
+       1. il percorso, col suffisso « · 0N» se il nome c'è già;
+       2. l'adozione col gesto `nuova` — nessuna ricerca per nome: si tiene l'id nato
+          con questa generazione, o se ne conia uno — e solo dopo `activeVaultPath`;
+       3. la prima scrittura, che porta l'id in `index.yaml`;
+       4. la voce che dichiara la cartella, subito, prima dei minuti dei passi B–E:
+          una ripresa dopo un'interruzione ritrova la cartella per id (D7).
+     Se la scrittura fallisce, l'identità torna com'era prima del gesto e l'errore è
+     quello di prima. La cura (b) dell'11/9 resta intatta: l'id è deciso prima di
+     `giro.conVault` e della fotografia `Pipeline._identita`. */
+  async function _creaLaCartella(cls, giro) {
+    const vaultPath = await _resolveFolderPath(cls);
+    if (giro) giro.verifica();
+    const st = _state();
+    const SM = (typeof StorageManager !== 'undefined') ? StorageManager : null;
+    const prima = { percorso: st.activeVaultPath, classe: st.activeVaultClassDir, materia: st.activeVaultDiscDir,
+      id: SM ? SM.currentProjectId : undefined, idInCartella: SM ? SM.idInCartella : undefined };
+    const rimetti = () => {
+      st.activeVaultPath = prima.percorso; st.activeVaultClassDir = prima.classe; st.activeVaultDiscDir = prima.materia;
+      if (SM) { SM.currentProjectId = prima.id; SM.idInCartella = prima.idInCartella; }
+    };
+    try { await _adottaLaCartella(vaultPath, 'nuova'); } catch (e) { rimetti(); throw e; }
+    let sr = null;
+    try { sr = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() }); }
+    catch (e) { rimetti(); throw e; }
+    /* 0069, giro 18: a schermo il messaggio di sempre — il motivo grezzo può
+       portare un percorso assoluto (`EACCES … mkdir '/Users/…'`) e usciva a ogni
+       docente. Il motivo vero (es. `review-conflict`) va nel registro degli
+       errori, se c'è, altrimenti in console: la diagnosi non si perde */
+    if (!sr || !sr.success) {
+      rimetti();
+      const motivo = sr && sr.error;
+      if (window.MappAIErrori && typeof window.MappAIErrori.registra === 'function') {
+        try { window.MappAIErrori.registra({ dove: 'pipeline', messaggio: 'save-vault: ' + (motivo || 'nessun motivo') }); } catch (_) { }
+      } else console.warn('[Pipeline] save-vault:', motivo);
+      throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
+    }
+    if (giro) giro.verifica();
+    if (SM && SM.saveCurrentProject) SM.saveCurrentProject();
+    return vaultPath;
   }
 
   // ── IPC helpers ─────────────────────────────────────────────────────────
@@ -337,6 +419,30 @@
   }
 
   // Cartella vault della mappa dentro il contenitore di classe, con suffisso su collisione.
+  /* ── IL NOME DELLA CARTELLA, CONTRO QUELLE CHE CI SONO (0069, giro 8) ──────
+     Il disco del Mac (APFS) non distingue le maiuscole, e le due forme Unicode
+     di «è» (NFC composta, NFD scomposta) per lui sono lo stesso nome (trappola
+     25). Il confronto con `indexOf` le distingueva: al gate 3 il titolo dell'AI
+     «LA GUERRE est l'Industrie Nationale de la PRUSSE» risultava libero contro
+     «La Guerre est l'industrie Nationale de la Prusse» (01/10), e la scrittura
+     cadeva nella cartella vecchia — l'ha fermata la revisione approvata che ci
+     stava dentro (ADR 0010); senza, l'avrebbe sovrascritta.
+     Qui «esiste già?» e la sequenza « · 0N» si calcolano sulla chiave
+     NFC + minuscole; il nome che esce conserva la grafia del titolo. Pura: la
+     sequenza la conta `sessionSeq` di FilesCore (passata da chi chiama, con
+     fratelli e base già normalizzati: files-core non si tocca). Aperta al banco
+     come `Pipeline._nomeCartellaLibero` (tests/dossier-fonte.test.js).
+     Vale per tutti, a interruttore spento compreso: è un guasto, non una
+     funzione nuova (eccezione voluta al «come prima», scelta di Giacomo). */
+  function _nomeCartellaLibero(vaultName, siblings, sessionSeq) {
+    const chiave = s => { const v = String(s == null ? '' : s); try { return v.normalize('NFC').toLowerCase(); } catch (e) { return v.toLowerCase(); } };
+    const fratelli = (Array.isArray(siblings) ? siblings : []).map(chiave);
+    const base = chiave(vaultName);
+    if (fratelli.indexOf(base) < 0) return vaultName;
+    const seq = typeof sessionSeq === 'function' ? sessionSeq(fratelli, base, ' · ') : { maxSeq: -1 };
+    const n = Math.max(2, ((seq && seq.maxSeq) || 0) + 1);
+    return vaultName + ' · ' + String(n).padStart(2, '0');
+  }
   async function _resolveFolderPath(cls) {
     const base = await _mapsBase();
     /* Senza classe → null: il contenitore lo decide FilesCore.mapVaultParents
@@ -362,12 +468,7 @@
       const all = await window.electronAPI.getAllVaults();
       siblings = (all || []).filter(v => (v.classDir || null) === (classFolder || null) && (v.discDir || '') === (discFolder || '')).map(v => v.folderName);
     } catch (e) { siblings = []; }
-    let finalName = vaultName;
-    if (siblings.indexOf(vaultName) >= 0) {
-      const seq = FC().sessionSeq(siblings, vaultName, ' · ');
-      const n = Math.max(2, (seq.maxSeq || 0) + 1);
-      finalName = vaultName + ' · ' + String(n).padStart(2, '0');
-    }
+    const finalName = _nomeCartellaLibero(vaultName, siblings, FC().sessionSeq);
     /* Con un profilo ALLIEVO attivo la mappa (e i suoi materiali) vivono nella
        sua cartella, non fra quelle di classe — stessa regola dell'auto-vault. */
     let allievo = '';
@@ -926,7 +1027,13 @@
     open: { kind: 'open_questions', sub: 'quiz_open', typeLabel: 'Domande aperte', documento: true }
   };
 
-  async function _stepB(vaultPath, manifest, config, apiKey, counter, giro) {
+  /* La ricevuta della quarantena (packet 0042) nasce con la bozza e resta con
+     la cache: si scrive solo quando c'è, quindi da spento nessun campo nuovo. */
+  function _conRicevuta(bozza, ricevuta) {
+    if (ricevuta) bozza.quarantena = ricevuta;
+    return bozza;
+  }
+  async function _stepB(vaultPath, manifest, config, apiKey, counter, giro, Q) {
     const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
     if (!finalizing) manifest = PC().stepTransition(manifest, 'B', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest, giro);
@@ -968,14 +1075,13 @@
           /* Il nome della variante è la CHIAVE dell'angolo, non l'etichetta a
              schermo: `Domande-aperte-<Mappa>-causa`. È la convenzione del gesto
              singolo (`_generaVarianti`) e quella che Giacomo usava a mano. */
-          const nomeVar = (angoli.length > 1) ? PC().nomeAngolo(ang) : '';
           /* ADR 0003: il nome scritto dal docente nel wizard si affianca
              all'angolo. UNA costante per titolo, clone e nome file (inv. 6):
              ELABORA ricava il nome atteso del file dal `clone` del set (e, per
              le domande aperte, dal titolo d'archivio) — se divergessero, il
-             file resterebbe orfano nella console. Nei lotti di «Genera
-             materiali» `quiz.nome` non c'è, e resta il solo `nomeVar`. */
-          const etichetta = [nomeVar, config.quiz && config.quiz.nome].filter(Boolean).join(' · ');
+             file resterebbe orfano nella console. Dallo 0091 anche il modale
+             «Più materiali insieme» scrive `quiz.nome` (il nome del giro). */
+          const { nomeVar, etichetta } = _etichettaGiro(config.quiz, angoli, ang);
           try {
           _overlay(_t('mp_step_b', 'Genero i quiz…') + ' (' + spec.typeLabel +
             (nomeVar ? ' · ' + nomeVar + ' ' + (ai + 1) + '/' + angoli.length : '') + ')');
@@ -987,7 +1093,7 @@
           let requestedCount = 0;
           for (let bi = 0; bi < (cached ? 0 : ramiA.length); bi++) {
             const b = ramiA[bi];
-            const material = _branchMaterial(b, giro);
+            const material = _branchMaterial(b, giro, Q);
             if (!material.trim()) continue;
             requestedCount += quanti;
             const complementary = _complementaryQuestions(t, _clean(b.label), manifest);
@@ -996,7 +1102,7 @@
               /* il ramo COMPAGNO entra nel materiale: è ciò che permette le
                  domande che collegano due macro-aree (Giacomo, 11/8) */
               const comp = _ramoCompagno(b, ramiT);
-              const materialeB = comp ? _branchMaterial(comp, giro) : '';
+              const materialeB = comp ? _branchMaterial(comp, giro, Q) : '';
               const insieme = materialeB
                 ? (material + '\n\n--- ALTRA AREA: ' + _clean(comp.label) + ' ---\n' + materialeB)
                 : material;
@@ -1038,8 +1144,9 @@
           const titoloDoc = _titoloDoc(spec, etichetta, mapName);
           raw.forEach((it, i) => { if (!it.id) it.id = setId + '-' + i; });
           if (manifest.review && !finalizing) {
-            manifest.review.drafts.B[draftKey] = { id: setId, type: t, angle: ang, title: titoloDoc, items: raw,
-              generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length }, revision: manifest.review.approvedRevision };
+            manifest.review.drafts.B[draftKey] = _conRicevuta({ id: setId, type: t, angle: ang, title: titoloDoc, items: raw,
+              generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length }, revision: manifest.review.approvedRevision },
+              cached ? cached.quarantena : Q && Q.ricevuta);
             await _writeManifest(vaultPath, manifest, giro);
             continue;
           }
@@ -1095,6 +1202,9 @@
           generation: cached ? cached.generation : { requested: requestedCount, produced: raw.length } };
         _state().db.studySets = _state().db.studySets || [];
         set.reviewRevision = manifest.review && manifest.review.approvedRevision;
+        // nel set pubblicato solo la ricevuta BREVE: il set arriva all'allievo (27/09, vedi ricevutaBreve nel core)
+        _conRicevuta(set, cached && cached.quarantena && window.MappAIAffermazioniCore && window.MappAIAffermazioniCore.ricevutaBreve
+          ? window.MappAIAffermazioniCore.ricevutaBreve(cached.quarantena) : null);
         const existingSet = _state().db.studySets.findIndex(x => x.id === set.id);
         if (existingSet >= 0) _state().db.studySets[existingSet] = set; else _state().db.studySets.push(set);
         // PDF (forma stampabile)
@@ -1189,7 +1299,7 @@
   // ══════════════════════════════════════════════════════════════════════
   // STEP C — fogli nodi, un PDF per modo selezionato
   // ══════════════════════════════════════════════════════════════════════
-  async function _stepC(vaultPath, manifest, config, giro) {
+  async function _stepC(vaultPath, manifest, config, giro, Q) {
     const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
     if (!finalizing) manifest = PC().stepTransition(manifest, 'C', 'running', { now: _now() });
     await _writeManifest(vaultPath, manifest, giro);
@@ -1207,7 +1317,7 @@
         if (finalizing && cached && cached.published) continue;
         if (finalizing && (!cached || !cached.cards.length)) continue;
         _overlay(_t('mp_step_c', 'Preparo i fogli nodi…') + ' (' + layout + ')');
-        const res = await window.printAllNodeLabels({
+        const res = await window.printAllNodeLabels(Object.assign({
           giro,
           draftOnly: !!manifest.review && !finalizing,
           cards: finalizing ? cached.cards : undefined,
@@ -1223,10 +1333,10 @@
              `printAllNodeLabels` a non cambiare, è la pipeline che non la chiede. */
           causal: false,
           toDisk: { vaultPath }
-        });
+        }, Q ? { nodes: Q.nodiMateriali } : {}));   // sotto quarantena: i nodi della vista, senza quelli svuotati
         if (!res || !res.ok) throw new Error('Foglio nodi (' + layout + ') non generato');
         if (manifest.review && !finalizing) {
-          manifest.review.drafts.C[layout] = { cards: res.cards }; await _writeManifest(vaultPath, manifest, giro); continue;
+          manifest.review.drafts.C[layout] = _conRicevuta({ cards: res.cards }, Q && Q.ricevuta); await _writeManifest(vaultPath, manifest, giro); continue;
         }
         const v = PC().validatePdfB64(res.base64);
         if (!v.ok) throw new Error('Foglio nodi (' + layout + '): ' + v.error);
@@ -1254,7 +1364,7 @@
   // ══════════════════════════════════════════════════════════════════════
   // STEP D — sintesi mappa intera (HTML) + voce naturale (MP3, degradabile)
   // ══════════════════════════════════════════════════════════════════════
-  async function _stepD(vaultPath, manifest, config, apiKey, giro) {
+  async function _stepD(vaultPath, manifest, config, apiKey, giro, Q) {
     const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
     if (finalizing && (!manifest.review.drafts.D || manifest.review.drafts.D.published)) return manifest;
     if (!finalizing) manifest = PC().stepTransition(manifest, 'D', 'running', { now: _now() });
@@ -1263,7 +1373,9 @@
       _setContext('synthesis');
       _overlay(_t('mp_step_d', 'Scrivo la sintesi…'));
       const mapName = _mapName();
-      const data = manifest.review && manifest.review.drafts.D ? manifest.review.drafts.D.data : await window.MappAISynthesis.runWholeMap({ apiKey, giro, tuned: !!config.tuned, silent: true });
+      const cachedD = manifest.review && manifest.review.drafts.D;
+      const data = cachedD ? cachedD.data : await window.MappAISynthesis.runWholeMap(Object.assign({ apiKey, giro, tuned: !!config.tuned, silent: true },
+        Q ? { db: Q.db, review: Q.review } : {}));
       /* DOSSIER: la sintesi si apre con la FOTO della fonte (21/8). L'immagine
          viaggia nei DATI e non negli opts del chiamante, o sparirebbe al primo
          salvataggio dall'editor (inv. 18). */
@@ -1277,7 +1389,7 @@
       const v = PC().validateSynthesis(data);
       if (!v.ok) throw new Error('Sintesi: ' + v.error);
       if (manifest.review && !finalizing) {
-        manifest.review.drafts.D = { data };
+        manifest.review.drafts.D = _conRicevuta({ data }, cachedD ? cachedD.quarantena : Q && Q.ricevuta);
         manifest = PC().stepTransition(manifest, 'D', 'done', { now: _now() });
         await _writeManifest(vaultPath, manifest, giro); return manifest;
       }
@@ -1381,7 +1493,7 @@
      nelle descrizioni (`chainsForOutput`), e se il docente ha rivisto la catena
      in ELABORA vale la SUA versione — la stessa funzione che usano il documento
      a schermo e l'editor, così le tre rese non possono divergere. */
-  async function _stepE(vaultPath, manifest, config) {
+  async function _stepE(vaultPath, manifest, config, Q) {
     const finalizing = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'finalizing');
     if (finalizing && (!manifest.review.drafts.E || manifest.review.drafts.E.published)) return manifest;
     const CC = window.MappAICausal;
@@ -1395,7 +1507,8 @@
        e si va avanti — pending→skipped è una transizione lecita, running→skipped
        no, quindi il controllo va fatto PRIMA di mettere lo step in corso. */
     let chains = null;
-    try { chains = manifest.review && manifest.review.drafts.E ? manifest.review.drafts.E.chains : CC.chainsForOutput(); } catch (e) { chains = null; }
+    const cachedE = manifest.review && manifest.review.drafts.E;
+    try { chains = cachedE ? cachedE.chains : Q ? CC.chainsForOutput({ db: Q.db }) : CC.chainsForOutput(); } catch (e) { chains = null; }
     if (!chains || !chains.total) {
       if (finalizing) return manifest;
       manifest = PC().stepTransition(manifest, 'E', 'skipped', { now: _now() });
@@ -1409,7 +1522,7 @@
     try {
       _overlay(_t('mp_step_e', 'Preparo la catena dei perché…'));
       if (manifest.review && !finalizing) {
-        manifest.review.drafts.E = { chains };
+        manifest.review.drafts.E = _conRicevuta({ chains }, cachedE ? cachedE.quarantena : Q && Q.ricevuta);
         manifest = PC().stepTransition(manifest, 'E', 'done', { now: _now() });
         await _writeManifest(vaultPath, manifest); return manifest;
       }
@@ -1475,14 +1588,21 @@
   }
 
   // opts: { only?: ['B','C','D','E'] per Riprova; vaultPath?, manifest? per ripresa }
-  async function _finishReviewed(vaultPath, manifest, config, apiKey, counter, giro) {
+  // daCrea (B14, 0088): il giro è partito da CREA → la G2 porta `dopoChiusura` e la sua continuazione `daCrea`
+  // aElabora (0090, parte B): il giro è la continuazione di una revisione riaperta con `openCurrent` → alla
+  // chiusura della G2 si torna in ELABORA (`_tornaInElabora`). Con `daCrea` comanda B14, che non cambia.
+  async function _finishReviewed(vaultPath, manifest, config, apiKey, counter, giro, Q, daCrea, aElabora) {
     const MR = window.MappAIMaterialReview, RC = window.MappAIReviewCore, MD = window.MappAIMaterialDrafts;
     if (!MR || !RC || !MD) throw new Error('Controllo finale non caricato');
     if (!PC().STEPS.filter(s => s !== 'A').every(s => ['done', 'skipped'].includes(manifest.steps[s].status))) { _overlay(false); _openSummary(vaultPath, manifest, config); return null; }
     const review = manifest.review;
-    const material = window.MappAIGroundingCore.buildInput(_state().db, _state().db.nodes, review.sources, review, { includeOriginalPages: true });
+    // sotto quarantena G2 confronta i materiali con la stessa vista da cui sono nati (packet 0042)
+    const material = Q ? window.MappAIGroundingCore.buildInput(Q.db, Q.db.nodes, review.sources, Q.review, { includeOriginalPages: true })
+      : window.MappAIGroundingCore.buildInput(_state().db, _state().db.nodes, review.sources, review, { includeOriginalPages: true });
     if (!review.final) {
-      review.final = { stage: 'checking', items: MD.flatten(review.drafts), revision: review.approvedRevision };
+      // la ricevuta comune alle bozze, PRIMA di creare `final`: bozze di due firme diverse fanno lanciare
+      const AFF = window.MappAIAffermazioni, ricevuta = AFF && AFF.ricevutaDelleBozze ? AFF.ricevutaDelleBozze(review.drafts) : null;
+      review.final = _conRicevuta({ stage: 'checking', items: MD.flatten(review.drafts), revision: review.approvedRevision }, ricevuta);
       await _writeManifest(vaultPath, manifest, giro);
     }
     let final = review.final;
@@ -1494,7 +1614,10 @@
       final.review = RC.createReview({ db: { items: final.items }, sources: review.sources, report,
         generationId: review.generationId + '-materials', vaultPath, config });
       final.stage = 'awaiting_review';
-      if (!final.review.initial.issues.length && final.review.initial.checkStatus === 'completed') {
+      /* Sotto quarantena G2 si apre SEMPRE (ADR 0010): fra la fonte e un
+         materiale consegnato c'è sempre un Banco visto da una persona. */
+      const natoInQuarantena = !!(final.quarantena || Q);
+      if (!natoInQuarantena && !final.review.initial.issues.length && final.review.initial.checkStatus === 'completed') {
         const approved = RC.beginApproval(final.review, { items: final.items }, { sources: review.sources });
         if (!approved.ok) throw new Error('Il controllo finale non consente la prosecuzione');
         final.review = approved.review;
@@ -1506,7 +1629,20 @@
     }
     if (final.stage === 'awaiting_review') {
       _overlay(false);
-      window.MappAIReview.open(vaultPath, manifest, { final: true, onContinue: m => Pipeline.run(m.config, { only: ['B', 'C', 'D', 'E'], vaultPath, manifest: m }) });
+      /* Sotto quarantena «Genera materiali» può partire da dentro una console
+         (ELABORA, INSEGNA) senza passare dal Banco dei contenuti: il Banco di
+         G2 chiede allora il suo piano al motore (inv. 11, trappola 52; giro 3
+         del 26/09, D5). Senza quarantena la chiamata è quella di sempre. */
+      /* B14 (0088, Giacomo 12/10: «a, nello 0088 per la beta.6»): se il giro è partito da CREA, alla
+         chiusura di G2 si esce da CREA e si apre ELABORA sul progetto — con «Salva e continua più tardi»
+         (`dopoChiusura`, chiamata dal Banco a chiusura avvenuta) e con «Continua» (la continuazione porta
+         `daCrea`: la coda di `run` apre ELABORA prima del riepilogo). Da ELABORA o INSEGNA niente di tutto
+         questo: lì si riprende col manifesto, senza `daCrea`, e si resta dove si era. */
+      const versoElabora = !daCrea && aElabora === true;
+      window.MappAIReview.open(vaultPath, manifest, Object.assign({ final: true, onContinue: m => Pipeline.run(m.config, Object.assign({ only: ['B', 'C', 'D', 'E'], vaultPath, manifest: m }, daCrea ? { daCrea: true } : {}, versoElabora ? { aElabora: true } : {})) },
+        daCrea ? { dopoChiusura: () => _chiudiCrea() } : {},
+        versoElabora ? { dopoChiusura: () => _tornaInElabora() } : {},
+        Q ? { alza: true } : {}));
       return null;
     }
     if (final.stage === 'approved') {
@@ -1518,28 +1654,118 @@
     }
     // Same builders as the legacy pipeline; every input is now a persisted,
     // approved draft. Per-document publication flags make retries idempotent.
-    if (config.quiz) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter, giro));
-    if (config.nodesheet) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config, giro));
-    if (config.synthesis) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey, giro));
-    if (config.causal && manifest.steps.E.status !== 'skipped') manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
+    if (config.quiz) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter, giro, Q));
+    if (config.nodesheet) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config, giro, Q));
+    if (config.synthesis) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey, giro, Q));
+    if (config.causal && manifest.steps.E.status !== 'skipped') manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config, Q));
     manifest.review.final.stage = 'done';
     manifest.review.final.completedAt = _now();
     await _writeManifest(vaultPath, manifest, giro);
     return manifest;
   }
 
+  /* ── DOPO UN DOSSIER (0067, gate 3 del 01/10 sera) ───────────────────────────
+     È il punto in cui ogni giro di un dossier finisce bene — senza revisione, dopo
+     G1 (`onContinue` → `run`) e dopo G2 (`_finishReviewed` → `run`): tutte le
+     strade passano dalla coda di `run`, subito prima del riepilogo.
+     Con l'ultimo dossier del lotto finito (la regola è del core, `fineLotto`):
+       · CREA si ripulisce: via le fonti-foto del lotto con le loro schede
+         (`removeSource`, che risincronizza la landing e smonta il guscio);
+       · si apre ELABORA del progetto appena fatto, con la stessa strada di INSEGNA
+         (`MappAIElabora.openProject`, landing-teach `elabOpen`): entra dai documenti.
+     Restituisce true se ha aperto ELABORA (il riepilogo allora aspetta la console). */
+  Pipeline._lottiDossier = {};
+  function _dopoIlDossier(config, manifest) {
+    const IC = window.MappAICreaIconograficaCore;
+    if (!IC || !IC.fineLotto) return false;
+    const r = IC.fineLotto(Pipeline._lottiDossier, config._lotto, { ok: PC().isComplete(manifest), dossier: config.dossier });
+    Pipeline._lottiDossier = r.registro;
+    if (!r.chiudi) return false;
+    try {
+      const fonti = (_state().sources || []).slice();
+      r.dossier.forEach(d => {
+        const src = IC.fontePerScheda ? IC.fontePerScheda(fonti, d) : null;
+        if (src && window.removeSource) window.removeSource(src.id);
+      });
+    } catch (e) { console.warn('[Pipeline] CREA non ripulita:', e && e.message); }
+    return _apriElabora();
+  }
+
+  /* ── APRIRE ELABORA SUL PROGETTO APPENA FATTO (0067; estratto nello 0088, B14) ──
+     La stessa strada di INSEGNA (`MappAIElabora.openProject`, landing-teach `elabOpen`):
+     entra dai documenti. Restituisce true se ha aperto (il riepilogo allora aspetta la console). */
+  function _apriElabora() {
+    const E = window.MappAIElabora;
+    const id = (typeof StorageManager !== 'undefined') ? StorageManager.currentProjectId : null;
+    if (E && id && E.openProject) { E.openProject(id); return true; }
+    if (E && E.openFromMap) { E.openFromMap(); return true; }
+    return false;
+  }
+
+  /* ── SVUOTARE CREA (B14, Giacomo 12/10: «CREA resetti la sua vista per poter partire con una
+     generazione nuova per un altro progetto») ──
+     Via tutte le fonti (`removeSource`, che risincronizza la landing e smonta il guscio di una foto),
+     il titolo e il focus scritto a mano; le lenti e il contesto (classe, materia) restano: sono del
+     docente, non del progetto. Ogni passo è a sé: una fonte senza riquadro non ferma le altre. */
+  function _svuotaCrea() {
+    const fonti = (_state().sources || []).slice();
+    fonti.forEach(s => { try { if (window.removeSource) window.removeSource(s.id); } catch (e) { console.warn('[Pipeline] fonte non tolta da CREA:', s && s.id, e && e.message); } });
+    try { if (_state().sources && _state().sources.length) _state().sources = []; } catch (e) { }
+    ['root-node-name', 'focus-input'].forEach(id => { try { const el = document.getElementById(id); if (el) el.value = ''; } catch (e) { } });
+    try { if (window.updateFocusFromLenses) window.updateFocusFromLenses(); } catch (e) { }
+  }
+
+  /* B14: alla chiusura di una G2 nata da CREA — CREA si svuota e si apre ELABORA sul progetto */
+  function _chiudiCrea() { _svuotaCrea(); return _apriElabora(); }
+
+  /* ── TORNARE IN ELABORA (0090, parte B; Giacomo 12/10: «riporti sempre a ELABORA indipendentemente da
+     dove sia stato lanciato») ──
+     Se la console è già aperta (il chip, il nome di una riga) si aggiorna e basta: `openProject` ricaricherebbe
+     il progetto e la riaprirebbe. Altrimenti la strada di B14, `_apriElabora`. */
+  function _tornaInElabora() {
+    const EC = window.MappAIElaboraConsole;
+    try { if (EC && EC.aperta && EC.aperta() && EC.aggiorna) { EC.aggiorna(); return true; } } catch (e) { }
+    return _apriElabora();
+  }
+  Pipeline.tornaInElabora = _tornaInElabora;
+
+  /* ── RIAPRIRE LA G2 DOV'ERA (0090) ──
+     Una strada sola per il chip, il nome della riga, il bottone del modale e `runApprovedMaterials`:
+     `MappAIReview.openCurrent`, con `alza` sotto quarantena (il Banco chiede il piano al motore quando
+     si apre sopra una console: inv. 11, trappola 52). */
+  Pipeline.completaValidazione = function () {
+    if (!window.MappAIReview || !window.MappAIReview.openCurrent) return;
+    const AFF = window.MappAIAffermazioni;
+    if (AFF && AFF.quarantenaAccesa && AFF.quarantenaAccesa()) return window.MappAIReview.openCurrent({ alza: true });
+    return window.MappAIReview.openCurrent();
+  };
+
   Pipeline.run = async function (config, opts) {
     if (Pipeline._running) { _toast(_t('mp_busy', 'Una pipeline è già in corso'), 'warning'); return; }
     opts = opts || {};
+    // Una ripresa testuale non attraversa checkpoint, quarantena o rami della
+    // mappa. Senza manifest resta la normale creazione di una nuova mappa.
+    if (opts.manifest && (opts.manifest.reading || _state().extractionMode === 'lettura')) {
+      if (!window.MappAIReview?.open) throw new Error(_t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+      return window.MappAIReview.open(opts.vaultPath || opts.manifest.vaultPath, opts.manifest);
+    }
     config = JSON.parse(JSON.stringify(config || {}));
     if (opts.manifest && opts.manifest.review && window.MappAIReview) {
       _state()._pipelineManifest = opts.manifest;
-      if (!await window.MappAIReview.requireApproved()) return;
+      // con la quarantena accesa G1 è facoltativa: il record lo calcola il giro, il cancello decide dopo (0042)
+      if (!await window.MappAIReview.requireApproved({ quarantena: true })) return;
     }
     Pipeline._running = true;
+    /* 0062: il giro tiene la presa fino alla fine (la lascia il `finally`). Da CREA comincia col velo a
+       tutta finestra, che cade sulla mappa; ogni altro giro (ELABORA, INSEGNA, il «Continua» di un Banco)
+       comincia sulla tela: nessun velo, lo spinner acceso per tutto il giro (Giacomo 12/10 al gate: il
+       velo vecchio si vedeva in CREA durante un giro di ELABORA). `_veloLibero` (la rigenerazione del
+       dossier) tiene il suo velo a schermo pieno, come prima. */
+    const presaGiro = !Pipeline._veloLibero && window.MappAIGen && window.MappAIGen.prendi
+      ? window.MappAIGen.prendi(opts.daCrea === true && !opts.only ? 'velo' : 'tela') : 0;
     const counter = { calls: 0 };
     const previousAIContext = _state()._reviewAIContext;
-    let giro = null;
+    let giro = null, Q = null;
     /* Su un DOSSIER i fogli dei nodi e la catena dei perché non hanno senso
        (i «nodi» sono i blocchi della scheda): si forzano spenti QUI, non solo
        nella UI — una config arrivata da un'altra strada non deve produrre
@@ -1601,13 +1827,12 @@
            Un dossier che erediti l'id della mappa aperta prima finirebbe
            scritto nella SUA scheda. */
         if (typeof StorageManager !== 'undefined') StorageManager.currentProjectId = null;
+        /* 0065: il giro adotta il `db` del dossier, come il ramo normale
+           (`mappai-mm-extraction.js`); senza, le `giro.verifica()` di
+           `_creaLaCartella` vedrebbero «Il progetto aperto è cambiato». */
+        if (giro) giro.iniziaMappa();
 
-        vaultPath = await _resolveFolderPath(cls);
-        if (giro) giro.verifica();
-        const srD = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
-        if (!srD || !srD.success) throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
-        if (giro) giro.verifica();
-        await _adottaLaCartella(vaultPath);
+        vaultPath = await _creaLaCartella(cls, giro);   // 0061: adottare prima di scrivere (ADR 0013)
         manifest = PC().createManifest(config, { now: _now(), vaultPath });
         manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
         await _writeManifest(vaultPath, manifest);
@@ -1643,7 +1868,12 @@
            bastare a sé per la lezione (inv. 7) — quindi l'originale entra qui,
            best-effort: una foto che non si copia non ferma il dossier. */
         try {
-          const srcFoto = (_state().sources || []).find(x => x && x._scheda === config.dossier);
+          /* 0067 (01/10): per contenuto, non per identità — `config` qui è una
+             copia (`Pipeline.run`), e `=== config.dossier` non trovava mai la fonte */
+          const ICf = window.MappAICreaIconograficaCore;
+          const srcFoto = (ICf && ICf.fontePerScheda)
+            ? ICf.fontePerScheda(_state().sources, config.dossier)
+            : (_state().sources || []).find(x => x && x._scheda === config.dossier);
           const fFoto = srcFoto && srcFoto.file;
           if (fFoto && typeof fFoto.arrayBuffer === 'function') {
             const buf = new Uint8Array(await fFoto.arrayBuffer());
@@ -1681,6 +1911,7 @@
             Pipeline._interno = true;          // la pipeline non blocca sé stessa
             const generated = await window.startGeneration({ giro });
             if (giro && !generated) throw new Error('Generazione della mappa interrotta.');
+            if (presaGiro && window.MappAIGen.allaMappa) window.MappAIGen.allaMappa();   // 0062 (b): il velo cade sulla mappa
         } finally {
             Pipeline._interno = false;
             /* La taratura vale per QUESTA mappa, non per il resto della sessione:
@@ -1694,18 +1925,23 @@
         }
         const mv = PC().validateMapResult(_state().db);
         if (!mv.ok) throw new Error(_t('mp_map_fail', 'Mappa non valida: ') + mv.error);
-        vaultPath = await _resolveFolderPath(cls);
-        if (giro) giro.verifica();
-        const sr = await window.electronAPI.saveVault({ folderPath: vaultPath, mapData: window.buildVaultMapData() });
-        if (!sr || !sr.success) throw new Error(_t('mp_vault_fail', 'Salvataggio vault fallito'));
-        if (giro) giro.verifica();
-        await _adottaLaCartella(vaultPath);
+        vaultPath = await _creaLaCartella(cls, giro);   // 0061: adottare prima di scrivere (ADR 0013)
         manifest = PC().createManifest(config, { now: _now(), vaultPath });
         manifest = PC().stepTransition(manifest, 'A', 'running', { now: _now() });
         await _writeManifest(vaultPath, manifest);
-        /* La fonte originale, se chiesta: subito dopo il vault, prima dei
-           materiali. Se fallisce non ferma la pipeline — è una copia di
-           cortesia, non un passo della generazione. */
+        /* La fonte originale: subito dopo il vault, prima dei materiali.
+           0059 (ADR 0011 rev. 1): il PDF va SEMPRE in `Fonti/`, con la sua voce
+           in `fonti.json`, e lo scrive ELABORA — l'unico scrittore; il vault è
+           nato adesso. Con la spunta «Manda la fonte all'allievo» ne va ANCHE una
+           copia in `Allegati/`, che è la cartella che l'allievo riceve. Né l'una
+           né l'altra fermano la pipeline: non sono passi della generazione.
+           Interruttore `mappai_fonte_in_fonti` = '0' → solo la copia sotto la
+           spunta, come prima. */
+        try {
+          if (window.MappAIElabora && window.MappAIElabora.fonteInFonti && window.MappAIElabora.fonteInFonti() && window.MappAIElabora.flushSourcesToVault) {
+            await window.MappAIElabora.flushSourcesToVault({ vaultNuovo: true });
+          }
+        } catch (e) { console.warn('[Pipeline] la fonte non è entrata in Fonti/:', e && e.message); }
         if (config.sourcePdf && window.MappAIElabora && window.MappAIElabora.copySourcesTo) {
           try { await window.MappAIElabora.copySourcesTo(vaultPath, 'Allegati'); } catch (e) { }
         }
@@ -1722,13 +1958,33 @@
           await window.MappAIReview.prepareEvidence(vaultPath, manifest, giro);
           await _writeManifest(vaultPath, manifest);
         }
+        /* LO STRATO DELLE AFFERMAZIONI (packet 0042): il record della quarantena,
+           deterministico e senza chiamate AI, poi via le bozze nate da un'altra
+           firma — tutto PRIMA del cancello, che resta quello qui sotto. */
+        const AFF = window.MappAIAffermazioni;
+        if (AFF && manifest.review) {
+          if (AFF.acceso()) _overlay(_t('aff_veil', 'Confronto le descrizioni con le decisioni della revisione…'));
+          manifest = await AFF.aggiorna(vaultPath, manifest);
+          const pulito = AFF.invalidaBozze(manifest);
+          if (pulito !== manifest) { manifest = pulito; await _writeManifest(vaultPath, manifest); }
+        }
         if (manifest.review && !window.MappAIReviewCore.gate(manifest.review, _state().db, manifest.review.sources).allowed) {
-          _overlay(false); window.MappAIReview.open(vaultPath, manifest); return;
+          _overlay(false);
+          /* Sotto quarantena «Genera materiali» può partire da dentro una console
+             (ELABORA, INSEGNA) aspettandosi di non passare dal Banco: quando il
+             record non consente e vale il cancello di oggi, il Banco di G1 chiede
+             il suo piano al motore (inv. 11, trappola 52; giro 4 del 26/09, E4).
+             Con la quarantena spenta la chiamata è quella di sempre. */
+          if (AFF && AFF.quarantenaAccesa && AFF.quarantenaAccesa()) window.MappAIReview.open(vaultPath, manifest, { alza: true });
+          else window.MappAIReview.open(vaultPath, manifest);
+          return;
         }
         if (manifest.review && !manifest.review.drafts) {
           manifest.review.drafts = { B: {}, C: {} };
           await _writeManifest(vaultPath, manifest);
         }
+        // la vista per i materiali: una volta per giro, dopo il cancello (null = come prima)
+        Q = AFF && manifest.review ? AFF.perMateriali(manifest) : null;
       }
 
       /* Da qui in poi i passi leggono `appState`: si fotografa l'identità della
@@ -1737,13 +1993,13 @@
 
       const wants = function (s) { return !opts.only || opts.only.indexOf(s) >= 0; };
       // Un tentativo su uno step failed → resettalo a running via failed→running dentro _stepX.
-      if (config.quiz && wants('B') && !['done', 'skipped'].includes(manifest.steps.B.status)) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter, giro));
-      if (config.nodesheet && wants('C') && !['done', 'skipped'].includes(manifest.steps.C.status)) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config, giro));
-      if (config.synthesis && wants('D') && !['done', 'skipped'].includes(manifest.steps.D.status)) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey, giro));
-      if (config.causal && wants('E') && manifest.steps.E && !['done', 'skipped'].includes(manifest.steps.E.status)) manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config));
+      if (config.quiz && wants('B') && !['done', 'skipped'].includes(manifest.steps.B.status)) manifest = await _passo(vaultPath, manifest, 'B', () => _stepB(vaultPath, manifest, config, apiKey, counter, giro, Q));
+      if (config.nodesheet && wants('C') && !['done', 'skipped'].includes(manifest.steps.C.status)) manifest = await _passo(vaultPath, manifest, 'C', () => _stepC(vaultPath, manifest, config, giro, Q));
+      if (config.synthesis && wants('D') && !['done', 'skipped'].includes(manifest.steps.D.status)) manifest = await _passo(vaultPath, manifest, 'D', () => _stepD(vaultPath, manifest, config, apiKey, giro, Q));
+      if (config.causal && wants('E') && manifest.steps.E && !['done', 'skipped'].includes(manifest.steps.E.status)) manifest = await _passo(vaultPath, manifest, 'E', () => _stepE(vaultPath, manifest, config, Q));
 
       if (manifest.review) {
-        const completed = await _finishReviewed(vaultPath, manifest, config, apiKey, counter, giro);
+        const completed = await _finishReviewed(vaultPath, manifest, config, apiKey, counter, giro, Q, opts.daCrea === true, opts.aElabora === true);
         if (!completed) return;
         manifest = completed;
       }
@@ -1756,7 +2012,21 @@
 
       if (giro) { manifest.modelliGiro = giro.riepilogo(); await _writeManifest(vaultPath, manifest); }
       _overlay(false);
-      _openSummary(vaultPath, manifest, config);
+      /* 0067 (gate 3, 01/10 sera): la fine di un DOSSIER da foto apre ELABORA del
+         progetto e ripulisce CREA — vedi `_dopoIlDossier`. Il riepilogo arriva
+         dopo, sopra la console. Per una mappa, come sempre. */
+      /* B14 (0088): la continuazione di una G2 nata da CREA («Continua», `daCrea` col manifesto) fa lo
+         stesso: CREA si svuota e si apre ELABORA, prima del riepilogo. Per un dossier comanda ancora
+         `_dopoIlDossier` (le foto del lotto); se non apre, apre la regola di B14. Un giro da CREA SENZA G2
+         finisce come oggi: Giacomo ha scelto «alla chiusura di G2», non «a fine generazione». */
+      const dopoG2DaCrea = opts.daCrea === true && !!opts.manifest;
+      let aperto = !!(config.dossier && _dopoIlDossier(config, manifest));
+      if (dopoG2DaCrea) { _svuotaCrea(); if (!aperto) aperto = _apriElabora(); }
+      /* 0090 (parte B): la continuazione di una revisione riaperta con `openCurrent` (chip, nome della riga,
+         «Rivedi contenuti») finisce in ELABORA, con lo stesso ritardo del riepilogo di B14 */
+      if (opts.aElabora === true && !aperto) aperto = _tornaInElabora();
+      if (aperto) setTimeout(() => _openSummary(vaultPath, manifest, config), 700);
+      else _openSummary(vaultPath, manifest, config);
     } catch (err) {
       _overlay(false);
       _toast(_t('mp_error', 'Pipeline interrotta: ') + (err.message || err), 'error');
@@ -1770,8 +2040,28 @@
          nascosto tutto il resto della sessione */
       try { if (window.MappAITune && window.MappAITune.scongela) window.MappAITune.scongela(); } catch (e) { }
       _veloACasa();      // anche su errore: un velo orfano dentro CREA resterebbe lì
+      if (presaGiro) _lasciaDopoIlBanco(presaGiro);
     }
   };
+  /* 0062 (Giacomo 12/10: il velo «resta sotto il Banco»): G1 e G2 si aprono e `run` finisce subito.
+     Con un Banco aperto SOTTO IL VELO (un dossier, che non passa dalla mappa) la presa non si lascia
+     qui: il Banco sale sopra il velo dal motore (da solo nasce a 3400, sotto il velo) e la presa si
+     lascia quando il Banco esce dalla pagina, in qualunque modo lo si chiuda. Sulla mappa (fase «tela»)
+     il velo è già caduto e il Banco si apre sopra la mappa: la presa si lascia subito, perché durante
+     la revisione non lavora niente e lo spinner direbbe il falso. Con «Continua» il `run` nuovo ne
+     prende un'altra. Senza Banco (fine o errore) la presa si lascia subito. */
+  function _lasciaDopoIlBanco(n) {
+    const G = window.MappAIGen;
+    const banco = () => document.getElementById('mappai-teacher-review');
+    const b = banco();
+    if (!b || !window.MutationObserver || (G.tela && G.tela())) { G.lascia(n); return; }
+    try {
+      const MM = window.MappAIModal;
+      if ((parseInt(getComputedStyle(b).zIndex, 10) || 0) < 10000 && MM && MM.prossimoZ) b.style.zIndex = String(MM.prossimoZ());
+    } catch (e) { /* resta dov'è */ }
+    const oss = new MutationObserver(() => { if (!banco()) { oss.disconnect(); G.lascia(n); } });
+    oss.observe(document.body, { childList: true });
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // Modale di configurazione
@@ -1996,10 +2286,22 @@
                 fld(_t('mp_flashcard_count', 'Flashcard per ramo'), '<input type="number" id="mp-fc-count" min="1" max="30" value="5" class="w-[56px] ' + SEL + '">') +
                 fld(_t('mp_angle', 'Angolo'), '<select id="mp-angle" class="' + SEL + '">' + (window.buildQuizAngleOptions ? window.buildQuizAngleOptions('auto') : '<option value="auto">auto</option>') + '</select>') +
               '</div>' +
+              /* 0091: il NOME DEL GIRO. Due giri di scelta multipla davano in
+                 ELABORA due righe «Scelta Multipla» indistinguibili; il nome
+                 entra in `quiz.nome`, che il motore unisce già all'angolo per
+                 titolo, `clone` e nome del file (ADR 0003): nessuna convenzione
+                 nuova, la stessa di «Fai una copia». */
+              fld(_t('mp_quiz_nome', 'Nome (facoltativo)'), '<input type="text" id="mp-quiz-nome" maxlength="40" class="w-[220px] ' + SEL + '" placeholder="' + _esc(_t('mp_quiz_nome_ph', 'es. verifica ottobre')) + '">') +
+              '<p class="text-sm text-slate-600">' + _esc(_t('mp_quiz_nome_help', 'Si aggiunge al nome di quiz, domande aperte e flashcard di questo giro: così li riconosci nelle tabelle di ELABORA e di INSEGNA.')) + '</p>' +
               '<details><summary>' + _esc(_t('mp_multi_optional', 'Varianti aggiuntive per angolazione')) + '</summary><div class="flex gap-x-5 gap-y-2 flex-wrap">' +
                 PC().angoliMulti().map(k => chk('mp-ang-' + k, window.quizAngleLabel ? window.quizAngleLabel(k) : k, false)).join('') +
               '</div></details></div></div>' +
-          // Foglio nodi
+          /* Foglio nodi (e Catena). 0091 (Giacomo: «si generano solo in
+             automatico e solo per i progetti con output "Differenziazione"»):
+             su un progetto nato da una foto la sezione non c'è — è la stessa
+             regola che `run` applica al dossier (`config.dossier` → nodesheet e
+             causal null). Senza i campi `_readConfig` non li accende. */
+          (_progettoDaFoto() ? '' :
           '<div class="' + SECT + '">' + secHeader('mp-ns-on', _t('mp_nodesheet', 'Fogli nodi')) +
             '<div id="mp-ns-body" class="mt-3 space-y-3">' +
               '<div class="flex gap-5 items-center flex-wrap">' +
@@ -2007,19 +2309,25 @@
                 fld(_t('mp_fmt', 'Formato'), '<select id="mp-ns-fmt" class="' + SEL + '"><option value="3x4">3×4</option><option value="2x2" selected>2×2</option><option value="2x1">2×1</option></select>') +
               '</div>' +
               '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-ns-title', _t('mp_mode_title', 'Titolo'), true) + chk('mp-ns-keywords', _t('mp_mode_kw', 'Parole chiave'), false) + chk('mp-ns-summary', _t('mp_mode_summary', 'Da completare'), false) + chk('mp-ns-card', _t('mp_mode_card', 'Scheda'), false) + '</div>' +
-              chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div></div>' +
+              chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div></div>') +
           // Sintesi
           '<div class="' + SECT + '">' + secHeader('mp-syn-on', _t('mp_synthesis', 'Sintesi della mappa')) +
             '<div id="mp-syn-body" class="mt-3">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
-          /* Fonte originale accanto ai materiali. Il default cambia col contesto:
-             per una CLASSE no — il PDF di partenza è già nelle mani del docente e
-             duplicarlo in ogni vault di classe riempie il disco; per un ALLIEVO
-             sì — la sua cartella deve bastare a sé stessa, perché è quello che
-             gli si consegna. */
+          /* «Manda la fonte all'allievo» (0059, ADR 0011 rev. 1). Il PDF della
+             fonte va nel vault con o senza la spunta, in «Fonti/», che il
+             pacchetto dell'allievo non contiene; la spunta ne mette ANCHE una
+             copia in «Allegati/», che l'allievo riceve (primo tempo: finché il
+             reader non apre «Fonti/»). Il default cambia col contesto: per una
+             CLASSE no — il PDF resta al docente, in «Fonti/», e una seconda
+             copia in ogni vault di classe riempie il disco; per un ALLIEVO sì —
+             la sua cartella deve bastare a sé stessa, perché è quello che gli
+             si consegna. A interruttore mappai_fonte_in_fonti spento la spunta
+             torna quella di prima: la copia in «Allegati/» è l'unico PDF del
+             vault, e senza spunta il vault non ne ha. */
           '<div class="' + SECT + '">' +
-            chk('mp-src-pdf', _t('mp_src_pdf', 'Salva la fonte originale in «Allegati»'), _pdfDefault()) +
+            chk('mp-src-pdf', _t('mp_src_pdf', 'Manda la fonte all\'allievo'), _pdfDefault()) +
             '<p class="text-[11px] text-slate-500 leading-relaxed mt-2 ml-[26px]">' +
-              _esc(_t('mp_src_pdf_help', 'Il PDF di partenza resta nel vault, accanto ai materiali generati.')) +
+              _esc(_t('mp_src_pdf_help', 'Il PDF resta sempre nel vault, in «Fonti». Con la spunta ne va una copia in «Allegati», che l\'allievo riceve.')) +
             '</p></div>' +
           // Adatta alla classe (C): master + ambito. La classe attiva è già il contesto
           // base ovunque; qui scegli cosa affinare IN PIÙ (mappa e/o materiali).
@@ -2028,6 +2336,7 @@
               '<input type="checkbox" id="mp-adapt-on" class="w-[17px] h-[17px] accent-indigo-600 shrink-0">' +
               '<span class="text-[13.5px] font-bold text-slate-800">' + _esc(_t('mp_adapt', 'Adatta alla classe')) + ' <span id="mp-adapt-cls" class="text-indigo-600"></span></span>' +
             '</label>' +
+            (_tarAcceso() ? '<p id="mp-adapt-tar" class="text-[12px] text-slate-600 leading-relaxed mt-2 ml-[27px]"></p>' : '') +
             '<div id="mp-adapt-body" class="mt-3 space-y-2">' +
               '<p class="text-[11px] text-slate-500 leading-relaxed">' + _esc(_t('mp_adapt_help', 'La classe attiva è già il contesto di base. Scegli cosa affinare in più:')) + '</p>' +
               adaptRadio('map', _t('mp_adapt_map', 'Solo la mappa'), _t('mp_adapt_map_desc', 'profondità e complessità dei contenuti sul grado'), false) +
@@ -2051,7 +2360,7 @@
     modal.querySelector('#mp-preset-apply').onclick = () => Pipeline._applyPreset();
     modal.querySelector('#mp-preset-save').onclick = () => Pipeline._savePreset();
     modal.querySelector('#mp-preset-del').onclick = () => Pipeline._deletePreset();
-    modal.addEventListener('change', event => { if (event.target.id === 'mp-preset') Pipeline._applyPreset(); Pipeline._syncQuizSelection(event.target.id); _syncSections(); Pipeline._reestimate(); });
+    modal.addEventListener('change', event => { if (event.target.id === 'mp-preset') Pipeline._applyPreset(); if (event.target.id === 'mp-class') _adattaSecondoClasse(); Pipeline._syncQuizSelection(event.target.id); _syncSections(); Pipeline._reestimate(); });
     modal.addEventListener('input', () => Pipeline._reestimate());
     const esc = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); } };
     document.addEventListener('keydown', esc);
@@ -2060,9 +2369,72 @@
       _applyOptions(PC().presetFromConfig(currentConfig));
       if (currentPresetId) _configElement('mp-preset').value = currentPresetId;
     }
+    _adattaSecondoClasse();
     _syncSections();
     Pipeline._reestimate();
+    if (options && options.fromApproved && _g2Attende()) _avvisoG2(modal);
   };
+
+  /* ── LA G2 ASPETTA (0090, parte C; Giacomo 12/10: «Sì il modale deve assolutamente dirlo») ──
+     Prima il modale lasciava scegliere i materiali e poi `runApprovedMaterials` riapriva solo la G2: le
+     spunte si perdevano in silenzio. Ora lo dice in testa, offre «Completa validazione» (lo stesso gesto
+     del chip di ELABORA) e spegne scelte e «Avvia». Interruttore `mappai_elabora_attesa`. */
+  function _g2Attende() {
+    const C = window.MappAIMaterialiAttesaCore;
+    try { return !!(C && C.acceso(window.localStorage) && C.g2InAttesa(_state()._pipelineManifest)); } catch (e) { return false; }
+  }
+  function _avvisoG2(modal) {
+    const corpo = modal.querySelector('.space-y-3');
+    if (!corpo) return;
+    const box = document.createElement('div');
+    box.id = 'mp-g2-attesa';
+    box.setAttribute('role', 'alert');
+    box.className = 'bg-amber-50 rounded-xl px-4 py-3.5 border border-amber-200';
+    box.innerHTML = '<p class="text-[13px] font-semibold text-slate-800 leading-relaxed mb-3">' +
+      _esc(_t('mp_g2_attesa', 'I materiali chiesti l\'ultima volta aspettano la tua validazione: completala prima di generarne altri.')) + '</p>' +
+      '<button type="button" id="mp-g2-completa" class="pm-btn-primary" style="justify-content:center">' + _esc(_t('ea_chip', 'Completa validazione')) + '</button>';
+    corpo.insertBefore(box, corpo.firstChild);
+    corpo.querySelectorAll('input, select, button').forEach(el => { if (!box.contains(el)) el.disabled = true; });
+    /* spenti e che SI VEDANO spenti (gate 0090: le classi `pm-*` e i campi Tailwind non hanno uno stile
+       `:disabled`, e a piena opacità sembravano accesi): le sezioni sbiadite, «Avvia» col cursore del divieto */
+    Array.from(corpo.children).forEach(el => { if (el !== box) { el.style.opacity = '0.45'; el.style.pointerEvents = 'none'; el.setAttribute('aria-disabled', 'true'); } });
+    const avvia = modal.querySelector('#mp-start');
+    if (avvia) { avvia.disabled = true; avvia.style.opacity = '0.45'; avvia.style.cursor = 'not-allowed'; }
+    box.querySelector('#mp-g2-completa').onclick = () => {
+      modal.remove();
+      Pipeline._reviewTarget = null;
+      Pipeline.completaValidazione();
+    };
+  }
+
+  /* ── «ADATTA ALLA CLASSE» DICE LA TARATURA (0090, parte D, T1 (a); Giacomo 12/10: «serve solo sapere se
+     la classe ha già una taratura attiva oppure no») ──
+     «Taratura» = il pallino verde della lista delle classi (`MappAIClasses.classSpecial`: note scritte, o
+     registro «semplice»/«ricco»). L'interruttore parte acceso se la classe ce l'ha, spento se no, e vale SOLO
+     per questo giro: il profilo della classe non si tocca. Interruttore `mappai_modale_taratura`. */
+  function _tarAcceso() {
+    const C = window.MappAIMaterialiAttesaCore;
+    try { return !!(C && C.tarAcceso(window.localStorage)); } catch (e) { return false; }
+  }
+  function _classeScelta() {
+    const sel = document.querySelector('#mp-modal #mp-class');
+    const K = window.MappAIClasses;
+    const cls = (sel && sel.value && K && K.get) ? K.get(sel.value) : null;
+    return cls ? { cls, speciale: !!(K.classSpecial && K.classSpecial(cls)) } : null;
+  }
+  function _adattaSecondoClasse() {
+    if (!_tarAcceso() || !document.getElementById('mp-adapt-tar')) return;
+    const scelta = _classeScelta(), box = document.querySelector('#mp-modal #mp-adapt-on');
+    if (scelta && box) box.checked = scelta.speciale;
+  }
+  function _scriviTaratura() {
+    const p = document.getElementById('mp-adapt-tar');
+    if (!p) return;
+    const C = window.MappAIMaterialiAttesaCore, scelta = _classeScelta();
+    const r = scelta && C ? C.taratura(scelta.cls.name, scelta.speciale) : null;
+    p.textContent = r ? _t(r.chiave, r.riserva).replace('{nome}', scelta.cls.name) : '';
+    p.style.display = r ? '' : 'none';
+  }
 
   Pipeline._syncQuizSelection = function (changedId) {
     const mixed = _configElement('mp-qt-mixed');
@@ -2098,6 +2470,7 @@
       const cls = (sel.value && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(sel.value) : null;
       lbl.textContent = cls ? cls.name : '';
     }
+    _scriviTaratura();
   }
 
   /* Legge la config dai campi `mp-*`, ovunque siano montati: il MODALE storico
@@ -2140,6 +2513,11 @@
         cfg.quiz.multi = PC().multiTypes({ multi, types, angoli });
         if (mixed) Object.assign(cfg.quiz, { mixed: true, perBranch: 2, angle: 'auto', multi: [], angoli: [] });
         if (g('mp-fc-count')) cfg.quiz.perTipo = { flashcards: Math.max(1, Math.min(30, parseInt(g('mp-fc-count').value, 10) || 5)) };
+        /* 0091: il nome del giro (solo nel modale: il bento di CREA non ha il campo) */
+        const nomeGiro = g('mp-quiz-nome') ? String(g('mp-quiz-nome').value || '') : '';
+        const CLN = window.MappAIClona;
+        const nomePulito = (CLN && CLN.pulisci) ? CLN.pulisci(nomeGiro) : nomeGiro.trim();
+        if (nomePulito) cfg.quiz.nome = nomePulito;
       }
     }
     if (on('mp-ns-on')) {
@@ -2207,7 +2585,9 @@
   }
   // In italiano il decimale è la VIRGOLA: «2.4 per frase» è un numero inglese.
   function _num(x) {
-    try { return Number(x).toLocaleString(window.appLang === 'en' ? 'en-US' : 'it-IT'); }
+    // la lingua dell'interfaccia sta in `window.currentLanguage` (storage-lang):
+    // `window.appLang` non l'ha mai scritto nessuno, e in inglese usciva «2,4»
+    try { return Number(x).toLocaleString(window.currentLanguage === 'en' ? 'en-US' : 'it-IT'); }
     catch (e) { return String(x); }
   }
 
@@ -2233,11 +2613,25 @@
   // A new material job keeps the approved map and the previous delivery.
   Pipeline.runApprovedMaterials = async function (config, target, presetId) {
     const st = _state(), old = st._pipelineManifest;
-    if (Pipeline._running || !old?.review || !await window.MappAIReview.requireApproved()) return;
+    if (Pipeline._running) return;
+    if (old?.reading || st.extractionMode === 'lettura') {
+      if (target && (target.vaultPath !== st.activeVaultPath || target.revision !== old?.review?.approvedRevision)) {
+        throw new Error(_t('pl_stale', 'Il progetto è cambiato. Riapri il percorso prima di continuare.'));
+      }
+      if (!window.MappAIReview?.open) throw new Error(_t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
+      return window.MappAIReview.open(st.activeVaultPath, old);
+    }
+    if (!old?.review || !await window.MappAIReview.requireApproved({ quarantena: true })) return;
     if (target && (target.vaultPath !== st.activeVaultPath || target.revision !== old.review.approvedRevision)) {
       _toast(_t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'), 'warning'); return;
     }
-    if (old.review.final && old.review.final.stage !== 'done') { window.MappAIReview.openCurrent(); return; }
+    if (old.review.final && old.review.final.stage !== 'done') {
+      /* Sotto quarantena «Genera materiali» può ripartire da dentro una console
+         mentre G2 aspetta: il Banco di G2 chiede il suo piano al motore (inv. 11,
+         trappola 52; giro 7 del 26/09, H11). Da spenta, la chiamata di sempre. */
+      Pipeline.completaValidazione();
+      return;
+    }
     const manifest = PC().createManifest(config, { now: _now(), vaultPath: st.activeVaultPath });
     manifest.steps.A = JSON.parse(JSON.stringify(old.steps.A));
     manifest._storageVersion = old._storageVersion;
@@ -2257,12 +2651,10 @@
     const cfg = _readConfig();
     if (!cfg) return;
     if (window.MappAIModelli && window.MappAIModelli.acceso()) {
-      try {
-        const p = window.MappAIModelli.profiloSetup();
-        if (p.provider === 'infomaniak' && cfg.synthesis && cfg.synthesis.audio) {
-          _toast(_t('modelli_no_audio', 'Per questo giro Infomaniak scegli la sintesi senza voce: la voce naturale usa Google.'), 'error'); return;
-        }
-      } catch (e) { _toast(e.message, 'error'); return; }
+      /* 0065 (ADR 0004 rev. 3): la voce non ferma più un giro Infomaniak — va a
+         Google con la chiave Google, controllata qui sotto. Resta la prova che il
+         profilo per fase sia valido. */
+      try { window.MappAIModelli.profiloSetup(); } catch (e) { _toast(e.message, 'error'); return; }
     }
     /* Con una FOTO fra le fonti gli output sono fissi (vedi sotto): la guardia
        «attiva almeno una sezione» vale solo per la generazione dalla mappa. */
@@ -2273,10 +2665,18 @@
       if (!apiKey) { _toast(_t('tst_need_key', "Inserisci un'API Key per continuare"), 'error'); return; }
     }
     // Voce: richiede la chiave Google diretta → altrimenti deseleziona con avviso (FR-006).
-    if (cfg.synthesis && cfg.synthesis.audio) {
+    /* 0065: la stessa chiave che legge la voce (`gemini_api_key`), con le fasi
+       accese o spente; senza, la voce si spegne, l'avviso è ROSSO e il giro continua. */
+    /* 0067 (01/10, Giacomo: «sì, aggiungi la riga»): con una foto la voce la
+       sceglie la scheda e il controllo lo fa `cfgDossier`; qui si guarderebbe la
+       spunta del bento, nascosta ma ancora salvata → avviso falso o doppio. */
+    if (!schedeFoto.length && cfg.synthesis && cfg.synthesis.audio) {
       let gk = ''; try { gk = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
-      if (!gk) { cfg.synthesis.audio = false; _toast(_t('mp_no_google', 'Voce naturale disattivata: serve la chiave Google (Gemini). La sintesi sarà solo testo.'), 'warning'); }
+      if (!gk) { cfg.synthesis.audio = false; _toast(_t('mp_voce_no_google', 'La voce naturale usa Google: manca la chiave Google. La sintesi uscirà senza voce. Inseriscila in Impostazioni AI › Google Gemini.'), 'error'); }
     }
+    /* 0091: il nome del giro già preso → il modale resta aperto e lo dice */
+    const nomePreso = _nomeGiroPreso(cfg.quiz);
+    if (nomePreso) { _toast(nomePreso, 'warning'); return; }
     const presetId = _configElement('mp-preset')?.value;
     const modal = document.getElementById('mp-modal'); if (modal) modal.remove();
     /* ── LE IMMAGINI FANNO DOSSIER (20/8) ────────────────────────────────────
@@ -2292,50 +2692,48 @@
       const target = Pipeline._reviewTarget; Pipeline._reviewTarget = null;
       Pipeline.runApprovedMaterials(cfg, target, presetId); return;
     }
-    if (!schede.length) { Pipeline.run(cfg, { presetId }); return; }
+    /* B14: `_startFromModal` è l'ingresso di CREA (il bento `mn-genera` e il bottone del form): i suoi giri
+       si dichiarano `daCrea`. ELABORA e INSEGNA riprendono col manifesto e non lo dichiarano. */
+    if (!schede.length) { Pipeline.run(cfg, { presetId, daCrea: true }); return; }
     (async () => {
       if (_haAltreFonti()) {
         _toast(_t('mp_dossier_solo', 'Con delle immagini caricate si generano i DOSSIER delle fonti: le altre fonti non entrano (generale separatamente).'), 'info');
       }
-      /* ── GLI OUTPUT DI UN DOSSIER SONO FISSI (20/8, richiesta di Giacomo):
-         una foto genera automaticamente TUTTI i materiali previsti per le
-         fonti iconografiche — flashcard, domande aperte, sintesi — senza
-         niente da spuntare. Le spunte del box «Output automatici» restano la
-         leva della generazione NORMALE (dalla mappa). La voce naturale segue
-         la spunta: è l'unico output che costa in modo visibile. */
-      /* Le OPZIONI le porta la SCHEDA (fase 3): quante per categoria, quali
-         categorie, quali angoli — per genere. Una scheda senza opzioni (fase
-         2, o confermata senza toccare niente) genera i tre output di default:
-         è lo stesso comportamento di prima, dichiarato qui. */
+      /* ── LE USCITE DI UN DOSSIER (0067, ADR 0015 rev. 1; decisione del 01/10) ──
+         Il «gli output di un dossier sono FISSI» del 20/8 è superato: i materiali
+         di una foto si scelgono SOLO nella SCHEDA (Giacomo, 01/10: «sì, solo nella
+         scheda») — quali, da quali parti, con quali angoli e quante — e la scheda
+         ricorda le ultime scelte. Dal bento (`cfg`) restano il contesto e la voce
+         della sintesi. La composizione la fa il core
+         (`MappAICreaIconograficaCore.uscite`), non questo punto (inv. 4). */
+      /* La VOCE della sintesi la chiede la scheda (decisione 9 del 01/10), quindi il
+         controllo della chiave Google vale QUI, sulla config del dossier: quello del
+         bento più sopra guarda una spunta che con una foto non c'è. Senza chiave la
+         voce si spegne con l'avviso rosso dello 0065 — una volta sola, anche con più
+         foto. La chiave si legge come la legge la voce (`gemini_api_key`). */
+      let voceAvvisata = false;
+      /* il LOTTO (gate 3, 01/10 sera): i dossier di questo gesto, perché la fine
+         dell'ultimo apra ELABORA e ripulisca CREA una volta sola (`_dopoIlDossier`) */
+      const lottoId = 'lotto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
       const cfgDossier = (sch) => {
-        const op = sch.opzioni || {};
-        const oq = op.oq || {}, fc = op.fc || {};
-        const types = [];
-        if (oq.on !== false) types.push('open');
-        if (fc.on !== false) types.push('flashcards');
-        /* un genere si MOLTIPLICA solo se ha degli angoli scelti: senza, resta
-           una generazione sola ad angolo misto (multiTypes chiede angoli). */
-        const multi = [];
-        if ((oq.angoli || []).length) multi.push('open');
-        if ((fc.angoli || []).length) multi.push('flashcards');
-        return Object.assign({}, cfg, {
-          quiz: types.length ? {
-            types: types, perBranch: 3, angle: 'auto',
-            multi: multi,
-            angoli: (oq.angoli || []).concat(fc.angoli || []),
-            angoliPerTipo: { open: oq.angoli || [], flashcards: fc.angoli || [] },
-            perTipo: { open: oq.n, flashcards: fc.n },
-            catPerTipo: { open: oq.cat || null, flashcards: fc.cat || null }
-          } : null,
-          synthesis: (op.syn === false) ? null : { audio: !!(cfg.synthesis && cfg.synthesis.audio) },
-          dossier: sch
-        });
+        const IC = window.MappAICreaIconograficaCore;
+        if (!IC || !IC.uscite) {
+          _toast(_t('mp_error', 'Pipeline interrotta: ') + 'crea-iconografica-core', 'error');
+          throw new Error('crea-iconografica-core non caricato');
+        }
+        let gk = ''; try { gk = localStorage.getItem('gemini_api_key') || ''; } catch (e) {}
+        if (!gk && IC.voceChiesta && IC.voceChiesta(sch.opzioni) && !voceAvvisata) {
+          voceAvvisata = true;
+          _toast(_t('mp_voce_no_google', 'La voce naturale usa Google: manca la chiave Google. La sintesi uscirà senza voce. Inseriscila in Impostazioni AI › Google Gemini.'), 'error');
+        }
+        return Object.assign(IC.uscite(cfg, sch, { chiaveGoogle: !!gk }),
+          { _lotto: { id: lottoId, n: schede.length, i: schede.indexOf(sch) } });
       };
       /* `run` non rilancia (il suo catch fa il toast): qui si va solo in
          sequenza — un dossier fallito ha già detto la sua, e i successivi
          partono lo stesso (trappola 36). */
       for (const sch of schede) {
-        await Pipeline.run(cfgDossier(sch));
+        await Pipeline.run(cfgDossier(sch), { daCrea: true });
       }
       if (schede.length > 1) {
         _toast(_t('mp_dossier_fine', '{n} dossier lavorati — l\'esito di ognuno è nel suo riepilogo')
@@ -2405,6 +2803,11 @@
         '<div style="display:flex;align-items:center;gap:10px">' + _statusChip(rec.status) + retry + '</div></div>';
     }).join('');
 
+    /* La riga della quarantena (packet 0042): che cosa è rimasto fuori, che la
+       mappa non è cambiata, «Rivedi i contenuti». '' se il giro non è nato
+       sotto quarantena: allora il riepilogo è quello di sempre. */
+    const UIA = window.MappAIAffermazioniUI;
+    const strato = UIA && UIA.rigaRiepilogo ? UIA.rigaRiepilogo(manifest, _state().db) : '';
     const modal = document.createElement('div');
     modal.id = 'mp-summary';
     modal.className = 'fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[3200] flex items-center justify-center p-4';
@@ -2413,7 +2816,7 @@
         '<button type="button" id="mps-close" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>' +
         '<div class="flex items-center gap-3 mb-3"><div class="pm-icon-wrap"><i data-lucide="clipboard-check" class="w-5 h-5 text-indigo-600"></i></div>' +
           '<div class="pm-title">' + _esc(_t('mp_summary', 'Materiali generati')) + '</div></div>' +
-        '<div>' + rows + '</div>' +
+        '<div>' + rows + '</div>' + strato +
         '<div class="flex gap-3 mt-5"><button type="button" id="mps-folder" class="pm-btn-cancel"><i data-lucide="folder-open" class="w-4 h-4"></i> ' + _esc(_t('mp_open_folder', 'Apri cartella')) + '</button>' +
         '<button type="button" id="mps-ok" class="pm-btn-primary" style="flex:1;justify-content:center">' + _esc(_t('ui_ok', 'Chiudi')) + '</button></div>' +
       '</div>';
@@ -2426,6 +2829,29 @@
     modal.querySelectorAll('.mp-retry').forEach(btn => {
       btn.onclick = () => { const step = btn.getAttribute('data-step'); modal.remove(); Pipeline.run(config, { only: [step], vaultPath, manifest }); };
     });
+    if (strato) {
+      // il Banco dei contenuti chiede il suo piano al motore: può partire da dentro una console (inv. 11)
+      const rivedi = modal.querySelector('#mps-rivedi');
+      /* B15 (0088, Giacomo 12/10 sera): prima di tornare a G1 una conferma dice che cosa succede — un docente
+         che ha appena chiuso una G2 lunga potrebbe credere di perderla. Un giro consegnato non si tocca
+         (`invalidaBozze`): le correzioni ai contenuti valgono per i materiali che genera dopo; con materiali
+         ancora in attesa, correggere un contenuto fa rifare le bozze che ne dipendono. La conferma è del motore,
+         quindi sale sopra il riepilogo; senza motore il gesto resta quello di prima. */
+      if (rivedi) rivedi.onclick = () => {
+        const vai = () => { modal.remove(); if (window.MappAIReview) window.MappAIReview.open(vaultPath, manifest, { alza: true }); };
+        const MM = window.MappAIModal;
+        if (!(MM && typeof MM.conferma === 'function')) { vai(); return; }
+        const consegnato = !!(manifest.review && manifest.review.final && manifest.review.final.stage === 'done');
+        return MM.conferma({
+          titolo: _t('mps_rivedi_titolo', 'Tornare ai contenuti?'),
+          testo: consegnato
+            ? _t('mps_rivedi_fatto', 'Si apre il Banco dei contenuti. I materiali appena completati restano come sono: le correzioni ai contenuti valgono per i materiali che genererai dopo.')
+            : _t('mps_rivedi_attesa', 'Si apre il Banco dei contenuti. I materiali in attesa restano salvati; se correggi un contenuto, le bozze che ne dipendono verranno rifatte.'),
+          conferma: _t('mps_rivedi_ok', 'Apri i contenuti'),
+          annulla: _t('mm_annulla', 'Annulla')
+        }).then(si => { if (si) vai(); });
+      };
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -2443,11 +2869,24 @@
       if (_state().activeVaultPath !== vaultPath) return;
       if (window.MappAIModelliUI) window.MappAIModelliUI.mostraGiro(manifest.ultimoDocumentoModelli || manifest.modelliGiro || null);
       if (!PC() || manifest.schema !== PC().SCHEMA) return;
+      /* Con la quarantena accesa G1 è facoltativa (packet 0042): niente Banco
+         automatico, e la ripresa si propone come oggi se i materiali non sono
+         finiti (G1 in attesa contata come approvata). */
+      const AFF = window.MappAIAffermazioni;
+      let facoltativa = false;
       if (window.MappAIReview && manifest.review) {
         await window.MappAIReview.restore(vaultPath, manifest);
-        if (manifest.review.initial.status !== 'approved') { window.MappAIReview.open(vaultPath, manifest); return; }
+        facoltativa = !!(AFF && AFF.facoltativa(manifest.review));
+        /* Gate 3 del 27/09: un progetto aperto da dentro ELABORA lascia la console
+           aperta, e il Banco a z 3400 restava sotto. Sotto quarantena chiede il
+           piano al motore; spenta, la chiamata di sempre (riga in INTAKE). */
+        if (manifest.review.initial.status !== 'approved' && !facoltativa) {
+          if (AFF && AFF.quarantenaAccesa && AFF.quarantenaAccesa()) window.MappAIReview.open(vaultPath, manifest, { alza: true });
+          else window.MappAIReview.open(vaultPath, manifest);
+          return;
+        }
       }
-      if (PC().isComplete(manifest)) return;   // niente da riprendere
+      if (facoltativa ? AFF.completo(manifest) : PC().isComplete(manifest)) return;   // niente da riprendere
       manifest = PC().normalizeOnLoad(manifest);   // running (crash) → failed
       _confirmResume(vaultPath, manifest);
     } catch (e) { /* silenzioso: la ripresa non deve mai bloccare il load */ }
@@ -2515,6 +2954,43 @@
      dell'archivio è per `kind|title|mapName`, quindi lo stesso titolo
      SOSTITUISCE in silenzio una copia magari corretta a mano — e il file, che
      porta lo stesso nome, idem. Torna il messaggio, o '' se il nome è libero. */
+  /* 0091: il modale aperto su un progetto GIÀ generato che è nato da una foto
+     (la radice del dossier è `fonte_0`, `VC.nodiDaScheda`; si cerca fra tutti i
+     nodi, come `mappai-vault-io.js` per il `dossier:` dell'index, perché dopo
+     una revisione la radice può non essere il primo). */
+  function _progettoDaFoto() {
+    if (!Pipeline._reviewTarget) return false;
+    const nodi = (_state().db && _state().db.nodes) || [];
+    return nodi.some(n => n && n.id === 'fonte_0');
+  }
+
+  /* Il nome di un materiale del giro: la chiave dell'angolo (solo se il giro
+     ne genera più d'uno per quel genere) e il nome del giro. Una regola sola,
+     per il giro (`run`) e per il controllo prima di partire (0091). */
+  function _etichettaGiro(quiz, angoli, ang) {
+    const nomeVar = (angoli.length > 1) ? PC().nomeAngolo(ang) : '';
+    return { nomeVar, etichetta: [nomeVar, quiz && quiz.nome].filter(Boolean).join(' · ') };
+  }
+  /* 0091: il nome del giro già preso da un materiale dello stesso genere si
+     rifiuta PRIMA di spendere token — la dedup dell'archivio sostituirebbe in
+     silenzio il materiale di prima. Stessi generi e stessi angoli di `run`.
+     Torna il messaggio, o '' se tutti i nomi sono liberi. */
+  function _nomeGiroPreso(quiz) {
+    if (!quiz || !quiz.nome) return '';
+    const mapName = _mapName();
+    const angle = quiz.angle || 'auto';
+    const multi = PC().multiTypes(quiz);
+    for (const t of (quiz.types || []).filter(x => _QT[x])) {
+      const angoli = (multi.indexOf(t) >= 0) ? PC().angoliPerTipo(quiz, t) : [angle];
+      for (const ang of angoli) {
+        const preso = _nomeGiaPreso(_QT[t], _etichettaGiro(quiz, angoli, ang).etichetta, mapName);
+        if (preso) return _QT[t].typeLabel + ': ' + preso;
+      }
+    }
+    return '';
+  }
+  Pipeline._nomeGiroPreso = _nomeGiroPreso;
+
   function _nomeGiaPreso(spec, nome, mapName) {
     const CLN = window.MappAIClona;
     if (!nome || !CLN || !CLN.chiave) return '';

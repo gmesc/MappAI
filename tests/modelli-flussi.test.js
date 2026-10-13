@@ -223,3 +223,45 @@ test('misura Evidence: contatori invariati, provenienza del giro e nessun segret
     assert.deepEqual(saved[1].modelli, next.modelli);
     assert(!JSON.stringify(saved).includes('segreto-escluso')); assert(!JSON.stringify(saved).includes('prodotto-escluso'));
 });
+
+/* ── 0061: la cartella della pipeline si ADOTTA come «nuova» prima di scriverla ──
+   I finti di tools/smoke/modelli-nei-flussi.js registrano in `h.ordine`: l'adozione
+   (gesto, scritture già fatte su quella cartella, `activeVaultPath` in quel momento),
+   ogni `saveVault` (con `activeVaultPath` al momento della chiamata) e ogni salvataggio
+   della voce (con quanti `pipeline.json` erano già scritti). */
+function creazioneDellaCartella(h, etichetta) {
+    const ordine = h.ordine || [];
+    const prima = ordine.find(e => e.evento === 'saveVault');
+    assert(prima, etichetta + ': la pipeline scrive la cartella della mappa');
+    const cartella = prima.percorso;
+    const adozione = ordine.find(e => e.evento === 'adotta' && e.percorso === cartella);
+    assert(adozione, etichetta + ': la cartella si adotta');
+    assert.equal(adozione.gesto, 'nuova', etichetta + ': la cartella nasce per la mappa appena generata');
+    assert.equal(adozione.scrittureGiaFatte, 0, etichetta + ': nessuna scrittura sulla cartella prima dell\'adozione');
+    assert(ordine.indexOf(adozione) < ordine.indexOf(prima), etichetta + ': adozione prima della prima saveVault');
+    assert.notEqual(adozione.activeVaultPath, cartella, etichetta + ': activeVaultPath si scrive DOPO l\'adozione');
+    assert.equal(prima.activeVaultPath, cartella, etichetta + ': durante la prima saveVault la cartella è quella attiva');
+    const voce = ordine.slice(ordine.indexOf(prima) + 1).find(e => e.evento === 'voce');
+    assert(voce, etichetta + ': la voce si salva dopo la prima saveVault');
+    assert.equal(voce.manifesti, 0, etichetta + ': la voce dichiara la cartella prima del primo pipeline.json');
+}
+
+test('0061: P1. passo A: la cartella si adotta come «nuova» prima della sua prima scrittura, e la voce la dichiara subito', async () => {
+    const h = runtime({ mode: 'mindmap' });
+    await h.window.MappAIPipeline.run({ quiz: { types: ['flashcards'], perBranch: 1 } });
+    assert.equal(h.manifest()?.steps.A.status, 'done', h.logs.join('\n'));
+    creazioneDellaCartella(h, 'passo A');
+});
+
+test('0061: P2. dossier: la stessa creazione, nello stesso ordine', async () => {
+    /* Il giro per fase rifiuta i dossier (mappai-modelli.js:130), come nell'app: il
+       dossier gira col trasporto di prima, cioè con l'interruttore del multimodello spento. */
+    const h = runtime({ mode: 'mindmap', on: false });
+    h.load('public/js/mappai-visione-core.js');
+    const scheda = { titolo: 'Manifesto 1941', identita: { genere: 'Manifesto', data: '1941' },
+        osservazione: { descrizione: 'Un soldato davanti alle montagne, con una bandiera.' } };
+    assert(h.window.MappAIVisioneCore.nodiDaScheda(scheda).nodes.length > 1, 'la scheda ha i suoi rami');
+    await h.window.MappAIPipeline.run({ dossier: scheda, quiz: { types: ['flashcards'], perBranch: 1 } });
+    assert.equal(h.manifest()?.steps.A.status, 'done', h.logs.join('\n'));
+    creazioneDellaCartella(h, 'dossier');
+});

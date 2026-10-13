@@ -21,10 +21,24 @@
   var LS_SETS = 'mappai_studysets_index';
 
   function _t(k, f) { return window.t ? window.t(k, f) : f; }
+  /* L'escape è quello del nucleo (mappai-html-sicuro.js, caricato prima): i
+     cinque caratteri, apice compreso. Senza, un ripiego che fa lo stesso. */
   function esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (window.MappAIHtmlSicuro && window.MappAIHtmlSicuro.esc) return window.MappAIHtmlSicuro.esc(s);
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
   }
+  /* ── UN DATO DENTRO UN GESTORE IN LINEA (25/9/2026) ────────────────────────
+     Le righe dei Materiali e dei Quiz cartacei portavano l'id del file dentro
+     `onclick="…openDiskFile('<id>')"`, e l'id è `disk:` + il percorso del file
+     in `Materiale Studio/`: il NOME di un file di un vault ricevuto. `esc` non
+     bastava, e non sarebbe bastato neanche con l'apice: il parser HTML scioglie
+     `&#39;` in `'` PRIMA che il codice parta, quindi un file chiamato
+     `x');…;('.pdf` era codice al clic sulla riga — con `window.electronAPI` in
+     mano. Stessa strada per i report delle attività: `encodeURIComponent`
+     lascia passare l'apice, e una mappa «L'Illuminismo» dava un bottone che
+     non si compilava. `JSON.stringify` scrive un letterale di stringa JS valido,
+     `esc` lo tiene dentro l'attributo: alla funzione arriva il valore intero. */
+  function jsArg(v) { return esc(JSON.stringify(String(v == null ? '' : v))); }
   var CORE = function () { return window.MappAITeachCore; };
 
   // ── localStorage I/O ───────────────────────────────────────────────────────
@@ -75,7 +89,7 @@
     try { var ac = activeClass(); defCls = ac && ac.name ? ac.name : null; } catch (e2) { }
     var e = {
       map: entry && entry.map != null ? entry.map : '',
-      projectId: entry && entry.projectId != null ? entry.projectId : (window.StorageManager && StorageManager.currentProjectId) || null,
+      projectId: entry && entry.projectId != null ? entry.projectId : (typeof StorageManager !== 'undefined' && StorageManager.currentProjectId) || null,
       cls: entry && entry.cls !== undefined ? entry.cls : defCls,
       activity: entry && entry.activity != null ? entry.activity : '',
       date: Date.now()
@@ -125,7 +139,7 @@
   function _ensureFreshAndRerender() {
     if (_freshBusy) return; _freshBusy = true;
     var tasks = [];
-    try { if (window.StorageManager && StorageManager.syncValidVaults) tasks.push(StorageManager.syncValidVaults()); } catch (e) { }
+    try { if (typeof StorageManager !== 'undefined' && StorageManager.syncValidVaults) tasks.push(StorageManager.syncValidVaults()); } catch (e) { }
     try { if (window.MappAIClasses && window.MappAIClasses.load && !window.MappAIClasses.loaded) tasks.push(window.MappAIClasses.load()); } catch (e) { }
     var done = function () {
       _freshBusy = false;
@@ -427,13 +441,14 @@
         }
       } catch (e) { /* best-effort */ }
       // Mappa aperta in questo momento → allinea lo stato, altrimenti il prossimo
-      // autosave riscriverebbe il vecchio percorso.
+      // autosave riscriverebbe il vecchio percorso. ⚠️ Era `window.appState`, che
+      // non esiste (`appState` è una `let`): lo stato non si allineava MAI.
       try {
         if (fullPath && typeof StorageManager !== 'undefined' && StorageManager.currentProjectId === p.id) {
-          var st = window.appState || null;
+          var st = _appState();
           if (st) { st.activeVaultPath = fullPath; st.activeVaultClassDir = classDir || null; st.activeVaultDiscDir = discDir || null; }
         }
-      } catch (e) { /* appState lessicale: best-effort */ }
+      } catch (e) { /* best-effort */ }
     };
 
     if (!v || !v.fullPath || !window.electronAPI || !window.electronAPI.vaultRelocate) {
@@ -880,6 +895,18 @@
   function _egualeNome(a, b) { return _nfc(a) === _nfc(b); }
 
   function matchProjectToVault(projects, v) {
+    /* 0061 (29/09, D4; ADR 0013): una cartella che DICHIARA il suo id apre solo la
+       voce con quell'id nella sua stessa posizione; altrimenti nessuna voce, e la riga
+       apre la cartella (`directLoadVault`, gesto `apri`: l'id lo dà lei). Così una
+       cartella senza voce non si lega alla voce di un'altra mappa (la riga aprirebbe la
+       mappa vecchia, e `writeMeta` ne riscriverebbe i metadati), e una cartella spostata
+       in Finder non passa da una fotografia che punta al percorso vecchio. La decisione
+       è del core; senza un id valido, le righe di prima. */
+    var TCm = window.MappAITeachCore;
+    if (TCm && TCm.voceDellaCartella) {
+      var d = TCm.voceDellaCartella(projects, v);
+      if (d && d.decisa) return d.voce;
+    }
     // Match stretto: stessa cartella, stessa classe, stessa disciplina (29/7) —
     // due mappe omonime in discipline diverse della stessa classe sono distinte.
     var byAll = projects.find(function (p) {
@@ -1038,8 +1065,10 @@
   // Backfill (decisione 2): crea in blocco le cartelle mancanti per i progetti
   // localStorage senza vault, dagli snapshot appState su disco — SENZA toccare la
   // mappa aperta. Nesting per classe (clsId → classe) e collisione « · 0N ».
-  function _mapDataFromSnapshot(snap) {
+  // 0061 (29/09, D7): la cartella nasce per QUELLA voce, e porta il suo id in `index.yaml` (ADR 0013)
+  function _mapDataFromSnapshot(snap, projectId) {
     return {
+      projectId: projectId,
       extractionMode: snap.extractionMode,
       rootNodeLabel: snap.rootNodeLabel,
       nodes: (snap.db && snap.db.nodes) || [],
@@ -1068,6 +1097,11 @@
       var projects = projectsRead();
       for (var k = 0; k < todo.length; k++) {
         var p = todo[k];
+        /* 0061 (29/09, D7; ADR 0013): una voce il cui id è già dichiarato da una
+           cartella dell'elenco ha la sua casa — non ha fatto in tempo a dichiararla
+           (uscita forzata durante la pipeline), o è già stata riordinata e la sua
+           fotografia non lo sa. Non se ne fa una seconda, e non si conta fra le create. */
+        if (fc.idProgettoValido && fc.idProgettoValido(p.id) && all.some(function (v) { return v && v.projectId === p.id; })) continue;
         var snap = null; try { snap = JSON.parse(localStorage.getItem(p.id) || 'null'); } catch (e) { snap = null; }
         if (!snap || !snap.db || !snap.db.nodes || !snap.db.nodes.length) continue;
         var cls = (p.clsId && window.MappAIClasses && window.MappAIClasses.get) ? window.MappAIClasses.get(p.clsId) : null;
@@ -1093,7 +1127,7 @@
         }
         var folderPath = [base].concat(fc.mapVaultParents(classDir, discDir), [finalName]).join('/');
         var res = null;
-        try { res = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: _mapDataFromSnapshot(snap) }); } catch (e) { res = null; }
+        try { res = await window.electronAPI.saveVault({ folderPath: folderPath, mapData: _mapDataFromSnapshot(snap, p.id) }); } catch (e) { res = null; }
         if (res && res.success) {
           var proj = projects.find(function (x) { return x.id === p.id; });
           if (proj) { proj.vault = finalName; proj.classDir = classDir; proj.discDir = discDir || null; if (discName) proj.disc = discName; }
@@ -1254,10 +1288,10 @@
         tipo: tipoCell(dk.icon, dk.label, dk.label),
         title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
         cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date),
-        block: actIcon('printer', _t('lt_qp_open_file', 'Apri il file (stampa dal visualizzatore)'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false) +
-          actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false),
-        onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
+        block: actIcon('printer', _t('lt_qp_open_file', 'Apri il file (stampa dal visualizzatore)'), "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")", 'text-indigo-500 hover:text-indigo-700', false) +
+          actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")", null, false) +
+          actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile(" + jsArg(d.id) + ")", 'text-slate-300 hover:text-red-500', false),
+        onClick: "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")"
       });
     }
     var meta = KIND_META[d.kind] || KIND_META.quizpaper;
@@ -1277,11 +1311,11 @@
       title: d.title, titleHtmlExtra: badge, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
       cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date),
       block:
-        actIcon('printer', _t('lt_qp_print', 'Stampa (con o senza soluzioni)'), "window.MappAITeach.printQuizPaper('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-        actIcon('qr-code', isPdf ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareQuizPaper('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isPdf) +
+        actIcon('printer', _t('lt_qp_print', 'Stampa (con o senza soluzioni)'), "window.MappAITeach.printQuizPaper(" + jsArg(d.id) + ")", 'text-indigo-500 hover:text-indigo-700', false) +
+        actIcon('qr-code', isPdf ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareQuizPaper(" + jsArg(d.id) + ")", 'text-green-600 hover:text-green-700', isPdf) +
         actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
-        actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false),
-      onClick: "window.MappAITeach.printQuizPaper('" + esc(d.id) + "')"
+        actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc(" + jsArg(d.id) + ")", 'text-slate-300 hover:text-red-500', false),
+      onClick: "window.MappAITeach.printQuizPaper(" + jsArg(d.id) + ")"
     });
   }
 
@@ -1391,29 +1425,29 @@
     if (d._disk) {
       var dk = _diskKind(d.title);
       var block =
-        actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-        actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile('" + esc(d.id) + "')", null, false) +
-        actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
+        actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")", 'text-indigo-500 hover:text-indigo-700', false) +
+        actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")", null, false) +
+        actIcon('trash-2', _t('lt_file_delete', 'Sposta il file nel Cestino'), "window.MappAITeach.deleteDiskFile(" + jsArg(d.id) + ")", 'text-slate-300 hover:text-red-500', false);
       return fileRow({
         tipo: tipoCell(dk.icon, dk.label, dk.label),
         title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
         cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date), block: block,
-        onClick: "window.MappAITeach.openDiskFile('" + esc(d.id) + "')"
+        onClick: "window.MappAITeach.openDiskFile(" + jsArg(d.id) + ")"
       });
     }
     var meta = KIND_META[d.kind] || KIND_META.dossier;
     var typeLbl = _t(KIND_META[d.kind] ? 'lt_kind_' + d.kind : 'lt_kind_dossier', meta.label);
     var isNode = d.kind === 'nodesheet';
     var block2 =
-      actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDoc('" + esc(d.id) + "')", 'text-indigo-500 hover:text-indigo-700', false) +
-      actIcon('qr-code', isNode ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareDoc('" + esc(d.id) + "')", 'text-green-600 hover:text-green-700', isNode) +
+      actIcon('play-circle', _t('lt_open', 'Apri'), "window.MappAITeach.openDoc(" + jsArg(d.id) + ")", 'text-indigo-500 hover:text-indigo-700', false) +
+      actIcon('qr-code', isNode ? _t('lt_doc_no_qr_short', 'Non condivisibile via QR') : _t('lt_sm_share', 'Condividi via QR'), "window.MappAITeach.shareDoc(" + jsArg(d.id) + ")", 'text-green-600 hover:text-green-700', isNode) +
       actIcon('folder', _t('lt_open_docs_folder', 'Apri la cartella documenti'), "window.MappAITeach.openMapsFolder()", null, false) +
-      actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc('" + esc(d.id) + "')", 'text-slate-300 hover:text-red-500', false);
+      actIcon('trash-2', _t('lt_sm_delete', 'Elimina'), "window.MappAITeach.deleteDoc(" + jsArg(d.id) + ")", 'text-slate-300 hover:text-red-500', false);
     return fileRow({
       tipo: tipoCell(meta.icon, typeLbl, typeLbl),
       title: d.title, titleTip: d.title, sub: d.mapName ? esc(d.mapName) : '',
       cls: classCell(d.cls), disc: d.disc || discOfMap(d.mapName, d.projectId), date: dateCell(d.date), block: block2,
-      onClick: "window.MappAITeach.openDoc('" + esc(d.id) + "')"
+      onClick: "window.MappAITeach.openDoc(" + jsArg(d.id) + ")"
     });
   }
   function _paintMaterials(body, list) {
@@ -1515,25 +1549,30 @@
   }
 
   var ACT_ICON = { Quiz: 'help-circle', 'Vero-Falso': 'check-circle', Cloze: 'pencil-line', Domande: 'message-circle-question', 'Tutor AI': 'message-square', Timeline: 'gantt-chart', Lavagna: 'presentation' };
+  /* Il nome che si LEGGE di un'attività, quando è diverso da quello delle sue
+     cartelle: «Tutor AI» resta nel nome della cartella (`FilesCore.activityLabel`,
+     su cui si appoggia la ripresa di una sessione aperta), ma a schermo
+     l'attività si chiama «Chiedi e Rispondi» (26/9/2026). */
+  function _nomeAttivita(a) { return a === 'Tutor AI' ? _t('lt_act_tutor', 'Chiedi e Rispondi') : a; }
   // Report → etichetta breve del bottone (chiave i18n · fallback IT).
   var WHICH_LBL = { questions: 'lt_rep_answers', students: 'lt_rep_students', tutor: 'lt_rep_tutor', workshop: 'lt_rep_workshop' };
   var WHICH_FB = { questions: 'Risposte', students: 'Allievi', tutor: 'Tutor', workshop: 'Costruzione' };
   function activityRow(r) {
     var scope = r.scope ? esc(r.scope) : esc(_t('lt_whole_map', 'Tutta la mappa'));
     var icon = ACT_ICON[r.activity] || 'clipboard-list';
-    var typeLbl = r.activity || _t('lt_activity', 'Attività');
+    var typeLbl = _nomeAttivita(r.activity) || _t('lt_activity', 'Attività');
     var partic = (r.total > 0 || r.participants > 0)
       ? '<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 whitespace-nowrap" title="' + esc(_t('lt_participants', 'Partecipanti')) + '"><i data-lucide="users" class="w-3 h-3 shrink-0"></i>' + (r.participants || 0) + '/' + (r.total || 0) + '</span>'
       : '<span class="text-slate-300">—</span>';
     var reports = (r.reports && r.reports.length)
       ? r.reports.map(function (rep) {
           var lbl = _t(WHICH_LBL[rep.which] || '', WHICH_FB[rep.which] || rep.label);
-          return '<button type="button" onclick="event.stopPropagation();window.MappAITeach.openReport(\'' + esc(encodeURIComponent(rep.file)) + '\')" class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-white hover:bg-indigo-500 border border-indigo-200 rounded-md px-1.5 py-1 transition-colors">' +
+          return '<button type="button" onclick="event.stopPropagation();window.MappAITeach.openReport(' + jsArg(encodeURIComponent(rep.file)) + ')" class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-white hover:bg-indigo-500 border border-indigo-200 rounded-md px-1.5 py-1 transition-colors">' +
             '<i data-lucide="file-text" class="w-3 h-3 shrink-0"></i>' + esc(lbl) + '</button>';
         }).join('')
       : '<span class="text-[10px] text-slate-400 italic">' + esc(_t('lt_no_report', 'Nessun report')) + '</span>';
     var folderBtn = r.dir
-      ? actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openActivityFolder('" + esc(encodeURIComponent(r.dir)) + "')", null, false)
+      ? actIcon('folder', _t('lt_open_finder', 'Apri nel Finder'), "window.MappAITeach.openActivityFolder(" + jsArg(encodeURIComponent(r.dir)) + ")", null, false)
       : '';
     return actTableRow({
       tipo: tipoCell(icon, typeLbl, typeLbl),
@@ -1559,7 +1598,7 @@
     var rows = list.map(function (s) {
       var icon = s.type === 'flashcards' ? 'copy' : 'help-circle';
       var typeLbl = s.type === 'flashcards' ? _t('lt_type_flashcards', 'Flashcard') : _t('lt_type_quiz', 'Quiz');
-      return '<div class="flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 rounded-lg cursor-pointer" onclick="window.MappAITeach.openSet(\'' + esc(s.projectId) + '\')">' +
+      return '<div class="flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 rounded-lg cursor-pointer" onclick="window.MappAITeach.openSet(' + jsArg(s.projectId) + ')">' +
         '<i data-lucide="' + icon + '" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>' +
         '<span class="flex-1 min-w-0 text-[12px] font-semibold text-slate-600 truncate" title="' + esc(s.name) + '">' + esc(s.name) + '</span>' +
         '<span class="text-[10px] text-slate-400">' + esc(typeLbl) + (s.mapName ? ' · ' + esc(s.mapName) : '') + '</span>' +
@@ -1591,7 +1630,7 @@
   }
 
   function openSet(projectId) {
-    if (window.StorageManager && StorageManager.loadProject) StorageManager.loadProject(projectId);
+    if (typeof StorageManager !== 'undefined' && StorageManager.loadProject) StorageManager.loadProject(projectId);
   }
 
   // ── Avvio rapido QR ────────────────────────────────────────────────────────
@@ -1787,8 +1826,14 @@
       pickMap(cls, function (project) {
         if (!project) return;
         inheritGrade(project, cls);
-        if (window.StorageManager && StorageManager.loadProject) StorageManager.loadProject(project.id);
-        setTimeout(function () {
+        /* 0082 (B4 (a)): col cassetto solo indice acceso un progetto senza copia si
+           apre dalla cartella: `dopoApertura` aspetta la mappa, poi il ritardo di
+           oggi. Spento, il setTimeout di oggi senza attesa. */
+        var caricata = null;
+        if (typeof StorageManager !== 'undefined' && StorageManager.loadProject) caricata = StorageManager.loadProject(project.id);
+        if (typeof StorageManager !== 'undefined' && StorageManager.dopoApertura) StorageManager.dopoApertura(caricata, apri);
+        else apri();
+        function apri() { setTimeout(function () {
           if (kind === 'collab') {
             if (window.openCollabHub) window.openCollabHub();
             else toast(_t('lt_hub_missing', 'Funzione non disponibile.'), 'warning');
@@ -1796,7 +1841,7 @@
             if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup();
             else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
           }
-        }, 120);
+        }, 120); }
       });
     });
   }
@@ -1864,8 +1909,11 @@
   /* Le viste della classe che la console ospita nella tela: id della voce →
      contenitore che la landing riempie già. Una sola fonte, così la console non
      può puntare a una sezione che non esiste. */
+  /* `dentro`: la vista non sta nella barra, si apre da un bottone della vista
+     indicata, che resta accesa (26/9, Giacomo: «Lavagna» esce dalla barra ed
+     entra in «Attività LIVE» come «Mappa LIVE»). */
   var VISTE_CLASSE = [
-    { id: 'lavagna', icona: 'presentation', chiave: 'lt_v_lavagna', testo: 'Lavagna' },
+    { id: 'lavagna', icona: 'presentation', chiave: 'lt_v_lavagna', testo: 'Mappa LIVE', dentro: 'live' },
     { id: 'live', icona: 'radio', chiave: 'lt_v_live', testo: 'Attività LIVE' },
     { id: 'stampabili', icona: 'printer', chiave: 'lt_v_stampabili', testo: 'Stampabili' }
   ];
@@ -1893,7 +1941,7 @@
      grado. Picking → `setActiveStudent` (esclude la classe attiva). */
   function _allieviProfili() {
     try {
-      var a = (typeof appState !== 'undefined') ? appState : window.appState;
+      var a = _appState();
       var arr = (a && Array.isArray(a.allProfiles)) ? a.allProfiles : [];
       return arr.filter(function (p) { return p && p.nickname; }).map(function (p) {
         return { nick: p.nickname, label: p.nickname + (p.grade ? ' — ' + p.grade : ''), p: p };
@@ -2008,6 +2056,11 @@
     });
   }
   function _consFiltrate() { return _filtraContesto(_consMappe()); }
+  /* Un'attività di lettura (0070) ha la sua icona, come nella sidebar di ELABORA
+     (`mappai-elabora-console.js`, `_navV2`): lo dice il vault o il progetto (11/10). */
+  function _letturaDi(x) {
+    return !!x && ((x.v && x.v.extractionMode === 'lettura') || (x.p && x.p.type === 'lettura'));
+  }
   function _consMappaScelta() {
     if (!_cons.voce) return null;
     return _consMappe().find(function (m) { return m.id === _cons.voce; }) || null;
@@ -2022,6 +2075,13 @@
      tabella, e il server Materiali parte senza le rotte dello scambio. */
   function _scambioOn() {
     try { return localStorage.getItem('mappai_scambio_studente') !== '0'; } catch (e) { return true; }
+  }
+  /* Il file l'ha scritto un allievo? Tutto ciò che sta sotto `Consegne/` arriva
+     da fuori: `POST /api/consegna` chiede solo il token del QR. */
+  function _daAllievo(relPath) {
+    var fc = FCore();
+    var cart = String((fc && fc.CONSEGNE) || 'Consegne').toLowerCase();
+    return String(relPath || '').replace(/\\/g, '/').split('/')[0].toLowerCase() === cart;
   }
   function _consCaricaConsegne(m) {
     var api = window.electronAPI;
@@ -2066,7 +2126,7 @@
     var chiavi = [];
     righe.forEach(function (r) { Object.keys(r).forEach(function (k) { if (chiavi.indexOf(k) < 0 && typeof r[k] !== 'object') chiavi.push(k); }); });
     var cella = function (v) { return v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v)); };
-    return '<!doctype html><meta charset="utf-8"><style>body{font:12px/1.5 "Space Mono",monospace;padding:16px;color:#1e293b}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap}th{font-size:10px;text-transform:uppercase;color:#64748b}</style>' +
+    return '<!doctype html><meta charset="utf-8"><style>body{font:12px/1.5 "Space Mono",monospace;padding:16px;color:var(--mm-testo, #404040)}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap}th{font-size:10px;text-transform:uppercase;color:#64748b}</style>' +
       '<table><thead><tr>' + chiavi.map(function (k) { return '<th>' + esc(k) + '</th>'; }).join('') + '</tr></thead><tbody>' +
       righe.map(function (r) { return '<tr>' + chiavi.map(function (k) { return '<td>' + esc(cella(r[k])) + '</td>'; }).join('') + '</tr>'; }).join('') +
       '</tbody></table>' + (righe.length ? '' : '<p>' + esc(_t('lt_jsonl_vuoto', 'Nessun record.')) + '</p>');
@@ -2191,8 +2251,8 @@
        somministrano e si correggono in un altro modo — ma quella distinzione la
        fa il foglio, non l'elenco. */
     {
-        id: 'quiz', chiave: 'lt_g_quiz_tutti', testo: 'Quiz',
-        tipi: ['Quiz MC', 'Quiz V/F', 'Quiz', 'Domande aperte']
+        id: 'quiz', chiave: 'lt_g_quiz_tutti', testo: 'Domande',
+        tipi: ['Quiz MC', 'Quiz V/F', 'Quiz', 'Domande aperte', 'Domande della fonte']
     },
     { id: 'flash', chiave: 'lt_g_flash', testo: 'Flashcard', tipi: ['Flashcard'] },
     { id: 'altro', chiave: 'lt_g_altro', testo: 'Altri materiali', tipi: null },
@@ -2481,14 +2541,19 @@
      le tabelle non tornano su due colonne. */
   function _consBentoMappa(s, p) {
     var soloKg = p.type === 'kg';
-    var gen = p.dossier ? 'image' : (soloKg ? 'network' : 'git-merge');   /* icona del genere, come la sidebar */
-    var az = [
-      { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') }
-    ];
+    var gen = _letturaDi(p) ? 'book-open' : p.dossier ? 'image' : (soloKg ? 'network' : 'git-merge');   /* icona del genere, come la sidebar */
     /* PROIETTA (20/8): la lezione sulla fonte — l'immagine grande, e accanto la
        scheda o un set di domande. Solo sui dossier: sulle mappe non c'è una
-       fotografia da proiettare. */
-    if (p.dossier) az.push({ id: 'proietta', et: _t('lt_cons_proietta', 'Proietta'), forma: 'azione', icona: 'presentation', chiude: false, aiuto: _t('lt_cons_tip_proietta', 'La fotografia a tutto schermo per la lezione, con la scheda e le domande da affiancare.') });
+       fotografia da proiettare.
+       0067 (gate 3, 01/10 sera): per un dossier il PRIMO bottone è «Proietta», non
+       «Mappa» — da una foto non nasce una mappa da guardare. Lo dice il core
+       (`primoComando`); un bottone solo, mai due «Proietta». */
+    var IC = window.MappAICreaIconograficaCore;
+    var primo = (IC && IC.primoComando) ? IC.primoComando(p) : 'apri';
+    var proietta = { id: 'proietta', et: _t('lt_cons_proietta', 'Proietta'), forma: 'azione', icona: 'presentation', chiude: false, aiuto: _t('lt_cons_tip_proietta', 'La fotografia a tutto schermo per la lezione, con la scheda e le domande da affiancare.') };
+    var az = [primo === 'proietta' ? proietta
+      : { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') }];
+    if (p.dossier && primo !== 'proietta') az.push(proietta);
     /* «Elabora» tolto dai comandi della mappa (Giacomo, 17/9): ELABORA resta dal suo segmento. */
     /* «Allievi» (Giacomo, 17/9): UN clic, subito il QR del progetto per MappAI studente —
        senza il menu dei materiali. Viaggia solo l'elenco chiuso (`relVaultStudente`):
@@ -2542,7 +2607,7 @@
              `map` — `git-merge` restava da prima che le due console si
              allineassero, e due sidebar con due glifi per lo stesso genere
              sono due alfabeti da imparare */
-          icona: x.dossier ? 'image' : (x.type === 'kg' ? 'network' : 'map'),
+          icona: _letturaDi(x) ? 'book-open' : x.dossier ? 'image' : (x.type === 'kg' ? 'network' : 'map'),
           /* «NUOVO» = generato in questa sessione e mai ancora aperto. La lista
              è la stessa di ELABORA (`MappAIGen`): il bollino sparisce dai due
              elenchi insieme, al primo clic. */
@@ -2553,9 +2618,13 @@
     /* Le viste della classe sono quelle che la landing sa già disegnare.
        «File condivisi» non c'è più: pensionata il 13/8 (vedi la nota dove
        stava il suo codice). */
-    nav.push({ gruppo: _t('lt_cons_materiali_gr', 'Materiali') });
+    /* «Al volo» e non più «Materiali» (26/9): la chiave vecchia resta al
+       riquadro dei materiali della mappa, che materiali lo sono davvero */
+    nav.push({ gruppo: _t('lt_cons_al_volo_gr', 'Al volo') });
+    var vistaOra = _vistaClasse(_cons.voce);
     VISTE_CLASSE.forEach(function (v) {
-      nav.push({ id: v.id, etichetta: _t(v.chiave, v.testo), icona: v.icona, attiva: _cons.voce === v.id });
+      if (v.dentro) return;
+      nav.push({ id: v.id, etichetta: _t(v.chiave, v.testo), icona: v.icona, attiva: _cons.voce === v.id || !!(vistaOra && vistaOra.dentro === v.id) });
     });
 
     var s = {
@@ -2612,11 +2681,16 @@
          Knowledge Graph il suo empty-state finisce dentro la landing, che in
          quel momento è nascosta dietro la mappa — il bottone sembrava aprire la
          mappa e basta. Meglio non offrirlo, e dire perché. */
+      /* 0067 (gate 3, 01/10 sera): per un dossier il primo comando è «Proietta» (core) */
+      var IC2 = window.MappAICreaIconograficaCore;
+      var primo2 = (IC2 && IC2.primoComando) ? IC2.primoComando(p) : 'apri';
       var azioni = [
-        { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: p.dossier ? 'image' : 'map', ruolo: 'primario' },
+        primo2 === 'proietta'
+          ? { id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', ruolo: 'primario', chiude: false }
+          : { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: p.dossier ? 'image' : 'map', ruolo: 'primario' },
         { id: 'cartella', etichetta: _t('lt_cons_finder', 'Finder'), icona: 'folder', chiude: false }
       ];
-      if (p.dossier) azioni.push({ id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', chiude: false });
+      if (p.dossier && primo2 !== 'proietta') azioni.push({ id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', chiude: false });
       var soloKg = p.type === 'kg';
       if (!soloKg) azioni.push({ id: 'elabora', etichetta: _t('lt_cons_elabora', 'Elabora'), icona: 'wand-2' });
       azioni.push({ id: 'live', etichetta: _t('ui_qs_live', 'Studio attivo'), icona: 'radio' });
@@ -2719,7 +2793,7 @@
         }
       ],
       azioni: [
-        { id: 'lav-start', etichetta: _t('lt_lav_avvia', 'Avvia la Lavagna'), icona: 'play', ruolo: 'primario', chiude: false },
+        { id: 'lav-start', etichetta: _t('lt_lav_avvia', 'Avvia la Mappa LIVE'), icona: 'play', ruolo: 'primario', chiude: false },
         { id: 'lav-cred', etichetta: _t('lt_lav_cred', 'Foglio credenziali'), icona: 'id-card', chiude: false }
       ],
       sotto: cls ? '' : _t('lt_lav_senza_classe', 'Senza una classe attiva è disponibile solo l’accesso a gruppi.')
@@ -2746,7 +2820,7 @@
         return {
           id: 'res:' + x.dir, chiude: false,
           celle: [
-            x.name || 'Lavagna', x.className || '—',
+            x.name || 'Mappa LIVE', x.className || '—',
             /* la materia non sta nella sessione: si ricava dalla mappa, che è
                l'unico posto dove quella coppia è registrata */
             discOfMap(x.name, null) || '—',
@@ -2765,8 +2839,9 @@
       id: 'live-avvii', nuda: true, titolo: _t('lt_live_nuova', 'Nuova attività'),
       azioni: [
         { id: 'live-quiz', etichetta: _t('lt_live_quiz', 'Quiz a distanza'), icona: 'list-checks', ruolo: 'primario', chiude: false },
-        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Rispondi e Domanda'), icona: 'message-square', chiude: false },
-        { id: 'live-scelta', etichetta: _t('lt_live_scelta', 'Domande a scelta'), icona: 'list-checks', chiude: false }
+        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Chiedi e Rispondi'), icona: 'message-square', chiude: false },
+        { id: 'live-scelta', etichetta: _t('lt_live_scelta', 'Domande a scelta'), icona: 'list-checks', chiude: false },
+        { id: 'live-mappa', etichetta: _t('lt_live_mappa', 'Mappa LIVE'), icona: 'presentation', chiude: false }
       ],
       testo: _t('lt_live_intro', 'Gli allievi entrano dal telefono con le loro credenziali: il quiz si corregge da sé, la scrittura col tutor consegna testo e trascrizione.')
     });
@@ -2788,7 +2863,7 @@
         return {
           id: 'rep:' + i, chiude: false,
           celle: [
-            r.activity || '—', r.map || '—', r.cls || '—',
+            _nomeAttivita(r.activity) || '—', r.map || '—', r.cls || '—',
             r.disc || discOfMap(r.map, null) || '—',
             r.date ? fmtDate(r.date) : '—',
             (r.joined != null ? r.joined : '—') + (r.total ? '/' + r.total : ''),
@@ -2871,11 +2946,31 @@
     if (!s) { var so = a.querySelector('source'); s = (so && so.getAttribute('src')) || ''; }
     return /^data:/i.test(s.trim());
   }
-  function _consMostra(html, src) {
+  /* La barra del foglio spenta nel TESTO, prima di caricarlo: dentro una sandbox
+     `nascondiInIframe` non arriva (origine opaca). Stessa regola, stesso id. */
+  function _senzaBarra(html) {
+    var st = '<style id="mm-doc-in-casa">.no-print,.mm-doc-bar,.mm-doc-spazio{display:none !important}</style>';
+    var s = String(html || '');
+    return /<\/head>/i.test(s) ? s.replace(/<\/head>/i, function (m) { return st + m; }) : st + s;
+  }
+  /* `chiusa`: il documento viene da un allievo (`_daAllievo`). ⚠️ Un `srcdoc`
+     senza sandbox gira con l'ORIGINE DELL'APP: un `compito.html` consegnato col
+     token del QR arrivava a `top.electronAPI.saveVaultFile(…)` appena il
+     docente cliccava la riga. Sandbox VUOTA — niente script, origine opaca —
+     messa prima del contenuto. I materiali del docente restano fuori: la
+     barra della sintesi con la voce suona coi suoi script, e `scalaTesto`,
+     `nascondiInIframe` li raggiungono da fuori. */
+  function _consMostra(html, src, chiusa) {
     var tela = _consTela(); if (!tela) return;
     tela.innerHTML = '';
     var f = document.createElement('iframe');
     f.style.cssText = 'width:100%;height:100%;border:0;background:#fff';
+    if (chiusa) {
+      f.setAttribute('sandbox', '');
+      if (src) f.src = src; else f.srcdoc = _senzaBarra(html);
+      tela.appendChild(f);
+      return;
+    }
     f.addEventListener('load', function () {
       if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe) return;
       var d = null;
@@ -2922,8 +3017,10 @@
          `nascondiInIframe` risponde `false` e la barra doppia resta. Ed è il
          caso normale di questa console, dove i materiali vengono dal disco.
          PDF e audio restano `data:`: vanno al visualizzatore di Chromium, che
-         `srcdoc` non sa costruire. */
-      if (/\.html?$/i.test(loc.relPath)) return _consMostra(_testoDaBase64(res.base64));
+         `srcdoc` non sa costruire (e un `data:` ha già un'origine opaca).
+         L'HTML di una consegna va nella sandbox; la tabella del `.jsonl` no:
+         è markup nostro, coi valori dell'allievo passati da `esc`. */
+      if (/\.html?$/i.test(loc.relPath)) return _consMostra(_testoDaBase64(res.base64), null, _daAllievo(loc.relPath));
       if (/\.jsonl$/i.test(loc.relPath)) return _consMostra(_consJsonlHtml(_testoDaBase64(res.base64)));
       var mime = /\.pdf$/i.test(loc.relPath) ? 'application/pdf'
         : /\.mp3$/i.test(loc.relPath) ? 'audio/mpeg' : 'application/octet-stream';
@@ -3106,7 +3203,10 @@
         var api = window.electronAPI;
         (api && api.studySessionsList ? api.studySessionsList() : Promise.resolve({ success: false }))
           .then(function (r) {
-            var l = (r && (r.sessions || r.records)) || [];
+            /* `study-sessions-list` risponde `{ success, rows }` (main.js): qui si
+               leggevano `sessions`/`records`, che non esistono, e la tabella
+               «Attività già svolte» restava sempre vuota (trovato il 26/9). */
+            var l = (r && (r.rows || r.sessions || r.records)) || [];
             /* la Lavagna ha la sua vista: qui restano quiz e tutor */
             _cons.report = l.filter(function (x) { return !/lavagna/i.test(String(x.activity || '')); });
             if (_cons.voce === 'live') rifai();
@@ -3217,8 +3317,15 @@
         return;
       }
       if (id === 'live-tutor') {
-        if (window.MappAITutor && window.MappAITutor.openSetup) window.MappAITutor.openSetup();
+        if (window.MappAITutor && window.MappAITutor.open) window.MappAITutor.open();
         else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
+        return;
+      }
+      /* «Mappa LIVE» (la Lavagna di prima): la sua vista, raggiunta da qui come
+         lo era dalla barra */
+      if (id === 'live-mappa') {
+        _cons.voce = 'lavagna'; _cons.mat = null; rifai();
+        scegliVista('lavagna');
         return;
       }
       if (id === 'live-scelta') {
@@ -3336,20 +3443,7 @@
          Il main apre il file in una finestra e stampa di là; se non ci riesce
          lo apre nell'applicazione di sistema E LO DICE, invece di lasciare il
          docente davanti a un bottone che sembra rotto. */
-      if (id.indexOf('st:') === 0) {
-        var pid = id.slice(3);
-        var loc1 = _diskCache[pid], api1 = window.electronAPI;
-        if (!loc1 || !api1 || !api1.vaultFilePrint) {
-          toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return;
-        }
-        api1.vaultFilePrint({ vaultPath: loc1.vaultPath, relPath: loc1.relPath })
-          .then(function (res) {
-            if (!res || res.ok === false) { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); return; }
-            if (res.aperto) toast(_t('lt_print_aperto', 'L\'ho aperto nell\'applicazione di sistema: stampalo da lì.'), 'info');
-          })
-          .catch(function () { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); });
-        return;
-      }
+      if (id.indexOf('st:') === 0) { _stampaDaDisco(_diskCache[id.slice(3)]); return; }
       /* «Scarica una copia»: il dialogo di sistema chiede nome e posizione, e
          il main copia. ⚠️ Non si indovina ~/Downloads: su una macchina
          configurata diversamente è il posto sbagliato, e non si potrebbe
@@ -3450,9 +3544,27 @@
     });
   }
 
+  /* «Stampa» sul FILE vero: il main lo apre in una finestra nascosta (sandbox,
+     senza preload) e ne apre il dialogo; se non ci riesce lo apre
+     nell'applicazione di sistema E LO DICE. */
+  function _stampaDaDisco(loc) {
+    var api = window.electronAPI;
+    if (!loc || !api || !api.vaultFilePrint) {
+      toast(_t('fx_desktop', 'Disponibile solo nell\'app desktop.'), 'warning'); return;
+    }
+    api.vaultFilePrint({ vaultPath: loc.vaultPath, relPath: loc.relPath })
+      .then(function (res) {
+        if (!res || res.ok === false) { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); return; }
+        if (res.aperto) toast(_t('lt_print_aperto', 'L\'ho aperto nell\'applicazione di sistema: stampalo da lì.'), 'info');
+      })
+      .catch(function () { toast(_t('lt_print_ko', 'Non riesco a stampare questo file.'), 'warning'); });
+  }
   function _consStampa() {
     var tela = _consTela(); var f = tela && tela.querySelector('iframe');
     if (!f) return;
+    /* una consegna sta nella sandbox: da fuori `print()` non si raggiunge, e
+       aprirle la sandbox per stampare le ridarebbe l'app. Si stampa il file. */
+    if (f.hasAttribute('sandbox') && _cons.mat && _diskCache[_cons.mat.id]) return _stampaDaDisco(_diskCache[_cons.mat.id]);
     try { f.contentWindow.focus(); f.contentWindow.print(); }
     catch (e) { toast(_t('lt_cons_stampa_ko', 'La stampa non è disponibile per questo materiale.'), 'warning'); }
   }
@@ -3515,23 +3627,27 @@
   function _consCarica(m) {
     if (!m) return false;
     if (m.p && window.loadSavedProject) { window.loadSavedProject(m.p.id); return true; }
-    if (m.p && window.StorageManager && StorageManager.loadProject) { StorageManager.loadProject(m.p.id); return true; }
+    if (m.p && typeof StorageManager !== 'undefined' && StorageManager.loadProject) { StorageManager.loadProject(m.p.id); return true; }
     if (m.v && window.directLoadVault) { window.directLoadVault(m.v.fullPath); return true; }
     return false;
   }
   /* Riceve la mappa invece di ricavarsela: quando arriva qui la console è già
      chiusa e lo stato azzerato. */
-  /* `appState` è una `let` di app.js, non sta su window (regola nota). */
+  /* `appState` è una `let` di app.js e `StorageManager` una `const` di
+     mappai-storage-lang.js: NON stanno su window (invariante 3). `window.appState`
+     è sempre undefined; `window.StorageManager`, in Chromium, è la classe NATIVA
+     del browser (quella di `navigator.storage`), sempre vera — come guardia non
+     guardava niente. Si chiede al nome lessicale (il `try` copre la TDZ). */
   function _appState() {
-    try { return (typeof appState !== 'undefined') ? appState : window.appState; }
-    catch (e) { return window.appState; }
+    try { return (typeof appState !== 'undefined') ? appState : null; }
+    catch (e) { return null; }
   }
   /* La mappa CHIESTA è davvero quella caricata? Il confronto non è sul numero
      di nodi (una mappa precedente ne ha anche lei) ma sull'identità: l'id del
      progetto o il percorso del vault. */
   function _consEccoLa(m) {
     var s = _appState();
-    if (m.p && window.StorageManager && StorageManager.currentProjectId === m.p.id) return true;
+    if (m.p && typeof StorageManager !== 'undefined' && StorageManager.currentProjectId === m.p.id) return true;
     if (m.v && s && s.activeVaultPath && String(s.activeVaultPath) === String(m.v.fullPath)) return true;
     return false;
   }
@@ -3825,7 +3941,7 @@
       var m = readMode();
       if (m === 'teach') refresh();
       else if (m === 'elabora') renderElaboraProjects();
-      try { if (window.StorageManager && StorageManager.syncValidVaults) StorageManager.syncValidVaults(); } catch (e) { }
+      try { if (typeof StorageManager !== 'undefined' && StorageManager.syncValidVaults) StorageManager.syncValidVaults(); } catch (e) { }
     });
   }
 

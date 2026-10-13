@@ -195,3 +195,99 @@ test('🐛 il nome della copia arriva DOPO il dettaglio: mai cercarlo per prefis
         PC.buildFileName('nodesheet', null, false, { mappa: 'La Politica Svizzera', dettaglio: 'card' }),
         'Foglio-nodi-La Politica Svizzera-card.pdf');
 });
+
+// ── D11 (0059): «Domande della fonte» nella tabella di ELABORA ──────────────
+/* La console VERA in una vm, coi core veri (pipeline, docedit, clona): le righe
+   escono da `MappAIElaboraConsole.materiali()`, la lista che la tabella di
+   ELABORA consuma. Un set nato da «Domande della fonte» (`openQuestions`,
+   `origin: 'elabora-questions'`, `type` «Aperte») cadeva nel ripiego di
+   `_generePerSet` e si chiamava «Scelta Multipla». */
+function consoleVera(sets, opz) {
+    const o = opz || {};
+    const fs = require('fs'), path = require('path'), vm = require('node:vm');
+    const JS = f => fs.readFileSync(path.join(__dirname, '..', 'public/js', f), 'utf8');
+    const g = {
+        console: { log() { }, info() { }, warn() { }, error() { } },
+        localStorage: { getItem: () => null, setItem() { }, removeItem() { } },
+        sessionStorage: { getItem: () => null, setItem() { }, removeItem() { } },
+        setTimeout, clearTimeout,
+        appState: {
+            sources: [], rootNodeLabel: 'La Politica Svizzera', activeVaultPath: o.disco ? '/prova/vault' : null,
+            db: { nodes: [{ id: 'r', label: 'La Politica Svizzera', level: 0 }], links: [], studySets: sets }
+        }
+    };
+    if (o.disco) g.electronAPI = { vaultMaterialsList: async () => ({ ok: true, files: o.disco }) };
+    if (o.t) g.t = o.t;
+    g.window = g;
+    const ctx = vm.createContext(g);
+    ['mappai-files-core.js', 'mappai-pipeline-core.js', 'mappai-docedit-core.js', 'mappai-clona-core.js', 'mappai-elabora-console.js']
+        .forEach(f => vm.runInContext(JS(f), ctx));
+    return g;
+}
+const righeSet = g => JSON.parse(JSON.stringify(g.MappAIElaboraConsole.materiali())).filter(m => /^set:/.test(m.id));
+
+const MC = { id: 'mc', title: 'La Politica Svizzera — Scelta Multipla', type: 'Scelta Multipla', mode: 'quiz', date: '2026-09-28',
+    items: [{ question: 'Chi elegge il Consiglio federale?', options: ['A', 'B'], correctIndex: 0 }] };
+const DF = { id: 'df', title: 'Domande della fonte', mode: 'quiz', type: 'Aperte', origin: 'elabora-questions', date: '2026-09-29',
+    items: [{ question: 'Perché la Svizzera restò neutrale?', answer: '', explanation: '' }] };
+const DS = { id: 'ds', title: 'Domande della scheda', mode: 'quiz', type: 'Aperte', origin: 'elabora-questions', date: '2026-07-22',
+    items: [{ question: 'Che cos\'è il ridotto nazionale?', answer: '', explanation: '' }] };
+
+test('D11 (0059): un set con origin «elabora-questions» si chiama «Domande della fonte» nella tabella di ELABORA, non «Scelta Multipla»', async () => {
+    const g = consoleVera([MC, DF, DS], { disco: [{ name: 'Quiz-MC-La Politica Svizzera.pdf', relPath: 'Materiale Studio/Quiz-MC-La Politica Svizzera.pdf', mtime: 5 }] });
+    g.MappAIElaboraConsole.materiali();                     // avvia la lettura del disco (asincrona)
+    for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r));
+    const righe = righeSet(g);
+    const riga = id => righe.find(m => m.id === 'set:' + id) || {};
+    assert.strictEqual(riga('df').titolo, 'Domande della fonte');
+    assert.notStrictEqual(riga('df').titolo, 'Scelta Multipla');
+    assert.strictEqual(riga('df').tipo, 'Domande della fonte');
+    assert.strictEqual(riga('mc').titolo, 'Scelta Multipla', 'il quiz a scelta multipla vero resta «Scelta Multipla»');
+    /* il set di prima (nato «Domande della scheda», stessa origin dal 22/7): la
+       RIGA dice «Domande della fonte»; il suo titolo resta il suo (nessuna migrazione) */
+    assert.strictEqual(riga('ds').titolo, 'Domande della fonte');
+    assert.strictEqual(DS.title, 'Domande della scheda');
+    /* la riga non reclama il PDF del quiz vero: col genere quiz_mc i set se lo
+       contendevano e nessuno lo agganciava (l'aggancio vuole un solo pretendente) */
+    assert.strictEqual(riga('mc').relPath, 'Materiale Studio/Quiz-MC-La Politica Svizzera.pdf');
+    assert.strictEqual(riga('df').relPath, undefined);
+    /* una copia: «Domande della fonte - 2», l'etichetta del core */
+    assert.strictEqual(C.clonaSet(DF, '2', { id: 'df2', genere: riga('df').tipo }).title, 'Domande della fonte - 2');
+    /* in inglese il nome passa dalla sua chiave */
+    const en = consoleVera([DF], { t: (k, f) => (k === 'ec_n_srcq' ? 'Source questions' : f) });
+    assert.strictEqual(righeSet(en)[0].titolo, 'Source questions');
+});
+
+/* La tabella di ELABORA la disegna INSEGNA: `_tabelleV2` della console passa le
+   righe, tolta la fonte, a `MappAITeach.tabelleMateriali(…, 'elabora')`, e i
+   gruppi per genere stanno in `GRUPPI_MAT`. Un `tipo` che nessun gruppo nomina
+   finisce in «Altri materiali»: il set di «Domande della fonte» stava fra i quiz
+   (col nome sbagliato), e col suo genere nuovo deve restarci. */
+function insegnaVera() {
+    const fs = require('fs'), path = require('path'), vm = require('node:vm');
+    const g = {
+        console: { log() { }, info() { }, warn() { }, error() { } },
+        localStorage: { getItem: () => null, setItem() { }, removeItem() { } },
+        sessionStorage: { getItem: () => null, setItem() { }, removeItem() { } },
+        setTimeout, clearTimeout,
+        /* 'loading': il modulo rimanda il disegno a DOMContentLoaded, che qui
+           non arriva mai; si prova solo la funzione esportata */
+        document: { readyState: 'loading', addEventListener() { }, removeEventListener() { } }
+    };
+    g.window = g;
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public/js/mappai-landing-teach.js'), 'utf8'), vm.createContext(g));
+    return g.MappAITeach;
+}
+
+test('D11 (0059): la riga «Domande della fonte» resta nell\'elenco «Quiz» di ELABORA, non in «Altri materiali»', () => {
+    const g = consoleVera([MC, DF]);
+    /* come `_tabelleV2`: la fonte ha una tabella sua, il resto va a INSEGNA */
+    const resto = JSON.parse(JSON.stringify(g.MappAIElaboraConsole.materiali())).filter(m => m.tipo !== 'Fonte');
+    const tabs = JSON.parse(JSON.stringify(insegnaVera().tabelleMateriali(resto, false, 'elabora')));
+    const gruppoDi = id => (tabs.find(tb => tb.righe.some(r => r.id === 'm:set:' + id)) || {}).id;
+    assert.strictEqual(gruppoDi('df'), 'g:quiz', 'le domande della fonte stanno fra i quiz, come prima');
+    assert.strictEqual(gruppoDi('mc'), 'g:quiz');
+    assert.strictEqual(tabs.some(tb => tb.id === 'g:altro'), false, 'nessuna riga in «Altri materiali»');
+    const quiz = tabs.find(tb => tb.id === 'g:quiz');
+    assert.deepStrictEqual(quiz.righe.map(r => r.celle[0]).sort(), ['Domande della fonte', 'Scelta Multipla']);
+});

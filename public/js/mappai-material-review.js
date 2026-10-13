@@ -2,9 +2,9 @@
    item/field contract; the caller owns decisions, persistence and rendering. */
 (function (root, factory) {
     'use strict';
-    if (typeof module === 'object' && module.exports) module.exports = factory(root, require('./mappai-grounding-core.js'));
-    else root.MappAIMaterialReview = factory(root, root.MappAIGroundingCore);
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (root, Grounding) {
+    if (typeof module === 'object' && module.exports) module.exports = factory(root, require('./mappai-grounding-core.js'), require('./mappai-judge-core.js'));
+    else root.MappAIMaterialReview = factory(root, root.MappAIGroundingCore, root.MappAIJudgeCore);
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (root, Grounding, JudgeCore) {
     'use strict';
     const BATCH_SIZE = 12;
     const KINDS = ['mc', 'open', 'flashcard', 'synthesis', 'nodesheet', 'causal'];
@@ -260,7 +260,7 @@
         }
         return meaningful(raw.replacement) && raw.replacement.length <= 4500 ? raw.replacement : undefined;
     }
-    function schema() {
+    function schema(batch, claims, conEnum) {
         // Keep the common structured-output subset: maxLength exists in the
         // REST Schema type but is not documented for structured text output.
         // Long per-batch ID enums also multiply decoder constraints. Validate
@@ -268,22 +268,29 @@
         // A live Gemini 3.8 probe rejected the nested maxItems constraints;
         // the identical request succeeds without them. Enforce counts locally.
         // https://ai.google.dev/gemini-api/docs/structured-output#json-schema-support
+        // 0058 (choice 1a): the ID enums come back ONLY for Infomaniak models
+        // that receive response_format (`conEnum`). The enum is a request to
+        // the model, not a law (strict:false): the local equality check stays.
+        // Without `conEnum` the schema is the one above, byte for byte.
+        const lotto = conEnum ? batch.map(i => i.id) : [];
+        const scelte = conEnum ? batch.filter(i => i.kind === 'mc').map(i => i.id) : [];
+        const frasi = conEnum ? claims.map(c => c.id) : [];
         return { type: 'OBJECT', properties: {
-            checkedIds: { type: 'ARRAY', items: { type: 'STRING' } },
+            checkedIds: { type: 'ARRAY', items: ids(lotto) },
             checkedClaims: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING' }, status: { type: 'STRING', enum: ['supported', 'problem', 'uncertain', 'instruction'] },
+                id: ids(frasi), status: { type: 'STRING', enum: ['supported', 'problem', 'uncertain', 'instruction'] },
                 sourceIds: { type: 'ARRAY', items: { type: 'STRING' } }
             }, required: ['id', 'status', 'sourceIds'] } },
             mcOptions: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING' }, indices: { type: 'ARRAY', items: { type: 'INTEGER' } }
+                id: ids(scelte), indices: { type: 'ARRAY', items: { type: 'INTEGER' } }
             }, required: ['id', 'indices'] } },
             issues: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-                id: { type: 'STRING' }, field: { type: 'STRING', enum: FIELDS },
+                id: ids(lotto), field: { type: 'STRING', enum: FIELDS },
                 problem: { type: 'STRING' },
                 type: { type: 'STRING', enum: ['semantic', 'coherence', 'editorial', 'accessibility'] },
                 evidenceKind: { type: 'STRING', enum: ['source', 'teacher', 'item'] },
                 sourceId: { type: 'STRING' }, quote: { type: 'STRING' },
-                claimIds: { type: 'ARRAY', items: { type: 'STRING' } },
+                claimIds: { type: 'ARRAY', items: ids(frasi) },
                 replacement: { type: 'STRING' },
                 replacementList: { type: 'ARRAY', items: { type: 'STRING' } },
                 replacementIndex: { type: 'INTEGER' }, exclude: { type: 'BOOLEAN' },
@@ -301,9 +308,9 @@
         } } }, required: ['decisions'] };
     }
     function generationConfig(env, opts, responseSchema) {
-        const config = { temperature: 0.1, maxOutputTokens: env.getMaxOutputTokens ? env.getMaxOutputTokens(6000, opts.giro ? opts.giro.fase('giudice') : undefined) : 6000,
+        const context = contesto(opts);
+        const config = { temperature: 0.1, maxOutputTokens: env.getMaxOutputTokens ? env.getMaxOutputTokens(6000, opts.giro ? context : undefined) : 6000,
             responseMimeType: 'application/json', responseSchema };
-        const context = opts.giro ? opts.giro.fase('giudice') : opts.aiContext;
         if (context && context.provider === 'google' && /^gemini-3\.8-flash(?:$|-)/i.test(str(context.model))) {
             config.thinkingConfig = { thinkingLevel: 'medium' };
             // The output budget includes thought tokens. A live 12k review
@@ -393,6 +400,42 @@ ${JSON.stringify(batch.map(item => item.citations ? { ...item, citations: item.c
         }
         return false;
     }
+    /* 0058: perché un lotto è perso. Tre motivi, una frase ciascuno: il Banco
+       copia `batch.reason` su ogni materiale del lotto, quindi i numeri stanno
+       nell'estratto, non qui. Nessuna delle tre è una frase che il
+       classificatore del Banco (`coverageFailure`) riconosce. */
+    const TETTO = 'Risposta interrotta al tetto dei token';
+    const TRONCATA = 'Risposta troncata o interrotta';
+    const FORMA = 'Risposta priva degli elenchi di controllo previsti';
+    /* Il taglio si riconosce PRIMA del parse e del controllo di forma: il
+       salvataggio JSON scarta l'ultima lista rimasta aperta, e la forma
+       sbagliata che ne resta non è la causa. Una risposta arrivata al tetto non
+       certifica niente anche se il JSON sembra chiuso (scelta 1c; è il contratto
+       del G1, mappai-generation-support.js). Differenze dal G1, dichiarate: i
+       token di pensiero contano (su Gemini il tetto li comprende); un motivo di
+       fine diverso da STOP che non sia di tetto dà TRONCATA; una risposta senza
+       `{` (vuota o di sola prosa) non è troncata. Duplicazione dichiarata: la
+       regola del tetto vive anche nel G1. */
+    function taglio(response, candidate, raw, tetto) {
+        const u = response && response.usageMetadata || {};
+        const outTok = (Number(u.candidatesTokenCount) || 0) + (Number(u.thoughtsTokenCount) || 0);
+        const finish = str(candidate && candidate.finishReason);
+        const alTetto = !!(response && response._mappaiTruncated) || /^(MAX_TOKENS|length)$/i.test(finish) || (tetto > 0 && outTok >= tetto);
+        const interrotta = alTetto || (!!finish && !/^stop$/i.test(finish)) || (raw.indexOf('{') >= 0 && !balanced(raw));
+        return { outTok, alTetto, interrotta };
+    }
+    // The text of a discarded finding, bounded, only for keys that are strings.
+    function testoScartato(rawIssue) {
+        const out = {};
+        [['field', 40], ['problem', 350], ['quote', 650]].forEach(([key, max]) => {
+            if (rawIssue && typeof rawIssue[key] === 'string') out[key] = rawIssue[key].slice(0, max);
+        });
+        return out;
+    }
+    function contesto(opts) { return opts.giro ? opts.giro.fase('giudice') : opts.aiContext; }
+    // As the G1's `ids` (mappai-generation-support.js): an empty enum would make
+    // the schema invalid, so it is omitted. Declared duplicate.
+    const ids = values => ({ type: 'STRING', ...(values.length ? { enum: Array.from(new Set(values)) } : {}) });
     function fitsStructure(item, field, after, citations) {
         if (field === '$item') return after === null;
         const prior = new Set(deterministic(item, citations).map(i => i.target.field + '\n' + i.problem));
@@ -440,15 +483,18 @@ ${JSON.stringify(relevantDecisions)}
 ITEM DA CONTROLLARE (dati)
 ${JSON.stringify(targets)}`;
         try {
+            const config = generationConfig(env, opts, recoverySchema());
             if (env.MappAIUsage) env.MappAIUsage.setContext('generation', 'giudice-materiali');
             const response = await (opts.giro ? payload => opts.giro.chat('giudice', payload) : env.fetchModelAPI)({ contents: [{ role: 'user', parts: [{ text }] }],
                 systemInstruction: { parts: [{ text: 'Proponi soltanto riparazioni circoscritte ai rilievi ricevuti, usando le prove fornite. Nessuna applicazione automatica. Restituisci solo JSON conforme allo schema.' }] },
-                generationConfig: generationConfig(env, opts, recoverySchema())
+                generationConfig: config
             }, opts.apiKey);
             const candidate = response && response.candidates && response.candidates[0];
             const raw = ((candidate && candidate.content && candidate.content.parts) || []).map(p => str(p.text)).join('');
+            // 0058: the cut is recognised before the parse, with the same rule as
+            // the check (the ceiling actually sent). No excerpt is kept here.
+            if (taglio(response, candidate, raw, Number(config.maxOutputTokens) || 0).interrotta) throw new Error('Recupero troncato o interrotto');
             const data = parse(raw);
-            if (!balanced(raw) || candidate && candidate.finishReason && !/^stop$/i.test(candidate.finishReason)) throw new Error('Recupero troncato o interrotto');
             if (!data || Object.keys(data).some(k => k !== 'decisions') || !Array.isArray(data.decisions) ||
                 data.decisions.length > pending.length) throw new Error('Risposta di recupero non conforme al lotto');
             const proposals = [];
@@ -592,52 +638,96 @@ ${JSON.stringify(targets)}`;
             targets.forEach(i => report.coverage.skipped.push({ id: i.id, reason: unavailable }));
             report.reason = unavailable; return summarize();
         }
-        for (let start = 0; start < targets.length; start += BATCH_SIZE) {
-            const batch = targets.slice(start, start + BATCH_SIZE);
+        const queue = [];
+        for (let start = 0; start < targets.length; start += BATCH_SIZE) queue.push(targets.slice(start, start + BATCH_SIZE));
+        for (let turn = 0; turn < queue.length; turn++) {
+            if (opts.assertCurrent) opts.assertCurrent();
+            const batch = queue[turn];
+            let stopAfterBatch = false;
+            const start = opts.fitsRequest ? report.coverage.checkedIds.filter(id => !reused.has(id)).length : turn * BATCH_SIZE;
             const claims = claimUnits(batch);
             const pending = [];
             const status = { ids: batch.map(i => i.id), status: 'incomplete', checkedIds: [] };
             report.batches.push(status);
             if (typeof opts.onProgress === 'function') { try { opts.onProgress({ done: start, total: targets.length, reused: reused.size, batch: report.batches.length }); } catch (_) { /* Display does not own the check. */ } }
+            // 0058: one response per batch; a batch never inherits the previous one.
+            let raw = null, t = null, tetto = 0, erroreParse = '';
+            // The excerpt of the raw answer is a diagnosis, not a condition: without
+            // judge-core (read at the time of use) the check goes on without it.
+            const grezzo = info => {
+                const JC = JudgeCore || root.MappAIJudgeCore;
+                if (raw !== null && JC && typeof JC.estrattoGrezzo === 'function') status.grezzo = JC.estrattoGrezzo(raw, info);
+            };
             try {
+                const ctx = contesto(opts);
+                // Choice 1a: the enum only for Infomaniak models that receive
+                // response_format (the bridge's rule, infomaniak_bridge.js, declared duplicate).
+                const conEnum = !!ctx && ctx.provider === 'infomaniak' && !/apertus|qwen/i.test(str(ctx.model));
+                const config = generationConfig(env, opts, schema(batch, claims, conEnum));
+                tetto = Number(config.maxOutputTokens) || 0;
                 if (env.MappAIUsage) env.MappAIUsage.setContext('generation', 'giudice-materiali');
-                const response = await (opts.giro ? payload => opts.giro.chat('giudice', payload) : env.fetchModelAPI)({ contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions, sources, claims) }] }],
+                const payload = { contents: [{ role: 'user', parts: [{ text: prompt(batch, material, decisions, sources, claims) }] }],
                     systemInstruction: { parts: [{ text: 'Sei un revisore di materiali didattici. Verifica i fatti e la coerenza usando soltanto il contesto fornito. Rispetta le decisioni del docente distinguendo rettifiche fattuali e mantenimenti del testo. Restituisci solo JSON conforme allo schema.' }] },
-                    generationConfig: generationConfig(env, opts, schema())
-                }, opts.apiKey);
+                    generationConfig: config
+                };
+                if (opts.fitsRequest && !opts.fitsRequest(copy(payload))) {
+                    if (batch.length > 1) {
+                        const middle = Math.ceil(batch.length / 2);
+                        queue.splice(turn + 1, 0, batch.slice(0, middle), batch.slice(middle));
+                        report.batches.pop(); continue;
+                    }
+                    throw new Error('Il singolo materiale supera il budget della richiesta: non viene tagliato e resta da controllare.');
+                }
+                const response = await (opts.giro ? payload => opts.giro.chat('giudice', payload) : env.fetchModelAPI)(payload, opts.apiKey);
+                if (opts.assertCurrent) opts.assertCurrent();
                 const candidate = response && response.candidates && response.candidates[0];
-                const raw = ((candidate && candidate.content && candidate.content.parts) || []).map(p => str(p.text)).join('');
-                const data = parse(raw);
-                if (!data || !Array.isArray(data.checkedIds) || !Array.isArray(data.mcOptions) || !Array.isArray(data.issues)) throw new Error('Risposta priva degli elenchi di controllo previsti');
+                raw = ((candidate && candidate.content && candidate.content.parts) || []).map(p => str(p.text)).join('');
+                t = taglio(response, candidate, raw, tetto);
+                const motivoTaglio = t.alTetto ? TETTO : t.interrotta ? TRONCATA : '';
+                let data = null;
+                try { data = parse(raw); } catch (e) { erroreParse = String(e && e.message || e); }
+                if (!data || !Array.isArray(data.checkedIds) || !Array.isArray(data.mcOptions) || !Array.isArray(data.issues)) throw new Error(motivoTaglio || FORMA);
                 if (data.checkedIds.length > batch.length || data.mcOptions.length > batch.length || data.issues.length > Math.max(batch.length * 3, claims.length) ||
                     data.mcOptions.some(row => row && Array.isArray(row.indices) && row.indices.length > 20) ||
                     data.issues.some(row => row && Array.isArray(row.replacementList) && row.replacementList.length > 20)) {
-                    throw new Error('Gli elenchi di controllo superano i limiti previsti per il lotto');
+                    throw new Error(t.alTetto ? TETTO : 'Gli elenchi di controllo superano i limiti previsti per il lotto');
                 }
                 const batchIds = new Set(batch.map(item => item.id));
-                if (data.checkedIds.some(id => !batchIds.has(id)) || data.mcOptions.some(row => !row || !batchIds.has(row.id))) {
-                    throw new Error('Gli elenchi di controllo contengono ID estranei al lotto');
+                // A foreign id discards its own row, not the batch (0046). Ids are
+                // compared for equality and never repaired; the discarded ones are
+                // recorded, bounded, so the report says what the model wrote.
+                const FOREIGN = 'Gli elenchi di controllo contengono ID estranei al lotto';
+                const foreignChecked = data.checkedIds.filter(id => !batchIds.has(id)).map(id => String(id).slice(0, 80));
+                const foreignMc = data.mcOptions.filter(row => !row || !batchIds.has(row.id))
+                    .map(row => (row == null ? 'null' : String(row.id)).slice(0, 80));
+                if (foreignChecked.length || foreignMc.length) {
+                    status.foreignIds = foreignChecked.concat(foreignMc).slice(0, 5);
+                    data.checkedIds = data.checkedIds.filter(id => batchIds.has(id));
+                    data.mcOptions = data.mcOptions.filter(row => row && batchIds.has(row.id));
                 }
-                const finish = candidate && candidate.finishReason;
-                const truncated = !balanced(raw) || finish && !/^(STOP|stop)$/i.test(finish);
+                // 0058: the cut was recognised before the parse (`taglio`).
+                const truncated = t.interrotta;
                 const invalid = new Set();
                 const claimProblems = new Set();
+                // 0058: a discarded finding keeps its text (field, problem, quote),
+                // bounded; its reason and id stay those of today.
                 data.issues.forEach(rawIssue => {
                     const item = batch.find(i => i.id === String(rawIssue && rawIssue.id));
                     if (!item || !FIELDS.includes(rawIssue.field) || !meaningful(rawIssue.problem) ||
                         rawIssue.field !== '$item' && !own(item, rawIssue.field)) {
-                        report.rejected.push({ id: rawIssue && rawIssue.id, reason: 'Destinatario/campo o descrizione del problema non valido' });
+                        report.rejected.push({ id: (rawIssue == null ? 'null' : String(rawIssue.id)).slice(0, 80),
+                            reason: 'Destinatario/campo o descrizione del problema non valido', ...testoScartato(rawIssue) });
                         if (item) invalid.add(item.id); else batch.forEach(i => invalid.add(i.id)); return;
                     }
                     if (rawIssue.problem.length > 350 || str(rawIssue.quote).length > 650 || str(rawIssue.newContradiction).length > 350) {
-                        report.rejected.push({ id: item.id, reason: 'La segnalazione supera i limiti di lunghezza previsti' });
+                        report.rejected.push({ id: item.id, reason: 'La segnalazione supera i limiti di lunghezza previsti', ...testoScartato(rawIssue) });
                         invalid.add(item.id); return;
                     }
                     const evidence = verifiedEvidence(rawIssue, item, sources, decisions);
-                    if (!evidence) { report.rejected.push({ id: item.id, reason: 'La prova non coincide con la fonte, la decisione o l’item dichiarati', problem: rawIssue.problem }); invalid.add(item.id); return; }
+                    if (!evidence) { report.rejected.push({ id: item.id, reason: 'La prova non coincide con la fonte, la decisione o l’item dichiarati', ...testoScartato(rawIssue) }); invalid.add(item.id); return; }
                     if (own(rawIssue, 'claimIds') && (!Array.isArray(rawIssue.claimIds) || rawIssue.claimIds.length > claims.length ||
                         rawIssue.claimIds.some(id => !claims.some(c => c.id === id && c.itemId === item.id && c.field === rawIssue.field)))) {
-                        report.rejected.push({ id: item.id, reason: 'La segnalazione richiama affermazioni estranee al destinatario o al campo' }); invalid.add(item.id); return;
+                        report.rejected.push({ id: item.id, reason: 'La segnalazione richiama affermazioni estranee al destinatario o al campo', ...testoScartato(rawIssue) }); invalid.add(item.id); return;
                     }
                     (rawIssue.claimIds || []).forEach(id => claimProblems.add(id));
                     const repeated = repeatedDecision(rawIssue, item, decisions, evidence);
@@ -667,9 +757,14 @@ ${JSON.stringify(targets)}`;
                         if (!row.hasProposal && (!metatext || !truncated)) pending.push(row);
                     }
                 });
-                const checks = Array.isArray(data.checkedClaims) ? data.checkedClaims : [];
+                const rawChecks = Array.isArray(data.checkedClaims) ? data.checkedClaims : [];
+                const checks = rawChecks.filter(c => c && claims.some(unit => unit.id === c.id));
+                const foreignClaims = rawChecks.filter(c => !c || !claims.some(unit => unit.id === c.id))
+                    .map(c => (c == null ? 'null' : String(c.id)).slice(0, 80));
+                if (foreignClaims.length) status.foreignClaimIds = foreignClaims.slice(0, 5);
                 const sourceIds = new Set(sources.map(s => s.id).concat(decisions.filter(d => Grounding.amendmentText(d).length).map(d => d.issueId)));
-                if (checks.length > claims.length || checks.some(c => !c || !claims.some(unit => unit.id === c.id))) batch.forEach(i => invalid.add(i.id));
+                // The cap stays on the raw list; a foreign row only loses its claim.
+                if (rawChecks.length > claims.length) batch.forEach(i => invalid.add(i.id));
                 claims.forEach(unit => {
                     const rows = checks.filter(c => c && c.id === unit.id), result = rows[0];
                     const refs = result && result.sourceIds;
@@ -687,7 +782,7 @@ ${JSON.stringify(targets)}`;
                     if (!checked) invalid.add(unit.itemId);
                 });
                 batch.forEach(item => {
-                    let reason = truncated ? 'Risposta troncata o interrotta' : invalid.has(item.id) ? 'Una segnalazione non è verificabile' :
+                    let reason = truncated ? motivoTaglio : invalid.has(item.id) ? 'Una segnalazione non è verificabile' :
                         !data.checkedIds.includes(item.id) ? 'Nessun esito ricevuto per questo item' : '';
                     if (!truncated && report.coverage.claims.some(c => c.itemId === item.id && !c.checked)) reason = 'Una o più affermazioni non hanno un esito verificabile';
                     if (item.kind === 'mc') {
@@ -698,11 +793,24 @@ ${JSON.stringify(targets)}`;
                         report.coverage.mcOptions.push({ id: item.id, checked, total: n });
                         if (!reason && (!n || checked.length !== n)) reason = 'Non tutte le alternative MC sono state esaminate';
                     }
+                    // A verdict missing from a list that lost foreign rows is
+                    // explained by them; every other reason stays as it is.
+                    if (['Nessun esito ricevuto per questo item', 'Non tutte le alternative MC sono state esaminate',
+                        'Una o più affermazioni non hanno un esito verificabile'].includes(reason) &&
+                        (foreignChecked.length && !data.checkedIds.includes(item.id) ||
+                            foreignMc.length && item.kind === 'mc' && !data.mcOptions.some(r => r && r.id === item.id) ||
+                            foreignClaims.length && claims.some(u => u.itemId === item.id && !checks.some(c => c.id === u.id)))) reason = FOREIGN;
                     if (reason) report.coverage.skipped.push({ id: item.id, reason });
                     else { status.checkedIds.push(item.id); report.coverage.checkedIds.push(item.id); }
                 });
                 status.status = status.checkedIds.length === batch.length ? 'completed' : 'incomplete';
-                if (truncated) status.reason = 'Risposta troncata o interrotta';
+                // Foreign ids mark the batch as lost only when no material kept its
+                // verdict and all lost it to them: the Banco copies a batch reason
+                // onto every unchecked material of the batch.
+                if (!status.checkedIds.length && batch.every(item => report.coverage.skipped.some(row => row.id === item.id && row.reason === FOREIGN))) status.reason = FOREIGN;
+                if (truncated) status.reason = motivoTaglio;
+                // An interrupted batch that still had its three lists keeps the excerpt.
+                if (truncated) grezzo({ outTok: t.outTok, tetto, errore: motivoTaglio });
                 if (status.status === 'completed') {
                     report.issues.filter(row => row.check === 'processing-metatext' && !row.hasProposal && batchIds.has(row.target.id))
                         .forEach(row => { if (!pending.some(p => p.id === row.id)) pending.push(row); });
@@ -711,16 +819,42 @@ ${JSON.stringify(targets)}`;
             } catch (e) {
                 status.reason = e && e.message || 'Controllo non riuscito';
                 batch.forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
+                // 0058: only if a response arrived (a network error or a 400 has none).
+                // The parser's message, if it threw, goes in the excerpt, not in the reason.
+                grezzo({ outTok: t ? t.outTok : 0, tetto, errore: erroreParse || status.reason });
                 // IPC wraps the provider error and may drop its HTTP status.
                 // An explicit invalid request will not improve in later lots.
                 if ((Number(e && e.status) === 400 || /\b400\b/.test(status.reason)) && /\bINVALID_ARGUMENT\b/i.test(status.reason)) {
                     report.reason = 'Il provider ha rifiutato la richiesta (400 INVALID_ARGUMENT). Controllo interrotto: i materiali non esaminati restano da verificare.';
                     report.requestError = { status: 400, code: 'INVALID_ARGUMENT', message: status.reason };
-                    targets.slice(start + BATCH_SIZE).forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
-                    break;
+                    queue.slice(turn + 1).flat().forEach(i => report.coverage.skipped.push({ id: i.id, reason: status.reason }));
+                    stopAfterBatch = true;
                 }
             }
+            if (opts.assertCurrent) opts.assertCurrent();
+            // Opt-in adaptive retry: no changes to the default callers or issue schema.
+            const missing = batch.filter(item => !report.coverage.checkedIds.includes(item.id));
+            if (!stopAfterBatch && opts.fitsRequest && raw !== null && missing.length && batch.length > 1) {
+                const ids = new Set(missing.map(item => item.id)), middle = Math.ceil(missing.length / 2);
+                report.coverage.skipped = report.coverage.skipped.filter(row => !ids.has(row.id));
+                report.coverage.claims = report.coverage.claims.filter(row => !ids.has(row.itemId));
+                report.coverage.mcOptions = report.coverage.mcOptions.filter(row => !ids.has(row.id));
+                const parts = [missing.slice(0, middle), missing.slice(middle)].filter(part => part.length);
+                queue.splice(turn + 1, 0, ...parts);
+            }
+            if (opts.onCheckpoint) {
+                const snapshot = copy(summarize());
+                if (opts.fitsRequest) snapshot.issues = Array.from(new Map(snapshot.issues.map(row => [row.id, row])).values());
+                const accounted = new Set(snapshot.coverage.checkedIds.concat(snapshot.coverage.skipped.map(row => row.id)));
+                snapshot.coverage.expectedIds.filter(id => !accounted.has(id)).forEach(id =>
+                    snapshot.coverage.skipped.push({ id, reason: 'Controllo ancora da completare' }));
+                snapshot.checkStatus = snapshot.coverage.skipped.length || !sources.length ? 'incomplete' : 'completed';
+                await opts.onCheckpoint(snapshot);
+                if (opts.assertCurrent) opts.assertCurrent();
+            }
+            if (stopAfterBatch) break;
         }
+        if (opts.fitsRequest) report.issues = Array.from(new Map(report.issues.map(row => [row.id, row])).values());
         report.checkStatus = report.coverage.skipped.length ? 'incomplete' : 'completed';
         if (!sources.length) {
             report.checkStatus = 'incomplete';

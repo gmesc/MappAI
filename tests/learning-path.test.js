@@ -85,6 +85,10 @@ test('percorso: modalità diverse preservano lo stesso obiettivo, item e chiavi'
     assert.ok($('.feedback').text().includes('Cita Guisan.'));
     $('textarea').each((_, el) => assert.equal($('label[for="' + $(el).attr('id') + '"]').length, 1));
     assert.equal($('#sp-large').attr('aria-pressed'), 'false');
+    // IL COMANDO «Aa» (0087 lotto 6): a schermo solo «Aa», il fattore nell'aria-label
+    assert.equal($('#sp-large').text(), 'Aa');
+    assert.ok(/: ×1$/.test(String($('#sp-large').attr('aria-label'))), 'aria-label ×1');
+    assert.ok(/: ×1[,.]5$/.test(String($('#sp-large').attr('data-aa2'))), 'secondo passo ×1,5');
     assert.equal($('script[src],link[href^="http"]').length, 0, 'il documento funziona offline');
     assert.equal($('meta[name=mappai-source-revision]').attr('content'), f.review.approvedRevision);
   }

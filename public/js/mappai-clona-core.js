@@ -46,6 +46,7 @@
         'Quiz V/F': 'Vero o Falso',
         'Quiz': 'Quiz',
         'Domande aperte': 'Domande Aperte',
+        'Domande della fonte': 'Domande della fonte',
         'Flashcard': 'Flashcard',
         'Sintesi': 'Sintesi',
         'Foglio nodi': 'Foglio dei nodi',

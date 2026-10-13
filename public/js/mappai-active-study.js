@@ -68,13 +68,13 @@
         (buttons || []).forEach(b => {
             const style = b.primary
                 ? 'background:#4f46e5;color:#fff'
-                : 'background:#f1f5f9;color:#334155';
+                : 'background:#f1f5f9;color:var(--mm-testo, #404040)';
             btnHtml += `<button type="button" id="${b.id}" style="${style};border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600;margin-left:8px">${b.label}</button>`;
         });
         // opts.icon: icona Lucide SVG accanto al titolo (mai emoji — richiesta utente 11/7/26)
         const iconHtml = (opts && opts.icon)
             ? `<i data-lucide="${opts.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>` : '';
-        card.innerHTML = `<h3 style="display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:18px;color:#0f172a;font-weight:700">${iconHtml}${escapeHtml(title)}</h3>
+        card.innerHTML = `<h3 style="display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:18px;color:var(--mm-testo, #404040);font-weight:700">${iconHtml}${escapeHtml(title)}</h3>
             <div>${bodyHtml}</div>
             <div style="display:flex;justify-content:flex-end;margin-top:18px">${btnHtml}</div>`;
         overlay.appendChild(card);
@@ -139,7 +139,7 @@
               title: _t('as_celeration_title', 'I tuoi progressi nel tempo'),
               hint: _t('as_celeration_hint', 'Grafico di crescita delle tue sessioni (celeration).') }
         ];
-        const sectionHeader = txt => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 8px">${txt}</div>`;
+        const sectionHeader = txt => `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin:0 0 8px">${txt}</div>`;
         /* ⚠️ Niente numeri sulle card: la scala 1…7 era delle modalità
            pensionate, e con due sole attività un numero prometterebbe un ordine
            che non c'è. `num` resta come parametro per chi lo volesse.
@@ -148,11 +148,11 @@
            disabilitato non emette eventi mouse, quindi il fumetto non uscirebbe. */
         const extraCard = (x, num) => {
             const dis = x.ok ? '' : (x.mancaMotivo || _t('as_extra_missing', 'Funzione non disponibile.'));
-            const activeBorder = x.on ? '#4f46e5' : '#e2e8f0';
+            const activeBorder = x.on ? '#4f46e5' : 'var(--mm-bordo, #cbd5e1)';
             const label = num ? `${num}. ${x.title}` : x.title;
             return `<button type="button" class="as-extra-card" data-extra="${x.key}" ${dis ? 'disabled' : ''} data-tip="${_escAttr(x.hint)}" style="display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:${x.on ? '#eef2ff' : '#fff'};border:1px solid ${activeBorder};border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:${dis ? 'default' : 'pointer'};transition:border-color .15s;${dis ? 'opacity:.5' : ''}">
                 <i data-lucide="${x.icon}" style="width:22px;height:22px;color:#4f46e5;flex:0 0 auto"></i>
-                <span><span style="display:block;font-weight:700;color:#0f172a">${label}</span>
+                <span><span style="display:block;font-weight:700;color:var(--mm-testo, #404040)">${label}</span>
                 ${dis ? `<span style="display:block;font-size:12.5px;color:#64748b;line-height:1.45;margin-top:2px">${dis}</span>` : ''}</span>
             </button>`;
         };

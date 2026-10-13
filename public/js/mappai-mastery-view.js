@@ -96,12 +96,12 @@
     document.getElementById('mv-legend')?.remove();
     const box = document.createElement('div');
     box.id = 'mv-legend';
-    box.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;font-family:system-ui,sans-serif;font-size:12px;color:#334155';
+    box.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:9996;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;font-family:system-ui,sans-serif;font-size:12px;color:var(--mm-testo, #404040)';
     const row = (c, t) => `<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><span style="width:13px;height:13px;border-radius:50%;background:${c.fill};border:2px solid ${c.stroke};display:inline-block"></span>${t}</div>`;
-    box.innerHTML = '<div style="font-weight:700;color:#0f172a;margin-bottom:5px">Padronanza</div>' +
+    box.innerHTML = '<div style="font-weight:700;color:var(--mm-testo, #404040);margin-bottom:5px">Padronanza</div>' +
       row(COLORS['fluente'], 'Fluente') + row(COLORS['acquisito'], 'Acquisito') +
       row(COLORS['in-corso'], 'In corso') + row(COLORS['nuovo'], 'Da studiare') +
-      '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 0;padding-top:5px;border-top:1px solid #e2e8f0"><span style="width:13px;height:13px;border-radius:50%;background:transparent;border:2px dashed #f5c542;display:inline-block"></span>Sintesi scritta ≥60%</div>';
+      '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 0;padding-top:5px;border-top:1px solid var(--mm-bordo, #cbd5e1)"><span style="width:13px;height:13px;border-radius:50%;background:transparent;border:2px dashed #f5c542;display:inline-block"></span>Sintesi scritta ≥60%</div>';
     document.body.appendChild(box);
   }
 

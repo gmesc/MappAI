@@ -26,6 +26,13 @@
     function _t(k, f) { try { return (window.t ? window.t(k, f) : f); } catch (e) { return f; } }
     function _state() { try { return (typeof appState !== 'undefined') ? appState : window.appState; } catch (e) { return window.appState; } }
     function _eid(x) { return (x && typeof x === 'object') ? x.id : x; }
+    /* Id ed etichette dei nodi vengono dal vault (25/9/2026): nel pannello della
+       revisione entravano senza escape, e la nota in `value="…"` perdeva solo le
+       virgolette. Ora i cinque caratteri: il nucleo, o lo stesso escape qui. */
+    function _esc(v) {
+        if (window.MappAIHtmlSicuro) return window.MappAIHtmlSicuro.esc(v);
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+    }
 
     var _snapshot = null;   // { nodes, links, at }
     var _active = false;
@@ -88,9 +95,9 @@
             var detail = o.note ? (' · ' + o.note) : (o.after && o.after.rel ? (' · ' + (o.after.source || '') + ' → ' + (o.after.target || '')) : '');
             return '<tr data-i="' + i + '">' +
                 '<td style="padding:6px 8px;white-space:nowrap;"><span class="cr-op cr-op-' + o.op + '">' + (CC.OPS[o.op] ? CC.OPS[o.op].label : o.op) + '</span></td>' +
-                '<td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#475569;">' + tgt + detail + '</td>' +
+                '<td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#475569;">' + _esc(tgt + detail) + '</td>' +
                 '<td style="padding:6px 8px;"><select class="cr-reason" style="width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:6px;">' + opts + '</select></td>' +
-                '<td style="padding:6px 8px;"><input class="cr-note" placeholder="' + _t('cr_note_ph', 'nota (perché)…') + '" style="width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:6px;" value="' + (o.note || '').replace(/"/g, '&quot;') + '"></td>' +
+                '<td style="padding:6px 8px;"><input class="cr-note" placeholder="' + _t('cr_note_ph', 'nota (perché)…') + '" style="width:100%;padding:4px;border:1px solid #cbd5e1;border-radius:6px;" value="' + _esc(o.note || '') + '"></td>' +
                 '</tr>';
         }).join('');
 
@@ -100,8 +107,8 @@
         }).join('');
 
         overlay.innerHTML =
-            '<div class="pm-modal" style="background:#fff;border-radius:16px;max-width:1080px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);">' +
-            '  <div class="pm-header" style="padding:18px 22px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;">' +
+            '<div class="pm-modal" style="background:#fff;border-radius:16px;max-width:var(--mm-xl);width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);">' +
+            '  <div class="pm-header" style="padding:18px 22px;border-bottom:1px solid var(--mm-bordo, #cbd5e1);display:flex;align-items:center;gap:12px;">' +
             '    <span class="pm-icon-wrap" style="background:#e0e7ff;border-radius:10px;padding:8px;"><i data-lucide="clipboard-check"></i></span>' +
             '    <div><div class="pm-title" style="font-weight:700;font-size:17px;">' + _t('cr_title', 'Revisione correzioni') + '</div>' +
             '    <div class="pm-subtitle" style="color:#64748b;font-size:13px;">' + _t('cr_subtitle', 'Conferma il motivo di ogni correzione. Il log serve a migliorare la generazione.') + '</div></div>' +
@@ -113,7 +120,7 @@
             '      <th style="padding:6px 8px;width:230px;">' + _t('cr_col_reason', 'Motivo') + '</th><th style="padding:6px 8px;width:260px;">' + _t('cr_col_note', 'Nota') + '</th>' +
             '    </tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
             '  </div>' +
-            '  <div class="pm-footer" style="padding:16px 22px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">' +
+            '  <div class="pm-footer" style="padding:16px 22px;border-top:1px solid var(--mm-bordo, #cbd5e1);display:flex;justify-content:flex-end;gap:10px;">' +
             '    <button class="pm-btn-cancel" id="cr-cancel" style="padding:9px 16px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;">' + _t('cr_close', 'Chiudi') + '</button>' +
             '    <button class="pm-btn-primary" id="cr-save" style="padding:9px 18px;border-radius:9px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">' + _t('cr_save', 'Salva log nel vault') + '</button>' +
             '  </div>' +
@@ -148,7 +155,12 @@
         var vaultPath = st && st.activeVaultPath;
         if (vaultPath && window.electronAPI && window.electronAPI.saveVaultFile) {
             window.electronAPI.saveVaultFile({ vaultPath: vaultPath, relPath: 'correzioni.json', text: payload })
-                .then(function () { _toast(_t('cr_saved', 'Log salvato: correzioni.json nel vault'), 'success'); })
+                .then(function (r) {
+                    // save-vault-file non rifiuta mai: risponde { ok:false } (25/9/2026: prima
+                    // compariva «Log salvato» e le correzioni del tester andavano perse)
+                    if (!r || r.ok === false) throw new Error((r && r.error) || 'non salvato');
+                    _toast(_t('cr_saved', 'Log salvato: correzioni.json nel vault'), 'success');
+                })
                 .catch(function (e) { _download(payload); _toast(_t('cr_saved_dl', 'Vault non scrivibile: log scaricato'), 'info'); });
         } else {
             _download(payload);

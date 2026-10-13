@@ -16,14 +16,13 @@ const LS = require(path.join(__dirname, '..', 'public', 'js', 'mappai-local-sear
 
 /* Copia di `statoBase()` di tests/local-search-core.test.js:20-33, arricchita
    di una riga-domanda e di una riga-didascalia, come chiede il packet.
-   ⚠️ La didascalia è «Figura 1», non «Fig. 1»: lo splitter dell'àncora
-   (mappai-deepen-core.js, splitSentences) spezza dopo ogni punto, quindi
-   «Fig. 1 Il circuito…» diventa «Fig.» + «1 Il circuito…» e la coda passa il
-   filtro come frase normale. La regola C di isStructuralLine è la stessa per
-   le due forme; il limite sull'abbreviazione è documentato dal test `todo` più
-   sotto. */
+   La didascalia è ABBREVIATA, «Fig. 1»: fino al packet 0030 era «Figura 1»,
+   perché lo splitter dell'àncora (mappai-deepen-core.js, splitSentences)
+   spezzava dopo ogni punto e «Fig. 1 Il circuito…» diventava «Fig.» + «1 Il
+   circuito…». Dal 0030 lo splitter conosce le abbreviazioni: la frase resta
+   intera e il filtro delle righe strutturali la riconosce (sentinella più sotto). */
 const DOMANDA = 'Perche la batteria si scalda a circuito chiuso?';
-const DIDASCALIA = 'Figura 1 Il circuito chiuso con la batteria e la lampadina.';
+const DIDASCALIA = 'Fig. 1 Il circuito chiuso con la batteria e la lampadina.';
 const FRASI_BASE = [
     'Un circuito e chiuso quando la corrente puo percorrere tutto il tragitto dal ' +
     'generatore al ricevitore e tornare indietro senza interruzioni.',
@@ -75,8 +74,8 @@ test('tipizza: un esempio per ciascuno dei sei generi', () => {
 
 test('tipizza: le forme alternative di ogni regola', () => {
     const casi = [
-        ['1) Che cosa succede nel circuito', 'domanda'],          // stem numerato (regola B copiata)
-        ['..........', 'consegna'],                                // riga di soli puntini (regola A copiata)
+        ['1) Che cosa succede nel circuito', 'domanda'],          // stem numerato (structuralKind 'stem')
+        ['..........', 'consegna'],                                // riga di soli puntini (structuralKind 'spazio')
         ['completa la tabella dopo il due punti.', 'consegna'],   // minuscola, come dopo «Attività 3:»
         ['IL CIRCUITO ELETTRICO', 'didascalia'],                   // titolo tutto maiuscolo (regola D)
         ['Doc. 2 La lettera di Volta a Banks.', 'didascalia'],      // riferimento a documento (regola C)
@@ -219,27 +218,31 @@ test('la riga-domanda e la riga-didascalia della fonte NON entrano nel pacchetto
     // ma tipizza, da sola, le riconosce: servono all'indice del passo 2
     assert.strictEqual(E.tipizza(DOMANDA).genere, 'domanda');
     assert.strictEqual(E.tipizza(DIDASCALIA).genere, 'didascalia');
-    assert.strictEqual(E.tipizza('Fig. 1 Il circuito chiuso con la batteria e la lampadina.').genere, 'didascalia');
+    assert.strictEqual(E.tipizza('Figura 1 Il circuito chiuso con la batteria e la lampadina.').genere, 'didascalia');
 });
 
-/* LIMITE A MONTE, MISURATO (19/9/2026): lo splitter dell'àncora
-   (mappai-deepen-core.js, splitSentences) spezza dopo OGNI punto, quindi la
-   didascalia abbreviata «Fig. 1 Il circuito…» diventa «Fig.» (frammento che
-   cade da sé) + «1 Il circuito…», e quella coda passa il filtro come una frase
-   qualunque: nel pacchetto entra decapitata, e tipizzata `concetto` perché
-   nulla la distingue più da un fatto. Non si corregge qui (deepen-core e
-   anchor-core sono fuori perimetro, e il filtro delle frasi ha UNA fonte).
-   Se questo test diventa rosso, lo splitter ha imparato le abbreviazioni:
-   toglierlo e mettere «Fig. 1» al posto di «Figura 1» nella fixture in testa. */
-test('limite a monte: la didascalia abbreviata «Fig. 1 …» entra nel pacchetto decapitata', () => {
+/* EX LIMITE A MONTE, misurato il 19/9/2026 e corretto dal packet 0030: lo
+   splitter dell'àncora (mappai-deepen-core.js, splitSentences) spezzava dopo
+   OGNI punto, quindi la didascalia abbreviata «Fig. 1 Il circuito…» diventava
+   «Fig.» (frammento che cadeva da sé) + «1 Il circuito…», e quella coda passava
+   il filtro come una frase qualunque: nel pacchetto entrava decapitata, e
+   tipizzata `concetto` perché nulla la distingueva più da un fatto.
+   Sentinella invertita: ora la frase resta intera, il filtro delle righe
+   strutturali la riconosce (structuralKind 'riferimento') e non entra affatto.
+   La V1 dello splitter resta esportata: con lei il difetto si riproduce ancora. */
+test('la didascalia abbreviata «Fig. 1 …» resta intera e NON entra nel pacchetto, né intera né decapitata', () => {
     const coda = 'Il circuito chiuso con la batteria e la lampadina.';
     const fonte = FRASI_BASE.slice(0, 4).concat(['Fig. 1 ' + coda]).join(' ');
     assert.strictEqual(E.tipizza('Fig. 1 ' + coda).genere, 'didascalia', 'intera, tipizza la riconosce');
     const p = E.costruisciPacchetto({ records: records(statoBase(fonte)), query: 'batteria circuito chiuso lampadina', tetto: { unita: 20, caratteri: 100000 } });
-    const decapitata = p.unita.find(u => u.text === '1 ' + coda);
-    assert.ok(decapitata, 'se la coda «1 Il circuito…» non entra più, lo splitter è stato corretto: aggiornare fixture e test come dice il commento sopra');
-    assert.strictEqual(decapitata.genere, 'concetto');
-    assert.ok(!p.unita.some(u => /^Fig\./.test(u.text)), 'la testa «Fig.» non sopravvive da sola');
+    assert.ok(p.unita.length, 'la query deve trovare qualcosa, o il test non prova niente');
+    assert.ok(!p.unita.some(u => u.text === '1 ' + coda), 'la coda decapitata «1 Il circuito…» non esiste più');
+    assert.ok(!p.unita.some(u => u.text.includes(coda)), 'e la didascalia intera la toglie il filtro delle righe strutturali');
+    assert.ok(!p.unita.some(u => /^Fig\./.test(u.text)), 'nemmeno la testa «Fig.»');
+    // la V1, tenuta per confronto, riproduce ancora il vecchio taglio
+    const D = require(path.join(__dirname, '..', 'public', 'js', 'mappai-deepen-core.js'));
+    assert.deepStrictEqual(D.splitSentencesV1('Fig. 1 ' + coda), ['Fig.', '1 ' + coda]);
+    assert.deepStrictEqual(D.splitSentences('Fig. 1 ' + coda), ['Fig. 1 ' + coda]);
 });
 
 // ── 6. i casi vuoti ────────────────────────────────────────────────────────
@@ -337,8 +340,8 @@ const ID_FONTE = /^fonte-[0-9a-f]{16}-\d+$/;
 const ID_EV = /^ev-[0-9a-f]{16}-\d+$/;
 const LARGO = { unita: 20, caratteri: 100000 };
 
-test('il core esporta le sei funzioni, nell ordine dei packet: materialeRamo ultima (passo 3)', () => {
-    assert.deepStrictEqual(Object.keys(E), ['tipizza', 'costruisciPacchetto', 'formattaPerPrompt', 'costruisciIndice', 'indiceStantio', 'materialeRamo']);
+test('il core conserva le funzioni dei materiali e aggiunge il registro completo del Giudice', () => {
+    assert.deepStrictEqual(Object.keys(E), ['tipizza', 'costruisciPacchetto', 'formattaPerPrompt', 'costruisciIndice', 'indiceStantio', 'materialeRamo', 'registroGiudice']);
 });
 
 test('indice 1: due fonti con pages → due fonti, record solo original|reference, sourceId derivato e uguale in due costruzioni', () => {
@@ -642,4 +645,110 @@ test('materialeRamo 6: il testo di ogni unità compare identico, con il suo [[ev
     const prima = JSON.parse(JSON.stringify(p));
     E.materialeRamo({ area: 'Il circuito', nodi: NODI, pacchetto: p, conDesc: true });
     assert.deepStrictEqual(p, prima, 'materialeRamo legge il pacchetto, non lo modifica');
+});
+
+// ── 0024: testo intero per il Giudice, distinto dal recupero dei materiali ──
+test('registroGiudice: ricompone ogni pagina senza filtri, top-k o perdita di spazi e coda lunga', () => {
+    const pages = [
+        { n: 1, text: '  Completa la frase: ..........\nPerché succede?\n NO.\n' + 'Un testo ripetuto non diventa una prova falsa. '.repeat(60) + 'CODA FINALE  ' },
+        { n: 2, text: 'Intestazione ricorrente\nIl documento non dice che la guerra fosse inevitabile.' },
+        { n: 3, text: 'Intestazione ricorrente\n1) Scegli una risposta.\n' },
+        { n: 4, text: 'Intestazione ricorrente\nIl cloze termina con ..........' },
+        { n: 5, text: 'x'.repeat(899) + '😀' + 'x'.repeat(20) }
+    ];
+    const sources = [{ id: 'integrale', origin: 'original', title: 'Documento.pdf', pages }];
+    const before = JSON.stringify(sources), r = E.registroGiudice(sources);
+    assert.equal(r.schema, 'mappai-fonti-giudice@1');
+    assert.equal(r.copertura.caratteri, pages.reduce((n, p) => n + p.text.length, 0));
+    pages.forEach((page, pageIndex) => {
+        const chunks = r.passaggi.filter(p => p.pageIndex === pageIndex);
+        assert.equal(chunks.map(p => p.text).join(''), page.text);
+        let start = 0;
+        chunks.forEach(p => {
+            assert.equal(p.start, start);
+            assert.equal(p.text, page.text.slice(p.start, p.end));
+            assert.ok(p.text.length <= 900);
+            assert.ok(!/[\uD800-\uDBFF]$/.test(p.text), 'nessuna coppia UTF-16 spezzata');
+            start = p.end;
+        });
+        assert.equal(start, page.text.length);
+    });
+    assert.equal(JSON.stringify(sources), before, 'lo snapshot originale è immutato');
+    assert.equal(new Set(r.passaggi.map(p => p.id)).size, r.passaggi.length);
+});
+
+test('registroGiudice: origine filtrata prima dell indice; legacy esplicito e identità documentId rispettata', () => {
+    const sources = [
+        { documentId: 'originale', origin: 'original', title: 'Fonte', text: 'Il testo originale.' },
+        { origin: 'reference', text: 'Un riferimento indipendente.' },
+        { text: 'Una fonte legacy.' },
+        'Un testo incollato legacy.',
+        { origin: 'generated', text: 'Una descrizione generata.' },
+        { origin: 'teacher', choice: 'manual', before: 'Prima', after: 'Dopo', text: 'Una rettifica docente.' },
+        { origin: 'generated-ai', text: 'Origine sconosciuta.' },
+        { origin: null, text: 'Origine nulla non è legacy.' }
+    ];
+    const r = E.registroGiudice(sources);
+    assert.deepEqual(r.passaggi.map(p => p.text), sources.slice(0, 3).map(s => s.text).concat(sources[3]));
+    assert.equal(r.passaggi[0].sourceId, 'originale');
+    assert.equal(r.diagnostica.filter(d => d.code === 'judge_source_legacy_origin').length, 2);
+    assert.equal(r.diagnostica.filter(d => d.code === 'judge_source_excluded').length, 2);
+    assert.equal(r.diagnostica.filter(d => d.code === 'judge_source_origin_unknown' && d.bloccante).length, 2);
+    assert.ok(r.passaggi.every(p => ['original', 'reference'].includes(p.origin)));
+    assert.equal(E.registroGiudice([{ origin: 'original', label: 'Un concetto', desc: 'Descrizione generata.' }]).passaggi.length, 0,
+        'label e descrizioni non diventano testo della fonte');
+});
+
+test('registroGiudice: ID stabili riordinando le fonti, distinti per pagine senza numero e invalidati dalla revisione', () => {
+    const a = { title: 'Omonimo.pdf', origin: 'original', pages: [{ text: 'Prima pagina.' }, { text: 'Prima pagina.' }] };
+    const b = { title: 'Omonimo.pdf', origin: 'reference', pages: [{ text: 'Altra fonte.' }] };
+    const x = E.registroGiudice([a, b]), y = E.registroGiudice([b, a]);
+    assert.equal(x.revisione, y.revisione);
+    assert.deepEqual(x.passaggi.map(p => p.id).sort(), y.passaggi.map(p => p.id).sort());
+    assert.equal(new Set(x.passaggi.map(p => p.id)).size, 3);
+    assert.equal(new Set(x.passaggi.map(p => p.sourceId)).size, 2);
+    assert.equal(x.copertura.pagineNonNumerate, 3);
+    const changed = E.registroGiudice([a, { ...b, pages: [{ text: 'Altra fonte modificata.' }] }]);
+    assert.notEqual(changed.revisione, x.revisione);
+    assert.ok(changed.passaggi.every(p => !x.passaggi.some(old => old.id === p.id)), 'gli ID appartengono a un solo registro del giro');
+});
+
+test('registroGiudice: pagine vuote e whitespace restano contate senza inventare pagina o contenuto', () => {
+    const source = { id: 'vuoti', origin: 'original', pages: [{ n: 1, text: '' }, { n: 2, text: ' \n\t ' }, { text: 'Una frase.' }] };
+    const r = E.registroGiudice([source]);
+    assert.deepEqual(r.copertura, { pagineTotali: 3, pagineConTesto: 1, pagineVuote: 2, pagineNonNumerate: 1, caratteri: 14 });
+    assert.equal(r.passaggi.filter(p => p.pageIndex === 1).map(p => p.text).join(''), ' \n\t ');
+    assert.ok(r.passaggi.filter(p => p.pageIndex === 1).every(p => !p.citabile));
+    assert.equal(r.passaggi.find(p => p.pageIndex === 2).page, 0);
+    assert.ok(r.diagnostica.some(d => d.code === 'empty_page'));
+    assert.notEqual(E.registroGiudice([{ ...source, pages: [{ n: 1, text: '  ' }] }]).revisione,
+        E.registroGiudice([{ ...source, pages: [{ n: 1, text: ' ' }] }]).revisione);
+});
+
+test('registroGiudice: titolo solo leggibile, metadati mai testo; passaggio misto non certificato semanticamente', () => {
+    const source = { origin: 'original', title: 'La Svizzera.pdf', pages: [
+        { n: 1, text: '  LA SVIZZERA\nUn fatto contenuto nella fonte.' },
+        { n: 2, text: 'La Svizzera descrive qui un contesto specifico.' }
+    ] };
+    const r = E.registroGiudice([source]);
+    assert.equal(r.passaggi[0].citabile, false, 'la sola uguaglianza al titolo non è prova');
+    assert.equal(r.passaggi[1].citabile, true);
+    assert.equal(r.passaggi[2].citabile, true, 'il flag riguarda provenienza, non la forza del contenuto misto');
+    assert.equal(r.passaggi.map(p => p.text).join(''), source.pages.map(p => p.text).join(''));
+    assert.ok(!r.passaggi.some(p => p.text.includes('.pdf')), 'il titolo metadato non viene inserito nel corpo');
+});
+
+test('registroGiudice: identità duplicate e dati invalidi producono stop esplicito; niente perdita silenziosa', () => {
+    const s = { id: 'duplicato', origin: 'original', pages: [{ n: 1, text: 'Testo ripetuto.' }] };
+    const r = E.registroGiudice([s, s]);
+    assert.equal(r.passaggi.length, 2);
+    assert.equal(new Set(r.passaggi.map(p => p.id)).size, 2);
+    assert.ok(r.diagnostica.some(d => d.code === 'judge_source_identity_ambiguous' && d.bloccante));
+    assert.ok(r.diagnostica.some(d => d.code === 'judge_passage_identity_collision' && d.bloccante));
+    assert.ok(E.registroGiudice(null).diagnostica.some(d => d.code === 'judge_sources_invalid' && d.bloccante));
+    assert.ok(E.registroGiudice([null]).diagnostica.some(d => d.code === 'judge_source_invalid' && d.bloccante));
+    const invalid = E.registroGiudice([{ origin: 'original', pages: [null, { text: 3 }] }]);
+    assert.ok(invalid.diagnostica.some(d => d.code === 'judge_page_invalid' && d.bloccante));
+    assert.ok(invalid.diagnostica.some(d => d.code === 'judge_page_text_invalid' && d.bloccante));
+    assert.equal(invalid.copertura.pagineVuote, 2);
 });

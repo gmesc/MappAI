@@ -5,7 +5,7 @@
   I componenti di terze parti (font, librerie) restano sotto le loro licenze:
   vedi THIRD-PARTY-NOTICES.md.
 -->
-<html lang="it">
+<html lang="it" data-voce-sempre data-app="docente">
 
 <head>
     <meta charset="UTF-8">
@@ -57,26 +57,30 @@
     <script src="js/vendor/spacemono-font.js"></script>
 
     <!-- App Styles -->
-    <link rel="stylesheet" href="css/style.css?v=chip1">
+    <link rel="stylesheet" href="css/style.css?v=0062-20261013-1">
 
     <!-- Token dei modali (decisioni 29/7/26 — vedi public/dev/campionario-modali.html).
          Definisce le variabili --mm-* e le classi .mm-* del nuovo standard: finché un
          modale non le usa, questo foglio non cambia nulla di ciò che si vede. -->
-    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=consumi-0017-20260923-5">
+    <link rel="stylesheet" href="css/mappai-modal-tokens.css?v=ritocchi-0087-20261013-2">
 
     <!-- Stile «manifesto» della landing (progetto Inkscape di Giacomo, 3/8/26).
          Ogni regola è scoped sotto html.manifesto: senza quella classe questo
          foglio non cambia NULLA. La mette mappai-stile-manifesto.js, che si
          spegne con localStorage mappai_stile_manifesto='0'.
          Va DOPO i token e fuori dai @layer: le regole in layer perdono. -->
-    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=oq13">
+    <link rel="stylesheet" href="css/mappai-stile-manifesto.css?v=ritocchi-0087-20261012-10">
     <!-- La stessa veste, applicata alle CONSOLE (testata col marchio, rail che
          resta visibile, tetto di larghezza). Dopo la veste: ne usa i token. -->
-    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=dh17">
+    <link rel="stylesheet" href="css/mappai-console-manifesto.css?v=ritocchi-0087-20261013-3">
+    <!-- CREA con una foto (0067, ADR 0015): le card della foto e della scheda letta.
+         Dopo la veste: ne usa i token. -->
+    <link rel="stylesheet" href="css/mappai-crea-iconografica.css?v=0069-20261004-18">
     <!-- Regola 10: il sistema unico della UI per ogni pagina nuova (token --ui-*, si attiva con .ui) -->
     <link rel="stylesheet" href="css/mappai-ui.css?v=1">
-    <link rel="stylesheet" href="css/mappai-review-dashboard.css?v=review-0015-20260922-2">
-    <link rel="stylesheet" href="css/mappai-learning-path.css?v=20260914-1">
+    <link rel="stylesheet" href="css/mappai-percorso-lettura.css?v=0070-catalogo-20261010">
+    <link rel="stylesheet" href="css/mappai-review-dashboard.css?v=0086-20261009-1">
+    <link rel="stylesheet" href="css/mappai-learning-path.css?v=ritocchi-0087-20261009-9">
 
     <!-- ⚠️ BOOT DELLA VESTE, e perché sta QUI (5/8/26) ─────────────────────────
          Le classi `manifesto` e `mappai-ridotta` le mettevano i due moduli a
@@ -172,6 +176,9 @@
            MappAI Live, Elabora, Annulla, Home. Studio attivo, Knowledge Garden, Graph manager e Revisione
            portano `data-beta-nascosto`; `mappai_azioni_tutte='1'` le rimette (mappai-a11y.js). */
         #floating-actions-menu [data-beta-nascosto] { display: none !important; }
+        /* Il set del lavoro a gruppi è parcheggiato (ADR 0007, 26/9): ciò che porta `data-set-gruppi`
+           si vede solo con `mappai_set_gruppi='1'`, che mette `data-set-gruppi-on` su <html> (mappai-jigsaw.js). */
+        html:not([data-set-gruppi-on]) [data-set-gruppi] { display: none !important; }
         .step_badge { @apply inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xl font-bold shrink-0; } /* Cerchietto contenente il numero dello step (1, 2, 3, 4) */
         .step_badge_blue { @apply bg-purple-500; } /* Colore di sfondo per il badge dello Step 1 (Carica Fonti) */
         .step_badge_green { @apply bg-violet-500; } /* Colore di sfondo per il badge dello Step 2 (Scelta Generazione/Modalità) */
@@ -240,8 +247,8 @@
         .btn_confirm_action { @apply px-8 text-[14px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2 h-full; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
         .btn_confirm_action_sm { @apply px-12 py-4 text-[18px] text-white uppercase tracking-[0.2em] bg-indigo-500 rounded-xl hover:bg-emerald-400 hover:font-bold transition-all shadow-sm hover:shadow-emerald-400/10 flex items-center justify-center gap-2; } /* Pulsanti di conferma generici (es. chiusura modali con successo) */
 
-        .btn_salva_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
-        .btn_annulla_action { @apply px-8 !text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
+        .btn_salva_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-emerald-400 rounded-xl hover:bg-emerald-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per il salvataggio delle modifiche (es. salvataggio nodo) */
+        .btn_annulla_action { @apply px-8 text-[18px] text-white font-bold tracking-[0.2em] bg-red-400 rounded-xl hover:bg-red-500 transition-all shadow-sm hover:shadow-red-400/10 flex items-center justify-center gap-2 h-12; } /* Pulsante per annullare l'azione corrente e chiudere il modale */
 
 
         /* ==========================================================================
@@ -259,6 +266,7 @@
            ========================================================================== */
         .error_title { @apply text-lg font-bold text-slate-800 mb-2 flex items-center gap-2; } /* Titolo all'interno dei modali di allarme o errore */
         .error_body_text { @apply text-sm text-slate-600 mb-6 leading-relaxed max-h-[40vh] overflow-y-auto; } /* Testo descrittivo con l'errore di sistema o eccezione */
+        .mn-voce-avviso { background: var(--mm-danger); color: #fff; border: 1px solid var(--mm-danger-soft); border-radius: 6px; padding: 6px 10px; font-weight: 700; } /* 0065: CREA, sotto «Voce naturale (audio)» senza chiave Google — bianco su --mm-danger 4,8:1 */
 
         /* ==========================================================================
            10. CLASSI UTILITY (FOCUS RINGS)
@@ -320,7 +328,31 @@
         /* Bottoni footer */
         .pm-btn-cancel  { @apply flex-1 py-2.5 px-4 border border-slate-200 text-slate-500 rounded-xl text-[12px] font-bold cursor-pointer bg-white hover:bg-slate-50 transition-colors; }
         .pm-btn-primary { @apply flex-[2] py-2.5 px-5 bg-indigo-600 text-white rounded-xl text-[12px] font-bold cursor-pointer hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2; }
+        /* GEMELLI dei bottoni del motore (09/10, packet 0087 lotto 3): stessa altezza,
+           corpo, raggio, bordo e passaggio del mouse di `.mm-btn--secondario` e
+           `.mm-btn--primario`, dai loro token. Il Banco ha regole sue, più forti. */
+        html[data-app="docente"] .pm-btn-cancel,
+        html[data-app="docente"] .pm-btn-primary {
+            min-height: var(--mm-ctl-h);
+            font-size: var(--mm-ctl-fs);
+            border-radius: var(--mm-r-btn);
+        }
+        /* 11/10 (0087 lotto 10a): lo standard dei controlli — riposo fondo di sezione, passaggio accento tenue */
+        html[data-app="docente"] .pm-btn-cancel { border: var(--mm-bordo-spessore) solid var(--mm-bordo); background: var(--mm-fondo-sez); color: var(--mm-testo-2); }
+        html[data-app="docente"] .pm-btn-cancel:hover { background: var(--mm-accent-soft); color: var(--mm-accent); }
+        html[data-app="docente"] .pm-btn-primary { background: var(--mm-accent); }
+        html[data-app="docente"] .pm-btn-primary:hover { background: var(--mm-accent-hover); }
+        /* in un riquadro grigio il campo è bianco e senza bordo (Giacomo, 08/10, punto 4) */
+        html[data-app="docente"] .pm-section :is(select, textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])) {
+            background: var(--mm-fondo);
+            border-color: transparent;
+        }
         #mappai-teacher-review [hidden] { display: none !important; }
+        /* 0088 (B10): «1 Contenuti» in G2 è un bottone quando G1 è facoltativa e in attesa. Ha l'aspetto del passo: eredita
+           disposizione, colore e corpo dall'<li>; al passaggio prende l'accento. Il cerchio del numero resta quello di .mrv-stages span. */
+        #mappai-teacher-review .mrv-stages .mrv-stage-btn { display: inherit; align-items: inherit; justify-items: inherit; gap: inherit; text-align: inherit; white-space: inherit;
+            padding: 0; margin: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+        #mappai-teacher-review .mrv-stages .mrv-stage-btn:hover { color: var(--mm-accent); text-decoration: underline; }
       }
     </style>
     <style>
@@ -638,6 +670,13 @@
                             <span class="source_btn_text" data-i18n="src_audio">Audio</span>
                         </div>
 
+                        <!-- 0087 lotto 10-crea (12/10): la scelta «Output» e i due posti d'attesa della modalità
+                             iconografica sono pezzi del bento (voci mn-output, mn-foto-attesa, mn-scheda-attesa):
+                             la composizione li sposta nei loro box e mappai-crea-output.js li governa. Finché non
+                             sono spostati (.mn-spostato) il foglio li tiene spenti. -->
+                        <select id="mn-output-campo" class="mn-output-campo" aria-label="Output"></select>
+                        <div id="mn-foto-attesa" class="mn-attesa"><span data-i18n="crea_attesa_foto">Anteprima dell'immagine</span></div>
+                        <div id="mn-scheda-attesa" class="mn-attesa"><span data-i18n="crea_attesa_titolo">Titolo</span></div>
                         <div id="btn-src-doc" class="btn_selezione_input" onclick="window.addSource('doc')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="41" height="41" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -969,6 +1008,8 @@
                             onchange="window.importGraph(event)">
                     </div>
                 </div><!-- /generation-details-card: chiusura esplicita (era auto-corretta dal browser) -->
+                <!-- 0070: il bento sposta questo host nella sezione estesa, senza duplicarlo. -->
+                <div id="lettura-crea-host" hidden></div>
             </form>
 
             <!-- «Progetti salvati» ELIMINATA (3/8): le mappe già fatte si aprono da
@@ -1005,7 +1046,7 @@
 
         <!-- Meta-analisi docente + Consumi AI (discreti, in fondo; nascosti in ELABORA) -->
         <div id="landing-meta-links" class="max-w-2xl mx-auto mb-16 text-center flex items-center justify-center gap-8 flex-wrap">
-            <button id="meta-analisi-docente" onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
+            <button id="meta-analisi-docente" data-set-gruppi onclick="window.MappAIMetaAnalysis && window.MappAIMetaAnalysis.openModal()"
                 class="inline-flex items-center gap-2 text-slate-400 hover:text-indigo-600 text-sm font-semibold transition-colors"
                 title="Meta-analisi dei vault degli studenti — feedback e neurofeedback (docente)" data-i18n-title="tt_meta_analysis">
                 <i data-lucide="line-chart" class="w-4 h-4"></i> <span data-i18n="ui_teacher_analysis">Analisi (docente)</span>
@@ -1144,7 +1185,7 @@
                     <button type="button" onclick="window.openCollabQrProjection ? window.openCollabQrProjection() : (window.openCollabHub && window.openCollabHub())"
                         class="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-100 text-slate-500 py-2.5 rounded-lg hover:bg-emerald-400 hover:text-white transition-colors">
                         <i data-lucide="qr-code" class="w-4 h-4"></i>
-                        <span data-i18n="ui_collab_start_qr">Lavagna QR</span>
+                        <span data-i18n="ui_collab_start_qr">Mappa LIVE QR</span>
                     </button>
                 </div>
 
@@ -1263,11 +1304,11 @@
                             </div>
                             <div class="flex gap-2">
                                 <button id="pomodoro-btn" onclick="window.togglePomodoro()"
-                                    class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center">
-                                    <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                                    class="h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition shadow-sm flex items-center justify-center">
+                                    <i data-lucide="play" class="w-4 h-4"></i>
                                 </button>
                                 <button onclick="window.resetPomodoro()"
-                                    class="p-2 text-slate-400 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
+                                    class="h-[var(--mm-ctl-h)] w-[var(--mm-ctl-h)] text-slate-400 rounded-lg hover:text-slate-600 hover:bg-slate-100 transition shadow-sm flex items-center justify-center"
                                     title="Resetta"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
                             </div>
                         </div>
@@ -1398,10 +1439,10 @@
                          attivano via click() programmato. -->
                     <!-- Ordine (22/7/26, richiesta utente): Materiali · Live · Studio · Garden ·
                          Graph manager · Sincronizza Vault · Revisione · Co-docente. -->
-                    <button onclick="window.openStudyMaterialsModal && window.openStudyMaterialsModal()" title="Stampati e attività JIGSAW dalla mappa" data-i18n-title="tt_materials_hub">
+                    <button onclick="window.openStudyMaterialsModal && window.openStudyMaterialsModal()" title="Stampati e documenti salvati dalla mappa" data-i18n-title="tt_materials_hub">
                         <i data-lucide="printer"></i> <span data-i18n="ui_materials_hub">Materiali di studio</span>
                     </button>
-                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, lavagna collaborativa e materiali via QR" data-i18n-title="tt_live_hub">
+                    <button onclick="window.openLiveHub && window.openLiveHub()" title="MappAI Live: quiz, Mappa LIVE e materiali via QR" data-i18n-title="tt_live_hub">
                         <i data-lucide="radio"></i> <span data-i18n="ui_live_hub">MappAI Live</span>
                     </button>
                     <button data-beta-nascosto onclick="window.ActiveStudy && window.ActiveStudy.openLauncher()" title="Attività di studio, viste e strumenti" data-i18n-title="tt_active_study">
@@ -1431,8 +1472,6 @@
                     <!-- input file nascosti (attivati dai modali hub) -->
                     <input type="file" id="menu-import-json" accept=".json" class="hidden"
                         onchange="window.importGraph(event)">
-                    <input type="file" id="sidebar-merge" accept=".json" class="hidden"
-                        onchange="window.mergeGraph(event)">
                     <script>
                         // Hub Knowledge Garden = finestra Studio (11/7/26). Il bottone del menu
                         // azioni rapide chiama questa funzione (contratto 001-menu-reorg).
@@ -1447,7 +1486,7 @@
                     <div class="h-px bg-slate-100 my-1"></div>
                     <button id="undo-action-btn" type="button" onclick="window.undoLastAction()" disabled
                         title="Nulla da annullare" data-i18n-title="tt_nothing_undo" style="opacity:0.4;">
-                        <i data-lucide="rotate-ccw"></i> <span data-i18n="ui_undo">Annulla</span><span class="undo-count"></span>
+                        <i data-lucide="rotate-ccw"></i> <span class="undo-tasto">⌘Z</span><span class="undo-count"></span>
                     </button>
                     <button type="button" onclick="window.openCabina && window.openCabina('ai')">
                         <span data-i18n="modelli_setup">Setup AI</span>
@@ -1626,23 +1665,18 @@
             </button>
 
             <!-- Title Icon -->
-            <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
+            <!-- 0087 lotto 10-larghezze (12/10): la testata del motore — icona 40 + titolo accanto (l'id resta: showPrompt scrive qui) -->
+            <h3 class="modal_title"><i data-lucide="edit-3" class="w-10 h-10"></i><label class="modal_field_title" id="prompt-title" data-i18n="prompt_title">Inserisci valore</label></h3>
 
             <!-- Content Box -->
             <div class="space-y-6 pl-4 pr-4">
                 <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <!-- old prompt-title is now modal_field_title -->
-                        <label class="modal_field_title" id="prompt-title" data-i18n="prompt_title">Inserisci
-                            valore</label>
-                    </div>
 
                     <p class="text-sm text-slate-500 mb-2 font-medium hidden" id="prompt-desc"></p>
 
-                    <textarea id="prompt-input" rows="2"
+                    <textarea id="prompt-input" rows="1"
                         class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus_ring_standard"></textarea>
-                    <p class="input_label_xs text-slate-400 mt-2 tracking-[0.1em]" data-i18n="prompt_hint">Premi Invio
-                        per salvare.</p>
+                    <p class="input_label_xs text-slate-400 mt-2 tracking-[0.1em]" data-i18n="prompt_hint">Invio per salvare</p>
                 </div>
 
                 <!-- Action Buttons -->
@@ -1700,82 +1734,6 @@
         </div>
     </div>
 
-    <!-- Modale Selezione Numero Domande -->
-    <!-- Modale Configurazione QUIZ -->
-    <div id="study-config-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
-            id="study-config-box">
-
-            <button onclick="window.closeStudyConfigModal()"
-                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <h3 class="modal_title"><i id="study-config-icon" data-lucide="book-open"
-                    class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
-            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
-                <h3 id="study-config-title" class="text-xl font-black text-slate-800" data-i18n="ui_config_session">Configura Sessione</h3>
-                <p class="text-sm text-slate-500 font-medium mt-1" data-i18n="ui_how_study">Come vuoi Studiare?</p>
-            </div>
-
-            <div id="quiz-type-container" class="mb-5 text-left hidden">
-                <label class="block text-[10px] uppercase font-bold text-slate-400 mb-2 tracking-widest" data-i18n="ui_quiz_type">Tipo di
-                    Quiz</label>
-                <select id="study-quiz-type"
-                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl block p-3 focus_ring_standard">
-                    <option value="Risposta Multipla" data-i18n="ui_multiple_choice">Risposta Multipla (A/B/C/D)</option>
-                    <option value="Vero o Falso" data-i18n="ui_true_false">Vero o Falso</option>
-                    <option value="Risposta Aperta" data-i18n="ui_open_answer">Risposta Aperta Breve</option>
-                </select>
-                <label class="block text-[10px] uppercase font-bold text-slate-400 mt-4 mb-2 tracking-widest" data-i18n="ui_quiz_angle">Angolo delle domande</label>
-                <select id="study-quiz-angle"
-                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl block p-3 focus_ring_standard"></select>
-            </div>
-
-            <div class="mb-6 text-left">
-                <label class="block text-[14px] uppercase font-bold text-slate-400 mb-2 tracking-widest" data-i18n="ui_quantity">Quantità
-                    (Domande/Card)</label>
-                <div class="grid grid-cols-4 gap-3">
-                    <button onclick="window.selectStudyQuantity(5)"
-                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
-                        data-qty="5">5</button>
-                    <button onclick="window.selectStudyQuantity(10)"
-                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
-                        data-qty="10">10</button>
-                    <button onclick="window.selectStudyQuantity(15)"
-                        class="study-qty-btn p-3 bg-indigo-50 border border-indigo-500 rounded-xl text-indigo-600 font-bold transition"
-                        data-qty="15">15</button>
-                    <button onclick="window.selectStudyQuantity(20)"
-                        class="study-qty-btn p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-indigo-50 hover:text-indigo-600 transition"
-                        data-qty="20">20</button>
-                </div>
-            </div>
-
-            <div
-                class="mb-8 flex items-center justify-between p-4 bg-slate-50/50 border border-slate-200/60 rounded-xl">
-                <div class="flex items-center gap-2 text-slate-700 text-sm font-bold">
-                    <i data-lucide="timer" class="w-4 h-4 text-slate-400"></i> <span data-i18n="ui_fluency_timer">Timer di Fluency</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="study-timer-toggle" class="sr-only peer">
-                    <div
-                        class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500">
-                    </div>
-                </label>
-            </div>
-
-            <div class="flex gap-3 justify-end mt-6">
-                <button onclick="window.closeStudyConfigModal()" class="btn_annulla_action">
-                    <span data-i18n="btn_cancel">Annulla</span>
-                </button>
-                <button onclick="window.startStudySession()" class="btn_salva_action">
-                    Start
-                </button>
-            </div>
-        </div>
-    </div>
-
 
 
     <!-- Modale Confirm Personalizzato -->
@@ -1791,167 +1749,6 @@
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button id="confirm-ok"
                     class="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors" data-i18n="ui_confirm_btn">Conferma</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE CHI SEI (PROFILO STUDENTE) -->
-    <div id="user-profile-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-200 my-auto flex flex-col max-h-[90vh]"
-            id="user-profile-box">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
-                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                    <i data-lucide="user-circle" class="text-indigo-600"></i> <span data-i18n="profile_title">Profilo
-                        Studente</span>
-                </h3>
-                <button onclick="window.closeUserProfileModal()" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-6">
-                <div class="space-y-4">
-                    <div id="saved-profiles-container" class="mb-4 pb-4 border-b border-slate-100">
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_saved_profiles">Profili
-                            Salvati</label>
-                        <select id="up-saved-profiles" onchange="window.loadSelectedProfile()"
-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-slate-50 text-indigo-700 font-bold focus_ring_standard">
-                            <option value="" data-i18n="ui_new_profile">+ Nuovo Profilo</option>
-                        </select>
-                    </div>
-                    <!-- Il NOME non si chiede (15/9/2026): l'etichetta della scheda la
-                         conia l'app (mappai-user-profile.js, nuovaEtichettaProfilo).
-                         Nel prompt entrano solo età, classe e sistema scolastico. -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label
-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_age">Età</label>
-                            <input type="number" id="up-age" placeholder="Es. 15" data-i18n-placeholder="ph_age_example"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all focus_ring_standard">
-                        </div>
-                        <div>
-                            <label
-                                class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1" data-i18n="ui_class">Classe</label>
-                            <select id="up-grade"
-                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
-                                <!-- Populated dynamically -->
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1"
-                            data-i18n="profile_system">Sistema Scolastico</label>
-                        <select id="up-system" onchange="window.updateGradeOptions()"
-                            class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm transition-all bg-white focus_ring_standard">
-                            <option value="Ticino" data-i18n="ui_school_ticino">Sistema Scolastico Ticinese (Medie)</option>
-                            <option value="Italia" data-i18n="ui_school_italy">Sistema Scolastico Italiano (Medie)</option>
-                            <option value="Liceo_Ticino" data-i18n="ui_school_liceo_ti">Liceo Cantonale (Ticino - 4 anni)</option>
-                            <option value="Liceo_Italia" data-i18n="ui_school_liceo_it">Liceo / Scuola Superiore (Italia - 5 anni)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-3 pb-2">
-                    <button onclick="window.saveUserProfile()"
-                        class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all">
-                        Salva Profilo
-                    </button>
-                    <button type="button" onclick="window.openClassAccountsModal && window.openClassAccountsModal()"
-                        class="w-full py-3 bg-white border border-indigo-100 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
-                        data-i18n="ui_class_accounts">
-                        <i data-lucide="users" style="width:16px;height:16px"></i> Account classi
-                    </button>
-                    <button onclick="window.resetUserProfile()"
-                        class="w-full py-3 bg-white border border-red-100 text-red-500 hover:bg-red-50 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all">
-                        Elimina Profilo
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE ESPLORA VAULT -->
-    <div id="vault-manager-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 transform scale-95 transition-transform duration-200 flex flex-col max-h-[85vh] relative"
-            id="vault-manager-box">
-
-            <button onclick="window.closeVaultManager()"
-                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <h3 class="modal_title"><i data-lucide="library" class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
-            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
-                <span data-i18n="vault_manager_title" class="hidden">Esplora i tuoi Vault</span>
-                <span data-i18n="vault_manager_subtitle" class="hidden">Second Brain Knowledge Management</span>
-                <p class="text-sm text-slate-500 font-medium" data-i18n="ui_vault_manager_desc">Sfoglia, gestisci e carica i tuoi vault locali.</p>
-            </div>
-
-            <div id="vault-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2 modal-scroll min-h-[300px]">
-                <!-- Lista dinamica dei vault qui -->
-                <div class="flex items-center justify-center p-20 text-slate-300">
-                    <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
-                </div>
-            </div>
-
-            <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-3 shrink-0">
-                <div class="flex justify-between items-center gap-2">
-
-
-                </div>
-                <div class="flex justify-between items-center mt-2">
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest"
-                        id="vault-manager-folder-path-label">Cartella:
-                        Documents/Salvataggi MappAI</p>
-                    <button onclick="window.handleImportClick(event)"
-                        class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i> <span data-i18n="ui_browse_folders">Sfoglia altre cartelle</span>
-                    </button>
-                    <!-- Input file nascosto per importazione su iPad/iOS senza perdere il user gesture context -->
-                    <input type="file" id="mappai-ipad-vault-file-picker" accept=".json" style="display: none;"
-                        onchange="window.handleIPadVaultFileSelected(event)">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE MODIFICA TITOLO PROGETTO -->
-    <div id="edit-project-title-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[600px] p-8 transform scale-95 transition-transform duration-200 relative"
-            id="edit-project-title-box">
-
-            <!-- X Button -->
-            <button onclick="window.closeEditTitleModal()"
-                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <!-- Title Icon -->
-            <h3 class="modal_title"><i data-lucide="edit-3" class="w-16 h-16 pl-4"></i></h3>
-
-            <!-- Content Box -->
-            <div class="space-y-6 pl-4 pr-4">
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="modal_field_title" data-i18n="lbl_edit_project_title">Modifica Titolo
-                            Progetto</label>
-                    </div>
-                    <input type="text" id="edit-project-title-input"
-                        class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus_ring_standard">
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="mt-8 flex gap-3 justify-end h-11">
-                    <button onclick="window.closeEditTitleModal()" class="btn_annulla_action">
-                        <span data-i18n="btn_cancel">Annulla</span>
-                    </button>
-                    <button onclick="window.saveProjectTitleFromModal()" class="btn_salva_action">
-                        <span data-i18n="btn_salva">Salva</span>
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -2129,7 +1926,7 @@
                         <i data-lucide="pencil" class="w-3.5 h-3.5 text-slate-400"></i>
                         <span data-i18n="lbl_node_name">Nome nodo</span>
                     </label>
-                    <textarea id="edit-n-label" rows="2"
+                    <textarea id="edit-n-label" rows="1"
                         class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus_ring_standard"></textarea>
                 </div>
                 <div>
@@ -2150,7 +1947,7 @@
                 <div>
                     <label class="modal_field_title flex items-center gap-1.5 mb-1">
                         <i data-lucide="link" class="w-3.5 h-3.5 text-slate-400"></i>
-                        <span data-i18n="ui_links_caps">COLLEGAMENTI (Web o File)</span>
+                        <span data-i18n="ui_links_caps">Collegamenti</span>
                     </label>
                     <div id="edit-n-urls-list" class="space-y-2 mb-3">
                         <!-- Lista link qui -->
@@ -2177,7 +1974,7 @@
                         <!-- Preview immagini qui -->
                     </div>
                     <div class="space-y-4 bg-slate-100 p-5 rounded-2xl">
-                        <input type="url" id="edit-n-image-url-input" placeholder="Incolla URL immagine..."
+                        <input type="url" id="edit-n-image-url-input" placeholder="URL dell'immagine" data-i18n-placeholder="ph_image_url"
                             class="w-full border border-slate-200 rounded-xl p-3 text-sm bg-white transition-all placeholder:text-slate-300 focus_ring_standard">
 
                         <div class="flex items-center gap-3">
@@ -2192,7 +1989,7 @@
                                 onchange="window.handleImageUploadForEdit(this)">
                         </div>
 
-                        <button onclick="window.addImageToNode()" class="w-full h-11 btn_confirm_action">
+                        <button onclick="window.addImageToNode()" class="h-11 btn_confirm_action">
                             Aggiungi Immagine
                         </button>
                     </div>
@@ -2302,80 +2099,6 @@
                         data-i18n="btn_cancel">Annulla</span></button>
                 <button onclick="window.saveEditNode()" class="btn_salva_action"><span data-i18n="btn_salva">Salva
                         Modifiche</span></button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modale Espansione Contestuale IA -->
-    <div id="contextual-ai-extension-modal"
-        class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[1000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[1200px] p-8 transform scale-95 transition-transform duration-200 relative"
-            id="contextual-ai-extension-box">
-
-            <button onclick="window.closeContextualAIModal()"
-                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <h3 class="modal_title"><i data-lucide="sparkles" class="text-emerald-400 w-16 h-16"></i></h3>
-            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                <div class="flex items-center gap-2">
-                    <div>
-                        <div class="input_label_m font-normal not-italic"><span data-i18n="ui_node_to_expand">Nodo da espandere:</span> <span
-                                id="contextual-ai-node-title" class="text-indigo-600">...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <!-- Tab Selector -->
-                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
-                    <button id="tab-ctx-text" onclick="window.switchCtxTab('text')"
-                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all bg-white shadow-sm text-indigo-600"><span
-                            data-i18n="ctx_exp_tab_text">Testo / URL</span></button>
-                    <button id="tab-ctx-pdf" onclick="window.switchCtxTab('pdf')"
-                        class="flex-1 py-1.5 feature_toggle_description rounded-lg transition-all text-slate-500 hover:text-slate-700" data-i18n="ui_load_pdf">Carica
-                        PDF</button>
-                </div>
-
-                <!-- Panel: Text/URL -->
-                <div id="ctx-panel-text" class="space-y-3">
-                    <p class="text-[11px] text-slate-500 italic" data-i18n="ctx_exp_desc_text">Incolla qui il
-                        contenuto
-                        o l'indirizzo web che l'IA deve usare per generare nuovi rami figli.</p>
-                    <textarea id="contextual-ai-input"
-                        class="w-full border border-slate-200 rounded-lg p-3 text-sm min-h-[140px] placeholder:text-slate-400 focus_ring_standard"
-                        placeholder="Incolla qui testo o URL..."></textarea>
-                </div>
-
-                <!-- Panel: PDF -->
-                <div id="ctx-panel-pdf"
-                    class="hidden space-y-4 py-8 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                    <div class="p-4 bg-white rounded-full shadow-sm text-emerald-500"><i data-lucide="file-text"
-                            class="w-8 h-8"></i></div>
-                    <div class="text-center">
-                        <p class="text-sm font-bold text-slate-700" data-i18n="ui_select_pdf">Seleziona un file PDF</p>
-                        <p class="text-[10px] text-slate-400" data-i18n="ui_pdf_local_extract">Il testo verrà estratto localmente prima
-                            dell'espansione.
-                        </p>
-                    </div>
-                    <input type="file" id="ctx-pdf-file" accept=".pdf" class="hidden"
-                        onchange="window.handleCtxPDFSelect(this)">
-                    <button onclick="document.getElementById('ctx-pdf-file').click()"
-                        class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors" data-i18n="ui_choose_file">Scegli
-                        File</button>
-                    <div id="ctx-pdf-status" class="text-[10px] font-bold text-emerald-600 hidden italic"></div>
-                </div>
-            </div>
-
-            <div class="flex gap-3 justify-end mt-4">
-                <button onclick="window.closeContextualAIModal()" class="btn_annulla_action"><span
-                        data-i18n="btn_cancel">Annulla</span></button>
-                <button onclick="window.executeContextualAIExtension()" id="btn-execute-ctx"
-                    class="btn_salva_action w-48">
-                    <i data-lucide="zap" class="w-4 h-4"></i> <span data-i18n="ui_expand">Espandi</span>
-                </button>
             </div>
         </div>
     </div>
@@ -2522,69 +2245,6 @@
     </div>
 
     </div>
-    </div>
-    <!---- QUIZ MODAL ---->
-    <div id="quiz-modal"
-        class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[2000] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-8 transform scale-95 transition-transform duration-300 flex flex-col relative"
-            id="quiz-modal-content">
-
-            <button onclick="window.closeQuizModal()"
-                class="absolute top-8 right-8 text-slate-400 hover:text-slate-600 transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-
-            <h3 class="modal_title"><i id="quiz-modal-icon" data-lucide="graduation-cap"
-                    class="text-indigo-600 w-16 h-16 pl-4"></i></h3>
-            <div class="pl-4 mb-6 border-b border-slate-100 pb-4 text-left">
-                <span class="text-xs text-slate-400 font-bold uppercase tracking-widest">Spaced Repetition</span>
-                <p class="text-sm text-slate-500 font-medium mt-0.5" id="quiz-node-title">Nodo</p>
-            </div>
-
-            <div id="quiz-question-container" class="mt-2 mb-6 font-bold text-lg text-slate-800 text-center px-4">
-                <!-- question injected here -->
-            </div>
-
-            <div id="quiz-options-container" class="space-y-3 mb-6">
-                <!-- options injected here -->
-            </div>
-
-            <div id="quiz-feedback-container"
-                class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 mb-4 animate-fade-in shadow-inner">
-                <h4 class="font-black text-slate-800 mb-2 uppercase tracking-wide text-sm flex items-center gap-2"
-                    id="quiz-feedback-title"><i data-lucide="info" class="w-4 h-4"></i> <span data-i18n="ui_result">Risultato</span></h4>
-                <p class="text-sm text-slate-600 mb-6 font-medium leading-relaxed" id="quiz-feedback-desc"></p>
-                <div class="flex gap-3" id="quiz-sr-buttons">
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-red-200 text-red-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-red-50 hover:border-red-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('hard')">
-                        <span class="text-lg mb-1">😩</span>
-                        <span data-i18n="ui_sr_hard">Difficile</span>
-                        <span class="text-[10px] text-red-400 font-normal mt-1 block" data-i18n="ui_repeat_soon">Ripeti tra poco</span>
-                    </button>
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-amber-200 text-amber-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-amber-50 hover:border-amber-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('good')">
-                        <span class="text-lg mb-1">🤔</span>
-                        <span data-i18n="ui_sr_normal">Normale</span>
-                        <span class="text-[10px] text-amber-500 font-normal mt-1 block" data-i18n="ui_sr_ok">Tutto ok</span>
-                    </button>
-                    <button
-                        class="flex-1 py-3 bg-white border-2 border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold flex flex-col items-center justify-center hover:bg-emerald-50 hover:border-emerald-300 transition-all shadow-sm"
-                        onclick="window.processSRResponse('easy')">
-                        <span class="text-lg mb-1">😎</span>
-                        <span data-i18n="ui_sr_easy">Facile</span>
-                        <span class="text-[10px] text-emerald-500 font-normal mt-1 block" data-i18n="ui_sr_postpone">Allontana ripasso</span>
-                    </button>
-                </div>
-                <div id="quiz-next-container" class="hidden">
-                    <button onclick="window.showNextSubQuestion()"
-                        class="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-lg flex items-center justify-center gap-2">
-                        <span data-i18n="ui_next_question">Prossima Domanda</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
     </div>
 
@@ -2751,35 +2411,6 @@
         <img id="lightbox-img" src="" alt="Anteprima" onclick="event.stopPropagation()">
     </div>
 
-    <!-- Modale Tutorial API -->
-    <div id="api-tutorial-modal"
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
-            <button
-                onclick="document.getElementById('api-tutorial-modal').classList.remove('flex'); document.getElementById('api-tutorial-modal').classList.add('hidden')"
-                class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 p-1"><i data-lucide="x"></i></button>
-            <h2 class="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
-                <i data-lucide="key" class="text-indigo-500"></i> <span data-i18n="ui_how_get_key">Come ottenere la API Key</span>
-            </h2>
-            <div class="space-y-4 text-sm text-slate-600">
-                <p data-i18n="ui_google_intro">MappAI utilizza i potentissimi cervelli artificiali di Google per studiare i tuoi documenti.</p>
-                <ol class="list-decimal pl-4 space-y-2">
-                    <li><span data-i18n="ui_goto_site">Vai al sito web</span> <a href="#"
-                            onclick="window.electronAPI ? window.require('electron').shell.openExternal('https://aistudio.google.com/app/apikey') : window.open('https://aistudio.google.com/app/apikey', '_blank')"
-                            class="text-indigo-600 font-bold hover:underline">Google AI Studio</a>.</li>
-                    <li data-i18n="ui_google_login">Fai l'accesso con il tuo account Google gratuito.</li>
-                    <li data-i18n="ui_click_create_key">Clicca sul bottone blu <strong>Create API key</strong>.</li>
-                    <li data-i18n="ui_copy_key">Copia la lunga stringa di testo (inizia con <i>AIza...</i>) e incollala qui nell'App MappAI!
-                    </li>
-                </ol>
-                <div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-xs">
-                    💡 <strong data-i18n="ui_note">Nota:</strong> Le API di tipo "Gemini 1.5 Flash" sono completamente gratuite fino a 15
-                    richieste al minuto!
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Modale Configura AI -->
     <div id="config-ai-modal"
         class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] hidden items-center justify-center p-4">
@@ -2872,6 +2503,12 @@
                     <div>
                         <label class="input_label_xs uppercase font-bold tracking-wider">Product ID
                             (Infomaniak)</label>
+                        <p class="input_label_xs flex items-center gap-2">
+                            <button type="button"
+                                onclick="if(window.electronAPI&&window.electronAPI.openExternal){window.electronAPI.openExternal('https://insegnai.ch/articoliblog/guida-infomaniak.html');}"
+                                class="input_button_xs flex items-center gap-1"><i data-lucide="help-circle"
+                                    class="w-3 h-3"></i><span data-i18n="ui_pid_where">Dove lo trovo?</span></button>
+                        </p>
                         <div class="relative">
                             <i data-lucide="package"
                                 class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400"></i>
@@ -3080,56 +2717,6 @@
         </div>
     </div>
 
-    <!-- ==========================================
-         MODALE CONFERMA MERGE/UNISCI
-         ========================================== -->
-    <div id="merge-confirm-modal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-            <div class="p-5 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                <h2 id="merge-modal-title" class="text-lg font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="lucide lucide-merge">
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M12 2v4" />
-                        <path d="M12 18v4" />
-                        <path d="M2 12h4" />
-                        <path d="M18 12h4" />
-                    </svg> <span data-i18n="ui_merge_map_title">Unisci Mappa</span>
-                </h2>
-                <p class="text-amber-100 text-xs mt-1" data-i18n="ui_adding_map">Stai per aggiungere una nuova mappa alla vista corrente.</p>
-            </div>
-            <div class="p-5 space-y-3">
-                <div id="merge-modal-description" class="text-sm text-slate-600 leading-relaxed"></div>
-                <!-- AI Cross-linking option (only for KG merge) -->
-                <div id="merge-ai-option" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3">
-                    <label class="flex items-start gap-3 cursor-pointer">
-                        <input type="checkbox" id="merge-ai-crosslink" class="mt-0.5 accent-indigo-600 w-4 h-4" checked>
-                        <div>
-                            <span class="text-xs font-bold text-indigo-700" data-i18n="ui_ai_correlations">🤖 Correlazioni AI</span>
-                            <p class="text-[10px] text-indigo-500 mt-0.5 leading-relaxed" data-i18n="ui_ai_corr_desc">L'AI cercherà possibili
-                                correlazioni tra i nodi delle due mappe e creerà link tratteggiati che potrai validare o
-                                rimuovere.</p>
-                        </div>
-                    </label>
-                </div>
-                <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
-                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
-                    <span class="text-[10px] text-emerald-700" data-i18n="ui_map_autosaved">La mappa corrente verrà <strong>salvata
-                            automaticamente</strong> prima dell'operazione.</span>
-                </div>
-            </div>
-            <div class="p-4 bg-slate-50 flex gap-2 border-t border-slate-200">
-                <button onclick="window.cancelMerge()"
-                    class="flex-1 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"><span
-                        data-i18n="btn_cancel">Annulla</span></button>
-                <button id="merge-confirm-btn" onclick="window.confirmMerge()"
-                    class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-sm" data-i18n="ui_proceed">Procedi</button>
-            </div>
-        </div>
-    </div>
-
 
 
     <!-- MODALE VALIDAZIONE LINK AI -->
@@ -3172,24 +2759,24 @@
     <!-- ==========================================
          SCRIPT UNIFICATI (JS)
          ========================================== -->
-    <script src="traduzioni/it_translations.js?v=giudice-0020-20260924-1"></script>
-    <script src="traduzioni/en_translations.js?v=link-editor-0022-20260924-1"></script>
+    <script src="traduzioni/it_translations.js?v=0090-20261013-1"></script>
+    <script src="traduzioni/en_translations.js?v=0091-20261013-1"></script>
     <script src="traduzioni/i18n-helper.js"></script>
-    <script src="js/infomaniak_bridge.js?v=giudice-0020-20260924-2"></script>
+    <script src="js/infomaniak_bridge.js?v=0066-20260930-1"></script>
     <!-- CARICAMENTO ADATTATORE IPAD / WEB (SHIM) -->
     <script src="js/storageAdapter.js"></script>
 
     <!-- Moduli PURI Tier 1 (caricati PRIMA di app.js: app.js delega/binda a questi) -->
     <!-- Vedi docs/rules/06-modules-and-extraction.md -->
-    <script src="js/mappai-text-utils.js"></script>
+    <script src="js/mappai-text-utils.js?v=rinforzo-20260925-3"></script>
     <script src="js/mappai-json-salvage.js"></script>
     <script src="js/mappai-math.js"></script>
     <script src="js/mappai-relations.js?v=dh28"></script>
     <!-- Il lucchetto della generazione: PRIMA di app.js, che lo alza in
          `startGeneration`. Chi deve spegnere un comando chiede a lui. -->
-    <script src="js/mappai-generazione.js"></script>
+    <script src="js/mappai-generazione.js?v=0062-20261013-1"></script>
 
-    <script src="js/app.js?v=catalogo-20260922-1"></script>
+    <script src="js/app.js?v=0088-20261012-1"></script>
     <!-- IL CARATTERE DELL'APP (18/8): catalogo puro + applicazione. Sta PRIMA
          di tutto il resto perché scrive --app-font e inietta le @font-face:
          ogni modulo che disegna testo trova già il carattere in vigore. -->
@@ -3198,145 +2785,156 @@
     <!-- Motore dei modali (2/8): core puro PRIMA del motore. Un modale si
          dichiara come dati; taglie, contratto tastiera, focus trap e ruoli dei
          bottoni arrivano da qui. Le classi .mm-* stanno in mappai-modal-tokens.css?v=consumi-0017-20260923-5 -->
-    <script src="js/mappai-modal-core.js?v=consumi-0017-20260923-5"></script>
-    <script src="js/mappai-modal.js?v=consumi-0019-20260923-1"></script>
+    <script src="js/mappai-modal-core.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-modal.js?v=rinforzo-20260925-1"></script>
     <!-- Composizione delle console (F1 Documenti · F2 Documento aperto · D1 Mappa)
          come DATO. Adottata dal banco (public/dev/officina-console.html). Per ora
          è solo la fonte di verità del design: nessuna console è ancora cablata in
          app — definisce window.MappAIConsoleBento, senza effetti collaterali. -->
     <!-- «le cartelle sono cambiate»: il canale unico fra chi scrive su disco e chi
          mostra elenchi (9/8). Presto, perché chiunque può segnalare. -->
-    <script src="js/mappai-vaults-bus.js?v=man2"></script>
-    <script src="js/mappai-console-bento.js?v=dh13"></script>
+    <script src="js/mappai-vaults-bus.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-console-bento.js?v=0091-20261013-1"></script>
     <script src="js/mappai-mm-triage.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-catalogo-core.js?v=catalogo-20260922-2"></script>
-    <script src="js/mappai-ui-modals.js?v=catalogo-20260922-1"></script>
-    <script src="js/mappai-storage-lang.js?v=provider-0013-20260924-1"></script>
-    <script src="js/mappai-d3-render.js?v=font1"></script>
-    <script src="js/mappai-ui-canvas.js?v=riga1"></script>
+    <script src="js/mappai-catalogo-core.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-ui-modals.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-storage-lang.js?v=cassetto-0082-20261008-1-0070-20261008-2-0070-guardia-20261010"></script>
+    <script src="js/mappai-d3-render.js?v=ritocchi-0087-20261009-4"></script>
+    <!-- HTML che viene dai dati (vault, fonti, modelli, allievi) → testo o lista bianca (25/9) -->
+    <script src="js/mappai-html-sicuro.js?v=rinforzo-20260925-3"></script>
+    <script src="js/mappai-ui-canvas.js?v=0062-20261013-1"></script>
     <!-- Moduli MappAI estesi -->
     <script src="js/mappai-latex.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-lenses.js"></script>
-    <script src="js/mappai-disciplines.js"></script>
+    <script src="js/mappai-lenses.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-disciplines.js?v=rinforzo-20260925-1"></script>
     <!-- Timeline Live (008): core puro PRIMA di mappai-timeline.js -->
     <script src="js/mappai-timeline-core.js"></script>
-    <script src="js/mappai-timeline.js?v=font1"></script>
+    <script src="js/mappai-timeline.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Documenti editabili (hub ELABORA): core puro PRIMA dei builder che lo usano -->
-    <script src="js/mappai-docedit-core.js?v=prove-aperte-20260921"></script>
+    <script src="js/mappai-docedit-core.js?v=ritocchi-0087-20261012-3"></script>
     <!-- Misure dei fogli di stampa (mm/pt): le leggono sia il foglio HTML
          (mappai-quiz-print.js) sia i fogli PDF (mappai-print-dossier.js). -->
     <script src="js/mappai-print-layout.js?v=font1"></script>
     <!-- La barra dei documenti stampabili: UNA sola, coi token --mm-doc-* (2/8).
          Era copiata in sei file con tre glifi stampante diversi e le emoji nei
          bottoni. La usano i fogli in finestra e la console dei materiali. -->
-    <script src="js/mappai-doc-bar.js?v=font1"></script>
+    <script src="js/mappai-doc-bar.js?v=ritocchi-0087-20261009-9"></script>
     <!-- La CORNICE dei documenti stampabili: testata (titolo · classe · materia)
          e piè coi numeri di pagina, in un posto solo (11/8). Era scritta nove
          volte con nove misure diverse. Va PRIMA di tutti i builder che la usano
          (quiz-print, branch-synthesis, timeline, causal-chains,
          study-doc, print-dossier). Fuori ambito: il materiale da ritagliare
          (foglio dei nodi, flashcard) e i report, che sono un'altra famiglia. -->
-    <script src="js/mappai-doc-head.js?v=font2"></script>
+    <script src="js/mappai-doc-head.js?v=rinforzo-20260925-2"></script>
     <!-- CLONA: le regole del nome di una copia (etichetta nell'elenco + nome del
          file nel vault). Puro e testato in Node; va PRIMA della console di
          ELABORA e della pipeline, che lo interrogano. -->
-    <script src="js/mappai-clona-core.js?v=dh10"></script>
+    <script src="js/mappai-clona-core.js?v=fonti-0059-20260929-1"></script>
     <!-- VISIONE (20/8): leggere una fotografia col motore locale. Il core è puro
          e testato in Node — lo carica anche main.js per gli IPC; il modulo del
          gesto va PRIMA di «Crea un documento», che lo interroga. -->
-    <script src="js/mappai-visione-core.js?v=rig1"></script>
+    <script src="js/mappai-visione-core.js?v=0079-20261009-1"></script>
     <!-- Misure e modello del FOGLIO DEI NODI: le leggono l'editor del foglio
          (mappai-doc-editor.js) e il motore di stampa (mappai-print-dossier.js). -->
     <script src="js/mappai-nodesheet-core.js?v=kw1"></script>
-    <script src="js/mappai-quiz-print.js?v=review-20260912-2"></script>
+    <script src="js/mappai-quiz-print.js?v=0079-20261009-1"></script>
     <!-- graphology (slim): betweenness + componenti + louvain. Fallback custom se assente. -->
     <script src="js/vendor/mappai-graphology.min.js"></script>
     <script src="js/mappai-structure-analyzer.js"></script>
     <script src="js/mappai-entity-backbone.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-suggestions-panel.js"></script>
+    <script src="js/mappai-suggestions-panel.js?v=rinforzo-20260925-2"></script>
     <!-- Base condivisa dei due export di studio (Sintesi + Dossier): collect ramo + shell stampa -->
-    <script src="js/mappai-study-export-core.js?v=dos1"></script>
+    <!-- 0077 (ADR 0018): i documenti salvati come file della cartella della mappa — core puro, PRIMA dell'archivio -->
+    <script src="js/mappai-documenti-core.js?v=cassetto-0082-20261007-1"></script>
+    <script src="js/mappai-study-export-core.js?v=cassetto-0082-20261007-1"></script>
     <!-- Costruttore documento di studio adattato (shell condiviso #3/#4/#5 export HTML→PDF) -->
-    <script src="js/mappai-study-doc.js?v=font1"></script>
+    <script src="js/mappai-study-doc.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Catena dei perché: core puro (nessi causa-effetto da link+desc, zero AI) + superfici -->
     <script src="js/mappai-causal-core.js"></script>
-    <script src="js/mappai-causal-chains.js?v=font1"></script>
+    <script src="js/mappai-causal-chains.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-grounding-core.js?v=review-teacher-20260913-4"></script>
-    <script src="js/mappai-branch-synthesis.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-branch-synthesis.js?v=0079b-20261009-3"></script>
     <script src="js/mappai-node-merge.js"></script>
     <!-- Vista studio (1/8): motori di layout deterministici (puro, testato in Node),
          renderer a card condiviso (attributi SVG → PDF fedele), vista + tab + Focus -->
     <script src="js/mappai-studio-layouts.js?v=link-editor-0022-20260924-1"></script>
-    <script src="js/mappai-studio-draw.js?v=link-editor-0022-20260924-1"></script>
-    <script src="js/mappai-studio-view.js?v=link-editor-0022-20260924-1"></script>
-    <script src="js/mappai-jigsaw.js"></script>
+    <script src="js/mappai-studio-draw.js?v=ritocchi-0087-20261009-9"></script>
+    <script src="js/mappai-studio-view.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-jigsaw.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-chat-analysis.js"></script>
-    <script src="js/mappai-meta-analysis.js"></script>
+    <script src="js/mappai-meta-analysis.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-multiselect.js"></script>
-    <script src="js/mappai-undo.js?v=link-editor-0021-20260924-2"></script>
+    <script src="js/mappai-undo.js?v=ritocchi-0087-20261009-6"></script>
     <script src="js/mappai-tree-sanitizer.js"></script>
     <script src="js/mappai-desc-fidelity.js"></script>
-    <script src="js/mappai-deepen-core.js"></script>
+    <script src="js/mappai-deepen-core.js?v=frasi-0030-20260926-3"></script>
+    <!-- #1: rilevamento intestazioni/piè ricorrenti (ELABORA + corpus generazione)
+         e righe strutturali. PRIMA dell'àncora, che lo legge al caricamento: dopo
+         (dall'11/9 al 0030) l'àncora lo trovava indefinito e il filtro delle righe
+         strutturali non girava. Guardia: tests/ordine-script.test.js -->
+    <script src="js/mappai-boilerplate-core.js?v=spazi-0044-20260928-1"></script>
+    <!-- 0044: il testo delle pagine PDF senza spazi inventati («Henr i»). Lo leggono
+         extractPdfPages (app.js) e _matchColoredItems (ELABORA) quando servono, mai
+         al caricamento. Guardia: tests/pdf-testo-core.test.js -->
+    <script src="js/mappai-pdf-testo-core.js?v=intestazioni-0045-20260928-2"></script>
     <!-- L'àncora: dal nodo alla frase della fonte. Il core è puro (testato in
-         Node) e DEVE stare dopo deepen-core, da cui prende la tokenizzazione;
-         la cucitura con appState viene subito dopo. -->
+         Node) e DEVE stare dopo deepen-core, da cui prende la tokenizzazione, e
+         dopo boilerplate-core; la cucitura con appState viene subito dopo. -->
     <script src="js/mappai-anchor-core.js?v=vuoti-20260919"></script>
     <!-- Il giudice: che cosa si accetta di un verdetto. Puro e testato in Node;
          dipende da desc-fidelity per le parole-contenuto. -->
-    <script src="js/mappai-judge-core.js?v=link-editor-0022-20260924-1"></script>
+    <script src="js/mappai-judge-core.js?v=giudice-lotti-0026-20260925-1"></script>
     <script src="js/mappai-anchor.js"></script>
-    <!-- #1: rilevamento intestazioni/piè ricorrenti (ELABORA + corpus generazione) -->
-    <script src="js/mappai-boilerplate-core.js"></script>
     <!-- Estrazione domande/esercizi dalla fonte (ELABORA → quiz) -->
     <script src="js/mappai-questions-core.js"></script>
     <script src="js/mappai-enrich-core.js"></script>
-    <script src="js/mappai-correction-core.js"></script>
-    <script src="js/mappai-correction-mode.js"></script>
+    <script src="js/mappai-correction-core.js?v=rinforzo-20260925-3"></script>
+    <script src="js/mappai-correction-mode.js?v=ritocchi-0087-20261012-2"></script>
     <script src="js/mappai-node-styling.js"></script>
-    <script src="js/mappai-l1-checkpoint.js"></script>
-    <script src="js/mappai-mastery.js"></script>
+    <script src="js/mappai-l1-checkpoint.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-mastery.js?v=rinforzo-20260925-1"></script>
     <script src="js/mappai-study-bus.js"></script>
     <script src="js/mappai-active-study-core.js?v=sf1"></script>
-    <script src="js/mappai-active-study.js?v=sf1"></script>
-    <script src="js/mappai-menu-hubs.js"></script>
+    <script src="js/mappai-active-study.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-menu-hubs.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Lavagna Collaborativa (003): QR vendored + core puro + lato docente -->
     <script src="js/vendor/qrcode-generator.js"></script>
     <!-- Variante WEB: toggle rete WiFi aula / Internet condiviso dai wizard QR -->
-    <script src="js/mappai-net-mode.js"></script>
+    <script src="js/mappai-net-mode.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-collab-core.js?v=emoji-20260915"></script>
-    <script src="js/mappai-collab-teacher.js"></script>
+    <script src="js/mappai-collab-teacher.js?v=ritocchi-0087-20261013-2"></script>
     <!-- MappAI Live (Studio attivo via QR + Materiali + Account classi) -->
     <script src="js/mappai-live-core.js?v=qz2"></script>
-    <script src="js/mappai-live-reports.js?v=qz1"></script>
-    <script src="js/mappai-live-classes.js"></script>
+    <script src="js/mappai-live-reports.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-live-classes.js?v=0088-20261012-1"></script>
     <!-- Vista ridotta di COSTRUISCI (combo SHIFT+CTRL+L,K,J,H): dopo live-classes,
          da cui legge il preset di taratura del contesto attivo. -->
-    <script src="js/mappai-vista-ridotta.js?v=man2"></script>
-    <script src="js/mappai-live-teacher.js?v=qz2"></script>
+    <script src="js/mappai-vista-ridotta.js?v=0067-20261001-1-notte-0070-20261008-1"></script>
+    <script src="js/mappai-live-teacher.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Attività «a scelta» (19/8): il core puro, la superficie condivisa (telefono,
          app, banco) e il modulo che legge i materiali del vault e avvia la Live.
          Dopo live-teacher: `apriLive` chiama `MappAILive.launchExternal`. -->
     <script src="js/mappai-scelta-core.js?v=srg1"></script>
-    <script src="js/mappai-scelta-view.js?v=srg2"></script>
+    <script src="js/mappai-scelta-view.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-scelta.js?v=qz2"></script>
     <!-- Timeline Live (008): attività Timeline via QR (dopo live-teacher per launchExternal) -->
-    <script src="js/mappai-timeline-teacher.js"></script>
+    <script src="js/mappai-timeline-teacher.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Tutor AI via QR "Chatta e Scrivi" (007): core puro + report + docente -->
     <script src="js/mappai-tutor-core.js"></script>
-    <script src="js/mappai-tutor-reports.js?v=font1"></script>
-    <script src="js/mappai-tutor-teacher.js"></script>
+    <script src="js/mappai-tutor-reports.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-tutor-teacher.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Landing "Costruisci / Insegna" (005): core puro PRIMA della UI -->
-    <script src="js/mappai-teach-core.js?v=dh21"></script>
+    <script src="js/mappai-teach-core.js?v=identita-0061-20260930-1"></script>
     <!-- Organizzazione file (010): core puro + impostazioni cartella + registro attività -->
-    <script src="js/mappai-files-core.js?v=srg5"></script>
+    <script src="js/mappai-files-core.js?v=memoria-0077-20261005-1"></script>
     <!-- La VISTA di una mappa (Vista studio · focus · timeline · foglio nodi)
          viaggia col vault in vista.json (15/8). Core puro, prima di chi lo usa
          (vault-io, vault-manager, storage-lang). -->
-    <script src="js/mappai-vista-core.js"></script>
-    <script src="js/mappai-files-settings.js"></script>
+    <script src="js/mappai-vista-core.js?v=cassetto-0082-20261007-2"></script>
+    <script src="js/mappai-files-settings.js?v=0088-20261012-1"></script>
     <!-- Pipeline «Genera materiali» (011): core puro PRIMA dell'orchestratore UI -->
-    <script src="js/mappai-pipeline-core.js?v=prove-aperte-20260921"></script>
-    <script src="js/mappai-landing-teach.js?v=noelab1"></script>
+    <script src="js/mappai-pipeline-core.js?v=punto-20261006-4"></script>
+    <script src="js/mappai-landing-teach.js?v=ritocchi-0087-20261013-2"></script>
     <!-- La VESTE della landing (rail delle tre forme + prima pagina). Dopo
          landing-teach: avvolge la sua applyMode, che deve già esistere. -->
     <script src="js/mappai-stile-manifesto.js?v=oq11"></script>
@@ -3346,19 +2944,28 @@
     <!-- Il LAVORO IN CORSO nella barra in alto: lo spinner di MappAI col nome di
          ciò che si sta creando. Si aggancia a `showLoadingOverlay`, che è
          definita in mappai-ui-canvas.js — caricata prima. -->
-    <script src="js/mappai-lavori.js?v=dh2"></script>
+    <script src="js/mappai-lavori.js?v=0062-20261013-1"></script>
+    <!-- La regola delle fonti (0059): dove si scrive il PDF della fonte (`Fonti/`),
+         che cosa si mostra da `Allegati/` (per nome), quale `vaultRel` entra
+         nell'indice. Puro, senza DOM né IPC; ELABORA e la revisione lo chiedono
+         al momento della chiamata. Prima di ELABORA. -->
+    <script src="js/mappai-fonti-core.js?v=cartella-0078-20261006-1"></script>
     <!-- COSTRUISCI in stile manifesto: tabella dei file + bento delle opzioni
          (usa gli stessi id `mp-*` del modale della pipeline, che con la veste
          accesa non si apre più). Dopo material-pipeline, che deve esistere. -->
-    <script src="js/mappai-elabora.js?v=man2"></script>
+    <script src="js/mappai-elabora.js?v=cassetto-0082-20261007-2-0070-20261008-4"></script>
     <!-- Editor documenti di output (modalità «Documenti» di ELABORA) -->
-    <script src="js/mappai-doc-editor.js?v=srg1"></script>
+    <script src="js/mappai-doc-editor.js?v=ritocchi-0087-20261013-2"></script>
     <!-- ELABORA come CONSOLE (colonna dei documenti + area full-bleed con
          l'editor vero). Dietro il flag `mappai_console_bento_app`: senza,
          ELABORA resta il workspace di prima. Dopo doc-editor, di cui usa le
          funzioni di apertura. -->
-    <script src="js/mappai-elabora-console.js?v=porta-materiali-20260921b"></script>
-    <script src="js/mappai-review-core.js?v=link-editor-0022-20260924-2"></script>
+    <script src="js/mappai-elabora-console.js?v=0091-20261013-1"></script>
+    <script src="js/mappai-review-core.js?v=rinforzo-20260925-3"></script>
+    <!-- 0069 (ADR 0016 rev. 1): la scheda confermata in CREA è la fonte del dossier.
+         Core puro, dopo visione-core e review-core che legge; interruttore
+         `mappai_dossier_fonte_scheda`, spento. -->
+    <script src="js/mappai-dossier-fonte-core.js?v=0088-20261012-1"></script>
     <script src="js/mappai-review-context.js?v=review-0015-20260922-2"></script>
     <script src="js/mappai-material-drafts.js?v=review-teacher-20260913-4"></script>
     <!-- Cercare nella fonte (15/9/2026). DOPO review-context e material-drafts:
@@ -3367,82 +2974,127 @@
          Interruttore: localStorage `mappai_local_search_enabled` = '0'. -->
     <script src="js/mappai-local-search-core.js?v=bm25-20260915"></script>
     <script src="js/mappai-local-search.js?v=bm25-20260915b"></script>
-    <script src="js/mappai-material-review.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-review-fonte.js?v=pdf-segni-20260917"></script>
+    <script src="js/mappai-material-review.js?v=0070-casi-20261010-1"></script>
+    <script src="js/mappai-review-fonte.js?v=0074-20261006-2"></script>
     <script src="js/mappai-confronto-core.js?v=inline-20260917"></script>
-    <script src="js/mappai-review.js?v=link-editor-0022-20260924-1"></script>
+    <!-- 0073 (ADR 0012 rev. 3-5): il Banco nuovo. Il core puro dello 0072, DOPO review-core e review-context
+         (li legge al momento dell'uso), poi la veste di G2, che legge il core al caricamento; tutti e due
+         PRIMA di mappai-review.js, che monta la veste. Interruttore `mappai_banco_veste`: acceso di default (0089, ADR 0020), '0' lo spegne. -->
+    <script src="js/mappai-banco-core.js?v=0089-20261010-1"></script>
+    <script src="js/mappai-banco-veste.js?v=0086-20261009-4"></script>
+    <script src="js/mappai-materiali-attesa-core.js?v=0090-20261013-2"></script>
+    <script src="js/mappai-review.js?v=0090-20261013-3"></script>
     <script src="js/mappai-link-editor-core.js?v=link-editor-0022-20260924-2"></script>
-    <script src="js/mappai-link-editor.js?v=link-editor-0022-20260924-1"></script>
+    <script src="js/mappai-link-editor.js?v=rinforzo-20260925-1"></script>
     <!-- Le evidenze (ADR 0002, passo 2, 20/9/2026): alla riapertura di un progetto l'indice delle pagine
          della fonte (evidenze.json nella radice del vault), da cui il passo 3 darà le prove ai generatori.
          Dopo review.js (le pagine vengono da MappAIReview.sources()), prima della pipeline che lo consumerà.
          Interruttore: localStorage `mappai_evidence` = '1' (spento di default). -->
-    <script src="js/mappai-evidence-core.js?v=evidence-20260920b"></script>
-    <script src="js/mappai-evidence.js?v=modelli-b2-20260922-1"></script>
+    <script src="js/mappai-evidence-core.js?v=frasi-0030-20260926-1"></script>
+    <script src="js/mappai-evidence.js?v=0069-20261002-2"></script>
     <!-- LA MISURA (passo 6, 21/9/2026): ogni foglio di domande lascia su disco il conto dei tenuti e
          degli scartati col motivo (userData/MappAI-Pipeline/<runId>/misura-evidenze.json), e
          `tools/misura-evidenze/confronta.mjs` mette due giri uno accanto all'altro. Dopo evidence.js,
          di cui legge l'interruttore e la traccia dei rami serviti; prima di study-session.js, che la
          chiama. Niente interfaccia, nessun secondo interruttore: si scrive sempre. -->
     <script src="js/mappai-misura-evidenze.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-learning-path.js?v=path-dashboard-20260914-1"></script>
-    <script src="js/mappai-material-pipeline.js?v=giudice-0013-20260924-1"></script>
+    <script src="js/mappai-learning-path.js?v=ritocchi-0087-20261009-4"></script>
+    <script src="js/mappai-material-pipeline.js?v=0062-0091-20261013-1"></script>
+    <!-- Lo strato delle affermazioni e la quarantena (packet 0042, ADR 0010): il core
+         puro, la cucitura (interruttori, record, cancello avvolto) e le superfici
+         (riquadro del Setup, strato del Banco, riga del riepilogo). DOPO review.js e
+         material-pipeline.js, che li leggono al momento della chiamata; la cucitura
+         avvolge il `gate` di review-core al caricamento. Interruttori accesi di
+         default (0089, ADR 0020): `mappai_affermazioni` e `mappai_quarantena` = '0' li spengono. -->
+    <script src="js/mappai-affermazioni-core.js?v=firma-0060-20260928-1"></script>
+    <script src="js/mappai-affermazioni.js?v=0089-20261010-1"></script>
+    <script src="js/mappai-affermazioni-ui.js?v=0089-20261010-1"></script>
     <!-- «Crea un documento» → Quiz o flashcard: il percorso a tre passi (13/8).
          Dopo la pipeline, di cui usa il motore (`MappAIPipeline.generaSet`). -->
-    <script src="js/mappai-visione.js?v=bar3"></script>
+    <script src="js/mappai-visione.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-visione-modello.js?v=0066-20260930-1"></script>
+    <!-- CREA con una foto (0067, ADR 0015): il core decide che cosa mostra la landing
+         e che cosa genera il dossier; il guscio monta le card al posto di MM/KG e del
+         tema. Interruttore localStorage `mappai_crea_iconografica` ('0' = spento). -->
+    <script src="js/mappai-crea-iconografica-core.js?v=ritocchi-0087-20261009-4"></script>
+    <script src="js/mappai-crea-iconografica.js?v=0088-20261012-1"></script>
     <!-- PROIEZIONE (20/8): la vista-lezione dei dossier — la geometria è nel
          core, provata in Node; la vista si apre da INSEGNA («Proietta»). -->
-    <script src="js/mappai-proiezione-core.js?v=dos3"></script>
-    <script src="js/mappai-proiezione.js?v=dos3"></script>
-    <script src="js/mappai-crea-quiz.js?v=un-clic-20260921"></script>
+    <script src="js/mappai-proiezione-core.js?v=0079b-20261009-2"></script>
+    <script src="js/mappai-proiezione.js?v=0079b-20261009-5"></script>
+    <script src="js/mappai-crea-quiz.js?v=0091-20261013-1"></script>
+    <!-- 0070: percorso testuale. Core e controller prima del planner; la vista
+         precede la stampa. Il runtime usa i motori comuni già caricati sopra. -->
+    <script src="js/mappai-percorso-lettura-core.js?v=0070-g2-20261010-5"></script>
+    <script src="js/mappai-percorso-lettura-materials.js?v=0070-catalogo-20261010-2"></script>
+    <script src="js/mappai-percorso-lettura-design.js?v=0070-g2-20261010-6"></script>
+    <script src="js/mappai-percorso-lettura.js?v=0070-g2-20261010-6"></script>
+    <script src="js/mappai-percorso-lettura-view.js?v=0070-editor-toolbar-20261009-1"></script>
+    <script src="js/mappai-percorso-lettura-print.js?v=0070-catalogo-20261010"></script>
+    <script src="js/mappai-percorso-lettura-editor.js?v=ritocchi-0087-20261012-9"></script>
+    <script src="js/mappai-percorso-lettura-toolbar.js?v=0070-editor-toolbar-20261009-2"></script>
     <!-- la COMPOSIZIONE del bento (fonte unica: la usa anche l'Officina §7) -->
-    <script src="js/mappai-bento-composizione.js?v=presets-flash-20260914-1"></script>
-    <script src="js/mappai-costruisci-manifesto.js?v=presets-flash-20260914-1"></script>
-    <script src="js/mappai-usage-core.js?v=consumi-0018-20260923-2"></script>
-    <script src="js/mappai-usage-tracker.js?v=catalogo-20260922-1"></script>
-    <script src="js/mappai-usage-dashboard.js?v=catalogo-20260922-1"></script>
+    <script src="js/mappai-bento-composizione.js?v=ritocchi-0087-20261012-4"></script>
+    <script src="js/mappai-costruisci-manifesto.js?v=0070-grafica-20261008-5"></script>
+    <script id="lettura-crea-bootstrap">
+        document.addEventListener('DOMContentLoaded', function () {
+            var enabled = false;
+            try { enabled = localStorage.getItem('mappai_percorso_lettura') === '1'; } catch (e) { }
+            var host = document.getElementById('lettura-crea-host');
+            var percorso = window.MappAIPercorsoLettura;
+            if (enabled && host && percorso && typeof percorso.mountCreatePlanner === 'function') {
+                percorso.mountCreatePlanner(host);
+            }
+        }, { once: true });
+    </script>
+    <!-- 0087 lotto 10-crea: la scelta «Output» (dopo il bootstrap della Lettura: il suo ascoltatore parte dopo) -->
+    <script src="js/mappai-crea-output.js?v=ritocchi-0087-20261012-5"></script>
+    <script src="js/mappai-usage-core.js?v=identita-0061-20260930-1"></script>
+    <script src="js/mappai-usage-tracker.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-usage-dashboard.js?v=ritocchi-0087-20261013-2"></script>
     <!-- Sidebar ridimensionabile (006) -->
     <script src="js/mappai-sidebar-resize.js"></script>
-    <script src="js/mappai-mastery-view.js?v=sf1"></script>
-    <script src="js/mappai-effort-view.js?v=sf1"></script>
-    <script src="js/mappai-celeration.js"></script>
-    <script src="js/mappai-study-path.js"></script>
+    <script src="js/mappai-mastery-view.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-effort-view.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-celeration.js?v=ritocchi-0087-20261013-2"></script>
+    <script src="js/mappai-study-path.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-palace.js"></script>
-    <script src="js/mappai-pomodoro.js"></script>
-    <script src="js/mappai-user-profile.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-teacher-profile.js"></script>
+    <script src="js/mappai-pomodoro.js?v=0079b-20261009-1"></script>
+    <script src="js/mappai-user-profile.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-teacher-profile.js?v=0088-20261012-1"></script>
     <!-- Registro LOCALE degli errori (15/8): niente parte da solo — le righe
          stanno su disco e la Cabina le allega alla segnalazione. Prima della
          Cabina, che le legge. -->
-    <script src="js/mappai-errori.js?v=dh23"></script>
+    <script src="js/mappai-errori.js?v=memoria-0076-20261005-2"></script>
     <!-- Console «Cabina» (2/8): i 4 bottoni solo-icona dell'header in un posto
          solo. Dopo teacher-profile: ne monta le stesse sezioni. -->
-    <script src="js/mappai-cabina.js?v=consumi-0018-20260923-2"></script>
-    <script src="js/mappai-search-finder.js"></script>
-    <script src="js/mappai-vault-manager.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-contextual-ai.js?v=dh15"></script>
-    <script src="js/mappai-generation-support.js?v=link-editor-0022-20260924-1"></script>
+    <script src="js/mappai-cabina.js?v=0088-20261012-1"></script>
+    <script src="js/mappai-config-core.js?v=0064-20260930-3"></script>
+    <script src="js/mappai-config-import.js?v=0064-20260930-3"></script>
+    <script src="js/mappai-search-finder.js?v=rinforzo-20260925-3"></script>
+    <script src="js/mappai-vault-manager.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-generation-support.js?v=giudice-lotti-0026-20260925-1"></script>
     <script src="js/mappai-vettori-core.js?v=vettori-20260921-1"></script>
     <script src="js/mappai-vettori.js?v=catalogo-20260922-1"></script>
     <script src="js/mappai-modelli-core.js?v=modelli-20260922-1"></script>
-    <script src="js/mappai-modelli.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-modelli-ui.js?v=catalogo-20260922-1"></script>
+    <script src="js/mappai-modelli.js?v=voce-0065-20260930-1"></script>
+    <script src="js/mappai-modelli-ui.js?v=0088-20261012-5"></script>
     <script src="js/mappai-kg-extraction.js?v=modelli-b2-20260922-1"></script>
     <script src="js/mappai-mm-extraction.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-vault-io.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-merge-validate.js?v=dh15"></script>
-    <script src="js/mappai-print-dossier.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-context-menu.js?v=link-editor-0021-20260924-2"></script>
-    <script src="js/mappai-edit-modal.js"></script>
-    <script src="js/mappai-flashcards-sr.js?v=review-20260912-2"></script>
-    <script src="js/mappai-ai-tutor.js?v=privacy-katex-20260915"></script>
-    <script src="js/mappai-study-session.js?v=modelli-b2-20260922-1"></script>
-    <script src="js/mappai-a11y.js"></script>
+    <script src="js/mappai-vault-io.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-merge-validate.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-print-dossier.js?v=aff-0042-20260926-1"></script>
+    <script src="js/mappai-context-menu.js?v=0083-20261007-1"></script>
+    <script src="js/mappai-edit-modal.js?v=rinforzo-20260925-2"></script>
+    <script src="js/mappai-flashcards-sr.js?v=ritocchi-0087-20261012-1"></script>
+    <script src="js/mappai-ai-tutor.js?v=rinforzo-20260925-1"></script>
+    <script src="js/mappai-study-session.js?v=0083-20261007-1"></script>
+    <script src="js/mappai-a11y.js?v=ritocchi-0087-20261012-1"></script>
     <script src="js/mappai-rsvp-core.js"></script>
     <script src="js/mappai-pronuncia-core.js"></script>
-    <script src="js/mappai-tts-reader.js"></script>
+    <script src="js/mappai-tts-reader.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/mappai-lettura-veloce.js"></script>
-    <script src="js/mappai-dev-selftest.js?v=sf1"></script>
+    <script src="js/mappai-dev-selftest.js?v=ritocchi-0087-20261013-2"></script>
     <script src="js/dev-console-metrics.js"></script>
     <script>
         window.toggleSidebar = function () {
@@ -3481,38 +3133,10 @@
         });
     </script>
 
-    <!-- Global A11y Panel Toggle -->
-    <button id="a11y-panel-toggle" onclick="document.getElementById('a11y-panel').classList.toggle('hidden-panel')"
-        title="Strumenti Compensativi">
-        <i data-lucide="eye"></i>
-    </button>
-
-    <!-- Strumenti compensativi. ⚠️ Il bottone «Font OpenDyslexic» è uscito il
-         18/8: il carattere dell'app si sceglie in Cabina › Aspetto e leggibilità,
-         dove ce ne sono quattro invece di due, e valgono anche per i materiali
-         generati. Due comandi per la stessa domanda divergono al primo uso
-         (invariante 21). -->
-    <div id="a11y-panel" class="a11y-panel hidden-panel">
-        <button onclick="document.documentElement.classList.toggle('a11y-invert'); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="sun-moon" class="w-4 h-4"></i> Inverti Colori</button>
-        <button
-            onclick="document.documentElement.classList.toggle('a11y-low-contrast'); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="contrast" class="w-4 h-4"></i> Riduci Contrasti</button>
-        <button
-            onclick="document.documentElement.classList.toggle('a11y-high-contrast'); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="circle-dashed" class="w-4 h-4"></i> Contrasti Elevati</button>
-        <button onclick="document.documentElement.classList.toggle('a11y-grayscale'); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="palette" class="w-4 h-4"></i> Scala di Grigi</button>
-        <button id="btn-line-height" onclick="window.cycleLineHeight()" class="btn_a11y_tool"><i
-                data-lucide="move-vertical" class="w-4 h-4"></i> Interlinea Testo</button>
-        <button
-            onclick="document.getElementById('reading-ruler').classList.toggle('active'); this.classList.toggle('active')"
-            class="btn_a11y_tool"><i data-lucide="align-justify" class="w-4 h-4"></i> Riga di Lettura</button>
-        <button id="btn-text-zoom-panel" onclick="window.cycleTextZoom()" class="btn_a11y_tool"><i data-lucide="zoom-in"
-                class="w-4 h-4"></i> Testo x1</button>
-        <button id="btn-tts-tool" onclick="window.MappAITTS && window.MappAITTS.toggle(this)" class="btn_a11y_tool"
-            data-i18n="ui_tts_tool"><i data-lucide="volume-2" class="w-4 h-4"></i> Ascolto Testo</button>
-    </div>
+    <!-- Il cerchio giallo degli strumenti compensativi e il suo pannello (filtri dei
+         colori, interlinea, riga, zoom, «Ascolto Testo») sono stati tolti il 26/9/2026
+         (packet 0039). Gli strumenti di lettura stanno nella fila del modale della
+         fonte (#modal-a11y-toolbar) e in Cabina › Aspetto e leggibilità. -->
 
     <!-- ==========================================
          DEVELOPER DASHBOARD (PROMPT CONFIG)
@@ -3640,7 +3264,7 @@
     <div id="magnifier-lens">
         <div id="magnifier-content"></div>
     </div>
-    <script src="js/admin_prompts.js?v=oq6"></script>
+    <script src="js/admin_prompts.js?v=rinforzo-20260925-1"></script>
     <script>
         // Uscita segreta: 5 click nell'angolo in alto a sinistra (entro 3s) → launcher
         // (schermata di scelta MappAI/Studio). Listener sul documento: zero elementi

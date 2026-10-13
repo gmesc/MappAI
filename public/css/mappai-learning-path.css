@@ -7,7 +7,7 @@
   max-width: none;
   max-height: none;
   padding: 0;
-  border: 1px solid var(--mm-bordo, #e2e8f0);
+  border: 1px solid var(--mm-bordo);
   border-radius: var(--mm-r-box, 16px);
   background: var(--mm-fondo, #fff);
   color: var(--mm-testo, #404040);

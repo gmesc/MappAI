@@ -37,12 +37,12 @@ html.manifesto {
     /* IL FILETTO sotto la topbar: un colore solo per tutte le superfici. Era
        `var(--mnc-hairline, #ebebeb)` con la variabile MAI dichiarata da nessuna
        parte — quindi valeva sempre il ripiego, e la testata della console usava
-       comunque `--mm-bordo` (#e2e8f0) sul secondo bordo: due linee di due colori
+       comunque `--mm-bordo` (allora #e2e8f0, dal 09/10/26 #cbd5e1) sul secondo bordo: due linee di due colori
        diversi. */
     /* DECISIONE D (13/9/26): UN filetto solo, `#e2e8f0` — lo stesso di `--mm-bordo` e dei
        192 `border-slate-200` del markup. Era `#ebebeb`, che compariva solo qui: due
        grigi di bordo a un passo l'uno dall'altro sulla stessa schermata. */
-    --mnc-hairline: var(--mm-bordo, #e2e8f0);
+    --mnc-hairline: var(--mm-bordo);
 }
 
 /* CABLAGGIO nell'app (classe `mn-bento-app` su <html>): via il chip e il
@@ -281,6 +281,20 @@ html.manifesto .mm-box--console .mm-nav__v.is-attiva {
 /* l'icona eredita lo scuro del testo (DECISIONE H): sul fondo viola tenue un glifo viola
    farebbe 2,6:1, sotto la soglia 3:1 delle icone. */
 html.manifesto .mm-box--console .mm-nav__v.is-attiva svg { color: inherit; }
+/* 12/10/26 (0087 lotto 10, Giacomo con una schermata): «Nella sidebar di ELABORA e PROGETTI l'item
+   selezionato deve avere un BG verde e bordo colour less». Nelle console di LAVORO — ELABORA e INSEGNA, cioè
+   tutte tranne la Cabina, riconosciuta dalla sua voce «Segnalazione» — la voce attiva prende il verde
+   dell'azione (--man-verde, testo --man-su-verde: 10,4:1) e perde il filetto interno. Supera, per queste
+   console, la DECISIONE H del 13/9 sul viola tenue; nella Cabina il viola resta. */
+html.manifesto .mm-box--console:not(:has(.mm-nav__v--segnala)) .mm-nav__v.is-attiva {
+    background: var(--man-verde);
+    color: var(--man-su-verde);
+    box-shadow: none;
+}
+/* 13/10 (Giacomo: «vedo la sidebar di CABINA con ancora gli item selezionati che hanno il bordo colorato e invece
+   doveva essere colour less»): anche nella Cabina la voce attiva tiene il fondo (il viola tenue della DECISIONE H) e
+   perde la riga interna di 1px che faceva da bordo. È la regola del 12/10 sulla sidebar della Cabina. */
+html.manifesto .mm-box--console:has(.mm-nav__v--segnala) .mm-nav__v.is-attiva { box-shadow: none; }
 html.manifesto .mm-box--console .mm-nav__g { padding-left: 22px; }
 
 /* ── la maniglia: bottoncino a icona, non più linguetta sul confine ─────── */
@@ -399,6 +413,15 @@ html.manifesto .mm-box--console .mm-tela > #elab-doc-host {
     min-height: 0;
     width: 100%;
     overflow: auto;
+}
+/* L'AREA DI EDITING arriva al bordo della console (09/10/26, packet 0087 lotto 7,
+   variante V2 scelta da Giacomo sul banco): fuori dal tetto di 1240 delle altre
+   righe dell'area, e senza il filetto in testa. Il foglio cresce col suo gradino
+   (×1,6 a 1880px, `--de-lad` in mappai-doc-editor.js): testo più grande, righe
+   uguali alla stampa. Il fondo bianco e il bordo delle card sono dell'editor. */
+html.manifesto .mm-box--console .mm-console__area > .mm-tela:has(> #elab-doc-host) {
+    max-width: none;
+    border-top-width: 0;
 }
 /* la tela che ospita l'editor non è un riquadro vuoto da centrare: è un
    contenitore verticale che gli lascia tutto lo spazio */
@@ -900,8 +923,10 @@ html.manifesto {
     --mnc-chip-bordo: transparent;
     --mnc-chip-fs: 12px;
     /* campi e tendine: la larghezza è una LEVA, non un caso — una tendina che si
-       allarga col testo più lungo fa ballare la riga a ogni scelta */
-    --mnc-campo-h: 32px;
+       allarga col testo più lungo fa ballare la riga a ogni scelta.
+       L'altezza è quella dei controlli gemelli (09/10, packet 0087 lotto 2):
+       era 32, ora la stessa del bottone e del campo del motore. */
+    --mnc-campo-h: var(--mm-ctl-h);
     --mnc-campo-r: 10px;
     --mnc-campo-min: 120px;
     --mnc-campo-max: 100%;

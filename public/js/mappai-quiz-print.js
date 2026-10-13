@@ -161,13 +161,12 @@ const QP_PRINT_BAR = (accentColor, label) => {
 
 // ── STAMPA QUIZ ──────────────────────────────────────────
 
-// Risoluzione nome mappa (comportamento storico preservato: legge appState.nodes,
-// undefined → 'MappAI'; la pipeline passa opts.mapName esplicito).
+// Risoluzione nome mappa quando il chiamante non passa opts.mapName (la stampa
+// dalla sidebar): l'etichetta del ROOT, 'MappAI' solo senza mappa in memoria.
+// ⚠️ Leggeva `appState.nodes`, che non esiste (invariante 2: i nodi stanno in
+// `appState.db.nodes`) — ogni foglio stampato senza mapName si intitolava «MappAI».
 function _qpMapName() {
-    try {
-        const rootNode = appState?.nodes?.find(n => n.level === 0);
-        return rootNode ? cleanLabel(rootNode.label) : 'MappAI';
-    } catch (e) { return 'MappAI'; }
+    return _qpRootLabel() || 'MappAI';
 }
 
 // ── TESTATA DELLA CARTA (root + macro-area) ──────────────
@@ -180,8 +179,8 @@ function _qpClean(s) {
     catch (e) { return String(s || ''); }
 }
 
-// Etichetta del nodo ROOT (L0). _qpMapName resta com'è: è storico e legge
-// appState.nodes, che di norma è undefined → 'MappAI'.
+// Etichetta del nodo ROOT (L0); '' senza mappa in memoria. È anche il nome della
+// mappa di ripiego (_qpMapName).
 function _qpRootLabel() {
     try {
         const st = (typeof appState !== 'undefined') ? appState : window.appState;
@@ -646,9 +645,64 @@ window.buildOpenQuestionsHtml = function (set, opts) {
 // La SORGENTE — la scheda intera — viaggia incorporata in `qp-scheda`
 // (invariante 18): il documento si riapre e si ricorregge; da un PDF non si
 // ricava più niente.
+//
+// 0079 (Giacomo, 5/10: «la scheda dossier si deve costruire come Sintesi»): il
+// documento esce dal costruttore della SINTESI — barra di lettura, stili,
+// stampa — col testo di `MappAIVisioneCore.markdownDaScheda`. Questo foglio
+// viola resta come RIPIEGO: interruttore spento (`mappai_scheda_sintesi` = '0'),
+// costruttore assente o in errore. Stessa firma: i chiamanti non cambiano.
+function _qpSchedaSintesiAccesa() {
+    try { return localStorage.getItem('mappai_scheda_sintesi') !== '0'; } catch (e) { return true; }
+}
+// La sorgente incorporata, UNA sola scrittura per le due rese.
+function _qpSchedaJson(scheda) {
+    return `<script type="application/json" id="qp-scheda">${JSON.stringify({
+        titolo: scheda.titolo || '', mime: scheda.mime || '', fotoB64: scheda.fotoB64 || '',
+        identita: scheda.identita || {}, osservazione: scheda.osservazione || {},
+        interpretazione: scheda.interpretazione || {}, critica: scheda.critica || {}
+    }).replace(/<\//g, '<\\/')}<\/script>`;
+}
+// Inserisce `pezzo` prima dell'ULTIMO `segno`. Con slice, MAI con
+// String.replace e una stringa: un `$'` o un `$&` in un valore della scheda
+// diventerebbe un comando di sostituzione e la sorgente si guasterebbe.
+function _qpPrimaDellUltimo(html, segno, pezzo) {
+    const i = html.lastIndexOf(segno);
+    return i < 0 ? null : html.slice(0, i) + pezzo + html.slice(i);
+}
 window.buildAnalisiFonteHtml = function (scheda, opts) {
     opts = opts || {};
     scheda = scheda || {};
+    const SY = window.MappAISynthesis, VC = window.MappAIVisioneCore;
+    if (_qpSchedaSintesiAccesa() && SY && typeof SY.buildHtml === 'function'
+        && VC && typeof VC.markdownDaScheda === 'function') {
+        try {
+            const mapName = opts.mapName || scheda.titolo || _qpMapName();
+            const doc = SY.buildHtml({
+                branchLabel: scheda.titolo || mapName, mapName: mapName,
+                rawText: VC.markdownDaScheda(scheda), sourcesArr: [], causalTriples: [],
+                mostraNote: false, mostraCausale: false,
+                tipo: _qpText('qp_tipo_analisi', 'Analisi della fonte', 'Source analysis'),
+                foto: scheda.fotoB64 ? { b64: scheda.fotoB64, mime: scheda.mime || 'image/jpeg', titolo: scheda.titolo || '' } : null,
+                classe: opts.classe, materia: opts.materia
+            }, { font: opts.font });
+            /* I ▶ «Ascolta da qui» li mette lo script del documento in ogni titolo
+               e non sono `no-print`: senza questa riga finirebbero nel PDF. La
+               foto accanto (Proietta): a schermo è già di fianco, in stampa resta. */
+            const stile = '@media print{.ap-sec{display:none !important}}'
+                + (opts.fotoAccanto ? '@media screen{.bs-fonte{display:none}}' : '');
+            const conStile = typeof doc === 'string'
+                ? _qpPrimaDellUltimo(doc, '</head>', '<style id="qp-scheda-stile">' + stile + '</style>') : null;
+            const pieno = conStile && _qpPrimaDellUltimo(conStile, '</body>', '    ' + _qpSchedaJson(scheda) + '\n');
+            if (pieno) return pieno;
+        } catch (e) {
+            console.warn('[quiz-print] analisi come sintesi non riuscita, foglio di prima:', e && e.message);
+        }
+    }
+    return _qpAnalisiFoglio(scheda, opts);
+};
+// Il foglio dell'analisi di prima dello 0079 (cornice viola, un riquadro per
+// blocco): il ripiego. Invariato.
+function _qpAnalisiFoglio(scheda, opts) {
     const VC = window.MappAIVisioneCore;
     const mapName = opts.mapName || scheda.titolo || _qpMapName();
     const now = opts.now || _qpData();
@@ -713,16 +767,12 @@ window.buildAnalisiFonteHtml = function (scheda, opts) {
     ${foto}
     ${blocchiHtml}
 
-    <script type="application/json" id="qp-scheda">${JSON.stringify({
-        titolo: scheda.titolo || '', mime: scheda.mime || '', fotoB64: scheda.fotoB64 || '',
-        identita: scheda.identita || {}, osservazione: scheda.osservazione || {},
-        interpretazione: scheda.interpretazione || {}, critica: scheda.critica || {}
-    }).replace(/<\//g, '<\\/')}<\/script>
+    ${_qpSchedaJson(scheda)}
 
     ${_qpPie({ mappa: mapName, data: now })}
 </body>
 </html>`;
-};
+}
 // La scheda incorporata, riletta: è ciò che permette di riaprire il documento
 // e ricorreggerlo (la strada di ELABORA › Modifica).
 window.schedaFromAnalisiHtml = function (html) {

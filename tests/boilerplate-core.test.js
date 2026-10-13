@@ -140,3 +140,108 @@ test('stripStructuralLines: toglie domande e vuoti, conserva il contenuto', () =
     assert.ok(r.text.indexOf('Doc. 2') < 0);                         // riferimento rimosso
     assert.ok(r.text.indexOf('LA GUERRA FREDDA') < 0);              // titolo rimosso
 });
+
+// ── 0043: una riga strutturale è una riga CORTA ─────────────────────────────
+//    L'estrazione dei PDF dà una riga per pagina: una pagina che comincia con un
+//    titolo numerato («2. L'economia svizzera…») combaciava con la regola B e
+//    spariva intera. 'stem' e 'riferimento' si tolgono solo fino a 25 parole con
+//    lettere o cifre; un gruppo di puntini non è una parola.
+const parole = (t) => t.trim().split(/\s+/).filter(w => /[0-9A-Za-zÀ-ſ]/.test(w)).length;
+
+const PAGINA_SVIZZERA = '2. L\'economia svizzera durante la Seconda Guerra Mondiale La Svizzera, circondata dalle ' +
+    'potenze dell\'Asse, dipendeva dall\'estero per il carbone, il ferro e buona parte dei generi alimentari. ' +
+    'Per sopravvivere il Consiglio federale negoziò accordi commerciali con la Germania e con gli Alleati, ' +
+    'mentre il Piano Wahlen estese le coltivazioni a ogni superficie disponibile, dai parchi ai campi sportivi.';
+const PAGINA_CERESIO = '04. RETE ALIMENTARE DEL LAGO CERESIO Nel lago Ceresio le alghe microscopiche del fitoplancton ' +
+    'sono mangiate dallo zooplancton, che a sua volta nutre i pesci piccoli come l\'alborella; i pesci piccoli ' +
+    'sono preda del persico e del luccio, e alla fine della catena si trovano gli uccelli acquatici come lo svasso.';
+const PAGINA_DOC = 'Doc. 1 Le leggi di Mendel Gregor Mendel incrociò piante di pisello che differivano per un solo ' +
+    'carattere, come il colore dei semi, e osservò che nella prima generazione compariva soltanto uno dei due ' +
+    'caratteri, mentre nella seconda generazione ricompariva anche l\'altro in circa un quarto delle piante.';
+
+test('0043: le righe-pagina lunghe restano (sono pagine, non stem)', () => {
+    for (const [nome, pagina] of [['Svizzera', PAGINA_SVIZZERA], ['Ceresio', PAGINA_CERESIO], ['Doc. 1', PAGINA_DOC]]) {
+        assert.ok(parole(pagina) >= 40, nome + ': la riga di prova ha 40+ parole, ne ha ' + parole(pagina));
+        const testo = ['Prima pagina di prosa senza numeri davanti.', pagina, 'Ultima pagina di prosa.'].join('\n');
+        const r = BP.stripStructuralLines(testo);
+        assert.strictEqual(r.count, 0, nome + ': nessuna riga tolta');
+        assert.strictEqual(r.text, testo, nome + ': il testo resta identico');
+    }
+});
+
+test('0043: la riga-pagina lunga resta «stem»/«riferimento» per structuralKind e isStructuralLine (risposta invariata)', () => {
+    assert.strictEqual(BP.structuralKind(PAGINA_SVIZZERA), 'stem');
+    assert.strictEqual(BP.structuralKind(PAGINA_CERESIO), 'stem');
+    assert.strictEqual(BP.structuralKind(PAGINA_DOC), 'riferimento');
+    assert.strictEqual(BP.isStructuralLine(PAGINA_SVIZZERA), true);
+    assert.strictEqual(BP.isStructuralLine(PAGINA_CERESIO), true);
+    assert.strictEqual(BP.isStructuralLine(PAGINA_DOC), true);
+});
+
+test('0043: gli stem di oggi si tolgono ancora, anche uno di 20 parole', () => {
+    const stem20 = '3. Spiega con parole tue perché la Svizzera, pur restando neutrale, dovette commerciare con la Germania durante la guerra mondiale.';
+    assert.strictEqual(parole(stem20), 20);
+    const righe = [
+        '1) Durante le lezioni precedenti formula la tua ipotesi.',
+        '2. Riassumi schematicamente le ipotesi della classe.',
+        'Doc. 1 Da cosa dipende il fatto di avere capelli lisci o ricci?',
+        stem20
+    ];
+    const r = BP.stripStructuralLines(['Prosa che resta.'].concat(righe).join('\n'));
+    assert.strictEqual(r.count, 4);
+    assert.strictEqual(r.text, 'Prosa che resta.');
+});
+
+test('0043: i puntini non sono parole — «4. Qual è…» con 5 gruppi di puntini si toglie', () => {
+    const riga = '4. Qual è, a tuo avviso, l\'opinione dell\'autore del testo? ' + Array(5).fill('..........').join(' ');
+    assert.strictEqual(parole(riga), 10);
+    const r = BP.stripStructuralLines('Prosa.\n' + riga);
+    assert.strictEqual(r.count, 1);
+    assert.strictEqual(r.text, 'Prosa.');
+});
+
+test('0043: il confine è 25 parole — 25 (più puntini) si toglie, 26 resta', () => {
+    const base = ['1)'].concat(Array.from({ length: 24 }, (_, i) => 'parola' + String.fromCharCode(97 + (i % 26))));
+    const r25 = base.join(' ') + ' ' + Array(12).fill('.....').join(' ');
+    const r26 = base.concat(['ancora']).join(' ');
+    assert.strictEqual(parole(r25), 25);
+    assert.strictEqual(parole(r26), 26);
+    assert.strictEqual(BP.stripStructuralLines(r25).count, 1, '25 parole: stem, si toglie');
+    assert.strictEqual(BP.stripStructuralLines(r26).count, 0, '26 parole: resta');
+    // la soglia si sposta con opts.maxWords
+    assert.strictEqual(BP.stripStructuralLines(r26, { maxWords: 26 }).count, 1);
+    assert.strictEqual(BP.stripStructuralLines(r25, { maxWords: 14 }).count, 0);
+});
+
+test('0043: una riga di puntini spaziati con più di 25 gruppi si toglie (regola A senza limite)', () => {
+    const riga = Array(40).fill('.').join(' ') + ' … … …';
+    assert.strictEqual(BP.structuralKind(riga), 'spazio');
+    const r = BP.stripStructuralLines('Prosa.\n' + riga);
+    assert.strictEqual(r.count, 1);
+    assert.strictEqual(r.text, 'Prosa.');
+});
+
+test('0043: { maxWords: Infinity } riproduce il comportamento di prima (ogni riga strutturale via)', () => {
+    const testo = [
+        'LA GUERRA FREDDA',
+        PAGINA_SVIZZERA,
+        'Prosa di contenuto che resta sempre.',
+        PAGINA_CERESIO,
+        '1) Formula la tua ipotesi personale.',
+        '...................................................',
+        PAGINA_DOC,
+        '',
+        'Gli alleli sono versioni alternative di uno stesso gene.'
+    ].join('\n');
+    const righe = testo.split('\n');
+    const atteso = righe.filter(l => !BP.isStructuralLine(l));
+    const attesiTolti = righe.filter(l => BP.isStructuralLine(l)).map(l => l.trim().slice(0, 60));
+    const r = BP.stripStructuralLines(testo, { maxWords: Infinity });
+    assert.strictEqual(r.text, atteso.join('\n'));
+    assert.strictEqual(r.count, 6);
+    assert.deepStrictEqual(r.removed, attesiTolti);
+    // col default le tre pagine restano
+    const d = BP.stripStructuralLines(testo);
+    assert.strictEqual(d.count, 3);
+    assert.ok(d.text.indexOf('L\'economia svizzera') >= 0 && d.text.indexOf('RETE ALIMENTARE') >= 0 && d.text.indexOf('leggi di Mendel') >= 0);
+});

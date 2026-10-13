@@ -41,16 +41,16 @@
            avere nessuna regola globale, e un campo `width:100%` col suo
            imbottitura sborda di 14px — misurato a 390px, cioè su un telefono. */
         '.sc-wrap,.sc-wrap *{box-sizing:border-box}',
-        '.sc-wrap{display:flex;flex-direction:column;height:100%;min-height:0;background:#fafbff;color:#0f172a}',
-        '.sc-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px max(16px,env(safe-area-inset-left));background:#fff;border-bottom:1px solid #e2e8f0}',
-        '.sc-cnt{font-size:13px;font-weight:700;color:#334155}',
+        '.sc-wrap{display:flex;flex-direction:column;height:100%;min-height:0;background:#fafbff;color:var(--mm-testo, #404040)}',
+        '.sc-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px max(16px,env(safe-area-inset-left));background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1)}',
+        '.sc-cnt{font-size:13px;font-weight:700;color:var(--mm-testo, #404040)}',
         '.sc-cnt b{color:#4f46e5}',
         '.sc-cnt.ko b{color:#b45309}',
         '.sc-hint{font-size:12px;color:#475569;flex:1;min-width:140px}',
         '.sc-list{flex:1;overflow-y:auto;padding:16px max(16px,env(safe-area-inset-right)) 24px max(16px,env(safe-area-inset-left))}',
         '.sc-ramo{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin:18px 0 8px}',
         '.sc-ramo:first-child{margin-top:0}',
-        '.sc-q{background:#fff;border:2px solid #e2e8f0;border-radius:14px;margin-bottom:10px;overflow:hidden}',
+        '.sc-q{background:#fff;border:2px solid var(--mm-bordo, #cbd5e1);border-radius:14px;margin-bottom:10px;overflow:hidden}',
         '.sc-q.on{border-color:#4f46e5}',
         '.sc-take{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;background:none;border:0;padding:14px 16px;min-height:56px;font:inherit;color:inherit;cursor:pointer}',
         '.sc-take:focus-visible{outline:3px solid #6366f1;outline-offset:-3px}',
@@ -60,24 +60,24 @@
         /* il taglio sulla card: SOLO con `mostraAngolo` (l'esercizio inverso, 6/9) */
         '.sc-ang{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0f766e;margin-bottom:3px}',
         /* l'intestazione di una riga «Domanda i» quando si raggruppa per posizione */
-        '.sc-riga{font-size:12px;font-weight:700;color:#334155;margin:12px 0 6px}',
+        '.sc-riga{font-size:12px;font-weight:700;color:var(--mm-testo, #404040);margin:12px 0 6px}',
         '.sc-body{padding:0 16px 16px;border-top:1px solid #eef2ff}',
         '.sc-lbl{font-size:12px;font-weight:700;color:#475569;margin:14px 0 6px}',
-        '.sc-ta{width:100%;min-height:110px;padding:12px 14px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;color:#0f172a;font-size:16px;line-height:1.5;resize:vertical}',
+        '.sc-ta{width:100%;min-height:110px;padding:12px 14px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;color:var(--mm-testo, #404040);font-size:16px;line-height:1.5;resize:vertical}',
         '.sc-ta:focus{border-color:#6366f1;outline:none}',
-        '.sc-opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:8px;min-height:48px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;font-size:16px;color:#0f172a}',
+        '.sc-opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:8px;min-height:48px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:16px;color:var(--mm-testo, #404040)}',
         '.sc-opt[aria-checked="true"]{border-color:#4f46e5;background:#eef2ff;font-weight:700}',
         '.sc-chips{display:flex;flex-wrap:wrap;gap:8px}',
-        '.sc-chip{min-height:44px;padding:10px 14px;border-radius:999px;border:2px solid #e2e8f0;background:#fff;font-size:13px;font-weight:700;color:#334155}',
+        '.sc-chip{min-height:44px;padding:10px 14px;border-radius:999px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:13px;font-weight:700;color:var(--mm-testo, #404040)}',
         '.sc-chip[aria-pressed="true"]{border-color:#4f46e5;background:#eef2ff;color:#4f46e5}',
-        '.sc-nota{width:100%;padding:10px 12px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;font-size:14px;color:#0f172a}',
+        '.sc-nota{width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:14px;color:var(--mm-testo, #404040)}',
         '.sc-nota:focus{border-color:#6366f1;outline:none}',
-        '.sc-foot{padding:12px max(16px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:10px}',
+        '.sc-foot{padding:12px max(16px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--mm-bordo, #cbd5e1);display:flex;flex-direction:column;gap:10px}',
         /* Le osservazioni stanno in fondo e si scrivono ALLA FINE: da aperte
            costavano 74px di schermo mentre si sta ancora scegliendo (misurato:
            il piè si prendeva il 30% di un telefono). Nascono su una riga e
            crescono con quello che si scrive. */
-        '.sc-oss{width:100%;min-height:44px;max-height:180px;padding:11px 13px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;font-size:15px;line-height:1.5;resize:vertical;field-sizing:content}',
+        '.sc-oss{width:100%;min-height:44px;max-height:180px;padding:11px 13px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:15px;line-height:1.5;resize:vertical;field-sizing:content}',
         '.sc-oss:focus{border-color:#6366f1;outline:none}',
         '.sc-go{width:100%;min-height:52px;border-radius:12px;background:#4f46e5;color:#fff;font-size:17px;font-weight:700}',
         '.sc-go[disabled]{opacity:.55}',
@@ -86,12 +86,12 @@
         '.sc-verd{margin-top:14px;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}',
         '.sc-verd--ok{background:#dcfce7;border:2px solid #16a34a;color:#14532d}',
         '.sc-verd--ko{background:#fee2e2;border:2px solid #dc2626;color:#7f1d1d}',
-        '.sc-verd .sp{display:block;margin-top:6px;font-size:13px;color:#334155}',
+        '.sc-verd .sp{display:block;margin-top:6px;font-size:13px;color:var(--mm-testo, #404040)}',
         '.sc-esito{flex:1;overflow-y:auto;padding:24px max(20px,env(safe-area-inset-left))}',
         '.sc-esito h2{font-size:20px;font-weight:700;margin-bottom:6px}',
         '.sc-esito p{color:#475569;font-size:14px;line-height:1.6;margin-bottom:14px}',
         '.sc-riga{display:flex;align-items:center;gap:10px;margin-bottom:8px}',
-        '.sc-riga .n{font-size:13px;font-weight:700;color:#334155;flex:0 0 132px}',
+        '.sc-riga .n{font-size:13px;font-weight:700;color:var(--mm-testo, #404040);flex:0 0 132px}',
         '.sc-barra{flex:1;height:12px;border-radius:999px;background:#f1f5f9;overflow:hidden}',
         '.sc-barra i{display:block;height:100%;background:#4f46e5}',
         '.sc-riga .v{font-size:13px;font-weight:700;color:#4f46e5;flex:0 0 34px;text-align:right}',
@@ -114,10 +114,10 @@
         '.sc-dom{font-size:21px;font-weight:700;line-height:1.45;margin-bottom:18px}',
         '.sc-eco{margin-top:14px;font-size:13px;color:#475569}',
         '.sc-nav{display:flex;align-items:center;gap:12px}',
-        '.sc-nav__b{flex:0 0 auto;width:64px;min-height:48px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;font-size:22px;font-weight:700;color:#4f46e5}',
-        '.sc-nav__b[disabled]{opacity:.4;color:#94a3b8}',
-        '.sc-nav__n{flex:1;text-align:center;font-size:14px;font-weight:700;color:#334155}',
-        '.sc-go--quieto{background:#fff;color:#4f46e5;border:2px solid #e2e8f0}'
+        '.sc-nav__b{flex:0 0 auto;width:64px;min-height:48px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:22px;font-weight:700;color:#4f46e5}',
+        '.sc-nav__b[disabled]{opacity:.4;color:var(--mm-testo-3, #64748b)}',
+        '.sc-nav__n{flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--mm-testo, #404040)}',
+        '.sc-go--quieto{background:#fff;color:#4f46e5;border:2px solid var(--mm-bordo, #cbd5e1)}'
     ].join('\n');
 
     function css() {

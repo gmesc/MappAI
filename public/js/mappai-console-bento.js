@@ -121,7 +121,7 @@
                     et: 'Nuovo documento',
                     icona: 'plus',
                     primaria: true,
-                    aiuto: 'Apre la scelta del tipo (Quiz, Flashcard, Foglio dei nodi, Sintesi, Catena dei perché) e crea un documento vuoto di quel tipo.'
+                    aiuto: 'Apre «+ Crea nuovo»: Scelta multipla, Domande aperte e Flashcard a mano (l\'editor si apre vuoto), «Più materiali insieme» con l\'AI e, su un progetto nato da una foto, le stesse tre generate dalla foto.'
                 }
             ],
             moduli: [

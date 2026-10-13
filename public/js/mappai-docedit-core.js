@@ -616,23 +616,39 @@
     }
 
     // ── 5. cronologia (annulla) ─────────────────────────────────────────────
+    /* 12/10/2026 (0087, lotto 10-editor, Giacomo: «un bottone doppio con le due icone
+       UNDO/REDO»): la cronologia impara il «rifai». `undo(corrente)` mette da parte lo
+       stato di adesso nella pila del rifai e restituisce il precedente; `redo(corrente)`
+       fa il contrario; una modifica nuova (`push`) svuota il rifai, come ovunque.
+       Senza argomento `undo()` fa quel che faceva (la barra del percorso di lettura lo
+       chiama così): retrocompatibile. */
     function createHistory(cap) {
         var max = (typeof cap === 'number' && cap > 0) ? cap : 20;
-        var stack = [];
+        var stack = [], redoStack = [];
         return {
             push: function (state, label) {
                 stack.push({ state: _clone(state), label: _s(label) });
                 if (stack.length > max) stack.shift();
+                redoStack.length = 0;
                 return stack.length;
             },
-            undo: function () {
+            undo: function (current) {
                 if (!stack.length) return null;
-                return stack.pop();
+                var e = stack.pop();
+                if (current !== undefined) { redoStack.push({ state: _clone(current), label: e.label }); if (redoStack.length > max) redoStack.shift(); }
+                return e;
+            },
+            redo: function (current) {
+                if (!redoStack.length) return null;
+                var e = redoStack.pop();
+                if (current !== undefined) { stack.push({ state: _clone(current), label: e.label }); if (stack.length > max) stack.shift(); }
+                return e;
             },
             peekLabel: function () { return stack.length ? stack[stack.length - 1].label : ''; },
             canUndo: function () { return stack.length > 0; },
+            canRedo: function () { return redoStack.length > 0; },
             size: function () { return stack.length; },
-            clear: function () { stack.length = 0; }
+            clear: function () { stack.length = 0; redoStack.length = 0; }
         };
     }
 

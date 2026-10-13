@@ -40,7 +40,8 @@
         var productId = profilo.provider === 'infomaniak'
             ? String(campo('infomaniak-product-id') || st.infomaniakProductId || storage('infomaniak_product_id')).trim() : '';
         if (profilo.provider === 'infomaniak' && !productId) throw new Error(t('modelli_no_product', 'Product ID Infomaniak mancante.'));
-        var sm = typeof StorageManager !== 'undefined' ? StorageManager : window.StorageManager;
+        // niente ripiego su `window.StorageManager`: è la classe nativa del browser (invariante 3)
+        var sm = typeof StorageManager !== 'undefined' ? StorageManager : null;
         var giro = {
             productId: productId,
             runId: 'modelli-' + Date.now().toString(36) + '-' + (++sequenza).toString(36),
@@ -126,11 +127,9 @@
             catch (_) { throw new Error(t('modelli_invalid', 'Compila mappa, materiali ed embeddings con gli identificativi dei modelli.')); }
         } else p = profiloSetup();
         var config = options.config || {};
-        if (options.nuovo && config.dossier) throw new Error(t('modelli_text_only', 'Questo giro per fase accetta fonti testuali: usa un PDF con testo, un documento o testo incollato.'));
         var giudice = !!options.giudice;
         if (giudice && !p.modelli.giudice) throw new Error(t('modelli_assign_judge', 'Assegna un modello al giudice nel Setup AI prima di avviare il controllo.'));
         if (options.nuovo && storage('mappai_reranker_infomaniak') === '1') throw new Error(t('modelli_reranker_off', 'Disattiva il reranker delle citazioni prima di avviare un giro con modelli per fase.'));
-        if (p.provider === 'infomaniak' && config.synthesis && config.synthesis.audio) throw new Error(t('modelli_no_audio', 'Per questo giro Infomaniak scegli la sintesi senza voce: la voce naturale usa Google.'));
         return creaGiro(p, Object.assign({}, options, { previousRunId: manifest && manifest.modelliGiro && manifest.modelliGiro.runId }));
     }
     window.MappAIModelli = Object.freeze({

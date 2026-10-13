@@ -7,9 +7,33 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const path = require('path');
 const crypto = require('crypto');
 const { createLiveServer, createMaterialsServer } = require(path.join(__dirname, '..', 'live-server.js'));
+
+// Le cartelle temporanee dei test si tolgono alla fine del file (25/9): prima ne
+// restavano decine a ogni giro della suite in $TMPDIR (3898 dal 23/9).
+const _cartelleTmp = [];
+function tmpDir(prefisso) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), prefisso));
+  _cartelleTmp.push(d);
+  return d;
+}
+
+/* una riga di richiesta che `fetch` non manderebbe mai: si scrive sul socket.
+   Torna la riga di stato, o 'appesa' se il server non risponde. */
+function grezza(port, target) {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, '127.0.0.1', () => s.write('GET ' + target + ' HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+    let dati = '';
+    s.setEncoding('utf8');
+    s.setTimeout(2000, () => { s.destroy(); resolve('appesa'); });
+    s.on('data', d => { dati += d; });
+    s.on('end', () => resolve(dati.split('\r\n')[0]));
+    s.on('error', reject);
+  });
+}
 const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
 
 const repoRoot = path.join(__dirname, '..');
@@ -43,7 +67,7 @@ function mkRoster(n) {
 
 // ── Ciclo completo: join → answer → close → report ─────────────────────────
 test('ciclo completo: join, autosave, indietro, finish, close, report', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-test-'));
+  const dir = tmpDir('live-test-');
   const roster = mkRoster(3);   // volpe-00, panda-00, rana-00
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'Fotosintesi', activity: 'Quiz', className: '2A' }, roster, questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
@@ -138,7 +162,7 @@ test('ciclo completo: join, autosave, indietro, finish, close, report', async ()
 
 // ── Release + adozione ─────────────────────────────────────────────────────
 test('release docente → identità adottabile da altro device', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-rel-'));
+  const dir = tmpDir('live-rel-');
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', className: '2A' }, roster: mkRoster(2), questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
@@ -153,7 +177,7 @@ test('release docente → identità adottabile da altro device', async () => {
 
 // ── Resume da disco ────────────────────────────────────────────────────────
 test('resume: stesso dir → stesso token, risposte intatte, fase preservata', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-res-'));
+  const dir = tmpDir('live-res-');
   const roster = mkRoster(2);
   let srv = createLiveServer({ repoRoot, dir, session: { name: 'Y', className: '2A' }, roster, questions: sampleQuestions() });
   let port = await srv.listen(0, '127.0.0.1');
@@ -178,15 +202,21 @@ test('resume: stesso dir → stesso token, risposte intatte, fase preservata', a
 
 // ── Timer auto-close ───────────────────────────────────────────────────────
 test('timer: durationMin scaduto → chiusura automatica + report', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tim-'));
+  const dir = tmpDir('live-tim-');
   // 0.003 min ≈ 180ms: abbastanza per testare il percorso reale del setTimeout
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'T', className: '2A', durationMin: 0.003 }, roster: mkRoster(1), questions: sampleQuestions() });
   const port = await srv.listen(0, '127.0.0.1');
   const api = apiFactory(port);
   const admin = srv.state().session.adminToken;
   await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
-  await new Promise(r => setTimeout(r, 400));   // oltre l'endsAt
-  const status = await api('/api/status?admin=' + admin);
+  // si chiede finché la sessione risulta chiusa, con un tetto largo: un'attesa
+  // fissa di 400 ms su un timer di 180 ms falliva sulle macchine lente (25/9)
+  let status;
+  for (const t0 = Date.now(); Date.now() - t0 < 5000;) {
+    status = await api('/api/status?admin=' + admin);
+    if (status.body.session.phase === 'closed' && fs.existsSync(path.join(dir, 'report-domande.html'))) break;
+    await new Promise(r => setTimeout(r, 25));
+  }
   assert.strictEqual(status.body.session.phase, 'closed');
   assert.ok(fs.existsSync(path.join(dir, 'report-domande.html')));
   await srv.stop();
@@ -194,7 +224,7 @@ test('timer: durationMin scaduto → chiusura automatica + report', async () => 
 
 // ── Materiali ──────────────────────────────────────────────────────────────
 test('materiali: lista + download con Content-Disposition, traversal e token', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-mat-'));
+  const dir = tmpDir('live-mat-');
   const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Dispense' } });
   const port = await srv.listen(0, '127.0.0.1');
   const tok = srv.state().session.token;
@@ -220,10 +250,31 @@ test('materiali: lista + download con Content-Disposition, traversal e token', a
   await srv.stop();
 });
 
+test('materiali: un nome con «—» e apostrofo tipografico si scarica (25/9)', async (t) => {
+  const dir = tmpDir('live-mat-nome-');
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Dispense' } });
+  const port = await srv.listen(0, '127.0.0.1');
+  t.after(() => srv.stop());
+  const tok = srv.state().session.token;
+  // prima: writeHead lanciava ERR_INVALID_CHAR e la richiesta restava appesa
+  const nome = 'Quiz — l’acqua (città).pdf';
+  fs.writeFileSync(path.join(srv.filesDir, nome), '%PDF-1.4 prova');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 3000);
+  const dl = await fetch('http://127.0.0.1:' + port + '/files/' + encodeURIComponent(nome) + '?s=' + tok, { signal: ctl.signal });
+  clearTimeout(timer);
+  assert.strictEqual(dl.status, 200);
+  const cd = dl.headers.get('content-disposition') || '';
+  assert.ok(cd.startsWith('attachment; filename="Quiz _ l_acqua (citta).pdf"'), cd);
+  assert.ok(cd.includes("filename*=UTF-8''Quiz%20%E2%80%94%20l%E2%80%99acqua%20%28citt%C3%A0%29.pdf"), cd);
+  assert.strictEqual(await dl.text(), '%PDF-1.4 prova');
+});
+
 // ── Scambio con MappAI studente (7/9): manifest del vault, file per rel, consegna ──
 test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> serve solo l\'elencato', async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scambio-'));
-  const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
+  const dir = tmpDir('live-scambio-');
+  const vdir = tmpDir('vault-');
   fs.writeFileSync(path.join(vdir, 'index.yaml'), 'rootNodeLabel: Il Clima\n');
   fs.writeFileSync(path.join(vdir, 'vista.json'), '{}');
   fs.mkdirSync(path.join(vdir, 'Nodi')); fs.writeFileSync(path.join(vdir, 'Nodi', 'Clima.md'), '# Clima');
@@ -266,7 +317,7 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   await srv2.stop();
 
   // scambio spento
-  const srv3 = createMaterialsServer({ repoRoot, dir: fs.mkdtempSync(path.join(os.tmpdir(), 'live-off-')), session: { name: 'x' }, scambio: false });
+  const srv3 = createMaterialsServer({ repoRoot, dir: tmpDir('live-off-'), session: { name: 'x' }, scambio: false });
   t.after(() => srv3.stop());
   const port3 = await srv3.listen(0, '127.0.0.1');
   assert.strictEqual(srv3.esponiVault({ nome: 'x', dir: vdir }), null);
@@ -275,8 +326,8 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
 });
 
 test('scambio: POST /api/consegna scrive in Consegne/<classe-numero>/, mai sovrascrive, rifiuta il resto', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-consegna-'));
-  const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
+  const dir = tmpDir('live-consegna-');
+  const vdir = tmpDir('vault-');
   const ricevute = [];
   const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' },
     vaultDir: nome => nome === 'Il Clima' ? vdir : null, onConsegna: i => ricevute.push(i) });
@@ -302,9 +353,93 @@ test('scambio: POST /api/consegna scrive in Consegne/<classe-numero>/, mai sovra
   await srv.stop();
 });
 
+/* Dal rapporto di sicurezza (25/9): chi aveva il token del QR mandava
+   `compito.html` o un `.command`, e il server scriveva tutto nel vault del
+   docente. Ora passa solo ciò che MappAI studente manda davvero, e i primi byte
+   devono dire la stessa cosa dell'estensione. */
+test('scambio: la consegna accetta solo PDF, HTML e JSONL veri, un vault per nome, e ha un tetto per allievo', async (t) => {
+  const dir = tmpDir('live-formati-');
+  const vdir = tmpDir('vault-');
+  const chiesti = [];
+  const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' },
+    vaultDir: nome => { chiesti.push(nome); return nome === 'Il Clima' ? vdir : null; } });
+  t.after(() => srv.stop());
+  const port = await srv.listen(0, '127.0.0.1');
+  const tok = srv.state().session.token;
+  const manda = (nome, contenuto, extra) => fetch('http://127.0.0.1:' + port + '/api/consegna?s=' + tok, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ numero: '7', classe: '3C', vault: 'Il Clima', sessione: 'Prova', nome,
+      base64: (Buffer.isBuffer(contenuto) ? contenuto : Buffer.from(contenuto)).toString('base64') }, extra || {}))
+  }).then(async r => ({ status: r.status, body: await r.json().catch(() => null) }));
+
+  // ciò che il reader manda davvero (studente/scambio-core.js → fileDaInviare)
+  assert.strictEqual((await manda('risposte.pdf', '%PDF-1.3\n%âã')).status, 200);
+  assert.strictEqual((await manda('report.html', '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">')).status, 200);
+  assert.strictEqual((await manda('risposte.html', '﻿\n<!doctype html>\n<html>')).status, 200);
+  assert.strictEqual((await manda('sessioni.jsonl', '{"mode":1}\n{"mode":2}\n')).status, 200);
+  assert.strictEqual((await manda('sessioni.jsonl', '{"mode":1}\n{"mod')).status, 200, 'una coda rovinata non blocca la consegna');
+  assert.strictEqual(fs.readdirSync(path.join(vdir, 'Consegne', '3C-7')).length, 5);
+
+  // estensioni che il reader non manda mai
+  const altro = { numero: '8' };
+  for (const nome of ['compito.command', 'tema.terminal', 'foto.png', 'x.svg', 'x.exe', 'x.htm', 'senza-estensione']) {
+    const r = await manda(nome, '%PDF-1.3', altro);
+    assert.strictEqual(r.status, 415, nome);
+    assert.strictEqual(r.body.error, 'formato', nome);
+  }
+  // un nome con i caratteri di direzione: HTML vero che nel Finder sembra un PDF (25/9)
+  const bidi = await manda('compito\u202Efdp.html', '<!DOCTYPE html><html>', altro);
+  assert.strictEqual(bidi.status, 400);
+  assert.strictEqual(bidi.body.error, 'nome');
+  // l'estensione giusta non basta: i primi byte devono dire lo stesso
+  assert.strictEqual((await manda('risposte.pdf', '<!DOCTYPE html><script>top.electronAPI</script>', altro)).status, 415, 'HTML travestito da PDF');
+  assert.strictEqual((await manda('report.html', Buffer.from([0x3c, 0x68, 0x74, 0x6d, 0x6c, 0x3e, 0xff, 0x00]), altro)).status, 415, 'binario travestito da HTML');
+  assert.strictEqual((await manda('report.html', 'ciao <b>mondo</b>', altro)).status, 415, 'un frammento non è una pagina');
+  assert.strictEqual((await manda('sessioni.jsonl', '<!DOCTYPE html>', altro)).status, 415, 'non sono righe JSON');
+  assert.strictEqual((await manda('sessioni.jsonl', '42\n', altro)).status, 415, 'una riga deve essere un record');
+  assert.strictEqual((await manda('risposte.pdf', '', altro)).status, 400, 'vuoto');
+  assert.ok(!fs.existsSync(path.join(vdir, 'Consegne', '3C-8')), 'un rifiuto non lascia la cartella dell\'allievo');
+
+  // il vault è un NOME: un cammino non arriva mai a chi lo cerca sul disco
+  chiesti.length = 0;
+  for (const v of ['../Il Clima', '..', '.', 'a/b', 'a\\b', '']) {
+    assert.strictEqual((await manda('risposte.pdf', '%PDF-1.3', { vault: v })).status, 404, JSON.stringify(v));
+  }
+  assert.deepStrictEqual(chiesti, []);
+
+  // il tetto per allievo: la cartella piena rifiuta, quella accanto no
+  const piena = path.join(vdir, 'Consegne', '4D-9');
+  fs.mkdirSync(piena, { recursive: true });
+  for (let i = 0; i < 50; i++) fs.writeFileSync(path.join(piena, 'p' + i + '.pdf'), '%PDF-1.3');
+  const troppe = await manda('risposte.pdf', '%PDF-1.3', { numero: '9', classe: '4D' });
+  assert.strictEqual(troppe.status, 400);
+  assert.strictEqual(troppe.body.error, 'troppe-consegne');
+  assert.strictEqual(fs.readdirSync(piena).length, 50);
+  assert.strictEqual((await manda('risposte.pdf', '%PDF-1.3', { numero: '10', classe: '4D' })).status, 200);
+  await srv.stop();
+});
+
+// ── Richieste malformate (25/9): 400, e il server resta in piedi ────────────
+test('una richiesta malformata riceve 400 e il server resta in piedi (quiz e materiali)', async (t) => {
+  const srv = createLiveServer({ repoRoot, dir: tmpDir('live-url-'),
+    session: { name: 'Fotosintesi' }, roster: mkRoster(1), questions: sampleQuestions() });
+  t.after(() => srv.stop());
+  const port = await srv.listen(0, '127.0.0.1');
+  assert.strictEqual(await grezza(port, '//['), 'HTTP/1.1 400 Bad Request');
+  assert.strictEqual((await fetch('http://127.0.0.1:' + port + '/api/session?s=' + srv.state().session.token)).status, 200);
+
+  const mat = createMaterialsServer({ repoRoot, dir: tmpDir('live-url-mat-'), session: { name: 'Clima' } });
+  t.after(() => mat.stop());
+  const mport = await mat.listen(0, '127.0.0.1');
+  const mtok = mat.state().session.token;
+  assert.strictEqual(await grezza(mport, '//['), 'HTTP/1.1 400 Bad Request');
+  assert.strictEqual(await grezza(mport, '/files/%E0%A4%A?s=' + mtok), 'HTTP/1.1 400 Bad Request', 'un % monco nel nome del file');
+  assert.strictEqual((await fetch('http://127.0.0.1:' + mport + '/api/materials?s=' + mtok)).status, 200);
+});
+
 // ── Timeline Live (008): sessione mode/loginMode/hintMode + hintUsed persistito ──
 test('session espone mode/loginMode/hintMode; /api/answer persiste hintUsed', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-tl-'));
+  const dir = tmpDir('live-tl-');
   const roster = mkRoster(2);
   const srv = createLiveServer({
     repoRoot, dir,
@@ -347,7 +482,7 @@ function buildSrv(dir, roster) {
 }
 
 test('build: propose ok/422/429, review idempotenza/409, flags, close report', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-build-'));
+  const dir = tmpDir('live-build-');
   const roster = mkRoster(2);
   const srv = buildSrv(dir, roster);
   const port = await srv.listen(0, '127.0.0.1');
@@ -408,7 +543,7 @@ test('build: propose ok/422/429, review idempotenza/409, flags, close report', a
 });
 
 test('build: propose su sessione quiz → 404; ripresa da disco con proposte', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-quiz-'));
+  const dir = tmpDir('live-quiz-');
   const roster = mkRoster(1);
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'Q', activity: 'Quiz' }, roster, questions: [{ kind: 'open', text: 'x', answerText: 'y' }] });
   const port = await srv.listen(0, '127.0.0.1');
@@ -419,7 +554,7 @@ test('build: propose su sessione quiz → 404; ripresa da disco con proposte', a
   await srv.stop();
 
   // ripresa build con proposte su disco
-  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'live-b2-'));
+  const dir2 = tmpDir('live-b2-');
   const roster2 = mkRoster(1);
   const s1 = buildSrv(dir2, roster2);
   const port2 = await s1.listen(0, '127.0.0.1');
@@ -440,7 +575,7 @@ test('build: propose su sessione quiz → 404; ripresa da disco con proposte', a
 
 // ── Login flessibile (008 US5): live-server loginMode 'group' ───────────────
 test('live loginMode group: join per nickname, 409 altro device, report per gruppo', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-grp-'));
+  const dir = tmpDir('live-grp-');
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Q', activity: 'timeline', className: '3A', loginMode: 'group' },
@@ -468,7 +603,7 @@ test('live loginMode group: join per nickname, 409 altro device, report per grup
 });
 
 test('reveal risposte: /api/finish ritorna il risultato; my-result gated su consegna', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-reveal-'));
+  const dir = tmpDir('live-reveal-');
   const roster = mkRoster(1);   // volpe-00
   const qs = [
     { kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'Roma.', source: 'map' },
@@ -506,7 +641,7 @@ test('reveal risposte: /api/finish ritorna il risultato; my-result gated su cons
 });
 
 test('reveal OFF: /api/finish non manda soluzioni', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-noreveal-'));
+  const dir = tmpDir('live-noreveal-');
   const roster = mkRoster(1);
   const qs = [{ kind: 'mc', text: 'Q', options: ['A', 'B'], correct: 0, explanation: 'x', source: 'map' }];
   const srv = createLiveServer({ repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: false }, roster, questions: qs });
@@ -528,6 +663,7 @@ test('reveal OFF: /api/finish non manda soluzioni', async () => {
 // una domanda per (area × angolo), senza angolo e senza soluzioni.
 const SC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-scelta-core.js'));
 
+
 function sceltaPool() {
   // 2 rami × 2 angoli × 3 varianti = 12 grezze → campionate a 4 (una per coppia)
   const fogli = [];
@@ -543,7 +679,7 @@ function sceltaPool() {
 }
 
 test('scelta: join campiona per studente, stato, finish con profilo, close con report', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-'));
+  const dir = tmpDir('live-scelta-');
   const roster = mkRoster(2);
   const pool = sceltaPool();
   assert.strictEqual(pool.length, 12);
@@ -634,7 +770,7 @@ test('scelta: join campiona per studente, stato, finish con profilo, close con r
 });
 
 test('scelta: reveal OFF → alla consegna nessun profilo', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-nr-'));
+  const dir = tmpDir('live-scelta-nr-');
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta', scelta: { reveal: false } },
@@ -651,7 +787,7 @@ test('scelta: reveal OFF → alla consegna nessun profilo', async () => {
 });
 
 test('scelta: la pagina studente e i suoi moduli sono serviti', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-st-'));
+  const dir = tmpDir('live-scelta-st-');
   const srv = createLiveServer({
     repoRoot, dir, session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta' },
     roster: mkRoster(1), questions: sceltaPool()
@@ -668,7 +804,7 @@ test('scelta: la pagina studente e i suoi moduli sono serviti', async () => {
 });
 
 test('scelta: la coda dopo la consegna non annulla la consegna, e l\'evitata è pubblica', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-pn-'));
+  const dir = tmpDir('live-scelta-pn-');
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta', scelta: { minimo: 1, minimoAree: 1, perche_no: true, secondo_giro: true } },
@@ -710,7 +846,7 @@ test('scelta: la coda dopo la consegna non annulla la consegna, e l\'evitata è 
 });
 
 test('scelta: ripresa senza il pool → non parte, invece di consumare le risposte', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-rip-'));
+  const dir = tmpDir('live-scelta-rip-');
   const srv = createLiveServer({
     repoRoot, dir, session: { name: 'Clima', activity: 'Domande a scelta', className: '2A', mode: 'scelta' },
     roster: mkRoster(1), questions: sceltaPool()
@@ -742,7 +878,7 @@ function sceltaPoolMc() {
 }
 
 test('scelta mc: le opzioni viaggiano, la soluzione no, il report corregge', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-scelta-mc-'));
+  const dir = tmpDir('live-scelta-mc-');
   const pool = sceltaPoolMc();
   assert.ok(pool.every(v => v.tipo === 'mc' && v.giusta === 0), 'la risposta esatta si risolve dalla stringa');
   const srv = createLiveServer({
@@ -786,7 +922,7 @@ test('scelta mc: le opzioni viaggiano, la soluzione no, il report corregge', asy
 });
 
 test('feedback immediato: verdetto col salvataggio, e la risposta corretta è DEFINITIVA', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-'));
+  const dir = tmpDir('live-fb-');
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta', feedbackImmediato: true },
@@ -839,7 +975,7 @@ test('feedback immediato: verdetto col salvataggio, e la risposta corretta è DE
 });
 
 test('feedback immediato SPENTO (default): niente verdetto, come prima', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-off-'));
+  const dir = tmpDir('live-fb-off-');
   const srv = createLiveServer({
     repoRoot, dir,
     session: { name: 'Clima', activity: 'Quiz a scelta', className: '2A', mode: 'scelta' },
@@ -859,7 +995,7 @@ test('feedback immediato SPENTO (default): niente verdetto, come prima', async (
 });
 
 test('feedback immediato nel quiz storico: /api/answer porta il verdetto', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-quiz-'));
+  const dir = tmpDir('live-fb-quiz-');
   const qs = [{ kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'È Roma.', source: 'map' }];
   const srv = createLiveServer({
     repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', feedbackImmediato: true },
@@ -881,7 +1017,7 @@ test('feedback immediato nel quiz storico: /api/answer porta il verdetto', async
 });
 
 test('feedback immediato (quiz storico): seconda mano rifiutata, «Salta» non cancella', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-lock-'));
+  const dir = tmpDir('live-fb-lock-');
   const qs = [{ kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'È Roma.', source: 'map' }];
   const srv = createLiveServer({
     repoRoot, dir, session: { name: 'X', activity: 'Quiz', className: '2A', feedbackImmediato: true },
@@ -919,7 +1055,7 @@ test('feedback immediato (quiz storico): seconda mano rifiutata, «Salta» non c
 });
 
 test('feedback immediato: una domanda aperta da correggere a mano NON riceve un verdetto', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-manual-'));
+  const dir = tmpDir('live-fb-manual-');
   // `open` senza answerText → gradeAnswer torna 'manual': la corregge il docente
   const qs = [{ kind: 'open', text: 'Spiega la fotosintesi', explanation: 'Vedi il ramo Piante.', source: 'map' }];
   const srv = createLiveServer({
@@ -940,7 +1076,7 @@ test('feedback immediato: una domanda aperta da correggere a mano NON riceve un 
 });
 
 test('feedback immediato: la spiegazione arriva col verdetto, mai prima', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-fb-sp-'));
+  const dir = tmpDir('live-fb-sp-');
   const pool = SC.poolDaFogli([{ titolo: 'Clima — Scelta multipla · causa', angle: 'causa', tipo: 'mc',
     items: [{ q: 'Perché il mare mitiga?', options: ['capacità termica', 'è salato'], correct: 'capacità termica',
               explanation: 'L\'acqua accumula calore.', ramo: 'Oceani' }] }]);
@@ -962,3 +1098,6 @@ test('feedback immediato: la spiegazione arriva col verdetto, mai prima', async 
   assert.strictEqual(r.body.verdetto.spiegazione, 'L\'acqua accumula calore.');
   await srv.stop();
 });
+
+// in fondo al file: gira DOPO gli after che fermano i server
+after(() => { for (const d of _cartelleTmp) fs.rmSync(d, { recursive: true, force: true }); });

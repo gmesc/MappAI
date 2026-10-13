@@ -9,12 +9,12 @@
  * Nel passaggio entra il disegno della Cabina E1 (console-mockup, 2/8):
  *   - SEDI e MATERIE sono elenchi a cui si aggiungono voci: chi insegna in due
  *     istituti o in tre materie non deve più sceglierne una e correggere a mano;
- *   - «Ora di classe» sta FUORI dalle materie — non ha contenuti disciplinari e
- *     produce materiali di altro genere: dentro l'elenco l'AI la tratterebbe
- *     come una materia;
- *   - RUOLO «Docente di sostegno / OPI» è il gate dei profili individuali degli
- *     allievi: quei dati sono sensibili e si aprono dichiarando il ruolo che li
- *     giustifica.
+ *   - «Ora di classe» stava FUORI dalle materie — non ha contenuti disciplinari e
+ *     produce materiali di altro genere. Dal 12/10/26 (0088, D3) non è più sullo
+ *     schermo, come «Servizio o istituto di riferimento»: nessuno leggeva quei dati;
+ *   - RUOLO «Docente di sostegno / OPI»: dal 12/10/26 non sblocca più niente (le
+ *     schede allievo si creano con qualunque ruolo), mostra solo la scorciatoia
+ *     «Gestisci profili».
  * `STORE.sezioni()` restituisce le sezioni: la console «Cabina» le monterà così
  * come sono, senza riscriverle.
  *
@@ -46,7 +46,10 @@
     d = d || {};
     return {
       nickname: d.nickname != null ? String(d.nickname) : '',
-      anno: d.anno != null ? String(d.anno) : '',
+      /* Un anno già scelto non si tocca. Vuoto vale «quello in corso»: è ciò che la
+         tendina mostra già, e se lo store dicesse '' un profilo mai salvato risultava
+         «modificato» al primo clic, con il falso «Uscire senza salvare?» (0088, D2). */
+      anno: d.anno != null && String(d.anno) !== '' ? String(d.anno) : annoCorrente(),
       /* i due «Mode» restano per i profili scritti prima dell'elenco: non
          governano più niente (un elenco tiene una voce come ne tiene cinque),
          ma toglierli farebbe perdere il round-trip di uno store già su disco */
@@ -77,7 +80,7 @@
   STORE.disciplineList = function () { return lista(STORE.get().discipline); };
   STORE.hasOraDiClasse = function () { return !!STORE.get().oraDiClasse; };
   STORE.hasMultiSedi = function () { return STORE.sediList().length > 1; };
-  /* Il ruolo dichiarato è il gate dei profili individuali degli allievi. */
+  /* Il ruolo dichiarato non è più un gate (0088): resta la scorciatoia alle schede. */
   STORE.isSostegno = function () { return STORE.get().ruolo === 'sostegno'; };
 
   // ── Lo schema ─────────────────────────────────────────────────────────────
@@ -85,40 +88,27 @@
   /* L'anno scolastico comincia in agosto: a settembre 2026 il default è
      2026/2027, a marzo 2027 è ancora quello. Un anno già scelto ma fuori
      dalla finestra resta in elenco — non si cancella la scelta di qualcuno. */
+  function annoBase() {
+    var d = new Date();
+    return d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  }
+  function annoCorrente() { var base = annoBase(); return base + '/' + (base + 1); }
   function anniScolastici(scelto) {
-    var d = new Date(), base = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+    var base = annoBase();
     var out = [];
     for (var i = -1; i <= 2; i++) out.push((base + i) + '/' + (base + i + 1));
     if (scelto && out.indexOf(scelto) < 0) out.unshift(scelto);
     return out;
   }
 
-  function nomiClassi() {
-    try {
-      var l = (window.MappAIClasses && window.MappAIClasses.list) ? window.MappAIClasses.list() : [];
-      return l.map(function (c) { return c.name; }).filter(Boolean);
-    } catch (e) { return []; }
-  }
-
+  /* ⚠️ «Ora di classe» (spunta e classe) e «Servizio o istituto di riferimento»
+     NON sono più sullo schermo (0088, D3): promettevano effetti — le materie con
+     l'«Ora di classe», l'intestazione dei materiali individuali — che nessuno
+     legge. I dati restano in `DEFAULT` e in `clean`, così un profilo già su
+     disco non perde niente: è il precedente di `sediMode` e `disciplineMode`. */
   STORE.sezioni = function (S) {
     S = S || STORE.get();
     var sostegno = S.ruolo === 'sostegno';
-    var classi = nomiClassi();
-
-    var oraCampi = [{
-      id: 'ora-classe', tipo: 'spunta', valore: !!S.oraDiClasse,
-      etichetta: t('tp_ora', 'Sono docente di classe'),
-      aiuto: t('tp_ora_aiuto', 'Aggiunge «Ora di classe» fra le materie selezionabili, con materiali non disciplinari.')
-    }];
-    /* la classe di riferimento si chiede solo a chi ha detto di averne una, e
-       solo se esistono classi fra cui scegliere */
-    if (S.oraDiClasse && classi.length) {
-      oraCampi.push({
-        id: 'ora-quale', tipo: 'scelta', valore: S.oraDiClasseCls,
-        etichetta: t('tp_ora_quale', 'Classe di cui sei docente'),
-        opzioni: [{ valore: '', etichetta: t('tp_nessuna', '— nessuna —') }].concat(classi)
-      });
-    }
 
     var ruoloCampi = [
       {
@@ -129,20 +119,15 @@
       {
         id: 'ruolo-sostegno', tipo: 'radio', gruppo: 'ruolo', valore: sostegno,
         etichetta: t('tp_ruolo_sostegno', 'Docente di sostegno / OPI'),
-        aiuto: t('tp_ruolo_sostegno_aiuto', 'Sblocca i profili dei singoli allievi: taratura, misure compensative e materiali individuali.')
+        aiuto: t('tp_ruolo_sostegno_aiuto', 'Mostra qui la scorciatoia alle schede dei singoli allievi. Le schede si creano comunque dalla voce «Allievi», con qualunque ruolo.')
       }
     ];
-    if (sostegno) {
-      ruoloCampi.push({
-        id: 'sostegno-ente', valore: S.sostegnoEnte,
-        etichetta: t('tp_ente', 'Servizio o istituto di riferimento'),
-        aiuto: t('tp_ente_aiuto', 'Compare nell’intestazione dei materiali individuali.')
-      });
-    }
 
     var sez = [
       {
-        id: 'chi', titolo: t('tp_sez_chi', 'Chi sei'),
+        /* «Chi sei» è larga, coi due campi affiancati: tolta «Ora di classe» (0088, D3) le tre sezioni piccole
+           lasciavano un buco a destra di «Materie». Così «Sedi» e «Materie», i due elenchi, stanno in riga. */
+        id: 'chi', titolo: t('tp_sez_chi', 'Chi sei'), largo: true, colonne: 2,
         campi: [
           { id: 'nome', valore: S.nickname, etichetta: t('tp_nome', 'Nome e cognome') },
           {
@@ -169,7 +154,6 @@
           aiuto: t('tp_materie_aiuto', 'Da qui vengono i nomi che compaiono in tutta l’app: nelle classi, nel chip di contesto e nelle cartelle su disco.')
         }]
       },
-      { id: 'ora', titolo: t('tp_ora_sez', 'Ora di classe'), campi: oraCampi },
       { id: 'ruolo', titolo: t('tp_ruolo', 'Ruolo professionale'), largo: true, campi: ruoloCampi }
     ];
 
@@ -182,8 +166,10 @@
            (app.js → MappAITune.activeTuningBlock). Il nome dell'allievo, quello
            sì, non parte mai. Su una frase che parla di dati sensibili la
            precisione non è un dettaglio di stile. */
-        testo: t('tp_allievi_testo', 'Attivi perché il ruolo dichiarato è «Docente di sostegno / OPI». I profili vivono sul tuo computer. Quando la taratura è attiva, nel prompt entrano età, grado e le note che scrivi qui — mai il nome dell’allievo.'),
-        azioni: [{ id: 'apri-prof', etichetta: t('tp_allievi_apri', 'Gestisci profili'), icona: 'user-round' }]
+        testo: t('tp_allievi_testo', 'I profili vivono sul tuo computer. Quando la taratura è attiva, nel prompt entrano età, grado e le note che scrivi qui — mai il nome dell’allievo.'),
+        /* `chiude:false`: senza, il motore conclude la finestra al clic e il «Uscire
+           senza salvare?» non scatta mai. La Cabina porta alla voce «Allievi» (D1). */
+        azioni: [{ id: 'apri-prof', etichetta: t('tp_allievi_apri', 'Gestisci profili'), icona: 'user-round', chiude: false }]
       });
     }
     return sez;
@@ -202,7 +188,7 @@
         { id: 'no', etichetta: t('tp_annulla', 'Annulla') },
         { id: 'salva', etichetta: t('tp_save', 'Salva profilo'), ruolo: 'primario', icona: 'save' }
       ],
-      nota: t('tp_filters_note', 'Materie, sedi e ora di classe diventano filtri nella sezione Insegna.')
+      nota: t('tp_filters_note', 'Materie e sedi diventano filtri nella sezione Insegna.')
     };
   }
 
@@ -212,9 +198,6 @@
     if (!v) return S;
     if (v.nome !== undefined) S.nickname = v.nome;
     if (v.anno !== undefined) S.anno = v.anno;
-    S.oraDiClasse = !!v['ora-classe'];
-    if (v['ora-quale'] !== undefined) S.oraDiClasseCls = v['ora-quale'];
-    if (v['sostegno-ente'] !== undefined) S.sostegnoEnte = v['sostegno-ente'];
     S.ruolo = v['ruolo-sostegno'] ? 'sostegno' : 'materia';
     return S;
   }
@@ -262,7 +245,7 @@
       if (id === '__campo') {
         /* solo i campi che cambiano la FORMA della finestra la ridisegnano:
            farlo a ogni uscita da un campo la farebbe ballare sotto le dita */
-        if (ev.campo === 'ruolo-materia' || ev.campo === 'ruolo-sostegno' || ev.campo === 'ora-classe') {
+        if (ev.campo === 'ruolo-materia' || ev.campo === 'ruolo-sostegno') {
           ridisegna(schema(S));
         }
         return;
@@ -297,10 +280,6 @@
       assorbi(S, r.valori);
       STORE.data = clean(S); STORE.save();
       toast(t('tp_saved', 'Profilo insegnante salvato.'), 'success');
-      /* «Gestisci profili» salva e passa la mano: i profili degli allievi sono
-         un'altra superficie, e nessuno vuole perdere il profilo appena scritto
-         per andarli a vedere */
-      if (r.azione === 'apri-prof' && window.showUserProfileModal) window.showUserProfileModal();
     });
   };
 

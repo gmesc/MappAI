@@ -204,7 +204,7 @@
 
             function makeRow(r, idx) {
                 const card = document.createElement('div');
-                card.style.cssText = 'border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#f8fafc;';
+                card.style.cssText = 'border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:10px 12px;background:#f8fafc;';
 
                 const top = document.createElement('div');
                 top.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
@@ -215,12 +215,12 @@
                 labelInput.type = 'text';
                 labelInput.value = r.label;
                 labelInput.placeholder = 'Etichetta macro-area';
-                labelInput.style.cssText = 'flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;color:#1e293b;';
+                labelInput.style.cssText = 'flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;color:var(--mm-testo, #404040);';
                 labelInput.addEventListener('input', () => { r.label = labelInput.value; renderWarnings(); });
                 const delBtn = document.createElement('button');
                 delBtn.type = 'button';
                 delBtn.title = 'Rimuovi macro-area';
-                delBtn.style.cssText = 'border:none;background:none;color:#94a3b8;cursor:pointer;padding:4px;flex-shrink:0;';
+                delBtn.style.cssText = 'border:none;background:none;color:var(--mm-testo-3, #64748b);cursor:pointer;padding:4px;flex-shrink:0;';
                 delBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
                 delBtn.addEventListener('click', () => {
                     const i = rows.indexOf(r);
@@ -233,7 +233,7 @@
                 descArea.value = r.desc;
                 descArea.placeholder = 'Descrizione / ambito di questa macro-area (cosa deve contenere)';
                 descArea.rows = 2;
-                descArea.style.cssText = 'width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;color:#475569;resize:vertical;line-height:1.45;';
+                descArea.style.cssText = 'width:100%;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:8px;padding:6px 10px;font-size:12px;color:#475569;resize:vertical;line-height:1.45;';
                 descArea.addEventListener('input', () => { r.desc = descArea.value; renderWarnings(); });
 
                 card.appendChild(top);
@@ -259,7 +259,7 @@
             addBtn.addEventListener('click', () => { rows.push({ label: '', desc: '', _orig: {} }); renderList(); });
 
             const meta = document.createElement('div');
-            meta.style.cssText = 'font-size:10.5px;color:#94a3b8;line-height:1.4;';
+            meta.style.cssText = 'font-size:10.5px;color:var(--mm-testo-3, #64748b);line-height:1.4;';
             const where = (savedInfo && savedInfo.success && savedInfo.folder)
                 ? 'Salvato nella cartella bus su disco.'
                 : 'Artefatto non salvato su disco (ambiente non-Electron o errore I/O).';

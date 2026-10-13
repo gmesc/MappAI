@@ -5,10 +5,13 @@
    mandava il docente altrove a fare una cosa che aveva chiesto lì. E l'unica
    strada era la generazione AI di TUTTA la mappa.
 
-   Qui il percorso è dichiarato in tre passi, ognuno una domanda sola:
-     1. che tipo   → Scelta multipla · Vero/Falso · Domande aperte · Flashcard
-     2. chi scrive → io a mano, oppure l'AI
-     3. (solo AI)  → nome, quante domande, su quale area, con che angolazione
+   Dallo 0091 (13/10/26) i primi due passi — che tipo, chi scrive — non sono
+   più modali: sono i bottoni di «+ Crea nuovo» in ELABORA. Restano:
+     · a mano (Scelta multipla · Domande aperte · Flashcard) → editor subito;
+     · con l'AI, solo da un progetto nato da una foto → quante domande, su
+       quale blocco, con che angolazione (il passo 3).
+   Il Vero/Falso a mano è uscito (decisione di Giacomo); i set V/F già fatti
+   restano nelle tabelle e si correggono come prima.
 
    ⚠️ Il motore NON è qui: generare e salvare è `MappAIPipeline.generaSet`, lo
    stesso dello step B della pipeline. Questo modulo fa le domande e basta —
@@ -60,9 +63,6 @@
         { id: 'mc', icona: 'list-checks', et: function () { return t('cq_mc', 'Scelta multipla'); },
           sotto: function () { return t('cq_mc_d', 'Una domanda, tre risposte, una sola giusta.'); },
           mode: 'quiz', label: 'Scelta Multipla' },
-        { id: 'tf', icona: 'check-circle', et: function () { return t('cq_tf', 'Vero o Falso'); },
-          sotto: function () { return t('cq_tf_d', 'Affermazioni da giudicare. Le più rapide da correggere in classe.'); },
-          mode: 'quiz', label: 'Vero o Falso' },
         { id: 'open', icona: 'pen-line', et: function () { return t('cq_open', 'Domande aperte'); },
           sotto: function () { return t('cq_open_d', 'Si risponde scrivendo: il foglio porta le righe e, per te, le tracce di correzione.'); },
           documento: true, label: 'Domande aperte' },
@@ -99,91 +99,26 @@
         return l1.map(function (n) { return { id: n.id, et: _pulito(n.label) }; });
     }
 
-    /* ── passo 1: che tipo ──────────────────────────────────────────────── */
-    function apri() {
-        if (!MM()) { toast(t('cq_no_motore', 'Il motore dei modali non è caricato.'), 'warning'); return; }
-        MM().open({
-            titolo: t('cq_t1', 'Che tipo di quiz'), icona: 'list-checks', taglia: 'm', invio: false,
-            sezioni: [{
-                voci: TIPI.map(function (tp) {
-                    return { id: 'tp:' + tp.id, icona: tp.icona, etichetta: tp.et(), sotto: tp.sotto() };
-                })
-            }]
-        }).then(function (r) {
-            if (!r || !r.azione || r.azione.indexOf('tp:') !== 0) return;
-            _passoChiScrive(_tipo(r.azione.slice(3)));
-        });
-    }
-
-    /* ── passo 2: a mano o con l'AI ─────────────────────────────────────── */
-    function _passoChiScrive(tp) {
+    /* ── LE DUE PORTE (0091, 13/10/26) ──────────────────────────────────────
+       I due sotto-modali di prima («Che tipo di quiz», poi «Le scrivo io / Le
+       genera l'AI») sono usciti: i loro bottoni stanno ora DENTRO «+ Crea
+       nuovo» di ELABORA (decisione di Giacomo). Restano due porte:
+         · `aMano(tipo, nome)` → il foglio vuoto e l'editor, subito (il nome lo
+           sceglie ELABORA, che vede le righe: «2», «3» se il nome base è preso);
+         · `daFoto(tipo, scheda)` → la generazione con l'AI dalla scheda di un
+           progetto nato da una foto (passo 3, i parametri).
+       La generazione AI dalla mappa di UN genere solo non ha più ingresso: la
+       via con l'AI è «Più materiali insieme». */
+    function aMano(id, nome) {
+        var tp = _tipo(id);
         if (!tp) return;
-        MM().open({
-            titolo: tp.et(), icona: tp.icona, taglia: 'm', invio: false,
-            sezioni: [{
-                voci: [
-                    { id: 'mano', icona: 'pencil', etichetta: t('cq_mano', 'Le scrivo io'),
-                      sotto: t('cq_mano_d', 'Si apre l\'editor con un foglio vuoto: si aggiungono le domande una a una.') },
-                    { id: 'ai', icona: 'sparkles', etichetta: t('cq_ai', 'Le genera l\'AI'),
-                      sotto: t('cq_ai_d', 'Dalla mappa, con il linguaggio tarato sulla classe o sull\'allievo attivo.') }
-                ]
-            }]
-        }).then(function (r) {
-            if (!r || !r.azione) return;
-            if (r.azione === 'mano') { _aMano(tp); return; }
-            if (r.azione === 'ai') { _passoSorgente(tp); }
-        });
+        _aMano(tp, nome || '');
     }
-
-    /* ── passo 2-bis: da che cosa (20/8) ─────────────────────────────────────
-       Nato da una richiesta di docenti di STORIA di scuola media: da una fonte
-       iconografica — una miniatura, un manifesto, una carta — ricavare le
-       domande aperte con i vari angoli, e le flashcard.
-       ⚠️ Il passo compare SOLO per i due generi chiesti. Su Scelta multipla e
-       Vero/Falso la strada dall'immagine funzionerebbe già (la sorgente
-       esplicita di `generaSet` è a monte del ciclo), ma non è stata chiesta: un
-       ingresso in più senza un bisogno dietro è un bivio che tutti devono
-       leggere e nessuno usa.
-       ⚠️ E se il lettore è spento o non c'è, il passo NON compare: un bivio con
-       una strada sola è una domanda a cui l'utente non può rispondere. */
-    var GENERI_IMMAGINE = ['open', 'flashcards'];
-    function _visione() { return window.MappAIVisione; }
-    function _daImmagine(tp) {
-        var V = _visione();
-        return !!(V && V.attivo() && GENERI_IMMAGINE.indexOf(tp.id) >= 0);
-    }
-    function _passoSorgente(tp) {
-        if (!_daImmagine(tp)) { _passoParametri(tp, null); return; }
-        var V = _visione();
-        var gia = V.schedaCorrente();
-        var voci = [
-            { id: 'mappa', icona: 'map', etichetta: t('cq_src_mappa', 'Dalla mappa'),
-              sotto: t('cq_src_mappa_d', 'Il materiale sono le macro-aree e le loro schede.') },
-            { id: 'img', icona: 'image', etichetta: t('cq_src_img', 'Da un\'immagine'),
-              sotto: t('cq_src_img_d', 'Una fonte iconografica letta sul tuo computer: la leggi, correggi il contesto, e le domande nascono da lì.') }
-        ];
-        /* La scheda già corretta si riusa: chi ha appena fatto le domande aperte
-           e ora vuole le flashcard non deve rileggere la foto né riscrivere il
-           contesto. È l'unica voce che dice un NOME, perché è l'unica che
-           riguarda una cosa che esiste già. */
-        if (gia) {
-            voci.splice(1, 0, { id: 'stessa', icona: 'image', etichetta: t('cq_src_stessa', 'Dalla stessa immagine'),
-                sotto: gia.titolo });
-        }
-        MM().open({
-            titolo: t('cq_src_t', 'Da che cosa'), icona: tp.icona, taglia: 'm', invio: false,
-            sezioni: [{ voci: voci }]
-        }).then(function (r) {
-            if (!r || !r.azione) return;
-            if (r.azione === 'mappa') { _passoParametri(tp, null); return; }
-            if (r.azione === 'stessa') { _passoParametri(tp, gia); return; }
-            if (r.azione === 'img') {
-                V.nuovaScheda().then(function (sch) {
-                    if (!sch) return;              /* annullata: si resta dov'era */
-                    _passoParametri(tp, sch);
-                });
-            }
-        });
+    function daFoto(id, scheda) {
+        var tp = _tipo(id);
+        if (!tp || !scheda) return;
+        if (!MM()) { toast(t('cq_no_motore', 'Il motore dei modali non è caricato.'), 'warning'); return; }
+        _passoParametri(tp, scheda);
     }
 
     /* ── passo 3: i parametri della generazione ───────────────────────────
@@ -539,83 +474,67 @@
     }
 
     /* ── a mano: un foglio vuoto e l'editor ────────────────────────────── */
-    function _aMano(tp) {
+    /* 0091: niente più modale «Come si chiama» (decisione di Giacomo: «editor
+       subito»). Il nome arriva da chi chiama: vuoto per il primo documento di
+       quel genere, «2», «3»… se il nome base è già preso — senza, un secondo
+       foglio di domande aperte si fermerebbe su `cq_serve_nome` e un secondo
+       set avrebbe lo stesso nome di file del primo. */
+    function _aMano(tp, nome) {
         var s = _st();
         if (!s || !s.db) { toast(t('cq_no_mappa', 'Apri prima una mappa.'), 'warning'); return; }
-        /* ⚠️ Non `MM().chiedi`: quella scorciatoia disegna un campo e basta, e
-           qui serve DIRE come si comporrà il nome — se no il docente scrive
-           «Quiz-MC-La Fotosintesi» a mano e se lo ritrova due volte nel file. */
-        MM().open({
-            titolo: t('cq_nome_t', 'Come si chiama'), icona: tp.icona, taglia: 'm',
-            /* Stessa forma del modale dei parametri (16/8): la spiegazione del
-               nome sta SUL campo — è l'aiuto di quella riga, non il tema del
-               modale. Il titolo di sezione dice che cosa si sta facendo. */
-            sezioni: [{
-                id: 'n', titolo: t('cq_g_nome', 'Come si chiama il file'),
-                campi: [{ id: 'nome', etichetta: t('cq_nome', 'Nome (facoltativo)'),
-                    aiuto: t('cq_nome_aiuto', 'Il nome del file lo compone MappAI — «{es}» — così le tabelle riconoscono il genere del materiale. Qui si scrive solo la parte che distingue questo foglio dagli altri.')
-                        .replace('{es}', _esempioNome(tp)) }]
-            }],
-            azioni: [
-                { id: 'no', etichetta: t('mm_annulla', 'Annulla') },
-                { id: 'si', etichetta: t('cq_crea', 'Crea'), icona: 'plus', ruolo: 'primario' }
-            ]
-        }).then(function (r) {
-            if (!r || r.azione !== 'si') return;
-            var nome = String((r.valori && r.valori.nome) || '').trim();
-            var titolo = _mappa() + ' — ' + tp.label + (nome ? ' · ' + nome : '');
+        nome = String(nome || '').trim();
+        var titolo = _mappa() + ' — ' + tp.label + (nome ? ' · ' + nome : '');
 
-            /* ⚠️ Le domande aperte non hanno un set: la loro sorgente è il FOGLIO
-               (l'HTML porta con sé le domande) e l'editor le riapre da lì.
-               Quindi il foglio vuoto lo scrive la pipeline — che è dove vivono
-               le regole del titolo e del nome — e qui si apre l'editor su
-               quello. Fino al 13/8 questa strada era CHIUSA: si rispondeva
-               «genera con l'AI e poi correggi», cioè si obbligava a spendere
-               una chiamata per poi cancellarne il contenuto. */
-            if (tp.documento) {
-                if (!P() || !P().nuovoFoglioAperte) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
-                var f = P().nuovoFoglioAperte({ nome: nome });
-                if (!f || !f.ok) { _diciErrore(f && f.errore, 'warning'); return; }
-                _casaDocumenti();
-                if (DEd() && DEd().openOpenQuestions) DEd().openOpenQuestions(f.docId);
-                else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
-                /* Il PDF non si scrive ora: lo fa «Crea PDF» dall'editor —
-                   salvare non è pubblicare (modello dei tre gesti). */
-                toast(t('cq_ok_mano', '✓ {titolo} — scrivi le domande, poi «Crea PDF» per stamparlo.')
-                    .replace('{titolo}', f.titolo), 'success');
-                return;
-            }
-            var id = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-            var vuoto = (tp.id === 'flashcards')
-                ? [{ front: '', back: '' }]
-                : [{ q: '', options: (tp.id === 'tf') ? ['Vero', 'Falso'] : ['', '', ''], correct: '', explanation: '' }];
-            s.db.studySets = s.db.studySets || [];
-            s.db.studySets.push({
-                id: id, title: titolo, mode: tp.mode, type: tp.label,
-                items: vuoto, date: new Date().toISOString(), clone: nome
-            });
-            /* ⚠️ DUE scritture, non una: il progetto in localStorage E il vault
-               sul disco. Una mappa aperta dal disco può non avere un progetto —
-               lì `saveCurrentProject` non ha dove scrivere e il set nuovo
-               sparirebbe al ricaricamento (è il difetto del 13/8: il materiale
-               spariva da ELABORA e restava solo il file in INSEGNA). E si
-               ANNUNCIA, o gli elenchi già aperti mostrano quello di prima. */
-            try { if (typeof StorageManager !== 'undefined') StorageManager.saveCurrentProject(); } catch (e) { }
-            var vp = s.activeVaultPath;
-            if (vp && window.electronAPI && window.electronAPI.saveVault && window.buildVaultMapData) {
-                try {
-                    window.electronAPI.saveVault({ folderPath: vp, mapData: window.buildVaultMapData() })
-                        .then(function () {
-                            try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
-                        }).catch(function () { });
-                } catch (e) { }
-            }
-            if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
-            if (DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(id); }
+        /* ⚠️ Le domande aperte non hanno un set: la loro sorgente è il FOGLIO
+           (l'HTML porta con sé le domande) e l'editor le riapre da lì.
+           Quindi il foglio vuoto lo scrive la pipeline — che è dove vivono
+           le regole del titolo e del nome — e qui si apre l'editor su
+           quello. Fino al 13/8 questa strada era CHIUSA: si rispondeva
+           «genera con l'AI e poi correggi», cioè si obbligava a spendere
+           una chiamata per poi cancellarne il contenuto. */
+        if (tp.documento) {
+            if (!P() || !P().nuovoFoglioAperte) { toast(t('cq_no_motore_gen', 'Il generatore non è disponibile.'), 'warning'); return; }
+            var f = P().nuovoFoglioAperte({ nome: nome });
+            if (!f || !f.ok) { _diciErrore(f && f.errore, 'warning'); return; }
+            _casaDocumenti();
+            if (DEd() && DEd().openOpenQuestions) DEd().openOpenQuestions(f.docId);
             else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
+            /* Il PDF non si scrive ora: lo fa «Crea PDF» dall'editor —
+               salvare non è pubblicare (modello dei tre gesti). */
+            toast(t('cq_ok_mano', '✓ {titolo} — scrivi le domande, poi «Crea PDF» per stamparlo.')
+                .replace('{titolo}', f.titolo), 'success');
+            return;
+        }
+        var id = 'set_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        var vuoto = (tp.id === 'flashcards')
+            ? [{ front: '', back: '' }]
+            : [{ q: '', options: ['', '', ''], correct: '', explanation: '' }];
+        s.db.studySets = s.db.studySets || [];
+        s.db.studySets.push({
+            id: id, title: titolo, mode: tp.mode, type: tp.label,
+            items: vuoto, date: new Date().toISOString(), clone: nome
         });
+        /* ⚠️ DUE scritture, non una: il progetto in localStorage E il vault
+           sul disco. Una mappa aperta dal disco può non avere un progetto —
+           lì `saveCurrentProject` non ha dove scrivere e il set nuovo
+           sparirebbe al ricaricamento (è il difetto del 13/8: il materiale
+           spariva da ELABORA e restava solo il file in INSEGNA). E si
+           ANNUNCIA, o gli elenchi già aperti mostrano quello di prima. */
+        try { if (typeof StorageManager !== 'undefined') StorageManager.saveCurrentProject(); } catch (e) { }
+        var vp = s.activeVaultPath;
+        if (vp && window.electronAPI && window.electronAPI.saveVault && window.buildVaultMapData) {
+            try {
+                window.electronAPI.saveVault({ folderPath: vp, mapData: window.buildVaultMapData() })
+                    .then(function () {
+                        try { if (window.MappAIVaults) window.MappAIVaults.segnala('materiali-generati', { vaultPath: vp }); } catch (e) { }
+                    }).catch(function () { });
+            } catch (e) { }
+        }
+        if (window.renderStudySets) { try { window.renderStudySets(); } catch (e) { } }
+        if (DEd() && DEd().openSet) { _casaDocumenti(); DEd().openSet(id); }
+        else toast(t('cq_no_editor', 'L\'editor dei documenti non è caricato.'), 'warning');
     }
 
-    window.MappAICreaQuiz = { apri: apri, TIPI: TIPI, _aree: _aree };
+    window.MappAICreaQuiz = { aMano: aMano, daFoto: daFoto, TIPI: TIPI, _aree: _aree };
     console.log('[MappAICreaQuiz] percorso «crea un quiz» caricato');
 })();

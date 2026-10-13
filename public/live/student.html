@@ -36,7 +36,7 @@
   * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
       font-family: 'Space Mono', var(--emoji), ui-monospace, monospace; }
   html, body { height: 100%; }
-  body { background: #fafbff; color: #0f172a; display: flex; flex-direction: column; overflow: hidden; }
+  body { background: #fafbff; color: var(--mm-testo, #404040); display: flex; flex-direction: column; overflow: hidden; }
   button { cursor: pointer; border: 0; font: inherit; }
   .dotbg { background-image: radial-gradient(#ddd6fe 1px, transparent 1px); background-size: 24px 24px; }
   .emoji { font-family: var(--emoji); }
@@ -53,12 +53,12 @@
   .lbl { font-size: 12px; font-weight: 700; color: #475569; align-self: flex-start;
          width: min(360px, 90vw); margin: 6px auto 0; }
   #login input { width: min(360px, 90vw); padding: 13px 16px; border-radius: 12px;
-                 border: 2px solid #e2e8f0; background: #fff; color: #0f172a;
+                 border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff; color: var(--mm-testo, #404040);
                  font-size: 17px; text-align: center; outline: none; }
   #login input:focus { border-color: #6366f1; }
   #emoji-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
                 width: min(360px, 90vw); }
-  .egrid-btn { aspect-ratio: 1; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+  .egrid-btn { aspect-ratio: 1; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff;
                font-size: 30px; display: flex; align-items: center; justify-content: center; }
   .egrid-btn.sel { border-color: #4f46e5; background: #eef2ff; transform: scale(1.05); }
   #enter { width: min(360px, 90vw); padding: 14px; border-radius: 12px; margin-top: 4px;
@@ -79,8 +79,8 @@
      → padding minimo garantito + inset del dispositivo (iPhone con notch/isola) */
   #pbar { display: flex; align-items: center; gap: 10px;
           padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
-          background: #fff; border-bottom: 1px solid #e2e8f0; }
-  #pcount { font-size: 13px; font-weight: 700; color: #334155; }
+          background: #fff; border-bottom: 1px solid var(--mm-bordo, #cbd5e1); }
+  #pcount { font-size: 13px; font-weight: 700; color: var(--mm-testo, #404040); }
   #pprogress { flex: 1; height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
   #pprogress i { display: block; height: 100%; background: #4f46e5; width: 0; transition: width .2s; }
   #ptimer { font-size: 13px; font-weight: 700; color: #64748b; }
@@ -95,17 +95,17 @@
   #qtext { font-size: 24px; font-weight: 700; line-height: 1.45; flex: 1; }
   #qtext:empty { display: none; }
   /* bottone TTS (altoparlante) — grande, area tap comoda */
-  .tts { flex: 0 0 auto; width: 56px; min-height: 56px; border-radius: 14px; border: 2px solid #e2e8f0;
+  .tts { flex: 0 0 auto; width: 56px; min-height: 56px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1);
          background: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; color: #4f46e5; }
   .tts:active, .tts.on { background: #eef2ff; border-color: #4f46e5; }
   #qread { align-self: flex-start; }
   /* opzione = riga: bottone-testo (seleziona) + bottone Ascolta */
   .opt-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
-  .opt { flex: 1; text-align: left; padding: 18px 18px; border-radius: 14px; border: 2px solid #e2e8f0;
-         background: #fff; color: #0f172a; font-size: 20px; line-height: 1.35; }
+  .opt { flex: 1; text-align: left; padding: 18px 18px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1);
+         background: #fff; color: var(--mm-testo, #404040); font-size: 20px; line-height: 1.35; }
   .opt.sel { border-color: #4f46e5; background: #eef2ff; }
   .tf-row { display: flex; gap: 12px; }
-  .tf-btn { flex: 1; padding: 26px 8px; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+  .tf-btn { flex: 1; padding: 26px 8px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff;
             font-size: 22px; font-weight: 800; }
   .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
   .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
@@ -116,8 +116,8 @@
   .verd-ok { background: #dcfce7; border: 2px solid #16a34a; color: #14532d; }
   .verd-ko { background: #fee2e2; border: 2px solid #dc2626; color: #7f1d1d; }
   .verd b { font-weight: 800; }
-  .verd .sp { display: block; margin-top: 6px; font-size: 14px; color: #334155; }
-  #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid #e2e8f0;
+  .verd .sp { display: block; margin-top: 6px; font-size: 14px; color: var(--mm-testo, #404040); }
+  #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--mm-bordo, #cbd5e1);
            font-size: 19px; outline: none; resize: vertical; }
   #qopen:focus { border-color: #6366f1; }
   /* bottone schermo intero nella barra */
@@ -138,9 +138,9 @@
 
   #pfoot { display: flex; gap: 10px;
            padding: 12px max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-           background: #fff; border-top: 1px solid #e2e8f0; }
+           background: #fff; border-top: 1px solid var(--mm-bordo, #cbd5e1); }
   #pfoot button { border-radius: 12px; padding: 14px 10px; font-weight: 800; font-size: 15px; }
-  #back { background: #f1f5f9; color: #334155; flex: 0 0 auto; padding-left: 18px; padding-right: 18px; }
+  #back { background: #f1f5f9; color: var(--mm-testo, #404040); flex: 0 0 auto; padding-left: 18px; padding-right: 18px; }
   #back:disabled { opacity: .4; }
   #skip { background: #fff; color: #b45309; border: 2px solid #fde68a; flex: 0 0 auto; }
   #next { background: #4f46e5; color: #fff; flex: 1; }
@@ -150,10 +150,10 @@
   #done .big { font-size: 64px; }
   #done h2 { font-size: 22px; font-weight: 700; }
   #done p { color: #64748b; font-size: 14px; max-width: 340px; }
-  #done .recap { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 22px;
+  #done .recap { background: #fff; border: 1px solid var(--mm-bordo, #cbd5e1); border-radius: 14px; padding: 16px 22px;
                  font-size: 15px; }
   #done button { width: min(320px, 84vw); padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 700; }
-  #review { background: #f1f5f9; color: #334155; }
+  #review { background: #f1f5f9; color: var(--mm-testo, #404040); }
   #submit { background: #16a34a; color: #fff; }
   /* Dashboard risultato studente */
   #done { overflow-y: auto; }
@@ -162,9 +162,9 @@
   #result-score .pct { font-size: 54px; font-weight: 800; line-height: 1; }
   #result-score .sub { font-size: 13px; color: #64748b; margin-top: 4px; }
   #result-list { max-height: 52vh; overflow-y: auto; }
-  .rq { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .rq { background: #fff; border: 1px solid var(--mm-bordo, #cbd5e1); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   .rq-q { font-weight: 700; font-size: 14px; margin-bottom: 6px; line-height: 1.35; }
-  .rq-a { font-size: 13px; color: #334155; margin-top: 2px; }
+  .rq-a { font-size: 13px; color: var(--mm-testo, #404040); margin-top: 2px; }
   .rq-c { font-size: 13px; color: #16a34a; margin-top: 2px; font-weight: 700; }
   .rq-e { font-size: 12px; color: #64748b; margin-top: 7px; padding-top: 7px; border-top: 1px solid #f1f5f9; line-height: 1.4; }
   #result-save { background: #4f46e5; color: #fff; margin-top: 4px; }
@@ -455,7 +455,7 @@
         var yi = document.createElement('input'); yi.id = 'qopen'; yi.type = 'text';
         yi.setAttribute('inputmode', 'numeric'); yi.setAttribute('pattern', '[0-9]*');
         yi.autocomplete = 'off'; yi.placeholder = 'Anno (es. 1947)';
-        yi.style.cssText = 'width:100%;padding:12px 14px;border-radius:12px;border:2px solid #e2e8f0;font-family:inherit;font-size:16px;';
+        yi.style.cssText = 'width:100%;padding:12px 14px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);font-family:inherit;font-size:16px;';
         if (a.text) yi.value = a.text;
         body.appendChild(yi);
       } else {
@@ -707,7 +707,7 @@
         var half = (q.missing && q.missing.length);
         var ic = q.outcome === 'right' ? '✅' : half ? '½' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
         var bodyHtml = (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
-                                   : '<div class="rq-a" style="color:#94a3b8">Nessuna risposta</div>') +
+                                   : '<div class="rq-a" style="color:var(--mm-testo-3, #64748b)">Nessuna risposta</div>') +
           (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '');
         list += '<div class="rq">' +
           '<div class="rq-q">' + ic + ' ' + esc(q.text || ('Domanda ' + (n + 1))) + '</div>' +

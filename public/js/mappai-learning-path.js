@@ -21,7 +21,7 @@
     sp_no_folder: ['Apri prima una cartella di progetto.', 'Open a project folder first.'],
     sp_save_failed: ['Il percorso non è stato salvato.', 'The path could not be saved.'],
     sp_archive_failed: ['File salvato nella cartella; archivio documenti non aggiornato.', 'File saved in the folder; document archive was not updated.'],
-    sp_print: ['Stampa', 'Print'], sp_large: ['Testo grande', 'Large text'], sp_download: ['Scarica le risposte', 'Download answers'],
+    sp_print: ['Stampa', 'Print'], sp_large: ['Grandezza del testo', 'Text size'], sp_download: ['Scarica le risposte', 'Download answers'],
     sp_answer: ['La tua risposta', 'Your answer'], sp_choice: ['Scegli una risposta', 'Choose one answer'],
     sp_hint: ['Mostra un aiuto', 'Show a hint'], sp_hint_after: ['Rivedi l’aiuto dopo aver provato', 'Review the hint after trying'],
     sp_teacher: ['Aiuto del docente', 'Teacher hint'], sp_source: ['Passaggio originale', 'Original passage'], sp_page: ['pagina', 'page'],
@@ -121,6 +121,11 @@
   }
   function buildHtml(path) {
     const lang = path.language || 'it', tr = key => esc(t(key, lang));
+    /* IL COMANDO «Aa» (09/10/26, packet 0087 lotto 6): era l'interruttore «Testo
+       grande»; ora a schermo dice solo «Aa» e cicla ×1 → ×1,5 (12 → 18pt). Il
+       fattore lo dicono aria-label e suggerimento, scritti qui perché il documento
+       vive da solo (niente `MappAIAa`): virgola in italiano, punto in inglese. */
+    const aa1 = tr('sp_large') + ': ×1', aa2 = tr('sp_large') + ': ×1' + (lang === 'en' ? '.' : ',') + '5';
     const activities = path.items.map((it, i) => {
       const id = 'sp-item-' + i, hint = it.help && it.help.text;
       const options = it.kind === 'mc' ? '<fieldset><legend>' + tr('sp_choice') + '</legend>' + it.options.map((opt, oi) =>
@@ -144,12 +149,12 @@
     return '<!DOCTYPE html><html lang="' + esc(lang) + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
       '<meta name="mappai-source-revision" content="' + esc(path.sourceRevision) + '"><title>' + tr('sp_title') + ' — ' + esc(path.objective) + '</title><style>' + font +
       'body{font:12pt/1.6 var(--doc-font,Arial,sans-serif);color:#17233a;background:white;max-width:48rem;margin:auto;padding:1.5rem;overflow-wrap:anywhere}body.large{font-size:18pt}h1{font-size:1.6em}h2{font-size:1.15em}h3{font-size:1em}.toolbar{display:flex;gap:.6rem;flex-wrap:wrap}button,textarea,input{font:inherit}button,summary{cursor:pointer}button{padding:.45em .7em}textarea{display:block;width:100%;box-sizing:border-box;min-height:6em;margin:.5em 0 1em;padding:.5em;line-height:1.5}fieldset{border:1px solid #748298;padding:1em;margin:1em 0}.choice{display:flex;align-items:baseline;gap:.7em;padding:.4em 0}.choice input{flex:none}.activity{padding:1em 0;border-bottom:1px solid #748298}.hint{margin:1em 0;padding:.6em;border-left:3px solid #466480}blockquote{white-space:pre-wrap;margin:.5em 0}.hint-origin{font-size:.9em}summary:focus-visible,button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #1d4ed8;outline-offset:3px}.feedback{margin-top:2em}label{display:block}@page{size:A4;margin:18mm}@media print{body{max-width:none;padding:0}.toolbar{display:none}textarea{border:1px solid #748298}h2,h3{break-after:avoid}.feedback{break-before:page}}</style></head><body>' +
-      '<nav class="toolbar" aria-label="' + tr('sp_title') + '"><button type="button" id="sp-print">' + tr('sp_print') + '</button><button type="button" id="sp-large" aria-pressed="false">' + tr('sp_large') + '</button><button type="button" id="sp-download">' + tr('sp_download') + '</button></nav>' +
+      '<nav class="toolbar" aria-label="' + tr('sp_title') + '"><button type="button" id="sp-print">' + tr('sp_print') + '</button><button type="button" id="sp-large" aria-pressed="false" title="' + aa1 + '" aria-label="' + aa1 + '" data-aa1="' + aa1 + '" data-aa2="' + aa2 + '">Aa</button><button type="button" id="sp-download">' + tr('sp_download') + '</button></nav>' +
       '<header><h1>' + tr('sp_title') + '</h1>' + (path.mapName ? '<p>' + esc(path.mapName) + '</p>' : '') + '<p><strong>' + tr('sp_objective') + ':</strong> ' + esc(path.objective) + '</p>' +
       '<p>' + tr(path.mode === 'supported' ? 'sp_steps' : 'sp_try') + '</p></header><main>' + activities +
       '<section class="feedback" aria-labelledby="sp-feedback"><h2 id="sp-feedback">' + tr('sp_feedback') + '</h2><details><summary>' + tr('sp_feedback_open') + '</summary>' + feedback + '</details></section></main>' +
       '<script type="application/json" id="mappai-learning-path">' + JSON.stringify(path).replace(/<\//g, '<\\/') + '</script>' +
-      '<script>document.getElementById("sp-print").onclick=function(){window.print()};document.getElementById("sp-large").onclick=function(){this.setAttribute("aria-pressed",document.body.classList.toggle("large"))};document.getElementById("sp-download").onclick=function(){var copy=document.documentElement.cloneNode(true);document.querySelectorAll("textarea").forEach(function(el){copy.querySelector("#"+el.id).textContent=el.value});document.querySelectorAll("input[type=radio]").forEach(function(el,i){var target=copy.querySelectorAll("input[type=radio]")[i];if(el.checked)target.setAttribute("checked","");else target.removeAttribute("checked")});var url=URL.createObjectURL(new Blob(["<!DOCTYPE html>"+copy.outerHTML],{type:"text/html;charset=utf-8"}));var a=document.createElement("a");a.href=url;a.download="percorso-risposte.html";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)};</script></body></html>';
+      '<script>document.getElementById("sp-print").onclick=function(){window.print()};document.getElementById("sp-large").onclick=function(){var on=document.body.classList.toggle("large"),a=this.getAttribute(on?"data-aa2":"data-aa1");this.setAttribute("aria-pressed",on);this.setAttribute("aria-label",a);this.title=a};document.getElementById("sp-download").onclick=function(){var copy=document.documentElement.cloneNode(true);document.querySelectorAll("textarea").forEach(function(el){copy.querySelector("#"+el.id).textContent=el.value});document.querySelectorAll("input[type=radio]").forEach(function(el,i){var target=copy.querySelectorAll("input[type=radio]")[i];if(el.checked)target.setAttribute("checked","");else target.removeAttribute("checked")});var url=URL.createObjectURL(new Blob(["<!DOCTYPE html>"+copy.outerHTML],{type:"text/html;charset=utf-8"}));var a=document.createElement("a");a.href=url;a.download="percorso-risposte.html";a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)};</script></body></html>';
   }
   async function save(path, context) {
     const c = context || {}, db = c.db || state().db, review = c.review || reviewNow();

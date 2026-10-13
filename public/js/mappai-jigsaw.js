@@ -575,13 +575,13 @@
         const li = (arr, empty) => arr.length
             ? '<ul style="margin:4px 0 0;padding-left:18px;">' + arr.map(x => '<li style="font-size:13px;color:#475569;">' + _esc(x) + '</li>').join('') + '</ul>'
             : '<p style="font-size:13px;color:#16a34a;margin:2px 0;">' + empty + '</p>';
-        let h = '<div style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:#1e293b;padding:24px;">' +
+        let h = '<div style="max-width:820px;margin:0 auto;font-family:system-ui,sans-serif;color:var(--mm-testo, #404040);padding:24px;">' +
             '<h1 style="font-size:24px;margin:0 0 4px;">Revisione JIGSAW — lacune per gruppo</h1>' +
             '<p style="color:#64748b;margin:0 0 20px;">Confronto col master · generato ' + new Date().toLocaleString('it') + ' · da restituire in colloquio privato, non davanti alla classe.</p>';
         reports.forEach(r => {
             if (!r.ok) { h += '<p style="color:#b91c1c;">Copia saltata: ' + _esc(r.reason || '') + '</p>'; return; }
-            h += '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin:12px 0;page-break-inside:avoid;">' +
-                '<h3 style="margin:0 0 6px;font-size:17px;">' + _esc(r.owner) + ' <span style="font-size:12px;color:#94a3b8;">' + _esc(r.key) + ' · ' + r.branchNodes + ' nodi (master: ' + r.masterNodes + ')</span></h3>' +
+            h += '<div style="border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:16px;margin:12px 0;page-break-inside:avoid;">' +
+                '<h3 style="margin:0 0 6px;font-size:17px;">' + _esc(r.owner) + ' <span style="font-size:12px;color:var(--mm-testo-3, #64748b);">' + _esc(r.key) + ' · ' + r.branchNodes + ' nodi (master: ' + r.masterNodes + ')</span></h3>' +
                 '<p style="font-size:12px;font-weight:700;text-transform:uppercase;color:#b91c1c;margin:8px 0 0;">Nodi del master assenti</p>' + li(r.missing, 'Nessuno: il ramo copre tutto il master.') +
                 '<p style="font-size:12px;font-weight:700;text-transform:uppercase;color:#b45309;margin:8px 0 0;">Descrizioni da approfondire (&lt;15 parole)</p>' + li(r.thin, 'Nessuna: descrizioni tutte sviluppate.') +
                 '<p style="font-size:12px;font-weight:700;text-transform:uppercase;color:#0f766e;margin:8px 0 0;">Arricchimenti del gruppo</p>' + li(r.added, 'Nessun nodo aggiunto oltre il master.') +
@@ -619,6 +619,22 @@
         w.document.close();
         console.log('[JIGSAW gap]', reports);
     }
+
+    /* ── IL SET DEL LAVORO A GRUPPI È PARCHEGGIATO (ADR 0007, 26/9/2026) ───────
+       JIGSAW, «Revisione lacune» e la meta-analisi spariscono dalle superfici
+       finché `mappai_set_gruppi` non vale '1' (serve una ricarica). Il modulo
+       resta caricato: la modalità allievo sulle copie con `_lock.yaml` continua
+       a funzionare. Chi mostra un ingresso chiede `MappAISetGruppi.on()`; il
+       bottone della landing lo nasconde il CSS finché su <html> manca
+       `data-set-gruppi-on` (index.html, accanto ai bottoni beta). */
+    function _setGruppiOn() {
+        try { return localStorage.getItem('mappai_set_gruppi') === '1'; } catch (e) { return false; }
+    }
+    window.MappAISetGruppi = { on: _setGruppiOn };
+    try {
+        if (typeof document !== 'undefined' && document.documentElement && _setGruppiOn())
+            document.documentElement.setAttribute('data-set-gruppi-on', '');
+    } catch (e) { }
 
     window.MappAIJigsaw = {
         isEnabled: _isOn,

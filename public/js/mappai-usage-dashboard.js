@@ -291,7 +291,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 <style>
 ${_fontDoc()}
- body{font-family:var(--doc-font, 'Space Mono', monospace);color:#0f172a;margin:0;background:#fff}
+ body{font-family:var(--doc-font, 'Space Mono', monospace);color:var(--mm-testo, #404040);margin:0;background:#fff}
  .topbar{position:sticky;top:0;background:#eef2ff;border-bottom:2px solid #6366f1;padding:10px 24px;display:flex;align-items:center;gap:12px}
  .topbar h1{font-size:15px;margin:0;flex:1}
  .topbar button{font-family:var(--doc-font, 'Space Mono', monospace);font-weight:700;font-size:12px;padding:6px 14px;border:2px solid #6366f1;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer}
