@@ -156,16 +156,9 @@
         /* ⚠️ `mp-ns-causal` NON è fra i derivanti: spuntare la catena non deve
            accendere i fogli nodi, o si otterrebbe un PDF di fogli che nessuno ha
            chiesto. È un materiale a sé. */
-        { id: 'mp-ns-on', aiuto: 'Genera i fogli con una card per nodo, da stampare e ritagliare. Si accende da sé quando spunti un genere.', et: 'Fogli nodi', tipo: 'spunta', chiave: 'nodesheet', master: true,
-          derivato: ['mp-ns-title', 'mp-ns-keywords', 'mp-ns-summary', 'mp-ns-card'],
-          seFuori: 'nessuna perdita: si accende da sé se almeno un genere di foglio è spuntato' },
-        { id: 'mp-ns-level', aiuto: 'Fino a che livello della mappa prendere i nodi da stampare.', et: 'Livello', tipo: 'tendina', chiave: 'nodesheet.maxLevel', figlioDi: 'mp-ns-on', seFuori: 'tutti i livelli (default)' },
-        { id: 'mp-ns-fmt', aiuto: 'Quante card per foglio A4: 2×1 grandi, 2×2 medie, 3×4 piccole.', et: 'Formato', tipo: 'tendina', chiave: 'nodesheet.fmt', figlioDi: 'mp-ns-on', seFuori: 'formato 2×2 (default)' },
-        { id: 'mp-ns-title', aiuto: 'Card con il solo titolo del nodo: si usa per ricostruire la mappa a memoria.', et: 'Titolo', tipo: 'spunta', chiave: 'nodesheet.modes', figlioDi: 'mp-ns-on',
-          seFuori: 'senza nessun genere scelto la pipeline ripiega su «titolo»: è il default, non una perdita' },
-        { id: 'mp-ns-keywords', aiuto: 'Card con il titolo e le sue parole chiave.', et: 'Parole chiave', tipo: 'spunta', chiave: 'nodesheet.modes', figlioDi: 'mp-ns-on', seFuori: 'niente fogli con parole chiave' },
-        { id: 'mp-ns-summary', aiuto: 'Card con il titolo e lo spazio bianco da riempire a mano.', et: 'Da completare', tipo: 'spunta', chiave: 'nodesheet.modes', figlioDi: 'mp-ns-on', seFuori: 'niente fogli da completare' },
-        { id: 'mp-ns-card', aiuto: 'Card con il titolo e la descrizione intera del nodo.', et: 'Scheda', tipo: 'spunta', chiave: 'nodesheet.modes', figlioDi: 'mp-ns-on', seFuori: 'niente fogli-scheda' },
+        /* 0102 (15/10): le voci dei fogli nodi (`mp-ns-on`, livello, formato, i quattro
+           generi) sono uscite: i fogli nascono da soli con Output = Differenziazione,
+           modo «Scheda» (`_fogliSempre` in mappai-material-pipeline.js). */
         /* ⚠️ MATERIALE INDIPENDENTE dal 5/8 (decisione di Giacomo): niente
            `figlioDi`, chiave `causal` a livello di config, PDF suo in
            «Materiale Studio/» (step E della pipeline). Prima era un'opzione dei
@@ -599,12 +592,9 @@
         /* 13/10 (Giacomo): «inverti la posizione dei sotto-box quiz e preset» — il Preset dopo il Quiz */
         { id: 'preset', titolo: 'Preset', icona: 'bookmark', span: 1, stile: BIANCO, gruppo: 'materiali',
           voci: [{ id: 'mp-preset', w: 190 }] },
-        { id: 'ns', titolo: 'Fogli nodi', icona: 'layout-grid', span: 1, stile: BIANCO, gruppo: 'materiali',
-          /* «Titolo» montato dal 7/9: il master «Fogli nodi» si accende dai figli
-             montati, e il preset Default chiede proprio il foglio dei soli titoli —
-             senza questa spunta a schermo nessun foglio nasceva. */
-          voci: [{ id: 'mp-ns-title', et: 'Titolo' }, 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary',
-              { id: 'mp-ns-level', w: 140 }, { id: 'mp-ns-fmt', w: 130 }] },
+        /* 0102 (15/10): il riquadro «Fogli nodi» è uscito da CREA — i fogli nascono da
+           soli, modo «Scheda», con Output = Differenziazione (`_fogliSempre` nella pipeline).
+           Le definizioni `mp-ns-*` restano sopra: sono la forma dei dati, non uno schermo. */
         { id: 'src', titolo: 'Fonte & Sintesi', icona: 'paperclip', span: 1, stile: BIANCO, gruppo: 'materiali',
           voci: [{ id: 'mp-src-pdf', et: 'Manda la fonte all\'allievo' }, { id: 'mp-ns-causal', et: 'Catena perché' }] },
         /* Riga sua, a tutta larghezza: la scelta moltiplica il costo di ciò che
@@ -1138,7 +1128,7 @@
        materiali scuri e in coda (vista estesa). Li porta nel box unico: stessi id, le VOCI scelte
        dal docente restano, larghezze, fondo e `gruppo` vengono dalla composizione; il posto è
        subito prima del box giallo (dove sta in `MODULI`). Pura. */
-    var IDS_MATERIALI = ['output', 'quiz', 'preset', 'ns', 'src', 'multi'];
+    var IDS_MATERIALI = ['output', 'quiz', 'preset', 'src', 'multi'];
     function withGruppoMateriali(moduli) {
         if ((moduli || []).some(function (m) { return m.gruppo === 'materiali'; })) return moduli;
         var salvati = {}, resto = [];
@@ -1155,6 +1145,9 @@
     }
 
     function withMaterialControls(moduli) {
+        /* 0102: un layout salvato col riquadro «Fogli nodi» lo perde */
+        moduli = (moduli || []).some(function (m) { return m.id === 'ns'; })
+            ? moduli.filter(function (m) { return m.id !== 'ns'; }) : moduli;
         var out = withGruppoMateriali(withOutput(withMixedOutput(moduli)));
         if (!out.some(function (m) { return vociDi(m).some(function (v) { return v.id === 'mp-fc-count'; }); })) {
             out = out.slice();

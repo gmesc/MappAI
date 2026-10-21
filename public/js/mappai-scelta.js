@@ -107,92 +107,69 @@
     /* ── IL MODALE DEL DOCENTE ───────────────────────────────────────────────
        Dice PRIMA quante domande ci sono e da quanti fogli: è lo stesso motivo
        per cui il bento mostra la stima — si decide vedendo. */
-    function apriLive() {
+    /* ── IL MODALE DEL DOCENTE — le domande aperte SEMPLICI (0116) ─────────
+       Giacomo, 20/10/2026: «è solo la modalità di scelta della domande, di
+       motivazione delle risposte e altre rifelssioni poste all'allievo vanno
+       sospese perché creano troppo attrito». Il docente sceglie UN foglio di
+       domande aperte, e ogni allievo risponde a tutte le sue domande: niente
+       argomenti da scegliere, niente minimi, niente riflessioni, niente profilo.
+       Ogni foglio ha un genere solo, quindi la scelta del genere è uscita
+       (21/10): la scelta multipla parte da «Studio attivo live».
+       `opz.fogli` (facoltativo): i fogli già letti da chi apre — INSEGNA li
+       legge dal disco della mappa scelta. Senza, si leggono qui. */
+    function fogliAperti(opz) {
+        var fogli = (opz && Array.isArray(opz.fogli)) ? opz.fogli : leggiFogli(opz && opz.mappa).fogli;
+        return fogli.filter(function (f) { return f && f.tipo === 'open' && f.items && f.items.length; });
+    }
+
+    /* Un foglio, tutte le sue domande, la modalità semplice. Serve anche al menu
+       di «Studio attivo live» (lotto 5), che elenca gli stessi fogli. */
+    function avviaFoglio(cls, foglio) {
+        var pool = SC().poolDaFogli([foglio]);
+        if (!pool.length) { toast(t('ds_niente', 'Non ci sono ancora domande per questa mappa'), 'warning'); return; }
+        avvia(cls, pool, SC().normalizzaCfg({ semplice: true }), SC().conteggioPerTipo(pool), false);
+    }
+
+    function apriLive(opz) {
         var MM = window.MappAIModal;
-        var p = pool();
-        if (!p.pool.length) {
-            var strada = t('ds_niente_d', 'Genera i materiali da CREA (spunta «Domande aperte» o «Scelta multipla» in «Output automatici») oppure da ELABORA › «Crea un documento».');
+        var fogli = fogliAperti(opz);
+        if (!fogli.length) {
+            var strada = t('ds_niente_open_d', 'Genera i materiali da CREA (spunta «Domande aperte» in «Output automatici») oppure da ELABORA › «Crea un documento».');
             if (MM && MM.avviso) MM.avviso({ titolo: t('ds_niente', 'Non ci sono ancora domande per questa mappa'), icona: 'list-checks', testo: strada });
             else toast(t('ds_niente', 'Non ci sono ancora domande per questa mappa') + ' — ' + strada, 'warning');
             return;
         }
         var cls = (window.MappAIClasses && window.MappAIClasses.getActive) ? window.MappAIClasses.getActive() : null;
-        if (!cls) { toast(t('ds_no_class', 'Scegli prima una classe: gli allievi entrano con le loro credenziali.'), 'warning'); return; }
-
-        /* ── IL GENERE ────────────────────────────────────────────────────
-           Aperte e scelta multipla sono due misure diverse: la seconda si
-           corregge da sé, la prima no. Mescolarle per default vorrebbe dire
-           farle convivere nello stesso profilo senza che nessuno l'abbia
-           deciso. Si sceglie all'avvio, vedendo quante domande porta ognuna
-           (inv. 21) — e se un genere solo esiste, non c'è niente da chiedere. */
-        var q = SC().conteggioPerTipo(p.pool);
-        var D = SC().CFG_DEFAULT;
-        var righe = [];
-        if (q.open && q.mc) {
-            righe.push(
-                { id: 'gen_open', tipo: 'radio', gruppo: 'gen', valore: true,
-                  etichetta: t('ds_gen_open', 'Domande aperte') + ' (' + q.open + ')',
-                  aiuto: t('ds_gen_open_d', 'Si scrive la risposta: la corregge il docente.') },
-                { id: 'gen_mc', tipo: 'radio', gruppo: 'gen',
-                  etichetta: t('ds_gen_mc', 'Quiz a scelta') + ' (' + q.mc + ')',
-                  aiuto: t('ds_gen_mc_d', 'Si sceglie fra le opzioni: la correzione è nel dato.') },
-                { id: 'gen_due', tipo: 'radio', gruppo: 'gen',
-                  etichetta: t('ds_gen_due', 'Tutt\'e due') + ' (' + (q.open + q.mc) + ')',
-                  aiuto: t('ds_gen_due_d', 'Ogni allievo legge domande di entrambi i generi.') }
-            );
-        }
-        righe = righe.concat([
-            { id: 'minimoAree', tipo: 'numero', etichetta: t('ds_min_aree', 'Argomenti da scegliere (almeno)'), valore: D.minimoAree, min: 1, max: 20 },
-            { id: 'minimo', tipo: 'numero', etichetta: t('ds_min', 'Risposte da scrivere (almeno)'), valore: D.minimo, min: 1, max: 30 },
-            { id: 'reveal', tipo: 'spunta', etichetta: t('ds_reveal', 'Alla consegna mostra il profilo dei tagli'), valore: D.reveal },
-            { id: 'osservazioni', tipo: 'spunta', etichetta: t('ds_oss', 'Campo «Osservazioni» in fondo'), valore: D.osservazioni },
-            { id: 'perche_no', tipo: 'spunta', etichetta: t('ds_pn', 'Chiedi «perché questa no?» su una evitata'), valore: D.perche_no },
-            { id: 'autovalutazione', tipo: 'spunta', etichetta: t('ds_auto', 'Autovalutazione per risposta'), valore: D.autovalutazione },
-            { id: 'secondo_giro', tipo: 'spunta', etichetta: t('ds_giro', 'Secondo giro su una domanda evitata'), valore: D.secondo_giro },
-        ]);
-        /* ⚠️ Spenta di default, e non è timidezza: con la correzione immediata
-           si smette di ragionare e si prova finché non diventa verde. Vale solo
-           per le domande a scelta multipla — su una risposta scritta non c'è
-           niente da correggere sul momento, quindi la spunta non compare se il
-           genere scelto non le contiene. */
-        if (feedbackDisponibile() && q.mc) {
-            righe.push({ id: 'feedback', tipo: 'spunta', valore: false,
-              etichetta: t('ds_feedback', 'Correggi subito (solo scelta multipla)'),
-              aiuto: t('ds_feedback_d', 'Dopo ogni risposta l\'allievo vede se è giusta, con la spiegazione. La domanda si chiude: una risposta già corretta non si ripensa.') });
-        }
-        /* ⚠️ Col genere nella chiave del campionamento, «Tutt'e due» RADDOPPIA
-           il carico (una per argomento × taglio × genere): la riga che serve a
-           decidere deve dirlo, o promette la metà del lavoro vero. */
-        var quante = t('ds_quante', '{n} domande da {k} fogli. Ogni allievo ne legge una per argomento, per taglio e per genere.')
-            .replace('{n}', p.pool.length).replace('{k}', p.fogli);
-        if (!q.open || !q.mc) {
-            /* un genere solo: si dice QUALE, invece di lasciar credere che ci
-               siano anche le altre */
-            quante += ' — ' + (q.mc ? t('ds_solo_mc', 'solo domande a scelta multipla')
-                                    : t('ds_solo_open', 'solo domande aperte')) + '.';
-        }
-
-        /* Il pool che parte davvero, secondo il genere scelto. */
-        function perGenere(v) {
-            if (!q.open || !q.mc) return p.pool;
-            if (v && v.gen_mc) return p.pool.filter(function (x) { return x.tipo === 'mc'; });
-            if (v && v.gen_due) return p.pool;
-            return p.pool.filter(function (x) { return x.tipo === 'open'; });
-        }
-
-        if (!MM || !MM.open) {
-            var d = perGenere(null);
-            avvia(cls, d, SC().normalizzaCfg({}), SC().conteggioPerTipo(d));
+        /* 0116 (voce 42): è un avviso, non una conferma — col toast usciva verde
+           con la spunta, perché `showToast` conosce solo rosso e verde */
+        if (!cls) {
+            var nc = t('ds_no_class', 'Scegli prima una classe: gli allievi entrano con le loro credenziali.');
+            if (MM && MM.avviso) MM.avviso({ titolo: t('lv_classe_t', 'Manca la classe'), icona: 'graduation-cap', testo: nc });
+            else toast(nc, 'error');
             return;
         }
+
+        if (!MM || !MM.open) { avviaFoglio(cls, fogli[fogli.length - 1]); return; }
+
+        var quante = function (f) { return f.items.length + ' ' + t('lv_questions', 'domande'); };
+        var campi = [];
+        var testo;
+        if (fogli.length > 1) {
+            campi.push({ id: 'foglio', tipo: 'scelta', etichetta: t('ds_foglio', 'Foglio di domande'), valore: '0',
+                opzioni: fogli.map(function (f, k) { return { valore: String(k), etichetta: f.titolo + ' (' + quante(f) + ')' }; }) });
+            testo = t('ds_semplice_d', 'Ogni allievo risponde a tutte le domande del foglio.') + ' · ' + cls.name;
+        } else {
+            testo = fogli[0].titolo + ' (' + quante(fogli[0]) + '). ' +
+                t('ds_semplice_d', 'Ogni allievo risponde a tutte le domande del foglio.') + ' · ' + cls.name;
+        }
         MM.open({
-            titolo: t('ds_titolo', 'Domande a scelta'),
+            titolo: t('ds_titolo', 'Domande aperte'),
             icona: 'list-checks',
             taglia: 'm',
             sezioni: [{
                 titolo: t('ds_materiale', 'Il materiale'),
-                testo: quante + ' · ' + cls.name,   /* il motore escapa da sé */
-                campi: righe
+                testo: testo,   /* il motore escapa da sé */
+                campi: campi
             }],
             azioni: [
                 { id: 'annulla', etichetta: t('ds_annulla', 'Annulla'), ruolo: 'quieto' },
@@ -200,10 +177,8 @@
             ]
         }).then(function (r) {
             if (!r || r.azione !== 'avvia') return;
-            var scelto = perGenere(r.valori || {});
-            if (!scelto.length) { toast(t('ds_gen_vuoto', 'Quel genere non ha domande per questa mappa.'), 'warning'); return; }
-            avvia(cls, scelto, SC().normalizzaCfg(r.valori || {}), SC().conteggioPerTipo(scelto),
-                !!(r.valori && r.valori.feedback));
+            var k = parseInt((r.valori || {}).foglio, 10);
+            avviaFoglio(cls, fogli[(k >= 0 && k < fogli.length) ? k : 0]);
         });
     }
 
@@ -215,14 +190,16 @@
            dopo, o lasciarlo generico, vorrebbe dire due attività diverse con lo
            stesso nome sul disco (inv. 20-bis). */
         var q = quanti || { open: 1, mc: 0 };
-        var nome = (q.open && q.mc) ? t('ds_attivita', 'Domande a scelta')
-            : (q.mc ? t('ds_mc_titolo', 'Quiz a scelta') : t('ds_attivita', 'Domande a scelta'));
+        /* «Domande aperte» dal 0116 (20/10/2026): le sessioni nate prima restano
+           col nome che hanno sul disco, «Domande a scelta» */
+        var nome = (q.open && q.mc) ? t('ds_attivita', 'Domande aperte')
+            : (q.mc ? t('ds_mc_titolo', 'Quiz a scelta') : t('ds_attivita', 'Domande aperte'));
         /* il pool viaggia intero: il campionamento è del server, e per studente
            (due allievi leggono varianti diverse dello stesso taglio, così la
            classe copre tutto il materiale senza che nessuno legga tutto) */
         window.MappAILive.launchExternal(cls, nome, poolIntero, 0, {
             mode: 'scelta', scelta: cfg, feedbackImmediato: !!feedback, logActivity: 'scelta',
-            reports: [{ which: 'scelta', label: t('ds_report', 'Report domande a scelta') }]
+            reports: [{ which: 'scelta', label: t('ds_report', 'Report domande aperte') }]
         });
     }
 
@@ -235,6 +212,12 @@
        ⚠️ Il campionamento va fatto anche qui (`unaPerAngolo`): senza, si
        aprirebbero centosettantacinque domande, che è esattamente ciò che
        l'attività ha deciso di non fare. */
+    /* un'impronta corta e stabile del titolo di un foglio, per la sua bozza (0116) */
+    function _impronta(x) {
+        var h = 5381, str = String(x || '');
+        for (var n = 0; n < str.length; n++) h = ((h * 33) ^ str.charCodeAt(n)) >>> 0;
+        return h.toString(36);
+    }
     function _chiaveBozza(tipo) {
         var s = S();
         /* ⚠️ `StorageManager` è una `const` lessicale: `window.StorageManager` è
@@ -269,7 +252,7 @@
     /* Quale materiale consuma ognuna delle due attività. Non generano niente:
        leggono ciò che c'è (inv. 7). */
     var ATTIVITA = {
-        open: { tipo: 'open', titolo: 'Domande a scelta', icona: 'list-checks', bus: 'scelta_open' },
+        open: { tipo: 'open', titolo: 'Domande aperte', icona: 'list-checks', bus: 'scelta_open' },
         mc: { tipo: 'mc', titolo: 'Quiz a scelta', icona: 'circle-check-big', bus: 'scelta_mc' }
     };
 
@@ -285,7 +268,7 @@
         return { open: poolPer('open', l), mc: poolPer('mc', l) };
     }
 
-    function apriInApp(tipo) {
+    function apriInApp(tipo, foglioK) {
         var A = ATTIVITA[tipo]; if (!A) return;
         var MM = window.MappAIModal;
         var intero = poolPer(tipo);
@@ -299,11 +282,43 @@
         }
         if (!MM || !MM.open || !window.MappAISceltaView) { toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); return; }
 
+        /* 0116 (Giacomo, 21/10: «tendina anche in app»): le domande aperte si
+           fanno UN foglio alla volta, come nel LIVE. Con più fogli si sceglie
+           prima il foglio, poi si apre l'attività su quello. Ogni foglio ha la
+           SUA bozza: cambiando foglio le risposte dell'altro restano. */
+        var foglio = null;
+        if (tipo === 'open') {
+            var fogli = fogliAperti();
+            if (fogli.length > 1 && foglioK == null) {
+                MM.open({
+                    titolo: t('ds_open_titolo', A.titolo), icona: A.icona, taglia: 'm',
+                    sezioni: [{ campi: [{ id: 'foglio', tipo: 'scelta', etichetta: t('ds_foglio', 'Foglio di domande'), valore: '0',
+                        opzioni: fogli.map(function (f, n) { return { valore: String(n), etichetta: f.titolo + ' (' + f.items.length + ' ' + t('lv_questions', 'domande') + ')' }; }) }] }],
+                    azioni: [
+                        { id: 'annulla', etichetta: t('ds_annulla', 'Annulla'), ruolo: 'quieto' },
+                        { id: 'apri', etichetta: t('ds_apri_foglio', 'Apri'), ruolo: 'primario' }
+                    ]
+                }).then(function (r) {
+                    if (!r || r.azione !== 'apri') return;
+                    var n = parseInt((r.valori || {}).foglio, 10);
+                    apriInApp('open', (n >= 0 && n < fogli.length) ? n : 0);
+                });
+                return;
+            }
+            foglio = fogli[(foglioK >= 0 && foglioK < fogli.length) ? foglioK : 0] || null;
+            if (foglio) intero = SC().poolDaFogli([foglio]);
+        }
+        var chiave = foglio ? tipo + '_' + _impronta(foglio.titolo) : tipo;
+
         /* il seme è la MAPPA, non il caso: riaprendo l'attività si ritrovano le
            stesse domande, altrimenti la bozza punterebbe a domande sparite */
-        var pool = SC().unaPerAngolo(intero, _chiaveBozza(tipo));
-        var cfg = SC().normalizzaCfg({});
-        var stato = SC().normalizzaStato(pool, _leggiBozza(tipo));
+        /* 0116: le domande aperte in app sono SEMPLICI come nel LIVE — tutte le
+           domande, nessuna scelta né riflessione. La scelta multipla resta com'è
+           (è la stessa vista che usa il quiz MC dell'iPad). */
+        var aperte = (tipo === 'open');
+        var pool = aperte ? intero : SC().unaPerAngolo(intero, _chiaveBozza(chiave));
+        var cfg = SC().normalizzaCfg(aperte ? { semplice: true } : {});
+        var stato = SC().normalizzaStato(pool, _leggiBozza(chiave));
         var host = null, consegnato = false, ridisegna = null;
 
         /* ⚠️ La `tela` NON si usa qui: è una proprietà di primo livello dello
@@ -345,7 +360,7 @@
                 if (!MM.conferma) return Promise.resolve(window.confirm(testo));
                 return MM.conferma({ testo: String(testo).replace(/\n+/g, ' · ') });
             },
-                onCambia: function (id, r, st) { stato = st; _scriviBozza(tipo, st); },
+                onCambia: function (id, r, st) { stato = st; _scriviBozza(chiave, st); },
                 onConsegna: function (st) { consegna(st); }
             });
         }
@@ -358,7 +373,7 @@
             /* consegnato = finito: la bozza si toglie, o riaprendo l'attività si
                ritroverebbe tutto già scritto e si consegnerebbe due volte,
                scrivendo due volte le stesse righe di padronanza */
-            try { localStorage.removeItem(_chiaveBozza(tipo)); } catch (e) { }
+            try { localStorage.removeItem(_chiaveBozza(chiave)); } catch (e) { }
             /* e non c'è più niente da perdere: ESC non deve più chiedere
                «uscire senza salvare?» */
             if (ridisegna) {
@@ -368,7 +383,7 @@
             }
             window.MappAISceltaView.mostraEsito(host, {
                 t: window.t, cfg: cfg, profilo: p,
-                evitata: (cfg.perche_no || cfg.secondo_giro) ? SC().evitata(pool, st, _chiaveBozza(tipo)) : null
+                evitata: (cfg.perche_no || cfg.secondo_giro) ? SC().evitata(pool, st, _chiaveBozza(chiave)) : null
             });
         }
 
@@ -411,6 +426,8 @@
         leggiFogli: leggiFogli,
         pool: pool,
         apriLive: apriLive,
+        fogliAperti: fogliAperti,     /* 0116: li elenca anche il menu di «Studio attivo live» */
+        avviaFoglio: avviaFoglio,
         apriInApp: apriInApp,
         poolPer: poolPer,
         pooliPerLauncher: pooliPerLauncher,

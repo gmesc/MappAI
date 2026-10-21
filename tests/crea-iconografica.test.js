@@ -426,7 +426,7 @@ test('con una foto le voci della mappa e dei materiali del bento si nascondono [
     ['mn-genere', 'mn-genere-opz', 'mn-multipass', 'mn-mmlogic', 'mn-autodepth', 'mn-gendepth', 'mn-pipeline',
      'mn-l1', 'mn-focus', 'mn-lenti', 'mn-disciplina', 'mn-stima', 'mn-solo-mappa',
      'mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-perbranch', 'mp-fc-count', 'mp-preset',
-     'mp-ns-title', 'mp-ns-card', 'mp-ns-keywords', 'mp-ns-summary', 'mp-ns-level', 'mp-ns-fmt', 'mp-ns-causal',
+     'mp-ns-causal',
      'mp-ang-causa', 'mp-src-pdf'].forEach(id => {
         assert.ok(giu.includes(id), id + ' resterebbe a schermo con una foto');
         assert.equal(IC.visibileConFoto(id), false, id);

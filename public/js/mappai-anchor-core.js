@@ -142,6 +142,61 @@
         });
     }
 
+    /* ── I MARCATORI DELLE FIGURE (packet 0120, 21/10/2026) ──────────────────
+       Dal packet 0113 (ADR 0024 §5.7) il testo di una pagina porta in coda,
+       sulla stessa riga, il blocco delle figure lette: `[Figure della pagina N]
+       … [/Figure]` (e i fratelli `[Testo a immagini …]`, `[Formule …]`, anche
+       in inglese), con la legenda in testa e il segno `⟦da controllare: …⟧`
+       attorno alle righe gialle. Servono al MODELLO e il testo che gli arriva
+       non cambia; ma l'àncora taglia al punto e non li conosceva. Misurato sulle
+       due mappe del banco dello 0120: 6 citazioni su 104 li portavano, in
+       quattro forme («…aiuto⟧ Il sistema feudale…», «…valvassino ⟦da
+       controllare:», «…non sarà più valido.⟧ « A.», «[Figure della pagina 2]
+       IMPERATORE…»); la legenda stessa usciva come frase citabile.
+       Qui ogni marcatore è un CONFINE di frase e sparisce; il testo fra due
+       confini si spezza poi come sempre. Il contenuto del blocco resta citabile
+       (il giallo compreso, com'era: che cosa è citabile è un'altra decisione);
+       la legenda no, perché parla al modello e non della fonte.
+       ⚠️ Confini, non cancellazioni in mezzo a una frase: ogni frase resta un
+       pezzo CONTIGUO del testo della pagina (spazi a parte), come richiede la
+       verifica carattere per carattere (`originalExcerpt`, grounding-core).
+       ⚠️ Senza marcatori il testo passa INTATTO: gli id delle evidenze dipendono
+       dai confini delle frasi (packet 0030) e non si muovono. E i segni ⟦ ⟧ da
+       soli non bastano: una pagina di matematica scrive ⟦x⟧ per la parte intera
+       (rilettura dello 0120). Il segno è un marcatore solo in una pagina che
+       porta un blocco (apertura, chiusura o legenda); altrove è testo.
+       ⚠️ Le forme vere stanno in mappai-figure-core.js (MARC, LEGENDA,
+       SEGNO_APRE, SEGNO_CHIUDE): qui non si importa quel modulo, che viene
+       dopo nell'ordine degli script. La prova in tests/anchor-core.test.js
+       costruisce i blocchi col costruttore vero e controlla che nessun pezzo
+       sopravviva: una forma nuova di là fa rosso di qua. */
+    var BLOCCHI = [
+        '⟦da controllare: …⟧ =[^.]*\\.',                                   // la legenda, intera (IT e EN)
+        '\\[(?:Figure della pagina|Figures of page|Formule della pagina|Formulas of page) \\d+\\]',
+        '\\[(?:Testo a immagini della pagina \\d+, OCR locale|Text as images of page \\d+, local OCR)\\]',
+        '\\[/(?:Figure|Figures|Testo a immagini|Text as images|Formule|Formulas)\\]'
+    ].join('|');
+    var SEGNI = '⟦da controllare: ?|⟧';                                       // il segno che apre, il segno che chiude
+    var MARCATORI = BLOCCHI + '|' + SEGNI;
+
+    function togliMarcatori(testo) {
+        var t = String(testo == null ? '' : testo);
+        if (!new RegExp(BLOCCHI).test(t)) return { segmenti: t ? [t] : [], tolti: [] };   // nessun blocco: i segni sono testo
+        var re = new RegExp(MARCATORI, 'g');
+        var segmenti = [], tolti = [], da = 0, m;
+        while ((m = re.exec(t)) !== null) {
+            if (m.index > da) segmenti.push(t.slice(da, m.index));
+            tolti.push(m[0]);
+            da = m.index + m[0].length;
+        }
+        if (!tolti.length) return { segmenti: t ? [t] : [], tolti: tolti };
+        if (da < t.length) segmenti.push(t.slice(da));
+        return {
+            segmenti: segmenti.map(function (s) { return s.trim(); }).filter(Boolean),
+            tolti: tolti
+        };
+    }
+
     /* ── LE FRASI, COL NUMERO DI PAGINA ───────────────────────────────────────
        `pagine` = [{ n, text }] come le restituisce il lettore di PDF. Con un
        corpus senza pagine (testo incollato, URL) si passa [{n:0,text:tutto}] e
@@ -151,11 +206,13 @@
         var o = Object.assign({}, DEFAULTS, opts || {});
         var grezze = [];
         (pagine || []).forEach(function (p) {
-            _split(p && p.text).forEach(function (s) {
-                if (s.length > o.maxSentenceChars) s = s.slice(0, o.maxSentenceChars);
-                var w = _words(s);
-                if (w.length < o.minSentenceWords) return;
-                grezze.push({ text: s, page: (p && p.n) || 0, words: w });
+            togliMarcatori(p && p.text).segmenti.forEach(function (seg) {
+                _split(seg).forEach(function (s) {
+                    if (s.length > o.maxSentenceChars) s = s.slice(0, o.maxSentenceChars);
+                    var w = _words(s);
+                    if (w.length < o.minSentenceWords) return;
+                    grezze.push({ text: s, page: (p && p.n) || 0, words: w });
+                });
             });
         });
 
@@ -281,11 +338,21 @@
             cand.sort(function (a, b) {
                 return (b.score - a.score) || (b.hit - a.hit) || (a.idx - b.idx);
             });
-            var prese = cand.slice(0, o.maxPerNode).map(function (c) {
-                usate[c.idx] = 1;
-                var f = frasi[c.idx];
-                return { text: f.text, page: f.page, score: Number(c.score.toFixed(3)) };
-            });
+            /* La stessa frase scritta due volte sulla pagina è UNA prova, non due
+               (0120: lo schema di una figura ripete le sue etichette, e la riga
+               gialla può ripetere quella verde): la seconda copia lascia il posto
+               alla frase che viene dopo. */
+            var prese = [], viste = {};
+            for (var k = 0; k < cand.length && prese.length < o.maxPerNode; k++) {
+                var f = frasi[cand[k].idx];
+                /* la copia è la STESSA prova: non si cita, ma conta come usata, o la
+                   copertura la darebbe orfana e il passaggio di copertura la
+                   rimanderebbe al modello (rilettura dello 0120) */
+                if (viste[f.text]) { usate[cand[k].idx] = 1; continue; }
+                viste[f.text] = 1;
+                usate[cand[k].idx] = 1;
+                prese.push({ text: f.text, page: f.page, score: Number(cand[k].score.toFixed(3)) });
+            }
             if (prese.length) perNodo[n.id] = prese;
         });
         return { perNodo: perNodo, usate: usate };
@@ -572,6 +639,7 @@
     return {
         DEFAULTS: DEFAULTS,
         VERBI_CAUSALI: VERBI_CAUSALI,
+        togliMarcatori: togliMarcatori,
         frasiDaPagine: frasiDaPagine,
         paginePiatte: paginePiatte,
         ancoraNodi: ancoraNodi,

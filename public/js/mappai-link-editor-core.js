@@ -61,7 +61,7 @@
         opts = opts || {};
         if (!String(value).trim() && opts.relNone !== true) throw new Error('empty_review_label');
         withLabel(db, ref, value, opts);
-        if (Review.revision(db, review.sources) !== review.baseRevision) throw new Error('stale_revision');
+        if (!Review.coincide(db, review.sources, review, 'base')) throw new Error('stale_revision');   // 0097: in forma canonica
         const key = issueId(ref), target = Object.assign({ kind: 'link', field: 'rel' }, ref);
         if (link.rel == null) delete target.rel;
         const existing = review.initial.issues.find(i => i.id === key);

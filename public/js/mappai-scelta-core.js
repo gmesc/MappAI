@@ -72,7 +72,12 @@
         perRamo: true,           /* le domande raggruppate per macro-area */
         perche_no: false,        /* una domanda evitata: «perché no?» */
         autovalutazione: false,  /* «sicuro · così così · a caso» per risposta */
-        secondo_giro: false      /* «prova una che hai evitato» */
+        secondo_giro: false,     /* «prova una che hai evitato» */
+        /* 0116 (20/10/2026): le domande aperte SEMPLICI. Giacomo: «è solo la
+           modalità di scelta della domande, di motivazione delle risposte e altre
+           rifelssioni poste all'allievo vanno sospese perché creano troppo
+           attrito». Spento di serie: chi non lo passa ha l'attività di prima. */
+        semplice: false
     };
     function normalizzaCfg(cfg) {
         cfg = cfg || {};
@@ -82,6 +87,14 @@
                 ? Math.max(0, Math.min(50, parseInt(cfg[k], 10) || CFG_DEFAULT[k]))
                 : (cfg[k] == null ? CFG_DEFAULT[k] : !!cfg[k]);
         });
+        /* ⚠️ Dopo il giro, non dentro: `parseInt(0) || default` rimetterebbe i
+           minimi di serie. Con `semplice` niente scelta, niente riflessioni,
+           niente profilo alla consegna, qualunque cosa arrivi. */
+        if (out.semplice) {
+            out.minimo = 0; out.minimoAree = 0;
+            out.reveal = false; out.osservazioni = false;
+            out.perche_no = false; out.autovalutazione = false; out.secondo_giro = false;
+        }
         return out;
     }
 
@@ -230,8 +243,11 @@
         return (pool || []).map(function (v) {
             var p = { id: v.id, tipo: v.tipo, testo: v.testo, ramo: v.ramo, livello: v.livello };
             if (v.tipo === 'mc') p.opzioni = (v.opzioni || []).slice();
-            if (v.traccia) p.traccia = v.traccia;
-            return p;           /* niente `angle`, niente `giusta`, niente `foglio` */
+            /* ⚠️ 0116, gate del 21/10: niente `traccia`. Viene da `guide`, che nei
+               fogli stampati sono le «Tracce di correzione»: la soluzione del
+               docente. Sul telefono compariva sotto la domanda (Giacomo: «sono
+               visibili i criteri di valutazione della risposta»). */
+            return p;           /* niente `angle`, niente `giusta`, niente `foglio`, niente `traccia` */
         });
     }
 
@@ -392,6 +408,20 @@
        NUMERO di domande: dopo il campionamento sono poche per costruzione, e una
        soglia sul totale sarebbe vera sempre — cioè un passo che c'è e non serve
        (trappola 27, al contrario). */
+    /* 0116: l'avvio della modalità semplice. Ogni domanda del pool è PRESA (una
+       voce in `risposte`, anche vuota: per il core una domanda presa e lasciata
+       vuota è un dato) e si parte da «rispondi». Le risposte già scritte restano:
+       al rientro l'allievo ritrova le sue. */
+    function avvioSemplice(pool, stato) {
+        stato = stato || {};
+        stato.risposte = stato.risposte || {};
+        (pool || []).forEach(function (v) {
+            if (v && v.id && !stato.risposte[v.id]) stato.risposte[v.id] = {};
+        });
+        stato.fase = 'rispondi';
+        return stato;
+    }
+
     function passiUtili(pool, cfg) {
         var c = normalizzaCfg(cfg);
         var conNome = aree(pool).filter(function (a) { return a.ramo; });
@@ -682,7 +712,7 @@
         ANGOLI: angoli, CHIP: CHIP, accende: accende,
         CFG_DEFAULT: CFG_DEFAULT, normalizzaCfg: normalizzaCfg,
         aree: aree, filtraPerAree: filtraPerAree, unaPerAngolo: unaPerAngolo,
-        passiUtili: passiUtili, validaAree: validaAree, conteggioPerTipo: conteggioPerTipo,
+        passiUtili: passiUtili, avvioSemplice: avvioSemplice, validaAree: validaAree, conteggioPerTipo: conteggioPerTipo,
         corretta: corretta,
         angoloDalTitolo: angoloDalTitolo,
         poolDaFogli: poolDaFogli, pubblico: pubblico,

@@ -45,8 +45,8 @@
       '<i data-lucide="' + icon + '" style="width:22px;height:22px;color:#4f46e5"></i>' + esc(title) + '</div>' +
       '<button type="button" class="lh-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>' +
       '</div>' + bodyHtml + '</div>';
-    ov.addEventListener('click', function (e) { if (e.target === ov) closeModal(); });
-    ov.querySelector('.lh-close').onclick = closeModal;
+    ov.addEventListener('click', function (e) { if (e.target === ov) chiudiOChiedi(); });
+    ov.querySelector('.lh-close').onclick = chiudiOChiedi;
     document.body.appendChild(ov);
     if (window.safeCreateIcons) window.safeCreateIcons();
     return ov;
@@ -58,6 +58,29 @@
        · il polling va fermato (girava a vuoto ogni 3s su nodi già rimossi);
        · va DETTO che la sessione continua, e da dove si torna a gestirla —
          una finestra che sparisce senza dire niente si legge come «finito». */
+  /* 0116, gate del 21/10 (Giacomo): «Se schiaccio il bottone 'x' con una
+     sessione aperta deve mostrare un modale con le opzioni 'chiudi sessione',
+     'ferma server', 'annulla'; se schiaccio 'chiudi sessione' o 'ferma server'
+     allora chiedi la conferma». Senza sessione la × chiude e basta. */
+  function chiudiOChiedi() {
+    var MM = window.MappAIModal;
+    if (!(LT._dashOpen && LT.info) || !MM || !MM.open) return closeModal();
+    var chiusa = _fase() === 'closed';
+    var azioni = [{ id: 'annulla', etichetta: t('ds_annulla', 'Annulla'), ruolo: 'quieto' }];
+    if (!chiusa) azioni.push({ id: 'chiudi', etichetta: t('lv_close', 'Chiudi sessione'), ruolo: 'secondario' });
+    azioni.push({ id: 'ferma', etichetta: t('lv_stop', 'Ferma server'), ruolo: 'primario' });
+    MM.open({
+      titolo: t('lv_x_t', 'La sessione è ancora attiva'), icona: 'radio', taglia: 's',
+      sezioni: [{ testo: chiusa
+        ? t('lv_x_d_chiusa', 'La sessione è chiusa ma il server è acceso: gli allievi vedono ancora l\'esito.')
+        : t('lv_x_d', 'Gli allievi stanno ancora rispondendo. Che cosa vuoi fare?') }],
+      azioni: azioni
+    }).then(function (r) {
+      if (!r) return;
+      if (r.azione === 'chiudi') doClose();
+      else if (r.azione === 'ferma') doStop();
+    });
+  }
   function closeModal() {
     var m = document.getElementById('live-hub-modal'); if (m) m.remove();
     stopPolling();
@@ -67,8 +90,8 @@
     }
   }
 
-  function card(icon, title, desc, tip) {
-    return '<button type="button" class="lh-card" ' + (tip ? 'data-tip="' + esc(tip) + '" ' : '') +
+  function card(icon, title, desc, tip, act) {
+    return '<button type="button" class="lh-card" ' + (act ? 'data-act="' + esc(act) + '" ' : '') + (tip ? 'data-tip="' + esc(tip) + '" ' : '') +
       'style="display:flex;align-items:center;gap:14px;text-align:left;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:16px 18px;cursor:pointer;width:100%">' +
       '<div style="width:44px;height:44px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
       '<i data-lucide="' + icon + '" style="width:22px;height:22px;color:#4f46e5"></i></div>' +
@@ -93,6 +116,11 @@
 
   // «Domande a scelta» (19/8): la card compare solo se il modulo c'è ed è
   // acceso — un kill-switch che lascia la card aprirebbe il vuoto.
+  /* 0116: la stessa leva di prima («Correggi subito» nel modale delle domande a
+     scelta, `mappai-scelta.js`): `mappai_quiz_live_feedback='0'` la spegne */
+  function _feedbackOn() {
+    try { return localStorage.getItem('mappai_quiz_live_feedback') !== '0'; } catch (e) { return true; }
+  }
   function _sceltaOn() {
     return !!(window.MappAISceltaAttivita && window.MappAISceltaAttivita.attiva());
   }
@@ -101,21 +129,26 @@
     var body = '<p style="font-size:13px;color:#475569;line-height:1.55;margin:0 0 14px">' +
       t('lv_hub_intro', 'Attività di classe via QR: gli allievi entrano dal telefono sulla rete d\'aula.') + '</p>' +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
-      card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue — con report finali'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.')) +
-      card('presentation', t('lv_card_board', 'Mappa LIVE'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '') +
-      card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.')) +
-      card('message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.')) +
-      card('calendar-clock', t('lv_card_timeline', 'Timeline'), t('lv_card_timeline_d', 'Completa o costruisci insieme la timeline della mappa'), t('lv_card_timeline_tip', 'Due modalità: Completa (domande autovalutate sulle date) o Costruisci (gli allievi propongono le date mancanti, tu approvi). Zero costi AI.')) +
-      (_sceltaOn() ? card('list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere'), t('lv_card_scelta_tip', 'Nessuna generazione: usa i fogli «Domande aperte» e i set a scelta multipla già nel vault. Il taglio di ogni domanda resta nascosto: alla consegna si scopre quali tipi di richiamo funzionano per ciascuno.')) : '') +
+      card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz a scelta multipla, domande aperte o domande tue'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.'), 'quiz') +
+      /* 0116, gate del 21/10 (Giacomo): via «Domande aperte» (i fogli partono dal menu
+         di «Studio attivo live») e via «Timeline» */
+      card('presentation', t('lv_card_board', 'Mappa LIVE'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '', 'board') +
+      card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.'), 'materials') +
+      card('message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.'), 'tutor') +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, 'var(--mm-m)');
-    var cards = ov.querySelectorAll('.lh-card');
-    cards[0].onclick = function () { openLiveSetup(); };
-    cards[1].onclick = function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Mappa LIVE non disponibile', 'error'); };
-    cards[2].onclick = function () { openMaterialsPanel(); };
-    cards[3].onclick = function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chiedi e Rispondi non disponibile', 'error'); };
-    cards[4].onclick = function () { closeModal(); if (window.MappAITimelineLive) window.MappAITimelineLive.openSetup(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
-    if (cards[5]) cards[5].onclick = function () { closeModal(); if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive(); else toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
+    /* i clic vanno per `data-act`, non per posizione: un elenco che perde o
+       guadagna una card non sposta i clic delle altre (0116) */
+    var azioni = {
+      quiz: function () { openLiveSetup(); },
+      board: function () { closeModal(); if (window.openCollabHub) window.openCollabHub(); else toast('Mappa LIVE non disponibile', 'error'); },
+      materials: function () { openMaterialsPanel(); },
+      tutor: function () { closeModal(); if (window.MappAITutor) window.MappAITutor.open(); else toast('Chiedi e Rispondi non disponibile', 'error'); }
+    };
+    ov.querySelectorAll('.lh-card').forEach(function (c) {
+      var fn = azioni[c.getAttribute('data-act')];
+      if (fn) c.onclick = fn;
+    });
     if (window.safeCreateIcons) window.safeCreateIcons();
   }
 
@@ -141,7 +174,9 @@
      Restano fuori di proposito: la generazione AI (era il punto), il Cloze
      (già nascosto dal 20/7) e le «domande mie» scritte lì per lì — il posto per
      scriverle è ELABORA → «Crea un documento» → «Le scrivo io», e da lì il set
-     compare in questo elenco. Un posto per comporre, uno per lanciare. */
+     compare in questo elenco. Un posto per comporre, uno per lanciare.
+     ⚠️ 0116 (Giacomo, 20/10/2026): le «domande mie» tornano, come domande
+     APERTE scritte una per riga nel menu — niente editor, niente generazione. */
   /* ⚠️ Con il wizard sono uscite anche le funzioni che generavano: `scopedNodes`,
      `generateCloze`, `generateQuizAI`, `generateQuizViaStudy`, `generateAndLaunch`
      e l'editor delle domande scritte a mano (208 righe). Restano `dynItemToLive`
@@ -167,38 +202,115 @@
     }
     var MM = window.MappAIModal;
     var sets = _setLive();
+    /* 0116: nel menu anche i fogli di domande aperte (D6) e le domande scritte
+       dal docente al momento (D5, rovescia la decisione del 13/8 «un posto per
+       comporre, uno per lanciare»: Giacomo, 20/10/2026). Le aperte partono
+       come il bottone «Domande aperte»: un foglio, tutte le domande. */
+    var SA = window.MappAISceltaAttivita;
+    var fogli = (SA && SA.fogliAperti && _sceltaOn()) ? SA.fogliAperti() : [];   /* `mappai_domande_scelta='0'` le spegne */
     if (!MM) {                       /* ripiego: senza motore si va sull'ultimo set */
       if (!sets.length) { toast(t('lv_nessun_set', 'Nessun quiz pronto per questa mappa.'), 'warning'); return; }
       openLiveFromSet(sets[sets.length - 1]);
       return;
     }
-    if (!sets.length) {
-      MM.avviso({
-        titolo: t('lv_nessun_set_t', 'Nessun quiz pronto'), icona: 'radio',
-        testo: t('lv_nessun_set_d', 'Le attività live partono da un quiz già pronto. Ne trovi fra i materiali generati con la mappa, oppure ne crei uno in ELABORA → «Crea un documento» → «Quiz o flashcard»: scritto da te o generato dall\'AI, con calma, prima della lezione.')
-      });
-      return;
-    }
+    var sezioni = [];
+    if (sets.length) sezioni.push({
+      titolo: t('lv_sez_mc', 'Quiz a scelta multipla'),
+      voci: sets.slice().reverse().map(function (x) {
+        var tipo = x.type || t('lv_m_mc', 'Scelta multipla');
+        return {
+          id: 'set:' + x.id, icona: 'list-checks',
+          etichetta: x.title || tipo,
+          sotto: tipo + ' · ' + x.items.length + ' ' + t('lv_questions', 'domande'),
+          badge: x._pipeline ? t('lv_da_pipeline', 'con la mappa') : ''
+        };
+      })
+    });
+    if (fogli.length) sezioni.push({
+      titolo: t('lv_sez_aperte', 'Domande aperte'),
+      voci: fogli.map(function (f, k) {
+        return {
+          id: 'foglio:' + k, icona: 'pencil-line',
+          etichetta: f.titolo,
+          sotto: f.items.length + ' ' + t('lv_questions', 'domande') + ' · ' + t('lv_aperte_tutte', 'ogni allievo risponde a tutte')
+        };
+      })
+    });
+    if (!sets.length && !fogli.length) sezioni.push({
+      testo: t('lv_nessun_set_d2', 'Questa mappa non ha ancora quiz né fogli di domande aperte: li trovi fra i materiali generati con la mappa, o li crei in ELABORA → «Crea un documento». Intanto puoi scrivere qui sotto le tue domande.')
+    });
+    sezioni.push({
+      titolo: t('lv_sez_mie', 'Le tue domande'),
+      campi: [{ id: 'mie', tipo: 'area', cresce: true, etichetta: t('lv_mie_et', 'Una domanda per riga'), valore: '' }],
+      azioni: [{ id: 'mie', etichetta: t('lv_mie_avvia', 'Avvia queste domande'), ruolo: 'primario' }],
+      sotto: t('lv_mie_d', 'Partono come domande aperte: ogni allievo risponde a tutte.')
+    });
     MM.open({
       titolo: t('lv_scegli_set_t', 'Avvia un\'attività live'), icona: 'radio', taglia: 'm', invio: false,
-      sezioni: [{
-        testo: t('lv_scegli_set_d', 'Le domande ci sono già: nessuna generazione davanti alla classe.'),
-        voci: sets.slice().reverse().map(function (x) {
-          var tipo = x.type || t('lv_m_mc', 'Scelta multipla');
-          return {
-            id: 'set:' + x.id, icona: 'list-checks',
-            etichetta: x.title || tipo,
-            sotto: tipo + ' · ' + x.items.length + ' ' + t('lv_questions', 'domande'),
-            badge: x._pipeline ? t('lv_da_pipeline', 'con la mappa') : ''
-          };
-        })
-      }]
+      sezioni: [{ testo: t('lv_scegli_set_d', 'Le domande ci sono già: nessuna generazione davanti alla classe.') }].concat(sezioni)
     }).then(function (r) {
-      if (!r || !r.azione || r.azione.indexOf('set:') !== 0) return;
-      var id = r.azione.slice(4);
-      var set = sets.filter(function (x) { return x.id === id; })[0];
-      if (set) openLiveFromSet(set);
+      if (!r || !r.azione) return;
+      if (r.azione.indexOf('set:') === 0) {
+        var id = r.azione.slice(4);
+        var set = sets.filter(function (x) { return x.id === id; })[0];
+        if (set) openLiveFromSet(set);
+        return;
+      }
+      if (r.azione.indexOf('foglio:') === 0) {
+        var f = fogli[parseInt(r.azione.slice(7), 10)];
+        if (f) _avviaAperte(f);
+        return;
+      }
+      if (r.azione === 'mie') {
+        var righe = _righeDomande((r.valori || {}).mie);
+        if (!righe.length) { toast(t('lv_mie_vuote', 'Scrivi almeno una domanda, una per riga.'), 'warning'); return; }
+        _avviaAperte({ titolo: t('lv_mie_titolo', 'Domande del docente'), angle: '', tipo: 'open',
+          items: righe.map(function (q) { return { domanda: q }; }) });
+      }
     });
+  }
+
+  /* 0116: le righe non vuote di un testo, una domanda per riga (D8) */
+  function _righeDomande(testo) {
+    return String(testo || '').split(/\r?\n/).map(function (x) { return x.replace(/\s+/g, ' ').trim(); })
+      .filter(function (x) { return x.length > 0; });
+  }
+  /* 0116: un foglio di domande aperte (della mappa o scritto qui) parte come il
+     bottone «Domande aperte». Senza classe attiva: un avviso, non un toast
+     verde (voce 42). */
+  function _avviaAperte(foglio) {
+    var SA = window.MappAISceltaAttivita;
+    if (!SA || !SA.avviaFoglio) { toast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); return; }
+    var cls = _classeDelProgetto();
+    if (!cls) { _avvisoClasse(); return; }
+    SA.avviaFoglio(cls, foglio);
+  }
+  /* 0116, gate del 21/10 (Giacomo): «siamo già dentro un progetto che ha una
+     classe e una materia». La classe è quella del progetto aperto (`classe:`
+     di index.yaml, o la cartella `<classe>/<materia>/<mappa>`), non la classe
+     attiva; la classe attiva resta solo come ripiego. */
+  function _nomeClasseDelProgetto() {
+    var st = S() || {};
+    return String(st.vaultClasse || st.activeVaultClassDir || '').trim();
+  }
+  function _classeDelProgetto() {
+    var C = window.MappAIClasses;
+    var nome = _nomeClasseDelProgetto();
+    var tutte = (C && C.list && C.list()) || [];
+    if (nome) {
+      var c = tutte.filter(function (x) { return x && x.name === nome; })[0];
+      if (c) return c;
+    }
+    return (C && C.getActive) ? C.getActive() : null;
+  }
+  function _avvisoClasse() {
+    var MM = window.MappAIModal;
+    var nome = _nomeClasseDelProgetto();
+    var testo = nome
+      ? t('lv_classe_manca_d', 'Il progetto è della classe {c}, che non è fra le classi di MappAI: creala in Account classi, con le credenziali degli allievi.').replace('{c}', nome)
+      : t('lv_progetto_senza_classe', 'Questo progetto non ha una classe: gli allievi entrano con le credenziali di una classe.');
+    if (MM && MM.avviso) MM.avviso({ titolo: t('lv_classe_t', 'Manca la classe'), icona: 'graduation-cap', testo: testo });
+    else toast(testo, 'error');
   }
 
 
@@ -207,7 +319,9 @@
     var mode = /ver|v\/f|\btf\b|true|fals/i.test(String(set.type || set.quizType || '')) ? 'tf' : 'mc';
     var modeLabel = mode === 'tf' ? t('lv_m_tf', 'Vero / Falso') : t('lv_m_mc', 'Scelta multipla');
     var classes = (window.MappAIClasses && window.MappAIClasses.list()) || [];
-    var activeId = (window.MappAIClasses && window.MappAIClasses.activeId && window.MappAIClasses.activeId()) || '';
+    /* 0116: la tendina parte sulla classe del progetto aperto, non sulla classe attiva */
+    var delProgetto = _classeDelProgetto();
+    var activeId = (delProgetto && delProgetto.id) || (window.MappAIClasses && window.MappAIClasses.activeId && window.MappAIClasses.activeId()) || '';
     var classOpts = classes.map(function (c) { return '<option value="' + c.id + '"' + (c.id === activeId ? ' selected' : '') + '>' + esc(c.name) + (c.year ? ' (' + esc(c.year) + ')' : '') + ' · ' + (c.students || []).length + '</option>'; }).join('');
     var classField = classes.length
       ? '<select id="lvs-class" class="lv-in">' + classOpts + '</select>'
@@ -227,6 +341,15 @@
       '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
         '<input type="checkbox" id="lvs-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
         '<span>' + t('lv_reveal', 'A fine sessione mostra allo studente le soluzioni (giuste/sbagliate + spiegazione), salvabili sul suo dispositivo.') + '</span></label>' +
+      /* 0116 (D9): «Correggi subito» viene qui dal modale delle domande a scelta.
+         Spenta di serie, e non è timidezza: con la correzione immediata si smette
+         di ragionare e si prova finché non diventa verde. Solo scelta multipla:
+         una risposta già corretta non si ripensa (la regola vive nel server). */
+      (_feedbackOn() && mode === 'mc'
+        ? '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
+          '<input type="checkbox" id="lvs-feedback" style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
+          '<span><b>' + t('ds_feedback', 'Correggi subito') + '</b> — ' + t('ds_feedback_d', 'Dopo ogni risposta l\'allievo vede se è giusta, con la spiegazione. La domanda si chiude: una risposta già corretta non si ripensa.') + '</span></label>'
+        : '') +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">' +
       '<button type="button" id="lvs-back" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + t('lv_back', 'Indietro') + '</button>' +
       '<button type="button" id="lvs-go" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + t('lv_go', 'Avvia sessione') + '</button></div>';
@@ -250,7 +373,8 @@
       if (!qs.length) { toast(t('lv_set_unmappable', 'Le domande di questo set non sono compatibili con la modalità live.'), 'error'); return; }
       LT._scope = '';                       // set = intera mappa
       LT._revealAnswers = !rev || rev.checked;
-      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer);
+      var fb = ov.querySelector('#lvs-feedback');
+      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer, (fb && fb.checked) ? { feedbackImmediato: true } : undefined);
     };
   }
 
@@ -327,6 +451,8 @@
       roster: (cls.students || []).map(function (s) { return { emojiKey: s.emojiKey, emoji: s.emoji, num: s.num, name: s.name || '' }; }),
       questions: questions
     };
+    // Il carattere del docente (Cabina › Aspetto e leggibilità) viaggia con la sessione: l'allievo lo eredita (0112)
+    try { if (window.MappAIFont && window.MappAIFont.attivo) payload.font = window.MappAIFont.attivo() || ''; } catch (e) { /* senza carattere: Space Mono */ }
     // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico).
     if (extra.mode) payload.mode = extra.mode;
     if (extra.loginMode) payload.loginMode = extra.loginMode;
@@ -337,6 +463,7 @@
     // quali report sa produrre QUESTA sessione: la dashboard è una sola, ma
     // «domande» e «allievi» non esistono fuori dal quiz
     LT._reports = extra.reports || null;
+    LT._lastStatus = null; _curPhase = null;   // 0116: la fase della sessione di prima non deve decidere i bottoni di questa
     // Variante WEB: la scelta WiFi/Internet del wizard viaggia nello start IPC
     if (window.MappAINetMode) payload.netMode = window.MappAINetMode.get();
     return window.electronAPI.liveStartSession(payload).then(function (r) {
@@ -469,11 +596,15 @@
       html += '<span id="lv-timerbadge" style="font-size:13px;font-weight:800;color:#4f46e5"></span><span style="flex:1"></span>';
       html += actBtn('lv-close', t('lv_close', 'Chiudi sessione'), '#7f1d1d', '#fecaca');
     } else if (phase === 'closed') {
-      /* ⚠️ `LT._reports` lo scrive `launch`, ma a una sessione già in corso ci
-         si riaggancia SENZA passare di lì (openLiveHub dopo un riavvio): la
-         modalità arriva con l'info del server, e da quella si deduce. */
-      var reps = (LT._reports && LT._reports.length) ? LT._reports
-        : (LT.info && LT.info.mode === 'scelta') ? [{ which: 'scelta', label: t('ds_report', 'Report domande a scelta') }] : null;
+      /* 0116, gate del 21/10 (Giacomo: «I pannelli di gestione delle attività live
+         'Domande aperte' e 'QuizMC' devono essere uguali»): due bottoni per tutti e
+         due, «Report domande» e «Report allievi». La modalità la dice il SERVER
+         (`/api/status` → session.mode): `LT._reports` lo scrive solo `launch`, e a
+         una sessione già in corso ci si riaggancia senza passare di lì. */
+      var modo = (LT._lastStatus && LT._lastStatus.session && LT._lastStatus.session.mode) || (LT.info && LT.info.mode) || '';
+      var aScelta = modo === 'scelta' || !!(LT._reports && LT._reports[0] && LT._reports[0].which === 'scelta');
+      var reps = aScelta ? [{ which: 'scelta', label: t('lv_rep_q', 'Report domande') }, { which: 'students', label: t('lv_rep_s', 'Report allievi') }]
+        : (LT._reports && LT._reports.length && modo !== 'quiz') ? LT._reports : null;
       LT._reports = reps;
       if (reps) {
         reps.forEach(function (r, i) { html += actBtn('lv-rep-x' + i, r.label, '#4f46e5', '#fff'); });
@@ -506,11 +637,7 @@
         .then(function () { renderActions('running'); });
     };
     var close = document.getElementById('lv-close');
-    if (close) close.onclick = function () {
-      if (!confirm(t('lv_close_confirm', 'Chiudere la sessione e generare i report?'))) return;
-      fetch('http://127.0.0.1:' + LT.info.port + '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: LT.info.adminToken }) })
-        .then(function () { renderActions('closed'); toast(t('lv_closed', 'Sessione chiusa — report pronti'), 'success'); });
-    };
+    if (close) close.onclick = function () { doClose(); };
     (LT._reports || []).forEach(function (r, i) {
       var b = document.getElementById('lv-rep-x' + i);
       if (b) b.onclick = function () { window.open('http://127.0.0.1:' + LT.info.port + '/api/report?admin=' + encodeURIComponent(LT.info.adminToken) + '&which=' + encodeURIComponent(r.which), '_blank'); };
@@ -526,12 +653,31 @@
     var end = document.getElementById('lv-end');
     if (end) end.onclick = doStop;
   }
+  /* «Chiudi sessione»: le consegne si fermano e i report si scrivono; il server
+     resta su (gli allievi vedono l'esito, il docente apre i report). */
+  function doClose(chiedi) {
+    if (!LT.info) return Promise.resolve();
+    if (chiedi !== false && !confirm(t('lv_close_confirm', 'Chiudere la sessione e generare i report?'))) return Promise.resolve(false);
+    return fetch('http://127.0.0.1:' + LT.info.port + '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: LT.info.adminToken }) })
+      .then(function () { renderActions('closed'); toast(t('lv_closed', 'Sessione chiusa — report pronti'), 'success'); return true; })
+      .catch(function () { return false; });
+  }
+  /* «Ferma server». ⚠️ 0116, gate del 21/10: prima spegneva e basta, con la
+     sessione ancora aperta sul disco — niente report, e rilanciando la stessa
+     attività lo stesso giorno l'app la RIPRENDEVA, con le consegne di prima
+     (Giacomo: «la riapro la sessione mostra ancora i dati delle consegne»). Ora
+     una sessione non chiusa si chiude, coi suoi report, e poi il server si spegne. */
   function doStop() {
-    if (!confirm(t('lv_stop_confirm', 'Fermare il server? Le risposte restano su disco.'))) return;
-    stopPolling();
-    if (window.electronAPI.liveStopSession) window.electronAPI.liveStopSession();
-    LT.info = null; closeModal(); _chiudiFloat();
-    toast(t('lv_stopped', 'Server fermato — i dati restano nella cartella della sessione'), 'success');
+    if (!confirm(t('lv_stop_confirm2', 'Fermare il server? La sessione si chiude e i report restano nella cartella della sessione.'))) return;
+    var aperta = LT.info && _fase() !== 'closed';
+    var prima = aperta ? doClose(false) : Promise.resolve();
+    prima.then(function () {
+      stopPolling();
+      if (window.electronAPI.liveStopSession) window.electronAPI.liveStopSession();
+      LT.info = null; LT._lastStatus = null; LT._reports = null; _curPhase = null;   // la sessione dopo parte da zero
+      LT._dashOpen = false; closeModal(); _chiudiFloat();
+      toast(t('lv_stopped', 'Server fermato — i dati restano nella cartella della sessione'), 'success');
+    });
   }
 
   // ── Polling stato (3 s, diretto con adminToken) ──────────────────────────
@@ -625,7 +771,8 @@
       '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">' : '') +
       '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
       (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.matInfo) : '') +
-      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div></div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div>' +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + t('lv_mat_app', 'Questo QR è per i telefoni. Per l\'app MappAI studente usa «Vault su iPad» in INSEGNA.') + '</div></div>' +
       '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
@@ -728,15 +875,18 @@
 
   // Dialog QR di un documento: QR grande + URL + apri a schermo intero.
   function openDocQr(url, name) {
+    var isVault = /\.zip$/i.test(String(name || ''));   // il vault per l'app MappAI studente (0098)
     var qrSrc = qrDataUrl(url, 9);
     var body = '<div style="text-align:center">' +
       (qrSrc ? '<img id="lv-docqr" src="' + qrSrc + '" style="width:230px;height:230px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">' : '<div style="color:#b45309">QR non disponibile</div>') +
       '<div style="font-size:12px;color:#475569;margin-top:8px;word-break:break-all">' + esc(url) + '</div>' +
-      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div>' +
-      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + t('sd_qr_studente', 'Nell\'app MappAI studente: Docente › Ricevi — inquadra il QR o scrivi questo indirizzo') + '</div></div>' +
+      (isVault ? '' : '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('sd_qr_hint', 'Gli allievi inquadrano il QR e aprono il documento (nessun login)') + '</div>') +
+      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + (isVault
+        ? t('sd_qr_studente', 'Nell\'app MappAI studente: Docente › Ricevi un vault e inquadra il QR, oppure Inserisci link e scrivi questo indirizzo')
+        : t('sd_qr_doc_telefoni', 'Questo QR è per i telefoni. Per l\'app MappAI studente usa «Vault su iPad» in INSEGNA.')) + '</div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">' +
       actBtn('lv-docqr-close', t('lv_back', 'Indietro'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)') + '</div>';
-    var ov = modal('qr-code', t('sd_qr_title', 'Condividi documento'), body, 'var(--mm-s)');
+    var ov = modal('qr-code', isVault ? t('sd_qr_title_vault', 'Condividi Vault su iPad') : t('sd_qr_title', 'Condividi documento'), body, 'var(--mm-s)');
     var img = ov.querySelector('#lv-docqr'); if (img) img.onclick = function () { openQrFull(url); };
     ov.querySelector('#lv-docqr-close').onclick = closeModal;
   }
@@ -766,7 +916,9 @@
       LT.matInfo.files = r.files;
       var info = LT.matInfo;
       var base = (window.MappAINetMode ? window.MappAINetMode.baseForPaths(info) : (info.urls && info.urls[0])) || ('http://localhost:' + info.port);
-      var fileUrl = base + '/files/' + encodeURIComponent(r.file) + '?s=' + info.token;
+      /* il QR nomina la mappa (0109): il server dà il vault solo a `<token>-<chiave>`
+         della mappa esposta, mai a un QR di documento né a quello di un'altra mappa */
+      var fileUrl = base + '/files/' + encodeURIComponent(r.file) + '?s=' + info.token + '-' + window.MappAIFilesCore.chiaveVault(vaultName);
       openDocQr(fileUrl, r.file);
       return r;
     });

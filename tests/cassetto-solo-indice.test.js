@@ -887,11 +887,11 @@ test('0082 B1 (a): con la chiave clsId la cartella nasce sotto QUELLA classe, no
   assert.ok(h.salvate[0].folderPath.startsWith(MAPPE + '/2A/'), h.salvate[0].folderPath);
 });
 
-test('0082 B2 (a): clsId null, o una classe che non c\'è più, → Generico', async () => {
+test('0082 B2 (a): clsId null, o una classe che non c\'è più, → Senza classe (0104, N5: era Generico)', async () => {
   for (const clsId of [null, 'cls-sparita']) {
     const { h } = await crea({}, { reason: 'open', clsId });
     assert.equal(h.salvate.length, 1, String(clsId));
-    assert.ok(h.salvate[0].folderPath.startsWith(MAPPE + '/Generico/'), h.salvate[0].folderPath);
+    assert.ok(h.salvate[0].folderPath.startsWith(MAPPE + '/Senza classe/'), h.salvate[0].folderPath);
   }
 });
 
@@ -901,10 +901,10 @@ test('0082 M27: classi non ancora caricate (elenco vuoto) e una clsId — la car
   assert.equal(r, null);
 });
 
-test('0082 M38: docente senza classi (elenco vuoto) e riga senza classe — la cartella nasce in Generico («Va in «Generico»», Giacomo 07/10)', async () => {
+test('0082 M38: docente senza classi (elenco vuoto) e riga senza classe — la cartella nasce in Senza classe («Va in «Generico»», Giacomo 07/10; 0104, N5: la cartella ora si chiama Senza classe)', async () => {
   const { h, r } = await crea({ classi: [] }, { reason: 'open', clsId: null });
   assert.equal(h.salvate.length, 1);
-  assert.ok(h.salvate[0].folderPath.startsWith(MAPPE + '/Generico/'), h.salvate[0].folderPath);
+  assert.ok(h.salvate[0].folderPath.startsWith(MAPPE + '/Senza classe/'), h.salvate[0].folderPath);
   assert.ok(r && r.folderPath, 'ensureProjectVault risponde con la cartella creata');
 });
 

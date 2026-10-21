@@ -10,21 +10,23 @@
      server LAN da public/fonts/ (allowlist `/public/fonts/`). Prima arrivava da
      fonts.googleapis.com e in aula senza rete — o dietro il filtro della scuola —
      il telefono dell'allievo cadeva sul monospace di sistema senza dire niente.
-     Noto Color Emoji RESTA dalla rete: il file è 25 MB, e senza rete il telefono
-     ha comunque le sue emoji (stessa scelta di index.html, commentata lì). -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+     Le EMOJI sono locali anche loro (packet 0108, 16/10/2026): niente più Noto da
+     fonts.googleapis.com. Il font «MappAI Emoji» (public/fonts/MappAIEmoji.ttf) porta le 27
+     dell'identità e le emoji che questa pagina scrive (⚠️, 💡…); sui motori WebKit le
+     disegna come immagini mappai-emoji-prova.js. Le altre: emoji di sistema. -->
 <style>
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:400;
     src:url('../fonts/SpaceMono-Regular.ttf') format('truetype'); font-display:swap; }
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:700;
     src:url('../fonts/SpaceMono-Bold.ttf') format('truetype'); font-display:swap; }
   /* Le 27 emoji che NON sono decorazione — l'identità dell'allievo e i codici
-     d'accesso dei gruppi — da un font locale di 254 KB ritagliato da Noto
+     d'accesso dei gruppi — e, dal packet 0108, le emoji che le pagine degli
+     allievi scrivono: un font locale di circa 350 KB ritagliato da Noto
      (tools/font/emoji-sottoinsieme.py). Sta PRIMA di Noto nello stack: quelle
-     si vedono anche senza rete e uguali su ogni telefono; le altre ripiegano
-     come prima. */
+     si vedono anche senza rete e uguali su ogni telefono; le altre sono quelle
+     di sistema. */
   @font-face { font-family:'MappAI Emoji'; font-style:normal; font-weight:400;
-    src:url('../fonts/MappAIEmoji.ttf') format('truetype'); font-display:swap; }
+    src:url('../fonts/MappAIEmoji.ttf?v=0108') format('truetype'); font-display:swap; }
 </style>
 <style>
   /* emoji Android (Noto) prima del fallback di sistema — regola globale MappAI */
@@ -157,6 +159,8 @@
                 box-shadow: 0 4px 12px rgba(0,0,0,.12); display: flex; align-items: center; gap: 5px; }
   #center-btn:active { background: #eef2ff; }
 </style>
+<!-- 0099: prova il font emoji locale su questo dispositivo; dove non si legge, --emoji ripiega sulle emoji di sistema -->
+<script src="/public/js/mappai-emoji-prova.js?v=0108" defer></script>
 </head>
 <body>
 

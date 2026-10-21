@@ -8,6 +8,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const A = require(path.join(__dirname, '..', 'public', 'js', 'mappai-anchor-core.js'));
+/* il costruttore VERO dei blocchi delle figure, per la prova incrociata dello 0120 (solo letto) */
+const F = require(path.join(__dirname, '..', 'public', 'js', 'mappai-figure-core.js'));
 
 const PAGINE = [
   {
@@ -467,4 +469,145 @@ test('frasiDaPagine: via la frase che finisce dentro un vuoto da riempire', () =
   assert.ok(testi.some(t => /dei loro alleati/.test(t)), 'il vuoto chiuso dentro un periodo completo resta');
   assert.ok(testi.some(t => /precaria situazione alimentare/.test(t)), 'la coda di un vuoto in testa non cancella il fatto che segue');
   assert.ok(testi.some(t => /razionamento alimentare/.test(t)), 'i puntini di sospensione non sono un vuoto');
+});
+
+/* ── I SEGNI DELLE FIGURE NELLE CITAZIONI (packet 0120, 21/10/2026) ────────
+   Dal 0113 (ADR 0024 §5.7) la pagina porta in coda, sulla stessa riga, il blocco
+   `[Figure della pagina N] … [/Figure]` con la legenda e il segno ⟦da controllare: …⟧
+   attorno alle righe gialle. L'àncora taglia al punto e non li conosceva: sulle due
+   mappe del banco dello 0120, 6 citazioni su 104 portavano un marcatore, in quattro
+   forme. I testi qui sotto sono le pagine VERE di quel banco (dati di prova, non di
+   Giacomo), accorciate. Decisione D1 (Giacomo, 21/10): il testo letto dalle figure,
+   giallo compreso, resta citabile — senza i segni. */
+const SEGNI_FIG = /\[\/?(?:Figure|Figures|Testo a immagini|Text as images|Formule|Formulas)|⟦|⟧|testo letto da un'immagine|text read from an image/;
+const LEGENDA_FIG = '⟦da controllare: …⟧ = testo letto da un\'immagine, incerto: usalo solo se il resto della fonte lo conferma.';
+const testiFig = pagine => A.frasiDaPagine(pagine).map(f => f.text);
+
+test('0120, forma 1: il segno giallo DENTRO il blocco è un confine — «…aiuto⟧ Il sistema feudale» e «…valvassino ⟦da controllare:» non escono più', () => {
+  const p2 = 'I feudi non erano ereditari, cioè non passavano da padre in figlio, ma ogni vassallo doveva dimostrare di essere fedele al re per poter sperare di ottenere più a lungo il feudo. [Figure della pagina 2] ' + LEGENDA_FIG + ' IMPERATORE feudi reali VASSALLO valvassore valvassore valvassino valvassino valvassino valvassino ⟦da controllare: IMPERATORE → VASSALLO: L\'imperatore dona delle terre (feudi) ai vassalli. VASSALLO → IMPERATORE: I vassalli forniscono all\'imperatore un numero di cavalieri proporzionato alla grandezza dei loro feudi. VASSALLO → valvassore: Ogni vassallo può donare parte del suo feudo ai valvassori, i quali, a loro volta, ne possono donare parte ai valvassini.⟧ Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto ⟦da controllare: Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto⟧ Il sistema feudale spesso viene descritto come una piramide: al vertice vi sarebbe il re, poi verrebbero i grandi feudatari, i loro vassalli con i vassalli dei vassalli, e sotto a tutti i contadini, tenuti a pagare tributi e a prestare servizi. Il disegno qui a sinistra, benché molto semplificato, mostra come in realtà la situazione fosse ben più complessa. [/Figure]';
+  const t = testiFig([{ n: 2, text: p2 }]);
+  assert.ok(t.length >= 6, 'le frasi della pagina ci sono: ' + t.length);
+  t.forEach(s => assert.ok(!SEGNI_FIG.test(s), 'frase con un marcatore: «' + s + '»'));
+  assert.ok(t.includes('IMPERATORE feudi reali VASSALLO valvassore valvassore valvassino valvassino valvassino valvassino'), 'le etichette verdi dello schema, senza il segno che le seguiva');
+  assert.ok(t.some(s => s.startsWith('Il sistema feudale spesso viene descritto come una piramide:')), 'la frase dopo il segno comincia da sé');
+  assert.ok(t.some(s => s.startsWith('Ogni vassallo può donare parte del suo feudo ai valvassori') && s.endsWith('ai valvassini.')), 'l\'ultima riga gialla chiude col suo punto, senza ⟧');
+  /* D1: il testo giallo resta citabile, pulito — come oggi, senza i segni rotti */
+  assert.ok(t.includes('Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto Feudi → Consiglio e aiuto'), 'la riga gialla è una frase a sé, senza segni');
+});
+
+test('0120, forma 2: «…non sarà più valido.⟧ « A.» — il segno subito dopo il punto è un confine', () => {
+  const p3 = 'Carlo Magno e il sistema feudale ESERCIZIO: Riempi la piramide seguente indicando con i loro nomi i vari gradi del sistema feudale: [Figure della pagina 3] ' + LEGENDA_FIG + ' 1 Osserva i signori al livello più basso. Sono proprietari di tutte le terre di cui dispongono? 2 Il re è proprietario di tutte le terre di cui dispone? ⟦da controllare: Riportiamo due capitolari (leggi del regno dei Franchi) che risalgono ai primi anni del XI secolo e si occupano dei problemi che sorgono nel rapporto tra signore e vassallo, in particolare dei diritti e doveri di ciascuno, e dei casi in cui il legame contratto col giuramento contro non sarà più valido.⟧ « A. Se qualcuno dei nostri fedeli, volendo combattere contro un avversario, avrà chiesto aiuto ad uno dei suoi vassalli e costui non vorrà soccorrerlo e si dimostrerà negligente, gli tolga il beneficio che deteneva e lo dia a un altro che gli sia fedele. B. Se qualcuno vorrà abbandonare il suo signore, potrà farlo solo per un giusto motivo. [/Figure]';
+  const t = testiFig([{ n: 3, text: p3 }]);
+  t.forEach(s => assert.ok(!SEGNI_FIG.test(s), 'frase con un marcatore: «' + s + '»'));
+  assert.ok(t.some(s => s.startsWith('Riportiamo due capitolari') && s.endsWith('non sarà più valido.')), 'la frase gialla finisce al suo punto');
+  assert.ok(!t.some(s => /« A\.$/.test(s)), 'nessuna frase finisce con l\'etichetta « A.»');
+  assert.ok(t.some(s => /Se qualcuno dei nostri fedeli/.test(s)), 'il capitolare A resta una frase');
+});
+
+test('0120, forma 3: l\'apertura «[Figure della pagina 2]» non entra nella prima frase di un blocco pulito (giallo confermato)', () => {
+  const p2 = 'Ogni vassallo doveva dimostrare di essere fedele al re per poter sperare di ottenere più a lungo il feudo. [Figure della pagina 2] IMPERATORE feudi reali VASSALLO valvassore valvassore valvassino valvassino valvassino valvassino IMPERATORE → VASSALLO: L\'imperatore dona delle terre (feudi) ai vassalli. VASSALLO → IMPERATORE: I vassalli forniscono all\'imperatore un numero di cavalieri proporzionato alla grandezza dei loro feudi. [/Figure]';
+  const t = testiFig([{ n: 2, text: p2 }]);
+  t.forEach(s => assert.ok(!SEGNI_FIG.test(s), 'frase con un marcatore: «' + s + '»'));
+  assert.ok(t.some(s => s.startsWith('IMPERATORE feudi reali VASSALLO')), 'la prima frase del blocco comincia dal contenuto');
+  assert.ok(!t.some(s => s.startsWith('[Figure')), 'nessuna frase comincia col marcatore');
+});
+
+test('0120, forma 4: la pagina che finisce senza punto, poi il marcatore e la legenda — la legenda non è una frase citabile; la coda «⟧ [/Figure]» sparisce (con e senza lo spazio dello 0114)', () => {
+  const corpo = 'Il vassallo si impegnava a obbedire alla chiamata alle armi del re fornendogli una squadra di cavalieri (da 10 a 50), proporzionata alla vastità del suo feudo. In questo consisteva il punto più importante del sistema [Figure della pagina 1] ' + LEGENDA_FIG + ' La prova: il re appoggia la spada sulla spalla del vassallo. Ciò ricorda il fatto che, nelle antiche famiglie combattenti, l\'investitura avveniva quando il vassallo era appena un adolescente e il signore gli assestava un colpo fortissimo sulla spalla per assicurarsi che l\'addestramento militare lo avesse reso robusto. ⟦da controllare: Il bacio: con esso il re (o il capofamiglia) promette al vassallo la sua eterna protezione.';
+  ['⟧ [/Figure]', ' ⟧ [/Figure]'].forEach(coda => {
+    const t = testiFig([{ n: 1, text: corpo + coda }]);
+    t.forEach(s => assert.ok(!SEGNI_FIG.test(s), 'frase con un marcatore: «' + s + '»'));
+    /* il frammento tipografico «In questo consisteva il punto più importante del sistema» ha 4 parole piene:
+       sotto il minimo, cade come ogni frammento; se restasse, resterebbe pulito */
+    t.filter(s => /consisteva il punto/.test(s)).forEach(s => assert.strictEqual(s, 'In questo consisteva il punto più importante del sistema'));
+    assert.ok(!t.some(s => /usalo solo se il resto della fonte|testo letto da un/.test(s)), 'la legenda parla al modello, non è una prova');
+    /* «il re appoggia la spada sulla spalla del vassallo.» ha 4 parole piene e cade come ogni frammento corto: il contenuto verde citabile è la frase lunga */
+    assert.ok(t.some(s => s.startsWith('Ciò ricorda il fatto che, nelle antiche famiglie combattenti') && s.endsWith('reso robusto.')), 'il contenuto verde della figura resta citabile');
+    assert.ok(t.includes('con esso il re (o il capofamiglia) promette al vassallo la sua eterna protezione.'), 'l\'ultima riga gialla chiude col suo punto, senza la coda');
+  });
+});
+
+test('0120: i blocchi costruiti dal costruttore VERO (figure, testo a immagini, formule; IT e EN) non lasciano nessun pezzo nelle frasi', () => {
+  const verde = { stato: 'verde', righe: [{ testo: 'Il re affida le terre ai suoi vassalli in cambio di fedeltà e servizio militare.', verde: true }] };
+  const giallo = { stato: 'giallo', righe: [{ testo: 'IMPERATORE', verde: true }, { testo: 'I valvassini dipendono dai valvassori e devono loro aiuto e consiglio.', verde: false }] };
+  const rosso = { stato: 'rosso', righe: [{ testo: 'INVENTATO DAL MODELLO che non deve comparire da nessuna parte.', verde: true }] };
+  const riga = 'Il sistema feudale nasce in Europa dopo la caduta dell\'impero romano e organizza la società in gradi di fedeltà personale.';
+  ['it', 'en'].forEach(lingua => {
+    const pagine = [
+      { n: 1, text: F.marcatori.accoda(riga, F.marcatori.figure(1, [verde, giallo, rosso], { lingua })) },
+      { n: 2, text: F.marcatori.accoda(riga, F.marcatori.testoImmagini(2, ['La respirazione cellulare è un processo che avviene in tutti gli esseri viventi.'], { lingua })) },
+      { n: 3, text: F.marcatori.accoda(riga, F.marcatori.formule(3, [{ n: 1, formula: '2x + 3 > 7', soluzione: 'S = ]2; +∞[' }], { lingua })) },
+      { n: 4, text: F.marcatori.accoda('', F.marcatori.figure(4, [verde], { lingua })) }
+    ];
+    pagine.forEach(p => assert.ok(/\[/.test(p.text), 'il costruttore ha messo il blocco (' + lingua + ')'));
+    const t = testiFig(pagine);
+    t.forEach(s => assert.ok(!SEGNI_FIG.test(s), lingua + ': frase con un marcatore: «' + s + '»'));
+    assert.ok(t.includes(verde.righe[0].testo), lingua + ': la riga verde è citabile');
+    assert.ok(t.includes(giallo.righe[1].testo), lingua + ': la riga gialla è citabile, senza il segno (D1)');
+    assert.ok(t.some(s => /respirazione cellulare/.test(s)), lingua + ': il testo a immagini è citabile');
+    assert.ok(!t.some(s => /INVENTATO/.test(s)), lingua + ': il rosso non entra nel blocco, quindi nemmeno qui');
+    assert.ok(!t.some(s => /usalo solo se|use it only if/.test(s)), lingua + ': la legenda non è una frase');
+    /* rilettura dello 0120: le frasi sotto le 5 parole cadono PRIMA delle asserzioni qui sopra, quindi un pezzo di
+       marcatore non riconosciuto poteva sopravvivere senza farsi vedere. Si guarda allora ciò che togliMarcatori
+       toglie davvero: ogni forma del costruttore vero deve stare in `tolti`, e nessun segmento porta un pezzo. */
+    const tolti = [];
+    pagine.forEach(p => {
+      const r = A.togliMarcatori(p.text);
+      /* le quadre di un intervallo («]2; +∞[») sono contenuto: si cercano i pezzi dei marcatori, non le parentesi */
+      r.segmenti.forEach(s => assert.ok(!/\[\/?(?:Figure|Figures|Testo|Text|Formule|Formulas)|⟦|⟧/.test(s), lingua + ': segmento con un pezzo di marcatore: «' + s + '»'));
+      tolti.push(...r.tolti);
+    });
+    const M = F.MARC[lingua];
+    [M.figure[0].replace('N', '1'), M.figure[1], M.testoImmagini[0].replace('N', '2'), M.testoImmagini[1], M.formule[0].replace('N', '3'), M.formule[1], F.SEGNO_APRE, F.SEGNO_CHIUDE, F.LEGENDA[lingua]]
+      .forEach(forma => assert.ok(tolti.includes(forma), lingua + ': la forma «' + forma + '» del costruttore vero non è riconosciuta'));
+  });
+});
+
+test('0120: togliMarcatori — senza marcatori il testo passa INTATTO (gli id delle evidenze non si muovono); con i marcatori ogni pezzo è contiguo', () => {
+  const liscio = 'Una frase senza marcatori.  Con due spazi, e un\'altra frase dopo. ';
+  assert.deepStrictEqual(A.togliMarcatori(liscio), { segmenti: [liscio], tolti: [] });
+  assert.deepStrictEqual(A.togliMarcatori(''), { segmenti: [], tolti: [] });
+  assert.deepStrictEqual(A.togliMarcatori(null), { segmenti: [], tolti: [] });
+  const t = 'Prima. [Figure della pagina 7] ' + LEGENDA_FIG + ' Verde uno. ⟦da controllare: Giallo due.⟧ Verde tre. [/Figure]';
+  const r = A.togliMarcatori(t);
+  assert.deepStrictEqual(r.segmenti, ['Prima.', 'Verde uno.', 'Giallo due.', 'Verde tre.']);
+  assert.deepStrictEqual(r.tolti, ['[Figure della pagina 7]', LEGENDA_FIG, '⟦da controllare: ', '⟧', '[/Figure]']);
+  r.segmenti.forEach(s => assert.ok(t.indexOf(s) >= 0, 'ogni segmento è un pezzo contiguo del testo'));
+  /* le tre famiglie, in inglese, e il numero di pagina a più cifre */
+  const en = A.togliMarcatori('[Figures of page 12] ⟦da controllare: …⟧ = text read from an image, uncertain: use it only if the rest of the source confirms it. One. [/Figures] [Text as images of page 3, local OCR] ⟦da controllare: Two.⟧ [/Text as images] [Formulas of page 5] ⟦da controllare: 1) x > 2⟧ [/Formulas]');
+  assert.deepStrictEqual(en.segmenti, ['One.', 'Two.', '1) x > 2']);
+  assert.strictEqual(en.tolti.length, 11, 'tre aperture, tre chiusure, la legenda, due segni che aprono e due che chiudono');
+  /* due passate, stesso risultato */
+  assert.deepStrictEqual(A.togliMarcatori(t), r);
+});
+
+test('0120: la stessa frase scritta due volte sulla pagina è UNA prova per nodo, e il posto va alla frase dopo', () => {
+  const riga = 'I vassalli forniscono al re un numero di cavalieri proporzionato alla grandezza dei loro feudi.';
+  const altra = 'Il vassallo riceve dal re un feudo e in cambio promette fedeltà e cavalieri.';
+  const f = A.frasiDaPagine([{ n: 2, text: riga + ' ' + riga + ' ' + altra }]);
+  assert.strictEqual(f.length, 3, 'le tre frasi ci sono, la copia compresa');
+  const q = A.ancoraNodi([{ id: 'n', desc: 'I vassalli forniscono cavalieri al re, in numero proporzionato ai feudi ricevuti in cambio di fedeltà.' }], f).perNodo.n;
+  assert.strictEqual(q.length, 2);
+  assert.strictEqual(q[0].text, riga);
+  assert.strictEqual(q[1].text, altra, 'la seconda citazione è l\'altra frase, non la copia');
+  /* rilettura dello 0120: la copia saltata è la STESSA prova, quindi conta come coperta — altrimenti la copertura
+     cala e il passaggio di copertura rimanda al modello una frase che la mappa cita già */
+  const anc = A.ancoraNodi([{ id: 'n', desc: 'I vassalli forniscono cavalieri al re, in numero proporzionato ai feudi ricevuti in cambio di fedeltà.' }], f);
+  assert.deepStrictEqual(Object.keys(anc.usate).map(Number).sort(), [0, 1, 2], 'la copia (idx 1) è usata, non orfana');
+  const cop = A.copertura(f, anc.usate);
+  assert.strictEqual(cop.pct, 100);
+  assert.deepStrictEqual(cop.pagine[0].orfane, []);
+});
+
+test('0120: fuori da un blocco delle figure le parentesi ⟦ ⟧ sono testo (parte intera, logica): la pagina passa intatta', () => {
+  const mate = 'La parte intera ⟦x⟧ di un numero reale x è il più grande intero minore o uguale a x. Per esempio ⟦3,7⟧ vale 3 e ⟦−1,2⟧ vale −2 secondo la definizione data.';
+  assert.deepStrictEqual(A.togliMarcatori(mate), { segmenti: [mate], tolti: [] });
+  const t = testiFig([{ n: 1, text: mate }]);
+  assert.strictEqual(t.length, 2);
+  assert.ok(t[0].startsWith('La parte intera ⟦x⟧'), 'la prima frase è intera, con le sue parentesi');
+  /* dentro un blocco il segno resta un confine, anche sulla stessa pagina */
+  const conBlocco = mate + ' [Figure della pagina 1] ' + LEGENDA_FIG + ' Il grafico mostra la funzione a gradini della parte intera fra meno due e due. ⟦da controllare: Gli scalini salgono di uno a ogni intero positivo del piano.⟧ [/Figure]';
+  const r = A.togliMarcatori(conBlocco);
+  assert.ok(r.tolti.includes('[Figure della pagina 1]') && r.tolti.includes('[/Figure]'));
+  assert.ok(r.segmenti.includes('Gli scalini salgono di uno a ogni intero positivo del piano.'), 'la riga gialla del blocco è un segmento a sé');
 });

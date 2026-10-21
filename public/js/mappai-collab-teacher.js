@@ -414,42 +414,29 @@
     CT.renderLimSidebarTab = function () {
         const panel = document.getElementById('sidebar-panel-lim');
         if (!panel) return;
-        // classe attiva → mostrala nella card dedicata
-        const activeCls = (window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive()) || null;
-        const clsDesc = activeCls
-            ? t('lim_class_active_on', 'Attiva:') + ' ' + (activeCls.name || '')
-            : t('lim_class_active_d', 'Nessuna: la generazione resta generica');
+        /* 0116, gate del 21/10 (Giacomo): via il titoletto «Attività da LIM» e la sua
+           riga, via «Domande aperte» (i fogli si lanciano da «Studio attivo live»),
+           via «Timeline», via la sezione CLASSI coi suoi due bottoni: «siamo già
+           dentro un progetto che ha una classe e una materia, da questa sidebar non
+           si genera nessun tipo di mappa ma si possono solo aprire materiali già
+           generati dentro il progetto». */
         panel.innerHTML =
-            '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin:2px 0 4px">' +
-              esc(t('lim_title', 'Attività da LIM')) + '</div>' +
-            '<div style="font-size:11.5px;color:var(--mm-testo-3, #64748b);line-height:1.5;margin-bottom:4px">' +
-              esc(t('lim_intro', 'Attività via QR: gli allievi entrano dal telefono sulla rete d\'aula.')) + '</div>' +
             // ── § Attività live (gli allievi entrano col QR) ─────────────────
             limSection(t('lim_sec_live', 'Attività live')) +
-            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz V/F, scelta multipla o domande tue')) +
+            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz a scelta multipla, domande aperte o domande tue')) +
             limCard('board', 'presentation', t('cl_title', 'Mappa LIVE'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
-            limCard('scelta', 'list-checks', t('lv_card_scelta', 'Domande a scelta'), t('lv_card_scelta_d', 'Gli allievi leggono i richiami della mappa e scelgono a quali rispondere')) +
             limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
-            limCard('timeline', 'calendar-clock', t('lv_card_timeline', 'Timeline'), t('lim_timeline_d', 'Completa o costruisci la timeline')) +
             // ── § Condivisione ───────────────────────────────────────────────
             limSection(t('lim_sec_share', 'Condivisione')) +
             limCard('materials', 'folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)')) +
-            // ── § Classi ─────────────────────────────────────────────────────
-            limSection(t('lim_sec_classes', 'Classi')) +
-            limCard('class-switch', 'graduation-cap', t('lim_class_active', 'Classe attiva'), clsDesc) +
-            limCard('class-accounts', 'users', t('ui_class_accounts', 'Account classi'), t('lim_classes_d', 'Crea e gestisci classi e credenziali')) +
             '<div id="lim-active" style="margin-top:6px"></div>';
         // dispatch: data-act → azione (guardia + fallback toast per funzioni assenti)
         const missing = function () { if (window.showToast) window.showToast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };
         const actions = {
             'live': function () { if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup(); else missing(); },
             'board': function () { if (window.openCollabHub) window.openCollabHub(); else missing(); },
-            'scelta': function () { if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive(); else missing(); },
             'tutor': function () { if (window.MappAITutor && window.MappAITutor.open) window.MappAITutor.open(); else missing(); },
-            'timeline': function () { if (window.MappAITimelineLive && window.MappAITimelineLive.openSetup) window.MappAITimelineLive.openSetup(); else missing(); },
-            'materials': function () { if (window.MappAILive && window.MappAILive.openMaterials) window.MappAILive.openMaterials(); else missing(); },
-            'class-switch': function () { if (window.openClassSwitcher) window.openClassSwitcher(); else missing(); },
-            'class-accounts': function () { if (window.openClassAccountsModal) window.openClassAccountsModal(); else missing(); }
+            'materials': function () { if (window.MappAILive && window.MappAILive.openMaterials) window.MappAILive.openMaterials(); else missing(); }
         };
         panel.querySelectorAll('.lim-card').forEach(function (btn) {
             btn.onclick = function () { const fn = actions[btn.getAttribute('data-act')]; if (fn) fn(); };

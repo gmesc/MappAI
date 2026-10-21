@@ -47,6 +47,8 @@ const path = require('path');
 const crypto = require('crypto');
 const LC = require(path.join(__dirname, 'public', 'js', 'mappai-live-core.js'));
 const LR = require(path.join(__dirname, 'public', 'js', 'mappai-live-reports.js'));
+const FONT_CORE = require(path.join(__dirname, 'public', 'js', 'mappai-font-core.js'));   // il catalogo dei caratteri (0112)
+const LIVE_FONT = require(path.join(__dirname, 'public', 'js', 'mappai-live-font.js'));   // le @font-face per la scheda dell'allievo (0112)
 const TC = require(path.join(__dirname, 'public', 'js', 'mappai-timeline-core.js'));   // Timeline Live (008)
 const SC = require(path.join(__dirname, 'public', 'js', 'mappai-scelta-core.js'));      // «Domande a scelta»
 const FC = require(path.join(__dirname, 'public', 'js', 'mappai-files-core.js'));       // scambio con MappAI studente (7/9)
@@ -70,15 +72,40 @@ const STATIC_ALLOW = [
   '/public/fonts/',
   '/public/live/',
   '/public/js/mappai-live-core.js',
+  // Prova del font emoji (0099): decide se `--emoji` tiene 'MappAI Emoji' su questo dispositivo.
+  '/public/js/mappai-emoji-prova.js',
   // «Domande a scelta»: la pagina studente carica il core e la view — senza
   // questi due la superficie non esiste al telefono.
   '/public/js/mappai-scelta-core.js',
+  // La scelta multipla (0112): la domanda col 🔊, le opzioni e il verdetto della pagina studente e
+  // della view «a scelta» stanno in questo modulo — senza, il quiz al telefono perde l'aspetto.
+  '/public/js/mappai-quiz-mc-view.js',
+  // La scheda che l'allievo salva dal telefono (0112) è la stessa card del report del docente: stessa fonte.
+  '/public/js/mappai-live-reports.js',
+  // Il carattere del docente sul telefono (0112): il catalogo e il modulo che lo applica. NON `mappai-font.js` (quello è dell'app).
+  '/public/js/mappai-font-core.js',
+  '/public/js/mappai-live-font.js',
   '/public/js/mappai-scelta-view.js',   // ⚠️ confronto ESATTO più sotto: un `.bak` accanto non si serve
   '/public/js/vendor/'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB
 
 function token(n) { return crypto.randomBytes(n).toString('base64url').slice(0, n); }
+
+/* Due salvataggi sono LO STESSO se coincidono campo per campo, tolti quelli
+   che il server aggiunge da sé (l'ora, il verdetto). Serve a una cosa sola
+   (0116, difetto D): il telefono rispedisce dopo 4 s un salvataggio fallito
+   (`scheduleRetry`), e se intanto l'allievo ha consegnato la copia rispedita
+   non deve riaprire la consegna. Una risposta cambiata davvero la riapre. */
+function stessoSalvataggio(a, b, via) {
+  if (!a || !b) return false;
+  const pulito = function (x) {
+    const o = Object.assign({}, x);
+    via.forEach(function (k) { delete o[k]; });
+    return o;
+  };
+  return JSON.stringify(pulito(a)) === JSON.stringify(pulito(b));
+}
 
 /* Content-Disposition per un nome qualunque (25/9). Node rifiuta nelle
    intestazioni i caratteri fuori dal Latin-1: un «—» o un apostrofo tipografico
@@ -190,6 +217,8 @@ function createLiveServer(opts) {
   if (fs.existsSync(sessionFile) && !opts.fresh) {
     const s = JSON.parse(fs.readFileSync(sessionFile, 'utf8'));
     session = s.session;
+    // il carattere è del docente di ADESSO: in una ripresa non vale quello salvato (assente nelle sessioni di prima)
+    session.font = (opts.session && typeof opts.session.font === 'string' && FONT_CORE.valido(opts.session.font)) ? opts.session.font : '';
     roster = s.roster || [];
     try { questions = JSON.parse(fs.readFileSync(questionsFile, 'utf8')); } catch (e) { questions = []; }
     // In «a scelta» il pool È l'attività: riprenderla senza è irrecuperabile, e
@@ -232,6 +261,8 @@ function createLiveServer(opts) {
       // immediata si smette di ragionare e si tira a indovinare finché non
       // diventa verde, e in classe è una scelta del docente, non dell'app.
       feedbackImmediato: cfg.feedbackImmediato === true,
+      // il carattere scelto dal docente (0112): solo un id del catalogo, mai testo libero verso il telefono
+      font: (typeof cfg.font === 'string' && FONT_CORE.valido(cfg.font)) ? cfg.font : '',
       build: (cfg.mode === 'build' && cfg.build) ? {
         gaps: Array.isArray(cfg.build.gaps) ? cfg.build.gaps : [],
         freeAllowed: cfg.build.freeAllowed !== false,
@@ -299,7 +330,9 @@ function createLiveServer(opts) {
       const out = st.poolIds.map(i => per[i]).filter(Boolean);
       if (out.length) return out;
     }
-    const scelto = SC.unaPerAngolo(questions, id);
+    /* 0116: in modalità semplice ogni allievo riceve TUTTE le domande del
+       foglio scelto dal docente, senza campionamento */
+    const scelto = (session.scelta && session.scelta.semplice) ? questions.slice() : SC.unaPerAngolo(questions, id);
     // ⚠️ MAI riscrivere a vuoto: se le domande non si sono rilette (file perso,
     // scrittura a metà), un `poolIds` azzerato farebbe scartare a
     // `normalizzaStato` tutte le risposte già su disco al primo salvataggio.
@@ -326,6 +359,26 @@ function createLiveServer(opts) {
   }
 
   function statoDi(st) { return st.stato || { aree: [], fase: '', letture: {}, risposte: {}, bozze: {}, note: '' }; }
+
+  /* 0116, gate del 21/10: la scheda di UN allievo per le domande a scelta, nella
+     forma della card del quiz (`studentCardHtml`): tutte le sue domande con la
+     risposta o «vuoto», senza correzione (`soloAperte`) e senza traccia. La usano
+     il 💾 dell'allievo (/api/my-sheet) e il «Report allievi» del docente. */
+  function schedaSceltaDi(id, st) {
+    const em = (LC.emojiByKey(st.emojiKey) || {}).emoji || '';
+    const R = statoDi(st).risposte || {};
+    const items = poolDi(id, st).map((v, i) => {
+      const a = R[v.id] || {};
+      const tua = v.tipo === 'mc'
+        ? ((a.scelta >= 0 && v.opzioni) ? String(v.opzioni[a.scelta] || '') : '')
+        : String(a.testo || '').trim();
+      return { idx: i, kind: v.tipo, outcome: tua ? 'manual' : 'blank', text: v.testo, yourText: tua };
+    });
+    const scritte = items.filter(q => q.outcome !== 'blank').length;
+    return { emoji: em, emojiLabel: (LC.emojiByKey(st.emojiKey) || {}).label || '', num: st.num || '',
+      displayName: st.nick || ((em + ' ' + (st.num || '')).trim()),
+      accuracyPct: 0, answered: scritte, blankCount: items.length - scritte, manualCount: 0, soloAperte: true, items };
+  }
 
   // Tutte le proposte (modalità Costruisci), con autore.
   function allProposals() {
@@ -442,6 +495,7 @@ function createLiveServer(opts) {
       // stessi per tutti, sono le domande a essere campionate
       const results = {
         mode: 'scelta', joined: Object.keys(students).length,
+        semplice: !!(session.scelta && session.scelta.semplice),   // 0116: il report tace su tagli e aree
         consegnato: perAllievo.filter(a => a.consegnato).length,
         byStudent: perAllievo,
         angoli: SC.calorClasse(questions, stati),
@@ -449,6 +503,11 @@ function createLiveServer(opts) {
       };
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
       fs.writeFileSync(path.join(dir, 'report-scelta.html'), LR.buildSceltaReportHtml(meta(), results));
+      // 0116, gate del 21/10: il «Report allievi», come il quiz — una scheda per allievo
+      fs.writeFileSync(path.join(dir, 'report-studenti.html'), LR.buildStudentsReportHtml(meta(), {
+        joined: Object.keys(students).length,
+        perStudent: Object.keys(students).map(id => schedaSceltaDi(id, students[id]))
+      }));
     } else {
       const results = LC.computeResults(questions, Object.values(students), roster);
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
@@ -485,6 +544,8 @@ function createLiveServer(opts) {
         return json(res, 200, {
           schema: 'mappai-live-session@1',
           name: session.name, activity: session.activity, className: session.className,
+          // il carattere scelto dal docente: solo se sta nel catalogo (mai testo libero verso il telefono)
+          font: session.font || '',
           phase: session.phase, questionCount: questions.length,
           endsAt: session.endsAt, emojiSet: LC.EMOJI_SET,
           // Timeline Live (008): mode/login/hint per il player; build SENZA sourceYears
@@ -506,7 +567,8 @@ function createLiveServer(opts) {
           session: {
             name: session.name, activity: session.activity, className: session.className,
             phase: session.phase, startedAt: session.startedAt, endsAt: session.endsAt,
-            durationMin: session.durationMin
+            durationMin: session.durationMin,
+            mode: session.mode || 'quiz'   // 0116: i bottoni dei report non dipendono più da chi ha lanciato
           },
           msLeft: session.endsAt ? Math.max(0, new Date(session.endsAt).getTime() - now) : null,
           roster: roster.map(r => {
@@ -547,6 +609,49 @@ function createLiveServer(opts) {
         const reveal = !!session.revealAnswers && submitted;   // niente soluzioni prima della consegna
         return json(res, 200, { revealAnswers: !!session.revealAnswers, submitted, phase: session.phase,
           result: LC.computeStudentResult(questions, st, { reveal }) });
+      }
+
+      /* La SCHEDA che l'allievo salva dal telefono (0112): una pagina vera, col nome del file nel <title> e la
+         stampa che parte da sola. Una finestra riempita a mano dal telefono veniva stampata bianca da iOS.
+         Stesse guardie di my-result: il suo telefono, e solo dopo la consegna, e solo se il docente mostra le soluzioni. */
+      if (p === '/api/my-sheet' && req.method === 'GET') {
+        // un errore, qui, lo legge una persona sul telefono: una paginetta, non un JSON (che il browser scarica come file)
+        const no = (code, testo) => {
+          res.writeHead(code, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end('<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MappAI Live</title></head>' +
+            '<body style="font:18px/1.5 system-ui,sans-serif;padding:28px;color:#404040"><p>' + testo + '</p></body></html>');
+        };
+        if (u.searchParams.get('s') !== session.token) return no(403, 'Il link non è valido. Riscansiona il QR.');
+        // 0116, gate del 21/10: le domande aperte SEMPLICI hanno la scheda, come il quiz
+        const sceltaSemplice = session.mode === 'scelta' && !!(session.scelta && session.scelta.semplice);
+        if (session.mode === 'scelta' && !sceltaSemplice) return no(404, 'Questa attività non ha una scheda del risultato.');
+        const id = pid({ nick: u.searchParams.get('nick'), emojiKey: u.searchParams.get('emojiKey'), num: u.searchParams.get('num') });
+        const st = students[id];
+        if (!st) return no(404, 'Non risulti fra gli allievi di questa attività.');
+        if (st.deviceId !== u.searchParams.get('deviceId')) return no(403, 'La scheda si apre solo dal telefono con cui hai risposto.');
+        if (!(!!st.finishedAt || session.phase === 'closed')) return no(409, 'La scheda è disponibile dopo la consegna. Torna alla pagina del quiz e tocca «Consegna».');
+        if (!sceltaSemplice && !session.revealAnswers) return no(404, 'L\'insegnante ha scelto di non mostrare le soluzioni: non c\'è una scheda da salvare.');
+        const em = (LC.emojiByKey(st.emojiKey) || {}).emoji || '';
+        const oggi = new Date(), due = (n) => String(n).padStart(2, '0');
+        let allievo;
+        if (sceltaSemplice) {
+          allievo = schedaSceltaDi(id, st);   // tutte le domande, nessuna correzione, nessuna traccia
+        } else {
+          const r = LC.computeStudentResult(questions, st, { reveal: true });
+          const items = Array.isArray(r.perQuestion) ? r.perQuestion : [];
+          allievo = { emoji: em, emojiLabel: (LC.emojiByKey(st.emojiKey) || {}).label || '', num: st.num || '',
+            displayName: st.nick || ((em + ' ' + (st.num || '')).trim()), accuracyPct: r.accuracyPct || 0,
+            answered: items.filter(q => q.outcome !== 'blank').length, blankCount: r.blank || 0, manualCount: r.manual || 0, items };
+        }
+        const html = LR.buildStudentSheetHtml(
+          { mapTitle: session.name, activity: session.activity, className: session.className,
+            dateStr: due(oggi.getDate()) + '/' + due(oggi.getMonth() + 1) + '/' + oggi.getFullYear() },
+          allievo,
+          { date: oggi, autoPrint: true, emojiProva: true,
+            // Space Mono (il predefinito) e, se il docente ne ha scelto un altro, il suo: i file li serve questo stesso server
+            extraCss: FONT_CORE.facce('space-mono', '/public/fonts/') + '\n' + LIVE_FONT.css(session.font) });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(html); return;
       }
 
       if (p === '/api/report' && req.method === 'GET') {
@@ -697,12 +802,15 @@ function createLiveServer(opts) {
               const prima = (st.stato && st.stato.risposte) ? st.stato.risposte[k] : null;
               if (prima) nuovo.risposte[k] = prima;
             });
+            const identico = stessoSalvataggio(st.stato, nuovo, ['updatedAt']);
             st.stato = nuovo;
             st.stato.updatedAt = Date.now();
             // ⚠️ `dopoConsegna` = quello che si scrive NELLA schermata di esito
             // (il «perché no?»). Senza questo distinguo la consegna si annullava
             // a ogni tasto premuto, e la dashboard perdeva la spunta.
-            if (!body.dopoConsegna) st.finishedAt = null;   // ha ripreso a lavorare
+            // ⚠️ `identico` (0116): uno stato rispedito uguale a quello salvato
+            // non è «ha ripreso a lavorare», è il ritardo della rete.
+            if (!body.dopoConsegna && !identico) st.finishedAt = null;   // ha ripreso a lavorare
             persistStudent(id);
             const mioPool = poolDi(id, st);
             const n = SC.conteggio(mioPool, st.stato);
@@ -753,11 +861,14 @@ function createLiveServer(opts) {
             if (session.feedbackImmediato && vecchia && vecchia.verdetto) {
               return json(res, 409, { error: 'already-graded', verdetto: vecchia.verdetto });
             }
+            const identica = stessoSalvataggio(vecchia, a, ['updatedAt', 'verdetto']);
             a.updatedAt = Date.now();
             const v = verdettoSu(q, a);
             if (v) a.verdetto = v;             // viaggia col rientro: il join riconsegna `answers`
             st.answers[qIdx] = a;              // Indietro = sovrascrittura (finché non è corretta)
-            st.finishedAt = null;              // ha ripreso a rispondere
+            // ⚠️ `identica` (0116): la stessa risposta rispedita dal telefono
+            // (`scheduleRetry`) dopo la consegna non la riapre.
+            if (!identica) st.finishedAt = null;   // ha ripreso a rispondere
             persistStudent(id);
             return json(res, 200, { ok: true, saved: qIdx, answered: Object.keys(st.answers).length,
               verdetto: v });
@@ -784,7 +895,10 @@ function createLiveServer(opts) {
               const rivela = !!cfg.reveal;
               return json(res, 200, {
                 ok: true, reveal: rivela,
-                profilo: rivela ? SC.profilo(mio, statoDi(st)) : null,
+                /* ⚠️ 0116, gate del 21/10: col profilo spento (la modalità semplice) il
+                   telefono diceva «0 risposte scritte su 0 domande». Il CONTEGGIO non
+                   parla di angoli: viaggia sempre, senza le righe dei tagli. */
+                profilo: rivela ? SC.profilo(mio, statoDi(st)) : { righe: [], conteggio: SC.conteggio(mio, statoDi(st)) },
                 // ⚠️ anche l'evitata esce da `SC.pubblico`: è la domanda che lo
                 // studente sta per RIAPRIRE col secondo giro, e mandargliela
                 // grezza vorrebbe dire mandargli la soluzione. L'angolo sì: a
@@ -987,7 +1101,13 @@ function createMaterialsServer(opts) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-    const tokenOk = u.searchParams.get('s') === session.token || u.searchParams.get('s') === session.adminToken;
+    /* `s` = il token, oppure `<token>-<chiave>`: il QR «Vault su iPad» nomina la
+       mappa (0109). Il vault va solo alla chiave della mappa esposta ADESSO: il QR
+       di un documento, quello di A dopo B o dopo un riavvio non la portano. */
+    const s = u.searchParams.get('s') || '';
+    const conChiave = s.indexOf(session.token + '-') === 0 && /^[a-z0-9]{1,7}$/.test(s.slice(session.token.length + 1));
+    const tokenOk = s === session.token || s === session.adminToken || conChiave;
+    const vaultOk = !!vault && (s === session.adminToken || s === session.token + '-' + FC.chiaveVault(vault.nome));
 
     if (p === '/') {
       res.writeHead(302, { Location: '/public/live/materials.html?s=' + session.token });
@@ -996,13 +1116,13 @@ function createMaterialsServer(opts) {
 
     if (p === '/api/vault' && req.method === 'GET') {
       if (!tokenOk) return json(res, 403, { error: 'token' });
-      if (!scambio || !vault) return json(res, 404, { error: 'nessun-vault' });
+      if (!scambio || !vaultOk) return json(res, 404, { error: 'nessun-vault' });
       return json(res, 200, manifestPubblico());
     }
     if (p.startsWith('/vault/') && req.method === 'GET') {
       if (!tokenOk) { res.writeHead(403); res.end('forbidden'); return; }
       let rel = ''; try { rel = decodeURIComponent(p.slice('/vault/'.length)); } catch (e) { rel = ''; }
-      if (!scambio || !vault || !vaultSet.has(rel)) { res.writeHead(404); res.end('not found'); return; }
+      if (!scambio || !vaultOk || !vaultSet.has(rel)) { res.writeHead(404); res.end('not found'); return; }
       const file = path.join(vault.dir, ...rel.split('/'));
       if (!fs.existsSync(file)) { res.writeHead(404); res.end('not found'); return; }
       const ext = path.extname(file).toLowerCase();
@@ -1023,17 +1143,13 @@ function createMaterialsServer(opts) {
     }
 
     if (p === '/api/materials' && req.method === 'GET') {
-      if (u.searchParams.get('s') !== session.token && u.searchParams.get('s') !== session.adminToken) {
-        return json(res, 403, { error: 'token' });
-      }
+      if (!tokenOk) return json(res, 403, { error: 'token' });
       return json(res, 200, { name: session.name, files: listFiles() });
     }
 
     // download: solo basename dentro filesDir (traversal impossibile per costruzione)
     if (p.startsWith('/files/') && req.method === 'GET') {
-      if (u.searchParams.get('s') !== session.token && u.searchParams.get('s') !== session.adminToken) {
-        res.writeHead(403); res.end('forbidden'); return;
-      }
+      if (!tokenOk) { res.writeHead(403); res.end('forbidden'); return; }
       let name = '';   // un `%` monco fa lanciare decodeURIComponent: stesso guasto di `new URL`
       try { name = path.basename(decodeURIComponent(p.slice('/files/'.length))); }
       catch (e) { res.writeHead(400); res.end('bad request'); return; }

@@ -65,12 +65,13 @@ test('disciplineFolder: nome FS-safe, vuoto = nessun livello', () => {
   assert.strictEqual(FC.disciplineFolder(null), '');
 });
 
-test('mapVaultParents: Generico / classe / classe+disciplina', () => {
-  // 15/8 sera: senza classe il vault va in Mappe/Generico/, non più piatto —
-  // e senza classe non c'è disciplina (Generico non ha sottocartelle di materia)
-  assert.deepStrictEqual(FC.mapVaultParents(null, 'Storia'), ['Generico']);
-  assert.deepStrictEqual(FC.mapVaultParents('', 'Storia'), ['Generico']);
-  assert.deepStrictEqual(FC.mapVaultParents(''), [FC.GENERICO]);
+test('mapVaultParents: Senza classe / classe / classe+disciplina', () => {
+  // 15/8 sera: senza classe il vault non sta più piatto; dal 0104 (N5) il
+  // contenitore si chiama «Senza classe» (era Generico). Un progetto NUOVO senza
+  // classe non ha cartella di materia, come prima.
+  assert.deepStrictEqual(FC.mapVaultParents(null, 'Storia'), ['Senza classe']);
+  assert.deepStrictEqual(FC.mapVaultParents('', 'Storia'), ['Senza classe']);
+  assert.deepStrictEqual(FC.mapVaultParents(''), [FC.SENZA_CLASSE]);
   assert.deepStrictEqual(FC.mapVaultParents('Bellinzona-2A', ''), ['Bellinzona-2A']);
   assert.deepStrictEqual(FC.mapVaultParents('2A', 'Storia'), ['2A', 'Storia']);
   assert.deepStrictEqual(FC.mapVaultParents('4R', 'Scienze'), ['4R', 'Scienze']);
@@ -87,6 +88,10 @@ test('GENERICO è un nome riservato: chi legge lo ritraduce in classDir null', (
   assert.strictEqual(FC.classDirDaCartella(null), null);
   // Generico non è un contenitore di sistema: va scandito, non escluso
   assert.strictEqual(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Generico'), -1);
+  // 0104: «Senza classe» si ritraduce come Generico e si scandisce; «Credenziali» si salta
+  assert.strictEqual(FC.classDirDaCartella('Senza classe'), null);
+  assert.strictEqual(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Senza classe'), -1);
+  assert.ok(FC.VAULT_CONTAINER_EXCLUDE.indexOf('Credenziali') >= 0);
   // andata e ritorno: quello che lo scrittore mette, il lettore lo toglie
   assert.strictEqual(FC.classDirDaCartella(FC.mapVaultParents('')[0]), null);
 });
@@ -370,7 +375,8 @@ test('sessionRecordFrom: forma TUTOR (students vs roster) + scope', () => {
 // ── Mappe di un profilo ALLIEVO (2/8) ──────────────────────────────────────
 test('le mappe di un allievo vivono nella sua cartella, non fra quelle di classe', () => {
     const basi = { maps: '/F/Mappe', students: '/F/Allievi' };
-    assert.strictEqual(FC.mapVaultRoot(basi, 'Anna Rossi'), '/F/Allievi/Anna Rossi/Mappe');
+    // 0104 (N5): i progetti dell'allievo stanno direttamente nella sua cartella
+    assert.strictEqual(FC.mapVaultRoot(basi, 'Anna Rossi'), '/F/Allievi/Anna Rossi');
     assert.strictEqual(FC.mapVaultRoot(basi, ''), '/F/Mappe', 'senza allievo si resta in Mappe');
     // dentro la cartella di un allievo il percorso è già personale: niente
     // livello classe/disciplina (i due contesti si escludono a vicenda)
@@ -380,7 +386,7 @@ test('le mappe di un allievo vivono nella sua cartella, non fra quelle di classe
     // separatori, quindi il percorso non può uscire da «Allievi»
     const furbo = FC.mapVaultRoot(basi, '../fuori');
     assert.ok(furbo.startsWith('/F/Allievi/'), furbo);
-    assert.strictEqual(furbo.split('/').length, '/F/Allievi/x/Mappe'.split('/').length, 'nessun livello in più');
+    assert.strictEqual(furbo.split('/').length, '/F/Allievi/x'.split('/').length, 'nessun livello in più');
 });
 
 test('«Allegati» è scrivibile dalla pipeline, la risalita no', () => {
@@ -607,4 +613,17 @@ test('0061: F1. idProgettoValido: la forma che l\'app conia, e nient\'altro', ()
   for (const x of ['tutor_ai_projects', 'mappai_language', 'proj_12', 'proj_1788975818955 ', 42, null, '']) {
     assert.strictEqual(FC.idProgettoValido(x), false, JSON.stringify(x));
   }
+});
+
+// ── chiaveVault (0109): la chiave della mappa nel QR «Vault su iPad» ────
+test('chiaveVault: stabile, uguale per NFC e NFD, diversa per mappe diverse, solo [a-z0-9]', () => {
+  const k = FC.chiaveVault('La Città');
+  assert.match(k, /^[a-z0-9]{1,7}$/);
+  assert.strictEqual(FC.chiaveVault('La Città'), k, 'stabile');
+  assert.strictEqual(FC.chiaveVault('La Città'), k, 'NFD come NFC: il Finder del Mac scrive i nomi decomposti');
+  assert.strictEqual(FC.chiaveVault('  La Città '), k, 'gli spazi ai bordi non contano');
+  assert.notStrictEqual(FC.chiaveVault('Il Clima'), k);
+  assert.notStrictEqual(FC.chiaveVault('la città'), k, 'maiuscole diverse = cartelle diverse');
+  assert.match(FC.chiaveVault(''), /^[a-z0-9]{1,7}$/);
+  assert.match(FC.chiaveVault(null), /^[a-z0-9]{1,7}$/);
 });

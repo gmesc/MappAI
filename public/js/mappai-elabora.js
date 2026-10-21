@@ -72,7 +72,9 @@
     // Si ENTRA sempre dai DOCUMENTI (scelta utente 27/7/26): è il motivo per cui si
     // apre ELABORA. L'analisi della fonte resta a un clic sul segmento.
     let _mode = 'docs';
-    let _srcView = 'text';         // vista pannello fonte: 'text' | 'pdf'
+    let _srcView = 'text';         // vista pannello fonte: 'text' | 'pdf' | 'figure' (0113/0114)
+    let _figNome = null;           // 0114: la vista «Figure» di UN PDF (la riga della tabella); null = tutti
+    let _manScossa = false;        // 0118: il chip della maniglia si scuote alla PRIMA apparizione, non a ogni `render`
     let _rightView = 'cards';      // vista pannello destro: 'cards' | 'tree'
     let _treeCollapsed = new Set();// nodi collassati nell'albero ELABORA (indipendente dalla sidebar)
     let _dragId = null;            // nodo trascinato nell'albero (drag&drop → sposta)
@@ -201,13 +203,14 @@
             _completaTestiMancanti().then(function (n) { if (n) renderSource(); }).catch(function () { });
         } catch (e) { }
         if (opts) {
-            if (opts.view) _srcView = (opts.view === 'pdf') ? 'pdf' : 'text';
+            if (opts.view) _srcView = (opts.view === 'pdf') ? 'pdf' : (opts.view === 'figure' ? 'figure' : 'text');   // 'figure': 0114, dalla tabella «Figure»
             if (opts.pdfIdx != null) _pdfIdx = opts.pdfIdx | 0;
+            _figNome = (_srcView === 'figure' && opts.pdfNome) ? String(opts.pdfNome) : null;
         }
         _injectStyles();
         return renderSource();
     }
-    function unmountSource() { _srcHost = null; _pdfToken++; }
+    function unmountSource() { _srcHost = null; _pdfToken++; _figPdfChiudi(); }   // 0118: le pagine del PDF a destra si liberano con la console
     function renderSource() {
         if (!_srcHost || !_srcHost.isConnected) return false;
         if (!hasMap()) { _srcHost.innerHTML = '<div class="elab-empty">' + t('el_no_map', 'Nessuna mappa aperta.') + '</div>'; return false; }
@@ -215,18 +218,74 @@
         if (!a) { _srcHost.innerHTML = '<div class="elab-empty">' + t('el_no_engine', 'Motore di analisi non disponibile.') + '</div>'; return false; }
         _srcHost.innerHTML = _sourceBodyHTML(a.s, a.R, a.pdfs);
         if (window.safeCreateIcons) window.safeCreateIcons({ root: _srcHost });
+        _montaManiglia(_srcHost);   // 0118
         if (_srcView === 'pdf' && a.pdfs.length) _mountPdf(a.pdfs);
+        if (_srcView === 'figure') { _figMonta(); _figPdfMonta(); }
         return true;
+    }
+    /* ── 0096: l'interruttore dei comandi della fonte (Giacomo, 14/10) ──────
+       Acceso se manca o vale '1'. Con '0' tornano la barra a sinistra, «Aggiungi
+       PDF» sempre premibile, l'export di prima e la doppia barra della Catena
+       (la console lo chiede a `comandiFonte`). Restano accesi comunque i guasti:
+       il modale di prima e il velo dell'export prendono il piano dal motore. */
+    function comandiFonte() {
+        try { return localStorage.getItem('mappai_comandi_fonte') !== '0'; } catch (e) { return true; }
+    }
+    /* ── 0118: la maniglia fra fonte e analisi, e il PDF a destra nella vista «Figure» ──
+       Due interruttori, accesi salvo '0' (invariante 1). La maniglia è quella del Banco
+       (`MappAIManiglia`, regole in `mappai-maniglia-core.js`): la fonte si chiude oltre il
+       bordo SINISTRO. La preferenza `mappai_elabora_fonte` è una per le due viste; la
+       predefinita 0,535 tiene le proporzioni di prima (1,15fr : 1fr). `render` riscrive
+       `#ec-src`, quindi si rimonta dopo ogni disegno. */
+    function _manigliaAccesa() {
+        try { return localStorage.getItem('mappai_elabora_maniglia') !== '0'; } catch (e) { return true; }
+    }
+    function _figPdfAccesa() {
+        try { return localStorage.getItem('mappai_figure_pdf_destra') !== '0'; } catch (e) { return true; }
+    }
+    function _montaManiglia(root) {
+        if (!root || !root.querySelector || !window.MappAIManiglia) return null;
+        const split = root.querySelector('.elab-split-man');
+        const man = split && split.querySelector('.elab-maniglia');
+        const pannello = split && split.querySelector('.elab-pane');   // il primo: la fonte
+        if (!man || !pannello) return null;
+        _manScossa = true;
+        const fig = _srcView === 'figure' && _figPdfAccesa();   // a sinistra le figure, a destra il PDF
+        return window.MappAIManiglia.monta({
+            contenitore: split, pannello, maniglia: man,
+            chiave: 'mappai_elabora_fonte', variabile: '--elab-fonte-w', lato: 'sinistra',
+            minPannello: 280, minAltro: 320, predefinita: 0.535, stretta: '(max-width: 900px)',
+            etichette: fig ? {
+                apri: t('el_split_open_fig', 'Riapri le figure: trascina o fai clic'),
+                sposta: t('el_split_move_fig', 'Sposta il confine fra le figure e il PDF; oltre il bordo sinistro le figure si chiudono')
+            } : {
+                apri: t('el_split_open', 'Riapri la fonte: trascina o fai clic'),
+                sposta: t('el_split_move', 'Sposta il confine fra fonte e analisi; oltre il bordo sinistro la fonte si chiude')
+            }
+        });
+    }
+    /* «il PDF della scheda didattica è già allegato» (0096, B): un PDF che ELABORA sa
+       mostrare — in memoria, aggiunto qui, o letto da `Fonti/`/`Allegati/` dopo un
+       riavvio. Un PDF perso (vault di prima dello 0059 senza copia) non conta: lì
+       il docente deve poterlo rimettere. */
+    function haPdf() { return _collectPdfs().length > 0; }
+    function motivoPdfGia() {
+        return t('el_add_pdf_gia', 'Il PDF della scheda è già allegato: un progetto ne ha uno solo.');
     }
     /* i comandi della fonte per la console: gli stessi gesti della barra del
        workspace, dichiarati come DATI perché lì la barra è della console. */
     function sourceActions() {
+        /* «blocco sempre» (Giacomo, 14/10): niente secondo PDF, anche se diverso.
+           Il bottone resta al suo posto, spento, e il fumetto dice perché. */
+        const giaPdf = comandiFonte() && haPdf();
         return [
             { id: 'src-questions', etichetta: t('el_questions', 'Domande della fonte'), icona: 'help-circle' },
             { id: 'src-hl', etichetta: t('el_export_hl', 'Esporta evidenziata'), icona: 'file-output' },
             { id: 'src-areas', etichetta: t('el_export_areas', 'Esporta per aree'), icona: 'files' },
             { id: 'src-text', etichetta: t('el_add_text', 'Incolla testo'), icona: 'clipboard-paste' },
-            { id: 'src-pdf', etichetta: t('el_add_pdf', 'Aggiungi PDF'), icona: 'plus', ruolo: 'primario' }
+            giaPdf
+                ? { id: 'src-pdf', etichetta: t('el_add_pdf', 'Aggiungi PDF'), icona: 'plus', ruolo: 'primario', spento: true, fumetto: motivoPdfGia() }
+                : { id: 'src-pdf', etichetta: t('el_add_pdf', 'Aggiungi PDF'), icona: 'plus', ruolo: 'primario' }
         ];
     }
     function runSourceAction(id) {
@@ -281,7 +340,9 @@
             if (window.MappAIDocEditor) window.MappAIDocEditor.render();
             return;
         }
+        _montaManiglia(overlay);   // 0118
         if (_srcView === 'pdf' && pdfs.length) _mountPdf(pdfs);
+        if (_srcView === 'figure') { _figMonta(); _figPdfMonta(); }
     }
 
     // portal a livello di body (sfugge al containing-block di .glass-card)
@@ -307,7 +368,7 @@
     function _teardownOverlay() {
         _pdfToken++; // annulla eventuale render PDF ancora in corso
         const el = document.getElementById('elab-overlay');
-        if (el) el.remove();
+        if (el) { el.remove(); if (_figPdf && !(_srcHost && _srcHost.isConnected)) _figPdfChiudi(); }   // 0118: il PDF a destra era dell'overlay
         document.body.classList.remove('elab-fullscreen');
     }
 
@@ -354,7 +415,7 @@
         if (typeof window.loadSavedProject === 'function') {
             // cambio progetto: libera i PDF della sessione precedente e resetta la
             // vista fonte (evita di ereditare un'anteprima PDF di un'altra mappa).
-            _pdfFiles.clear(); _srcView = 'text'; _pdfIdx = 0;
+            _pdfFiles.clear(); _srcView = 'text'; _pdfIdx = 0; _figNome = null;
             _forceEmpty = false;
             // L'editor documenti resterebbe aperto sul documento della mappa
             // precedente: azzeralo (i quiz appartengono alla loro mappa).
@@ -433,11 +494,18 @@
         const nCards = (R.coverage.cards || []).filter(c => !_ignored.has('cov:' + c.nodeId)).length +
             (R.text.signals || []).filter(x => !_ignored.has('sig:' + x.key)).length +
             (R.structural || []).filter((x, i) => !_ignored.has('str:' + i)).length;
+        /* 0118: la barra fra fonte e analisi è la maniglia (`mappai-maniglia.js`, montata da `_montaManiglia` dopo il disegno);
+           con `mappai_elabora_maniglia` = '0' torna la barra fissa di 9 px. Nella vista «Figure», con `mappai_figure_pdf_destra`
+           acceso, lo split destro è il PDF originale (Giacomo, 21/10: «analisi e struttura dell'albero in questa fase non servono»). */
+        const man = _manigliaAccesa() && !!window.MappAIManiglia;   // senza il modulo, la barra di prima: mai una maniglia muta
+        const srcPane = _srcPaneHTML(corpus, pdfs);   // prima della destra: decide se la vista «Figure» resta (`_srcView`)
+        const figPdf = _srcView === 'figure' && _figPdfAccesa();
         return '' +
           _triageStrip(s, R) +
-          '<div class="elab-split">' +
-            _srcPaneHTML(corpus, pdfs) +
-            '<div class="elab-divider"><span class="elab-grip"></span></div>' +
+          '<div class="elab-split' + (man ? ' elab-split-man' + (_manScossa ? '' : ' elab-scuoti') : '') + '">' +
+            srcPane +
+            (man ? '<div class="elab-maniglia"></div>' : '<div class="elab-divider"><span class="elab-grip"></span></div>') +
+            (figPdf ? _figPdfPaneHTML() :
             '<section class="elab-pane">' +
               '<div class="elab-pane-head"><span class="elab-lbl">' + t('el_analysis', 'Analisi &amp; suggerimenti') + '</span>' +
                 '<div class="elab-srcseg">' +
@@ -451,7 +519,7 @@
                     _signalsHTML(R) + _coverageHTML(R) + _structuralHTML(R) +
                     (nCards === 0 ? '<div class="elab-done">' + emo('coverage') + ' ' + t('el_all_good', 'Materiale ben coperto — nessun suggerimento in sospeso.') + '</div>' : '') +
                   '</div></div>') +
-            '</section>' +
+            '</section>') +
           '</div>' +
           _legend();
     }
@@ -643,19 +711,26 @@
     // ── #3: scheda della fonte CON gli highlight per macro-area (ordine di lettura) ──
     // Corpo = paragrafi della fonte con le frasi evidenziate nel colore dell'area
     // (stessa logica del pannello, ma con stili inline print-safe).
-    function _highlightedDocBody() {
+    /* `opts` (0096, D1: le spunte del menu valgono anche per il solo testo):
+       `graded:false` lascia evidenziati solo i concetti centrali (pieno), come nel
+       PDF; `legend` (solo dal menu) mette in testa la chiave colore → macro-area.
+       Senza `opts` il documento è quello di prima. */
+    function _highlightedDocBody(opts) {
+        opts = opts || {};
         const D = window.MappAIDeepenCore;
         const corpus = _corpus();
         if (!D || !D.splitSentences || !corpus) return '';
         const SD = window.MappAIStudyDoc;
         const paras = corpus.split(/\n{2,}/).filter(p => p.trim());
-        return '<div class="sd-source">' + paras.map(p => {
+        const colorate = [];
+        const corpo = '<div class="sd-source">' + paras.map(p => {
             const trimmed = p.trim();
             const sents = D.splitSentences(trimmed);
             if (!sents || !sents.length) return '<p>' + esc(trimmed) + '</p>';
             return '<p>' + sents.map(sn => {
                 const sc = _sentColor(sn);
-                if (!sc) return esc(sn);
+                if (!sc || (opts.graded === false && sc.strength === 'weak')) return esc(sn);
+                colorate.push(sc);
                 const a = sc.strength === 'weak' ? 0.13 : 0.32;
                 const style = (sc.kind === 'res')
                     ? 'background:' + SD.rgba(sc.color, 0.20) + ';box-shadow:inset 0 -2px 0 ' + SD.rgba(sc.color, 0.85)
@@ -663,11 +738,56 @@
                 return '<span style="' + style + '">' + esc(sn) + '</span>';
             }).join(' ') + '</p>';
         }).join('') + '</div>';
+        const residui = colorate.some(sc => sc.kind === 'res');
+        return (opts.legend ? _legendaTesto(_legendFor(colorate), opts.graded !== false, residui) : '') + corpo;
+    }
+    /* La legenda del solo testo (0096): le stesse voci della pagina-legenda del PDF
+       (`_drawLegendPage`), in un riquadro in testa al documento. I campioni sono
+       segnati come le frasi del testo, così la chiave si legge accanto al testo.
+       `residui` (gate dello 0096, Giacomo: «perché certe righe sono evidenziate e
+       sono anche sottolineate?»): il solo testo sottolinea le frasi che stanno
+       nella fonte e non ancora nella scheda (i residui della copertura, `_marks`),
+       e la legenda lo dice — con le parole della legenda di ELABORA (`el_leg_res`).
+       Nel PDF quelle frasi escono colorate come le altre: lì la riga non serve. */
+    function _legendaTesto(voci, graduata, residui) {
+        if (!voci || !voci.length) return '';
+        const SD = window.MappAIStudyDoc;
+        const segno = (c, a) => '<span style="display:inline-block;width:28px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:8px;background:' + SD.rgba(c, a) + '"></span>';
+        const riga = 'margin:4px 0';
+        const primo = voci[0].color;
+        return '<div class="sd-legenda" style="margin:0 0 18px;padding:12px 16px;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;page-break-inside:avoid">' +
+            '<div style="font-weight:700;margin-bottom:6px">' + esc(t('el_legend_title', 'Legenda dei colori')) + '</div>' +
+            voci.map(v => '<div style="' + riga + '">' + segno(v.color, 0.32) + esc(v.label || '—') + '</div>').join('') +
+            (graduata
+                ? '<div style="margin-top:8px;font-weight:700">' + esc(t('el_legend_intensity', 'Intensità del colore')) + '</div>' +
+                '<div style="' + riga + '">' + segno(primo, 0.32) + esc(t('el_legend_full', 'Pieno = concetto centrale della mappa')) + '</div>' +
+                '<div style="' + riga + '">' + segno(primo, 0.13) + esc(t('el_legend_weak', 'Tenue = argomento presente ma riassunto dalla mappa')) + '</div>'
+                : '') +
+            (residui
+                ? '<div style="' + riga + (graduata ? '' : ';margin-top:8px') + '"><span style="display:inline-block;width:28px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:8px;background:' +
+                SD.rgba(primo, 0.20) + ';box-shadow:inset 0 -2px 0 ' + SD.rgba(primo, 0.85) + '"></span>' +
+                esc(t('el_legend_res', 'Sottolineata = nella fonte, non ancora nella scheda')) + '</div>'
+                : '') +
+            '</div>';
     }
 
-    function exportHighlighted() {
+    /* Il nome del file della scheda evidenziata (gate dello 0096, Giacomo 15/10: «quando salvo
+       la scheda il nome dei file diventa '[nome progetto] - Scheda evidenziata.pdf'»): lo stesso
+       per il PDF evidenziato e per il solo testo salvato in PDF (che prende il nome dal suo
+       <title>). Il nome del progetto è quello della CARTELLA (ADR 0021); senza cartella, il
+       titolo della mappa. Si tolgono solo i caratteri che un nome di file non può avere. */
+    function nomeProgetto() {
+        const s = _appState() || {};
+        const cartella = String(s.activeVaultPath || '').split(/[\\/]/).filter(Boolean).pop() || '';
+        return String(cartella || s.rootNodeLabel || t('el_map', 'Mappa')).replace(/[\\/:*?"<>|]+/g, '-').trim();
+    }
+    function _nomeSchedaEvidenziata() {
+        return nomeProgetto() + ' - ' + t('el_scheda_evidenziata', 'Scheda evidenziata');
+    }
+
+    function exportHighlighted(opts) {
         if (!window.MappAIStudyDoc) { if (window.showToast) showToast(t('el_export_nolib', 'Costruttore documento non disponibile.'), 'error'); return; }
-        const body = _highlightedDocBody();
+        const body = _highlightedDocBody(opts);
         if (!body) { if (window.showToast) showToast(t('el_no_source_doc', 'Nessuna fonte da esportare.'), 'warning'); return; }
         const s = _appState();
         const lang = (window.getMapLanguage && window.getMapLanguage() === 'en') ? 'en' : 'it';
@@ -676,7 +796,8 @@
             mapName: (s && s.rootNodeLabel) || t('el_map', 'Mappa'),
             subtitle: t('el_crumb', 'elaborazione'),
             bodyHtml: body,
-            lang: lang
+            lang: lang,
+            titoloFile: comandiFonte() ? _nomeSchedaEvidenziata() : ''
         });
         window.MappAIStudyDoc.openDoc(html, { successMsg: t('el_doc_opened', 'Documento aperto — stampa o salva in PDF.') });
     }
@@ -731,25 +852,80 @@
         doc.text('MappAI · insegnai.ch', mx, H - 44);
     }
 
-    // Voce del bottone: fonte solo-testo → documento riflowato; PDF presente →
-    // apre il modale di configurazione dell'app (NON il dialog OS diretto).
+    function _pdfLibOk() { return typeof pdfjsLib !== 'undefined' && !!(window.jspdf && window.jspdf.jsPDF); }
+
+    // Voce del bottone «Esporta evidenziata». Dallo 0096 apre SEMPRE il menu delle
+    // due versioni; con l'interruttore spento, la strada di prima: fonte solo-testo
+    // → documento riflowato, PDF presente → il modale di configurazione del PDF.
     function exportHighlightedPdf() {
         const pdfs = _collectPdfs();
+        if (comandiFonte() && window.MappAIModal && window.MappAIModal.open) return _apriMenuEsporta(pdfs);
         if (!pdfs.length) return exportHighlighted();   // fonte solo-testo → riflow
-        if (typeof pdfjsLib === 'undefined' || !window.jspdf || !window.jspdf.jsPDF) {
+        if (!_pdfLibOk()) {
             if (window.showToast) showToast(t('el_pdf_export_fallback', 'Esporto la versione testo (PDF non disponibile).'), 'info');
             return exportHighlighted();
         }
         _openPdfExportModal(pdfs);
     }
 
+    /* ── IL MENU di «Esporta evidenziata» (0096, C) ─────────────────────────
+       Giacomo, 14/10: «il bottone esporta evidenziata non apre il menu di
+       esportazione, e serve poter esportare sia la versione PDF sottolineata che la
+       versione solo testo sottolineata. il tipo di scheda da esportare è quello
+       attivo nella vista». Il menu lo disegna il motore, che chiede il suo piano:
+       si vede sopra la console (inv. 11; il modale di prima nasceva a 1002, sotto
+       i 12100 della console, e il bottone sembrava morto). Parte dalla versione
+       della vista attiva (`_srcView`); senza PDF resta il solo testo. Le due spunte
+       valgono per tutte e due le versioni (D1). Le marcature sono quelle di
+       sempre, colori per macro-area. */
+    async function _apriMenuEsporta(pdfs) {
+        const pdfOk = pdfs.length > 0 && _pdfLibOk();
+        const suPdf = pdfOk && _srcView === 'pdf';
+        const campi = pdfOk ? [
+            { id: 'ver-pdf', tipo: 'radio', gruppo: 'versione', etichetta: t('el_exp_pdf', 'PDF evidenziato'),
+                aiuto: t('el_pdfexp_sub', 'Il PDF originale con le frasi evidenziate per macro-area.'), valore: suPdf },
+            { id: 'ver-testo', tipo: 'radio', gruppo: 'versione', etichetta: t('el_exp_testo', 'Solo testo evidenziato'),
+                aiuto: t('el_exp_testo_d', 'Il testo della fonte con le stesse evidenziazioni, in una pagina da stampare.'), valore: !suPdf }
+        ] : [{ id: 'solo-testo', tipo: 'nota',
+            etichetta: pdfs.length ? t('el_pdf_export_fallback', 'Esporto la versione testo (PDF non disponibile).')
+                : t('el_exp_solo_testo', 'Questo progetto non ha un PDF: si esporta il testo.') }];
+        if (pdfOk && pdfs.length > 1) {
+            campi.push({ id: 'quale', tipo: 'scelta', etichetta: t('el_pdfexp_which', 'Quale PDF'), valore: String(_pdfIdx),
+                opzioni: pdfs.map((p, i) => ({ valore: String(i), etichetta: p.name || ('PDF ' + (i + 1)) })) });
+        }
+        campi.push(
+            { id: 'legenda', tipo: 'spunta', etichetta: t('el_legend_title', 'Legenda dei colori'),
+                aiuto: t('el_exp_legend_d', 'La chiave colore → macro-area: una pagina iniziale nel PDF, un riquadro in testa nel testo.'), valore: true },
+            { id: 'moderate', tipo: 'spunta', etichetta: t('el_pdfexp_graded', 'Includi le associazioni moderate (tenue)'),
+                aiuto: t('el_pdfexp_graded_d', 'Deseleziona per evidenziare solo i concetti centrali (pieno).'), valore: true }
+        );
+        const r = await window.MappAIModal.open({
+            titolo: t('el_exp_titolo', 'Esporta la fonte evidenziata'), icona: 'file-output', taglia: 'm',
+            sezioni: [{ campi: campi }],
+            azioni: [
+                { id: 'no', etichetta: t('el_q_cancel', 'Annulla') },
+                { id: 'si', etichetta: t('el_exp_go', 'Esporta'), ruolo: 'primario' }
+            ]
+        });
+        if (!r || r.azione !== 'si') return false;
+        const v = r.valori || {};
+        const opts = { legend: v.legenda !== false, graded: v.moderate !== false };
+        if (pdfOk && v['ver-pdf']) {
+            opts.pdfIdx = pdfs.length > 1 ? (parseInt(v.quale, 10) || 0) : _pdfIdx;
+            return _runPdfExport(pdfs, opts);
+        }
+        return exportHighlighted(opts);
+    }
+
     // Modale di configurazione dell'export PDF (app-styled): opzioni prima del
-    // salvataggio, invece del dialog OS diretto.
+    // salvataggio, invece del dialog OS diretto. Dallo 0096 serve solo con
+    // l'interruttore `mappai_comandi_fonte` a '0'.
     function _openPdfExportModal(pdfs) {
         const old = document.getElementById('elab-pdfexp-modal'); if (old) old.remove();
         const ov = document.createElement('div');
         ov.id = 'elab-pdfexp-modal';
         ov.style.cssText = 'position:fixed;inset:0;z-index:1002;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:24px;font:inherit';
+        try { const MM = window.MappAIModal; if (MM && MM.prossimoZ) ov.style.zIndex = String(MM.prossimoZ()); } catch (e) { /* senza motore resta il 1002 del cssText; dentro la console (12100) finiva sotto: inv. 11, trappola 52 (0096) */ }
         const row = (id, label, desc, checked) =>
             '<label style="display:flex;gap:11px;align-items:flex-start;padding:11px 13px;border:1px solid #eef2f6;border-radius:12px;cursor:pointer;margin-bottom:9px">' +
             '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + ' style="margin-top:2px;width:17px;height:17px;accent-color:#4f46e5;flex:0 0 auto">' +
@@ -797,7 +973,9 @@
     async function _runPdfExport(pdfs, opts) {
         opts = opts || {};
         const entry = pdfs[(opts.pdfIdx != null ? opts.pdfIdx : _pdfIdx)] || pdfs[0];
-        if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('el_pdf_export_run', 'Esporto il PDF evidenziato…'));
+        /* il velo sopra la console (0096): a 9999 restava sotto i 12100, e per tutta
+           la durata dell'export non si vedeva niente */
+        _veloPdf(true, t('el_pdf_export_run', 'Esporto il PDF evidenziato…'));
         try {
             let colored = _coloredSentences();
             if (opts.graded === false) colored = colored.filter(c => c.strength !== 'weak');   // solo concetti centrali
@@ -854,17 +1032,18 @@
                 else doc.addPage([vp1.width, vp1.height], orient);
                 doc.addImage(img, 'JPEG', 0, 0, vp1.width, vp1.height);
             }
-            if (window.showLoadingOverlay) window.showLoadingOverlay(false);
-            if (!doc) return exportHighlighted();
+            _veloPdf(false);
+            if (!doc) return exportHighlighted(opts);
             const s = _appState();
-            const name = String((s && s.rootNodeLabel) || 'scheda').replace(/[^\w\-]+/g, '_').slice(0, 50) + '-evidenziata.pdf';
+            const name = comandiFonte() ? _nomeSchedaEvidenziata() + '.pdf'
+                : String((s && s.rootNodeLabel) || 'scheda').replace(/[^\w\-]+/g, '_').slice(0, 50) + '-evidenziata.pdf';
             doc.save(name);
             if (window.showToast) showToast(t('el_pdf_export_done', 'PDF evidenziato salvato.'), 'success');
         } catch (e) {
-            if (window.showLoadingOverlay) window.showLoadingOverlay(false);
+            _veloPdf(false);
             console.warn('[elabora] export PDF evidenziato fallito:', e && e.message);
             if (window.showToast) showToast(t('el_pdf_export_fail', 'Export PDF non riuscito, esporto la versione testo.'), 'warning');
-            exportHighlighted();
+            exportHighlighted(opts);
         }
     }
 
@@ -1197,9 +1376,612 @@
         } else doIt();
     }
 
+    /* ══ TESTO DELLE FIGURE (packet 0113, lotto 8; ADR 0024 §5.6-5.8) ════════
+       La terza vista della fonte: il testo letto dalle immagini del PDF in CREA,
+       dal dossier `.figure.json` (in memoria nella stessa seduta, dal vault dopo
+       un riavvio: `MappAIFigure.trovaDossier`). Prima i ritagli dove le due
+       letture divergono e i «forse manca», con l'immagine del ritaglio accanto;
+       poi gli esclusi, con la conferma; poi le letture concordi; in fondo foto,
+       doppioni, «nessun testo» e oltre il tetto, con «Leggi comunque». Il lessico è
+       quello dell'ADR §5.6 (mai i colori da soli). I gesti chiamano il modulo:
+       `leggiUno`, `rileggiPagina` (solo con la chiave Google, con la riga d'avviso
+       prima), `correggi`, `conferma`; il modulo riscrive il `.figure.json` dove
+       `Fonti/` c'è (ADR 0011 rev. 1). L'elenco dei toponimi non è nel repo
+       (ADR 0024 §8): nessuna parola sottolineata. */
+    let _figCercati = new Set();   // nomi dei PDF già cercati nel vault (una volta per seduta)
+    let _figDossier = new Map();   // nome → dossier letto dal vault
+    let _figProve = new Map();     // nome → prova a secco rifatta qui (per rileggere dopo un riavvio)
+    let _figIndice = [];           // k → { nome, src, file, impronta, dossier, voce }
+    let _figInCorso = new Set();   // k dei gesti in corso
+    const _figAperte = new Set();  // 0114, dal gate 3: le schede controllate che il docente ha riaperto (per identità del ritaglio)
+    let _figToken = 0;
+    let _figStiliOk = false;
+    function _figModulo() { const MF = window.MappAIFigure; return MF && MF.dossierDi && MF.trovaDossier ? MF : null; }
+    /* le fonti PDF del progetto con, se c'è, il loro dossier: in memoria (impronta sulla fonte o sul file) o dal vault */
+    function _figFonti() {
+        const MF = _figModulo(); if (!MF) return [];
+        const s = _appState(); const out = [];
+        let daCercare = [];
+        (s && s.sources || []).forEach(src => {
+            if (!src) return;
+            const file = _pdfFiles.get(src.id) || src.file;
+            const nome = src.name || (file && file.name) || (src.vaultRel ? src.vaultRel.split('/').pop() : '');
+            const nm = String(nome).toLowerCase();
+            const isPdf = src.type === 'pdf' || nm.endsWith('.pdf') || (file && file.type === 'application/pdf');
+            if (!isPdf || !nome) return;
+            const impronta = (src._figure && src._figure.impronta) || (file && file._letturaFigure && file._letturaFigure.dossier && file._letturaFigure.dossier.impronta) || (file && file._figure && file._figure.impronta) || null;
+            let dossier = (impronta && MF.dossierDi(impronta)) || _figDossier.get(nome) || null;
+            if (!dossier && !_figCercati.has(nome)) daCercare.push({ src, nome });
+            if (dossier) out.push({ src, file, nome, impronta: dossier.impronta, dossier });
+        });
+        if (daCercare.length) _figCerca(daCercare);
+        return out;
+    }
+    /* dal vault, una volta per nome: quando arriva qualcosa si ridisegna */
+    function _figCerca(voci) {
+        const MF = _figModulo(); const s = _appState();
+        let trovati = 0;
+        const catena = voci.reduce((p, e) => p.then(() => {
+            _figCercati.add(e.nome);
+            const vp = e.src.vaultDi || (s && s.activeVaultPath);
+            if (!vp) return;
+            return Promise.resolve(MF.trovaDossier({ nome: e.nome, vaultPath: vp })).then(d => { if (d) { _figDossier.set(e.nome, d); trovati++; } }).catch(() => { });
+        }), Promise.resolve());
+        catena.then(() => { if (trovati) { render(); _figAnnuncia(); } }).catch(() => { });
+    }
+    /* 0114 (trappola 15): la tabella «Figure» della console mostra un numero scritto qui; ogni gesto lo annuncia */
+    function _figAnnuncia() {
+        try { if (typeof CustomEvent === 'function' && document.dispatchEvent) document.dispatchEvent(new CustomEvent('mappai-figure-cambiata')); } catch (e) { }
+    }
+    const FIG_ORDINE = { giallo: 0, rosso: 1, 'non letto': 2, verde: 3, saltato: 4 };
+    function _figStato(v) { return v.stato || 'saltato'; }
+    function _figCore() { return window.MappAIFigureCore || null; }
+    /* 0114 (revisione 1 dell'ADR 0024, punto 3): «controllata dal docente» si DEDUCE dal dossier, nel core; il contatore
+       della tabella «Figure» è UNA funzione del core (`dossier.daControllare`, §5 del packet, inv. 6): la vista non decide stati. */
+    function _figControllata(v) { const C = _figCore(); return !!(C && C.dossier && C.dossier.controllata && C.dossier.controllata(v)); }
+    function _figChiusa(v) { return _figControllata(v) && !_figAperte.has(v.identita); }
+    function _figDaControllare(d) { const C = _figCore(); return (C && C.dossier && C.dossier.daControllare) ? C.dossier.daControllare(d) : 0; }
+    /* le quattro sezioni della vista (bivio 2): 0 da controllare (gialli e rossi non controllati, non letti) · 1 controllate dal
+       docente · 2 due letture concordi · 3 senza lettura (foto, doppioni, oltre il tetto) */
+    function _figSezione(v) {
+        const st = _figStato(v);
+        if (st === 'non letto') return 0;
+        // 0114, dal gate 3 (Giacomo, 21/10): una figura controllata non va in una sezione sua, resta al suo posto e si chiude
+        if (st === 'giallo' || st === 'rosso') return 0;
+        return st === 'verde' ? 2 : 3;
+    }
+    /* l'interruttore di «Va bene così» (bivio 3, si sceglie al gate 3): 'figura' | 'riga' | 'entrambe' (di serie) */
+    function _figVaBene() {
+        let m = null; try { m = localStorage.getItem('mappai_figure_vabene'); } catch (e) { }
+        return (m === 'figura' || m === 'riga') ? m : 'entrambe';
+    }
+    /* le voci delle fonti, nell'ordine della vista: per sezione, poi per stato, nome e pagina. `nome` limita a UN PDF (la riga
+       della tabella «Figure» della console); un nome che non corrisponde a nessuna fonte mostra tutto. */
+    function _figVoci(nome) {
+        _figIndice = [];
+        let fonti = _figFonti();
+        if (nome) { const sel = fonti.filter(e => e.nome === nome); if (sel.length) fonti = sel; }
+        fonti.forEach(e => {
+            (e.dossier.ritagli || []).forEach(voce => { _figIndice.push({ nome: e.nome, src: e.src, file: e.file, impronta: e.impronta, dossier: e.dossier, voce }); });
+        });
+        _figIndice.forEach((x, k) => { x.k = k; });
+        return _figIndice.slice().sort((a, b) => (_figSezione(a.voce) - _figSezione(b.voce)) || (FIG_ORDINE[_figStato(a.voce)] - FIG_ORDINE[_figStato(b.voce)]) || (a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0) || ((a.voce.pagina || 0) - (b.voce.pagina || 0)));
+    }
+    /* per la tabella «Figure» della console (0114, D2): una riga per PDF con dossier — quante figure lette, quante da
+       controllare (core), quante controllate dal docente */
+    function figTabella() {
+        return _figFonti().map(e => {
+            const ritagli = e.dossier.ritagli || [];
+            return { nome: e.nome, daControllare: _figDaControllare(e.dossier), totale: ritagli.length, controllate: ritagli.filter(_figControllata).length };
+        });
+    }
+    function _figEtichetta(v) {
+        if (v.stato === 'verde') return t('fig_stato_concordi', 'due letture concordi');
+        if (v.stato === 'giallo') return t('fig_stato_divergono', 'le due letture divergono: controlla');
+        if (v.stato === 'rosso') return t('fig_stato_escluso', 'escluso');
+        if (v.stato === 'non letto') return t('fig_stato_non_letto', 'non letto');
+        return t('fig_stato_saltato', 'senza lettura');
+    }
+    function _figChiaveGoogle() {
+        try { return !!(window.getProviderKey && window.getProviderKey('google')); } catch (e) { return false; }
+    }
+    /* le righe della scheda: `verde` dall'accordo, `confermata` se il docente ha detto «va bene» su quella riga (righeConfermate) */
+    function _figRighe(v) {
+        const C = _figCore();
+        let righe;
+        if (v.righe && v.righe.length) righe = v.righe.map(r => ({ testo: r.testo, verde: r.verde !== false }));
+        else {
+            const grezzo = (v.letture && (v.letture.titolare || v.letture.controllo)) || '';
+            righe = (!grezzo || !C) ? [] : C.lettore(grezzo).righe.map(x => ({ testo: x, verde: v.stato === 'verde' }));
+        }
+        const ok = {};
+        if (C) (v.righeConfermate || []).forEach(x => { ok[C.compatta(x)] = true; });
+        righe.forEach(r => { r.confermata = !!(C && ok[C.compatta(r.testo)]); });
+        return righe;
+    }
+    /* La scheda (bivio 2 del packet 0114): immagine e righe, SENZA bottoni; i gesti stanno nella barra sotto (`_figBarra`).
+       Sul giallo non ancora controllato per intero, con l'interruttore ≠ 'figura', ogni riga gialla ha la spunta «va bene». */
+    function _figCard(x) {
+        const v = x.voce, k = x.k, st = _figStato(v);
+        const inCorso = _figInCorso.has(k);
+        const pagina = t('fig_pagina', 'pagina {n}').replace('{n}', String(v.pagina || '?'));
+        const scansione = v.tipo === 'SCANSIONE';
+        const righe = _figRighe(v);
+        const controllata = _figControllata(v);
+        const chiusa = _figChiusa(v);
+        const spunte = st === 'giallo' && !v.confermato && _figVaBene() !== 'figura';
+        let h = '<article class="elab-fig-card elab-fig-' + esc(st.replace(' ', '-')) + (chiusa ? ' elab-fig-chiusa' : '') + '" data-fig-k="' + k + '" data-fig-id="' + esc(v.identita) + '" data-fig-stato="' + esc(st) + '"' + (controllata ? ' data-fig-controllata="1"' : '') + '>';
+        /* 0114, dal gate 3 (Giacomo, 21/10): la figura controllata resta al suo posto, chiusa; la testata la riapre e la richiude */
+        const apri = controllata ? ' role="button" tabindex="0" aria-expanded="' + (chiusa ? 'false' : 'true') + '" onclick="MappAIElabora.figApri(' + k + ')"' +
+            ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();MappAIElabora.figApri(' + k + ')}"' : '';
+        h += '<div class="elab-fig-top' + (controllata ? ' elab-fig-apri' : '') + '"' + apri + '><span class="elab-fig-pag">' + esc(pagina) + '</span>' +
+            (v.tipo ? '<span class="elab-fig-tipo">' + esc(v.tipo) + '</span>' : '') +
+            '<span class="elab-fig-stato">' + esc(_figEtichetta(v)) + '</span>' +
+            (controllata ? '<span class="elab-fig-badge elab-fig-badge-ok">' + esc(t('fig_confermato', 'controllata')) + '</span>' : '') +
+            (v.testoCorretto ? '<span class="elab-fig-badge">' + esc(t('fig_corretto', 'corretto dal docente')) + '</span>' : '') +
+            '</div>';
+        if (chiusa) return h + '</article>';
+        const note = [v.motivo, v.nota].filter(Boolean).join(' · ');
+        if (note) h += '<div class="elab-fig-nota">' + esc(note) + '</div>';
+        const conImmagine = (st === 'giallo' || st === 'rosso' || st === 'non letto');
+        h += '<div class="elab-fig-corpo">';
+        if (conImmagine) h += '<div class="elab-fig-imgw"><img class="elab-fig-img" data-fig-img="' + k + '" alt=""></div>';
+        h += '<div class="elab-fig-testo">';
+        if (st === 'rosso' && !scansione && v.letture && v.letture.titolare && v.letture.controllo) {
+            // l'escluso: le due letture, così il docente sa che cosa conferma
+            h += '<div class="elab-fig-lbl">' + esc(t('fig_lettura_titolare', 'Lettura del titolare')) + '</div><pre class="elab-fig-pre">' + esc(v.letture.titolare) + '</pre>' +
+                '<div class="elab-fig-lbl">' + esc(t('fig_lettura_controllo', 'Lettura di controllo')) + '</div><pre class="elab-fig-pre">' + esc(v.letture.controllo) + '</pre>';
+        } else if (righe.length) {
+            h += '<div class="elab-fig-righe">' + righe.map((r, i) => {
+                const ok = r.verde || r.confermata || !!v.confermato;
+                const cls = 'elab-fig-riga' + (ok ? '' : ' elab-fig-riga-div');
+                if (spunte && !r.verde) {
+                    return '<div class="' + cls + '"><label><input type="checkbox" data-fig-riga="' + i + '"' + (r.confermata ? ' checked' : '') + (inCorso ? ' disabled' : '') +
+                        ' onchange="MappAIElabora.figVaBeneRiga(' + k + ',' + i + ',this.checked)"> <span class="elab-fig-badge">' + esc(t('fig_va_bene_riga', 'va bene')) + '</span> ' + esc(r.testo) + '</label></div>';
+                }
+                return '<div class="' + cls + '">' + esc(r.testo) + '</div>';
+            }).join('') + '</div>';
+        }
+        if (v.forseManca && v.forseManca.length) {
+            h += '<div class="elab-fig-righe">' + v.forseManca.map(l => '<div class="elab-fig-riga elab-fig-riga-forse"><span class="elab-fig-forse">' + esc(t('fig_forse_manca', 'forse manca')) + '</span> ' + esc(l) + '</div>').join('') + '</div>';
+        }
+        /* 0114, dal gate 3 (Giacomo, 21/10): per le schede con molte righe gialle, un colpo solo — prima di «Testo corretto» */
+        const daSpuntare = spunte ? righe.filter(r => !r.verde && !r.confermata).length : 0;
+        if (daSpuntare >= 2) {
+            h += '<div class="elab-fig-tutte"><button type="button" class="elab-btn elab-tiny"' + (inCorso ? ' disabled' : '') + ' onclick="MappAIElabora.figVaBeneTutte(' + k + ')">' +
+                esc(t('fig_va_bene_tutte', 'Spunta tutte le righe')) + '</button></div>';
+        }
+        // la casella del testo corretto: su ogni ritaglio letto (non sui saltati e non sui «non letti»)
+        if (st === 'giallo' || st === 'verde' || st === 'rosso') {
+            h += '<label class="elab-fig-lbl" for="elab-fig-tx-' + k + '">' + esc(t('fig_testo_corretto', 'Testo corretto')) + '</label>' +
+                '<textarea class="elab-fig-tx" id="elab-fig-tx-' + k + '" rows="3">' + esc(v.testoCorretto || '') + '</textarea>';
+        }
+        return h + '</div></div></article>';
+    }
+    /* La barra d'azione SOTTO la scheda (Giacomo, bivio 2): «Leggi comunque» (foto, doppioni, non letti), «Rileggi» (escluso),
+       «Rileggi con Google» (scansione, solo con la chiave), «Conferma il testo» (escluso), «Va bene così» (giallo non controllato,
+       interruttore ≠ 'riga'), «Salva la correzione» (ogni ritaglio letto). Riusa `.elab-actions` e i bottoni della fonte. */
+    function _figBarra(x) {
+        const v = x.voce, k = x.k, st = _figStato(v);
+        if (_figChiusa(v)) return '';
+        const inCorso = _figInCorso.has(k);
+        const scansione = v.tipo === 'SCANSIONE', testoImm = v.tipo === 'TESTO-IMMAGINI', formule = v.tipo === 'FORMULE';
+        const righe = _figRighe(v);
+        const corregibile = (st === 'giallo' || st === 'verde' || st === 'rosso');
+        const azioni = [];
+        const occupato = inCorso ? ' disabled' : '';
+        const leggi = t('fig_leggi_comunque', 'Leggi comunque'), rileggi = t('fig_rileggi', 'Rileggi'), inCorsoT = t('fig_in_corso', 'Leggo…');
+        if (!scansione && !testoImm && !formule && (st === 'saltato' || st === 'non letto' || st === 'rosso')) {
+            azioni.push('<button type="button" class="elab-btn elab-tiny' + (st === 'rosso' ? ' elab-ghost' : '') + '"' + occupato + ' onclick="MappAIElabora.figLeggi(' + k + ')">' + esc(inCorso ? inCorsoT : (st === 'rosso' ? rileggi : leggi)) + '</button>');
+        }
+        if (scansione && _figChiaveGoogle()) {
+            azioni.push('<button type="button" class="elab-btn elab-tiny"' + occupato + ' onclick="MappAIElabora.figRileggiGoogle(' + k + ')">' + esc(inCorso ? inCorsoT : t('fig_rileggi_google', 'Rileggi con Google')) + '</button>' +
+                '<span class="elab-fig-avviso">' + esc(t('fig_avviso_google', 'Il testo esce dalla Svizzera. Con la chiave gratuita Google può usarlo per i suoi prodotti e farlo leggere a persone. Non farlo se nel PDF ci sono lavori o nomi di allievi.')) + '</span>');
+        }
+        if (st === 'rosso' && !v.confermato && righe.length) {
+            azioni.push('<button type="button" class="elab-btn elab-tiny elab-primary"' + occupato + ' onclick="MappAIElabora.figConferma(' + k + ')">' + esc(t('fig_conferma', 'Conferma il testo')) + '</button>');
+        }
+        if (st === 'giallo' && !_figControllata(v) && _figVaBene() !== 'riga') {
+            azioni.push('<button type="button" class="elab-btn elab-tiny elab-primary"' + occupato + ' onclick="MappAIElabora.figConferma(' + k + ')">' + esc(t('fig_va_bene', 'Va bene così')) + '</button>');
+        }
+        if (corregibile) {
+            azioni.push('<button type="button" class="elab-btn elab-tiny"' + occupato + ' onclick="MappAIElabora.figSalva(' + k + ')">' + esc(t('fig_salva', 'Salva la correzione')) + '</button>');
+        }
+        return azioni.length ? '<div class="elab-actions elab-fig-azioni" data-fig-barra="' + k + '">' + azioni.join('') + '</div>' : '';
+    }
+    function _figureHTML(fig) {
+        _figStili();
+        const sez = [[], [], [], []];
+        fig.forEach(x => { sez[_figSezione(x.voce)].push(x); });
+        const nFonti = new Set(fig.map(x => x.nome)).size;
+        const blocco = x => '<div data-fig-blocco="' + x.k + '">' + _figCard(x) + _figBarra(x) + '</div>';
+        /* 0118: col PDF a destra il blocco su cui si clicca (o dove entra il fuoco) è la figura su cui si lavora: un gestore solo,
+           sul contenitore, che risale al blocco; il contorno della scelta lo mette `_figPdfMonta` dopo il disegno */
+        const gesti = _figPdfAccesa() ? ' onclick="MappAIElabora.figDa(event)" onfocusin="MappAIElabora.figDa(event)"' : '';
+        const sezione = (titolo, arr, n) => arr.length ? '<div class="elab-sec-lbl elab-lbl">' + esc(titolo) + ' · ' + (n === undefined ? arr.length : n) + '</div>' + arr.map(blocco).join('') : '';
+        return '<div class="elab-stack elab-fig"' + gesti + '>' +
+            '<div class="elab-fig-head"><div class="elab-fig-h">' + esc(t('fig_sezione', 'Testo delle figure')) + '</div>' +
+            '<div class="elab-fig-intro">' + esc(t('fig_intro', 'Il testo letto dalle immagini del PDF: due letture confrontate riga per riga. Qui controlli, correggi e sblocchi; il testo corretto vince alla generazione successiva.')) +
+            (nFonti > 1 ? ' · ' + nFonti + ' PDF' : '') + '</div></div>' +
+            sezione(t('fig_sez_controlla', 'Da controllare'), sez[0], sez[0].filter(x => !_figControllata(x.voce)).length) +
+            sezione(t('fig_stato_concordi', 'due letture concordi'), sez[2]) +
+            sezione(t('fig_sez_saltati', 'Senza lettura: foto, doppioni, oltre il tetto'), sez[3]) +
+            '</div>';
+    }
+    function _figStili() {
+        if (_figStiliOk || !document.head) return; _figStiliOk = true;
+        const st = document.createElement('style');
+        st.id = 'elab-fig-styles';
+        /* 0114, dal gate 3 (Giacomo, 21/10: «usa i token per la gerarchia delle dimensioni dei font definite per gli editor»):
+           i corpi dalla famiglia di mappai-modal-tokens.css (titolo · testo · etichetta · aiuto · sezione) e i testi da rivedere al
+           corpo di LETTURA (--mm-fs-lettura, quello degli item dell'editor); una colonna sola, l'immagine sopra, centrata e larga
+           quanto la scheda («rendere l'immagine più grande»); la figura controllata si chiude e la testata la riapre. */
+        st.textContent = '.elab-fig{max-width:760px}' +
+            '.elab-fig-head{padding:2px 0 6px}.elab-fig-h{font-weight:700;font-size:var(--mm-fs-titolo)}.elab-fig-intro{font-size:var(--mm-fs-testo);color:var(--esoft);margin-top:3px;line-height:1.5}' +
+            '.elab-fig-card{border:1px solid var(--eline);border-radius:12px;background:var(--epanel);box-shadow:0 1px 2px rgba(15,23,42,.05);padding:11px 13px}' +
+            '.elab-fig-giallo{border-color:var(--enoticel)}.elab-fig-rosso{border-color:var(--eline2);background:var(--epanel2)}' +
+            '.elab-fig-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:var(--mm-fs-testo)}.elab-fig-apri{cursor:pointer}' +
+            '.elab-fig-pag{font-weight:700}.elab-fig-tipo{font-size:var(--mm-fs-sez);font-weight:700;letter-spacing:.05em;color:var(--efaint)}' +
+            '.elab-fig-stato{font-weight:700;color:var(--eink2)}.elab-fig-giallo .elab-fig-stato{color:var(--enotice)}.elab-fig-verde .elab-fig-stato{color:var(--egood)}' +
+            '.elab-fig-badge{font-size:var(--mm-fs-label);font-weight:700;padding:2px 8px;border-radius:999px;background:var(--egoods);color:var(--egood)}' +
+            '.elab-fig-badge-ok{text-transform:uppercase;letter-spacing:.08em}' +
+            '.elab-fig-nota{font-size:var(--mm-fs-aiuto);color:var(--efaint);margin-top:2px}' +
+            '.elab-fig-corpo{display:flex;flex-direction:column;gap:12px;margin-top:8px}' +
+            '.elab-fig-imgw{align-self:center;width:100%}.elab-fig-img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;border:1px solid var(--eline);border-radius:8px;background:var(--epanel2);min-height:40px}' +   /* locale: 70vh, un ritaglio alto non deve spingere la barra fuori dallo schermo */
+            '.elab-fig-testo{min-width:0}' +
+            '.elab-fig-righe{font-size:var(--mm-fs-lettura);line-height:1.55;color:var(--eink)}.elab-fig-riga{padding:1px 6px;border-radius:5px}' +
+            '.elab-fig-riga-div{background:var(--enotices);box-shadow:inset 3px 0 0 var(--enoticel)}' +
+            '.elab-fig-riga-forse{color:var(--esoft)}.elab-fig-forse{font-size:var(--mm-fs-label);font-weight:700;color:var(--egap);background:var(--egaps);padding:1px 6px;border-radius:999px;margin-right:4px}' +
+            '.elab-fig-tutte{margin-top:8px}' +
+            '.elab-fig-lbl{font-size:var(--mm-fs-label);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--efaint);margin:8px 0 3px;display:block}' +
+            '.elab-fig-pre{font:inherit;font-size:var(--mm-fs-lettura);white-space:pre-wrap;margin:0;color:var(--eink2);line-height:1.5}' +
+            '.elab-fig-tx{font:inherit;font-size:var(--mm-fs-lettura);width:100%;box-sizing:border-box;border:1px solid var(--eline2);border-radius:8px;padding:6px 8px;color:var(--eink);background:var(--epanel)}' +
+            '.elab-fig-azioni{align-items:center}.elab-fig-avviso{font-size:var(--mm-fs-aiuto);color:var(--esoft);flex:1 1 220px;line-height:1.45}';
+        document.head.appendChild(st);
+    }
+    /* le immagini dei ritagli, dopo il disegno: dal PDF già aperto della prova a secco, altrimenti dal file con pdf.js; `ritaglia` del modulo */
+    function _figMonta() {
+        const token = ++_figToken;
+        const MF = _figModulo(); if (!MF || !MF.ritaglia) return;
+        const imgs = document.querySelectorAll('img[data-fig-img]');
+        if (!imgs || !imgs.length) return;
+        const docs = new Map();
+        const docDi = x => {
+            if (!docs.has(x.nome)) docs.set(x.nome, _figDocDi(x));
+            return docs.get(x.nome);
+        };
+        let catena = Promise.resolve();
+        Array.prototype.forEach.call(imgs, img => {
+            catena = catena.then(() => {
+                if (token !== _figToken) return;
+                const x = _figIndice[Number(img.getAttribute('data-fig-img'))];
+                if (!x || !x.voce.rettPt) return;
+                const r = x.voce.rettPt, rett = { x: r[0], y: r[1], w: r[2], h: r[3] };
+                const ppi = x.voce.tipo === 'SCANSIONE' ? 30 : 72;
+                return docDi(x).then(pdf => pdf.getPage(x.voce.pagina)).then(page => MF.ritaglia(page, rett, [ppi, ppi])).then(res => {
+                    if (token !== _figToken || !res) return;
+                    img.src = res.dataUrl;
+                }).catch(() => { /* senza immagine resta il testo */ });
+            });
+        });
+    }
+    /* il documento pdf.js di un PDF con figure: dalla prova a secco già aperta, dal file con pdf.js, altrimenti dal vault */
+    function _figDocDi(x) {
+        const prova = x.src && x.src._figure;
+        if (prova && prova._pdf && prova._pdf.getPage) return Promise.resolve(prova._pdf);
+        if (_figProve.get(x.nome) && _figProve.get(x.nome)._pdf) return Promise.resolve(_figProve.get(x.nome)._pdf);
+        if (typeof pdfjsLib !== 'undefined' && x.file && typeof x.file.arrayBuffer === 'function') return x.file.arrayBuffer().then(buf => pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise);
+        return _figBytesDalVault(x.nome).then(bytes => pdfjsLib.getDocument({ isEvalSupported: false, data: bytes }).promise);
+    }
+
+    /* ── 0118: il PDF originale a destra nella vista «Figure» ──────────────────────────
+       Giacomo, 21/10: «lo split destro con la fonte originale aperta al posto che le CARD delle
+       analisi o la struttura dell'albero». Si apre alla pagina della PRIMA figura della vista; un
+       clic o il fuoco su una scheda portano il PDF alla pagina di quella figura e ci spostano un
+       riquadro sul ritaglio letto (`rettPt`, in punti della pagina con l'origine in alto a sinistra,
+       come lo usa `ritaglia`). Il riquadro è in percentuale della pagina: segue la larghezza della
+       colonna quando la maniglia si sposta.
+       ⚠️ La vista «Figure» chiama `render()` a ogni gesto (`_figDopo`): il PDF NON si ridisegna.
+       Le pagine vivono in un elemento che resta (`_figPdf.el`) e a ogni disegno si riappende allo
+       slot, con lo scorrimento di prima. Niente tetto di 30 pagine: si rendono quelle che si vedono
+       (IntersectionObserver) e quella della figura scelta. */
+    let _figPdf = null;            // { nome, el, pdf, n, pagine[], dim{}, rese:Set, top, riq, sel, attesa }
+    let _figSel = null;            // identità del ritaglio su cui si lavora
+    let _figPdfVoci = [];          // le voci della vista, nell'ordine in cui si vedono
+    function _figVoceSel(voci) {
+        return voci.find(x => x.voce.identita === _figSel) || voci[0] || null;
+    }
+    function _figPdfPaneHTML() {
+        _figPdfVoci = _figVoci(_figNome);
+        const x = _figVoceSel(_figPdfVoci);
+        const nome = x ? x.nome : (_figNome || '');
+        const pagina = x ? (x.voce.pagina || 1) : '';
+        return '<section class="elab-pane elab-figpdf-pane" data-figpdf-nome="' + esc(nome) + '" data-figpdf-pagina="' + esc(String(pagina)) + '">' +
+            '<div class="elab-pane-head"><span class="elab-lbl">' + t('fig_pdf_titolo', 'PDF originale') + '</span>' +
+            '<span class="elab-figpdf-nome">' + esc(nome) + '</span><div class="elab-spacer"></div>' +
+            '<span class="elab-lbl elab-muted" data-figpdf-info>' + esc(_figPdfInfo(pagina)) + '</span></div>' +
+            '<div class="elab-figpdf-slot"></div>' +
+            '</section>';
+    }
+    function _figPdfInfo(pagina) {
+        if (!pagina) return '';
+        const n = _figPdf && _figPdf.n;
+        return n ? t('fig_pdf_pagina_di', 'pagina {n} di {m}').replace('{n}', String(pagina)).replace('{m}', String(n))
+            : t('fig_pagina', 'pagina {n}').replace('{n}', String(pagina));
+    }
+    /* il riquadro del ritaglio, in % della pagina (pura: la provano i test) */
+    function _figRiquadro(voce, dim) {
+        const r = voce && voce.rettPt;
+        if (!r || !dim || !(dim[0] > 0) || !(dim[1] > 0)) return null;
+        const pc = (a, b) => Math.max(0, Math.min(100, a / b * 100));
+        return { left: pc(r[0], dim[0]), top: pc(r[1], dim[1]), width: pc(r[2], dim[0]), height: pc(r[3], dim[1]) };
+    }
+    function _figPdfMonta() {
+        const slot = document.querySelector('.elab-figpdf-slot');
+        if (!slot) return;
+        const x = _figVoceSel(_figPdfVoci);
+        if (!x) { slot.innerHTML = '<div class="elab-pdf-loading">' + t('fig_pdf_nessuna', 'Nessuna figura in questo PDF.') + '</div>'; return; }
+        _figSegnaScelta(x.k);
+        const nuovo = !_figPdf || _figPdf.chiave !== _figPdfChiave(x);
+        if (nuovo) { _figPdfChiudi(); _figPdfApri(x); }
+        const st = _figPdf;
+        slot.appendChild(st.el);
+        if (!nuovo && st.top) st.el.scrollTop = st.top;   // riappeso: lo scorrimento di prima, non un salto
+        _figPdfVai(st, x, nuovo);
+    }
+    /* lo stesso PDF = stessa impronta e stesso nome: due mappe con un PDF omonimo non si scambiano le pagine */
+    function _figPdfChiave(x) { return (x.impronta || (x.dossier && x.dossier.impronta) || '') + '|' + x.nome; }
+    /* il PDF a destra si chiude: l'osservatore si stacca, le pagine si liberano; il documento si distrugge solo se l'ha aperto
+       questo pannello (mai quello della prova a secco, che serve ancora a ritagli e riletture) */
+    function _figPdfChiudi() {
+        const st = _figPdf; _figPdf = null;
+        if (!st) return;
+        try { if (st.io) st.io.disconnect(); } catch (e) { }
+        try { if (st.proprio && st.pdf && st.pdf.destroy) st.pdf.destroy(); } catch (e) { }
+        st.pagine = []; st.rese.clear();
+        if (st.el && st.el.remove) st.el.remove();
+    }
+    function _figPdfApri(x) {
+        const el = document.createElement('div');
+        el.className = 'elab-figpdf';
+        const st = { chiave: _figPdfChiave(x), nome: x.nome, el, pdf: null, proprio: false, io: null, n: 0, pagine: [], dim: {}, rese: new Set(), top: 0, riq: null, sel: null, attesa: null };
+        _figPdf = st;
+        el.addEventListener('scroll', () => { st.top = el.scrollTop; });
+        el.innerHTML = '<div class="elab-pdf-loading">' + t('el_pdf_loading', 'Caricamento PDF…') + '</div>';
+        const condivisi = [x.src && x.src._figure && x.src._figure._pdf, _figProve.get(x.nome) && _figProve.get(x.nome)._pdf];
+        let doc;
+        try { doc = _figDocDi(x); } catch (e) { doc = Promise.reject(e); }
+        Promise.resolve(doc).then(pdf => {
+            const proprio = !!pdf && condivisi.indexOf(pdf) < 0;
+            if (_figPdf !== st || !pdf) { if (proprio && pdf.destroy) pdf.destroy(); return; }
+            st.pdf = pdf; st.proprio = proprio; st.n = pdf.numPages || 0;
+            return pdf.getPage(1).then(p1 => {
+                if (_figPdf !== st) return;
+                const vp = p1.getViewport({ scale: 1 });
+                st.dim[1] = [vp.width, vp.height];
+                el.innerHTML = '';
+                const io = st.io = (typeof IntersectionObserver === 'function')
+                    ? new IntersectionObserver(voci => voci.forEach(v => { if (v.isIntersecting) _figPdfRendi(st, Number(v.target.getAttribute('data-figpdf-pagina'))); }), { root: el, rootMargin: '800px 0px' })
+                    : null;
+                for (let n = 1; n <= st.n; n++) {
+                    const w = document.createElement('div');
+                    w.className = 'elab-figpdf-pag';
+                    w.setAttribute('data-figpdf-pagina', String(n));
+                    w.style.aspectRatio = vp.width + ' / ' + vp.height;   // finché non si rende, la misura della prima pagina
+                    el.appendChild(w); st.pagine.push(w);
+                    if (io) io.observe(w);
+                }
+                const a = st.attesa; st.attesa = null;
+                if (a) _figPdfVai(st, a.x, a.scorri);
+            });
+        }).catch(() => {
+            if (_figPdf !== st) return;
+            el.innerHTML = '<div class="elab-pdf-loading">' + t('fig_pdf_manca', 'Il PDF originale non è disponibile: le figure restano da controllare a sinistra.') + '</div>';
+        });
+    }
+    function _figPdfRendi(st, n) {
+        if (!st.pdf || !(n >= 1) || n > st.n || st.rese.has(n)) return Promise.resolve();
+        st.rese.add(n);
+        return st.pdf.getPage(n).then(page => {
+            const vp = page.getViewport({ scale: 1 }), w = st.pagine[n - 1];
+            st.dim[n] = [vp.width, vp.height];
+            w.style.aspectRatio = vp.width + ' / ' + vp.height;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const scala = Math.min(2.5, Math.max(320, st.el.clientWidth || 640) * dpr / vp.width);
+            const v = page.getViewport({ scale: scala });
+            const c = document.createElement('canvas');
+            c.className = 'elab-figpdf-canvas';
+            c.width = Math.round(v.width); c.height = Math.round(v.height);
+            return page.render({ canvasContext: c.getContext('2d'), viewport: v }).promise.then(() => {
+                if (st.proprio && page.cleanup) page.cleanup();
+                if (_figPdf !== st) return;
+                w.insertBefore ? w.insertBefore(c, w.firstChild) : w.appendChild(c);
+                if (st.sel && (st.sel.voce.pagina || 1) === n) _figPdfRiq(st, st.sel);   // la misura vera della pagina
+            });
+        }).catch(() => { st.rese.delete(n); });
+    }
+    function _figPdfRiq(st, x) {
+        const n = Math.min(Math.max(1, x.voce.pagina | 0 || 1), st.n || 1), w = st.pagine[n - 1];
+        if (!w) return;
+        if (!st.riq) st.riq = document.createElement('div');
+        st.riq.className = 'elab-figpdf-riq elab-figpdf-riq-' + _figStato(x.voce).replace(' ', '-');
+        const q = _figRiquadro(x.voce, st.dim[n] || st.dim[1]);
+        if (q) { st.riq.style.left = q.left + '%'; st.riq.style.top = q.top + '%'; st.riq.style.width = q.width + '%'; st.riq.style.height = q.height + '%'; }
+        w.appendChild(st.riq);
+    }
+    function _figPdfVai(st, x, scorri) {
+        st.sel = x;
+        if (!st.pagine.length) { st.attesa = { x, scorri: scorri || (st.attesa && st.attesa.scorri) }; return; }
+        const n = Math.min(Math.max(1, x.voce.pagina | 0 || 1), st.n);
+        _figPdfRendi(st, n);
+        _figPdfRiq(st, x);
+        if (scorri) { const w = st.pagine[n - 1]; st.el.scrollTop = Math.max(0, (w.offsetTop || 0) - 12); st.top = st.el.scrollTop; }
+        const info = document.querySelector('[data-figpdf-info]');
+        if (info) info.textContent = _figPdfInfo(x.voce.pagina || 1);
+        const pane = document.querySelector('.elab-figpdf-pane');
+        if (pane) pane.setAttribute('data-figpdf-pagina', String(x.voce.pagina || 1));
+    }
+    /* il gesto della scheda (clic o fuoco dentro il suo blocco): la figura su cui si lavora */
+    function figMostra(k) {
+        const x = _figIndice[k];
+        if (!x || x.voce.identita === _figSel) return;
+        _figSel = x.voce.identita;
+        _figSegnaScelta(k);
+        if (_figPdf && _figPdf.chiave === _figPdfChiave(x)) _figPdfVai(_figPdf, x, true);
+        else render();   // una scheda di un altro PDF (vista di tutti i PDF): il pannello si ridisegna su quello
+    }
+    function figDa(ev) {
+        const b = ev && ev.target && ev.target.closest ? ev.target.closest('[data-fig-blocco]') : null;
+        if (b) figMostra(Number(b.getAttribute('data-fig-blocco')));
+    }
+    function _figSegnaScelta(k) {
+        document.querySelectorAll('[data-fig-blocco]').forEach(b => { if (b.getAttribute('data-fig-blocco') === String(k)) b.classList.add('elab-fig-sel'); else b.classList.remove('elab-fig-sel'); });
+    }
+    /* per i test e la diagnosi: dove sta il PDF a destra */
+    function figPdfStato() {
+        const st = _figPdf, x = st && st.sel;
+        return {
+            nome: st ? st.nome : null, chiave: st ? st.chiave : null, pagine: st ? st.n : 0, montate: st ? st.pagine.length : 0,
+            pagina: x ? (x.voce.pagina || 1) : null, sel: x ? x.voce.identita : null,
+            riquadro: x ? _figRiquadro(x.voce, st.dim[x.voce.pagina || 1] || st.dim[1]) : null
+        };
+    }
+
+    /* la prova a secco per rileggere: quella della fonte (stessa seduta), altrimenti rifatta qui dal file (zero chiamate) */
+    function _figProva(x) {
+        const MF = _figModulo();
+        const prova = x.src && x.src._figure;
+        if (prova && prova.pagine && prova._pdf) return Promise.resolve(prova);
+        if (_figProve.has(x.nome)) return Promise.resolve(_figProve.get(x.nome));
+        if (!MF.prova) return Promise.reject(new Error(t('el_pdf_nolib', 'Visualizzatore PDF non disponibile.')));
+        const byte = (x.file && typeof x.file.arrayBuffer === 'function') ? x.file.arrayBuffer() : _figBytesDalVault(x.nome);
+        return byte.then(buf => MF.prova(buf, { nome: x.nome })).then(pr => { _figProve.set(x.nome, pr); return pr; });
+    }
+    /* Su una mappa riaperta dal vault la fonte non ha un `File`: il PDF si legge da `Fonti/<nome>` con `readVaultFile`
+       (gate 3, 19/10: le immagini dei ritagli restavano vuote e «Leggi comunque» diceva «PDF non disponibile»). */
+    function _figBytesDalVault(nome) {
+        const api = window.electronAPI, vp = appState.activeVaultPath;
+        if (!api || !api.readVaultFile || !vp || typeof pdfjsLib === 'undefined') return Promise.reject(new Error('PDF non disponibile'));
+        return Promise.resolve(api.readVaultFile({ vaultPath: vp, relPath: 'Fonti/' + nome })).then(r => {
+            if (!r || !r.ok || !r.base64) throw new Error((r && r.error) || 'PDF non disponibile');
+            const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return bytes;
+        });
+    }
+    /* il vault in cui scrivere il .figure.json: solo dove `Fonti/` c'è già (ADR 0011 rev. 1), altrimenti si resta in memoria */
+    async function _figVault(x) {
+        const s = _appState();
+        const vp = (x.src && x.src.vaultDi) || (s && s.activeVaultPath);
+        if (!vp) return null;
+        const elenco = await _elencoFonti(vp);
+        return (elenco && elenco.length) ? vp : null;
+    }
+    function _figOpz(x, vp) { return { nome: x.nome, vaultPath: vp, origine: 'elabora' }; }
+    function _figDopo(k, p) {
+        _figInCorso.add(k); render();
+        return p.then(v => { _figInCorso.delete(k); render(); _figAnnuncia(); return v; }, e => {
+            _figInCorso.delete(k); render(); _figAnnuncia();
+            if (window.showToast) window.showToast(String(e && e.message || e), 'error');
+            return null;
+        });
+    }
+    function figLeggi(k) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.leggiUno || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        return _figDopo(k, Promise.all([_figProva(x), _figVault(x)]).then(r => MF.leggiUno(r[0], x.voce.identita, _figOpz(x, r[1]))).then(v => {
+            if (v && window.showToast) window.showToast(t('fig_letto', 'Ritaglio letto: {stato}').replace('{stato}', _figEtichetta(v)), v.stato === 'verde' ? 'success' : 'info');
+            return v;
+        }));
+    }
+    function figRileggiGoogle(k) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.rileggiPagina || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        if (!_figChiaveGoogle()) { if (window.showToast) window.showToast(t('fig_serve_google', 'Serve la chiave Google nel cassetto: Google non parte mai da solo.'), 'warning'); return Promise.resolve(null); }
+        const MM = window.MappAIModal;
+        if (!MM || typeof MM.open !== 'function') return Promise.resolve(null);
+        // la riga d'avviso dell'ADR §5.8, prima dell'invio; «Annulla» è la scelta di serie
+        return Promise.resolve(MM.open({
+            titolo: t('fig_rileggi_google', 'Rileggi con Google'), icona: 'scan-text', taglia: 's',
+            sezioni: [{ testo: t('fig_avviso_google', 'Il testo esce dalla Svizzera. Con la chiave gratuita Google può usarlo per i suoi prodotti e farlo leggere a persone. Non farlo se nel PDF ci sono lavori o nomi di allievi.') }],
+            azioni: [{ id: 'si', etichetta: t('fig_leggi_google', 'Leggi con Google') }, { id: 'no', etichetta: t('el_q_cancel', 'Annulla'), ruolo: 'primario' }]
+        })).then(r => {
+            if (!r || r.azione !== 'si') return null;
+            return _figDopo(k, Promise.all([_figProva(x), _figVault(x)]).then(q => MF.rileggiPagina(q[0], x.voce.identita, Object.assign(_figOpz(x, q[1]), { google: true }))).then(v => {
+                if (v && window.showToast) window.showToast(t('fig_letto', 'Ritaglio letto: {stato}').replace('{stato}', _figEtichetta(v)), 'info');
+                return v;
+            }));
+        }, () => null);
+    }
+    function figConferma(k) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.conferma || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        _figAperte.delete(x.voce.identita);   // 0114, dal gate 3: controllata → si chiude
+        return _figDopo(k, _figVault(x).then(vp => MF.conferma(x.impronta, x.voce.identita, _figOpz(x, vp))));
+    }
+    /* 0114: la spunta «va bene» su una riga gialla (interruttore ≠ 'figura'); `on === false` la toglie */
+    function figVaBeneRiga(k, i, on) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.confermaRiga || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        const r = _figRighe(x.voce)[i | 0];
+        if (!r) return Promise.resolve(null);
+        return _figDopo(k, _figVault(x).then(vp => MF.confermaRiga(x.impronta, x.voce.identita, r.testo, Object.assign(_figOpz(x, vp), { togli: on === false }))));
+    }
+    /* 0114, dal gate 3 (Giacomo, 21/10): «Spunta tutte le righe» — la spunta di `figVaBeneRiga` su ogni riga gialla non ancora
+       spuntata, una dopo l'altra (deposito e vault riscritti a ogni riga, come la spunta a mano); la scheda poi si chiude */
+    function figVaBeneTutte(k) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.confermaRiga || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        _figAperte.delete(x.voce.identita);
+        const testi = _figRighe(x.voce).filter(r => !r.verde && !r.confermata).map(r => r.testo);
+        if (!testi.length) return Promise.resolve(null);
+        return _figDopo(k, _figVault(x).then(vp => testi.reduce((p, testo) => p.then(() => MF.confermaRiga(x.impronta, x.voce.identita, testo, _figOpz(x, vp))), Promise.resolve(null))));
+    }
+    /* la testata di una scheda controllata: la riapre (per correggere o rivedere) e la richiude */
+    function figApri(k) {
+        const x = _figIndice[k];
+        if (!x || !x.voce || !x.voce.identita) return;
+        if (_figAperte.has(x.voce.identita)) _figAperte.delete(x.voce.identita); else _figAperte.add(x.voce.identita);
+        render();
+    }
+    /* `testo` facoltativo: senza, si legge la casella della scheda */
+    function figSalva(k, testo) {
+        const MF = _figModulo(), x = _figIndice[k];
+        if (!MF || !MF.correggi || !x || _figInCorso.has(k)) return Promise.resolve(null);
+        if (testo === undefined) { const el = document.getElementById('elab-fig-tx-' + k); testo = el ? el.value : ''; }
+        return _figDopo(k, _figVault(x).then(vp => MF.correggi(x.impronta, x.voce.identita, testo, _figOpz(x, vp))).then(v => {
+            if (v && window.showToast) window.showToast(t('fig_salvato', 'Correzione salvata: vince alla generazione successiva.'), 'success');
+            return v;
+        }));
+    }
+    /* il .figure.json di ogni fonte PDF letta, da flushSourcesToVault (una chiamata): un guasto non ferma niente */
+    async function _figScriviDossier(vp, fonti, fileDi) {
+        const MF = _figModulo(); if (!MF || !MF.scriviDossier) return 0;
+        let n = 0;
+        for (const src of fonti) {
+            if (!src) continue;
+            const f = fileDi.get(src);
+            const impronta = (src._figure && src._figure.impronta) || (f && f._letturaFigure && f._letturaFigure.dossier && f._letturaFigure.dossier.impronta) || (f && f._figure && f._figure.impronta) || null;
+            if (!impronta) continue;
+            const d = MF.dossierDi(impronta);
+            if (!d || !d.ritagli || !d.ritagli.length) continue;
+            try {
+                const r = await MF.scriviDossier(vp, impronta);
+                if (r && r.ok) n++; else console.warn('[ELABORA] .figure.json non scritto: ' + (r && r.error));
+            } catch (e) { console.warn('[ELABORA] .figure.json non scritto: ' + (e && e.message)); }
+        }
+        return n;
+    }
+
     // pannello fonte a sinistra: testo estratto OPPURE anteprima del PDF originale
     function _srcPaneHTML(corpus, pdfs) {
         const hasPdf = pdfs.length > 0;
+        /* 0113: la terza vista, «Testo delle figure», c'è solo se qualche PDF ha un dossier delle figure */
+        /* 0114 (D1): il segmento «Figure» non c'è più — la vista si apre dalla tabella «Figure» della console (una riga per
+           PDF, `mountSource` con `view: 'figure'`); `_srcView === 'figure'` resta la strada interna. `_figNome` limita a quel PDF. */
+        const fig = _figVoci(_srcView === 'figure' ? _figNome : null);
+        const haFig = fig.length > 0;
+        if (_srcView === 'figure' && !haFig) _srcView = 'text';
         let head = '<div class="elab-pane-head"><span class="elab-lbl">' + t('el_source', 'Materiale · fonte') + '</span>' +
             '<button type="button" class="elab-bpchip' + (_stripBoilerplateOn() ? ' on' : '') + '" onclick="MappAIElabora.toggleBoilerplate()" title="' + t('el_bp_tip', 'Ignora intestazioni e piè di pagina ricorrenti della scheda (evidenziazione, analisi, export e generazione)') + '">' + (_stripBoilerplateOn() ? '✓ ' : '') + t('el_bp_toggle', 'Ignora intestazioni') + '</button>';
         if (hasPdf) {
@@ -1210,7 +1992,9 @@
         }
         head += '</div>';
         let body;
-        if (_srcView === 'pdf' && hasPdf) {
+        if (_srcView === 'figure' && haFig) {
+            body = '<div class="elab-pane-body">' + _figureHTML(fig) + '</div>';
+        } else if (_srcView === 'pdf' && hasPdf) {
             let picker;
             if (pdfs.length > 1) {
                 picker = '<select class="elab-pdfsel" onchange="MappAIElabora.setPdfIdx(this.selectedIndex)">' +
@@ -1375,6 +2159,58 @@
         wrap.appendChild(layer);
     }
 
+    /* ── 0118, dal gate 3: il PDF della vista «PDF» segue la larghezza della colonna ──
+       La larghezza di una pagina è quella della colonna meno il margine; una pagina si disegna (o si RIdisegna) in un
+       canvas nuovo, e solo a disegno finito prende il posto del vecchio: niente lampo bianco, lo scorrimento non salta. */
+    let _pdfRO = null;             // l'osservatore della colonna del PDF (uno solo: il disegno nuovo stacca il vecchio)
+    function _pdfLarghezza(scroll) { return Math.max(320, (scroll.clientWidth || 640) - 28); }
+    async function _pdfDisegnaPagina(page, wrap, wCss, colored, token) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const vp1 = page.getViewport({ scale: 1 });
+        const vp = page.getViewport({ scale: (wCss / vp1.width) * dpr });
+        const canvas = document.createElement('canvas');
+        canvas.className = 'elab-pdf-page';
+        canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+        if (token !== _pdfToken) return false;
+        wrap.innerHTML = '';   // il canvas vecchio e le sue evidenziazioni
+        wrap.appendChild(canvas);
+        // Highlight colorati sul PDF: text layer pdf.js + match delle frasi (in px della larghezza disegnata).
+        if (colored.length) {
+            try {
+                const tc = await page.getTextContent();
+                if (token !== _pdfToken) return false;
+                const vpCss = page.getViewport({ scale: wCss / vp1.width });
+                _paintPdfHighlights(wrap, tc, vpCss, wCss / vp1.width, colored);
+            } catch (e) { /* best-effort: senza text layer resta il canvas */ }
+        }
+        return true;
+    }
+    /* a barra ferma (300 ms senza cambi, e non durante il trascinamento) le pagine si ridisegnano alla larghezza nuova,
+       una dopo l'altra, al loro posto */
+    function _pdfOsserva(scroll, wCss, pagine, colored, token) {
+        if (_pdfRO) { try { _pdfRO.disconnect(); } catch (e) { } _pdfRO = null; }
+        if (typeof ResizeObserver !== 'function' || !pagine.length) return;
+        let larga = wCss, timer = null, inCorso = false;
+        const ro = _pdfRO = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(rifai, 300); });
+        async function rifai() {
+            if (token !== _pdfToken || !scroll.isConnected) { ro.disconnect(); if (_pdfRO === ro) _pdfRO = null; return; }
+            if (inCorso || (scroll.closest && scroll.closest('.is-trascinando'))) { timer = setTimeout(rifai, 250); return; }
+            const w = _pdfLarghezza(scroll);
+            if (Math.abs(w - larga) < 12) return;
+            larga = w; inCorso = true;
+            pagine.forEach(p => { p.wrap.style.width = w + 'px'; });   // subito tutte alla misura nuova (il canvas scala), poi il disegno nitido
+            try {
+                for (const p of pagine) {
+                    if (token !== _pdfToken || !scroll.isConnected) return;
+                    if (await _pdfDisegnaPagina(p.page, p.wrap, w, colored, token) === false) return;
+                    if (Math.abs(_pdfLarghezza(scroll) - w) >= 12) break;   // la colonna è cambiata ancora: riparte dal timer
+                }
+            } finally { inCorso = false; }
+        }
+        ro.observe(scroll);
+    }
+
     // Render pagine PDF su canvas via pdf.js (già caricato, worker configurato).
     // Token-guardato: switch/teardown annulla i render obsoleti.
     async function _mountPdf(pdfs) {
@@ -1394,38 +2230,27 @@
             const n = Math.min(total, CAP);
             if (info) info.textContent = (total > n ? (n + '/' + total) : String(total)) + ' ' + t('el_pdf_pages', 'pagine');
             scroll.innerHTML = '';
-            const wCss = Math.max(320, (scroll.clientWidth || 640) - 28);
-            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const wCss = _pdfLarghezza(scroll);
             // Frasi della fonte con colore di macro-area (per l'highlight PDF).
             const colored = _coloredSentences();
+            const pagine = [];
             for (let i = 1; i <= n; i++) {
                 if (token !== _pdfToken) return;
                 const page = await pdf.getPage(i);
                 if (token !== _pdfToken) return;
                 const vp1 = page.getViewport({ scale: 1 });
-                const vp = page.getViewport({ scale: (wCss / vp1.width) * dpr });
                 const wrap = document.createElement('div');
                 wrap.className = 'elab-pdf-pagewrap';
-                wrap.style.width = wCss + 'px'; wrap.style.height = Math.floor(vp.height / dpr) + 'px';
-                const canvas = document.createElement('canvas');
-                canvas.className = 'elab-pdf-page';
-                canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
-                canvas.style.width = wCss + 'px'; canvas.style.height = Math.floor(vp.height / dpr) + 'px';
-                wrap.appendChild(canvas);
+                /* 0118, dal gate 3 (Giacomo, 21/10: «quando restringo l'immagine si deforma»): larghezza in px ma
+                   proporzioni fisse — se la colonna si stringe (la maniglia) la pagina si rimpicciolisce intera invece
+                   di schiacciarsi; a barra ferma `_pdfOsserva` la ridisegna alla larghezza nuova. */
+                wrap.style.width = wCss + 'px'; wrap.style.aspectRatio = vp1.width + ' / ' + vp1.height;
                 scroll.appendChild(wrap);
-                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-                if (token !== _pdfToken) return;
-                // Highlight colorati sul PDF: text layer pdf.js + match delle frasi.
-                if (colored.length) {
-                    try {
-                        const tc = await page.getTextContent();
-                        if (token !== _pdfToken) return;
-                        const vpCss = page.getViewport({ scale: wCss / vp1.width });
-                        _paintPdfHighlights(wrap, tc, vpCss, wCss / vp1.width, colored);
-                    } catch (e) { /* best-effort: senza text layer resta il canvas */ }
-                }
+                if (await _pdfDisegnaPagina(page, wrap, wCss, colored, token) === false) return;
+                pagine.push({ page, wrap });
             }
             if (token !== _pdfToken) return;
+            _pdfOsserva(scroll, wCss, pagine, colored, token);
             if (total > n) {
                 const more = document.createElement('div');
                 more.className = 'elab-pdf-loading';
@@ -1438,7 +2263,7 @@
         }
     }
 
-    function setSrcView(v) { _srcView = (v === 'pdf') ? 'pdf' : 'text'; render(); }
+    function setSrcView(v) { _srcView = (v === 'pdf') ? 'pdf' : (v === 'figure' ? 'figure' : 'text'); if (v === 'figure') _figNome = null; render(); }   // 'figure': «Testo delle figure» (0113), tutti i PDF
     // #1: attiva/disattiva l'esclusione delle intestazioni/piè ricorrenti.
     function toggleBoilerplate() {
         const on = _stripBoilerplateOn();
@@ -1570,6 +2395,10 @@
        torna). Staccato dal documento la finestra di sistema può non aprirsi:
        sta nascosto in `body` e se ne va sia alla scelta sia all'annullamento. */
     function pickPdf() {
+        /* 0096 (B): con un PDF già allegato non si apre la finestra di sistema. Il
+           bottone della console è già spento: qui si fermano le altre strade (la
+           zona «Aggiungi materiale» in fondo al testo, un clic programmato). */
+        if (comandiFonte() && haPdf()) { if (window.showToast) showToast(motivoPdfGia(), 'info'); return; }
         const el = document.getElementById('elab-pdf-input');
         if (el) { el.click(); return; }
         if (!document.body) return;
@@ -1600,12 +2429,14 @@
     let _letturaPdf = false;
     function letturaPdfAttiva() { return _letturaPdf; }
     function motivoLetturaPdf() { return t('el_pdf_busy', 'Sto leggendo il PDF, riprova tra poco.'); }
-    function _veloPdf(acceso) {
+    /* `testo` (0096): lo stesso velo serve anche all'export del PDF evidenziato,
+       che a 9999 restava sotto la console. Senza, «Lettura del PDF…». */
+    function _veloPdf(acceso, testo) {
         let el = null;
         try { el = document.getElementById('loading-overlay'); } catch (e) { }
         if (acceso) {
             try { const MM = window.MappAIModal; if (el && MM && MM.prossimoZ) el.style.zIndex = String(MM.prossimoZ()); } catch (e) { /* senza motore resta il 9999 del foglio */ }
-            try { if (window.showLoadingOverlay) window.showLoadingOverlay(true, t('el_pdf_reading', 'Lettura del PDF…')); } catch (e) { }
+            try { if (window.showLoadingOverlay) window.showLoadingOverlay(true, testo || t('el_pdf_reading', 'Lettura del PDF…')); } catch (e) { }
         } else {
             try { if (window.showLoadingOverlay) window.showLoadingOverlay(false); } catch (e) { }
             try { if (el) el.style.zIndex = ''; } catch (e) { }
@@ -1631,6 +2462,10 @@
             /* si ATTENDE la scrittura (PDF in Fonti/, poi fonti.json): chi ha
                premuto il bottone ritrova il file sul disco quando onPdf finisce */
             await _persistSource('pdf', text, file.name || 'PDF', file);
+            /* 0096 (B): `render()` a console aperta ridisegna solo la fonte, non la
+               barra: senza questo «Aggiungi PDF» resterebbe premibile fino al
+               prossimo ridisegno */
+            try { const C = window.MappAIElaboraConsole; if (comandiFonte() && C && C.ridisegna) C.ridisegna(); } catch (e) { }
         } catch (e) {
             if (window.showToast) showToast(t('el_pdf_err', 'Errore lettura PDF'), 'error');
         } finally {
@@ -1964,6 +2799,10 @@
         /* e poi l'INDICE: senza, il PDF sta nel vault ma nessuno sa che era una
            fonte, di che tipo, né dove finiva il testo che se n'era estratto */
         const indice = await salvaIndiceFonti({ vaultNuovo, pdfScritto, vaultPath: vp, fonti });
+        /* 0113 (lotto 8): il `.figure.json` di ogni fonte PDF letta in CREA, nello
+           stesso passaggio dei `.txt` e dell'indice (ADR 0024 §5.7); un guasto non
+           ferma niente, e il valore di ritorno resta quello di prima */
+        await _figScriviDossier(vp, fonti, fileDi);
         /* le fonti in memoria ora sono di questo vault (lo stesso ragionamento
            di `_persistSource`): il ripristino non le butta via. Se intanto si è
            aperta un'altra mappa, in memoria ci sono le sue, e non sono di vp.
@@ -2422,8 +3261,8 @@
         .elab-pdfname{font-weight:700;color:var(--eink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .elab-pdfinfo{margin-left:auto;font-size:11px;color:var(--efaint);white-space:nowrap}
         .elab-pdf-scroll{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--epanel3)}
-        .elab-pdf-pagewrap{position:relative;border-radius:4px;box-shadow:0 2px 12px rgba(15,23,42,.14);max-width:100%}
-        .elab-pdf-page{display:block;border-radius:4px;background:#fff;max-width:100%}
+        .elab-pdf-pagewrap{position:relative;border-radius:4px;box-shadow:0 2px 12px rgba(15,23,42,.14);max-width:100%;flex:0 0 auto}
+        .elab-pdf-page{display:block;border-radius:4px;background:#fff;width:100%;height:auto}
         .elab-pdf-hllayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:4px}
         .elab-pdf-hl{position:absolute;border-radius:2px;mix-blend-mode:multiply}
         .elab-pdf-loading{color:var(--esoft);font-size:12.5px;padding:12px;text-align:center}
@@ -2459,7 +3298,43 @@
         .elab-tr:hover .elab-ta-wrap{display:inline-flex}
         .elab-ta{width:24px;height:24px;border-radius:7px;display:inline-grid;place-items:center;color:var(--esoft);font-size:12px;font-style:normal;font-family:var(--emoji-font),inherit}
         .elab-ta:hover{background:var(--eaccs);color:var(--eacc)}
-        @media (max-width:900px){.elab-split{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}.elab-divider{display:none}.elab-pane:first-child{border-bottom:1px solid var(--eline)}.elab-stack{max-width:none}}`;
+        /* 0118: la maniglia fra fonte e analisi, l'aspetto di quella del Banco (mappai-review-dashboard.css, 17/9): una linea
+           sottile che diventa verde (--mm-ok) sotto il dito, il chip grigio che si scuote alla prima apparizione, e a fonte
+           chiusa una linguetta verde sul bordo sinistro. Solo con le colonne affiancate (sopra i 900 px). */
+        @media (min-width:901px){
+          .elab-split-man{position:relative;grid-template-columns:var(--elab-fonte-w,53.5%) minmax(0,1fr);transition:grid-template-columns .28s ease}
+          .elab-split-man>.elab-maniglia{position:absolute;top:0;bottom:0;left:var(--elab-fonte-w,53.5%);z-index:4;width:12px;margin-left:-6px;cursor:col-resize;touch-action:none;transition:left .28s ease}
+          .elab-split-man>.elab-maniglia::before{content:'';position:absolute;top:0;bottom:0;left:5px;width:2px;background:var(--eline);transition:background .15s}
+          .elab-split-man>.elab-maniglia::after{content:'';position:absolute;top:50%;left:50%;width:4px;height:40px;margin:-20px 0 0 -2px;border-radius:4px;background:var(--efaint);pointer-events:none}
+          .elab-split-man.elab-scuoti>.elab-maniglia::after{animation:mm-chip-nudge .45s ease-in-out .8s 2}
+          .elab-split-man>.elab-maniglia:hover::before,.elab-split-man.is-trascinando>.elab-maniglia::before,.elab-split-man>.elab-maniglia:hover::after,.elab-split-man.is-trascinando>.elab-maniglia::after{background:var(--mm-ok,#059669)}
+          .elab-split-man>.elab-maniglia:focus-visible{outline:3px solid var(--eacc);outline-offset:-3px}
+          .elab-split-man.is-trascinando,.elab-split-man.is-trascinando>.elab-maniglia{transition:none;user-select:none;cursor:col-resize}
+          .elab-split-man.is-montando,.elab-split-man.is-montando>.elab-maniglia{transition:none}
+          .elab-split-man.sta-chiudendo>.elab-pane:first-child{opacity:.35}
+          .elab-split-man.is-pannello-chiuso>.elab-pane:first-child{visibility:hidden;border:0}
+          .elab-split-man.is-pannello-chiuso>.elab-pane:last-child{padding-left:16px}
+          .elab-split-man.is-pannello-chiuso>.elab-maniglia{top:50%;bottom:auto;height:72px;width:14px;margin:-36px 0 0 0;border-radius:0 8px 8px 0;background:var(--mm-ok,#059669);box-shadow:1px 0 3px rgba(0,0,0,.15)}
+          .elab-split-man.is-pannello-chiuso>.elab-maniglia::before{left:4px;width:6px;top:26px;bottom:26px;background:repeating-linear-gradient(to bottom,#fff 0 2px,transparent 2px 5px)}
+          .elab-split-man.is-pannello-chiuso>.elab-maniglia::after{display:none}
+        }
+        @media (prefers-reduced-motion:reduce){.elab-split-man,.elab-split-man>.elab-maniglia{transition:none}.elab-split-man.elab-scuoti>.elab-maniglia::after{animation:none}}
+        /* 0118: il PDF originale a destra nella vista «Figure» (pagine come in .elab-pdf-scroll) e il riquadro del ritaglio */
+        .elab-figpdf-pane{background:var(--epanel3)}
+        .elab-figpdf-pane>.elab-pane-head>.elab-lbl{white-space:nowrap;flex:0 0 auto}
+        .elab-figpdf-nome{font-size:var(--mm-fs-aiuto);color:var(--esoft);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .elab-figpdf-slot{flex:1;min-height:0;display:flex;flex-direction:column}
+        .elab-figpdf{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:stretch;gap:12px;position:relative}
+        .elab-figpdf-pag{position:relative;width:100%;border-radius:4px;background:#fff;box-shadow:0 2px 12px rgba(15,23,42,.14);flex:0 0 auto}
+        .elab-figpdf-canvas{display:block;width:100%;height:100%;border-radius:4px}
+        .elab-figpdf-riq{position:absolute;box-sizing:border-box;border:3px solid var(--eacc);border-radius:4px;background:rgba(79,70,229,.08);pointer-events:none}
+        .elab-figpdf-riq-giallo{border-color:var(--enotice);background:rgba(180,83,9,.08)}
+        .elab-figpdf-riq-verde{border-color:var(--egood);background:rgba(4,120,87,.08)}
+        .elab-figpdf-riq-rosso{border-color:var(--esoft);background:rgba(100,116,139,.08)}
+        .elab-figpdf-riq-non-letto{border-color:var(--egap);background:rgba(109,40,217,.08)}
+        .elab-figpdf-riq-saltato{border-color:var(--efaint);background:rgba(148,163,184,.1)}
+        .elab-fig-sel>.elab-fig-card{box-shadow:0 0 0 2px var(--eacc)}
+        @media (max-width:900px){.elab-split{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}.elab-divider,.elab-maniglia{display:none}.elab-pane:first-child{border-bottom:1px solid var(--eline)}.elab-stack{max-width:none}}`;
         const st = document.createElement('style');
         st.id = 'elab-styles'; st.textContent = css;
         document.head.appendChild(st);
@@ -2502,6 +3377,15 @@
            al caricamento, e la console/ELABORA quando apre */
         salvaIndiceFonti, ripristinaFontiDalVault, completaTestiMancanti: _completaTestiMancanti, exportHighlighted, exportHighlightedPdf, toggleBoilerplate,
         openQuestions,
+        /* 0113 (lotto 8): i gesti della vista «Testo delle figure» */
+        figLeggi, figRileggiGoogle, figConferma, figSalva, figVaBeneRiga, figVaBeneTutte, figApri, figTabella,   // 0114: la spunta per riga, la tabella «Figure» della console
+        figMostra, figDa, figPdfStato,   // 0118: la figura su cui si lavora e il PDF a destra
+        /* 0096: l'interruttore dei comandi della fonte e «il progetto ha già un PDF»;
+           li chiede la console */
+        comandiFonte, haPdf,
+        /* il nome del progetto per i nomi dei file (cartella, ADR 0021): lo chiede anche la
+           console per la Catena (gate dello 0096) */
+        nomeProgetto,
         /* 0078: `Fonti/` alla cartella di «Riprendi» che non ce l'ha */
         completaFontiDellaCartella
     };

@@ -577,3 +577,37 @@ test('0078: «completa» non ha gli effetti di vaultNuovo — vaultRelPerIndice 
   assert.equal(FC.vaultRelPerIndice.length, 4, 'la firma non cambia');
   assert.equal(FC.vaultSpostato.length, 4, 'la firma non cambia');
 });
+
+/* ── 0101: CREA parte con le sue fonti ─────────────────────────────────────── */
+test('0101 fontiDiCrea: tiene le fonti con la riga e qualcosa dentro, toglie le altre', () => {
+  const file = { name: 'Teoria diseq.pdf' };
+  const fonti = [
+    { id: 'elab_pdf_1', type: 'pdf', content: 'testo della guerra', file: null, origin: 'elabora' },   // ELABORA: niente riga
+    { id: 'vault-1', type: 'image', content: '', vaultRel: 'Fonti/foto.jpg' },                        // ripristinata: niente riga
+    { id: 'crea_pdf', type: 'doc', content: '', file },                                               // riga col file scelto
+    { id: 'crea_extra', type: 'doc', content: '', file: { name: 'b.pdf' } },                          // file 2 di una scelta multipla
+    { id: 'crea_audio', type: 'audio', content: '', file: null },                                     // Finder annullato
+    { id: 'crea_testo', type: 'text', content: '', file: null },                                      // testo scritto nella riga
+    { id: 'crea_url', type: 'url', content: '', file: null }                                          // riga aperta e vuota
+  ];
+  const righe = { crea_pdf: { valore: true }, crea_extra: { valore: false }, crea_audio: { valore: false },
+    crea_testo: { valore: true }, crea_url: { valore: false } };
+  const r = FC.fontiDiCrea(fonti, righe);
+  assert.deepEqual(r.tenute.map(s => s.id), ['crea_pdf', 'crea_extra', 'crea_testo']);
+  assert.deepEqual(r.tolte.map(s => s.id), ['elab_pdf_1', 'vault-1', 'crea_audio', 'crea_url']);
+  assert.equal(r.tenute[0], fonti[2], 'gli oggetti sono quelli del cassetto, non copie');
+});
+
+test('0101 fontiDiCrea: una riga con un testo già letto resta anche col campo vuoto', () => {
+  const r = FC.fontiDiCrea([{ id: 'a', type: 'doc', content: 'testo estratto', file: null }], { a: { valore: false } });
+  assert.equal(r.tenute.length, 1);
+  assert.equal(r.tolte.length, 0);
+});
+
+test('0101 fontiDiCrea: senza righe non si toglie niente; input sbagliati non lanciano', () => {
+  const fonti = [{ id: 'x', type: 'pdf', content: 't' }];
+  assert.deepEqual(FC.fontiDiCrea(fonti).tenute.map(s => s.id), ['x']);
+  assert.equal(FC.fontiDiCrea(fonti, null).tolte.length, 0);
+  assert.deepEqual(FC.fontiDiCrea(null, {}), { tenute: [], tolte: [] });
+  assert.equal(FC.fontiDiCrea([null, { id: 'y' }], {}).tolte.length, 2);
+});

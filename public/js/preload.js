@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     filesRootChoose: () => ipcRenderer.invoke('files-root-choose'),
     filesMigratePreview: () => ipcRenderer.invoke('files-migrate-preview'),
     filesSetup: (opts) => ipcRenderer.invoke('files-setup', opts),
+    strutturaStato: () => ipcRenderer.invoke('struttura-stato'),                    // 0104: struttura, interruttore, registro
+    strutturaTornaIndietro: () => ipcRenderer.invoke('struttura-torna-indietro'),   // 0104: «Torna alla struttura di prima»
+    strutturaRiprova: () => ipcRenderer.invoke('struttura-riprova'),               // 0104: riorganizza al prossimo avvio
     filesOpenRoot: () => ipcRenderer.invoke('files-open-root'),
     studySessionsList: () => ipcRenderer.invoke('study-sessions-list'),
     // Registro consumi AI

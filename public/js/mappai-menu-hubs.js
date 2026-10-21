@@ -260,7 +260,7 @@
             hideTip();
             const rec = window.MappAIStudyDocs.get(b.dataset.id);
             if (!rec) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
-            if (rec.pdf) { window.open(rec.pdf, '_blank'); return; } // Foglio nodi (PDF)
+            if (rec.pdf) { (window._apriPdfInFinestra ? window._apriPdfInFinestra(rec.pdf) : window.open(rec.pdf, '_blank')); return; } // Foglio nodi (PDF)
             if (!rec.html) { window.showToast && window.showToast(t('sd_missing', 'Documento non disponibile'), 'error'); return; }
             window.MappAIStudyExport.openPrintable(rec.html, { successMsg: t('sd_reopened', '✓ Documento riaperto') });
         });

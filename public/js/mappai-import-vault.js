@@ -88,7 +88,14 @@
         return Promise.resolve();
     }
 
-    function dove(dest) { return ['Mappe'].concat(dest.segmenti || []).join(' › '); }
+    /* 0104: la base dei progetti è «Classi» con la struttura nuova; la si legge
+       dalla base vera (`_basi`, da files-root-get) e non si scrive a mano */
+    var _basi = null;
+    try { if (window.electronAPI && window.electronAPI.filesRootGet) window.electronAPI.filesRootGet().then(function (b) { _basi = b; }).catch(function () { }); } catch (e) { }
+    function dove(dest) {
+        var base = (_basi && _basi.mapsBaseDir) ? String(_basi.mapsBaseDir).split(/[\\\/]/).filter(Boolean).pop() : 'Mappe';
+        return [base].concat(dest.segmenti || []).join(' › ');
+    }
     function avvisoNome(dest) {
         return t('iv_nome_esiste', 'Questo nome esiste già, potrai modificarlo in seguito o tenere la numerazione automatica.') +
             ' ' + t('iv_nome_sara', 'Il vault si chiamerà «{n}».').replace('{n}', dest.nome);

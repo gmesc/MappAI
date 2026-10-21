@@ -60,7 +60,9 @@ const STATIC_ALLOW = [
      il carattere è la cosa che serve di più a chi fa fatica a leggere. Solo
      questa cartella, sola lettura, nessun altro file del repo. */
   '/public/fonts/',
-  '/public/tutor/'
+  '/public/tutor/',
+  // Prova del font emoji (0099): decide se `--emoji` tiene 'MappAI Emoji' su questo dispositivo.
+  '/public/js/mappai-emoji-prova.js'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB
 

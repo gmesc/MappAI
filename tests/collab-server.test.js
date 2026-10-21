@@ -185,6 +185,15 @@ test('static: allowlist rigida (403 fuori, 200 il core)', async () => {
   assert.strictEqual(core.status, 200);
 });
 
+test('static: la prova del font emoji (0099) è servita come JavaScript', async () => {
+  const r = await fetch('http://127.0.0.1:' + port + '/public/js/mappai-emoji-prova.js');
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /javascript/);
+  const img = await fetch('http://127.0.0.1:' + port + '/public/fonts/emoji/1f98a.svg');
+  assert.strictEqual(img.status, 200);
+  assert.match(img.headers.get('content-type'), /image\/svg\+xml/);
+});
+
 test('POST /api/nodes: links con keyword + flag done → board li espone', async () => {
   // stato post-restart: gruppo "I Leoni" adottato da dev2 con 1 nodo (n1)
   const nodes = [

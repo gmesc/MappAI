@@ -30,7 +30,14 @@ window.systemPromptsDescriptions = {
     "MIND_MAP_FULL_TREE_EN": "admin_prompt_desc_mm_full",
     "KNOWLEDGE_GRAPH_FULL_TREE_IT": "admin_prompt_desc_kg_full",
     "KNOWLEDGE_GRAPH_FULL_TREE_EN": "admin_prompt_desc_kg_full",
-    "NPC_NARRATOR": "admin_prompt_desc_npc_narrator"
+    "NPC_NARRATOR": "admin_prompt_desc_npc_narrator",
+    // Lettura delle immagini (banco del 16/10/2026): figura ritagliata, pagina intera col testo
+    // tipografico in {{testoTipografico}}, pagina scansionata senza testo tipografico; le regioni di formule
+    // (packet 0113, ADR 0024 §5.5; in console dal packet 0114, lotto 4).
+    "LETTURA_IMMAGINI_FIGURA": "admin_prompt_desc_immagini_figura",
+    "LETTURA_IMMAGINI_PAGINA": "admin_prompt_desc_immagini_pagina",
+    "LETTURA_IMMAGINI_SCANSIONE": "admin_prompt_desc_immagini_scansione",
+    "LETTURA_IMMAGINI_FORMULE": "admin_prompt_desc_immagini_formule"
 };
 
 window.systemPromptsCategories = {
@@ -39,7 +46,8 @@ window.systemPromptsCategories = {
     "TUTOR": ["SINGLE_QUIZ_TUTOR", "SOCRATIC_TUTOR", "TUTOR_MODE_EXPLAIN", "TUTOR_MODE_ASK", "TUTOR_MODE_SOCRATIC", "TUTOR_MODE_DEVIL", "TUTOR_MODE_CONNECT", "TUTOR_MODE_RECALL"],
     "STUDY": ["MULTIPLE_CHOICE_QUIZ", "DYNAMIC_QUIZ", "FLASHCARD_GENERATOR", "OPEN_QUESTIONS_GENERATOR"],
     "DISCIPLINES": ["DISCIPLINE_STORIA", "DISCIPLINE_SCIENZE", "DISCIPLINE_LETTERATURA", "DISCIPLINE_MATEMATICA", "DISCIPLINE_GEOGRAFIA", "DISCIPLINE_FILOSOFIA"],
-    "NPC": ["NPC_NARRATOR"]
+    "NPC": ["NPC_NARRATOR"],
+    "IMMAGINI": ["LETTURA_IMMAGINI_FIGURA", "LETTURA_IMMAGINI_PAGINA", "LETTURA_IMMAGINI_SCANSIONE", "LETTURA_IMMAGINI_FORMULE"]
 };
 
 // Helper per ottenere la traduzione corrente
@@ -59,7 +67,8 @@ window.systemTabExplanations = {
     "KGRAPHS": "admin_explanation_kgraphs",
     "TUTOR": "admin_explanation_tutor",
     "STUDY": "admin_explanation_study",
-    "NPC": "admin_explanation_npc"
+    "NPC": "admin_explanation_npc",
+    "IMMAGINI": "admin_explanation_immagini"
 };
 
 window.currentAdminPromptKey = null;
@@ -208,6 +217,7 @@ window.renderAdminPromptsList = async function() {
         if (tab === 'KGRAPHS') btn.innerText = window.getAdminTranslation('admin_tab_kgraphs');
         if (tab === 'TUTOR') btn.innerText = window.getAdminTranslation('admin_tab_tutor');
         if (tab === 'STUDY') btn.innerText = window.getAdminTranslation('admin_tab_study');
+        if (tab === 'IMMAGINI') btn.innerText = window.getAdminTranslation('admin_tab_immagini');
 
         if (tab === window.currentAdminTab) {
             btn.classList.add('bg-indigo-600', 'text-white');

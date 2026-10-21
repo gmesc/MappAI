@@ -44,6 +44,7 @@ tabella `name` di ogni file.
 |---|---|
 | D3.js v7 — Mike Bostock | ISC |
 | PDF.js — Mozilla Foundation | Apache-2.0 |
+| tesseract.js 7.0.0 e tesseract.js-core (OCR in WebAssembly, `public/js/vendor/tesseract/`; dati delle lingue `ita` ed `eng` da `@tesseract.js-data`, `public/assets/tesseract/`) — Project Naptha | Apache-2.0 (`public/js/vendor/tesseract/tesseract.min.js.LICENSE.txt`, `tesseract-core-LICENSE.txt`) |
 | jsPDF — James Hall, yWorks | MIT |
 | svg2pdf.js — yWorks | MIT |
 | three.js | MIT |

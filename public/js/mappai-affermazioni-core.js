@@ -1648,7 +1648,7 @@
     if (review.initial.status !== 'awaiting_review') return no('revisione_non_in_attesa');
     if (!db || !Array.isArray(db.nodes)) return no('mappa_non_valida');
     var sources = own(o, 'sources') ? o.sources : review.sources;
-    if (rc.revision(db, sources) !== review.baseRevision) return no('mappa_cambiata');
+    if (!rc.coincide(db, sources, review, 'base')) return no('mappa_cambiata');   // 0097: in forma canonica
     var cop = copertura(review, db), manca = nonCalcolabile(review, db, sources, cop);
     if (manca) return no(manca);
     var frasi = frasiFonte(sources);
@@ -1710,7 +1710,7 @@
       if (review.initial.status !== 'awaiting_review') return null;
       if (!db || !Array.isArray(db.nodes)) return null;
       var src = sources === undefined ? review.sources : sources;
-      if (rc.revision(db, src) !== review.baseRevision) return null;
+      if (!rc.coincide(db, src, review, 'base')) return null;
       if (review.initial.checkStatus === 'unavailable') return null;
       var cop = copertura(review, db);
       if (!cop.rapporto || !cop.esaminati.length) return null;

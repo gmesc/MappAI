@@ -273,7 +273,6 @@
         'mp-qt-mixed', 'mp-qt-mc', 'mp-qt-fc', 'mp-qt-open', 'mp-perbranch', 'mp-fc-count', 'mp-angle',
         'mp-ang-definizione', 'mp-ang-causa', 'mp-ang-conseguenza', 'mp-ang-esempio',
         'mp-ang-confronto', 'mp-ang-eccezione', 'mp-ang-applicazione',
-        'mp-ns-level', 'mp-ns-fmt', 'mp-ns-title', 'mp-ns-keywords', 'mp-ns-summary', 'mp-ns-card',
         'mp-ns-causal', 'mp-preset', 'mp-estimate',
         /* la sintesi e la sua voce: con una foto le sceglie la scheda (decisione 9 del 01/10) */
         'mp-syn-on', 'mp-syn-audio',

@@ -130,6 +130,42 @@
         return out;
     }
 
+    /* ── 0101: CREA PARTE CON LE SUE FONTI ─────────────────────────────────────
+       Al clic su «Genera» o «Solo la mappa» `appState.sources` deve contenere
+       solo quello che CREA mostra: le fonti rimaste da un altro progetto
+       (ELABORA, «Carica un progetto») e le righe vuote escono. Chi tenere lo dice
+       `MappAIFontiCore.fontiDiCrea`; qui si leggono le righe (come
+       `fontiCaricate`: nel DOCUMENTO, la riga del testo libero sta nel suo box)
+       e si toglie. `appState` è un `let` lessicale: si raggiunge per nome. */
+    function _stato() {
+        try { return (typeof appState !== 'undefined') ? appState : window.appState; }
+        catch (e) { return window.appState; }
+    }
+    function soloFontiDiCrea() {
+        var FO = window.MappAIFontiCore, s = _stato();
+        if (!FO || !FO.fontiDiCrea || !s || !Array.isArray(s.sources)) return 0;
+        var righe = {};
+        var el = document.querySelectorAll('.source-entry');
+        for (var i = 0; i < el.length; i++) {
+            var inp = el[i].querySelector('input[type="file"]');
+            var campo = el[i].querySelector('input[type="url"], textarea');
+            righe[el[i].id] = { valore: !!((inp && inp.files && inp.files.length) || (campo && String(campo.value || '').trim())) };
+        }
+        var esito = FO.fontiDiCrea(s.sources, righe);
+        if (!esito.tolte.length) return 0;
+        esito.tolte.forEach(function (f) {
+            try { console.log('[CREA] fonte non di CREA tolta prima della generazione:', f && f.id, (f && f.name) || ''); } catch (e) { }
+            /* una riga vuota se ne va con `removeSource` (riga e voce insieme) */
+            if (f && righe[f.id] && window.removeSource) {
+                try { window.removeSource(f.id); } catch (e) { }
+            }
+        });
+        var tenute = esito.tenute;
+        _stato().sources = (_stato().sources || []).filter(function (f) { return tenute.indexOf(f) >= 0; });
+        try { disegnaTabella(); } catch (e) { }
+        return esito.tolte.length;
+    }
+
     function montaTabellaFile() {
         var step = document.querySelector('#setup-form .source-buttons-container');
         if (!step || document.getElementById('mn-files')) return;
@@ -993,6 +1029,8 @@
             var el = ev.target.closest ? ev.target.closest('[data-preset], #mn-genera, #mn-solo-mappa') : null;
             if (!el) return;
             var P = window.MappAIPipeline;
+            /* 0101: una generazione nuova parte solo dalle fonti che CREA mostra */
+            if (el.id === 'mn-genera' || el.id === 'mn-solo-mappa') soloFontiDiCrea();
             if (el.id === 'mn-genera') {
                 /* rete: un `<button disabled>` non emette click, ma il gate non
                    deve dipendere da quel dettaglio del browser */
@@ -1008,11 +1046,18 @@
                     });
                     return;
                 }
-                if (soloMappa()) { if (window.startGeneration) window.startGeneration(); return; }
+                if (soloMappa()) { generaSoloMappa(); return; }
                 if (P && P._startFromModal) P._startFromModal();
                 return;
             }
-            if (el.id === 'mn-solo-mappa') { if (window.startGeneration) window.startGeneration(); return; }
+            if (el.id === 'mn-solo-mappa') {
+                /* 0103: anche il modulo passa dal riquadro giallo — senza il modale
+                   «Per chi è questa mappa?» era lui a fare da rete */
+                var st2 = statoContesto();
+                if (!st2.ok) { if (window.showToast) window.showToast(st2.motivo, 'warning'); return; }
+                generaSoloMappa();
+                return;
+            }
             var a = el.getAttribute('data-preset');
             if (!P) return;
             if (a === 'applica' && P._applyPreset) { P._applyPreset(); aggiornaRigaVoce(); }   /* il preset scrive `.checked` senza `change` (trappola 10) */
@@ -1179,10 +1224,40 @@
        ⚠️ «C'è un materiale?» lo chiede alla pipeline (`_hasOutputNow`): il bento
        non deve sapere quali campi sono materiali, o alla prossima aggiunta le due
        liste divergerebbero (è appena successo con la catena dei perché). */
+    /* ── «Solo la mappa» come il giro coi materiali (0103, Giacomo 16/10) ──────
+       Destinatario e materia stanno nel riquadro giallo, già scritti nel contesto
+       attivo (`scriviContesto`): il modale «Per chi è questa mappa?» chiederebbe
+       due volte la stessa cosa, quindi `contestoDaCrea` lo salta come fa la
+       pipeline. Il velo è quello del giro di CREA (0062): a tutta finestra dal
+       clic, cade sulla mappa, e la presa si lascia SEMPRE — anche su errore o
+       annullamento, o un velo orfano resterebbe davanti a tutta l'app.
+       Interruttore del velo: `mappai_velo_finestra='0'` → nessuna presa. */
+    async function generaSoloMappa() {
+        if (!window.startGeneration) return;
+        var G = window.MappAIGen;
+        var presa = G && G.prendi ? G.prendi('velo') : 0;
+        try {
+            if (presa && window.showLoadingOverlay) window.showLoadingOverlay(t('mp_step_a', 'Genero la mappa…'));
+            var nata = await window.startGeneration({ contestoDaCrea: true });
+            if (presa && nata && G.allaMappa) G.allaMappa();
+        } finally {
+            if (presa && G.lascia) G.lascia(presa);
+        }
+    }
+
     function soloMappa() {
         var P = window.MappAIPipeline;
         if (!P || !P._hasOutputNow) return false;
         try { return !P._hasOutputNow(); } catch (e) { return false; }
+    }
+
+    /* 0103 (Giacomo 16/10, gate 3): con Output = Differenziazione i fogli dei nodi nascono sempre (0102), quindi
+       `soloMappa()` non è mai vero. Se sono l'UNICO materiale, il bottone dice «Genera Mappa»: sono un derivato
+       automatico della mappa, non una scelta. Lo chiede alla pipeline, come `soloMappa()`. */
+    function soloFogli() {
+        var P = window.MappAIPipeline;
+        if (!P || !P._soloFogliNow) return false;
+        try { return !!P._soloFogliNow(); } catch (e) { return false; }
     }
 
     document.addEventListener('mappai-reading-plan-changed', function () { aggiornaGate(); });
@@ -1196,7 +1271,10 @@
         if (testo && (!piano.valid || piano.pending)) st = { ok: false, motivo: piano.pending
             ? t('pl_plan_preparing', 'Preparazione del percorso…')
             : t('pl_plan_invalid', 'Controlla quantità e varianti: non ripetere la stessa combinazione e rispetta i limiti indicati.') };
-        var mappa = st.ok && !testo && soloMappa();
+        /* 0103 (gate 3): anche coi soli fogli dei nodi automatici la faccia è «Genera Mappa» — il clic resta la pipeline.
+           0110 D5 (Giacomo, gate 3): la faccia segue SOLO il box dei materiali, non il riquadro giallo — blu appena il
+           box è vuoto, verde appena torna una spunta. Senza «Chi» il bottone resta spento (`mn-card--spento`). */
+        var mappa = !testo && (soloMappa() || soloFogli());
         b.disabled = !st.ok;
         b.classList.toggle('mn-card--spento', !st.ok);
         b.classList.toggle('mn-card--mappa', mappa);
@@ -1217,8 +1295,12 @@
         /* il motivo va nel nome accessibile, non solo nel fumetto: l'etichetta di
            questo bottone si rivela al passaggio, quindi chi non usa il mouse non
            avrebbe modo di sapere perché è spento */
+        /* 0110 D4: coi soli fogli dei nodi automatici la faccia è «Genera Mappa» (0103), ma i fogli escono: il suggerimento lo dice */
+        var tipMappa = (!soloMappa() && soloFogli())
+            ? t('mn_solo_fogli_tip', 'solo i fogli dei nodi automatici: genera la mappa e i fogli')
+            : t('mn_solo_mappa_tip', 'nessun materiale spuntato: genera la sola mappa');
         b.title = st.ok
-            ? (mappa ? nome + ' — ' + t('mn_solo_mappa_tip', 'nessun materiale spuntato: genera la sola mappa') : nome)
+            ? (mappa ? nome + ' — ' + tipMappa : nome)
             : nome + ' — ' + st.motivo;
         b.setAttribute('aria-label', b.title);
         var box = document.getElementById('mn-bento');
@@ -1412,6 +1494,8 @@
     window.MappAICostruisci = {
         avvio: avvio, disegnaTabella: disegnaTabella, montaBento: montaBento,
         sincronizzaGenere: sincronizzaGenere, aggiornaGate: aggiornaGate,
+        soloFontiDiCrea: soloFontiDiCrea,
+        generaSoloMappa: generaSoloMappa,
         /* la chiama `_applyPreset` dopo aver scritto i campi: impostare
            `.checked` da JS non scatena `change` (trappola 10), quindi senza
            questa riga un preset applicato a mano non verrebbe ricordato */

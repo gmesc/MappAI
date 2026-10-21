@@ -109,6 +109,10 @@
             C.organizzata = !!(st && st.organized);
             C.root = (st && (st.rootDir || st.filesRoot)) || '';
             C.documenti = (st && st.documentsDir) || '';
+            /* 0104: la struttura della beta.8 e il suo registro */
+            return api.strutturaStato ? api.strutturaStato() : null;
+        }).then(function (rs) {
+            C.riordino = (rs && rs.ok) ? rs : null;
         }).catch(function () { }).then(function () {
             C.stato = 'pronto';
             _ridisegna();
@@ -479,7 +483,7 @@
        MappAI, che cosa ricevono gli allievi. Ogni frase è verificata sull'app. */
     var CASI = [
         { id: 'uc1', chiave: 'cb_tu_uc1', titolo: 'Ripasso prima della verifica',
-          testo: 'Dalla scheda del capitolo genera la mappa a L3 e premi «Genera materiali»: quiz a scelta multipla e flashcard finiscono nella cartella della classe. In classe, venti minuti di flashcard a coppie, poi il quiz via QR («Domande a scelta») con «Correggi subito»: il registro dei risultati ti dice su quali rami tornare.' },
+          testo: 'Dalla scheda del capitolo genera la mappa a L3 e premi «Genera materiali»: quiz a scelta multipla e flashcard finiscono nella cartella della classe. In classe, venti minuti di flashcard a coppie, poi il quiz via QR («Studio attivo live»): il registro dei risultati ti dice su quali rami tornare.' },
         { id: 'uc2', chiave: 'cb_tu_uc2', titolo: 'L’allievo con DSA legge con la voce',
           testo: 'Genera la sintesi e registrale la voce naturale dall’editor di ELABORA: in INSEGNA compare «Sintesi con voce», da consegnare via QR o come file. Con il contesto dell’allievo attivo il testo è tarato sul suo registro; da Cabina › Aspetto e leggibilità scegli un carattere ad alta leggibilità per tutta l’app.' },
         { id: 'uc3', chiave: 'cb_tu_uc3', titolo: 'La mappa si costruisce sul banco',
@@ -588,8 +592,37 @@
        «Allievi» e «Diagnostica», nate dopo). */
     function _sottocartelle() {
         var FC = window.MappAIFilesCore;
-        var base = (FC && FC.SUB) ? Object.keys(FC.SUB).map(function (k) { return FC.SUB[k]; }) : [];
+        /* 0104 (ADR 0023): con la struttura della beta.8 sono tre, e sono quelle */
+        var R = _st && _st.cart && _st.cart.riordino;
+        if (FC && FC.RADICE_V2 && R && R.struttura === 2) return FC.RADICE_V2.join(' · ');
+        var base = (FC && FC.SUB) ? Object.keys(FC.SUB).filter(function (k) { return k !== 'system'; }).map(function (k) { return FC.SUB[k]; }) : [];
         return base.concat([t('cb_ca_diag', 'Diagnostica')]).join(' · ');
+    }
+    /* 0104: la riga della riorganizzazione — quando, quanti spostati, e chi è rimasto
+       al suo posto e perché (in fila, separati da « · »: il motore dei modali
+       disegna il valore su una riga). Il conto lo fa il core dal registro. */
+    var _MOTIVI_RIORDINO = {
+        'destinazione-esiste': ['cb_ro_m_esiste', 'c’è già una cartella con quel nome'],
+        'nome-non-valido': ['cb_ro_m_nome', 'il nome non va bene su Windows'],
+        'stessa-destinazione': ['cb_ro_m_stessa', 'un altro progetto va nello stesso posto'],
+        'classe-riservata': ['cb_ro_m_riservata', 'la classe ha un nome riservato'],
+        'non-riuscito': ['cb_ro_m_fallito', 'non si è potuto spostare: si riprova al prossimo avvio']
+    };
+    function _rigaRiordino(R) {
+        var RC = window.MappAIRiordinoCore;
+        var r = (RC && R && R.registro) ? RC.riepilogo(R.registro) : null;
+        if (!r) return null;
+        var d = new Date(r.quando), p = function (n) { return String(n).padStart(2, '0'); };
+        var data = isNaN(d.getTime()) ? '' : p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+        var testa = (r.tornataIndietro
+            ? t('cb_ro_indietro', 'Tornata alla struttura di prima il {d}: {n} spostati')
+            : t('cb_ro_fatta', 'Riorganizzata il {d}: {n} spostati')).replace('{d}', data).replace('{n}', r.spostati);
+        if (r.rimasti.length) testa += ', ' + t('cb_ro_rimasti', '{n} rimasti al loro posto').replace('{n}', r.rimasti.length);
+        var righe = r.rimasti.map(function (x) {
+            var m = _MOTIVI_RIORDINO[x.motivo] || _MOTIVI_RIORDINO['non-riuscito'];
+            return x.da + ' — ' + t(m[0], m[1]);
+        });
+        return { etichetta: t('cb_ro_t', 'Riorganizzazione'), valore: testa + (righe.length ? ': ' + righe.join(' · ') : '') };
     }
     /* Aspetta che la finestra delle cartelle sparisca, poi rilegge e ridisegna.
        Un osservatore invece di un timer: la finestra può restare aperta un
@@ -649,10 +682,16 @@
            che offre di liberarlo sarebbe una bugia. */
         var ant = _anteprimaCassetto();
         if (ant) sez.dati.push(_rigaSpazio(ant));
+        var R = C.riordino, rr = _rigaRiordino(R);
+        if (rr) sez.dati.push(rr);
         sez.azioni = [
             { id: 'cart-apri', etichetta: t('cb_ca_apri', 'Apri la cartella'), ruolo: 'primario', icona: 'folder-open', chiude: false },
             { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cambia posizione'), icona: 'folder-cog', chiude: false }
         ];
+        /* 0104: tornare indietro si può finché c'è un registro della struttura nuova;
+           dopo il ritorno, l'interruttore è spento e si può riaccendere */
+        if (R && R.struttura === 2 && R.registro) sez.azioni.push({ id: 'cart-indietro', etichetta: t('cb_ro_torna', 'Torna alla struttura di prima'), icona: 'undo-2', chiude: false });
+        else if (R && R.struttura !== 2 && !R.acceso) sez.azioni.push({ id: 'cart-riordina', etichetta: t('cb_ro_riordina', 'Riorganizza la cartella'), icona: 'folder-tree', chiude: false });
         if (sn || (ant && ant.via.length)) {
             sez.azioni.push(_azionePota());
         }
@@ -1624,6 +1663,41 @@
                        dopo che i file sono già stati spostati. */
                     _quandoChiusaCartelle();
                 } else toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning');
+                return;
+            }
+
+            // 0104 (ADR 0023): la struttura della beta.8, avanti e indietro
+            if (id === 'cart-indietro') {
+                var api0104 = window.electronAPI;
+                if (!api0104 || !api0104.strutturaTornaIndietro) { toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning'); return; }
+                MM().conferma({
+                    titolo: t('cb_ro_torna', 'Torna alla struttura di prima'),
+                    testo: t('cb_ro_torna_d', 'Rimetto le cartelle dove stavano prima della beta.8. Poi l’app non riorganizza più finché non lo chiedi.'),
+                    conferma: t('cb_ro_torna_si', 'Torna indietro')
+                }).then(function (si) {
+                    if (!si) return null;
+                    return api0104.strutturaTornaIndietro().then(function (r) {
+                        if (!r || !r.ok) { toast(t('cb_ro_torna_ko', 'Non sono riuscito a tornare indietro: ') + ((r && r.error) || ''), 'error'); return; }
+                        var fine = function () {
+                            toast(t('cb_ro_torna_ok', 'Cartelle rimesse come prima: {n}.').replace('{n}', r.fatti) +
+                                (r.conflitti || r.falliti ? ' ' + t('cb_ro_torna_resto', 'Alcune sono rimaste dov’erano: lo dice la riga «Riorganizzazione».') : ''), 'success');
+                            _st.cart.stato = 'vuoto';
+                            _ridisegna();
+                        };
+                        /* i riferimenti (cassetto, «Riprendi», padronanza) seguono subito */
+                        var RO = window.MappAIRiordino;
+                        return (RO && RO.applica ? RO.applica() : Promise.resolve()).catch(function () { }).then(fine);
+                    });
+                });
+                return;
+            }
+            if (id === 'cart-riordina') {
+                if (!window.electronAPI || !window.electronAPI.strutturaRiprova) { toast(t('cb_no_electron', 'Disponibile solo nell’app installata.'), 'warning'); return; }
+                window.electronAPI.strutturaRiprova().then(function () {
+                    toast(t('cb_ro_riordina_ok', 'La cartella si riorganizza al prossimo avvio di MappAI.'), 'success');
+                    _st.cart.stato = 'vuoto';
+                    _ridisegna();
+                });
                 return;
             }
 

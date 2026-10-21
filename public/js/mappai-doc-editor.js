@@ -508,8 +508,11 @@
                     .replace('{a}', sync.added).replace('{r}', sync.removed), 'info');
             }
         } else {
-            doc = NS().docFromNodes(_sheetNodes('all'), {
-                fmt: '2x2', layout: 'title', depth: 'all',
+            /* 0102 (Giacomo, 15/10): un foglio nuovo parte da «Titolo + descrizione» */
+            const nodiNuovi = _sheetNodes('all'), descs = {};
+            nodiNuovi.forEach(n => { descs[n.id] = String(n.desc || n.content || '').trim(); });
+            doc = NS().docFromNodes(nodiNuovi, {
+                fmt: '2x2', layout: 'card', depth: 'all', descs,
                 title: (s && s.rootNodeLabel) || ''
             });
             doc.excluded = [];
@@ -3510,6 +3513,10 @@ ${_deCornice()}
 .de-btn.de-primary { background:var(--mm-accent, #4f46e5); border-color:transparent; color:#fff; }
 .de-btn.de-primary:hover { background:var(--mm-accent-hover, #4338ca); color:#fff; }
 .de-btn.de-ghost { background:var(--mm-fondo, #fff); }
+/* L'INTERRUTTORE acceso (0096, «Modalità esercizio» della Catena in ELABORA): lo stesso segno della voce
+   attiva del motore (.mm-voce.is-attiva) — fondo stemperato, bordo e testo d'accento. Non pieno: pieno è il
+   primario («Modifica», accanto), e un acceso uguale a lui si leggerebbe come un secondo comando principale. */
+.de-btn[aria-pressed="true"], .de-btn[aria-pressed="true"]:hover { background:var(--mm-accent-soft, #eef2ff); border-color:var(--mm-accent, #4f46e5); color:var(--mm-accent, #4f46e5); }
 /* Le due facce del bottone di uscita: convivono nel markup ed è _paintDirty()
    ad accendere quella giusta (vedi il commento lì). La faccia «sporca» parte
    spenta, così fra la scrittura dell'HTML e il primo ridisegno non lampeggiano

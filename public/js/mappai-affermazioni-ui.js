@@ -191,7 +191,7 @@
       } catch (e) { return { errore: e }; }
       if (cache && cache.chiave === chiave) { cache.rv = rv; cache.db = db; return cache.valore; }
       try {
-        if (RC.revision(db, rv.sources) !== rv.baseRevision) valore = { cambiata: true };
+        if (!RC.coincide(db, rv.sources, rv, 'base')) valore = { cambiata: true };   // 0097: in forma canonica
         else {
           const c = AC.corsie({ review: rv, db });
           const FUORI = AC.FUORI, fuori = new Set(), etichette = new Set(), senzaEffetto = new Map(), ritoccate = new Set();

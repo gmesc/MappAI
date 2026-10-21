@@ -65,6 +65,16 @@
         '.sc-lbl{font-size:12px;font-weight:700;color:#475569;margin:14px 0 6px}',
         '.sc-ta{width:100%;min-height:110px;padding:12px 14px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;color:var(--mm-testo, #404040);font-size:16px;line-height:1.5;resize:vertical}',
         '.sc-ta:focus{border-color:#6366f1;outline:none}',
+        /* 0116: la casella delle domande aperte semplici ha le misure di quella del quiz LIVE (#qopen di student.html) */
+        '.sc-ta--live{min-height:130px;padding:14px 16px;font-size:19px}',
+        /* 0116: la schermata finale delle aperte semplici = #done di student.html */
+        '.sc-fine{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:26px;text-align:center}',
+        '.sc-fine__big{font-size:64px}',
+        '.sc-fine h2{font-size:22px;font-weight:700;margin:0}',
+        '.sc-fine p{color:#64748b;font-size:14px;max-width:340px;margin:0}',
+        '.sc-fine__top{display:flex;align-items:stretch;justify-content:center;gap:10px}',
+        '.sc-fine__recap{background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:14px;padding:16px 22px;font-size:15px}',
+        '.sc-fine__salva{width:54px;border-radius:12px;font-size:24px;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center}',
         '.sc-opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:8px;min-height:48px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:16px;color:var(--mm-testo, #404040)}',
         '.sc-opt[aria-checked="true"]{border-color:#4f46e5;background:#eef2ff;font-weight:700}',
         '.sc-chips{display:flex;flex-wrap:wrap;gap:8px}',
@@ -81,12 +91,8 @@
         '.sc-oss:focus{border-color:#6366f1;outline:none}',
         '.sc-go{width:100%;min-height:52px;border-radius:12px;background:#4f46e5;color:#fff;font-size:17px;font-weight:700}',
         '.sc-go[disabled]{opacity:.55}',
-        /* esito immediato: una riga sotto il campo, mai un modale — qui si
-           risponde una domanda alla volta e il modale coprirebbe la domanda */
-        '.sc-verd{margin-top:14px;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}',
-        '.sc-verd--ok{background:#dcfce7;border:2px solid #16a34a;color:#14532d}',
-        '.sc-verd--ko{background:#fee2e2;border:2px solid #dc2626;color:#7f1d1d}',
-        '.sc-verd .sp{display:block;margin-top:6px;font-size:13px;color:var(--mm-testo, #404040)}',
+        /* l'esito immediato (una riga sotto la domanda, mai un modale) lo disegna
+           mappai-quiz-mc-view.js: qui si risponde una domanda alla volta e il modale la coprirebbe */
         '.sc-esito{flex:1;overflow-y:auto;padding:24px max(20px,env(safe-area-inset-left))}',
         '.sc-esito h2{font-size:20px;font-weight:700;margin-bottom:6px}',
         '.sc-esito p{color:#475569;font-size:14px;line-height:1.6;margin-bottom:14px}',
@@ -211,7 +217,11 @@
         /* Il percorso serve? Lo dice il core guardando le aree, non un flag. */
         /* `senzaAree` (7/9): chi monta ha già scelto l'ambito altrove (la prova su
            misura di MappAI studente) — niente passo ① e niente «Cambia argomenti» */
-        var conPassi = !o.senzaAree && S().passiUtili(pool, cfg);
+        /* 0116 `semplice`: niente da scegliere — tutte le domande sono prese e si
+           parte da «rispondi». La regola sta nel core (`avvioSemplice`). */
+        var semplice = !!(cfg && cfg.semplice);
+        var conPassi = !semplice && !o.senzaAree && S().passiUtili(pool, cfg);
+        if (semplice) S().avvioSemplice(pool, stato);
         if (!stato.fase) stato.fase = conPassi ? 'aree' : 'scegli';
         /* uno stato vecchio può dire «aree» su un vault che aree non ne ha:
            lasciarlo lì vorrebbe dire una schermata vuota senza uscita */
@@ -490,7 +500,7 @@
             if (!mie.length) {
                 hint.textContent = '';
                 vuoto(_t(t, 'sc_nessuna_presa2', 'Non hai preso nessuna domanda. Torna indietro e scegline qualcuna.'));
-                foot.appendChild(bottone('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }, 'sc-go sc-go--quieto'));
+                if (!semplice) foot.appendChild(bottone('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }, 'sc-go sc-go--quieto'));
                 return;
             }
             if (iRisposta >= mie.length) iRisposta = mie.length - 1;
@@ -501,13 +511,24 @@
             hint.textContent = '';
             cnt.innerHTML = esc(_t(t, 'sc_di', 'Domanda')) + ' <b>' + (iRisposta + 1) + '</b> ' +
                 esc(_t(t, 'sc_su', 'di')) + ' ' + mie.length;
-            top.appendChild(comando('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }));
+            if (!semplice) top.appendChild(comando('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }));
 
-            var q = document.createElement('div'); q.className = 'sc-dom';
-            q.textContent = v.testo;
-            list.appendChild(q);
+            /* la scelta multipla ha la veste del quiz LIVE (domanda col 🔊, opzioni grandi, esito sotto):
+               la disegna mappai-quiz-mc-view.js, la stessa riga di codice che sta dietro il telefono */
+            var QMC = window.MappAIQuizMcView;
+            /* 0116, gate del 21/10 (Giacomo): in modalità semplice anche la domanda
+               aperta ha la veste del quiz LIVE — stesso corpo e il 🔊 per sentirla */
+            if (v.tipo === 'mc' || (semplice && QMC)) {
+                var qh = document.createElement('div'); list.appendChild(qh);
+                QMC.domanda(qh, v.testo);
+            } else {
+                var q = document.createElement('div'); q.className = 'sc-dom';
+                q.textContent = v.testo;
+                list.appendChild(q);
+            }
             var conCriteri = !!(o.criteri && v.tipo !== 'mc' && v.criteri && v.criteri.length);
-            if (v.traccia && !conCriteri) {
+            /* 0116: la traccia è la correzione del docente (`guide`): in modalità semplice mai */
+            if (v.traccia && !conCriteri && !semplice) {
                 var tr = document.createElement('div'); tr.className = 'sc-lbl';
                 tr.textContent = v.traccia; list.appendChild(tr);
             }
@@ -515,22 +536,15 @@
             /* IL CAMPO DELLA RISPOSTA è l'unica cosa che cambia fra i due
                generi: una casella dove scrivere, o le opzioni da toccare. */
             if (v.tipo === 'mc') {
-                (v.opzioni || []).forEach(function (testo, oi) {
-                    var b = document.createElement('button');
-                    b.type = 'button'; b.className = 'sc-opt'; b.setAttribute('role', 'radio');
-                    b.setAttribute('aria-checked', String(r.scelta === oi));
-                    b.textContent = testo;
-                    if (verdetti[v.id]) b.disabled = true;   /* già corretta: non si ripensa */
-                    b.onclick = function () {
-                        r.scelta = oi;
-                        list.querySelectorAll('.sc-opt').forEach(function (x, xi) { x.setAttribute('aria-checked', String(xi === oi)); });
-                        salva(v.id, true);
-                    };
-                    list.appendChild(b);
+                var qo = document.createElement('div'); list.appendChild(qo);
+                QMC.opzioni(qo, v.opzioni || [], {
+                    scelta: r.scelta, radio: true,
+                    bloccata: !!verdetti[v.id],            /* già corretta: non si ripensa */
+                    onScegli: function (oi) { r.scelta = oi; QMC.segna(qo, oi); salva(v.id, true); }
                 });
             } else {
                 var ta = document.createElement('textarea');
-                ta.className = 'sc-ta'; ta.value = r.testo || '';
+                ta.className = 'sc-ta' + (semplice ? ' sc-ta--live' : ''); ta.value = r.testo || '';
                 ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
                 ta.oninput = function () { r.testo = ta.value; salva(v.id); if (vedi) vedi.disabled = !S().scritta(r); };
                 list.appendChild(ta);
@@ -568,13 +582,10 @@
             /* l'esito della domanda corrente, se è già stato dato */
             var vd = verdetti[v.id];
             if (vd) {
-                var box2 = document.createElement('div');
-                box2.className = 'sc-verd ' + (vd.esito === 'right' ? 'sc-verd--ok' : 'sc-verd--ko');
-                box2.setAttribute('role', 'status');
-                box2.innerHTML = '<b>' + esc(vd.esito === 'right' ? _t(t, 'sc_giusto', 'Giusto') : _t(t, 'sc_sbagliato', 'Sbagliato')) + '</b>' +
-                    (vd.giusta ? ' — ' + esc(_t(t, 'sc_corretta', 'corretta')) + ': <b>' + esc(vd.giusta) + '</b>' : '') +
-                    (vd.spiegazione ? '<span class="sp">' + esc(vd.spiegazione) + '</span>' : '');
-                list.appendChild(box2);
+                var vh = document.createElement('div'); list.appendChild(vh);
+                QMC.verdetto(vh, vd, {
+                    giusto: _t(t, 'sc_giusto', 'Giusto'), sbagliato: _t(t, 'sc_sbagliato', 'Sbagliato'), corretta: _t(t, 'sc_corretta', 'corretta')
+                });
             }
 
             if (cfg.autovalutazione && !conCriteri) {
@@ -634,11 +645,16 @@
                 oss.oninput = function () { stato.note = oss.value; salva('__note'); };
                 foot.appendChild(lo); foot.appendChild(oss);
             }
+            /* 0116, gate del 21/10 (Giacomo): in modalità semplice «Consegna» c'è solo
+               all'ultima domanda, come nel quiz a scelta multipla */
+            if (semplice && iRisposta < mie.length - 1) return;
             foot.appendChild(bottone(_t(t, 'sc_consegna', 'Consegna'), function () {
                 var v2 = S().validaConsegna(attivo(), stato, cfg);
                 if (v2.ok) { svuotaAttese(); return onConsegna(stato); }
                 var righe = v2.motivi.map(function (m) {
                     if (m.id === 'sotto_minimo') return _t(t, 'sc_ko_min', 'Hai scritto {n} risposte su {m} chieste.').replace('{n}', m.scritte).replace('{m}', m.minimo);
+                    /* in modalità semplice nessuna domanda è stata «presa»: sono tutte sue */
+                    if (semplice) return _t(t, 'sc_ko_vuote_s', 'Hai lasciato {n} domande senza risposta.').replace('{n}', m.quante);
                     return _t(t, 'sc_ko_vuote', 'Hai preso {n} domande senza rispondere.').replace('{n}', m.quante);
                 });
                 Promise.resolve(chiedi(righe.join('\n') + '\n\n' + _t(t, 'sc_ko_ok', 'Consegni lo stesso?')))
@@ -653,7 +669,7 @@
                 return;
             }
             if (stato.fase === 'aree') return passoAree();
-            if (stato.fase === 'rispondi') return passoRispondi();
+            if (stato.fase === 'rispondi' || semplice) return passoRispondi();
             return passoScegli();
         }
 
@@ -678,6 +694,28 @@
         o = o || {};
         var t = o.t, p = o.profilo || { righe: [], conteggio: {} }, cfg = S().normalizzaCfg(o.cfg);
         host.innerHTML = '';
+        /* 0116, gate del 21/10 (Giacomo): in modalità semplice la chiusura è la
+           schermata finale del quiz LIVE (student.html, #done): 🎉, «Hai finito!»,
+           il riquadro delle risposte e, accanto, il 💾 per salvare la scheda con
+           tutte le domande e le risposte (`o.onSalva`, lo collega chi monta) */
+        if (cfg.semplice) {
+            var nn = p.conteggio || {};
+            var fine = document.createElement('div'); fine.className = 'sc-fine';
+            fine.innerHTML = '<div class="sc-fine__big">🎉</div>' +
+                '<h2>' + esc(_t(t, 'sc_finito', 'Hai finito!')) + '</h2>' +
+                '<div class="sc-fine__top"><div class="sc-fine__recap">' + esc(_t(t, 'sc_risposte', 'Risposte:')) + ' <b>' + (nn.scritte || 0) + '</b> / ' + (nn.totale || 0) + '</div></div>' +
+                '<p>' + esc(_t(t, 'sc_finito_d', 'Consegnato. Puoi salvare le tue risposte.')) + '</p>';
+            if (typeof o.onSalva === 'function') {
+                var salvaB = document.createElement('button');
+                salvaB.type = 'button'; salvaB.className = 'sc-fine__salva'; salvaB.textContent = '💾';
+                salvaB.setAttribute('aria-label', _t(t, 'sc_salva', 'Salva le mie risposte'));
+                salvaB.title = _t(t, 'sc_salva', 'Salva le mie risposte');
+                salvaB.onclick = function () { o.onSalva(); };
+                fine.querySelector('.sc-fine__top').appendChild(salvaB);
+            }
+            host.appendChild(fine);
+            return;
+        }
         var wrap = document.createElement('div'); wrap.className = 'sc-wrap';
         var box = document.createElement('div'); box.className = 'sc-esito';
         wrap.appendChild(box); host.appendChild(wrap);

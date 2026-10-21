@@ -33,6 +33,8 @@ const yaml = require('js-yaml');
 const FilesCore = require('./public/js/mappai-files-core.js');
 // 0094 (ADR 0021): il nome del progetto è la sua cartella — nome libero, riparazione dei percorsi.
 const NomeCartellaCore = require('./public/js/mappai-nome-cartella-core.js');
+// 0104 (ADR 0023): il piano della riorganizzazione di «MappAI - file» (Allievi, Classi, Sistema).
+const RiordinoCore = require('./public/js/mappai-riordino-core.js');
 // Leggere un'immagine con un modello di visione locale (20/8): formati, misure,
 // prompt e diagnosi dei guasti stanno nel core, qui c'è solo l'I/O.
 const VisioneCore = require('./public/js/mappai-visione-core.js');
@@ -254,12 +256,30 @@ function mappaiRootDir() {
 }
 function subDir(kind) { return path.join(mappaiRootDir(), FilesCore.SUB[kind]); }
 
+/* LA STRUTTURA DELLA BETA.8 (0104, ADR 0023): «MappAI - file» con Allievi,
+   Classi (le classi, Senza classe, Credenziali) e Sistema (tutto il resto che
+   l'app scrive). Vale quando la riorganizzazione è avvenuta: `struttura: 2` nelle
+   impostazioni, scritto da `riorganizzaStruttura` e tolto da «Torna alla
+   struttura di prima». L'interruttore `mappai_struttura_v2` ('0' = spento) vive
+   nelle stesse impostazioni (N7): la riorganizzazione gira prima della finestra,
+   quando localStorage non c'è ancora. Governa se la riorganizzazione PARTE; le
+   basi seguono `struttura`, cioè dove stanno davvero i file. */
+function strutturaAccesa() { return readSettings().mappai_struttura_v2 !== '0'; }
+function strutturaV2() { return filesOrganized() && readSettings().struttura === 2; }
+function sistemaDir(...segs) { return path.join(mappaiRootDir(), FilesCore.SUB.system, ...segs); }
+function credenzialiDir() { return path.join(subDir('classes'), FilesCore.CREDENZIALI); }
+/* Dove scrive l'app ciò che NON è un progetto e stava in Mappe/: i contenitori di
+   ripiego (Chat, Quiz e Flashcard, Studio Attivo: N2) e le copie mm_/kg_ (N1). */
+function ripiegoDir(nome) { return strutturaV2() ? sistemaDir(nome) : path.join(mapsBaseDir(), nome); }
+function copieMappeDir() { return strutturaV2() ? sistemaDir(FilesCore.COPIE_MAPPE) : mapsBaseDir(); }
+
 // Base-dir per tipo: nuova struttura se organizzata, altrimenti cartella storica.
-function mapsBaseDir()     { return filesOrganized() ? subDir('maps')     : path.join(documentsDir(), 'MappAI - Vault'); }
-function sharedBaseDir()   { return filesOrganized() ? subDir('shared')   : path.join(documentsDir(), 'MappAI - Materiali docente'); }
+// 0104: con la struttura della beta.8 i progetti stanno in Classi/, il resto in Sistema/.
+function mapsBaseDir()     { return filesOrganized() ? (strutturaV2() ? subDir('classes') : subDir('maps')) : path.join(documentsDir(), 'MappAI - Vault'); }
+function sharedBaseDir()   { return filesOrganized() ? (strutturaV2() ? sistemaDir(FilesCore.SUB.shared) : subDir('shared')) : path.join(documentsDir(), 'MappAI - Materiali docente'); }
 function classesBaseDir()  { return filesOrganized() ? subDir('classes')  : path.join(documentsDir(), 'MappAI - Classi'); }
-function gardensBaseDir()  { return filesOrganized() ? subDir('gardens')  : path.join(documentsDir(), 'MappAI - Knowledge Garden'); }
-function activityBaseDir() { return subDir('activity'); } // usata solo in modalità organizzata
+function gardensBaseDir()  { return filesOrganized() ? (strutturaV2() ? sistemaDir(FilesCore.SUB.gardens) : subDir('gardens')) : path.join(documentsDir(), 'MappAI - Knowledge Garden'); }
+function activityBaseDir() { return strutturaV2() ? sistemaDir(FilesCore.SUB.activity) : subDir('activity'); } // usata solo in modalità organizzata
 // Allievi (2/8): la tessera di accesso di ogni allievo. Nessuna cartella
 // storica da migrare — chi ha già organizzato i file non ce l'ha, quindi si
 // crea alla prima scrittura (class-doc-save), non al setup.
@@ -272,7 +292,7 @@ function studySessionDir(o) {
     o = o || {};
     if (filesOrganized()) {
         const segs = FilesCore.sessionRelPath({ className: o.className, activity: o.activity, map: o.name, scope: o.scope, date: Date.now() });
-        return path.join(mappaiRootDir(), ...segs);
+        return path.join(activityBaseDir(), ...segs.slice(1));   // 0104: segs[0] è «Attività di studio», la base lo sa già
     }
     return path.join(documentsDir(), o.legacyBase, o.legacySlug);
 }
@@ -311,6 +331,7 @@ function adottaRootEsistente() {
 
 app.whenReady().then(() => {
     adottaRootEsistente();
+    try { riorganizzaStruttura(); } catch (e) { console.warn('[files] riorganizzazione beta.8 fallita:', e.message); }   // 0104, prima della finestra
     apriSessione();          // e registra la chiusura improvvisa di quella prima
     initDefaultVaultFolder();
     bootPrimaryWindow();
@@ -780,7 +801,7 @@ ipcMain.handle('capture-page', async () => {
 // IPC Handler to save JSON automatically
 ipcMain.handle('save-map-json', async (event, mapData) => {
     try {
-        const saveDir = mapsBaseDir();   // 010
+        const saveDir = copieMappeDir();   // 010; 0104 (N1): Sistema/Copie delle mappe con la struttura nuova
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
         }
@@ -1305,7 +1326,7 @@ ipcMain.handle('vault-rename', async (event, { folderPath, nome, projectId } = {
             try { return fs.statSync(path.join(madre, n)).isDirectory(); } catch (e) { return false; }
         });
         const riservati = path.resolve(madre) === path.resolve(mapsBaseDir())
-            ? [].concat(FilesCore.VAULT_CONTAINER_EXCLUDE || [], [FilesCore.GENERICO]) : [];
+            ? [].concat(FilesCore.VAULT_CONTAINER_EXCLUDE || [], [FilesCore.GENERICO, FilesCore.SENZA_CLASSE]) : [];   // 0104: anche Senza classe (e Credenziali, nell'esclusione)
         const libero = NomeCartellaCore.nomeLibero(pulito, fratelli, riservati);
         let idPrima = null;
         try { idPrima = _scriviIdSeManca(from, null); } catch (e) { idPrima = null; }
@@ -1414,7 +1435,7 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
         if (vaultPath && fs.existsSync(vaultPath)) {
             chatDir = path.join(vaultPath, targetSubFolder);
         } else {
-            chatDir = path.join(mapsBaseDir(), targetSubFolder);   // 010
+            chatDir = ripiegoDir(targetSubFolder);   // 010; 0104: Sistema/<nome> con la struttura nuova
         }
 
         if (!fs.existsSync(chatDir)) {
@@ -1444,7 +1465,7 @@ ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, va
         if (vaultPath && fs.existsSync(vaultPath)) {
             quizDir = path.join(vaultPath, 'Quiz e Flashcard');
         } else {
-            quizDir = path.join(mapsBaseDir(), 'Quiz e Flashcard');   // 010
+            quizDir = ripiegoDir('Quiz e Flashcard');   // 010; 0104
         }
 
         if (!fs.existsSync(quizDir)) {
@@ -1469,7 +1490,7 @@ ipcMain.handle('save-study-record', async (event, { vaultPath, dateStr, markdown
         if (vaultPath && fs.existsSync(vaultPath)) {
             dir = path.join(vaultPath, 'Studio Attivo');
         } else {
-            dir = path.join(mapsBaseDir(), 'Studio Attivo');   // 010
+            dir = ripiegoDir('Studio Attivo');   // 010; 0104
         }
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -2627,7 +2648,15 @@ let liveSrv = null, liveInfo = null;
 let liveMatSrv = null, liveMatInfo = null;
 
 function liveBaseDir() { return filesOrganized() ? activityBaseDir() : path.join(documentsDir(), 'MappAI - Live'); }
-function classiFile() { return path.join(classesBaseDir(), 'classi.json'); }   // 010
+/* 010; 0104 (bivio 6): con la struttura nuova sta in Sistema/. Se lì non c'è
+   ancora e c'è quello vecchio (lo spostamento non è riuscito), si usa il vecchio:
+   le classi non spariscono. */
+function classiFile() {
+    const vecchio = path.join(classesBaseDir(), FilesCore.CLASSI_JSON);
+    if (!strutturaV2()) return vecchio;
+    const nuovo = sistemaDir(FilesCore.CLASSI_JSON);
+    return (!fs.existsSync(nuovo) && fs.existsSync(vecchio)) ? vecchio : nuovo;
+}
 function slugLive(s) {
     return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
@@ -2643,7 +2672,7 @@ function dateStamp() {
 function sessionParentBase(o) {
     o = o || {};
     if (filesOrganized()) {
-        const parent = path.join(mappaiRootDir(), FilesCore.SUB.activity, FilesCore.classFolder(o.className || ''));
+        const parent = path.join(activityBaseDir(), FilesCore.classFolder(o.className || ''));   // 0104: in Sistema/ con la struttura nuova
         const baseName = FilesCore.sessionFolderName({
             className: o.className || '', activity: o.activity || 'quiz',
             map: o.name || 'Sessione', scope: o.scope || '', date: Date.now()
@@ -2701,6 +2730,7 @@ ipcMain.handle('live-start-session', async (event, opts) => {
                 hintMode: o.hintMode || 'onrequest', build: o.build || null,
                 scelta: o.scelta || null,   // «Domande a scelta»: le leve del docente
                 feedbackImmediato: o.feedbackImmediato === true,   // «Correggi subito»
+                font: typeof o.font === 'string' ? o.font : '',   // il carattere del docente (0112): il server lo espone solo se è nel catalogo
                 revealAnswers: o.revealAnswers !== false   // report profilo con soluzioni (default ON)
             },
             roster: Array.isArray(o.roster) ? o.roster : [],
@@ -2861,11 +2891,14 @@ ipcMain.handle('class-doc-save', async (event, { scope, name, fileName, base64 }
         let file = FilesCore.safeName(String(fileName));
         if (!/\.pdf$/i.test(file)) file += '.pdf';
         if (!cartella || !file) return { success: false, error: 'nome non valido' };
-        const dir = path.join(base, cartella);
+        /* 0104 (bivi 7-8): con la struttura nuova il foglio della classe e la tessera
+           dell'allievo stanno tutti in Classi/Credenziali, piatti: il nome del file
+           dice già di chi sono. */
+        const dir = strutturaV2() ? credenzialiDir() : path.join(base, cartella);
         const dest = path.join(dir, file);
         // la guardia sta sul percorso RISOLTO: safeName toglie i separatori, ma
         // il controllo finale è quello che conta
-        if (!path.resolve(dest).startsWith(path.resolve(base) + path.sep)) {
+        if (!path.resolve(dest).startsWith(path.resolve(strutturaV2() ? classesBaseDir() : base) + path.sep)) {
             return { success: false, error: 'fuori dalla cartella' };
         }
         fs.mkdirSync(dir, { recursive: true });
@@ -2887,7 +2920,8 @@ ipcMain.handle('student-folder-ensure', async (event, { name } = {}) => {
         if (!path.resolve(dir).startsWith(path.resolve(base) + path.sep)) {
             return { success: false, error: 'fuori da Allievi' };
         }
-        fs.mkdirSync(path.join(dir, FilesCore.SUB.maps), { recursive: true });
+        /* 0104 (N5): i progetti dell'allievo stanno direttamente qui, niente più «Mappe» */
+        fs.mkdirSync(dir, { recursive: true });
         return { success: true, dir: dir };
     } catch (err) { return { success: false, error: err.message }; }
 });
@@ -2915,8 +2949,9 @@ ipcMain.handle('class-doc-open', async (event, { dir } = {}) => {
 // calcolano a display-time nella dashboard (MODEL_KB + tasso USD→CHF).
 // ══════════════════════════════════════════════════════════════════════════
 function usageBaseDir() {
+    if (strutturaV2()) return sistemaDir(FilesCore.USAGE);   // 0104
     return filesOrganized()
-        ? path.join(mappaiRootDir(), 'Registro consumi AI')
+        ? path.join(mappaiRootDir(), FilesCore.USAGE)
         : path.join(documentsDir(), 'MappAI - Consumi AI');
 }
 function usageLogFile() { return path.join(usageBaseDir(), 'consumi-ai.jsonl'); }
@@ -3062,8 +3097,9 @@ ipcMain.handle('tts-cache-clear', (event, o) => {
 // renderer non può vederli, quindi si registrano anche da questa parte.
 // ══════════════════════════════════════════════════════════════════════════
 function errorsBaseDir() {
+    if (strutturaV2()) return sistemaDir(FilesCore.DIAGNOSTICA);   // 0104
     return filesOrganized()
-        ? path.join(mappaiRootDir(), 'Diagnostica')
+        ? path.join(mappaiRootDir(), FilesCore.DIAGNOSTICA)
         : path.join(documentsDir(), 'MappAI - Diagnostica');
 }
 function errorLogFile() { return path.join(errorsBaseDir(), 'errori.jsonl'); }
@@ -3319,7 +3355,10 @@ ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {
    - Livello 3 (29/7): cartella DISCIPLINA dentro la classe. Solo qui — oltre
      non si scende, così una cartella spuria non fa esplodere la scansione.
      Sotto Generico NON ci sono sottocartelle di materia: una cartella senza
-     index.yaml lì è spuria, non una disciplina — non si scende. */
+     index.yaml lì è spuria, non una disciplina — non si scende.
+   0104 (ADR 0023): la stessa camminata vale per Classi/ (la base dei progetti
+   della struttura nuova): «Credenziali» si salta (VAULT_CONTAINER_EXCLUDE),
+   «Senza classe» dà classDir null e HA il livello materia. */
 function walkMappe(saveDir) {
     const out = [];
     const EXCLUDE = (FilesCore && FilesCore.VAULT_CONTAINER_EXCLUDE) || [];
@@ -3342,7 +3381,8 @@ function walkMappe(saveDir) {
                 out.push({ vaultPath: cp, folderName: c, classDir: classDir, discDir: null });
                 return;
             }
-            if (!classDir) return;   // sotto Generico non c'è il livello materia
+            // sotto Generico non c'è il livello materia; sotto «Senza classe» sì (0104, N4)
+            if (!classDir && f !== FilesCore.SENZA_CLASSE) return;
             let gchildren; try { gchildren = fs.readdirSync(cp); } catch (e) { return; }
             gchildren.forEach(g => {
                 const gp = path.join(cp, g);
@@ -3357,8 +3397,7 @@ function walkMappe(saveDir) {
 
 ipcMain.handle('get-all-vaults', async () => {
     try {
-        const saveDir = mapsBaseDir();   // 010
-        if (!fs.existsSync(saveDir)) return [];
+        const saveDir = mapsBaseDir();   // 010 (0104: Classi/ con la struttura nuova)
 
         // Legge un vault (cartella con index.yaml). classDir = basename del contenitore
         // di classe se annidato (011), assente per i vault flat E per quelli in
@@ -3414,33 +3453,56 @@ ipcMain.handle('get-all-vaults', async () => {
             return vaultInfo;
         }
 
-        const vaults = [];
-        walkMappe(saveDir).forEach(v => {
-            const vi = readVaultInfo(v.vaultPath, v.folderName, v.classDir, v.discDir);
-            if (vi) vaults.push(vi);
-        });
-
-        /* Le mappe fatte per un ALLIEVO (2/8) stanno in «Allievi/<nome>/Mappe»,
-           fuori da Mappe: se non le si scandisce qui, esistono su disco ma per
-           l'app non esistono — non comparirebbero né nella console né in
-           INSEGNA. Portano `studentDir`, che è il loro contenitore: chi legge
-           distingue così una mappa di classe da una personale. */
-        const stuBase = studentsBaseDir();
-        if (fs.existsSync(stuBase)) {
-            fs.readdirSync(stuBase).forEach(nome => {
-                const mappeDir = path.join(stuBase, nome, FilesCore.SUB.maps);
-                let st; try { st = fs.statSync(mappeDir); } catch (e) { return; }
-                if (!st.isDirectory()) return;
-                let figli; try { figli = fs.readdirSync(mappeDir); } catch (e) { return; }
-                figli.forEach(v => {
-                    const vp = path.join(mappeDir, v);
-                    let vst; try { vst = fs.statSync(vp); } catch (e) { return; }
-                    if (!vst.isDirectory()) return;
-                    const vi = readVaultInfo(vp, v, null, null);
-                    if (vi) { vi.studentDir = nome; vaults.push(vi); }
+        /* I progetti degli allievi (0104, N4-N5): tre forme, tutte lette.
+             Allievi/<nome>/<progetto>               (nuova, senza materia)
+             Allievi/<nome>/<materia>/<progetto>     (nuova, con la materia: discDir)
+             Allievi/<nome>/Mappe/<progetto>         (di prima: si legge finché non si sposta)
+           Una cartella «Mappe» CON index.yaml è un progetto che si chiama così, non il
+           contenitore di prima. → [{ vaultPath, folderName, studentDir, discDir }] */
+        function walkAllievi(stuBase) {
+            const out = [];
+            const cartelle = d => { try { return fs.readdirSync(d).filter(n => { try { return fs.statSync(path.join(d, n)).isDirectory(); } catch (e) { return false; } }); } catch (e) { return []; } };
+            const progetto = d => fs.existsSync(path.join(d, 'index.yaml'));
+            cartelle(stuBase).forEach(nome => {
+                const dir = path.join(stuBase, nome);
+                cartelle(dir).forEach(c => {
+                    const cp = path.join(dir, c);
+                    if (progetto(cp)) { out.push({ vaultPath: cp, folderName: c, studentDir: nome, discDir: null }); return; }
+                    const vecchia = c === FilesCore.SUB.maps;
+                    cartelle(cp).forEach(g => {
+                        const gp = path.join(cp, g);
+                        if (progetto(gp)) out.push({ vaultPath: gp, folderName: g, studentDir: nome, discDir: vecchia ? null : c });
+                    });
                 });
             });
+            return out;
         }
+
+        const vaults = [];
+        /* 0104: le due basi dei progetti, Classi/ (struttura nuova) e Mappe/ (di
+           prima), stanno una accanto all'altra e si leggono SEMPRE tutte e due,
+           qualunque sia quella attiva: un progetto rimasto in Mappe/ (spostamento
+           non riuscito) o nato in Classi/ prima di un ritorno indietro (gate del
+           16/10) non sparisce. */
+        const basiProgetti = [saveDir];
+        const fratella = path.basename(saveDir) === FilesCore.SUB.classes ? FilesCore.SUB.maps
+            : path.basename(saveDir) === FilesCore.SUB.maps ? FilesCore.SUB.classes : null;
+        if (fratella) basiProgetti.push(path.join(path.dirname(saveDir), fratella));
+        basiProgetti.forEach(b => walkMappe(b).forEach(v => {
+            const vi = readVaultInfo(v.vaultPath, v.folderName, v.classDir, v.discDir);
+            if (vi) vaults.push(vi);
+        }));
+
+        /* Le mappe fatte per un ALLIEVO (2/8) stanno nella cartella dell'allievo,
+           fuori dalla base delle classi: se non le si scandisce qui, esistono su
+           disco ma per l'app non esistono — non comparirebbero né nella console
+           né in INSEGNA. Portano `studentDir`, che è il loro contenitore: chi legge
+           distingue così una mappa di classe da una personale. 0104: le tre forme
+           di `walkAllievi`, e `discDir` quando c'è la materia. */
+        walkAllievi(studentsBaseDir()).forEach(v => {
+            const vi = readVaultInfo(v.vaultPath, v.folderName, null, v.discDir);
+            if (vi) { vi.studentDir = v.studentDir; vaults.push(vi); }
+        });
 
         // Sort by lastUpdated desc
         return vaults.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
@@ -3729,7 +3791,8 @@ ipcMain.handle('files-root-get', async () => {
         rootDir: filesOrganized() ? mappaiRootDir() : null,
         documentsDir: documentsDir(),
         mapsBaseDir: mapsBaseDir(),  // 011: base per la pipeline (costruzione folderPath)
-        studentsBaseDir: studentsBaseDir()   // 2/8: le mappe di un profilo allievo stanno qui
+        studentsBaseDir: studentsBaseDir(),   // 2/8: le mappe di un profilo allievo stanno qui
+        struttura: strutturaV2() ? 2 : 1      // 0104: 2 = Allievi, Classi, Sistema
     };
 });
 
@@ -3827,12 +3890,256 @@ ipcMain.handle('files-setup', async (event, opts) => {
         }
 
         writeSettings({ filesRoot: filesRoot, filesOrganized: true });
+        /* 0104 (N6): chi fa il setup adesso riceve subito la struttura nuova —
+           prima la 010 (qui sopra), poi la riorganizzazione. vaultMap segue i
+           progetti fino alla cartella finale. */
+        try {
+            const esito = riorganizzaStruttura();
+            const coppie = (esito && esito.giro ? esito.giro.fatti : []).filter(s => s.tipo === 'progetto')
+                .map(s => ({ da: path.join(root, ...s.da), a: path.join(root, ...s.a) }));
+            Object.keys(vaultMap).forEach(k => { const n = RiordinoCore.riparaDir(vaultMap[k], coppie); if (n) vaultMap[k] = n; });
+        } catch (e) { console.warn('[files] riorganizzazione dopo il setup:', e.message); }
         initDefaultVaultFolder(); // assicura il vault demo in Mappe se vuoto
         return { success: true, rootDir: root, moved, skipped, vaultMap };
     } catch (err) {
         console.error('[files] files-setup', err);
         return { success: false, error: err.message };
     }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// 0104 (ADR 0023) — LA RIORGANIZZAZIONE DELLA BETA.8
+// «MappAI - file» passa a Allievi, Classi, Sistema. Il piano lo decide il core
+// (mappai-riordino-core.js); qui solo I/O: descrivere il disco, spostare con
+// `renameSync` (stesso disco, atomico; su un altro disco il pezzo resta dov'è),
+// riparare `pipeline.json` e i `vault.json` delle sessioni, scrivere il registro.
+// Gira una volta al primo avvio della beta.8, prima della finestra (eccezione
+// dichiarata all'ADR 0018), e di nuovo agli avvii dopo se qualcosa è rimasto.
+// Niente si cancella: si tolgono solo cartelle rimaste vuote (invariante 13).
+// ══════════════════════════════════════════════════════════════════════════
+function _vociDi(dir) {
+    try { return fs.readdirSync(dir, { withFileTypes: true }).map(e => ({ nome: e.name, dir: e.isDirectory() })); }
+    catch (e) { return []; }
+}
+function _haIndice(dir) { return fs.existsSync(path.join(dir, 'index.yaml')); }
+/* materia e projectId dichiarati in index.yaml, solo in colonna 0 (le chiavi
+   annidate dei consumi non sono l'identità, 0061) */
+function _leggiIndice(dir) {
+    const out = { materia: '', projectId: null };
+    try {
+        fs.readFileSync(path.join(dir, 'index.yaml'), 'utf8').split('\n').forEach(riga => {
+            const m = /^(materia|projectId):\s*(.*?)\s*$/.exec(riga);
+            if (!m) return;
+            const v = m[2].replace(/^["']|["']$/g, '');
+            if (m[1] === 'materia' && !out.materia) out.materia = v;
+            if (m[1] === 'projectId' && FilesCore.idProgettoValido(v)) out.projectId = v;
+        });
+    } catch (e) { }
+    return out;
+}
+// La descrizione del disco che il core vuole (vedi la testa di mappai-riordino-core.js).
+function scanStruttura(root) {
+    const SUB = FilesCore.SUB;
+    const vuota = d => _vociDi(d).filter(x => x.nome !== '.DS_Store').length === 0;
+    const radice = _vociDi(root).map(v => v.dir ? Object.assign(v, { vuota: vuota(path.join(root, v.nome)) }) : v);
+    const mappeDir = path.join(root, SUB.maps);
+    const mappe = fs.existsSync(mappeDir) ? {
+        voci: _vociDi(mappeDir),
+        progetti: walkMappe(mappeDir).map(v => Object.assign({
+            seg: path.relative(mappeDir, v.vaultPath).split(path.sep), classDir: v.classDir, discDir: v.discDir
+        }, _leggiIndice(v.vaultPath)))
+    } : null;
+    const classiDir = path.join(root, SUB.classes);
+    const classi = fs.existsSync(classiDir)
+        ? _vociDi(classiDir).map(c => c.dir ? Object.assign(c, { figli: _vociDi(path.join(classiDir, c.nome)) }) : c) : null;
+    const allieviDir = path.join(root, SUB.students);
+    const allievi = fs.existsSync(allieviDir) ? _vociDi(allieviDir).filter(s => s.dir).map(s => {
+        const sd = path.join(allieviDir, s.nome), md = path.join(sd, SUB.maps);
+        /* la cartella «Mappe» di prima, se non è essa stessa un progetto che si chiama così */
+        const progetti = (fs.existsSync(md) && !_haIndice(md))
+            ? _vociDi(md).filter(x => x.dir && _haIndice(path.join(md, x.nome)))
+                .map(x => Object.assign({ nome: x.nome }, _leggiIndice(path.join(md, x.nome)))) : [];
+        const mappeVuota = fs.existsSync(md) && !_haIndice(md) && vuota(md);
+        return { nome: s.nome, dir: true, figli: _vociDi(sd), progetti, mappeVuota };
+    }) : null;
+    return { radice, mappe, classi, allievi };
+}
+/* Il registro sta DENTRO la cartella Diagnostica, ovunque essa sia: si sposta
+   con lei (avanti in Sistema/, indietro in testa). */
+function _registroRiordino(root) {
+    const nuovo = path.join(root, FilesCore.SUB.system, FilesCore.DIAGNOSTICA);
+    const dir = fs.existsSync(nuovo) ? nuovo : path.join(root, FilesCore.DIAGNOSTICA);
+    return path.join(dir, FilesCore.REGISTRO_RIORDINO);
+}
+function leggiRegistroRiordino(root) {
+    try { return JSON.parse(fs.readFileSync(_registroRiordino(root), 'utf8')); } catch (e) { return null; }
+}
+function _scriviRegistroRiordino(root, reg) {
+    const f = _registroRiordino(root);
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f + '.tmp', JSON.stringify(reg, null, 2));
+    fs.renameSync(f + '.tmp', f);
+}
+// Uno spostamento: mai sopra qualcosa che c'è; su un altro disco (EXDEV) l'errore sale e il pezzo resta.
+function _spostaPezzo(root, s) {
+    const da = path.join(root, ...s.da), a = path.join(root, ...s.a);
+    if (!fs.existsSync(da)) return 'assente';
+    if (fs.existsSync(a)) return 'destinazione-esiste';
+    fs.mkdirSync(path.dirname(a), { recursive: true });
+    fs.renameSync(da, a);
+    return 'fatto';
+}
+/* pipeline.json del progetto spostato: i suoi `vaultPath` dicono la cartella nuova (lo scrittore dello 0094).
+   I percorsi vecchi sono due, come nell'importazione dello 0095 (D6): dove stava la
+   cartella, e il `vaultPath` in cima al manifesto se è diverso (una cartella copiata
+   o spostata a mano prima della beta.8 lo porta ancora); mai gli altri. */
+function _riparaPipelineSpostata(nuovo, vecchio) {
+    const f = path.join(nuovo, 'pipeline.json');
+    if (!fs.existsSync(f)) return 0;
+    const m = JSON.parse(fs.readFileSync(f, 'utf8'));
+    const vecchi = [vecchio];
+    if (m && typeof m.vaultPath === 'string' && m.vaultPath && !NomeCartellaCore.stessoPercorso(m.vaultPath, vecchio)
+        && !NomeCartellaCore.stessoPercorso(m.vaultPath, nuovo)) vecchi.push(m.vaultPath);
+    let r = { manifest: m, cambiati: 0 };
+    vecchi.forEach(v => { const x = NomeCartellaCore.riparaPercorsi(r.manifest, nuovo, v); r = { manifest: x.manifest, cambiati: r.cambiati + x.cambiati }; });
+    if (!r.cambiati) return 0;
+    ReviewStore.saveManifest(nuovo, r.manifest, (m && m._storageVersion) || 0);
+    return r.cambiati;
+}
+// vault.json delle sessioni «materiali» del server di rete locale: il `dir` assoluto segue il progetto.
+function _riparaVaultJson(root, coppie, giro) {
+    if (!coppie.length) return;
+    const basi = [path.join(root, FilesCore.SUB.system, FilesCore.SUB.activity), path.join(root, FilesCore.SUB.activity)];
+    const file = [];
+    basi.forEach(b => _vociDi(b).filter(x => x.dir).forEach(x => {
+        const d = path.join(b, x.nome);
+        if (fs.existsSync(path.join(d, 'vault.json'))) file.push(path.join(d, 'vault.json'));
+        else _vociDi(d).filter(y => y.dir).forEach(y => {   // Attività di studio/<classe>/<sessione>/vault.json
+            const f = path.join(d, y.nome, 'vault.json');
+            if (fs.existsSync(f)) file.push(f);
+        });
+    }));
+    file.forEach(f => {
+        try {
+            const v = JSON.parse(fs.readFileSync(f, 'utf8'));
+            const nuovo = v && RiordinoCore.riparaDir(v.dir, coppie);
+            if (!nuovo) return;
+            v.dir = nuovo;
+            fs.writeFileSync(f + '.tmp', JSON.stringify(v, null, 2));
+            fs.renameSync(f + '.tmp', f);
+        } catch (e) { giro.falliti.push({ da: [path.relative(root, f)], a: null, tipo: 'vault-json', errore: e.message }); }
+    });
+}
+/* Le cartelle rimaste vuote risalendo da dove stava un pezzo spostato, fino alla
+   radice esclusa; le tre cartelle della struttura nuova restano (tranne Sistema
+   vuota al ritorno indietro), e resta la cartella di ogni allievo: nasce col
+   profilo (student-folder-ensure), non col primo file. Una cartella con dentro
+   solo .DS_Store è vuota. */
+function _togliVuote(root, partenze, opz) {
+    const salve = new Set(FilesCore.RADICE_V2.filter(n => !(opz && opz.ancheSistema && n === FilesCore.SUB.system)).map(n => path.join(root, n)));
+    const allievi = path.join(root, FilesCore.SUB.students);
+    partenze.forEach(segs => {
+        let up = path.join(root, ...segs);
+        while (up !== root && up.startsWith(root + path.sep) && !salve.has(up) && path.dirname(up) !== allievi) {
+            if (!fs.existsSync(up)) { up = path.dirname(up); continue; }
+            let resto; try { resto = fs.readdirSync(up).filter(n => n !== '.DS_Store'); } catch (e) { break; }
+            if (resto.length) break;
+            try { fs.rmSync(up, { recursive: true, force: true }); } catch (e) { break; }
+            up = path.dirname(up);
+        }
+    });
+}
+// Toglie dal basso le cartelle vuote sotto `dir`, e `dir` se resta vuota. Solo cartelle: un file ferma tutto.
+function _potaVuote(dir) {
+    let figli; try { figli = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return false; }
+    let resta = 0;
+    figli.forEach(e => {
+        if (e.name === '.DS_Store') return;
+        if (e.isDirectory() && _potaVuote(path.join(dir, e.name))) return;
+        resta++;
+    });
+    if (resta) return false;
+    try { fs.rmSync(dir, { recursive: true, force: true }); return true; } catch (e) { return false; }
+}
+function _eseguiGiro(root, spostamenti, verso, conflitti, intatti) {
+    const giro = { verso, inizio: new Date().toISOString(), fatti: [], falliti: [], conflitti: (conflitti || []).slice(), intatti: intatti || [] };
+    const coppie = [];
+    spostamenti.forEach(s => {
+        let esito;
+        try { esito = _spostaPezzo(root, s); }
+        catch (e) { giro.falliti.push(Object.assign({ errore: e.code || e.message }, s)); return; }
+        if (esito === 'destinazione-esiste') { giro.conflitti.push(Object.assign({ motivo: esito }, s)); return; }
+        if (esito !== 'fatto') return;
+        giro.fatti.push(s);
+        if (s.tipo !== 'progetto') return;
+        const da = path.join(root, ...s.da), a = path.join(root, ...s.a);
+        coppie.push({ da, a });
+        try { _riparaPipelineSpostata(a, da); }
+        catch (e) { giro.falliti.push({ da: s.a, a: s.a, tipo: 'pipeline', errore: e.message }); }
+    });
+    _riparaVaultJson(root, coppie, giro);
+    return giro;
+}
+function _nuovoRegistro() { return { id: 'riordino-' + Date.now(), versione: 1, giri: [] }; }
+
+/* Al primo avvio della beta.8 (e agli avvii dopo, se qualcosa è rimasto indietro).
+   → null (non tocca a lei) | { giro: null } (niente da fare) | { giro, registro } */
+function riorganizzaStruttura() {
+    if (!filesOrganized() || !strutturaAccesa()) return null;
+    const root = mappaiRootDir();
+    if (!fs.existsSync(root)) return null;
+    const esiste = segs => fs.existsSync(path.join(root, ...segs));
+    const piano = RiordinoCore.piano(scanStruttura(root), { esiste });
+    piano.cartelle.forEach(segs => fs.mkdirSync(path.join(root, ...segs), { recursive: true }));
+    if (!piano.spostamenti.length && !piano.vuoteDaTogliere.length) {
+        if (readSettings().struttura !== 2) writeSettings({ struttura: 2 });
+        return { giro: null };
+    }
+    const giro = _eseguiGiro(root, piano.spostamenti, 'avanti', piano.conflitti, piano.intatti);
+    _togliVuote(root, piano.vuoteDaTogliere.concat(giro.fatti.map(s => s.da.slice(0, -1))));
+    /* In Mappe/ le cartelle di classe e di materia rimaste vuote se ne vanno, e
+       Mappe/ con loro; con dentro qualcosa che l'app non conosce restano */
+    _potaVuote(path.join(root, FilesCore.SUB.maps));
+    giro.fine = new Date().toISOString();
+    writeSettings({ struttura: 2 });
+    const registro = leggiRegistroRiordino(root) || _nuovoRegistro();
+    registro.giri.push(giro);
+    _scriviRegistroRiordino(root, registro);
+    console.log('[files] riorganizzazione beta.8:', giro.fatti.length, 'spostati,', giro.conflitti.length, 'conflitti,', giro.falliti.length, 'falliti');
+    return { giro, registro };
+}
+
+/* «Torna alla struttura di prima» (Cabina): il registro al contrario, poi
+   l'interruttore a '0' perché l'app non riorganizzi di nuovo da sola. */
+function tornaIndietroStruttura() {
+    if (!filesOrganized()) return { ok: false, error: 'non-organizzata' };
+    const root = mappaiRootDir();
+    const registro = leggiRegistroRiordino(root);
+    if (!registro) return { ok: false, error: 'registro-assente' };
+    const esiste = segs => fs.existsSync(path.join(root, ...segs));
+    const inv = RiordinoCore.pianoInverso(registro, { esiste });
+    const giro = _eseguiGiro(root, inv.spostamenti, 'indietro', inv.conflitti, []);
+    _togliVuote(root, giro.fatti.map(s => s.da.slice(0, -1)), { ancheSistema: true });
+    giro.fine = new Date().toISOString();
+    writeSettings({ struttura: 1, mappai_struttura_v2: '0' });
+    registro.giri.push(giro);
+    _scriviRegistroRiordino(root, registro);   // il registro è tornato con Diagnostica
+    return { ok: true, fatti: giro.fatti.length, conflitti: giro.conflitti.length, falliti: giro.falliti.length };
+}
+
+ipcMain.handle('struttura-stato', async () => {
+    try {
+        const root = filesOrganized() ? mappaiRootDir() : null;
+        return { ok: true, struttura: strutturaV2() ? 2 : 1, acceso: strutturaAccesa(), rootDir: root,
+            registro: root ? leggiRegistroRiordino(root) : null };
+    } catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('struttura-torna-indietro', async () => {
+    try { return tornaIndietroStruttura(); } catch (e) { return { ok: false, error: e.message }; }
+});
+// Riaccende l'interruttore: la riorganizzazione riparte al prossimo avvio (prima della finestra).
+ipcMain.handle('struttura-riprova', async () => {
+    try { writeSettings({ mappai_struttura_v2: '1' }); return { ok: true }; } catch (e) { return { ok: false, error: e.message }; }
 });
 
 // Apre la cartella madre "MappAI - file" nel file manager.

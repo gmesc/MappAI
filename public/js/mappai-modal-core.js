@@ -151,7 +151,12 @@
                è `tonda`. La `tela` non andava bene: sta SOTTO le sezioni, e la
                foto qui deve stare accanto al testo che presenta. */
             figura: (s.figura && s.figura.src)
-                ? { src: String(s.figura.src), alt: String(s.figura.alt || ''), tonda: !!s.figura.tonda }
+                ? { src: String(s.figura.src), alt: String(s.figura.alt || ''), tonda: !!s.figura.tonda,
+                    /* LARGA (0119): la schermata a tutta larghezza SOPRA il testo,
+                       per le slide di una guida. Il quadratino da 112 px che scorre
+                       accanto al testo è un ritratto; una schermata ridotta a un
+                       francobollo non si legge. */
+                    larga: !!s.figura.larga }
                 : null,
             dati: normalizzaDati(s.dati),
             /* COLONNE dei campi (16/8): 2 o 3, altrimenti nessuna (una lista).
@@ -170,6 +175,13 @@
             /* elenco di righe che si scelgono (i «picker» della landing) */
             voci: (s.voci || []).map(normalizzaVoce),
             azioni: (s.azioni || []).map(normalizzaBottone),
+            /* RIMANDI (0119): testi cliccabili ACCANTO al titolo della sezione —
+               «Come si fa?», «2B · n. 7» accanto a «Consegna una prova». Non sono
+               comandi della sezione (quelli stanno sotto, nella fila delle azioni):
+               rimandano altrove, a una guida o a un dato da cambiare, e per questo
+               stanno dove si legge il titolo. Concludono come un'azione di
+               sezione, salvo `chiude:false`. */
+            rimandi: (s.rimandi || []).map(normalizzaRimando),
             accento: !!s.accento,        // riquadro in evidenza (indigo tenue)
             colonna: s.colonna || null,  // 'lato' | 'principale' nel cruscotto
             largo: !!s.largo,            // occupa tutta la riga
@@ -183,6 +195,17 @@
                insieme (sintesi · fogli · quiz della stessa mappa). */
             collassabile: !!s.collassabile,
             chiusa: !!s.collassabile && !!s.chiusa
+        };
+    }
+
+    function normalizzaRimando(r, i) {
+        if (typeof r === 'string') r = { etichetta: r };
+        r = r || {};
+        return {
+            id: r.id || ('rim-' + (i + 1)),
+            etichetta: String(r.etichetta || '').trim(),
+            valore: r.valore !== undefined ? r.valore : (r.id || ('rim-' + (i + 1))),
+            chiude: r.chiude !== false
         };
     }
 
@@ -202,7 +225,13 @@
                riga e non deve competere col contenuto (il cestino di un elenco). */
             soloIcona: !!b.soloIcona && !!b.icona,
             valore: b.valore !== undefined ? b.valore : b.id || ruolo,
-            chiude: b.chiude !== false
+            chiude: b.chiude !== false,
+            /* Un comando che c'è ma ora non si può usare, e il FUMETTO che dice
+               perché (0096: «Aggiungi PDF» con il PDF già allegato). Spento senza
+               fumetto lascerebbe il docente a indovinare: il motore li accetta
+               entrambi, e chi spegne scrive anche il perché. */
+            spento: !!b.spento,
+            fumetto: b.fumetto ? String(b.fumetto) : ''
         };
     }
 
@@ -368,6 +397,11 @@
             titolo: String(s.titolo || '').trim(),
             sottotitolo: s.sottotitolo ? String(s.sottotitolo) : '',
             icona: s.icona || 'square',
+            /* SENZA TESTATA (0119, gate sull'iPad): niente titolo, sottotitolo e ×
+               a schermo, per una finestra che si capisce dal suo contenuto e ha già
+               «Chiudi» in fondo. Il titolo resta il NOME della finestra
+               (`aria-label`): chi legge con lo schermo deve sapere dove si trova. */
+            senzaTestata: !!s.senzaTestata,
             taglia: t,
             layout: layoutValido(s.layout, t),
             /* vista piena: la console occupa la finestra invece di essere un
@@ -491,6 +525,8 @@
             return a + s2.voci.filter(function (v) { return v.tipo !== 'gruppo'; }).length;
         }, 0);
         if (!haCorpo) errori.push('modale vuoto: né sezioni né azioni');
+        /* senza la × l'uscita è un bottone del piede: senza nessuno si resta chiusi dentro */
+        if (n.senzaTestata && !n.azioni.length) errori.push('modale senza testata e senza azioni: senza la × non c\'è un bottone per uscire');
 
         var primari = n.azioni.filter(function (b) { return b.ruolo === 'primario'; });
         if (primari.length > 1) errori.push('due azioni primarie: l’occhio non sa dove andare');
@@ -523,6 +559,18 @@
             }).length;
             if (scritti >= 2 && !sez.titolo) {
                 avvisi.push('sezione ' + sez.id + ': ' + scritti + ' campi senza titolo di sezione — compilati, non resta nessuna indicazione (decisione 4 + regola 31/7)');
+            }
+            /* i rimandi stanno ACCANTO al titolo: senza titolo sarebbero accanto a niente */
+            sez.rimandi.forEach(function (r) {
+                if (!r.etichetta) errori.push('rimando ' + r.id + ' senza etichetta: un testo cliccabile vuoto non si vede e non si legge');
+                if (visti[r.id]) errori.push('id ripetuto: ' + r.id + ' — il clic finirebbe sulla voce sbagliata');
+                visti[r.id] = true;
+            });
+            if (sez.rimandi.length && !sez.titolo) {
+                errori.push('sezione ' + sez.id + ': rimandi su una sezione senza titolo — stanno accanto al titolo');
+            }
+            if (sez.rimandi.length > 2) {
+                avvisi.push('sezione ' + sez.id + ': ' + sez.rimandi.length + ' rimandi accanto al titolo — oltre due diventano una barra di comandi');
             }
             sez.voci.forEach(function (v) {
                 if (!v.etichetta) errori.push('voce ' + v.id + ' senza etichetta: una riga che si sceglie deve dire che cosa si sceglie');

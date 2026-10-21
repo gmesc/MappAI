@@ -155,6 +155,16 @@
             '<span class="cc-side">' + _esc(b) + '</span></div>' + badge + '</div>';
     }
 
+    /* Il nome del file (gate dello 0096, Giacomo 15/10: «'[nome progetto] - catena perché[ -
+       esercizio].pdf'»): è il <title>, che il PDF salvato da «Stampa» propone. Il progetto è
+       la CARTELLA (ADR 0021); senza cartella (reader, mappa non salvata) il nome della mappa.
+       Il bottone «Modalità esercizio» della pagina cambia anche il titolo. */
+    function _nomeFile(mapName) {
+        const a = _getAppState();
+        const cartella = String((a && a.activeVaultPath) || '').split(/[\\/]/).filter(Boolean).pop() || '';
+        const p = String(cartella || mapName || '').replace(/[\\/:*?"<>|]+/g, '-').trim();
+        return (p ? p + ' - ' : '') + t('ec_cc_file', 'catena perché');
+    }
     function _docHtml(chains, mapName, fontId) {
         const fams = ['trasformazione', 'dipendenza', 'sequenza', 'opposizione'];
         const legend = fams.map(f => {
@@ -185,10 +195,13 @@
        (mappai-doc-head.js), una regola per tutti i fogli. */
         const now = _ccDH() ? _ccDH().data(new Date()) : new Date().toLocaleDateString('it-IT');
         return '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">' +
-            '<title>' + _esc(t('cc_doc_title', 'Catena dei perché')) + ' — ' + _esc(mapName) + '</title>' +
+            '<title>' + _esc(_nomeFile(mapName)) + '</title>' +
             '<style>' + _fontDoc(fontId) +
             '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}' +
-            "body{font-family:var(--doc-font, 'Space Mono', monospace);font-size:12px;color:var(--mm-testo, #404040);margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#fafbff;background-image:radial-gradient(#ddd6fe 1px,transparent 1px);background-size:22px 22px}" +
+            "body{font-family:var(--doc-font, 'Space Mono', monospace);font-size:12px;color:var(--mm-testo, #404040);margin:0 auto;padding:24px 32px 40px;max-width:860px;background:#f8fafc}" +
+            /* 0096 (D, Giacomo 14/10): «uno sfondo a puntini che non è coerente con gli
+               editor degli altri materiali». Il fondo piatto della sintesi e del documento
+               di studio; le card restano bianche. In stampa era già bianco. */
             /* Testata e piè: cornice condivisa (mappai-doc-head.js). Erano due
                regole copiate dal foglio quiz, con misure loro. */
             _ccCornice(mapName) +
@@ -211,7 +224,8 @@
             '</style></head><body>' +
             '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:\'Space Mono\',monospace;font-size:12px">' +
             '<b>' + _esc(t('cc_doc_title', 'Catena dei perché')) + '</b>' +
-            '<span><button onclick="document.body.classList.toggle(\'cc-ex\')" style="font-family:inherit;margin-right:8px;padding:6px 14px;border:1px solid var(--mm-bordo, #cbd5e1);background:#fff;border-radius:8px;cursor:pointer">' + _esc(t('cc_exercise', 'Modalità esercizio')) + '</button>' +
+            '<span><button data-t="' + _esc(_nomeFile(mapName)) + '" data-te="' + _esc(_nomeFile(mapName) + ' - ' + t('ec_cc_file_es', 'esercizio')) + '"' +
+            ' onclick="var b=document.body;b.classList.toggle(\'cc-ex\');document.title=b.classList.contains(\'cc-ex\')?this.dataset.te:this.dataset.t" style="font-family:inherit;margin-right:8px;padding:6px 14px;border:1px solid var(--mm-bordo, #cbd5e1);background:#fff;border-radius:8px;cursor:pointer">' + _esc(t('cc_exercise', 'Modalità esercizio')) + '</button>' +
             '<button onclick="window.print()" style="font-family:inherit;padding:6px 14px;border:0;background:#4f46e5;color:#fff;border-radius:8px;cursor:pointer;font-weight:700">' + _esc(t('cc_print', 'Stampa')) + '</button></span></div>' +
             '<div style="height:44px" class="no-print"></div>' +
             _ccTestata(mapName, now) +

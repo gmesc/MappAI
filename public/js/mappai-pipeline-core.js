@@ -1289,11 +1289,12 @@
       var singoli = (config.quiz.types || []).filter(function (t) { return multi.indexOf(t) < 0; }).length;
       B = branches * (singoli + multi.length * nAng);
     }
-    // C: keyword AI = ceil(nodi/batch) SOLO se un modo le richiede.
+    // C: keyword AI = ceil(nodi/batch) SOLO se un modo le richiede: «Scheda»,
+    // «Titolo» e «Da completare» si disegnano in locale (lotti da 18, come la stampa).
     if (config.nodesheet) {
       var modes = config.nodesheet.modes || [];
-      if (modes.indexOf('keywords') >= 0 || modes.indexOf('card') >= 0) {
-        C = Math.ceil((nodes || 1) / (mapStats.keywordBatch || 12));
+      if (modes.indexOf('keywords') >= 0) {
+        C = Math.ceil((nodes || 1) / (mapStats.keywordBatch || 18));
       }
     }
     // D: mappa intera map-reduce = rami + 1; + blocchi audio.

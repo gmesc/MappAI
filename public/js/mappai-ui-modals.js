@@ -994,6 +994,10 @@ window.executeSidebarSingleClick = function (nodeId) {
 // matchModelKB usa prefix-match — "gemini-2.5-flash-lite" deve precedere "gemini-2.5-flash"
 // altrimenti flash-lite verrebbe riconosciuto come flash (match sbagliato).
 const MODEL_KB = {
+    // ── Gemini 4 Argon (0113, ADR 0024 §5.7-5.8): la lettura delle figure con Google; 2/10 USD per milione, 4/20 dal 1/12/2026 ──
+    'gemini-4-argon': { tier: '💎 Potente', caps: ['text', 'pdf', 'url', 'json'], free: false, note: 'Lettura delle figure e delle scansioni (0113) · 4/20 USD dal 1/12/2026',
+        get inputCost() { return Date.now() >= new Date(2026, 11, 1).getTime() ? 4.00 : 2.00; },
+        get outputCost() { return Date.now() >= new Date(2026, 11, 1).getTime() ? 20.00 : 10.00; } },
     // ── Gemini 3.5 (testato 2/6/26 — JSON fix applicato) ──
     'gemini-3.5-flash': { tier: '⚡ Veloce', caps: ['text', 'pdf', 'url', 'json'], inputCost: 0.50, outputCost: 3.00, free: true, note: 'Flash 3.5 · KG da testare' },
     // ── Gemini 3.1 ──

@@ -235,7 +235,7 @@ test('un figlio staccato dal suo master è un avviso (resterebbe inerte)', () =>
 test('un master si deriva dai figli montati, e non conta come voce dimenticata', () => {
     const d = B.mastersDerivati(B.MODULI);
     const ids = d.map(x => x.id).sort();
-    assert.deepStrictEqual(ids, ['mp-ns-on', 'mp-quiz-on']);
+    assert.deepStrictEqual(ids, ['mp-quiz-on']);   /* 0102: i fogli non hanno più master a schermo */
     const quiz = d.find(x => x.id === 'mp-quiz-on');
     /* «Domande aperte» (11/8) è il quarto figlio: sta nel box Quiz perché per il
        docente è la stessa scelta, e quindi deve accendere lo stesso master —
@@ -246,7 +246,6 @@ test('un master si deriva dai figli montati, e non conta come voce dimenticata',
     assert.deepStrictEqual(quiz.da.slice().sort(), ['mp-qt-fc', 'mp-qt-mc', 'mp-qt-mixed', 'mp-qt-open']);
     const v = B.valida(B.MODULI);
     assert.ok(!v.fuori.includes('mp-quiz-on'), 'un master derivato è montato, nascosto');
-    assert.ok(!v.fuori.includes('mp-ns-on'));
 });
 
 test('un master NON si deriva se nessuno dei suoi figli è a schermo', () => {
@@ -349,17 +348,13 @@ test('la catena non è figlia dei fogli nodi né fra i loro derivanti', () => {
     assert.ok(causal, 'la voce esiste');
     assert.strictEqual(causal.figlioDi, undefined, 'nessun master sopra di lei');
     assert.strictEqual(causal.chiave, 'causal', 'chiave di config a sé, non nodesheet.causal');
-    const ns = B.voce('mp-ns-on');
-    assert.ok(!ns.derivato.includes('mp-ns-causal'),
-        'spuntare la catena NON deve accendere i fogli nodi');
+    assert.ok(!B.voce('mp-ns-on'), '0102: il master dei fogli non è più una voce del bento');
 });
 
-test('nella composizione la catena c\'è, e i fogli nodi restano derivati dai loro generi', () => {
+test('nella composizione la catena c\'è, e i fogli nodi non ci sono più', () => {
     const dentro = B.MODULI.some(m => B.vociDi(m).some(v => v.id === 'mp-ns-causal'));
     assert.ok(dentro, 'la catena è montata');
-    const d = B.mastersDerivati(B.MODULI).find(x => x.id === 'mp-ns-on');
-    assert.ok(d, 'i fogli nodi si derivano ancora');
-    assert.ok(!d.da.includes('mp-ns-causal'));
+    assert.ok(!B.mastersDerivati(B.MODULI).some(x => x.id === 'mp-ns-on'), '0102: i fogli nodi non sono più nel bento');
 });
 
 /* ⚠️ Il nero di COSTRUISCI è #404040 (5/8, scelta di Giacomo). Sul blu non si
@@ -455,7 +450,7 @@ test('nella composizione il mega-bento è STABILE e gli strumenti sono extra', (
        Differenziazione) e prima del box giallo */
     assert.deepStrictEqual(stabili,
         ['output-scelta', 'upload', 'elenco', 'genere', 'genere-opz', 'lettura', 'foto-attesa', 'scheda-attesa',
-            'output', 'quiz', 'preset', 'ns', 'src', 'multi', 'ctx', 'azioni']);
+            'output', 'quiz', 'preset', 'src', 'multi', 'ctx', 'azioni']);
     assert.deepStrictEqual(extra,
         ['modalita', 'focus', 'macroaree', 'input', 'input-box', 'testo']);
 });
@@ -781,8 +776,8 @@ test('«Più set per angolo» è un box suo, largo 2, in fondo al box unico dei 
     assert.strictEqual(B.nascondibile(m), false, 'il box unico è sempre a schermo con Differenziazione');
     const righe = B.valida(B.MODULI).righe.map(r => r.map(x => x.id).join('+'));
     assert.ok(righe.indexOf('output+quiz+preset') >= 0, 'prima riga del box unico: 2+1+1 (Quiz prima del Preset, 13/10)');
-    assert.ok(righe.indexOf('ns+src+multi') >= 0, 'seconda riga del box unico: 1+1+2');
-    assert.ok(righe.indexOf('ns+src+multi') > righe.indexOf('output+quiz+preset'),
+    assert.ok(righe.indexOf('src+multi+ctx') >= 0, 'seconda riga del box unico: 1+2, col giallo che chiude la riga (0102: senza i fogli nodi)');
+    assert.ok(righe.indexOf('src+multi+ctx') > righe.indexOf('output+quiz+preset'),
         'sta SOTTO il box dei quiz: moltiplica il loro costo');
 });
 
@@ -821,7 +816,7 @@ test('output automatici: spostate, non duplicate — e la famiglia resta legata'
     assert.strictEqual(v.errori.length, 0, v.errori.join(' | '));
     /* il master del quiz resta DERIVATO: spuntare «Flashcard» lo accende da sé */
     const d = B.mastersDerivati(B.MODULI).map(x => x.id).sort();
-    assert.deepStrictEqual(d, ['mp-ns-on', 'mp-quiz-on']);
+    assert.deepStrictEqual(d, ['mp-quiz-on']);
     /* la fonte-immagine NON ha più una voce sua (20/8 sera): le foto entrano
        dal bottone «Documenti», autoriconosciute dall'estensione */
     assert.ok(!B.voce('mn-src-img'));
@@ -989,16 +984,17 @@ test('0087 lotto 11: un layout salvato coi sei box scuri in coda passa al box un
     const vecchi = B.MODULI.filter(m => !m.gruppo).slice();
     const scuro = { bg: '#404040', testo: '#ffffff', bordoCol: '#404040' };
     const sei = ['output', 'preset', 'quiz', 'ns', 'src', 'multi'].map(id =>
-        Object.assign({}, B.MODULI.find(m => m.id === id), { gruppo: undefined, stile: scuro, span: id === 'output' || id === 'multi' ? 4 : 1 }));
+        Object.assign({}, B.MODULI.find(m => m.id === id) || { id, titolo: 'Fogli nodi', voci: ['mp-ns-card'] },   /* 0102: «ns» non è più in MODULI */
+            { gruppo: undefined, stile: scuro, span: id === 'output' || id === 'multi' ? 4 : 1 }));
     sei.forEach(m => { delete m.gruppo; });
-    sei[3] = Object.assign({}, sei[3], { voci: ['mp-ns-card'] });     /* il docente aveva tolto voci dai fogli */
+    sei[3] = Object.assign({}, sei[3], { voci: ['mp-ns-card'] });     /* il docente aveva tolto voci dai fogli: 0102, il riquadro esce */
     const salvato = vecchi.concat(sei);
     const migrato = B.withMaterialControls(salvato);
     const ids = migrato.map(m => m.id);
     const ctx = ids.indexOf('ctx');
-    assert.deepStrictEqual(ids.slice(ctx - 6, ctx), ['output', 'quiz', 'preset', 'ns', 'src', 'multi'], 'subito prima del giallo');
+    assert.deepStrictEqual(ids.slice(ctx - 5, ctx), ['output', 'quiz', 'preset', 'src', 'multi'], 'subito prima del giallo, senza i fogli (0102)');
     migrato.filter(m => m.gruppo === 'materiali').forEach(m => assert.strictEqual(B.nascondibile(m), false));
-    assert.deepStrictEqual(migrato.find(m => m.id === 'ns').voci, ['mp-ns-card'], 'le voci del docente restano');
+    assert.ok(!migrato.some(m => m.id === 'ns'), '0102: il riquadro dei fogli è sparito dal layout salvato');
     assert.deepStrictEqual(['output', 'multi'].map(id => migrato.find(m => m.id === id).span), [2, 2]);
     assert.deepStrictEqual(B.valida(migrato).errori, []);
     assert.strictEqual(B.withMaterialControls(migrato), migrato, 'già migrato: niente da fare');

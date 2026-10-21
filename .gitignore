@@ -86,6 +86,7 @@ tools/contabilita/*.test.js
 !tools/font/prepara-font.py
 !tools/font/emoji-sottoinsieme.py
 !tools/font/copertura-glifi.py
+!tools/font/emoji-in-svg.py
 !tools/atlante-ui/glossario.js
 # La pagina dei disaccordi (16/9/26): misura come si scelgono le frasi di prova dei nodi.
 # Solo lo strumento: le pagine generate stanno in local-ai-data/, che resta fuori.

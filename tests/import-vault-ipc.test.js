@@ -137,12 +137,12 @@ test('2 · copia: tutta la cartella in Mappe/<classe>/<materia>/<nome>, con l\'i
     assert.deepEqual(man.modelliGiro.chiamate.map(c => c.vaultPath), ['', dest, '/altro/vault']);
 });
 
-test('2 · copia senza classe: Mappe/Generico/<nome>; senza pipeline.json va bene lo stesso', async () => {
+test('2 · copia senza classe: Mappe/Senza classe/<nome> (0104, N5: era Generico); senza pipeline.json va bene lo stesso', async () => {
     const b = banco();
     const src = vaultDiProva(path.join(b.fuori, 'Sola'), { pipeline: false, projectId: 'proj_1790000000000' });
     const r = await F.copia({ src, classDir: null, discDir: '', nome: 'Sola', projectId: 'proj_1790000000000' }, b.dove);
     assert.equal(r.ok, true, r.error);
-    assert.equal(r.folderPath, path.join(b.maps, 'Generico', 'Sola'));
+    assert.equal(r.folderPath, path.join(b.maps, 'Senza classe', 'Sola'));
     assert.equal(r.percorsi, 0);
     const idx = fs.readFileSync(path.join(r.folderPath, 'index.yaml'), 'utf8');
     assert.equal(idx.split('\n').filter(l => l.startsWith('projectId:')).length, 1);
@@ -169,7 +169,7 @@ test('2 · i rifiuti: non-vault, dentro, esiste, dentro-se-stessa, id; nessuna s
     fs.writeFileSync(path.join(madre, 'index.yaml'), 'rootNodeLabel: x\n');
     const s = await F.copia({ src: madre, classDir: null, discDir: '', nome: 'Madre', projectId: 'proj_1795000000000' }, b.dove);
     assert.equal(s.error, 'dentro-se-stessa');
-    assert.ok(!fs.existsSync(path.join(b.maps, 'Generico', 'Madre')));
+    assert.ok(!fs.existsSync(path.join(b.maps, 'Senza classe', 'Madre')));
 });
 
 test('2 · un errore a metà copia non lascia una cartella mezza', async (t) => {

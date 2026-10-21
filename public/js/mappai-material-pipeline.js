@@ -1725,6 +1725,15 @@
   function _tornaInElabora() {
     const EC = window.MappAIElaboraConsole;
     try { if (EC && EC.aperta && EC.aperta() && EC.aggiorna) { EC.aggiorna(); return true; } } catch (e) { }
+    /* 0106 (D4, gate 3, Giacomo 16/10: «se il progetto è già aperto, ELABORA si apre senza ricaricarlo»):
+       qui il progetto è sempre quello caricato (la G2 riaperta, la sua continuazione). `openProject` lo
+       rileggeva da capo: `loadSavedProject` ridisegnava la mappa D3 e ELABORA arrivava 350 ms dopo — il
+       lampo della mappa. Con la mappa in memoria si entra in ELABORA da lì (`openFromMap`); senza (KG,
+       niente nodi) la strada di B14 di prima. `_apriElabora` resta com'è per B14 e il dossier. */
+    try {
+      const E = window.MappAIElabora;
+      if (E && E.hasMap && E.hasMap() && E.openFromMap) { E.openFromMap(); return true; }
+    } catch (e) { }
     return _apriElabora();
   }
   Pipeline.tornaInElabora = _tornaInElabora;
@@ -1768,7 +1777,11 @@
     if (opts.manifest && opts.manifest.review && window.MappAIReview) {
       _state()._pipelineManifest = opts.manifest;
       // con la quarantena accesa G1 è facoltativa: il record lo calcola il giro, il cancello decide dopo (0042)
-      if (!await window.MappAIReview.requireApproved({ quarantena: true })) return;
+      // 0097: il cancello sta fuori dal try del giro; un controllo nuovo che non parte (chiave, rete) è un avviso, non un errore perso
+      let passa;
+      try { passa = await window.MappAIReview.requireApproved({ quarantena: true }); }
+      catch (e) { _toast(e && e.message ? e.message : String(e), 'error'); return; }
+      if (!passa) return;
     }
     Pipeline._running = true;
     /* 0062: il giro tiene la presa fino alla fine (la lascia il `finally`). Da CREA comincia col velo a
@@ -2315,20 +2328,11 @@
               '<details><summary>' + _esc(_t('mp_multi_optional', 'Varianti aggiuntive per angolazione')) + '</summary><div class="flex gap-x-5 gap-y-2 flex-wrap">' +
                 PC().angoliMulti().map(k => chk('mp-ang-' + k, window.quizAngleLabel ? window.quizAngleLabel(k) : k, false)).join('') +
               '</div></details></div></div>' +
-          /* Foglio nodi (e Catena). 0091 (Giacomo: «si generano solo in
-             automatico e solo per i progetti con output "Differenziazione"»):
-             su un progetto nato da una foto la sezione non c'è — è la stessa
-             regola che `run` applica al dossier (`config.dossier` → nodesheet e
-             causal null). Senza i campi `_readConfig` non li accende. */
+          /* 0102: i fogli dei nodi non hanno più spunte (nascono da soli con
+             Output = Differenziazione, `_fogliSempre`). Resta la Catena dei
+             perché, materiale a sé; su un progetto da foto non c'è (0091). */
           (_progettoDaFoto() ? '' :
-          '<div class="' + SECT + '">' + secHeader('mp-ns-on', _t('mp_nodesheet', 'Fogli nodi')) +
-            '<div id="mp-ns-body" class="mt-3 space-y-3">' +
-              '<div class="flex gap-5 items-center flex-wrap">' +
-                fld(_t('mp_level', 'Livello'), '<select id="mp-ns-level" class="' + SEL + '">' + _levelOptions() + '</select>') +
-                fld(_t('mp_fmt', 'Formato'), '<select id="mp-ns-fmt" class="' + SEL + '"><option value="3x4">3×4</option><option value="2x2" selected>2×2</option><option value="2x1">2×1</option></select>') +
-              '</div>' +
-              '<div class="flex gap-x-5 gap-y-2 flex-wrap">' + chk('mp-ns-title', _t('mp_mode_title', 'Titolo'), true) + chk('mp-ns-keywords', _t('mp_mode_kw', 'Parole chiave'), false) + chk('mp-ns-summary', _t('mp_mode_summary', 'Da completare'), false) + chk('mp-ns-card', _t('mp_mode_card', 'Scheda'), false) + '</div>' +
-              chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div></div>') +
+          '<div class="' + SECT + '">' + chk('mp-ns-causal', _t('mp_causal', 'Includi «Catena dei perché»'), false) + '</div>') +
           // Sintesi
           '<div class="' + SECT + '">' + secHeader('mp-syn-on', _t('mp_synthesis', 'Sintesi della mappa')) +
             '<div id="mp-syn-body" class="mt-3">' + chk('mp-syn-audio', _t('mp_audio', 'Voce naturale (audio MP3)'), false) + '</div></div>' +
@@ -2512,6 +2516,13 @@
      oppure il BENTO di COSTRUISCI in stile manifesto (#mn-bento), che porta gli
      stessi id apposta. Una lettura sola per due superfici: una copia qui
      divergerebbe al primo campo aggiunto. Null se non c'è nessuna delle due. */
+  function _fogliSempre() {
+    let v = null;
+    try { v = localStorage.getItem('mappai_crea_output'); } catch (e) { }
+    const C = window.MappAICreaOutputCore;
+    const out = C ? C.normalizza(v) : (String(v || 'differenziazione').trim().toLowerCase());
+    return out === 'differenziazione' && !_progettoDaFoto();
+  }
   function _readConfig() {
     const g = (id) => _configElement(id);
     if (!g('mp-modal') && !g('mn-bento')) return null;
@@ -2555,18 +2566,12 @@
         if (nomePulito) cfg.quiz.nome = nomePulito;
       }
     }
-    if (on('mp-ns-on')) {
-      const modes = [];
-      if (on('mp-ns-title')) modes.push('title');
-      if (on('mp-ns-keywords')) modes.push('keywords');
-      if (on('mp-ns-summary')) modes.push('summary');
-      if (on('mp-ns-card')) modes.push('card');
-      const lvRaw = g('mp-ns-level') && g('mp-ns-level').value;
-      /* `causal: false` fisso: dal 5/8 la catena è un materiale suo (step E) e
-         non una coda del PDF dei fogli. Il campo resta nella forma per non
-         cambiare la firma di `printAllNodeLabels`, che il flusso manuale usa. */
-      cfg.nodesheet = { maxLevel: (lvRaw === 'all' || !lvRaw) ? 'all' : parseInt(lvRaw, 10), fmt: (g('mp-ns-fmt') && g('mp-ns-fmt').value) || '2x2', modes: modes.length ? modes : ['title'], causal: false };
-    }
+    /* 0102 (Giacomo, 15/10): i fogli dei nodi nascono SEMPRE, nel solo modo
+       «Scheda» (titolo + descrizione, disegnato in locale: zero chiamate AI),
+       2×2, tutti i livelli. Solo con Output = Differenziazione e per un progetto
+       non nato da una foto. Nessuna spunta li governa più: le scelte salvate non
+       decidono. `causal: false` fisso: la catena è un materiale suo (step E). */
+    if (_fogliSempre()) cfg.nodesheet = { maxLevel: 'all', fmt: '2x2', modes: ['card'], causal: false };
     if (on('mp-syn-on')) cfg.synthesis = { audio: !!on('mp-syn-audio') };
     /* materiale INDIPENDENTE: si spunta e si ottiene, senza chiedere i fogli nodi */
     cfg.causal = !!on('mp-ns-causal');
@@ -2583,6 +2588,13 @@
      materiali (alla prossima aggiunta le due liste divergerebbero). */
   function _hasOutput(cfg) { return PC().hasOutput(cfg); }
   Pipeline._hasOutputNow = function () { return _hasOutput(_readConfig()); };
+  /* 0103 (Giacomo 16/10, gate 3): «c'è solo il foglio dei nodi automatico?». Il bento lo chiede per dare al
+     suo bottone la faccia «Genera Mappa»: quei fogli derivano dalla mappa da soli (0102), non sono un
+     materiale scelto. Il clic non cambia: resta `_startFromModal`, che li produce. */
+  Pipeline._soloFogliNow = function () {
+    const c = _readConfig();
+    return !!(c && c.nodesheet && _fogliSempre() && !c.quiz && !c.synthesis && !c.causal);
+  };
 
   /* Con un profilo ALLIEVO attivo la fonte si conserva di default: la sua
      cartella è ciò che gli si consegna e deve bastare a sé stessa. Per una
@@ -2928,7 +2940,14 @@
   };
 
   function _confirmResume(vaultPath, manifest) {
-    if (!manifest.config?.modelli && window.MappAIModelli?.acceso()) _toast(_t('modelli_legacy_run', 'Giro precedente senza assegnazioni per fase: la ripresa conserva il percorso originale.'), 'info');
+    /* 0106 (D1, Giacomo 16/10: «Riapre il banco»): con la G2 GIÀ PRONTA (`awaiting_review` con la sua revisione)
+       non c'è niente da generare. «Riprendi» la riapre dov'era con la strada di «Rivedi contenuti» e del chip
+       (`completaValidazione` → `openCurrent`, che alla chiusura torna in ELABORA): niente `run`, quindi niente
+       giudice rilanciato da `requireApproved`, niente bozze buttate da `invalidaBozze`, niente scritture.
+       Col controllo finale interrotto (`checking`) o coi materiali approvati e non pubblicati resta `run`. */
+    const fin = manifest.review && manifest.review.final;
+    const g2Pronta = !!(fin && fin.stage === 'awaiting_review' && fin.review);
+    if (!g2Pronta && !manifest.config?.modelli && window.MappAIModelli?.acceso()) _toast(_t('modelli_legacy_run', 'Giro precedente senza assegnazioni per fase: la ripresa conserva il percorso originale.'), 'info');
     const old = document.getElementById('mp-resume'); if (old) old.remove();
     const modal = document.createElement('div');
     modal.id = 'mp-resume';
@@ -2937,14 +2956,23 @@
       '<div class="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-[420px] p-6 relative">' +
         '<div class="flex items-center gap-3 mb-3"><div class="pm-icon-wrap"><i data-lucide="rotate-cw" class="w-5 h-5 text-indigo-600"></i></div>' +
         '<div class="pm-title">' + _esc(_t('mp_resume', 'Riprendi')) + '</div></div>' +
-        '<p class="pm-body-text mb-4">' + _esc(_t('mp_resume_prompt', 'Questo vault ha una pipeline materiali incompleta. Riprenderla?')) + '</p>' +
+        '<p class="pm-body-text mb-4">' + _esc(g2Pronta
+          ? _t('mp_resume_g2', 'I materiali aspettano la tua validazione. Riprenderla?')
+          : _t('mp_resume_prompt', 'Questo vault ha una pipeline materiali incompleta. Riprenderla?')) + '</p>' +
         '<div class="flex gap-3"><button type="button" id="mpr-no" class="pm-btn-cancel">' + _esc(_t('ui_cancel', 'Annulla')) + '</button>' +
         '<button type="button" id="mpr-yes" class="pm-btn-primary" style="flex:1;justify-content:center"><i data-lucide="play" class="w-4 h-4"></i> ' + _esc(_t('mp_resume', 'Riprendi')) + '</button></div>' +
       '</div>';
     document.body.appendChild(modal);
     _alza(modal);   /* invariante 11: sopra la console che lo ha aperto */
     _icons();
-    modal.querySelector('#mpr-no').onclick = () => modal.remove();
+    /* 0106 (D3, gate 3 dello 0096): aperto dalla colonna di ELABORA, «Annulla» lasciava la console senza
+       tabelle (lo schema giusto, niente a schermo). Ridisegnarla è il gesto che al gate l'ha sbloccata;
+       `ridisegna` non fa niente se la console è chiusa. */
+    modal.querySelector('#mpr-no').onclick = () => {
+      modal.remove();
+      try { const EC = window.MappAIElaboraConsole; if (EC && EC.ridisegna) EC.ridisegna(); } catch (e) { }
+    };
+    if (g2Pronta) { modal.querySelector('#mpr-yes').onclick = () => { modal.remove(); Pipeline.completaValidazione(); }; return; }
     /* Tutti i passi tranne A (la mappa c'è già: è il vault che stiamo aprendo).
        La lista si ricava da `PC().STEPS` e non si scrive a mano: era ferma a
        B·C·D e la «Catena dei perché», nata dopo, non veniva MAI ripresa — una

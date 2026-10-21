@@ -87,14 +87,18 @@ window.InfomaniakBridge = {
         const gc = geminiPayload.generationConfig || {};
         const temp = (gc._respectTemp && typeof gc.temperature === 'number') ? gc.temperature : 0.3;
 
+        // Le letture delle figure dei PDF (0113, ADR 0024 §5.5) passano con `penalita: false`:
+        // con le penalità del ponte Qwen perde le etichette ripetute di uno schema
+        // (valvassini 7 → 3). Gli altri chiamanti non cambiano.
+        const senzaPenalita = !!(opzioni && opzioni.penalita === false);
         const openAIPayload = {
             model: modelName,
             messages: messages,
             temperature: temp,
             max_tokens: maxTokens,
             // Valori ridotti per non penalizzare la struttura JSON ripetitiva (nodi, links)
-            frequency_penalty: 0.3,
-            presence_penalty: 0.1,
+            frequency_penalty: senzaPenalita ? 0 : 0.3,
+            presence_penalty: senzaPenalita ? 0 : 0.1,
         };
 
         // Abilita JSON mode nativo OpenAI quando richiesto.

@@ -294,7 +294,8 @@
     const persisted = await window.electronAPI.loadVault(vaultPath);
     assertProject(vaultPath);
     if (!persisted || !persisted.success) throw new Error('Verifica della mappa salvata non riuscita');
-    manifest.review = core().completeApproval(result.review, core().revision(persisted.data, result.review.sources));
+    // 0097: la mappa riletta, non la sua impronta — il salvataggio perde le citazioni orfane
+    manifest.review = core().completeApproval(result.review, persisted.data);
     await R.writeManifest(vaultPath, manifest);
     state()._reviewRevision = manifest.review.approvedRevision;
     delete state()._reviewCommit;
@@ -472,7 +473,7 @@
     async function persist(expected, review) {
       assertProject(vaultPath);
       if (busy || committing) throw new Error('link_busy');
-      if (R.current() !== expected || core().revision(state().db, expected.sources) !== expected.baseRevision) throw new Error('stale_revision');
+      if (R.current() !== expected || !core().coincide(state().db, expected.sources, expected, 'base')) throw new Error('stale_revision');
       committing = true;
       try {
         await R.writeManifest(vaultPath, Object.assign({}, state()._pipelineManifest, { review }));
@@ -485,7 +486,7 @@
   R.retryJudge = async function (vaultPath, manifest, opts) {
     assertProject(vaultPath);
     const old = manifest.review, s = state();
-    if (old.initial.status !== 'awaiting_review' || core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+    if (old.initial.status !== 'awaiting_review' || !core().coincide(s.db, old.sources, old, 'base')) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
     const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath, giudice: true });
     const key = giro ? null : window.getSystemKey && window.getSystemKey();
     if ((!key && !giro) || !window.executeJudgePass) throw new Error(t('rv_retry_key', 'Per riprovare il controllo automatico occorre una chiave AI disponibile.'));
@@ -495,7 +496,7 @@
       const result = await window.executeJudgePass(key, { enabled: true, apply: false,
         rapportoPrecedente: old.initial.report, onProgress: opts && opts.onProgress }, giro);
       assertProject(vaultPath);
-      if (core().revision(s.db, old.sources) !== old.baseRevision) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+      if (!core().coincide(s.db, old.sources, old, 'base')) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
       return result;
     });
     const next = conservaMateriali(old, core().mergeRetry(old, core().createReview({ db: s.db, sources: old.sources, report, generationId: old.generationId,
@@ -521,7 +522,7 @@
       assertProject(vaultPath);
       if (!old || old.initial?.status !== 'awaiting_review' || state() !== s || s.db !== db ||
           storage()?.currentProjectId !== projectId || s._pipelineManifest !== activeManifest ||
-          manifest.review !== old || canonical(old) !== signature || core().revision(db, old.sources) !== old.baseRevision) {
+          manifest.review !== old || canonical(old) !== signature || !core().coincide(db, old.sources, old, 'base')) {
         throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
       }
     };
@@ -691,6 +692,18 @@
     const A = window.MappAIAffermazioni;
     return !!(A && A.quarantenaAccesa && A.quarantenaAccesa());
   }
+  /* 0090 (parte B; Giacomo 12/10: «riporti sempre a ELABORA indipendentemente da dove sia stato lanciato»):
+     una G2 riaperta su un progetto già fatto, chiusa con «Salva e continua più tardi», ESC o «Chiudi», apre
+     ELABORA sul progetto (`dopoChiusura`); «Continua» porta `aElabora` alla pipeline, che a materiali nati apre
+     ELABORA prima del riepilogo. La strada è quella di B14 (`MappAIPipeline.tornaInElabora`). Interruttore
+     `mappai_elabora_attesa` ('0' = come prima → {}). 0106 (D2): la usano `openCurrent` e `requireStandalone`. */
+  function versoElabora() {
+    try {
+      const C = window.MappAIMaterialiAttesaCore;
+      if (!(C && C.acceso(window.localStorage) && window.MappAIPipeline && window.MappAIPipeline.tornaInElabora)) return {};
+    } catch (e) { return {}; }
+    return { dopoChiusura: () => window.MappAIPipeline.tornaInElabora(), continua: { aElabora: true } };
+  }
   R.requireStandalone = async function () {
     if (!await R.requireApproved()) return false;
     const s = state(), review = R.current();
@@ -701,8 +714,9 @@
       const alza = alzaSottoQuarantena();
       if (final.review) {
         if (final.review.initial.status === 'applying') await R.restore(s.activeVaultPath, s._pipelineManifest);
-        if (alza) R.open(s.activeVaultPath, s._pipelineManifest, { final: true, alza: true });
-        else R.open(s.activeVaultPath, s._pipelineManifest, { final: true });
+        /* 0106 (D2): come `openCurrent`, chiusa «più tardi» torna in ELABORA */
+        if (alza) R.open(s.activeVaultPath, s._pipelineManifest, Object.assign({ final: true, alza: true }, versoElabora()));
+        else R.open(s.activeVaultPath, s._pipelineManifest, Object.assign({ final: true }, versoElabora()));
       } else {
         if (window.showToast) window.showToast(t('rv_standalone_pending', 'La revisione dei materiali è in corso. Riprendila dal progetto prima di creare nuovi esercizi.'), 'info');
         if (alza) await R.openCurrent({ alza: true });
@@ -738,15 +752,8 @@
     await R.checkpoint(s.activeVaultPath, manifest);
     if (manifest.review.initial.status === 'applying' || manifest.review.final?.review?.initial.status === 'applying') await R.restore(s.activeVaultPath, manifest);
     const final = manifest.review.final;
-    /* 0090 (parte B; Giacomo 12/10: «riporti sempre a ELABORA indipendentemente da dove sia stato lanciato»):
-       «Salva e continua più tardi» ed ESC aprono ELABORA sul progetto (`dopoChiusura`); «Continua» porta
-       `aElabora` alla pipeline, che a materiali nati apre ELABORA prima del riepilogo. La strada è quella di
-       B14 (`MappAIPipeline.tornaInElabora`). Interruttore `mappai_elabora_attesa` ('0' = come prima). */
-    const versoElabora = (() => {
-      try { const C = window.MappAIMaterialiAttesaCore; return !!(C && C.acceso(window.localStorage) && window.MappAIPipeline && window.MappAIPipeline.tornaInElabora); }
-      catch (e) { return false; }
-    })();
-    const extra = versoElabora ? { dopoChiusura: () => window.MappAIPipeline.tornaInElabora(), continua: { aElabora: true } } : {};
+    /* 0090 (parte B): chiusa «più tardi», ESC o «Chiudi» torna in ELABORA — la regola sta in `versoElabora` */
+    const extra = versoElabora();
     if (opts && opts.alza) R.open(s.activeVaultPath, manifest, Object.assign({ final: !!(final && final.review), alza: true }, extra));
     else R.open(s.activeVaultPath, manifest, Object.assign({ final: !!(final && final.review) }, extra));
   };
@@ -941,6 +948,17 @@
       ? R.approveReading(vaultPath, manifest, reading.options, { manualReview })
       : R.approve(vaultPath, manifest, { final: isFinal, manualReview });
     const getReview = () => isFinal ? manifest.review.final.review : manifest.review;
+    /* 0097 (Giacomo, 15/10 sera): G1 approvata e poi superata da una modifica VERA della mappa. «Continua dai contenuti
+       approvati» lì dava sempre «Il contenuto è cambiato…»: il bottone diventa «Ricontrolla la mappa adesso» e chiama
+       `requireApproved` (controllo nuovo, la revisione approvata in `previous`, si apre la revisione nuova). */
+    const superataDopoApprovazione = () => !isFinal && !reading && getReview().initial.status === 'approved' &&
+      !core().gate(getReview(), currentDb(), getReview().sources).allowed;
+    async function ricontrollaMappa() {
+      close(); busy = false;
+      // la revisione è già chiusa: un errore (una chiave che manca, il disco) arriva al docente come avviso, non si perde
+      try { await R.requireApproved(); }
+      catch (e) { if (window.showToast) window.showToast(e && e.message ? e.message : String(e), 'error'); else console.warn('[Revisione] ricontrollo:', e); }
+    }
     if (!getReview() || busy || committing) return;
     function checkMessage() {
       const initial = getReview().initial, report = initial.report || {};
@@ -2767,6 +2785,7 @@
           // 0074, F1: quante prove della scheda hanno trovato una pagina; il divisore apre o chiude la Fonte
           passiNellaFonte: (id, passi) => { if (seguiFonte) seguiFonte(id, passi); },
           testoChiusura: () => {
+            if (superataDopoApprovazione()) return t('rv_ricontrolla_mappa', 'Ricontrolla la mappa adesso');
             const approved = getReview().initial.status === 'approved', resume = hasResume();
             return approved && !resume ? t('rv_close', 'Chiudi') : approved ? t('rv_resume', 'Continua dai contenuti approvati')
               : isFinal ? t('rv_finalize', 'Salva le decisioni e completa i materiali')
@@ -2821,6 +2840,7 @@
       freeze(true);
       try {
         await pendingSave; if (saveError) throw saveError;
+        if (superataDopoApprovazione()) return ricontrollaMappa();   // 0097
         const resume = hasResume();
         if (getReview().initial.status !== 'approved' || resume) await approve(manualConfirmed || statoApprovazioni(getReview()).tutti);
         close(); busy = false;
@@ -2850,6 +2870,7 @@
         freeze(true);
         try {
           await pendingSave; if (saveError) throw saveError;
+          if (superataDopoApprovazione()) return ricontrollaMappa();   // 0097
           const r = getReview(), resume = hasResume();
           if (r.initial.status !== 'approved' && !veste.puoChiudere()) return;
           // 0075: anche G1; con il controllo parziale la casella del piede è la conferma esplicita (rev. 4, B.1)

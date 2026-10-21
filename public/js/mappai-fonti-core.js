@@ -251,6 +251,31 @@
      accesa comunque. Il valore lo legge ELABORA (`fonteInFonti`, unico lettore). */
   function interruttoreAcceso(v) { return v !== '0'; }
 
+  /* 0101: CREA parte con le sue fonti. `appState.sources` è un cassetto solo
+     per tutta l'app: ELABORA ci rimette le fonti del progetto aperto («Apri»,
+     «Aggiungi PDF», «Incolla testo»), «Carica un progetto» quelle della sua
+     istantanea, e nessuno le toglieva quando CREA faceva partire una generazione
+     nuova — il vault nuovo riceveva in `Fonti/` il PDF di un altro progetto, e
+     il giro per fase rifiutava per una foto che CREA non mostrava.
+     Una fonte è di CREA se ha la sua riga in pagina (`addSource` le dà l'id
+     della fonte), la stessa regola con cui il ciclo della mappa la prende
+     (`app.js`, `[data-source-id]`); e se dentro c'è qualcosa: un File (anche i
+     file 2…N di una scelta multipla, che hanno la riga col campo vuoto), un
+     testo, o un valore scritto nella riga. Una riga aperta e lasciata vuota
+     (Finder annullato) esce: CREA non la elenca.
+     `righe` = { [id]: { valore } }. Senza `righe` non si toglie niente. */
+  function fontiDiCrea(fonti, righe) {
+    var tutte = _lista(fonti);
+    if (!righe || typeof righe !== 'object') return { tenute: tutte.slice(), tolte: [] };
+    var tenute = [], tolte = [];
+    tutte.forEach(function (s) {
+      var r = s && Object.prototype.hasOwnProperty.call(righe, s.id) ? righe[s.id] : null;
+      var piena = !!(r && ((s.file && typeof s.file === 'object') || _testo(s.content).trim() || r.valore));
+      (piena ? tenute : tolte).push(s);
+    });
+    return { tenute: tenute, tolte: tolte };
+  }
+
   return {
     isPdf: isPdf, inAllegati: inAllegati,
     fontiDaRipristinare: fontiDaRipristinare,
@@ -258,6 +283,7 @@
     vociScrivibili: vociScrivibili, vaultRelPerIndice: vaultRelPerIndice, vaultSpostato: vaultSpostato, scriviIndice: scriviIndice,
     gemelli: gemelli, sceltaNome: sceltaNome,
     pdfPerTitolo: pdfPerTitolo,
-    interruttoreAcceso: interruttoreAcceso
+    interruttoreAcceso: interruttoreAcceso,
+    fontiDiCrea: fontiDiCrea
   };
 }));

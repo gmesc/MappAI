@@ -8,27 +8,29 @@
      server LAN da public/fonts/ (allowlist `/public/fonts/`). Prima arrivava da
      fonts.googleapis.com e in aula senza rete — o dietro il filtro della scuola —
      il telefono dell'allievo cadeva sul monospace di sistema senza dire niente.
-     Noto Color Emoji RESTA dalla rete: il file è 25 MB, e senza rete il telefono
-     ha comunque le sue emoji (stessa scelta di index.html, commentata lì). -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+     Le EMOJI sono locali anche loro (packet 0108, 16/10/2026): niente più Noto da
+     fonts.googleapis.com. Il font «MappAI Emoji» (public/fonts/MappAIEmoji.ttf) porta le 27
+     dell'identità e le emoji che questa pagina scrive (⚠️, 💡…); sui motori WebKit le
+     disegna come immagini mappai-emoji-prova.js. Le altre: emoji di sistema. -->
 <style>
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:400;
     src:url('../fonts/SpaceMono-Regular.ttf') format('truetype'); font-display:swap; }
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:700;
     src:url('../fonts/SpaceMono-Bold.ttf') format('truetype'); font-display:swap; }
   /* Le 27 emoji che NON sono decorazione — l'identità dell'allievo e i codici
-     d'accesso dei gruppi — da un font locale di 254 KB ritagliato da Noto
+     d'accesso dei gruppi — e, dal packet 0108, le emoji che le pagine degli
+     allievi scrivono: un font locale di circa 350 KB ritagliato da Noto
      (tools/font/emoji-sottoinsieme.py). Sta PRIMA di Noto nello stack: quelle
-     si vedono anche senza rete e uguali su ogni telefono; le altre ripiegano
-     come prima. */
+     si vedono anche senza rete e uguali su ogni telefono; le altre sono quelle
+     di sistema. */
   @font-face { font-family:'MappAI Emoji'; font-style:normal; font-weight:400;
-    src:url('../fonts/MappAIEmoji.ttf') format('truetype'); font-display:swap; }
+    src:url('../fonts/MappAIEmoji.ttf?v=0108') format('truetype'); font-display:swap; }
 </style>
 <style>
   :root { --ink:#0f172a; --indigo:#4f46e5; --slate:#64748b; --line:#cbd5e1; --emoji:'MappAI Emoji','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji'; }
   * { box-sizing:border-box; }
   html, body { height:100%; }
-  body { margin:0; font-family:'Space Mono',var(--emoji),monospace; color:var(--ink); background:#fafbff; }
+  body { margin:0; font-family:var(--live-font, 'Space Mono',var(--emoji),monospace); color:var(--ink); background:#fafbff; }
   /* il login ha la veste puntinata delle altre pagine Live; l'attività no —
      là dentro comanda il CSS che la view si porta dietro */
   #login { display:none; padding:20px 16px; max-width:560px; margin:0 auto;
@@ -47,6 +49,8 @@
   .btn { background:var(--indigo); color:#fff; border:0; border-radius:12px; padding:13px 18px; font:inherit; font-weight:700; cursor:pointer; width:100%; font-size:15px; min-height:48px; }
   .err { color:#dc2626; font-size:12px; margin-top:8px; min-height:16px; }
 </style>
+<!-- 0099: prova il font emoji locale su questo dispositivo; dove non si legge, --emoji ripiega sulle emoji di sistema -->
+<script src="/public/js/mappai-emoji-prova.js?v=0108" defer></script>
 </head>
 <body>
   <section id="login" class="on">
@@ -70,8 +74,11 @@
 
   <div id="app"></div>
 
+<script src="/public/js/mappai-font-core.js?v=0112"></script>
+<script src="/public/js/mappai-live-font.js?v=0112"></script>
 <script src="/public/js/mappai-live-core.js"></script>
 <script src="/public/js/mappai-scelta-core.js"></script>
+<script src="/public/js/mappai-quiz-mc-view.js?v=0112"></script>
 <script src="/public/js/mappai-scelta-view.js"></script>
 <script>
   var LC = window.MappAILiveCore, SC = window.MappAIScelta, SV = window.MappAISceltaView;
@@ -91,6 +98,7 @@
     api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
       if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
       SESS = r.body;
+      MappAILiveFont.daSessione(SESS);   // il carattere scelto dal docente (mappai-live-font.js)
       $('login-activity').textContent = (SESS.className ? SESS.className + ' · ' : '') + (SESS.name || '');
       if (SESS.loginMode === 'group') { $('login-individual').style.display = 'none'; $('login-group').style.display = 'block'; }
       else buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
@@ -164,6 +172,19 @@
     attesaPn = setTimeout(function () { attesaPn = null; salva(STATO, true); }, 600);
   }
 
+  /* 0116, gate del 21/10: la scheda da salvare è una pagina del server (/api/my-sheet), la stessa
+     del quiz LIVE: tutte le domande e le risposte, e la stampa si apre da sola (il nome del file
+     è il titolo della pagina). La finestra si apre SUBITO, nel gesto del tocco; se il telefono
+     la nega, si va lì in questa stessa pagina. */
+  function apriScheda() {
+    var chi = IDENT && IDENT.nick ? ('&nick=' + encodeURIComponent(IDENT.nick))
+      : ('&emojiKey=' + encodeURIComponent((IDENT && IDENT.emojiKey) || '') + '&num=' + encodeURIComponent((IDENT && IDENT.num) || ''));
+    var url = '/api/my-sheet?s=' + encodeURIComponent(TOKEN) + chi + '&deviceId=' + encodeURIComponent(deviceId);
+    var finestra = null;
+    try { finestra = window.open(url, '_blank'); } catch (e) { finestra = null; }
+    if (!finestra) location.href = url;
+  }
+
   function monta() {
     VISTA = SV.monta($('app'), {
       pool: POOL, cfg: CFG, stato: STATO, verdetti: VERDETTI,
@@ -174,6 +195,7 @@
           if (r.status !== 200) { alert('Consegna non riuscita. Riprova.'); return; }
           SV.mostraEsito($('app'), {
             cfg: CFG, profilo: r.body.profilo, evitata: r.body.evitata,
+            onSalva: apriScheda,   // 0116: il 💾 della schermata finale (solo in modalità semplice)
             onPercheNo: function (idQ, why) {
               STATO.evitata = { id: idQ, why: why };
               salvaPn();

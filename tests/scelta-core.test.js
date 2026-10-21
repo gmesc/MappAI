@@ -511,3 +511,41 @@ test('punteggioCriteri: spuntati/totali, null senza criteri o prima di guardarli
     assert.strictEqual(S.punteggioCriteri(v, { criteriVisti: true }), 0);
     assert.strictEqual(S.punteggioCriteri({ criteri: [] }, { criteriVisti: true }), null);
 });
+
+/* ── 0116, lotto 3: le domande aperte semplici ─────────────────────────────
+   Giacomo, 20/10/2026: «è solo la modalità di scelta della domande, di
+   motivazione delle risposte e altre rifelssioni poste all'allievo vanno
+   sospese perché creano troppo attrito». L'allievo riceve tutte le domande
+   del foglio, e nient'altro. */
+test('0116: normalizzaCfg con `semplice` spegne scelta, riflessioni, minimi e profilo', () => {
+    assert.strictEqual(S.CFG_DEFAULT.semplice, false, 'spento di serie: le sessioni vecchie restano come sono');
+    assert.strictEqual(S.normalizzaCfg().semplice, false);
+    const c = S.normalizzaCfg({ semplice: true, reveal: true, osservazioni: true, perche_no: true,
+        autovalutazione: true, secondo_giro: true, minimo: 5, minimoAree: 4 });
+    assert.strictEqual(c.semplice, true);
+    ['reveal', 'osservazioni', 'perche_no', 'autovalutazione', 'secondo_giro'].forEach(function (k) {
+        assert.strictEqual(c[k], false, k + ' resta spento in modalità semplice');
+    });
+    assert.strictEqual(c.minimo, 0, 'nessun minimo di risposte');
+    assert.strictEqual(c.minimoAree, 0, 'nessun minimo di argomenti');
+});
+
+test('0116: avvioSemplice prende tutte le domande e parte da «rispondi»', () => {
+    const pool = S.poolDaFogli([{ titolo: 'Domande aperte — Clima', angle: 'causa', tipo: 'open',
+        items: [{ domanda: 'Perché il mare mitiga?', ramo: 'Oceani' }, { domanda: 'Che cos\'è l\'effetto serra?', ramo: 'Atmosfera' }] }]);
+    assert.strictEqual(pool.length, 2);
+    const stato = { risposte: { [pool[0].id]: { testo: 'già scritta' } } };
+    const out = S.avvioSemplice(pool, stato);
+    assert.strictEqual(out.fase, 'rispondi');
+    assert.deepStrictEqual(Object.keys(out.risposte).sort(), pool.map(v => v.id).sort(), 'ogni domanda è presa');
+    assert.strictEqual(out.risposte[pool[0].id].testo, 'già scritta', 'una risposta già scritta non si perde');
+});
+
+test('0116 (gate 21/10): al telefono non va la traccia di correzione (`guide`)', () => {
+    const pool = S.poolDaFogli([{ titolo: 'Domande aperte — Svizzera', angle: 'definizione', tipo: 'open',
+        items: [{ domanda: 'Spiega che cos\'è l\'azione umanitaria.', guide: 'Definisce l\'opportunità di aiutare i profughi.' }] }]);
+    assert.strictEqual(pool[0].traccia, 'Definisce l\'opportunità di aiutare i profughi.', 'il pool del docente la tiene');
+    const pub = S.pubblico(pool);
+    assert.strictEqual(pub[0].traccia, undefined, 'il pool pubblico non la porta');
+    assert.ok(!JSON.stringify(pub).includes('Definisce'), 'nessuna parola della traccia esce');
+});

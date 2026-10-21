@@ -14,27 +14,29 @@
      server LAN da public/fonts/ (allowlist `/public/fonts/`). Prima arrivava da
      fonts.googleapis.com e in aula senza rete — o dietro il filtro della scuola —
      il telefono dell'allievo cadeva sul monospace di sistema senza dire niente.
-     Noto Color Emoji RESTA dalla rete: il file è 25 MB, e senza rete il telefono
-     ha comunque le sue emoji (stessa scelta di index.html, commentata lì). -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+     Le EMOJI sono locali anche loro (packet 0108, 16/10/2026): niente più Noto da
+     fonts.googleapis.com. Il font «MappAI Emoji» (public/fonts/MappAIEmoji.ttf) porta le 27
+     dell'identità e le emoji che questa pagina scrive (⚠️, 💡…); sui motori WebKit le
+     disegna come immagini mappai-emoji-prova.js. Le altre: emoji di sistema. -->
 <style>
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:400;
     src:url('../fonts/SpaceMono-Regular.ttf') format('truetype'); font-display:swap; }
   @font-face { font-family:'Space Mono'; font-style:normal; font-weight:700;
     src:url('../fonts/SpaceMono-Bold.ttf') format('truetype'); font-display:swap; }
   /* Le 27 emoji che NON sono decorazione — l'identità dell'allievo e i codici
-     d'accesso dei gruppi — da un font locale di 254 KB ritagliato da Noto
+     d'accesso dei gruppi — e, dal packet 0108, le emoji che le pagine degli
+     allievi scrivono: un font locale di circa 350 KB ritagliato da Noto
      (tools/font/emoji-sottoinsieme.py). Sta PRIMA di Noto nello stack: quelle
-     si vedono anche senza rete e uguali su ogni telefono; le altre ripiegano
-     come prima. */
+     si vedono anche senza rete e uguali su ogni telefono; le altre sono quelle
+     di sistema. */
   @font-face { font-family:'MappAI Emoji'; font-style:normal; font-weight:400;
-    src:url('../fonts/MappAIEmoji.ttf') format('truetype'); font-display:swap; }
+    src:url('../fonts/MappAIEmoji.ttf?v=0108') format('truetype'); font-display:swap; }
 </style>
 <style>
   :root { --emoji: 'MappAI Emoji','Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji',sans-serif; }
   /* emoji Android (Noto) nello stack universale — regola globale MappAI */
   * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent;
-      font-family: 'Space Mono', var(--emoji), ui-monospace, monospace; }
+      font-family: var(--live-font, 'Space Mono', var(--emoji), ui-monospace, monospace); }   /* --live-font: il carattere del docente (mappai-live-font.js) */
   html, body { height: 100%; }
   body { background: #fafbff; color: var(--mm-testo, #404040); display: flex; flex-direction: column; overflow: hidden; }
   button { cursor: pointer; border: 0; font: inherit; }
@@ -90,33 +92,14 @@
 
   #qwrap { flex: 1; overflow-y: auto;
            padding: 26px max(24px, env(safe-area-inset-right)) 26px max(24px, env(safe-area-inset-left)); }
-  /* domanda + bottone Ascolta accanto */
-  .q-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 22px; }
-  #qtext { font-size: 24px; font-weight: 700; line-height: 1.45; flex: 1; }
-  #qtext:empty { display: none; }
-  /* bottone TTS (altoparlante) — grande, area tap comoda */
-  .tts { flex: 0 0 auto; width: 56px; min-height: 56px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1);
-         background: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; color: #4f46e5; }
-  .tts:active, .tts.on { background: #eef2ff; border-color: #4f46e5; }
-  #qread { align-self: flex-start; }
-  /* opzione = riga: bottone-testo (seleziona) + bottone Ascolta */
-  .opt-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
-  .opt { flex: 1; text-align: left; padding: 18px 18px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1);
-         background: #fff; color: var(--mm-testo, #404040); font-size: 20px; line-height: 1.35; }
-  .opt.sel { border-color: #4f46e5; background: #eef2ff; }
+  /* La testata della domanda, l'altoparlante, le opzioni e il verdetto (.q-head, .tts, .opt-row,
+     .opt, .verd) si disegnano in mappai-quiz-mc-view.js, che porta con sé il suo CSS: è la stessa
+     scelta multipla che l'iPad mostra all'allievo (packet 0112, invariante 6). */
   .tf-row { display: flex; gap: 12px; }
   .tf-btn { flex: 1; padding: 26px 8px; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff;
             font-size: 22px; font-weight: 800; }
   .tf-btn.sel-t { border-color: #16a34a; background: #dcfce7; color: #166534; }
   .tf-btn.sel-f { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
-  /* Esito immediato (20/8, «Correggi subito»): compare SOTTO la domanda, non
-     in un modale — chi risponde dal telefono non deve perdere di vista quello
-     che ha appena scelto. */
-  .verd { margin-top: 16px; border-radius: 12px; padding: 12px 14px; font-size: 16px; line-height: 1.45; }
-  .verd-ok { background: #dcfce7; border: 2px solid #16a34a; color: #14532d; }
-  .verd-ko { background: #fee2e2; border: 2px solid #dc2626; color: #7f1d1d; }
-  .verd b { font-weight: 800; }
-  .verd .sp { display: block; margin-top: 6px; font-size: 14px; color: var(--mm-testo, #404040); }
   #qopen { width: 100%; min-height: 130px; padding: 14px 16px; border-radius: 12px; border: 2px solid var(--mm-bordo, #cbd5e1);
            font-size: 19px; outline: none; resize: vertical; }
   #qopen:focus { border-color: #6366f1; }
@@ -126,10 +109,6 @@
      ampi (con notch/isola sul lato → safe-area sinistra/destra abbondante) */
   @media (orientation: landscape) and (max-height: 560px) {
     #qwrap { padding: 14px max(34px, env(safe-area-inset-right)) 14px max(34px, env(safe-area-inset-left)); }
-    .q-head { margin-bottom: 12px; }
-    #qtext { font-size: 21px; }
-    .opt { font-size: 18px; padding: 13px 15px; }
-    .opt-row { margin-bottom: 8px; }
     .tf-btn { padding: 16px 8px; }
     #pbar { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 8px; }
     #pfoot { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
@@ -148,7 +127,7 @@
   /* ── Done ── */
   #done { align-items: center; justify-content: center; gap: 16px; padding: 26px; text-align: center; }
   #done .big { font-size: 64px; }
-  #done h2 { font-size: 22px; font-weight: 700; }
+  #done h2 { font-size: 22px; font-weight: 700; white-space: nowrap; }   /* la misura vera la dà fitTitolo(): 90% dello schermo */
   #done p { color: #64748b; font-size: 14px; max-width: 340px; }
   #done .recap { background: #fff; border: 1px solid var(--mm-bordo, #cbd5e1); border-radius: 14px; padding: 16px 22px;
                  font-size: 15px; }
@@ -163,13 +142,28 @@
   #result-score .sub { font-size: 13px; color: #64748b; margin-top: 4px; }
   #result-list { max-height: 52vh; overflow-y: auto; }
   .rq { background: #fff; border: 1px solid var(--mm-bordo, #cbd5e1); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-  .rq-q { font-weight: 700; font-size: 14px; margin-bottom: 6px; line-height: 1.35; }
-  .rq-a { font-size: 13px; color: var(--mm-testo, #404040); margin-top: 2px; }
-  .rq-c { font-size: 13px; color: #16a34a; margin-top: 2px; font-weight: 700; }
-  .rq-e { font-size: 12px; color: #64748b; margin-top: 7px; padding-top: 7px; border-top: 1px solid #f1f5f9; line-height: 1.4; }
-  #result-save { background: #4f46e5; color: #fff; margin-top: 4px; }
+  /* Domande e risposte del risultato: la dimensione che «Hai finito!» aveva (22px). Richiesta di Giacomo, gate (a) dello 0112 */
+  .rq-q { font-weight: 700; font-size: 22px; margin-bottom: 6px; line-height: 1.35; }
+  /* Le righe di una risposta (Giacomo, gate (a) dello 0112, 20/10): titoletto in MAIUSCOLO bold 18px · testo 22px normale ·
+     titoletto verde · testo verde normale · spiegazione in corsivo grigio scuro 18px */
+  .rq-t { text-transform: uppercase; font-weight: 700; font-size: 18px; line-height: 1.3; margin-top: 8px; letter-spacing: .03em; color: var(--mm-testo, #404040); }
+  .rq-t.rq-tc { color: #16a34a; }
+  .rq-a { font-size: 22px; font-weight: 400; color: var(--mm-testo, #404040); margin-top: 2px; line-height: 1.35; }
+  .rq-a.rq-vuoto { color: var(--mm-testo-3, #64748b); }
+  .rq-c { font-size: 22px; font-weight: 400; color: #16a34a; margin-top: 2px; line-height: 1.35; }
+  .rq-e { font-size: 18px; font-style: italic; color: #475569; margin-top: 14px; padding-top: 8px; border-top: 1px solid #f1f5f9; line-height: 1.4; }
+  /* «Risposte: n / N» e il salvataggio stanno sulla stessa riga, in alto: il bottone è la sola icona del floppy
+     (l'etichetta resta per chi usa la voce, in aria-label). Richiesta di Giacomo al gate (a) dello 0112, 20/10/2026. */
+  #done .done-top { display: flex; align-items: stretch; justify-content: center; gap: 10px; }
+  #done #result-save { width: 54px; padding: 0; margin: 0; font-size: 24px; background: #4f46e5; color: #fff;
+                       display: flex; align-items: center; justify-content: center; }
   @media print { #review, #submit, #result-save, header { display: none !important; } #result-list { max-height: none; overflow: visible; } }
+  /* La scheda da salvare (0112): in stampa si vede SOLO lei, nella sua radice (shadow DOM) fuori dal body */
+  #print-sheet { display: none; }
+  @media print { body > *:not(#print-sheet) { display: none !important; } #print-sheet { display: block !important; } }
 </style>
+<!-- 0099: prova il font emoji locale su questo dispositivo; dove non si legge, --emoji ripiega sulle emoji di sistema -->
+<script src="/public/js/mappai-emoji-prova.js?v=0108" defer></script>
 </head>
 <body>
 
@@ -191,7 +185,7 @@
 <section id="lobby">
   <div class="big emoji" id="lobby-emoji">✅</div>
   <h2>Sei dentro!</h2>
-  <div class="badge"><span class="emoji" id="lobby-who"></span></div>
+  <div class="badge"><span class="emoji" id="lobby-who"></span><span id="lobby-num"></span></div>
   <p id="lobby-msg">Aspetta che l'insegnante avvii le domande…</p>
 </section>
 
@@ -205,10 +199,7 @@
     <span id="sync" class="ok">●</span>
   </div>
   <div id="qwrap">
-    <div class="q-head">
-      <div id="qtext"></div>
-      <button id="qread" class="tts" type="button" aria-label="Ascolta la domanda">🔊</button>
-    </div>
+    <div id="qhead"></div>
     <div id="qbody"></div>
   </div>
   <div id="pfoot">
@@ -222,7 +213,10 @@
 <section id="done">
   <div class="big" id="done-emoji">🎉</div>
   <h2 id="done-title">Hai finito!</h2>
-  <div class="recap" id="done-recap"></div>
+  <div class="done-top">
+    <div class="recap" id="done-recap"></div>
+    <button id="result-save" type="button" style="display:none" aria-label="Salva il mio risultato" title="Salva il mio risultato">💾</button>
+  </div>
   <p id="done-msg">Puoi ancora rivedere e cambiare le risposte finché l'insegnante non chiude.</p>
   <button id="review">Rivedi le risposte</button>
   <button id="submit">Consegna</button>
@@ -230,10 +224,12 @@
   <div id="result-dash" style="display:none;width:min(560px,92vw)">
     <div id="result-score"></div>
     <div id="result-list"></div>
-    <button id="result-save" type="button">💾 Salva il mio risultato</button>
   </div>
 </section>
 
+<script src="/public/js/mappai-font-core.js?v=0112"></script>
+<script src="/public/js/mappai-live-font.js?v=0112"></script>
+<script src="/public/js/mappai-quiz-mc-view.js?v=0112"></script>
 <script src="/public/js/mappai-live-core.js"></script>
 <script>
 (function () {
@@ -249,40 +245,9 @@
   function show(id) { document.querySelectorAll('section').forEach(function (s) { s.classList.toggle('on', s.id === id); }); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
-  // ── Sintesi vocale (TTS del browser, offline, zero server) ────────────────
-  var _ttsOn = null;
-  function speak(text) {
-    try {
-      if (!('speechSynthesis' in window)) return;
-      var t = String(text || '').trim(); if (!t) return;
-      speechSynthesis.cancel();               // interrompe la lettura precedente
-      var u = new SpeechSynthesisUtterance(t);
-      u.lang = 'it-IT'; u.rate = 0.95;
-      speechSynthesis.speak(u);
-    } catch (e) {}
-  }
-  // bottone altoparlante: legge `getText()` (o la stringa), senza far scattare
-  // la selezione dell'opzione (stopPropagation).
-  function ttsBtn(getText) {
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'tts'; b.setAttribute('aria-label', 'Ascolta'); b.textContent = '🔊';
-    b.onclick = function (ev) { ev.stopPropagation(); speak(typeof getText === 'function' ? getText() : getText); };
-    return b;
-  }
-  // riga opzione = bottone-testo (seleziona) + bottone Ascolta accanto
-  function optionRow(cls, text, onSelect) {
-    var row = document.createElement('div'); row.className = 'opt-row';
-    var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text;
-    b.onclick = onSelect;
-    row.appendChild(b); row.appendChild(ttsBtn(text));
-    return row;
-  }
-  // testo da leggere per la domanda corrente
-  function questionSpeech(q) {
-    if (!q) return '';
-    if (q.kind === 'tf') return q.proposed || q.text || '';
-    return q.text || '';
-  }
+  /* La voce (altoparlante sulla domanda e su ogni opzione), le opzioni e il verdetto della scelta
+     multipla li disegna mappai-quiz-mc-view.js: stessa schermata che l'iPad mostra all'allievo. */
+  var QMC = window.MappAIQuizMcView;
 
   var SESS = null;          // meta sessione
   var IDENT = null;         // { emojiKey, num }
@@ -305,6 +270,7 @@
     api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
       if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
       SESS = r.body;
+      MappAILiveFont.daSessione(SESS);   // il carattere scelto dal docente, subito: anche il login
       $('login-activity').innerHTML = esc(SESS.activity || 'Quiz') + (SESS.className ? ' · ' + esc(SESS.className) : '');
       if (SESS.className) $('in-class').value = SESS.className;
       buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
@@ -374,7 +340,10 @@
     if (phase === 'running') { startPlayer(); return; }
     // lobby
     $('lobby-emoji').textContent = (LC && LC.emojiByKey(IDENT.emojiKey) || {}).emoji || '✅';
-    $('lobby-who').textContent = ((LC && LC.emojiByKey(IDENT.emojiKey) || {}).emoji || '') + ' ' + IDENT.num + (displayName && !/^\p{Emoji}/u.test(displayName) ? ' · ' + displayName : '');
+    /* l'emoji nel suo font, il numero nel carattere della pagina: nel font delle emoji le cifre escono larghe e
+       calate sotto la riga (20/10/2026, gate (a) dello 0112) */
+    $('lobby-who').textContent = (LC && LC.emojiByKey(IDENT.emojiKey) || {}).emoji || '';
+    $('lobby-num').textContent = IDENT.num + (displayName && !/^\p{Emoji}/u.test(displayName) ? ' · ' + displayName : '');
     show('lobby');
     pollPhase();
   }
@@ -429,27 +398,23 @@
     $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length + puntiTesto();
     $('pprogress').firstElementChild.style.width = Math.round((i) / QUESTIONS.length * 100) + '%';
     $('back').disabled = (i === 0);
-    // bottone «Ascolta la domanda» → legge testo/frase della domanda corrente
-    $('qread').onclick = function () { speak(questionSpeech(q)); };
     var giaCorretta = !!VERDETTI[q.idx];
     var body = $('qbody');
     body.innerHTML = '';
     var a = ANSWERS[q.idx] || {};
 
     if (q.kind === 'mc') {
-      $('qtext').innerHTML = esc(q.text);
-      (q.options || []).forEach(function (opt, oi) {
-        body.appendChild(optionRow('opt' + (a.choice === oi ? ' sel' : ''), opt, function () { setChoice(oi); }));
-      });
+      QMC.domanda($('qhead'), q.text);
+      QMC.opzioni(body, q.options || [], { scelta: a.choice, onScegli: setChoice });
     } else if (q.kind === 'tf') {
-      $('qtext').innerHTML = esc(q.proposed || q.text);
+      QMC.domanda($('qhead'), q.proposed || q.text);
       var row = document.createElement('div'); row.className = 'tf-row';
       var bt = document.createElement('button'); bt.className = 'tf-btn' + (a.choice === true ? ' sel-t' : ''); bt.textContent = 'VERO';
       var bf = document.createElement('button'); bf.className = 'tf-btn' + (a.choice === false ? ' sel-f' : ''); bf.textContent = 'FALSO';
       bt.onclick = function () { setChoice(true); }; bf.onclick = function () { setChoice(false); };
       row.appendChild(bt); row.appendChild(bf); body.appendChild(row);
     } else { // open
-      $('qtext').innerHTML = esc(q.text);
+      QMC.domanda($('qhead'), q.text);
       // Timeline (008): domanda evento→anno → input numerico dedicato.
       if (q.expects === 'year') {
         var yi = document.createElement('input'); yi.id = 'qopen'; yi.type = 'text';
@@ -510,14 +475,7 @@
   }
   function mostraVerdetto(idx) {
     var v = VERDETTI[idx]; if (!v) return;
-    var vecchio = $('qbody').querySelector('.verd'); if (vecchio) vecchio.remove();
-    var d = document.createElement('div');
-    d.className = 'verd ' + (v.esito === 'right' ? 'verd-ok' : 'verd-ko');
-    d.setAttribute('role', 'status');
-    d.innerHTML = (v.esito === 'right' ? '<b>Giusto</b>' : '<b>Sbagliato</b>') +
-      (v.giusta ? ' — corretta: <b>' + esc(v.giusta) + '</b>' : '') +
-      (v.spiegazione ? '<span class="sp">' + esc(v.spiegazione) + '</span>' : '');
-    $('qbody').appendChild(d);
+    QMC.verdetto($('qbody'), v);
     $('pcount').textContent = (i + 1) + ' / ' + QUESTIONS.length + puntiTesto();
   }
   /* ⚠️ Una domanda già corretta non si ripensa: correggere e poi lasciar
@@ -543,7 +501,7 @@
     saveAnswer(q.idx);
   }
   function renderQuestionSelState(q, val) {
-    if (q.kind === 'mc') { $('qbody').querySelectorAll('.opt').forEach(function (b, oi) { b.classList.toggle('sel', oi === val); }); }
+    if (q.kind === 'mc') { QMC.segna($('qbody'), val); }
     else if (q.kind === 'tf') { var bs = $('qbody').querySelectorAll('.tf-btn'); bs[0].classList.toggle('sel-t', val === true); bs[1].classList.toggle('sel-f', val === false); }
   }
 
@@ -651,6 +609,14 @@
   })();
 
   // ── Done ──
+  /* «Hai finito!» (o «Sessione chiusa») largo il 90% dello schermo: si misura il testo a 100px e si scala */
+  function fitTitolo() {
+    var h = $('done-title'); if (!h || !$('done').classList.contains('on')) return;
+    h.style.fontSize = '100px';
+    var w = h.scrollWidth || h.offsetWidth;
+    if (w > 0) h.style.fontSize = Math.max(16, Math.floor(100 * 0.9 * document.documentElement.clientWidth / w)) + 'px';
+  }
+  window.addEventListener('resize', fitTitolo);
   function showDone(closed) {
     clearInterval(pollTimer); clearInterval(timerTimer);
     show('done');
@@ -672,6 +638,7 @@
       $('done-emoji').textContent = '🎉'; $('done-title').textContent = 'Hai finito!';
       $('review').style.display = ''; $('submit').style.display = '';
     }
+    fitTitolo();
   }
   $('review').onclick = function () { i = 0; startPlayerResume(); };
   function startPlayerResume() { show('player'); renderQuestion(); if (!pollTimer) startPlayer(); }
@@ -682,7 +649,47 @@
       if (r && r.body && r.body.result) renderResult(r.body);
     });
   };
-  $('result-save').onclick = function () { window.print(); };
+  /* ── La scheda da salvare (packet 0112, richiesta di Giacomo al gate (a)) ──────────────────────────
+     Il PDF dell'allievo non è la pagina del telefono stampata: è la scheda del report del docente
+     (mappai-live-reports.js, una fonte sola) con la sola parte che serve a lui, e il file si chiama
+     «[EMOJI NUMERO] [tipo e nome attività] [GG-MM-AAAA]» (il nome del file è il titolo del documento mentre si stampa). */
+  var LR_PROMESSA = null;
+  function caricaReport() {
+    if (window.MappAILiveReports) return Promise.resolve(window.MappAILiveReports);
+    if (!LR_PROMESSA) LR_PROMESSA = new Promise(function (ok, ko) {
+      var sc = document.createElement('script'); sc.src = '/public/js/mappai-live-reports.js';
+      sc.onload = function () { ok(window.MappAILiveReports); };
+      sc.onerror = function () { LR_PROMESSA = null; ko(new Error('report non raggiungibile')); };
+      document.head.appendChild(sc);
+    });
+    return LR_PROMESSA;
+  }
+  var SCHEDA = null;   // l'ultimo risultato, pronto da stampare
+  /* Il nome del file lo decide il TITOLO del documento che si stampa, e una pagina vera lo porta già dentro:
+     la scheda è una pagina del server (/api/my-sheet), che si apre in una scheda nuova e apre da sola la stampa.
+     Due tentativi falliti prima: cambiare `document.title` qui (il telefono tiene il titolo della pagina) e
+     riempire a mano una finestra vuota (iOS la stampava bianca). La finestra si apre SUBITO, nel gesto del
+     tocco; se il telefono la nega, si stampa dalla pagina, nella sua radice. */
+  function stampaScheda() {
+    var finestra = null;
+    var chi = IDENT && IDENT.nick ? ('&nick=' + encodeURIComponent(IDENT.nick))
+      : ('&emojiKey=' + encodeURIComponent((IDENT && IDENT.emojiKey) || '') + '&num=' + encodeURIComponent((IDENT && IDENT.num) || ''));
+    try { finestra = window.open('/api/my-sheet?s=' + encodeURIComponent(TOKEN) + chi + '&deviceId=' + encodeURIComponent(deviceId), '_blank'); } catch (e) { finestra = null; }
+    if (finestra) return;
+    caricaReport().then(function (LR) {
+      if (!SCHEDA) { window.print(); return; }
+      var p = LR.studentSheetParts(SCHEDA.meta, SCHEDA.student, { date: new Date() });
+      var host = $('print-sheet');
+      if (!host) { host = document.createElement('div'); host.id = 'print-sheet'; document.body.appendChild(host); }
+      var radice = host.shadowRoot || host.attachShadow({ mode: 'open' });
+      radice.innerHTML = '<style>' + p.css + '</style><div class="lr-root">' + p.body + '</div>';
+      var titolo = document.title; document.title = p.title;
+      function dopo() { document.title = titolo; window.removeEventListener('afterprint', dopo); }
+      window.addEventListener('afterprint', dopo);
+      window.print();
+    }).catch(function () { window.print(); });
+  }
+  $('result-save').onclick = stampaScheda;
 
   // Dashboard risultato: % + (se il docente ha attivato le soluzioni) dettaglio per domanda.
   function renderResult(data) {
@@ -706,9 +713,10 @@
       res.perQuestion.forEach(function (q, n) {
         var half = (q.missing && q.missing.length);
         var ic = q.outcome === 'right' ? '✅' : half ? '½' : q.outcome === 'blank' ? '⬜️' : q.outcome === 'manual' ? '✍️' : '❌';
-        var bodyHtml = (q.yourText ? '<div class="rq-a">La tua risposta: <b>' + esc(q.yourText) + '</b></div>'
-                                   : '<div class="rq-a" style="color:var(--mm-testo-3, #64748b)">Nessuna risposta</div>') +
-          (q.outcome !== 'right' && q.correctText ? '<div class="rq-c">Corretta: ' + esc(q.correctText) + '</div>' : '');
+        var bodyHtml = '<div class="rq-t">Tua risposta</div>' +
+          (q.yourText ? '<div class="rq-a">' + esc(q.yourText) + '</div>'
+                      : '<div class="rq-a rq-vuoto">Nessuna risposta</div>') +
+          (q.outcome !== 'right' && q.correctText ? '<div class="rq-t rq-tc">Risposta corretta:</div><div class="rq-c">' + esc(q.correctText) + '</div>' : '');
         list += '<div class="rq">' +
           '<div class="rq-q">' + ic + ' ' + esc(q.text || ('Domanda ' + (n + 1))) + '</div>' +
           bodyHtml +
@@ -717,6 +725,20 @@
       });
     }
     $('result-list').innerHTML = list;
+    SCHEDA = null;
+    if (reveal) {
+      var lab = (LC && LC.emojiByKey(IDENT.emojiKey)) || {};
+      var oggi = new Date(), due = function (n) { return String(n).padStart(2, '0'); };
+      SCHEDA = {
+        meta: { mapTitle: (SESS && SESS.name) || 'MappAI Live', activity: SESS && SESS.activity,
+                className: (SESS && SESS.className) || ($('in-class').value || '').trim(),
+                dateStr: due(oggi.getDate()) + '/' + due(oggi.getMonth() + 1) + '/' + oggi.getFullYear() },
+        student: { emoji: lab.emoji || '', emojiLabel: lab.label || '', num: IDENT.num, displayName: (lab.emoji || '') + ' ' + IDENT.num, accuracyPct: acc,
+                   answered: res.perQuestion.filter(function (q) { return q.outcome !== 'blank'; }).length,
+                   blankCount: res.blank || 0, manualCount: res.manual || 0, items: res.perQuestion }
+      };
+      caricaReport().catch(function () {});   // pronto prima del tocco: la stampa non aspetta la rete
+    }
     $('result-save').style.display = reveal ? '' : 'none';
     $('result-dash').style.display = '';
   }

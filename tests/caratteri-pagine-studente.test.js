@@ -45,20 +45,24 @@ test('ogni pagina dichiara Space Mono locale, e i due file esistono', () => {
         assert.match(html, /@font-face[^}]*SpaceMono-Regular\.ttf/, `${p}: manca il @font-face regular`);
         assert.match(html, /@font-face[^}]*SpaceMono-Bold\.ttf/, `${p}: manca il @font-face bold`);
         // `../fonts/` da public/<cartella>/<pagina>.html → public/fonts/
-        for (const rel of [...html.matchAll(/url\('(\.\.\/fonts\/[^']+)'\)/g)].map(m => m[1])) {
+        // `?v=…` (packet 0108) è per la cache del telefono, non fa parte del nome del file
+        for (const rel of [...html.matchAll(/url\('(\.\.\/fonts\/[^'?]+)(\?[^']*)?'\)/g)].map(m => m[1])) {
             const risolto = path.resolve(path.dirname(path.join(ROOT, p)), rel);
             assert.ok(fs.existsSync(risolto), `${p}: ${rel} non esiste (${risolto})`);
         }
     }
 });
 
-test('Noto Color Emoji resta dalla rete — è una scelta, non una dimenticanza', () => {
-    // 25 MB di font contro una differenza di stile: la decisione è scritta in
-    // index.html (18/8) e vale anche qui. Se un giorno si vendorizza, si
-    // vendorizza un SOTTOINSIEME, e questo test va riscritto apposta.
+test('Noto Color Emoji NON arriva più dalla rete: le emoji sono nel sottoinsieme locale', () => {
+    // Fino al 16/10/2026 questo test difendeva la scelta opposta (25 MB di font
+    // contro una differenza di stile, decisa in index.html il 18/8) e chiedeva di
+    // essere riscritto il giorno che si fosse vendorizzato un SOTTOINSIEME. Il
+    // giorno è il packet 0108: le emoji che queste pagine scrivono stanno in
+    // public/fonts/MappAIEmoji.ttf (tests/emoji-sottoinsieme.test.js), e le pagine
+    // non chiedono più niente a fonts.googleapis.com.
     for (const p of PAGINE) {
-        assert.match(leggi(p), /fonts\.googleapis\.com[^"']*Noto\+Color\+Emoji/,
-            `${p}: sparito anche Noto — se voluto, aggiorna questo test`);
+        assert.doesNotMatch(leggi(p), /https?:\/\/fonts\.(googleapis|gstatic)\.com/,
+            `${p}: chiede ancora qualcosa a Google Fonts`);
     }
 });
 

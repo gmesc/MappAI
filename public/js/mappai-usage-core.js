@@ -81,7 +81,9 @@
                 flashcards: 'Flashcard',
                 nodesheet: 'Foglio nodi',
                 synthesis: 'Sintesi',
-                tts: 'Voce naturale'
+                tts: 'Voce naturale',
+                figure: 'Lettura delle figure',      // 0113: le figure dei PDF in CREA (ADR 0024 §5.7)
+                visione: 'Analisi delle immagini'    // le foto di CREA (mappai-visione.js), prima «Non classificato»
             }
         },
         other: {

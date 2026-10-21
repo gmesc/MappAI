@@ -6,9 +6,9 @@
  */
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./mappai-grounding-core'));
-  else root.MappAIReviewCore = factory(root.MappAIGroundingCore);
-}(typeof globalThis !== 'undefined' ? globalThis : this, function (Grounding) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./mappai-grounding-core'), require('./mappai-text-utils'));
+  else root.MappAIReviewCore = factory(root.MappAIGroundingCore, root.MappAITextUtils);
+}(typeof globalThis !== 'undefined' ? globalThis : this, function (Grounding, TextUtils) {
   'use strict';
 
   var SCHEMA = 'mappai-review@1';
@@ -94,6 +94,57 @@
     return { nodes: sorted(nodes), links: sorted((db.links || []).map(linkSnapshot)), sourcesDict: dict };
   }
   function revision(db, sources) { return hash({ db: semanticSnapshot(db), sources: sourceSnapshot(sources) }); }
+  /* ── LA MAPPA COME LA DISEGNA IL CANVAS (packet 0097, 15/10/2026) ───────────
+     La revisione fotografa la mappa in `R.checkpoint`, PRIMA del primo disegno.
+     Il disegno la cambia in place e il salvataggio scrive quella cambiata:
+     `initD3Visualization` passa ogni titolo da `cleanLabel` (’ → '),
+     `renderGraph` scarta i collegamenti con un estremo mancante e ricalcola il
+     `group` dei nodi di livello ≥ 2; il salvataggio non scrive le citazioni di
+     un id che non è un nodo. Nessuna di queste è una modifica del docente, e
+     ognuna dichiarava superata la revisione (4B, 4R, Fotografia: 15/10).
+     La forma canonica le toglie da TUTTI E DUE i lati di un confronto; il resto
+     — testi, livelli, gruppo di un L1, collegamenti, citazioni dei nodi — resta.
+     `revision` e `semanticSnapshot` non cambiano: le impronte salvate restano il
+     sigillo della fotografia salvata, e `coincide` le verifica su quella. */
+  function titoloCanonico(label) {
+    var T = TextUtils || (typeof globalThis !== 'undefined' ? globalThis.MappAITextUtils : null);
+    if (!T || typeof T.cleanLabel !== 'function') return label;
+    var s = label;
+    for (var i = 0; i < 5; i++) {   // come il canvas, che lo ripassa a ogni disegno, fino al punto fisso
+      var c = T.cleanLabel(s); c = c ? String(c).trim() : s;
+      if (c === s) break; s = c;
+    }
+    return s;
+  }
+  function canonica(snapshot) {
+    if (!snapshot || Array.isArray(snapshot.items)) return snapshot;
+    var ids = new Set((snapshot.nodes || []).map(function (n) { return n.id; }));
+    var nodes = (snapshot.nodes || []).map(function (n) {
+      var r = clone(n);
+      r.label = titoloCanonico(String(n.label || ''));
+      if (Number(n.level) >= 2) delete r.group;
+      return r;
+    });
+    var dict = {}, raw = snapshot.sourcesDict || {};
+    Object.keys(raw).sort().forEach(function (id) {
+      if (ids.has(id)) Object.defineProperty(dict, id, { value: clone(raw[id]), enumerable: true, configurable: true, writable: true });
+    });
+    return { nodes: sorted(nodes), links: sorted((snapshot.links || []).filter(function (l) {
+      return ids.has(l.source) && ids.has(l.target);
+    }).map(clone)), sourcesDict: dict };
+  }
+  function stessoContenuto(db, snapshot) {
+    return stable(canonica(semanticSnapshot(db))) === stable(canonica(semanticSnapshot(snapshot)));
+  }
+  /* Vero se l'impronta salvata sigilla la fotografia salvata, le fonti sono le
+     stesse e la mappa coincide con la fotografia in forma canonica. `quale`:
+     'base' (G1 in attesa) o 'approved' (G1 approvata o in `applying`). */
+  function coincide(db, sources, review, quale) {
+    if (!review) return false;
+    var snapshot = quale === 'approved' ? review.approvedSnapshot : review.baseSnapshot;
+    var expected = quale === 'approved' ? review.approvedRevision : review.baseRevision;
+    return matchesSnapshot(db, sources === undefined ? review.sources : sources, snapshot, expected, review.sources);
+  }
   function copyDb(db) {
     // D3 sostituisce source/target con oggetti nodo: niente riferimenti vivi
     // nella copia o nel JSON da persistere.
@@ -358,8 +409,9 @@
     return d.choice === 'manual' ? 'edited' : 'applied';
   }
   function matchesSnapshot(db, sources, snapshot, expected, expectedSources) {
-    return revision(db, sources) === expected && stable(semanticSnapshot(db)) === stable(snapshot) &&
-      stable(sourceSnapshot(sources)) === stable(expectedSources);
+    // 0097: il sigillo sulla fotografia salvata, il contenuto in forma canonica
+    if (!snapshot || !expected || revision(snapshot, expectedSources) !== expected) return false;
+    return stessoContenuto(db, snapshot) && stable(sourceSnapshot(sources)) === stable(sourceSnapshot(expectedSources));
   }
   function replacementValid(found, t, value, decision) {
     if (!found.whole) return t.kind === 'item' ? value !== undefined : typeof value === 'string' &&
@@ -495,7 +547,7 @@
     if (r.initial.status === 'applying') {
       // La conferma docente è già sul disco: il retry non richiede una nuova
       // autorizzazione, ma deve ricostruire esattamente il commit deciso.
-      if (result.revision !== r.approvedRevision || stable(semanticSnapshot(result.db)) !== stable(r.approvedSnapshot)) {
+      if (!matchesSnapshot(result.db, own(opts, 'sources') ? opts.sources : r.sources, r.approvedSnapshot, r.approvedRevision, r.sources)) {
         result.ok = false; result.conflicts.push({ issueId: null, code: 'applying_snapshot_mismatch' });
         result.db = copyDb(db);
       }
@@ -510,11 +562,15 @@
     r.overrides = result.overrides; r.updatedAt = opts.now || r.updatedAt;
     return Object.assign(result, { review: r });
   }
-  function completeApproval(review, persistedRevision) {
+  /* `persisted`: l'impronta della copia salvata (stringa, uguale e basta) oppure,
+     dallo 0097, la mappa riletta dal disco, confrontata in forma canonica. */
+  function completeApproval(review, persisted) {
     if (!review || review.schema !== SCHEMA || !review.initial ||
         ['applying', 'approved'].indexOf(review.initial.status) < 0) fail('review_not_applying');
-    if (!persistedRevision || persistedRevision !== review.approvedRevision ||
-        revision(review.approvedSnapshot, review.sources) !== review.approvedRevision) fail('persisted_revision_mismatch');
+    if (revision(review.approvedSnapshot, review.sources) !== review.approvedRevision) fail('persisted_revision_mismatch');
+    var ok = persisted && typeof persisted === 'object' ? coincide(persisted, review.sources, review, 'approved')
+      : !!persisted && persisted === review.approvedRevision;
+    if (!ok) fail('persisted_revision_mismatch');
     var r = clone(review); r.initial.status = 'approved'; return r;
   }
   function gate(review, db, sources) {
@@ -631,7 +687,7 @@
   }
 
   return { SCHEMA: SCHEMA, semanticSnapshot: semanticSnapshot, sourceSnapshot: sourceSnapshot,
-    revision: revision, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, setManualCheck: setManualCheck, decisionOutcome: decisionOutcome, textChange: textChange,
+    revision: revision, canonica: canonica, coincide: coincide, createReview: createReview, mergeRetry: mergeRetry, addIssue: addIssue, setDecision: setDecision, setManualCheck: setManualCheck, decisionOutcome: decisionOutcome, textChange: textChange,
     preview: preview, previewItem: previewItem, setItemExcluded: setItemExcluded,
     beginApproval: beginApproval, completeApproval: completeApproval, gate: gate,
     conflittoDiScrittura: conflittoDiScrittura };

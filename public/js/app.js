@@ -586,7 +586,7 @@ if (typeof pdfjsLib !== 'undefined') {
    Interruttore `mappai_intestazioni_posizione`: assente = acceso; '0' =
    `testoPerModello` uguale a `text`. Spento anche con
    `mappai_strip_boilerplate = '0'`: chi ha spento il filtro vuole il testo intero. */
-window.extractPdfPages = async function (file) {
+window.extractPdfPages = async function (file, opzioni) {
     if (!window.MappAIPdfTesto || typeof window.MappAIPdfTesto.testoPagina !== 'function') {
         throw new Error('extractPdfPages: manca MappAIPdfTesto — js/mappai-pdf-testo-core.js non è caricato in index.html');
     }
@@ -656,6 +656,50 @@ window.extractPdfPages = async function (file) {
         titoli.push({ page: g.n, text: g.s });
     });
     if (titoli.length > 24) titoli = titoli.slice(0, 24);          // un indice, non un secondo documento
+    /* ── LE FIGURE DELLE PAGINE (packet 0113, ADR 0024, 19/10/26) ──
+       Solo con `opzioni.origine` e solo se `MappAIFigure.attiva` dice sì (la
+       regola «CREA sì, ELABORA no» e l'interruttore `mappai_figure` vivono nel
+       core, inv. 6): le due chiamate di CREA passano `{ origine: 'crea' }`,
+       `extractTextFromPDF` (ELABORA, «Espandi con AI») no. Senza il modulo (il
+       reader copia questo file e non lo ha) o con l'interruttore spento questa
+       funzione è identica a prima, byte per byte.
+       La prova a secco (stati di pagina, ritagli, formule, decisioni locali) la
+       fanno `handlePDFUpload` e `processSourceFile` al caricamento e la lasciano
+       sul file (`file._figure`); se manca, si fa qui. Le letture (`leggi`) decise
+       dal core aggiungono a ogni pagina il suo blocco `[Figure della pagina N] …
+       [/Figure]` SULLA STESSA RIGA della pagina (su una riga sua i filtri del
+       corpus lo prendevano per intestazione), in `pages` — e da lì in `text` e in
+       `testoPerModello`, che si compongono qui sotto; una regione di formule verde
+       sostituisce il testo della pagina con le formule innestate. L'esito della
+       lettura resta sul file (`file._letturaFigure`): il velo e il toast del
+       lotto 5 lo leggono da lì. Un guasto della lettura non ferma l'estrazione:
+       il testo resta quello tipografico. */
+    let _figurePagine = null;
+    const _MF = window.MappAIFigure;
+    if (opzioni && opzioni.origine && _MF && typeof _MF.attiva === 'function' && typeof _MF.leggi === 'function' && _MF.attiva(opzioni.origine)) {
+        try {
+            let prova = file && file._figure;
+            if (!prova || !prova.pagine) prova = await _MF.prova(await file.arrayBuffer(), { nome: file && file.name });
+            const figure = await _MF.leggi(prova, Object.assign({ nome: file && file.name }, opzioni));
+            if (file) file._letturaFigure = figure && !figure.spento ? figure : null;
+            if (figure && !figure.spento && Array.isArray(figure.pagine) && window.MappAIFigureCore) {
+                const accoda = window.MappAIFigureCore.marcatori.accoda;
+                _figurePagine = {};
+                figure.pagine.forEach(fp => {
+                    const i = fp.numero - 1;
+                    if (!pages[i] || (!fp.blocco && !fp.testoSostitutivo)) return;
+                    _figurePagine[i] = fp;
+                    if (fp.testoSostitutivo) pages[i].text = fp.testoSostitutivo;
+                    if (fp.blocco) pages[i].text = accoda(pages[i].text, fp.blocco);
+                });
+            }
+        } catch (e) {
+            console.warn('[Figure] lettura non riuscita: ' + (e && e.message));
+            var _msgFigure = 'Lettura delle figure non riuscita: {errore}. La mappa usa il solo testo tipografico.';
+            if (window.showToast) window.showToast((window.t ? window.t('fig_err_lettura', _msgFigure) : _msgFigure).replace('{errore}', String(e && e.message ? e.message : e)), 'warning');
+            _figurePagine = null;
+        }
+    }
     const text = pages.map(p => p.text).join('\n');
     let testoPerModello = text, intestazioni = [];
     if (senzaIntestazioni && typeof window.MappAIPdfTesto.intestazioniRipetute === 'function') {
@@ -668,6 +712,16 @@ window.extractPdfPages = async function (file) {
                 testoPerModello = perPosizione.map((pg, p) => r.escludi[p].size
                     ? window.MappAIPdfTesto.testoPagina(pg.items.filter((_, k) => !r.escludi[p].has(k)), { nativa })
                     : pages[p].text).join('\n');
+                /* 0113: una pagina ricomposta senza intestazioni riprende le sue figure (testo sostitutivo e blocco) */
+                if (_figurePagine) {
+                    const accoda = window.MappAIFigureCore.marcatori.accoda;
+                    testoPerModello = testoPerModello.split('\n').map((l, p) => {
+                        const fp = _figurePagine[p];
+                        if (!fp || !r.escludi[p].size) return l;
+                        const base = fp.testoSostitutivo || l;
+                        return fp.blocco ? accoda(base, fp.blocco) : base;
+                    }).join('\n');
+                }
             }
         } catch (e) {
             console.warn('[Intestazioni] calcolo non riuscito: ' + (e && e.message));
@@ -1307,6 +1361,17 @@ window.handlePDFUpload = async function (input) {
         sourceObj.content = text;
         statusEl.innerHTML = '<i data-lucide="check" class="w-3 h-3 inline"></i> PDF pronto (' + sizeMB + ' MB).';
         window.updateTokenCounter();
+        /* 0113: la prova a secco delle figure (stati, ritagli, decisioni locali; zero
+           chiamate) parte qui, senza aspettarla, e resta sulla fonte e sul file: la
+           stima prima del clic e CREA la riusano. Spenta o senza modulo, niente. */
+        try {
+            const _MF = window.MappAIFigure;
+            if (_MF && typeof _MF.prova === 'function' && _MF.attiva('crea')) {
+                file._figureInArrivo = file.arrayBuffer().then(function (b) { return _MF.prova(b, { nome: file.name }); })
+                    .then(function (p) { sourceObj._figure = p; file._figure = p; if (_MF.aggiornaStima) _MF.aggiornaStima(); return p; })   // lotto 5: la riga della stima
+                    .catch(function (e) { console.warn('[Figure] prova a secco non riuscita: ' + (e && e.message)); return null; });
+            }
+        } catch (e) { /* le figure non fermano il caricamento */ }
     } catch (e) {
         statusEl.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 inline text-red-400"></i> Errore estrazione.';
     }
@@ -1343,6 +1408,15 @@ window.processSourceFile = async function (sourceObj, file, statusEl) {
         if (text) {
             sourceObj.content = text;
             statusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${file.name} (${sizeMB} MB) pronto.`;
+            /* 0113: la prova a secco delle figure, come in handlePDFUpload (solo per i PDF) */
+            try {
+                const _MF = window.MappAIFigure;
+                if (fileName.endsWith('.pdf') && _MF && typeof _MF.prova === 'function' && _MF.attiva('crea')) {
+                    file._figureInArrivo = file.arrayBuffer().then(function (b) { return _MF.prova(b, { nome: file.name }); })
+                        .then(function (p) { sourceObj._figure = p; file._figure = p; if (_MF.aggiornaStima) _MF.aggiornaStima(); return p; })   // lotto 5: la riga della stima
+                        .catch(function (e) { console.warn('[Figure] prova a secco non riuscita: ' + (e && e.message)); return null; });
+                }
+            } catch (e) { /* le figure non fermano il caricamento */ }
             window.updateTokenCounter();
         } else {
             statusEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 inline"></i> ${file.name} (${sizeMB} MB) caricato.`;
@@ -1472,7 +1546,8 @@ window.startGeneration = async function (options) {
     appState.generationDiscipline = '';
     try {
         if (window.MappAIClasses && window.MappAIClasses.ensureGenerationContext) {
-            const genCtx = await window.MappAIClasses.ensureGenerationContext();
+            // 0103: da CREA il contesto è il riquadro giallo, come per la pipeline
+            const genCtx = await window.MappAIClasses.ensureGenerationContext({ contestoDaCrea: !!(options && options.contestoDaCrea) });
             if (!genCtx) return;                       // annullato dal docente
             appState.generationDiscipline = genCtx.discipline || '';
         }
@@ -1620,7 +1695,10 @@ window.startGeneration = async function (options) {
         } else if (src.type === 'pdf' && src.file) {
             window.showLoadingOverlay(true, window.t('lo_pdf_local', "Estrazione testo dal PDF locale..."));
             try {
-                let _pdf = await window.extractPdfPages(src.file);
+                /* 0113: le figure, solo da CREA; il lotto 5 aggiunge il velo con «Salta le figure», la domanda Google
+                   per un PDF scansionato e il toast finale (senza il modulo, come prima: `{ origine: 'crea' }`) */
+                let _pdf = await window.extractPdfPages(src.file, (await window.MappAIFigure?.opzioniCrea?.(src)) || { origine: 'crea' });
+                window.MappAIFigure?.fineCrea?.(src.file);
                 let pdfText = _pdf.text;
                 if (pdfText.trim()) {
                     /* 0045: al modello il testo senza le intestazioni ripetute
@@ -1643,7 +1721,10 @@ window.startGeneration = async function (options) {
             // Caso PDF caricato tramite bottone Documenti
             window.showLoadingOverlay(true, window.t('lo_pdf', "Estrazione testo dal PDF..."));
             try {
-                let _pdf = await window.extractPdfPages(src.file);
+                /* 0113: le figure, solo da CREA; il lotto 5 aggiunge il velo con «Salta le figure», la domanda Google
+                   per un PDF scansionato e il toast finale (senza il modulo, come prima: `{ origine: 'crea' }`) */
+                let _pdf = await window.extractPdfPages(src.file, (await window.MappAIFigure?.opzioniCrea?.(src)) || { origine: 'crea' });
+                window.MappAIFigure?.fineCrea?.(src.file);
                 let pdfText = _pdf.text;
                 if (pdfText.trim()) {
                     /* 0045: al modello il testo senza le intestazioni ripetute

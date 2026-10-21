@@ -1325,7 +1325,7 @@
   function printQuizPaper(id) {
     var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
     if (!doc) { toast(_t('lt_qp_missing', 'Documento non trovato.'), 'warning'); return; }
-    if (doc.pdf) { window.open(doc.pdf, '_blank'); return; }
+    if (doc.pdf) { _apriPdfInFinestra(doc.pdf); return; }
     var QP = window.MappAIQuizPrint;
     var set = QP && QP.setFromHtml && QP.setFromHtml(doc.html);
     if (!set) { _openPrintableHtml(doc.html); return; }   // foglio vecchio senza sorgente
@@ -1620,7 +1620,7 @@
   function openDoc(id) {
     var doc = window.MappAIStudyDocs && window.MappAIStudyDocs.get(id);
     if (!doc) { toast(_t('lt_doc_missing', 'Documento non disponibile.'), 'warning'); return; }
-    if (doc.pdf) { window.open(doc.pdf, '_blank'); return; } // Foglio nodi (PDF)
+    if (doc.pdf) { _apriPdfInFinestra(doc.pdf); return; } // Foglio nodi (PDF)
     if (!doc.html) { toast(_t('lt_doc_missing', 'Documento non disponibile.'), 'warning'); return; }
     if (window.MappAIStudyExport && window.MappAIStudyExport.openPrintable) {
       window.MappAIStudyExport.openPrintable(doc.html, { successMsg: null });
@@ -2584,15 +2584,18 @@
     var IC = window.MappAICreaIconograficaCore;
     var primo = (IC && IC.primoComando) ? IC.primoComando(p) : 'apri';
     var proietta = { id: 'proietta', et: _t('lt_cons_proietta', 'Proietta'), forma: 'azione', icona: 'presentation', chiude: false, aiuto: _t('lt_cons_tip_proietta', 'La fotografia a tutto schermo per la lezione, con la scheda e le domande da affiancare.') };
-    var az = [primo === 'proietta' ? proietta
-      : { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') }];
+    /* 0110 D3 (Giacomo, gate 3 dello 0104): una lettura si apre in ELABORA, e il bottone lo dice: «Lettura», non «Mappa» */
+    var apri = _letturaDi(p)
+      ? { id: 'apri', et: _t('lt_cons_apri_lettura', 'Lettura'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri_lettura', 'Apre la lettura in ELABORA.') }
+      : { id: 'apri', et: _t('lt_cons_apri_mappa', 'Mappa'), forma: 'azione', icona: gen, aiuto: _t('lt_cons_tip_apri', 'Apre la visualizzazione della mappa.') };
+    var az = [primo === 'proietta' ? proietta : apri];
     if (p.dossier && primo !== 'proietta') az.push(proietta);
     /* «Elabora» tolto dai comandi della mappa (Giacomo, 17/9): ELABORA resta dal suo segmento. */
     /* «Allievi» (Giacomo, 17/9): UN clic, subito il QR del progetto per MappAI studente —
        senza il menu dei materiali. Viaggia solo l'elenco chiuso (`relVaultStudente`):
        mai Studio Attivo, Consegne, chat o i profili (che stanno fuori dal vault). */
-    if (_scambioOn()) az.push({ id: 'invia-allievi', et: _t('lt_cons_allievi', 'Allievi'), forma: 'azione', icona: 'send', chiude: false, aiuto: _t('lt_cons_tip_allievi', 'Un clic: il QR per mandare la mappa e i materiali all\'app MappAI studente.') });
-    az.push({ id: 'qr', et: 'QR', forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Condivide un materiale di questa mappa con la classe via codice QR.') });
+    if (_scambioOn()) az.push({ id: 'invia-allievi', et: _t('lt_cons_allievi', 'Vault su iPad'), forma: 'azione', icona: 'send', chiude: false, aiuto: _t('lt_cons_tip_allievi', 'Un clic: il QR per mandare la mappa e i materiali all\'app MappAI studente.') });
+    az.push({ id: 'qr', et: _t('lt_cons_qr_btn', 'Invia file'), forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Invia un file via QR ai telefoni degli allievi. Per mandare tutto il vault all\'iPad usa «Vault su iPad».') });
     az.push({ id: 'cartella', et: _t('lt_cons_cartella', 'Cartella'), forma: 'azione', icona: 'folder', chiude: false, aiuto: _t('lt_cons_tip_folder', 'Apre la cartella del vault nel Finder.') });
     var vuoto = _cons.materiali === null
       ? _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…')
@@ -2722,7 +2725,8 @@
       var azioni = [
         primo2 === 'proietta'
           ? { id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', ruolo: 'primario', chiude: false }
-          : { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: p.dossier ? 'image' : 'map', ruolo: 'primario' },
+          : (_letturaDi(p) ? { id: 'apri', etichetta: _t('lt_cons_apri_lettura', 'Lettura'), icona: 'book-open', ruolo: 'primario' }
+            : { id: 'apri', etichetta: _t('lt_cons_apri_mappa', 'Mappa'), icona: p.dossier ? 'image' : 'map', ruolo: 'primario' }),
         { id: 'cartella', etichetta: _t('lt_cons_finder', 'Finder'), icona: 'folder', chiude: false }
       ];
       if (p.dossier && primo2 !== 'proietta') azioni.push({ id: 'proietta', etichetta: _t('lt_cons_proietta', 'Proietta'), icona: 'presentation', chiude: false });
@@ -2873,12 +2877,15 @@
     s.sezioni.push({
       id: 'live-avvii', nuda: true, titolo: _t('lt_live_nuova', 'Nuova attività'),
       azioni: [
-        { id: 'live-quiz', etichetta: _t('lt_live_quiz', 'Quiz a distanza'), icona: 'list-checks', ruolo: 'primario', chiude: false },
-        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Chiedi e Rispondi'), icona: 'message-square', chiude: false },
-        { id: 'live-scelta', etichetta: _t('lt_live_scelta', 'Domande a scelta'), icona: 'list-checks', chiude: false },
+        /* «Quiz a distanza» e «Domande aperte» TOLTI (Giacomo, 21/10/2026, packet 0116:
+           «eliminali»). Qui non c'è una mappa scelta, e dopo HOME nemmeno una mappa
+           in memoria: non avevano da dove prendere quiz e fogli («Nessun quiz
+           pronto», voce 40). Partono dalla mappa: INSEGNA › una mappa › «Studio
+           attivo», o nella mappa la scheda «LIM». */
+        { id: 'live-tutor', etichetta: _t('lt_live_tutor', 'Chiedi e Rispondi'), icona: 'message-square', ruolo: 'primario', chiude: false },
         { id: 'live-mappa', etichetta: _t('lt_live_mappa', 'Mappa LIVE'), icona: 'presentation', chiude: false }
       ],
-      testo: _t('lt_live_intro', 'Gli allievi entrano dal telefono con le loro credenziali: il quiz si corregge da sé, la scrittura col tutor consegna testo e trascrizione.')
+      testo: _t('lt_live_intro', 'Gli allievi entrano dal telefono con le loro credenziali. Il quiz e le domande aperte partono dalla mappa: scegli la mappa e premi «Studio attivo».')
     });
     var reg = _cons.report;
     if (reg === null) { s.sezioni.push({ id: 'live-attesa', nuda: true, testo: _t('lt_live_cerco', 'Cerco i report…') }); return; }
@@ -2995,8 +3002,24 @@
      messa prima del contenuto. I materiali del docente restano fuori: la
      barra della sintesi con la voce suona coi suoi script, e `scalaTesto`,
      `nascondiInIframe` li raggiungono da fuori. */
+  /* 0100: un PDF/audio `data:` oltre 2 MiB è bloccato da Chromium (about:blank#blocked);
+     come `blob:` si vede a qualunque peso. Un blob solo alla volta, revocato al prossimo. */
+  var _consBlobUrl = null;
+  function _blobDaDataUri(uri) {
+    var DF = window.MappAIDossierFonteCore, b = null;
+    try { b = (DF && DF.blobDaDataUri) ? DF.blobDaDataUri(uri) : null; } catch (e) { b = null; }
+    return b ? URL.createObjectURL(b) : null;
+  }
+  function _apriPdfInFinestra(uri) {
+    var u = /^data:/i.test(String(uri || '')) ? _blobDaDataUri(uri) : null;
+    if (u) setTimeout(function () { try { URL.revokeObjectURL(u); } catch (e) { } }, 600000);
+    return window.open(u || uri, '_blank');
+  }
+  window._apriPdfInFinestra = _apriPdfInFinestra;
   function _consMostra(html, src, chiusa) {
     var tela = _consTela(); if (!tela) return;
+    if (_consBlobUrl) { try { URL.revokeObjectURL(_consBlobUrl); } catch (e) { } _consBlobUrl = null; }
+    if (src && /^data:/i.test(src)) { var _u = _blobDaDataUri(src); if (_u) src = _consBlobUrl = _u; }
     tela.innerHTML = '';
     var f = document.createElement('iframe');
     f.style.cssText = 'width:100%;height:100%;border:0;background:#fff';
@@ -3358,11 +3381,6 @@
       }
 
       // ── Attività LIVE ─────────────────────────────────────────────────────
-      if (id === 'live-quiz') {
-        if (window.MappAILive && window.MappAILive.openSetup) window.MappAILive.openSetup();
-        else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
-        return;
-      }
       if (id === 'live-tutor') {
         if (window.MappAITutor && window.MappAITutor.open) window.MappAITutor.open();
         else toast(_t('lv_electron', 'Richiede l\'app desktop.'), 'warning');
@@ -3373,13 +3391,6 @@
       if (id === 'live-mappa') {
         _cons.voce = 'lavagna'; _cons.mat = null; rifai();
         scegliVista('lavagna');
-        return;
-      }
-      if (id === 'live-scelta') {
-        /* nessuna generazione: legge i fogli e i set già nel vault. Se non ce
-           ne sono lo dice il modulo, con la strada per farli. */
-        if (window.MappAISceltaAttivita) window.MappAISceltaAttivita.apriLive();
-        else toast(_t('hub_fn_missing', 'Funzione non disponibile'), 'error');
         return;
       }
       if (id.indexOf('rep:') === 0 || id.indexOf('repdir:') === 0) {
@@ -3397,7 +3408,9 @@
            vorrebbe dire un menu — si aprono dalla cartella */
         var primo = (rec.reports || [])[0];
         if (primo && window.electronAPI && window.electronAPI.studyReportOpen) {
-          window.electronAPI.studyReportOpen({ file: primo.file });
+          /* ⚠️ 0116: il percorso, non un oggetto — l'IPC fa `String(filePath)` e un
+             `{ file }` diventava «[object Object]»: rifiutato in silenzio */
+          window.electronAPI.studyReportOpen(primo.file);
         } else {
           toast(_t('lt_live_no_report', 'Questa sessione non ha report da aprire.'), 'warning');
         }
@@ -3634,10 +3647,16 @@
       });
     });
   }
-  /* QR: col materiale aperto (barra) lo condivide; dalla riga comandi della
-     mappa non c'è un materiale «corrente» → si sceglie quale condividere. */
+  /* QR: si sceglie sempre che cosa condividere. Col materiale aperto (barra) il
+     comando lo condivideva SENZA chiedere, e il QR di un materiale è per i
+     telefoni: a Bedigliora (14/10) un docente voleva mandare tutto il vault
+     all'iPad e MappAI studente ha rifiutato il codice (0098). Ora «Tutto il
+     vault» è sempre in testa, il materiale aperto subito dopo. Senza scambio
+     (`mappai_scambio_studente='0'`) o senza cartella vault resta il vecchio gesto. */
   function _consQr() {
-    if (_cons.mat) return _consShareMat(_cons.mat);
+    var _mp0 = _consMappaScelta();
+    var _vaultOk = _scambioOn() && _mp0 && _mp0.v && _mp0.v.folderName && window.MappAILive && window.MappAILive.shareVaultZipQr;
+    if (_cons.mat && !_vaultOk) return _consShareMat(_cons.mat);
     /* Il picker elenca SOLO ciò che si può davvero condividere (`m.qr`): prima
        offriva anche i PDF, che dopo la scelta rispondevano con un rifiuto —
        un comando che non può riuscire è peggio di un comando che manca.
@@ -3650,10 +3669,17 @@
        zip+QR della tabella dei progetti, ma senza uscire dalla console (bivio 3 di Giacomo) */
     var mp = _consMappaScelta();
     var voci = [];
-    if (_scambioOn() && mp && mp.v && mp.v.folderName && window.MappAILive && window.MappAILive.shareVaultZipQr) {
+    if (_vaultOk) {
       voci.push({ id: 'q:vault', etichetta: _t('lt_cons_qr_vault', 'Tutto il vault del progetto'), seconda: _t('lt_cons_qr_vault_sotto', 'per MappAI studente: la mappa, i nodi e i materiali'), icona: 'folder-down' });
     }
-    voci = voci.concat(lista.map(function (m) { return { id: 'q:' + m.id, etichetta: m.titolo, seconda: m.mappa || '', icona: 'file-text' }; }));
+    /* il materiale aperto subito dopo il vault, anche se l'elenco della mappa non lo
+       contiene o non è HTML (allora _consShareMat risponde con il suo rifiuto) */
+    var aperto = _cons.mat || null;
+    if (aperto) lista = [aperto].concat(lista.filter(function (m) { return m.id !== aperto.id; }));
+    voci = voci.concat(lista.map(function (m) {
+      var ap = aperto && m.id === aperto.id;
+      return { id: 'q:' + m.id, etichetta: m.titolo, seconda: ap ? _t('lt_cons_qr_aperto', 'il materiale aperto · per i telefoni') : (m.mappa || ''), icona: 'file-text' };
+    }));
     if (!voci.length) {
       toast(_t('lt_cons_qr_vuoto', 'Nessun materiale da condividere: genera prima una Sintesi, un Foglio nodi o una Timeline.'), 'warning');
       return;

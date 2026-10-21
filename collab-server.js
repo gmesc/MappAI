@@ -63,6 +63,8 @@ const STATIC_ALLOW = [
   '/public/fonts/',
   '/public/collab/',
   '/public/js/mappai-collab-core.js',
+  // Prova del font emoji (0099): decide se `--emoji` tiene 'MappAI Emoji' su questo dispositivo.
+  '/public/js/mappai-emoji-prova.js',
   '/public/js/vendor/'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB

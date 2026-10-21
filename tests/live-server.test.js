@@ -35,6 +35,7 @@ function grezza(port, target) {
   });
 }
 const LC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-live-core.js'));
+const FC = require(path.join(__dirname, '..', 'public', 'js', 'mappai-files-core.js'));
 
 const repoRoot = path.join(__dirname, '..');
 
@@ -286,13 +287,14 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   t.after(() => srv.stop());
   const port = await srv.listen(0, '127.0.0.1');
   const tok = srv.state().session.token;
+  const tokV = tok + '-' + FC.chiaveVault('Il Clima');   // il QR «Vault su iPad» nomina la mappa (0109)
   const base = 'http://127.0.0.1:' + port;
 
   assert.strictEqual((await fetch(base + '/api/vault?s=' + tok)).status, 404, 'senza esponiVault: nessun-vault');
   const man = srv.esponiVault({ nome: 'Il Clima', dir: vdir, classe: '4R', materia: 'Geografia', rootNodeLabel: 'Il Clima' });
   assert.deepStrictEqual(man.files.map(f => f.rel).sort(), ['Materiale Studio/Sorgenti/Domande-aperte-Clima-causa.html', 'Nodi/Clima.md', 'index.yaml']);
   assert.ok(!('dir' in man), 'la cartella del Mac non viaggia');
-  const r = await fetch(base + '/api/vault?s=' + tok);
+  const r = await fetch(base + '/api/vault?s=' + tokV);
   assert.strictEqual(r.headers.get('access-control-allow-origin'), '*');
   const j = await r.json();
   assert.strictEqual(j.schema, 'mappai-vault-manifest@1');
@@ -300,11 +302,11 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   assert.strictEqual(j.files.find(f => f.rel === 'index.yaml').sha1, crypto.createHash('sha1').update('rootNodeLabel: Il Clima\n').digest('hex'));
   assert.ok(fs.existsSync(path.join(dir, 'vault.json')), 'crash-safe su disco');
 
-  assert.strictEqual(await fetch(base + '/vault/index.yaml?s=' + tok).then(x => x.text()), 'rootNodeLabel: Il Clima\n');
-  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Nodi/Clima.md') + '?s=' + tok)).status, 200);
-  assert.strictEqual((await fetch(base + '/vault/vista.json?s=' + tok)).status, 404, 'non elencato');
-  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Materiale Studio/Quiz-MC-Clima.pdf') + '?s=' + tok)).status, 404, 'il PDF generato non va allo studente');
-  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('../session.json') + '?s=' + tok)).status, 404);
+  assert.strictEqual(await fetch(base + '/vault/index.yaml?s=' + tokV).then(x => x.text()), 'rootNodeLabel: Il Clima\n');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Nodi/Clima.md') + '?s=' + tokV)).status, 200);
+  assert.strictEqual((await fetch(base + '/vault/vista.json?s=' + tokV)).status, 404, 'non elencato');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('Materiale Studio/Quiz-MC-Clima.pdf') + '?s=' + tokV)).status, 404, 'il PDF generato non va allo studente');
+  assert.strictEqual((await fetch(base + '/vault/' + encodeURIComponent('../session.json') + '?s=' + tokV)).status, 404);
   assert.strictEqual((await fetch(base + '/vault/index.yaml?s=nope')).status, 403);
   assert.strictEqual((await fetch(base + '/api/vault', { method: 'OPTIONS' })).status, 204);
   await srv.stop();
@@ -313,7 +315,7 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   const srv2 = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
   t.after(() => srv2.stop());
   const port2 = await srv2.listen(0, '127.0.0.1');
-  assert.strictEqual((await fetch('http://127.0.0.1:' + port2 + '/api/vault?s=' + tok)).status, 200);
+  assert.strictEqual((await fetch('http://127.0.0.1:' + port2 + '/api/vault?s=' + tokV)).status, 200);
   await srv2.stop();
 
   // scambio spento
@@ -323,6 +325,61 @@ test('scambio: /api/vault elenca solo ciò che va allo studente, /vault/<rel> se
   assert.strictEqual(srv3.esponiVault({ nome: 'x', dir: vdir }), null);
   assert.strictEqual((await fetch('http://127.0.0.1:' + port3 + '/api/vault?s=' + srv3.state().session.token)).status, 404);
   await srv3.stop();
+});
+
+/* 0109: l'iPad riceve SOLO la mappa che il QR nomina. I tre casi del difetto, col
+   server vero: riavvio (vault.json ricaricato, stesso token), cambio di progetto
+   (un QR di documento porta solo il token), QR di A dopo la condivisione di B. */
+test('scambio: ogni mappa risponde solo al suo QR — riavvio, cambio di mappa, QR vecchio (0109)', async (t) => {
+  const dir = tmpDir('live-0109-');
+  const vaultDi = (nome) => {
+    const d = tmpDir('vault-0109-');
+    fs.writeFileSync(path.join(d, 'index.yaml'), 'rootNodeLabel: ' + nome + '\n');
+    return d;
+  };
+  const dirA = vaultDi('Il Clima'), dirB = vaultDi('La Città');
+  const srv = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  t.after(() => srv.stop());
+  const port = await srv.listen(0, '127.0.0.1');
+  const tok = srv.state().session.token;
+  const conA = tok + '-' + FC.chiaveVault('Il Clima');
+  const conB = tok + '-' + FC.chiaveVault('La Città');
+  const su = (p) => fetch('http://127.0.0.1:' + port + p);
+
+  srv.esponiVault({ nome: 'Il Clima', dir: dirA });
+  assert.strictEqual((await su('/api/vault?s=' + conA).then(r => r.json())).nome, 'Il Clima', 'il QR di A riceve A');
+  // caso 2: il QR di un documento (solo il token) non porta una mappa
+  const nudo = await su('/api/vault?s=' + tok);
+  assert.strictEqual(nudo.status, 404, 'solo il token: nessun vault');
+  assert.strictEqual((await nudo.json()).error, 'nessun-vault');
+  assert.strictEqual((await su('/vault/index.yaml?s=' + tok)).status, 404, 'nemmeno un file');
+
+  // caso 3: dopo B, il QR di A non scarica B
+  srv.esponiVault({ nome: 'La Città', dir: dirB });
+  assert.strictEqual((await su('/api/vault?s=' + conA)).status, 404, 'il QR di A dopo B: nessun vault');
+  assert.strictEqual((await su('/vault/index.yaml?s=' + conA)).status, 404);
+  assert.strictEqual((await su('/api/vault?s=' + conB).then(r => r.json())).nome, 'La Città', 'il QR di B riceve B');
+  assert.strictEqual(await su('/vault/index.yaml?s=' + conB).then(r => r.text()), 'rootNodeLabel: La Città\n');
+  assert.strictEqual((await su('/api/vault?s=' + tok + '-zzzz')).status, 404, 'una chiave inventata: nessun vault');
+  assert.strictEqual((await su('/api/vault?s=x' + conB)).status, 403, 'token sbagliato: come oggi');
+  // il token col nome della mappa vale per tutto il resto: consegne, materiali, file
+  assert.strictEqual((await su('/api/materials?s=' + conA)).status, 200);
+  fs.writeFileSync(path.join(srv.filesDir, 'Il_Clima.zip'), 'PK');
+  assert.strictEqual((await su('/files/Il_Clima.zip?s=' + conA)).status, 200, 'il telefono scarica lo zip dal QR del vault');
+  const cons = await fetch('http://127.0.0.1:' + port + '/api/consegna?s=' + conA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.strictEqual(cons.status, 400, 'la consegna passa il token e si ferma sull\'allievo mancante');
+  await srv.stop();
+
+  // caso 1: riavvio sulla STESSA cartella → stesso token, vault di B ricaricato, ma solo per il QR di B
+  const srv2 = createMaterialsServer({ repoRoot, dir, session: { name: 'Clima' } });
+  t.after(() => srv2.stop());
+  const port2 = await srv2.listen(0, '127.0.0.1');
+  assert.strictEqual(srv2.state().session.token, tok);
+  const su2 = (p) => fetch('http://127.0.0.1:' + port2 + p);
+  assert.strictEqual((await su2('/api/vault?s=' + tok)).status, 404, 'dopo il riavvio, un QR senza mappa: nessun vault');
+  assert.strictEqual((await su2('/api/vault?s=' + conA)).status, 404, 'dopo il riavvio, il QR di A: nessun vault');
+  assert.strictEqual((await su2('/api/vault?s=' + conB).then(r => r.json())).nome, 'La Città', 'dopo il riavvio il QR di B riceve ancora B');
+  await srv2.stop();
 });
 
 test('scambio: POST /api/consegna scrive in Consegne/<classe-numero>/, mai sovrascrive, rifiuta il resto', async () => {
@@ -782,7 +839,10 @@ test('scelta: reveal OFF → alla consegna nessun profilo', async () => {
   await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
   const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
   assert.strictEqual(fin.body.reveal, false);
-  assert.strictEqual(fin.body.profilo, null);
+  /* 0116: col profilo spento viaggia solo il conteggio — nessuna riga dei tagli, nessun angolo */
+  assert.deepStrictEqual(fin.body.profilo.righe, []);
+  assert.ok(!/causa|esempio|angle/.test(JSON.stringify(fin.body.profilo)), 'nessun angolo esce prima del tempo');
+  assert.strictEqual(fin.body.profilo.conteggio.totale, 4);
   await srv.stop();
 });
 
@@ -800,6 +860,138 @@ test('scelta: la pagina studente e i suoi moduli sono serviti', async () => {
   for (const f of ['/public/live/scelta.html', '/public/js/mappai-scelta-core.js', '/public/js/mappai-scelta-view.js']) {
     assert.strictEqual((await fetch('http://127.0.0.1:' + port + f)).status, 200, f);
   }
+  await srv.stop();
+});
+
+test('emoji: la prova del font (0099) e le sue immagini sono servite, un .bak accanto no', async () => {
+  const dir = tmpDir('live-emoji-prova-');
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', activity: 'Quiz', className: '2A' },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const r = await fetch('http://127.0.0.1:' + port + '/public/js/mappai-emoji-prova.js');
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /javascript/);
+  assert.strictEqual((await fetch('http://127.0.0.1:' + port + '/public/js/mappai-emoji-prova.js.bak')).status, 403);
+  const img = await fetch('http://127.0.0.1:' + port + '/public/fonts/emoji/1f98a.svg');
+  assert.strictEqual(img.status, 200);
+  assert.match(img.headers.get('content-type'), /image\/svg\+xml/);
+  await srv.stop();
+});
+
+test('scheda dell\'allievo (0112): /api/my-sheet è una pagina vera, col nome del file nel titolo, solo dopo la consegna e solo per il suo telefono', async () => {
+  const dir = tmpDir('live-scheda-');
+  const qs = [
+    { kind: 'mc', text: 'Capitale?', options: ['Roma', 'Milano'], correct: 0, explanation: 'Roma.', source: 'map' },
+    { kind: 'mc', text: 'Fiume di Roma?', options: ['Tevere', 'Po'], correct: 0, explanation: 'Il Tevere.', source: 'map' }
+  ];
+  const srv = createLiveServer({ repoRoot, dir, session: { name: '1a Guerra Mondiale', activity: 'Quiz', className: '2A', revealAnswers: true, font: 'atkinson' }, roster: mkRoster(1), questions: qs });
+  try {
+    const port = await srv.listen(0, '127.0.0.1');
+    const api = apiFactory(port);
+    const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+    const q = (extra) => '/api/my-sheet?s=' + tok + '&emojiKey=volpe&num=00&deviceId=' + (extra || 'd1');
+    await api('/api/join', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+    await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+    await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 0, choice: 1, ms: 900 }) });
+    await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1', qIdx: 1, choice: 0, ms: 900 }) });
+    const url = (qs2) => 'http://127.0.0.1:' + port + qs2;
+    // prima della consegna: niente scheda (le soluzioni non viaggiano prima)
+    const prima = await fetch(url(q()));
+    assert.strictEqual(prima.status, 409);
+    assert.match(prima.headers.get('content-type'), /text\/html/, 'sul telefono un JSON si scarica come file: l\'errore è una paginetta');
+    assert.ok((await prima.text()).includes('dopo la consegna'));
+    await api('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+    // un altro telefono, un token sbagliato: no
+    assert.strictEqual((await fetch(url(q('ALTRO')))).status, 403);
+    assert.strictEqual((await fetch(url('/api/my-sheet?s=sbagliato&emojiKey=volpe&num=00&deviceId=d1'))).status, 403);
+    const r = await fetch(url(q()));
+    assert.strictEqual(r.status, 200);
+    assert.match(r.headers.get('content-type'), /text\/html/);
+    assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+    const h = await r.text();
+    // il titolo È il nome del file: «[classe] [nome emoji] [numero] [tipo e nome dei quiz]»
+    assert.match(h, /<title>2A Volpe 00 Quiz 1a Guerra Mondiale<\/title>/);
+    assert.ok(h.includes('/public/js/mappai-emoji-prova.js'), 'le emoji di identità come immagini (iOS disegna male il font): la scheda con la coccinella usciva a pixel');
+    assert.ok(h.includes('Capitale?') && h.includes('Fiume di Roma?'));
+    assert.ok(h.includes('Tua risposta') && h.includes('Risposta corretta:') && h.includes('Roma.'));
+    assert.ok(h.includes("font-family:'Atkinson Hyperlegible'"), 'il carattere del docente, con i file serviti dal server');
+    assert.ok(h.includes('/public/fonts/Atkinson-Regular.ttf'));
+    assert.ok(h.includes('window.print()'), 'la stampa parte da sola');
+  } finally { await srv.stop(); }
+  // il docente non mostra le soluzioni: la scheda non esiste
+  const dir2 = tmpDir('live-scheda-no-');
+  const srv2 = createLiveServer({ repoRoot, dir: dir2, session: { name: 'X', activity: 'Quiz', className: '2A', revealAnswers: false }, roster: mkRoster(1), questions: qs });
+  try {
+    const port2 = await srv2.listen(0, '127.0.0.1');
+    const api2 = apiFactory(port2);
+    const tok2 = srv2.state().session.token, admin2 = srv2.state().session.adminToken;
+    await api2('/api/join', { method: 'POST', body: JSON.stringify({ token: tok2, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+    await api2('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin2, phase: 'running' }) });
+    await api2('/api/finish', { method: 'POST', body: JSON.stringify({ token: tok2, emojiKey: 'volpe', num: '00', deviceId: 'd1' }) });
+    assert.strictEqual((await fetch('http://127.0.0.1:' + port2 + '/api/my-sheet?s=' + tok2 + '&emojiKey=volpe&num=00&deviceId=d1')).status, 404);
+  } finally { await srv2.stop(); }
+});
+
+test('carattere del docente (0112): /api/session lo espone solo se è nel catalogo', async () => {
+  const FCore = require(path.join(__dirname, '..', 'public', 'js', 'mappai-font-core.js'));
+  const altro = FCore.FONTS.find(f => f.id !== FCore.DEFAULT).id;
+  for (const [dato, atteso] of [[altro, altro], ['comic-sans', ''], ['<script>alert(1)</script>', ''], [undefined, ''], [42, '']]) {
+    const dir = tmpDir('live-font-');
+    const srv = createLiveServer({
+      repoRoot, dir, session: { name: 'Clima', activity: 'Quiz', className: '2A', font: dato },
+      roster: mkRoster(1), questions: sampleQuestions()
+    });
+    try {
+      const port = await srv.listen(0, '127.0.0.1');
+      const api = apiFactory(port);
+      const r = await api('/api/session?s=' + srv.state().session.token);
+      assert.strictEqual(r.status, 200);
+      assert.strictEqual(r.body.font, atteso, 'font ' + String(dato));
+    } finally { await srv.stop(); }   // un rosso non deve lasciare il server aperto: Node non esce più
+  }
+});
+
+test('carattere del docente (0112): in una RIPRESA vince la scelta di adesso, non quella (assente) salvata', async () => {
+  const FCore = require(path.join(__dirname, '..', 'public', 'js', 'mappai-font-core.js'));
+  const altro = FCore.FONTS.find(f => f.id !== FCore.DEFAULT).id;
+  const dir = tmpDir('live-font-riprendi-');
+  const cfg = (font) => ({ repoRoot, dir, session: { name: 'Clima', activity: 'Quiz', className: '2A', font }, roster: mkRoster(1), questions: sampleQuestions() });
+  const primo = createLiveServer(cfg(undefined));            // sessione di ieri: senza carattere, ancora in lobby
+  const porta1 = await primo.listen(0, '127.0.0.1');
+  const tok = primo.state().session.token;
+  assert.strictEqual((await apiFactory(porta1)('/api/session?s=' + tok)).body.font, '');
+  await primo.stop();
+  const secondo = createLiveServer(cfg(altro));              // il docente riavvia dopo aver scelto un carattere
+  try {
+    const porta2 = await secondo.listen(0, '127.0.0.1');
+    const r = await apiFactory(porta2)('/api/session?s=' + tok);
+    assert.strictEqual(r.status, 200, 'è proprio la sessione ripresa (stesso token)');
+    assert.strictEqual(r.body.font, altro);
+  } finally { await secondo.stop(); }
+  const terzo = createLiveServer(cfg('comic-sans'));         // un id ignoto non rimpiazza niente: torna al predefinito
+  try {
+    const porta3 = await terzo.listen(0, '127.0.0.1');
+    assert.strictEqual((await apiFactory(porta3)('/api/session?s=' + tok)).body.font, '');
+  } finally { await terzo.stop(); }
+});
+
+test('scelta multipla (0112): il modulo comune è servito al telefono, un .bak accanto no', async () => {
+  const dir = tmpDir('live-quiz-mc-');
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', activity: 'Quiz', className: '2A' },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const base = 'http://127.0.0.1:' + port;
+  const r = await fetch(base + '/public/js/mappai-quiz-mc-view.js');
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /javascript/);
+  assert.match(await r.text(), /MappAIQuizMcView/);
+  assert.strictEqual((await fetch(base + '/public/js/mappai-quiz-mc-view.js.bak')).status, 403);
+  // l'allowlist non si è allargata ai fratelli: il motore dello studio resta chiuso
+  assert.strictEqual((await fetch(base + '/public/js/mappai-study-session.js')).status, 403);
   await srv.stop();
 });
 
@@ -1097,6 +1289,192 @@ test('feedback immediato: la spiegazione arriva col verdetto, mai prima', async 
   assert.strictEqual(r.body.verdetto.esito, 'wrong');
   assert.strictEqual(r.body.verdetto.spiegazione, 'L\'acqua accumula calore.');
   await srv.stop();
+});
+
+/* ── 0116, lotto 1: la consegna che si riapre da sola (difetto D) ──────────
+   Il telefono rispedisce un salvataggio fallito dopo 4 s (`scheduleRetry`).
+   Se la consegna arriva prima, il salvataggio rispedito — IDENTICO a quello
+   già salvato — rimetteva `finishedAt` a null: per il docente l'allievo non
+   aveva consegnato. Riaprire resta giusto solo per una risposta cambiata. */
+async function finitoPerIlDocente(api, admin, emojiKey) {
+  const s = await api('/api/status?admin=' + admin);
+  return s.body.roster.filter(r => r.emojiKey === emojiKey)[0].finished;
+}
+
+test('0116 D: quiz — la stessa risposta rispedita dopo la consegna non la riapre', async () => {
+  const dir = tmpDir('live-0116-q-');
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Fotosintesi', className: '2A' }, roster: mkRoster(1), questions: sampleQuestions()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+  await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+  await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
+  const risposta = Object.assign({ qIdx: 0, choice: 0, ms: 3000 }, chi);
+  await api('/api/answer', { method: 'POST', body: JSON.stringify(risposta) });
+  await api('/api/finish', { method: 'POST', body: JSON.stringify(chi) });
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), true);
+
+  const rispedita = await api('/api/answer', { method: 'POST', body: JSON.stringify(risposta) });
+  assert.strictEqual(rispedita.status, 200);
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), true, 'un salvataggio identico non riapre la consegna');
+
+  const cambiata = Object.assign({}, risposta, { choice: 1, ms: 5000 });
+  await api('/api/answer', { method: 'POST', body: JSON.stringify(cambiata) });
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), false, 'una risposta cambiata riapre, come prima');
+  } finally { await srv.stop(); }
+});
+
+test('0116 D: domande a scelta — lo stesso stato rispedito dopo la consegna non la riapre', async () => {
+  const dir = tmpDir('live-0116-s-');
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', className: '2A', mode: 'scelta', scelta: { minimo: 1, minimoAree: 1 } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+  const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+  const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+  const j = await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+  const id0 = j.body.pool[0].id;
+  const stato = { aree: ['Oceani'], fase: 'rispondi', letture: { [id0]: { chip: 'subito' } }, risposte: { [id0]: { testo: 'la mia risposta' } } };
+  await api('/api/stato', { method: 'POST', body: JSON.stringify(Object.assign({ stato }, chi)) });
+  await api('/api/finish', { method: 'POST', body: JSON.stringify(chi) });
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), true);
+
+  const rispedito = await api('/api/stato', { method: 'POST', body: JSON.stringify(Object.assign({ stato }, chi)) });
+  assert.strictEqual(rispedito.status, 200);
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), true, 'uno stato identico non riapre la consegna');
+
+  const cambiato = JSON.parse(JSON.stringify(stato));
+  cambiato.risposte[id0].testo = 'la mia risposta, corretta';
+  await api('/api/stato', { method: 'POST', body: JSON.stringify(Object.assign({ stato: cambiato }, chi)) });
+  assert.strictEqual(await finitoPerIlDocente(api, admin, 'volpe'), false, 'uno stato cambiato riapre, come prima');
+  } finally { await srv.stop(); }
+});
+
+/* ── 0116, lotto 3: le domande aperte semplici — l'allievo riceve TUTTE le
+   domande, e il report non parla di tagli evitati né di aree scelte ── */
+test('0116: scelta semplice — il pool intero a ogni allievo, report senza tagli né aree', async () => {
+  const dir = tmpDir('live-0116-semplice-');
+  const srv = createLiveServer({
+    repoRoot, dir,
+    session: { name: 'Clima', className: '2A', mode: 'scelta', scelta: { semplice: true } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+    const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+    const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+    const sess = await api('/api/session?s=' + tok);
+    assert.strictEqual(sess.body.scelta.semplice, true);
+    assert.strictEqual(sess.body.scelta.reveal, false);
+    const j = await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+    assert.strictEqual(j.body.pool.length, 12, 'tutte le domande, non una per argomento e per taglio');
+    await api('/api/finish', { method: 'POST', body: JSON.stringify(chi) });
+    await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+    const html = fs.readFileSync(path.join(dir, 'report-scelta.html'), 'utf8');
+    assert.ok(!html.includes('chi li ha evitati'), 'niente sezione dei tagli evitati');
+    assert.ok(!html.includes('Le aree — dove la classe'), 'niente sezione delle aree');
+  } finally { await srv.stop(); }
+});
+
+test('0116 (gate 21/10): scelta semplice — la consegna dice quante risposte sono scritte', async () => {
+  const dir = tmpDir('live-0116-conto-');
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Clima', className: '2A', mode: 'scelta', scelta: { semplice: true } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+    const tok = srv.state().session.token;
+    const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+    const j = await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+    const risposte = {};
+    j.body.pool.forEach(v => { risposte[v.id] = {}; });
+    risposte[j.body.pool[0].id] = { testo: 'la neutralità armata' };
+    const fin = await api('/api/finish', { method: 'POST', body: JSON.stringify(Object.assign({ stato: { fase: 'rispondi', risposte } }, chi)) });
+    assert.strictEqual(fin.status, 200);
+    assert.strictEqual(fin.body.profilo.conteggio.scritte, 1, 'una risposta scritta');
+    assert.strictEqual(fin.body.profilo.conteggio.totale, 12, 'su tutte le domande');
+  } finally { await srv.stop(); }
+});
+
+test('0116 (gate 21/10): scelta semplice — la scheda dell\'allievo con tutte le domande e le sue risposte', async () => {
+  const dir = tmpDir('live-0116-scheda-');
+  const pool = SC.poolDaFogli([{ titolo: 'Domande aperte — Svizzera', angle: 'definizione', tipo: 'open',
+    items: [{ domanda: 'Che cos\'è la neutralità armata?', guide: 'TRACCIA-SEGRETA' }, { domanda: 'Chi era il generale Guisan?' }] }]);
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Svizzera', activity: 'Domande aperte', className: '4R', mode: 'scelta', scelta: { semplice: true } },
+    roster: mkRoster(1), questions: pool
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+    const tok = srv.state().session.token;
+    const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+    const j = await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+    const risposte = {}; j.body.pool.forEach(v => { risposte[v.id] = {}; });
+    const prima = j.body.pool.filter(v => /neutralità/.test(v.testo))[0];
+    risposte[prima.id] = { testo: 'Difendersi senza schierarsi' };
+    const url = '/api/my-sheet?s=' + tok + '&emojiKey=volpe&num=00&deviceId=d1';
+    const presto = await fetch('http://127.0.0.1:' + port + url);
+    assert.strictEqual(presto.status, 409, 'prima della consegna non c\'è la scheda');
+    await api('/api/finish', { method: 'POST', body: JSON.stringify(Object.assign({ stato: { fase: 'rispondi', risposte } }, chi)) });
+    const r = await fetch('http://127.0.0.1:' + port + url);
+    const html = await r.text();
+    assert.strictEqual(r.status, 200);
+    assert.ok(html.includes('neutralità armata') && html.includes('generale Guisan'), 'tutte le domande');
+    assert.ok(html.includes('Difendersi senza schierarsi'), 'la risposta scritta');
+    assert.ok(html.includes('— vuoto'), 'la domanda senza risposta');
+    assert.ok(!html.includes('TRACCIA-SEGRETA'), 'nessuna traccia di correzione');
+    assert.ok(!html.includes('class="lr-acc"'), 'nessuna percentuale');
+  } finally { await srv.stop(); }
+});
+
+test('0116 (gate 21/10): domande a scelta — alla chiusura anche il «Report allievi», e /api/status dice la modalità', async () => {
+  const dir = tmpDir('live-0116-rep-');
+  const srv = createLiveServer({
+    repoRoot, dir, session: { name: 'Svizzera', activity: 'Domande aperte', className: '4R', mode: 'scelta', scelta: { semplice: true } },
+    roster: mkRoster(1), questions: sceltaPool()
+  });
+  const port = await srv.listen(0, '127.0.0.1');
+  const api = apiFactory(port);
+  try {
+    const tok = srv.state().session.token, admin = srv.state().session.adminToken;
+    const st0 = await api('/api/status?admin=' + admin);
+    assert.strictEqual(st0.body.session.mode, 'scelta', 'il pannello sa che attività è');
+    const chi = { token: tok, emojiKey: 'volpe', num: '00', deviceId: 'd1' };
+    const j = await api('/api/join', { method: 'POST', body: JSON.stringify(chi) });
+    const risposte = {}; j.body.pool.forEach(v => { risposte[v.id] = {}; });
+    risposte[j.body.pool[0].id] = { testo: 'RISPOSTA-DELLA-VOLPE' };
+    await api('/api/finish', { method: 'POST', body: JSON.stringify(Object.assign({ stato: { fase: 'rispondi', risposte } }, chi)) });
+    await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
+    for (const w of ['scelta', 'students']) {
+      const r = await fetch('http://127.0.0.1:' + port + '/api/report?admin=' + admin + '&which=' + w);
+      assert.strictEqual(r.status, 200, 'report ' + w);
+    }
+    const allievi = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
+    assert.ok(allievi.includes('RISPOSTA-DELLA-VOLPE'), 'la risposta dell\'allievo nel report allievi');
+    assert.ok(!allievi.includes('class="lr-acc"'), 'niente percentuale per le aperte');
+  } finally { await srv.stop(); }
+});
+
+test('0116: /api/status di un quiz dice «quiz»', async () => {
+  const dir = tmpDir('live-0116-modo-');
+  const srv = createLiveServer({ repoRoot, dir, session: { name: 'Fotosintesi', className: '2A' }, roster: mkRoster(1), questions: sampleQuestions() });
+  const port = await srv.listen(0, '127.0.0.1');
+  try {
+    const st = await apiFactory(port)('/api/status?admin=' + srv.state().session.adminToken);
+    assert.strictEqual(st.body.session.mode, 'quiz');
+  } finally { await srv.stop(); }
 });
 
 // in fondo al file: gira DOPO gli after che fermano i server

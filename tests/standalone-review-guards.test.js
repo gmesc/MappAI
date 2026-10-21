@@ -188,7 +188,8 @@ test('0042: censimento dei chiamanti di requireApproved con il comportamento att
     const conta = (f, argomenti) => trovati.filter(x => x.f === f && x.argomenti === argomenti).length;
     assert.equal(conta('mappai-material-pipeline.js', '{ quarantena: true }'), 2, 'la ripresa di Pipeline.run e runApprovedMaterials');
     assert.equal(conta('mappai-material-pipeline.js', ''), 1, 'generaSet: il ripiego di requireStandalone, senza opzione');
-    assert.equal(conta('mappai-review.js', ''), 2, 'requireStandalone e il recupero della bozza, senza opzione');
+    // 0097 (Giacomo, 15/10): il terzo è «Ricontrolla la mappa adesso», il bottone del piè di una G1 approvata e superata
+    assert.equal(conta('mappai-review.js', ''), 3, 'requireStandalone, il recupero della bozza e «Ricontrolla la mappa adesso», senza opzione');
     assert.equal(conta('mappai-branch-synthesis.js', ''), 1, 'runWholeMap senza la vista: la chiamata di sempre');
     // giro 5 (F4): runWholeMap con la vista della quarantena (`opts.db`) è la pipeline, e passa l'opzione
     assert.equal(conta('mappai-branch-synthesis.js', '{ quarantena: true }'), 1, 'runWholeMap con la vista: la pipeline');
@@ -198,7 +199,7 @@ test('0042: censimento dei chiamanti di requireApproved con il comportamento att
     assert.equal(conta('mappai-branch-synthesis.js', 'guardia:window.MappAIReview'), 1);
     const conOpzione = trovati.filter(x => /quarantena/.test(x.argomenti));
     assert.deepEqual(conOpzione.map(x => x.f).sort(), ['mappai-branch-synthesis.js', 'mappai-material-pipeline.js', 'mappai-material-pipeline.js']);
-    assert.equal(trovati.length, 10, 'un chiamante nuovo va censito qui (12 fino al 12/10/2026: le due guardie di nodo e ramo sono uscite con lo 0087, lotto 10-modali): ' + JSON.stringify(trovati));
+    assert.equal(trovati.length, 11, 'un chiamante nuovo va censito qui (12 fino al 12/10/2026: le due guardie di nodo e ramo sono uscite con lo 0087, lotto 10-modali; 11 dallo 0097, «Ricontrolla la mappa adesso»): ' + JSON.stringify(trovati));
 });
 
 test('0042 giro 4 (E4): requireApproved con l\u2019opzione, sotto quarantena e senza G1 facoltativa, apre il Banco col piano chiesto al motore; altrimenti come oggi', async () => {

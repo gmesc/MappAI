@@ -230,7 +230,8 @@
            un blocco affiancato in flex, un testo lungo diventerebbe una colonna
            stretta accanto a una foto alta un dito */
         if (s.figura) {
-            dentro += '<img class="mm-fig' + (s.figura.tonda ? ' mm-fig--tonda' : '') + '" src="' +
+            dentro += '<img class="mm-fig' + (s.figura.tonda ? ' mm-fig--tonda' : '') +
+                (s.figura.larga ? ' mm-fig--larga' : '') + '" src="' +
                 esc(s.figura.src) + '" alt="' + esc(s.figura.alt) + '">';
         }
         if (s.testo) dentro += '<p class="mm-testo">' + esc(s.testo) + '</p>';
@@ -253,6 +254,13 @@
             ' aria-expanded="' + (s.chiusa ? 'false' : 'true') + '">' +
             icona('chevron-down') + '<span>' + esc(s.titolo) + '</span></button>'
             : (s.titolo ? '<span class="mm-sez__t">' + esc(s.titolo) + '</span>' : '');
+        /* i rimandi (0119) dividono la riga col titolo: senza, la testata è quella di prima */
+        if (s.rimandi.length && s.titolo) {
+            testa = '<div class="mm-sez__testa">' + testa + '<span class="mm-sez__rimandi">' +
+                s.rimandi.map(function (r) {
+                    return '<button type="button" class="mm-rimando" data-azione="' + esc(r.id) + '">' + esc(r.etichetta) + '</button>';
+                }).join('') + '</span></div>';
+        }
         return '<div class="' + cls + '" data-sez="' + esc(s.id) + '">' +
             testa + '<div class="mm-sez__c">' + dentro + '</div></div>';
     }
@@ -281,8 +289,13 @@
                 ' data-azione="' + esc(b.id) + '" aria-label="' + esc(b.etichetta) + '"' +
                 ' title="' + esc(b.etichetta) + '">' + icona(b.icona) + '</button>';
         }
+        /* `spento` e `fumetto` (0096) sono facoltativi: un bottone che non li
+           dichiara esce identico a prima, carattere per carattere. Uno spento non
+           è il primario per Invio e per il primo fuoco: non farebbe niente. */
         return '<button type="button" class="mm-btn mm-btn--' + b.ruolo + '" data-azione="' + esc(b.id) + '"' +
-            (b.ruolo === 'primario' ? ' data-primario="1"' : '') + '>' +
+            (b.ruolo === 'primario' && !b.spento ? ' data-primario="1"' : '') +
+            (b.spento ? ' disabled aria-disabled="true"' : '') +
+            (b.fumetto ? ' title="' + esc(b.fumetto) + '"' : '') + '>' +
             icona(b.icona) + '<span>' + esc(b.etichetta) + '</span></button>';
     }
 
@@ -780,7 +793,7 @@
            landing usa per «classe/allievo · disciplina». */
         var ctx = s.contesto.length ? ctxHtml(s.contesto) : '';
 
-        var testata =
+        var testata = s.senzaTestata ? '' :
             '<div class="mm-head">' +
             (s.icona ? '<div class="mm-head__ico">' + icona(s.icona) + '</div>' : '') +
             '<div class="mm-head__testi"><div class="mm-title">' + esc(s.titolo) + '</div>' +
@@ -914,6 +927,7 @@
                 if (chiuso) return;
                 chiuso = true;
                 document.removeEventListener('keydown', tasti, true);
+                tastiera(false);
                 velo.remove();
                 pila = pila.filter(function (x) { return x !== velo; });
                 /* a schermo sgombro si torna al piano terra: senza, una sessione
@@ -1042,7 +1056,7 @@
                     if (id === '__chiudi') return esci();
                     var tutte = s.azioni.concat(s.azioniTestata);
                     s.sezioni.forEach(function (x) {
-                        tutte = tutte.concat(x.azioni);
+                        tutte = tutte.concat(x.azioni, x.rimandi || []);
                         /* una VOCE di elenco è un bottone come gli altri: sceglierla
                            conclude, e i suoi comandi in coda no */
                         x.voci.forEach(function (v) {
@@ -1109,9 +1123,39 @@
                 return box;
             }
 
+            /* LA TASTIERA A SCHERMO (0119, gate sull'iPad): quando si apre, la parte
+               visibile della pagina (`visualViewport`) si accorcia ma il velo resta
+               alto quanto lo schermo, e la finestra centrata finiva sotto i tasti.
+               Il velo segue la parte visibile; tastiera chiusa, torna com'era. Sul
+               computer la parte visibile è la finestra intera: non cambia niente. */
+            var vv = window.visualViewport || null;
+            function adatta() {
+                if (chiuso || !vv) return;
+                var alta = window.innerHeight || vv.height;
+                if (vv.height < alta - 1 || vv.offsetTop > 0) {
+                    velo.setAttribute('data-tastiera', '1');
+                    velo.style.top = Math.round(vv.offsetTop) + 'px';
+                    velo.style.height = Math.round(vv.height) + 'px';
+                    /* il campo dove si scrive resta in vista dentro la finestra */
+                    var a = document.activeElement;
+                    if (a && box && box.contains && box.contains(a) && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' });
+                } else {
+                    velo.removeAttribute('data-tastiera');
+                    velo.style.top = '';
+                    velo.style.height = '';
+                }
+            }
+            function tastiera(on) {
+                if (!vv) return;
+                vv[on ? 'addEventListener' : 'removeEventListener']('resize', adatta);
+                vv[on ? 'addEventListener' : 'removeEventListener']('scroll', adatta);
+            }
+
             monta();
             document.body.appendChild(velo);
             pila.push(velo);
+            tastiera(true);
+            adatta();
             disegnaIcone(velo);
             posaFuoco();
             document.addEventListener('keydown', tasti, true);

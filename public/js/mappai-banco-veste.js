@@ -1435,7 +1435,10 @@
       const r = review();
       let frase;
       if (!editabile()) {
-        frase = r.initial.status === 'approved' ? t('rv_dashboard_approved', 'La revisione è approvata e le decisioni sono salvate nel progetto.')
+        /* 0097 (gate del 15/10): approvata ma superata, la testa diceva «non corrispondono» e il piè «approvata». Il piè
+           dice la frase che usa già, nello stesso caso, per una revisione in attesa. */
+        frase = r.initial.status === 'approved' && stantia() ? t('rv_coverage_preview_global', 'I materiali o le fonti non corrispondono alla versione di questa revisione. Le approvazioni restano salvate, ma prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.')
+          : r.initial.status === 'approved' ? t('rv_dashboard_approved', 'La revisione è approvata e le decisioni sono salvate nel progetto.')
           : t('rv_veste_in_corso', 'Le decisioni si stanno salvando nel progetto: la revisione si legge e non si modifica.');
       } else {
         const g = globale(), n = out.assenti.length;
@@ -1553,7 +1556,10 @@
       const r = review();
       let frase;
       if (!editabile()) {
-        frase = r.initial.status === 'approved' ? t('rv_dashboard_approved', 'La revisione è approvata e le decisioni sono salvate nel progetto.')
+        /* 0097 (gate del 15/10, seconda decisione di Giacomo): approvata ma superata, il piè dice che cosa fare — il bottone
+           accanto è «Ricontrolla la mappa adesso» (`testoChiusura` in mappai-review.js) — e non «approvata» */
+        frase = r.initial.status === 'approved' && stantia() ? t('rv_veste_g1_approvata_cambiata', 'La mappa è cambiata, per continuare premi «Ricontrolla la mappa adesso». Le decisioni approvate restano salvate.')
+          : r.initial.status === 'approved' ? t('rv_dashboard_approved', 'La revisione è approvata e le decisioni sono salvate nel progetto.')
           : t('rv_veste_in_corso', 'Le decisioni si stanno salvando nel progetto: la revisione si legge e non si modifica.');
       } else {
         const g = globale(), n = q.daRivedere, inConflitto = out.righe.some(x => x.conflitto);
@@ -2015,7 +2021,10 @@
        una correzione, quali note ha chiuso (§4.4). */
     function avvisiG1(escluso, vecchia) {
       const righeAvviso = [];
-      if (vecchia) righeAvviso.push(t('rv_veste_g1_stantia', 'La mappa o le fonti non corrispondono alla versione di questa revisione: prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.'));
+      // 0097 riaperto: approvata e superata, il riquadro dice la frase del piè (e il bottone «Ricontrolla la mappa adesso»)
+      if (vecchia) righeAvviso.push(review().initial.status === 'approved'
+        ? t('rv_veste_g1_approvata_cambiata', 'La mappa è cambiata, per continuare premi «Ricontrolla la mappa adesso». Le decisioni approvate restano salvate.')
+        : t('rv_veste_g1_stantia', 'La mappa o le fonti non corrispondono alla versione di questa revisione: prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.'));
       else if (escluso) righeAvviso.push(t('rv_veste_g1_tolto', 'Hai scelto di togliere questo collegamento: non arriverà ai materiali. Per rimetterlo premi {annulla}.').replace('{annulla}', ANNULLA));
       // 0086, giro 3c (D37.7): le scelte salvate prima che si contraddicono le sostituisce il bottone in fondo
       else if (conflittiDi(st.info).size > 0) righeAvviso.push(CONFLITTO_PRIMA());

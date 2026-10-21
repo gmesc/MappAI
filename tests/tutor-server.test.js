@@ -108,6 +108,15 @@ test('una richiesta malformata (GET //[) riceve 400 e il server resta in piedi',
   assert.strictEqual((await api('/api/session?s=' + tok)).status, 200);
 });
 
+test('static: la prova del font emoji (0099) è servita come JavaScript', async () => {
+  const r = await fetch('http://127.0.0.1:' + port + '/public/js/mappai-emoji-prova.js');
+  assert.strictEqual(r.status, 200);
+  assert.match(r.headers.get('content-type'), /javascript/);
+  const img = await fetch('http://127.0.0.1:' + port + '/public/fonts/emoji/1f98a.svg');
+  assert.strictEqual(img.status, 200);
+  assert.match(img.headers.get('content-type'), /image\/svg\+xml/);
+});
+
 // ── join ────────────────────────────────────────────────────────────────────
 test('POST /api/join: roster + identity-taken + rientro', async () => {
   const j1 = await api('/api/join', {

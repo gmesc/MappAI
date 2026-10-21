@@ -188,6 +188,17 @@
     z-index: 12100;
 }
 
+/* TASTIERA A SCHERMO (0119): il motore porta il velo sulla parte visibile
+   (`top` e `height` dal `visualViewport`); la finestra non la supera, e se il
+   modulo è più alto si scorre dentro la finestra invece che sotto i tasti. */
+.mm-overlay[data-tastiera] {
+    bottom: auto;
+}
+
+.mm-overlay[data-tastiera]>.mm-box {
+    max-height: 100%;
+}
+
 .mm-box {
     background: var(--mm-fondo);
     border-radius: var(--mm-r-box);
@@ -682,6 +693,21 @@ html[data-app="docente"] :is(input, textarea, select):focus-visible {
 
 .mm-fig--tonda {
     border-radius: 999px;
+}
+
+/* LARGA (0119): la schermata di una slide, a tutta larghezza SOPRA il testo.
+   Non scorre accanto al testo e non si ritaglia: una schermata tagliata perde
+   proprio il pezzo che la slide indica. Al più il 40% dello schermo in altezza: sull'iPad
+   in orizzontale (820 px) una schermata alta spingerebbe i bottoni fuori vista. */
+.mm-fig--larga {
+    float: none;
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 40vh;
+    margin: 0 auto var(--mm-gap);
+    border: var(--mm-bordo-spessore) solid var(--mm-bordo);
 }
 
 /* il testo scorre accanto alla figura, ma ciò che viene DOPO (comandi, elenchi,
@@ -1414,6 +1440,46 @@ html[data-app="docente"] .mm-tela--colonna :is(input.form_input, select):hover:n
     transform: rotate(-90deg);
 }
 
+/* RIMANDI (0119): testi cliccabili sulla riga del titolo, a destra.
+   «Come si fa?» e «2B · n. 7» accanto a «Consegna una prova» sull'iPad.
+   Il titolo perde il suo margine sotto: lo porta la riga intera. Bersaglio
+   alto 44 px come il titolo che si piega (.mm-sez__t--tog): si toccano col dito. */
+.mm-sez__testa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--mm-gap);
+    margin-bottom: 9px;
+}
+
+.mm-sez__testa>.mm-sez__t {
+    margin-bottom: 0;
+}
+
+.mm-sez__rimandi {
+    display: flex;
+    gap: var(--mm-btn-gap);
+    margin-left: auto;
+}
+
+.mm-rimando {
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--mm-fs-testo);
+    font-weight: 700;
+    color: var(--mm-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.mm-rimando:hover {
+    color: var(--mm-accent-hover);
+}
+
 .is-chiusa>.mm-sez__c {
     display: none;
 }
@@ -1512,7 +1578,8 @@ html[data-app="docente"] .mm-tela--colonna :is(input.form_input, select):hover:n
 
 /* stati: oggi non esistono quasi mai, ed è metà del disordine */
 .mm-btn:focus-visible,
-.mm-campo:focus-visible {
+.mm-campo:focus-visible,
+.mm-rimando:focus-visible {
     outline: 2px solid var(--mm-focus);
     outline-offset: 2px;
 }
@@ -1737,6 +1804,13 @@ html.manifesto .mm-box--console.mm-box--piena .mm-console__area.mm-console__area
 
 .mm-box--piena:has(.mm-tela) .mm-console__area>.mm-schede-riga {
     padding: 0 var(--mm-pad);
+}
+
+/* 0100: la riga dei SOLI comandi (nessuna scheda) sopra la tela — il materiale
+   aperto in INSEGNA — stava a filo della testata (y=65, misurato). Stesso respiro
+   verticale della barra degli editor (.de-bar: 8px sopra e sotto). */
+.mm-box--piena:has(.mm-tela) .mm-console__area>.mm-schede-riga:not(:has(.mm-schede)) {
+    padding: var(--mm-btn-gap, 8px) var(--mm-pad);
 }
 
 .mm-box--piena .mm-tela {

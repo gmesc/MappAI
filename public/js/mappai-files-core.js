@@ -30,8 +30,33 @@
     /* Allievi (2/8): una cartella per allievo, dove finisce la sua tessera di
        accesso. Non ha una cartella storica da cui migrare — nasce qui, e chi ha
        già migrato non ce l'ha: si crea alla prima scrittura, non al setup. */
-    students: 'Allievi'
+    students: 'Allievi',
+    /* Sistema (0104, ADR 0023): tutto ciò che l'app scrive e che NON è una classe
+       o un allievo — registri, diagnostica, attività, copie, classi.json. */
+    system: 'Sistema'
   };
+
+  /* ── LA STRUTTURA DELLA BETA.8 (0104, ADR 0023) ──────────────────────────────
+     «MappAI - file» ha tre cartelle: Allievi, Classi, Sistema. I nomi stanno qui
+     e basta (invariante 6): main.js, la Cabina e il piano della riorganizzazione
+     (mappai-riordino-core.js) li leggono da qui. */
+  var CREDENZIALI = 'Credenziali';            // Classi/Credenziali/credenziali-<classe|allievo>.pdf (bivi 7-8)
+  var SENZA_CLASSE = 'Senza classe';          // Classi/Senza classe/[<materia>/]<progetto> (bivio 1, N8)
+  var COPIE_MAPPE = 'Copie delle mappe';      // Sistema/Copie delle mappe/mm_<titolo>.json (N1)
+  var USAGE = 'Registro consumi AI';
+  var DIAGNOSTICA = 'Diagnostica';
+  var ARCHIVIO = 'Archivio';
+  /* Sistema/Figure/<impronta>.figure.json e indice.json (packet 0114, ADR 0024 rev. 1): le letture delle figure di un PDF,
+     per impronta, fuori dai vault. Già dentro Sistema/: la riorganizzazione della beta.8 non la sposta. */
+  var FIGURE = 'Figure';
+  function depositoFigure(nome) { return SUB.system + '/' + FIGURE + (nome ? '/' + nome : ''); }
+  var CLASSI_JSON = 'classi.json';
+  var REGISTRO_RIORDINO = 'riorganizzazione-beta8.json';   // in Sistema/Diagnostica/
+  /* Le cartelle in testa a «MappAI - file» che vanno dentro Sistema/ (bivi 2-4).
+     «Analisi» no (N3): l'app non la scrive e non la legge. */
+  var SISTEMA_DA_RADICE = [DIAGNOSTICA, USAGE, SUB.activity, SUB.shared, SUB.gardens, ARCHIVIO];
+  /* Le tre cartelle che la struttura nuova crea; le altre nascono alla prima scrittura. */
+  var RADICE_V2 = [SUB.students, SUB.classes, SUB.system];
 
   // Cartelle storiche in ~/Documents → destinazione nella nuova struttura.
   // kind: 'sessions' = ha sottocartelle-sessione da ribucketare per classe;
@@ -148,23 +173,29 @@
      perderebbero la loro mappa. Sotto Generico NON ci sono sottocartelle di
      materia. Non è in VAULT_CONTAINER_EXCLUDE: va scandito come contenitore. */
   var GENERICO = 'Generico';
+  /* 0104 (ADR 0023, bivio 1; N5): i progetti senza classe NUOVI nascono in
+     «Senza classe», con la struttura nuova (Classi/Senza classe) e con quella di
+     prima (Mappe/Senza classe). «Generico» resta un nome che si LEGGE: i progetti
+     che ci stanno non spariscono, e la riorganizzazione li porta in Senza classe.
+     A differenza di Generico, sotto Senza classe la riorganizzazione mette il
+     livello materia quando `index.yaml` la dichiara (N4): chi legge lo accetta. */
 
-  // Il lettore ritraduce il nome del contenitore in classDir: Generico → null.
+  // Il lettore ritraduce il nome del contenitore in classDir: Generico, Senza classe → null.
   function classDirDaCartella(nome) {
     var n = String(nome == null ? '' : nome);
-    if (!n || n === GENERICO) return null;
+    if (!n || n === GENERICO || n === SENZA_CLASSE) return null;
     return n;
   }
 
-  // Segmenti RELATIVI a Mappe/ del vault di una mappa:
-  //   [Generico] senza classe · [classe] · [classe, disciplina]
+  // Segmenti RELATIVI alla base dei progetti (Classi/ o, prima, Mappe/):
+  //   [Senza classe] senza classe · [classe] · [classe, disciplina]
   // Unica fonte del nesting: renderer (auto-vault, backfill, pipeline) e main.js
   // costruiscono il path da qui, non concatenando a mano. I vault piatti già
   // su disco (comportamento storico) restano leggibili: qui si decide solo dove
   // vanno quelli NUOVI.
   function mapVaultParents(classDir, discipline) {
     var c = safeName(classDir, '');
-    if (!c) return [GENERICO];
+    if (!c) return [SENZA_CLASSE];
     var d = disciplineFolder(discipline);
     return d ? [c, d] : [c];
   }
@@ -176,11 +207,14 @@
      suo, e mescolarla a quelle della classe ne perde la destinazione.
      Classe e allievo si escludono a vicenda (lo impone già il contesto attivo),
      quindi con l'allievo non c'è nesting di classe/disciplina.
-     `basi` = { maps, students } da `files-root-get`. */
+     `basi` = { maps, students } da `files-root-get`.
+     0104 (N5): la cartella dell'allievo contiene direttamente i suoi progetti,
+     «Allievi/<nome>/<progetto>» — non più «Allievi/<nome>/Mappe». Chi legge
+     accetta ancora la forma di prima (get-all-vaults). */
   function mapVaultRoot(basi, allievo) {
     var a = safeName(allievo, '');
     if (!a || !basi || !basi.students) return (basi && basi.maps) || '';
-    return [basi.students, a, SUB.maps].join('/');
+    return [basi.students, a].join('/');
   }
   /* I segmenti di classe/disciplina valgono SOLO fuori dalla cartella di un
      allievo: dentro, il percorso è già personale. */
@@ -227,6 +261,9 @@
        dello studente e il file, niente di più profondo. `read-vault-file` la
        usa quando INSEGNA apre una consegna nella tela. */
     if (segs.length === 3 && segs[0] === CONSEGNE) return segs.join('/');
+    /* 'Sistema/Figure/<file>.json' (packet 0114; Giacomo, 20/10: «apri il percorso»): il deposito delle letture delle
+       figure, scritto con `vaultPath` = la radice di «MappAI - file». Tre segmenti esatti e solo JSON. */
+    if (segs.length === 3 && segs[0] === SUB.system && segs[1] === FIGURE && /\.json$/i.test(segs[2])) return segs.join('/');
     return null;
   }
 
@@ -303,6 +340,19 @@
      Fonti/, Consegne/, i dotfile.
      Ritorna il rel normalizzato o null; la usa chi ESPONE (live-server) e chi
      RICEVE (l'adapter dello studente): fiducia zero nel manifest. */
+  /* La chiave della mappa nel QR «Vault su iPad» (0109): `?s=<token>-<chiave>`.
+     Il server dei materiali dà il vault solo al QR che nomina la mappa esposta:
+     un QR di documento (solo il token), il QR di A dopo la condivisione di B o
+     dopo un riavvio non portano più la mappa sbagliata. Non è un segreto (il
+     gate resta il token), è un'etichetta: NFC, FNV-1a a 32 bit, base 36. */
+  function chiaveVault(nome) {
+    var s = String(nome == null ? '' : nome).trim();
+    try { s = s.normalize('NFC'); } catch (e) { }
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(36);
+  }
+
   function relVaultStudente(relPath) {
     var raw = String(relPath == null ? '' : relPath).replace(/\\/g, '/').trim();
     if (!raw || raw.charAt(0) === '/' || /^[a-zA-Z]:/.test(raw)) return null;
@@ -331,7 +381,11 @@
 
   // Cartelle note NON-vault dentro Mappe/: escluse dalla scansione a 2 livelli
   // (contenitori di sistema, mai vault) — main.js importa questa costante.
-  var VAULT_CONTAINER_EXCLUDE = ['Chat', 'Quiz e Flashcard', 'Studio Attivo'];
+  /* I contenitori di ripiego (chat, quiz, studio senza vault): con la struttura
+     nuova vivono in Sistema/<nome> (0104, N2). */
+  var CONTENITORI_RIPIEGO = ['Chat', 'Quiz e Flashcard', 'Studio Attivo'];
+  /* 0104: «Credenziali» sta in Classi/ accanto alle classi, ma non contiene progetti. */
+  var VAULT_CONTAINER_EXCLUDE = CONTENITORI_RIPIEGO.concat([CREDENZIALI]);
 
   // Codici attività → etichetta leggibile. Passa-attraverso in Title Case se ignoto.
   var ACT = {
@@ -685,6 +739,19 @@
     titoloDaFile: titoloDaFile,
     disciplineFolder: disciplineFolder,
     GENERICO: GENERICO,
+    SENZA_CLASSE: SENZA_CLASSE,
+    CREDENZIALI: CREDENZIALI,
+    COPIE_MAPPE: COPIE_MAPPE,
+    USAGE: USAGE,
+    DIAGNOSTICA: DIAGNOSTICA,
+    ARCHIVIO: ARCHIVIO,
+    FIGURE: FIGURE,
+    depositoFigure: depositoFigure,
+    CLASSI_JSON: CLASSI_JSON,
+    REGISTRO_RIORDINO: REGISTRO_RIORDINO,
+    SISTEMA_DA_RADICE: SISTEMA_DA_RADICE,
+    RADICE_V2: RADICE_V2,
+    CONTENITORI_RIPIEGO: CONTENITORI_RIPIEGO,
     SORGENTI: SORGENTI,
     classDirDaCartella: classDirDaCartella,
     mapVaultParents: mapVaultParents,
@@ -696,6 +763,7 @@
     senzaCarattere: senzaCarattere,
     variantiDaPotare: variantiDaPotare,
     relVaultStudente: relVaultStudente,
+    chiaveVault: chiaveVault,
     materialeSoloDocente: materialeSoloDocente,
     identitaStudente: identitaStudente,
     VAULT_CONTAINER_EXCLUDE: VAULT_CONTAINER_EXCLUDE,

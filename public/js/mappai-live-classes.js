@@ -1099,13 +1099,21 @@
       });
     }).then(function (out) {
       if (out && out.success && opts && opts.avvisa) {
-        toast(t('cls_cred_saved', 'Foglio credenziali salvato in Classi/') + c.name, 'success');
+        /* 0104 (bivio 7): con la struttura nuova il foglio sta in Classi/Credenziali */
+        toast(_inCredenziali(out) ? t('cls_cred_saved_v2', 'Foglio credenziali salvato in Classi/Credenziali')
+          : t('cls_cred_saved', 'Foglio credenziali salvato in Classi/') + c.name, 'success');
       }
       return out;
     }).catch(function (e) {
       if (opts && opts.avvisa) toast(t('cls_cred_ko', 'Foglio credenziali non salvato: ') + e.message, 'warning');
       return null;
     });
+  }
+  /* 0104: il main dice dove ha scritto; la cartella delle credenziali si riconosce dal nome */
+  function _inCredenziali(out) {
+    var FC = window.MappAIFilesCore, nome = (FC && FC.CREDENZIALI) || 'Credenziali';
+    var d = String((out && out.dir) || '').replace(/[\\\/]+$/, '');
+    return d.slice(-(nome.length + 1)).replace(/\\/g, '/') === '/' + nome;
   }
   /* Un allievo ha la SUA tessera: chi arriva a metà anno se la porta via senza
      il foglio di tutta la classe. Vive in «Allievi/<nome>/», fuori dalla
@@ -1126,7 +1134,9 @@
       });
     }).then(function (out) {
       if (out && out.success && opts && opts.avvisa) {
-        toast(t('cls_cred_stud_saved', 'Tessera salvata in Allievi/') + etichetta, 'success');
+        /* 0104 (bivio 8): con la struttura nuova anche la tessera sta in Classi/Credenziali */
+        toast(_inCredenziali(out) ? t('cls_cred_stud_saved_v2', 'Tessera salvata in Classi/Credenziali')
+          : t('cls_cred_stud_saved', 'Tessera salvata in Allievi/') + etichetta, 'success');
       }
       return out;
     }).catch(function () { return null; });
@@ -1195,7 +1205,7 @@
      crea una.
      Kill-switch `mappai_gen_ctx_sempre='0'` → si torna a chiedere solo quando
      serve (comportamento storico). */
-  STORE.ensureGenerationContext = function () {
+  STORE.ensureGenerationContext = function (opts) {
     var ready = STORE.loaded ? Promise.resolve() : STORE.load();
     return ready.then(function () {
       var cls = STORE.getActive();
@@ -1210,6 +1220,9 @@
          automatico chiederebbe due volte la stessa cosa — e nel migliore dei
          casi resterebbe lì ad aspettare una risposta che nessuno sta guardando. */
       try { if (window.MappAIPipeline && window.MappAIPipeline._interno) sempre = false; } catch (e) { }
+      /* 0103: lo stesso per «solo la mappa» di CREA — destinatario e materia li ha
+         già scritti il riquadro giallo (`mp-chi`/`mp-disc`) nel contesto attivo */
+      if (opts && opts.contestoDaCrea === true) sempre = false;
 
       if (!sempre) {
         var choices0 = cls ? STORE.disciplineChoices(cls) : [];

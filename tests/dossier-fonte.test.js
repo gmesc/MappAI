@@ -864,9 +864,9 @@ test('giro 12 · come si mostra un file: immagine → <img> (blob); HTML, PDF, a
     /* il resto: gli stessi tipi dell'espressione di `_montaFile` prima del giro */
     assert.deepEqual(DF.anteprimaFile('Materiale Studio/Sintesi-x.html'), { modo: 'srcdoc', mime: 'text/html' });
     assert.deepEqual(DF.anteprimaFile('a.htm'), { modo: 'srcdoc', mime: 'text/html' });
-    assert.deepEqual(DF.anteprimaFile('Materiale Studio/Quiz.pdf'), { modo: 'data', mime: 'application/pdf' });
-    assert.deepEqual(DF.anteprimaFile('voce.mp3'), { modo: 'data', mime: 'audio/mpeg' });
-    assert.deepEqual(DF.anteprimaFile('voce.wav'), { modo: 'data', mime: 'audio/mpeg' });
+    assert.deepEqual(DF.anteprimaFile('Materiale Studio/Quiz.pdf'), { modo: 'blob', mime: 'application/pdf' });
+    assert.deepEqual(DF.anteprimaFile('voce.mp3'), { modo: 'blob', mime: 'audio/mpeg' });
+    assert.deepEqual(DF.anteprimaFile('voce.wav'), { modo: 'blob', mime: 'audio/mpeg' });
     assert.deepEqual(DF.anteprimaFile('note.txt'), { modo: 'data', mime: 'application/octet-stream' });
     assert.deepEqual(DF.anteprimaFile(''), { modo: 'data', mime: 'application/octet-stream' });
 });

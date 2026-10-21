@@ -1015,3 +1015,17 @@ test('0088 B15: con la conferma G1 si apre col piano chiesto al motore; il testo
     await r2.querySelector('#mps-rivedi').onclick();
     assert.match(testi[0], stage === 'done' ? /in attesa restano salvati/ : /appena completati restano come sono/);
 });
+
+/* 0097 (Giacomo, 15/10 sera: «mettilo nel 0097»): «Riprendi» su una G1 approvata e poi superata, col controllo nuovo che non può
+   partire (la chiave del provider manca). `requireApproved` lancia PRIMA del try di `Pipeline.run`, e «Riprendi» non raccoglie
+   l'errore: l'avviso rosso si perdeva. Ora il cancello lo mostra come avviso e il giro finisce senza lanciare. */
+test('0097: «Riprendi» col controllo nuovo che non può partire mostra l’avviso e non lancia', async () => {
+    const h = runtime();
+    let m = await h.fresh(config(false));
+    m = await h.approveMap(m);
+    h.w.MappAIReview.requireApproved = async () => { throw new Error('Chiave del provider mancante.'); };
+    await assert.doesNotReject(() => h.run(m));
+    assert.ok(h.log.toasts.some(x => x.message === 'Chiave del provider mancante.' && x.type === 'error'), JSON.stringify(h.log.toasts));
+    assert.equal(h.log.calls.mc, 0, 'niente materiali');
+    assert.equal(h.w.MappAIPipeline.occupata(), false, 'il giro non resta occupato');
+});

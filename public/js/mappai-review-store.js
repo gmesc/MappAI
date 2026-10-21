@@ -57,8 +57,8 @@ function checkMapWrite(folder, mapData) {
     throw new Error('review-conflict: salvataggio delle decisioni in corso');
   }
   if (initial.status === 'applying' && (
-      ReviewCore.revision(mapData, review.sources) !== review.approvedRevision ||
-      JSON.stringify(ReviewCore.semanticSnapshot(mapData)) !== JSON.stringify(ReviewCore.semanticSnapshot(review.approvedSnapshot)))) {
+      // 0097: in forma canonica, come completeApproval
+      !ReviewCore.coincide(mapData, review.sources, review, 'approved'))) {
     throw new Error('review-conflict: il contenuto non coincide con le decisioni confermate');
   }
 }

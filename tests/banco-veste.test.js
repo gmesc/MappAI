@@ -7528,3 +7528,79 @@ test('0086 g3d le chiavi nuove stanno in en_translations.js, nel blocco dello 00
     assert.equal(it.includes(k), false, k + ' non in it_translations.js');
   }
 });
+
+/* ── 0097, allargamento del 15/10: il piè di una revisione APPROVATA e poi superata ──
+   Al gate (copia del 4B col titolo di un nodo cambiato) la testa diceva «La mappa o le fonti non corrispondono…» e il piè
+   «La revisione è approvata e le decisioni sono salvate nel progetto.». Ora il piè dice la frase che il piè di una revisione
+   in attesa usa già nello stesso caso; approvata e non superata, «approvata» come prima. */
+test('0097: G1 approvata e poi superata — il piè dice che cosa fare e il bottone «Ricontrolla la mappa adesso» lo fa, non «approvata»', async () => {
+  const report = { checkStatus: 'completed', issues: [] };
+  const approvata = () => {
+    const m = g1Manifest(report), begun = Core.beginApproval(m.review, DB1, { sources: SOURCES1 });
+    m.review = Core.completeApproval(begun.review, begun.revision); return m;
+  };
+  const buona = runtime1({ manifest: approvata() }); buona.apri1();
+  assert.match(q(buona, '#mrv-next-step').textContent, /La revisione è approvata/);
+  assert.equal(q(buona, '#mrv-continue').textContent, 'Chiudi', 'approvata e non superata: il bottone di prima');
+  const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'B').label = 'Banche svizzere';
+  const h = runtime1({ manifest: approvata(), db: cambiata }); h.apri1();
+  const piede = q(h, '#mrv-next-step').textContent;
+  // seconda decisione di Giacomo (15/10 sera): il piè dice che cosa fare, e il bottone lo fa
+  assert.equal(piede, 'La mappa è cambiata, per continuare premi «Ricontrolla la mappa adesso». Le decisioni approvate restano salvate.');
+  assert.equal(/La revisione è approvata/.test(piede), false, 'niente «approvata» sotto l’avviso');
+  const bottone = q(h, '#mrv-continue');
+  assert.equal(bottone.hidden, false);
+  assert.equal(bottone.textContent, 'Ricontrolla la mappa adesso');
+  const approvataPrima = clone(h.rev());
+  await bottone.click(); await tick(); await tick(); await tick();
+  assert.equal(h.rev().initial.status, 'awaiting_review', 'il controllo nuovo sulla mappa di adesso');
+  assert.equal(h.rev().previous.approvedRevision, approvataPrima.approvedRevision, 'la revisione approvata resta in previous');
+  assert.equal(Core.coincide(cambiata, h.rev().sources, h.rev(), 'base'), true, 'la revisione nuova fotografa la mappa di adesso');
+  assert.ok(h.calls.manifest >= 1, 'scritta sul disco');
+});
+
+test('0097: G2 approvata e poi superata — il piè dice la frase dell’avviso, non «approvata»', async () => {
+  const report = { checkStatus: 'completed', issues: [] }, m = finalManifest(ITEMS, report), fr = m.review.final;
+  const prima = Core.beginApproval(fr.review, { items: fr.items }, { sources: fr.review.sources });
+  fr.review = Core.completeApproval(prima.review, Core.revision({ items: fr.items }, fr.review.sources)); fr.stage = 'approved';
+  fr.items.find(i => i.id === 'fc1').answer = 'Cambiata altrove.';
+  const h = runtime({ manifest: m, report }); h.apri();
+  const piede = q(h, '#mrv-next-step').textContent;
+  assert.match(piede, /non corrispondono alla versione di questa revisione/);
+  assert.equal(/La revisione è approvata/.test(piede), false, 'niente «approvata» sotto l’avviso');
+});
+
+test('0097: «Ricontrolla la mappa adesso» senza chiave — l’errore arriva al docente come avviso, la revisione approvata resta', async () => {
+  const report = { checkStatus: 'completed', issues: [] };
+  const m = g1Manifest(report), begun = Core.beginApproval(m.review, DB1, { sources: SOURCES1 });
+  m.review = Core.completeApproval(begun.review, begun.revision);
+  const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'B').label = 'Banche svizzere';
+  const h = runtime1({ manifest: m, db: cambiata }), avvisi = [];
+  h.window.executeJudgePass = async () => { throw new Error('Chiave del provider mancante.'); };
+  h.window.showToast = (testo, tipo) => avvisi.push([testo, tipo]);
+  h.apri1();
+  await q(h, '#mrv-continue').click(); await tick(); await tick(); await tick();
+  assert.deepEqual(avvisi, [['Chiave del provider mancante.', 'error']]);
+  assert.equal(h.rev().initial.status, 'approved', 'niente revisione nuova senza il controllo');
+  assert.equal(h.calls.manifest, 0, 'niente scritto sul disco');
+});
+
+/* 0097 riaperto (Giacomo, 15/10 sera: «Banco: allineare il riquadro giallo della riga al piè»): con la G1 APPROVATA e poi superata il
+   riquadro giallo della riga dice la frase del piè; con la revisione in attesa e la mappa cambiata, quella di prima. */
+test('0097: G1 approvata e superata — il riquadro giallo della riga dice la frase del piè; in attesa quella di prima', async () => {
+  const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'E').label = 'Esercito svizzero';
+  const m = decidiTutto(g1Manifest()), begun = Core.beginApproval(m.review, DB1, { sources: SOURCES1, manualReview: true });
+  assert.equal(begun.ok, true, JSON.stringify(begun.conflicts));
+  m.review = Core.completeApproval(begun.review, begun.revision);
+  const h = runtime1({ manifest: m, db: cambiata }); h.apri1();
+  await vaiA(h, rigaG1(h, 'A') ? 'A' : righe1(h)[0].getAttribute('data-veste-riga'));
+  const FRASE = 'La mappa è cambiata, per continuare premi «Ricontrolla la mappa adesso». Le decisioni approvate restano salvate.';
+  const box = q(h, '[data-veste-avvisi]').textContent;
+  assert.equal(box.includes(FRASE), true, 'il riquadro: ' + box);
+  assert.equal(/riaprire la revisione sulla versione corretta/.test(box), false);
+  assert.equal(q(h, '#mrv-next-step').textContent, FRASE, 'riquadro e piè dicono la stessa cosa');
+  // in attesa, mappa cambiata: la frase di prima, nel riquadro come nel piè
+  const a = runtime1({ manifest: g1Manifest(), db: cambiata }); a.apri1();
+  await vaiA(a, rigaG1(a, 'A') ? 'A' : righe1(a)[0].getAttribute('data-veste-riga'));
+  assert.match(q(a, '[data-veste-avvisi]').textContent, /La mappa o le fonti non corrispondono alla versione di questa revisione/);
+});

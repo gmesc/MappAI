@@ -69,6 +69,8 @@
      *          dyslexia?:boolean, accent?:string}} o
      *   - bodyHtml: HTML del corpo già pronto (ha precedenza su sections)
      *   - sections: scorciatoia per il corpo "per aree" (vedi sectionsBody)
+     *   - titoloFile: il <title>, cioè il nome che il PDF salvato propone (0096: «[progetto] -
+     *     Scheda evidenziata»); senza, il titolo visibile
      * @returns {string} documento HTML completo (<!DOCTYPE html>…)
      */
     function buildHtml(o) {
@@ -90,6 +92,11 @@
             '<label class="sd-read-row"><span>' + _esc(_t('sd_odys', 'Font OpenDyslexic')) + '</span><input type="checkbox" id="sd-odys"></label>' +
             '<label class="sd-read-row"><span>' + _esc(_t('sd_letter', 'Spazio lettere')) + '</span><input type="range" id="sd-ls" min="0" max="0.3" step="0.01" value="0"></label>' +
             '<label class="sd-read-row"><span>' + _esc(_t('sd_word', 'Spazio parole')) + '</span><input type="range" id="sd-ws" min="0" max="0.6" step="0.02" value="0"></label>' +
+            /* 0096 (G, Giacomo al gate del 15/10): «nel pannello leggibilità ci sia anche l'opzione per
+               gestire lo spazio dell'interlinea». Un FATTORE sull'interlinea di partenza di ogni testo
+               (`--sd-lhk`), non un valore assoluto: paragrafi, voci e OpenDyslexic partono da interlinee
+               diverse, e così restano in proporzione. */
+            '<label class="sd-read-row"><span>' + _esc(_t('sd_line', 'Interlinea')) + '</span><input type="range" id="sd-lh" min="1" max="1.6" step="0.05" value="1"></label>' +
             '<div class="sd-read-sep"></div>' +
             '<label class="sd-read-row"><span>' + _esc(_t('sd_bionic', 'Lettura bionica')) + '</span><input type="checkbox" id="sd-bio"></label>' +
             '<label class="sd-read-row"><span>' + _esc(_t('sd_fixation', 'Fissazione')) + '</span><input type="range" id="sd-fix" min="1" max="5" step="1" value="3"></label>' +
@@ -99,7 +106,7 @@
 <html lang="${lang}">
 <head>
 <meta charset="UTF-8">
-<title>${title}</title>
+<title>${o.titoloFile ? _esc(o.titoloFile) : title}</title>
 <style>
 ${_fontDoc(o.font)}
 @font-face { font-family:'OpenDyslexic'; font-weight:400; font-display:swap; src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff'); }
@@ -114,8 +121,8 @@ body { font-family:var(--doc-font, 'Space Mono', monospace); font-size:12px; col
 .sd-sec-h { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:900; margin:0 0 12px; padding-bottom:6px; border-bottom:2px solid; }
 .sd-dot { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
 .sd-count { margin-left:auto; font-size:10px; font-weight:700; color:var(--mm-testo-3, #64748b); background:#f1f5f9; border-radius:999px; padding:1px 9px; }
-.sd-item { font-size:12px; line-height:1.7; color:var(--mm-testo, #404040); padding:8px 12px; margin:0 0 7px; border-radius:0 6px 6px 0; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
-.sd-body p { font-size:12px; line-height:1.85; color:var(--mm-testo, #404040); margin:0 0 12px; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
+.sd-item { font-size:12px; line-height:calc(1.7 * var(--sd-lhk, 1)); color:var(--mm-testo, #404040); padding:8px 12px; margin:0 0 7px; border-radius:0 6px 6px 0; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
+.sd-body p { font-size:12px; line-height:calc(1.85 * var(--sd-lhk, 1)); color:var(--mm-testo, #404040); margin:0 0 12px; letter-spacing:var(--sd-ls); word-spacing:var(--sd-ws); }
 .sd-source span { border-radius:3px; }
 .sd-empty { font-size:11px; color:var(--mm-testo-3, #64748b); font-style:italic; }
 .sd-footer { text-align:center; margin-top:22px; font-size:9px; color:var(--mm-testo-3, #64748b); }
@@ -123,7 +130,7 @@ b.sd-bio { font-weight:700; color:inherit; }
 /* OpenDyslexic (toggle nel pannello Leggibilità) */
 body.sd-odys { background:#f6efdd; }
 body.sd-odys .sd-body { background:#fffdf6; max-width:none; }
-body.sd-odys .sd-body p, body.sd-odys .sd-item { font-family:'OpenDyslexic',Verdana,'Trebuchet MS',sans-serif; font-size:15px; line-height:2.05; color:#33312e; }
+body.sd-odys .sd-body p, body.sd-odys .sd-item { font-family:'OpenDyslexic',Verdana,'Trebuchet MS',sans-serif; font-size:15px; line-height:calc(2.05 * var(--sd-lhk, 1)); color:#33312e; }
 body.sd-odys .sd-sec-h { font-family:'OpenDyslexic',Verdana,sans-serif; }
 .sd-topbar { position:fixed; top:0; left:0; right:0; background:#fff; border-bottom:1px solid var(--mm-bordo, #cbd5e1); padding:10px 24px; display:flex; align-items:center; justify-content:space-between; z-index:100; font-size:12px; }
 .sd-brand { font-weight:bold; color:${accent}; white-space:nowrap; }
@@ -161,10 +168,10 @@ ${readPanel}
   var $=function(id){return document.getElementById(id);};
   var body=document.body, panel=$('sd-read-panel'), btn=$('sd-readbtn');
   if(btn&&panel){ btn.addEventListener('click',function(){ panel.classList.toggle('open'); btn.classList.toggle('on'); }); }
-  var odys=$('sd-odys'), ls=$('sd-ls'), ws=$('sd-ws'), bio=$('sd-bio'), fix=$('sd-fix');
+  var odys=$('sd-odys'), ls=$('sd-ls'), ws=$('sd-ws'), lh=$('sd-lh'), bio=$('sd-bio'), fix=$('sd-fix');
   if(odys) odys.addEventListener('change',function(){ body.classList.toggle('sd-odys', odys.checked); });
-  function sp(){ body.style.setProperty('--sd-ls',((ls&&ls.value)||0)+'em'); body.style.setProperty('--sd-ws',((ws&&ws.value)||0)+'em'); }
-  if(ls) ls.addEventListener('input',sp); if(ws) ws.addEventListener('input',sp);
+  function sp(){ body.style.setProperty('--sd-ls',((ls&&ls.value)||0)+'em'); body.style.setProperty('--sd-ws',((ws&&ws.value)||0)+'em'); body.style.setProperty('--sd-lhk',String((lh&&lh.value)||1)); }
+  if(ls) ls.addEventListener('input',sp); if(ws) ws.addEventListener('input',sp); if(lh) lh.addEventListener('input',sp);
   var bodyEl=document.querySelector('.sd-body'), saved=bodyEl?bodyEl.innerHTML:null;
   function frac(){ return 0.2 + (parseInt((fix&&fix.value)||3,10)||3)*0.1; }
   function bionify(){

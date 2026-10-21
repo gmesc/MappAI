@@ -86,9 +86,39 @@ test('OGNI emoji di identità è dentro il font — è il test che scopre il fon
         '\n→ python3 tools/font/emoji-sottoinsieme.py');
 });
 
+/* Packet 0108: oltre alle 27, il font porta le emoji che le pagine degli allievi
+   e i report scrivono — i file di SORGENTI_ALLIEVI, letti dallo script stesso. */
+const decorative = () => {
+    const py = leggi('tools/font/emoji-sottoinsieme.py');
+    const blocco = py.match(/SORGENTI_ALLIEVI = \[([\s\S]*?)\]/);
+    assert.ok(blocco, 'SORGENTI_ALLIEVI non trovato nello script');
+    const out = new Map();  // codepoint → primo file che la scrive
+    for (const m of blocco[1].matchAll(/'([^']+)'/g)) {
+        for (const c of leggi(m[1])) {
+            const v = c.codePointAt(0);
+            if (v >= 0x2000 && /\p{Extended_Pictographic}/u.test(c) && !out.has(v)) out.set(v, m[1]);
+        }
+    }
+    return out;
+};
+
+test('0108: ogni emoji scritta nelle pagine degli allievi e nei report è dentro il font', () => {
+    const dentro = codepointDelFont(FONT);
+    const mancanti = [...decorative()].filter(([c]) => !dentro.has(c))
+        .map(([c, f]) => `${String.fromCodePoint(c)} (${f})`);
+    assert.deepEqual(mancanti, [], 'mancano nel font: ' + mancanti.join(', ') +
+        '\n→ python3 tools/font/emoji-sottoinsieme.py && python3 tools/font/emoji-in-svg.py');
+});
+
+test('0108: ⚠️ e 💡 sono nel font (le ha chieste Giacomo il 16/10)', () => {
+    const dentro = codepointDelFont(FONT);
+    assert.ok(dentro.has(0x26A0), '⚠ manca');
+    assert.ok(dentro.has(0x1F4A1), '💡 manca');
+});
+
 test('il font non porta glifi che nessuno usa', () => {
     const dentro = codepointDelFont(FONT);
-    const usati = new Set();
+    const usati = new Set(decorative().keys());
     for (const emoji of attese().keys()) for (const c of emoji) usati.add(c.codePointAt(0));
     // .notdef e simili non stanno nella cmap, quindi il confronto è pulito.
     const extra = [...dentro].filter(c => !usati.has(c)).map(c => String.fromCodePoint(c));

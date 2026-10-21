@@ -196,12 +196,12 @@ test('resume: step done NON si ritocca; solo failed/pending ripartono (guardia o
 // ── estimateCalls ───────────────────────────────────────────────────────
 test('estimateCalls: rami × tipi + keyword + sintesi + audio', () => {
   const e = PC.estimateCalls(fullConfig, { branches: 4, nodes: 40, audioBlocks: 3 });
-  // A = 4+2 = 6 ; B = 4 rami × 2 tipi = 8 ; C = ceil(40/12) = 4 ; D = 4+1 + 3 audio = 8
+  // A = 4+2 = 6 ; B = 4 rami × 2 tipi = 8 ; C = ceil(40/18) = 3 ; D = 4+1 + 3 audio = 8
   assert.strictEqual(e.perStep.A, 6);
   assert.strictEqual(e.perStep.B, 8);
-  assert.strictEqual(e.perStep.C, 4);
+  assert.strictEqual(e.perStep.C, 3);
   assert.strictEqual(e.perStep.D, 8);
-  assert.strictEqual(e.total, 26);
+  assert.strictEqual(e.total, 25);
 });
 
 test('estimateCalls: senza keyword C=0; senza audio D senza blocchi', () => {

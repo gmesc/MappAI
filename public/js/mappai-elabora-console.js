@@ -147,6 +147,13 @@
        visore era irraggiungibile proprio sulle mappe riaperte, che sono il caso
        normale. Vale anche `vaultRel`, che è come `_collectPdfs` legge i byte dal
        disco (9/8). */
+    /* il nome di una fonte PDF: dal file se c'è, altrimenti da `name`/`vaultRel`
+       (sulle mappe riaperte la voce diceva «PDF 1» pur avendo il nome) */
+    function _nomePdf(p, i) {
+        return (p.file && p.file.name) || p.name
+            || (p.vaultRel ? String(p.vaultRel).split('/').pop() : '')
+            || (t('el_view_pdf', 'PDF') + ' ' + (i + 1));
+    }
     function _pdf() {
         var s = _appState();
         return ((s && s.sources) || []).filter(function (x) {
@@ -442,9 +449,31 @@
         } catch (e) { }
         return tf ? { genere: 'quiz_tf', tipo: 'Quiz V/F' } : { genere: 'quiz_mc', tipo: 'Quiz MC' };
     }
-    /* I nomi che quel genere avrebbe sul disco, in minuscolo: prima la forma
-       nuova, poi quella col marcatore storico. L'ordine conta: a parità di
-       file presenti si aggancia la forma esatta. */
+    /* ── IL NOME DI UN FILE A MENO DEL CARATTERE (0110, 17/10) ─────────────
+       🐛 Si cercava il nome col carattere ATTUALE dell'app («… - Space Mono.pdf»)
+       e lo si confrontava esatto: un quiz scritto in Atkinson Hyperlegible
+       («Quiz-MC-1a Guerra Mondiale-causa - Atkinson Hyperlegible.pdf», vault
+       vero) restava «senza PDF», e dallo 0105 si apriva nell'editor. Il
+       carattere non dice QUALE documento è: si toglie da tutti e due i lati con
+       la regola che già c'è (`senzaCarattere`), dopo il « -VERDE» storico. */
+    function _sezionaNome(nomeFile) {
+        var PC = window.MappAIPipelineCore, FC = window.MappAIFilesCore;
+        var n = String(nomeFile == null ? '' : nomeFile);
+        var m = /\.[A-Za-z0-9]+$/.exec(n);
+        var est = m ? m[0] : '', base = est ? n.slice(0, -est.length) : n;
+        var suf = (PC && PC.SUFFISSO_TARATO) || ' -VERDE';
+        var verde = base.slice(-suf.length).toLowerCase() === suf.toLowerCase();
+        if (verde) base = base.slice(0, -suf.length);
+        var car = '';
+        if (FC && FC.senzaCarattere) {
+            var sc = FC.senzaCarattere(base + est, (PC && PC.fontEtichetta) ? [PC.fontEtichetta()] : []);
+            base = sc.stem; car = sc.carattere;
+        }
+        return { chiave: (base + est).toLowerCase(), carattere: car, verde: verde };
+    }
+    /* Il nome che quel genere avrebbe sul disco, come CHIAVE (minuscolo, senza
+       carattere né « -VERDE»): un elemento solo, in un elenco perché il
+       pre-conteggio delle ambiguità conta gli elenchi. */
     function _nomiAttesi(genere, clone) {
         var PC = window.MappAIPipelineCore;
         var s = _appState();
@@ -456,10 +485,23 @@
            resterebbe senza il documento che ha prodotto). */
         var CL = window.MappAIClona;
         var opz = (CL && CL.opzioniFile) ? CL.opzioniFile(mappa, clone) : { mappa: mappa };
-        var nome = PC.buildFileName(genere, null, false, opz);
-        var tarato = String(nome).replace(/(\.[A-Za-z0-9]+)$/,
-            (PC.SUFFISSO_TARATO || ' -VERDE') + '$1');
-        return [String(nome).toLowerCase(), tarato.toLowerCase()];
+        return [_sezionaNome(PC.buildFileName(genere, null, false, opz)).chiave];
+    }
+    /* Il file del disco con quella chiave, non ancora preso. D1 (Giacomo, 17/10):
+       se lo stesso documento c'è in più caratteri vince quello ATTUALE (senza il
+       « -VERDE» prima di quello col « -VERDE»), se no il più recente. */
+    function _fileAtteso(chiavi, dischi, presi) {
+        var PC = window.MappAIPipelineCore;
+        var ora = (PC && PC.fontEtichetta) ? PC.fontEtichetta() : '';
+        var meglio = null, rMeglio = 9;
+        (dischi || []).forEach(function (f) {
+            if (!f || presi[f.relPath]) return;
+            var x = _sezionaNome(f.name);
+            if (chiavi.indexOf(x.chiave) < 0) return;
+            var r = (x.carattere && x.carattere === ora) ? (x.verde ? 1 : 0) : 2;
+            if (r < rMeglio || (r === rMeglio && (f.mtime || 0) > (meglio.mtime || 0))) { meglio = f; rMeglio = r; }
+        });
+        return meglio;
     }
     /* ── LA SORGENTE DI UN FOGLIO DI DOMANDE APERTE (11/8) ────────────────────
        Il foglio nel vault è un PDF, e un PDF non si corregge. La sua sorgente è
@@ -650,10 +692,7 @@
         });
         _pdf().forEach(function (p, i) {
             out.push({
-                id: 'src:pdf:' + i,
-                titolo: (p.file && p.file.name) || p.name
-                    || (p.vaultRel ? String(p.vaultRel).split('/').pop() : '')
-                    || (t('el_view_pdf', 'PDF') + ' ' + (i + 1)),
+                id: 'src:pdf:' + i, titolo: _nomePdf(p, i),
                 tipo: 'Fonte', data: 0, archivio: false, voce: false, cls: '', disc: ''
             });
         });
@@ -679,13 +718,7 @@
                 data: Date.parse(r.x.date) || 0, archivio: true, modificabile: true,
                 clonabile: true, clone: r.clone || '', voce: false, cls: '', disc: ''
             };
-            var file = null;
-            for (var n = 0; n < r.nomi.length && !file; n++) {
-                if (attesi[r.nomi[n]] !== 1) continue;
-                for (var i = 0; i < dischi.length && !file; i++) {
-                    if (!presi[dischi[i].relPath] && dischi[i].name.toLowerCase() === r.nomi[n]) file = dischi[i];
-                }
-            }
+            var file = _fileAtteso(r.nomi.filter(function (n) { return attesi[n] === 1; }), dischi, presi);
             if (file) {
                 presi[file.relPath] = true;
                 v.relPath = file.relPath;    /* la seconda natura: il file vero */
@@ -728,15 +761,11 @@
                    file di sintesi tenendo il più recente — cioè la copia appena
                    fatta al posto dell'originale, e la copia senza riga (misurato
                    il 6/9). Le copie restano righe loro, dal disco. */
-                var attesi4 = _nomiAttesi('synthesis', '');
-                for (var na4 = 0; na4 < attesi4.length && !v4.relPath; na4++) {
-                    for (var nb4 = 0; nb4 < dischi.length && !v4.relPath; nb4++) {
-                        if (!presi[dischi[nb4].relPath] && dischi[nb4].name.toLowerCase() === attesi4[na4]) {
-                            presi[dischi[nb4].relPath] = true;
-                            v4.relPath = dischi[nb4].relPath;
-                            v4.data = dischi[nb4].mtime || v4.data;
-                        }
-                    }
+                var f4 = _fileAtteso(_nomiAttesi('synthesis', ''), dischi, presi);
+                if (f4) {
+                    presi[f4.relPath] = true;
+                    v4.relPath = f4.relPath;
+                    v4.data = f4.mtime || v4.data;
                 }
                 /* «Fai una copia» = la copia del FILE (`_clonaFile`, come la riga
                    che nasceva dal disco): c'è solo se il file c'è. Niente `docId`
@@ -835,15 +864,11 @@
                 data: Date.parse(d.date) || 0, archivio: true, modificabile: true,
                 docId: d.id, voce: false, cls: '', disc: ''
             };
-            var attesi3 = _nomiAttesi('analisi_fonte', '');
-            for (var na = 0; na < attesi3.length && !v3.relPath; na++) {
-                for (var nb = 0; nb < dischi.length && !v3.relPath; nb++) {
-                    if (!presi[dischi[nb].relPath] && dischi[nb].name.toLowerCase() === attesi3[na]) {
-                        presi[dischi[nb].relPath] = true;
-                        v3.relPath = dischi[nb].relPath;
-                        v3.data = dischi[nb].mtime || v3.data;
-                    }
-                }
+            var f3 = _fileAtteso(_nomiAttesi('analisi_fonte', ''), dischi, presi);
+            if (f3) {
+                presi[f3.relPath] = true;
+                v3.relPath = f3.relPath;
+                v3.data = f3.mtime || v3.data;
             }
             out.push(v3);
         });
@@ -1220,14 +1245,7 @@
         var fonte = [{ id: 'src:text', etichetta: t('el_view_text', 'Testo'), icona: 'file-text', attiva: _voce === 'src:text' }];
         var pdf = _pdf();
         pdf.forEach(function (p, i) {
-            fonte.push({
-                id: 'src:pdf:' + i, icona: 'file-type', attiva: _voce === 'src:pdf:' + i,
-                /* il nome viene dal file se c'è, altrimenti da `name`/`vaultRel`:
-                   sulle mappe riaperte la voce diceva «PDF 1» pur avendo il nome */
-                etichetta: (p.file && p.file.name) || p.name
-                    || (p.vaultRel ? String(p.vaultRel).split('/').pop() : '')
-                    || (t('el_view_pdf', 'PDF') + ' ' + (i + 1))
-            });
+            fonte.push({ id: 'src:pdf:' + i, icona: 'file-type', attiva: _voce === 'src:pdf:' + i, etichetta: _nomePdf(p, i) });
         });
         _gruppo(nav, 'fonte', t('ec_g_fonte', 'Fonte'), fonte);
 
@@ -1415,7 +1433,7 @@
             righe: fonte.map(function (m) {
                 return { id: 'm:' + m.id, chiude: false, celle: [m.titolo] };
             })
-        }];
+        }, _tabellaFigure()];
         var attesa = _righeInAttesa();
         var T = window.MappAITeach;
         if (T && T.tabelleMateriali) {
@@ -1423,6 +1441,57 @@
         }
         if (attesa.length) _conChip(tabs);
         return tabs;
+    }
+
+    /* ── LE FONTI DI UNA MAPPA GIÀ IN MEMORIA (0114, gate 3 del 20/10) ─────────────
+       Una mappa ripristinata dall'autosalvataggio, o appena generata in CREA dopo un
+       ricaricamento, sta in memoria SENZA le sue fonti: la colonna la vede «già
+       aperta», `_cambiaMappa` non parte, e l'unica strada che le rimette dal vault
+       (`ripristinaFontiDalVault`, chiamata da `directLoadVault`) non si percorre.
+       Visto al gate: «Fonte» col solo «Testo» e «Figure» vuota sul progetto appena
+       generato. Qui si fa la stessa chiamata all'apertura, solo se c'è un vault e
+       le fonti sono vuote (quelle in memoria sono sempre le migliori); all'arrivo si
+       ridisegna, con lo stesso patto asincrono di `_caricaDisco`. */
+    function _ripristinaFonti() {
+        try {
+            var st = _appState(), E = EL();
+            if (!st || !st.activeVaultPath || (st.sources || []).length || !E || !E.ripristinaFontiDalVault) return;
+            /* ⚠️ `rifai` vive dentro `open()`: da qui si ridisegna con `rifaiEsterno`, come il disco */
+            Promise.resolve(E.ripristinaFontiDalVault(st.activeVaultPath))
+                .then(function (n) { if (n && _aperta) rifaiEsterno(); })
+                .catch(function () { });
+        } catch (e) { }
+    }
+
+    /* ── LA TABELLA «FIGURE» (packet 0114, D2; Giacomo, 20/10: «tabella sempre presente») ──
+       Subito dopo «Fonte»: una riga per PDF che ha un dossier delle figure, con le stesse
+       QUATTRO colonne delle tabelle dei materiali (Nome · Figure lette · Da controllare ·
+       Controllate dal docente): «Da controllare» dice il numero o «tutte controllate». I
+       numeri li dà la vista di ELABORA, che li chiede al core (`dossier.daControllare`,
+       `dossier.controllata`: un posto solo). Vuota, la tabella resta, come le altre: dice che
+       il genere esiste e che qui non c'è niente da controllare. La riga apre la vista nella
+       tela come il PDF (`src:fig:<i>`, `_dipingi`). ⚠️ Il numero è scritto altrove (trappola
+       15): la vista lo annuncia con `mappai-figure-cambiata`. ⚠️ Le quattro colonne non sono
+       un vezzo: `_conChip` e la prova «A» di tests/materiali-attesa.test.js trattano ogni
+       tabella dopo «Fonte» come una tabella a quattro colonne (l'ultima larga per il chip). */
+    function _tabellaFigure() {
+        var righe = [];
+        try {
+            var E = EL(), per = {};
+            (E && E.figTabella ? E.figTabella() : []).forEach(function (f) { per[f.nome] = f; });
+            _pdf().forEach(function (p, i) {
+                var f = per[_nomePdf(p, i)];
+                if (!f) return;
+                righe.push({ id: 'm:src:fig:' + i, chiude: false, celle: [f.nome, String(f.totale),
+                    f.daControllare ? String(f.daControllare) : t('fig_tutte_controllate', 'tutte controllate'), String(f.controllate)] });
+            });
+        } catch (e) { righe = []; }
+        return {
+            id: 'g:figure', titolo: t('fig_vista', 'Figure'),
+            colonne: [{ etichetta: t('lt_col_nome', 'Nome'), larghezza: '' }, { etichetta: t('fig_col_lette', 'Figure lette') },
+                { etichetta: t('fig_sez_controlla', 'Da controllare') }, { etichetta: t('fig_sez_controllate', 'Controllate dal docente') }],
+            righe: righe, vuota: t('fig_tab_vuota', 'Nessuna figura letta in questo progetto')
+        };
     }
 
     /* ── I MATERIALI CHE ASPETTANO LA G2 (0090, parte A) ──────────────────────
@@ -1506,10 +1575,19 @@
                l'uscita — in S3 no: entrando in modifica i comandi
                dell'anteprima SPARISCONO (D5), e la fonte in S3 non ci va mai */
             if (_doc.natura === 'src' && !_doc.editing && EL() && EL().sourceActions) {
+                /* 0096 (A, Giacomo 14/10): «allineati partendo da destra, anche per
+                   evitare che la maniglia della sidebar li copra parzialmente». La
+                   `colonna: 'barra'` del motore è proprio questo (comandi spinti a
+                   destra sopra un editor, la usa INSEGNA): nessuna regola nuova su
+                   `.mm-sez__azioni`, che è di tutte le console. Con l'interruttore
+                   `mappai_comandi_fonte` a '0', la sezione di prima, a sinistra. */
+                var aDestra = !EL().comandiFonte || EL().comandiFonte();
                 s.sezioni.push({
-                    id: 'src-cmd', nuda: true,
+                    id: 'src-cmd', nuda: true, colonna: aDestra ? 'barra' : null,
                     azioni: EL().sourceActions().map(function (a) {
-                        return { id: a.id, etichetta: a.etichetta, icona: a.icona, ruolo: a.ruolo || 'quieto', chiude: false };
+                        /* `spento`/`fumetto` (0096, B): «Aggiungi PDF» col PDF già allegato */
+                        return { id: a.id, etichetta: a.etichetta, icona: a.icona, ruolo: a.ruolo || 'quieto', chiude: false,
+                            spento: !!a.spento, fumetto: a.fumetto || '' };
                     }).concat([{
                         id: 'esci-doc', etichetta: t('ec_esci', 'Esci'), icona: 'x',
                         ruolo: 'quieto', chiude: false
@@ -1712,7 +1790,7 @@
         try { if (window.MappAITTS && window.MappAITTS.stop) window.MappAITTS.stop(); } catch (e) { }
         try { if (window.MappAILetturaVeloce) window.MappAILetturaVeloce.chiudi(); } catch (e) { }
         /* 0069, giro 12: chi smonta l'anteprima passa di qui (vedi `_montaFile`,
-           `_montaAnteprimaSet`, `_montaHost`): anche il blob dell'immagine se ne va */
+           `_montaHost`): anche il blob dell'immagine se ne va */
         _revocaFoto();
     }
     /* ── L'IMMAGINE NELL'ANTEPRIMA (0069, giro 12) ───────────────────────────────
@@ -1746,6 +1824,98 @@
         img.onerror = ko;
         img.src = _urlFoto;
         box.appendChild(img);
+    }
+
+    /* ── 0096 (E): LA CATENA DEI PERCHÉ IN ELABORA, UNA BARRA SOLA ─────────────
+       Giacomo, 14/10: «la doppia barra deve sparire e mettere il toggle 'modalità
+       esercizio' deve entrare nella prima barra e quando premo stampa viene
+       stampata la modalità esercizio ON o OFF che è attiva a schermo». Il documento
+       della catena porta una barra sua («Catena dei perché · Modalità esercizio ·
+       Stampa», mappai-causal-chains.js): fuori da ELABORA (il file, la finestra a
+       sé, l'HTML consegnato) è l'unico modo di accendere l'esercizio, e lì resta
+       (D2). Qui la spegne `nascondiInIframe` e il suo interruttore passa nella
+       prima barra, subito prima di «Stampa».
+       L'esercizio è la classe `cc-ex` sul `body` del documento, la stessa che
+       accende il bottone della barra interna: «Stampa» (`stampaIframe`) stampa
+       l'iframe com'è, quindi esce lo stato a schermo. Lo stato vive nel documento
+       aperto (`stato.esercizio`): un ridisegno della console rifà l'iframe, e
+       l'interruttore lo ritrova. */
+    function _comandiFonte() {
+        try { return !EL() || !EL().comandiFonte || EL().comandiFonte(); } catch (e) { return true; }
+    }
+    /* Il nome del PDF della Catena (gate del 15/10, Giacomo: «'[nome progetto] - catena
+       perché[ - esercizio].pdf', ' - esercizio' va aggiunto solo se è stato esportato in
+       'Modalità esercizio'»). Si calcola al clic su «Stampa», perché dipende dall'interruttore.
+       Con l'estensione: `stampaIframe` toglie l'ultima, e un nome di progetto con un punto
+       («9.b …») senza estensione perderebbe un pezzo. */
+    function _nomeCatena(esercizio) {
+        var p = '';
+        try { p = (EL() && EL().nomeProgetto) ? EL().nomeProgetto() : ''; } catch (e) { p = ''; }
+        return (p ? p + ' - ' : '') + t('ec_cc_file', 'catena perché') +
+            (esercizio ? ' - ' + t('ec_cc_file_es', 'esercizio') : '') + '.pdf';
+    }
+    /* LA STAMPA COL NOME GIUSTO (gate dello 0096, 15/10). Misurato in Electron: la finestra
+       di stampa di un documento dentro la console propone come nome del PDF il titolo della
+       FINESTRA di MappAI («MappAI — Generatore AI…»), non quello del documento che
+       `stampaIframe` presta per la stampa. Quindi il nome si presta anche alla finestra, e
+       torna com'era a stampa chiusa (`afterprint`, su tutte e due; ripiego dopo 60 s se
+       l'evento non arriva). `nome` con l'estensione: `stampaIframe` toglie l'ultima. */
+    function _stampaConNome(fr, nome) {
+        var D = window.MappAIDocBar;
+        if (!D || !D.stampaIframe) return false;
+        var prima = document.title, rimesso = false, w = null;
+        try { w = fr.contentWindow; } catch (e) { w = null; }
+        var rimetti = function () {
+            if (rimesso) return;
+            rimesso = true;
+            document.title = prima;
+            try { if (w && w.removeEventListener) w.removeEventListener('afterprint', rimetti); } catch (e) { }
+            try { if (window.removeEventListener) window.removeEventListener('afterprint', rimetti); } catch (e) { }
+        };
+        try { if (w && w.addEventListener) w.addEventListener('afterprint', rimetti); } catch (e) { }
+        try { if (window.addEventListener) window.addEventListener('afterprint', rimetti); } catch (e) { }
+        var tm = setTimeout(rimetti, 60000);
+        if (tm && tm.unref) tm.unref();          /* nei test in Node: il ripiego non tiene vivo il processo */
+        document.title = String(nome || prima).replace(/\.[^.]+$/, '');
+        var ok = D.stampaIframe(fr, nome);
+        if (!ok) rimetti();
+        return ok;
+    }
+    function _eCatena(d) {
+        try { return !!(d && d.querySelector && d.querySelector('.cc-legend, .cc-conn-txt')); } catch (e) { return false; }
+    }
+    function _interruttoreEsercizio(barra, prima, fr, stato) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'de-btn de-interruttore';
+        b.textContent = t('cc_exercise', 'Modalità esercizio');
+        b.title = t('ec_cc_es_tip', 'Nasconde i connettivi: l\'allievo li completa. «Stampa» stampa quello che vedi.');
+        function applica() {
+            var on = !!(stato && stato.esercizio);
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            var d = null;
+            try { d = fr.contentDocument; } catch (e) { d = null; }
+            if (d && d.body && d.body.classList) { if (on) d.body.classList.add('cc-ex'); else d.body.classList.remove('cc-ex'); }
+        }
+        b.addEventListener('click', function () {
+            if (stato) stato.esercizio = !stato.esercizio;
+            applica();
+        });
+        barra.insertBefore(b, prima || null);
+        applica();
+        return { applica: applica };
+    }
+    /* I puntini di una Catena salvata prima dello 0096 (D): il file li porta nel
+       suo `<style>`; nell'anteprima si coprono, solo a schermo, e il file non
+       cambia. In stampa il documento era già bianco. */
+    function _fondoPiatto(d) {
+        try {
+            if (!d || d.getElementById('ec-cc-fondo')) return;
+            var st = d.createElement('style');
+            st.id = 'ec-cc-fondo';
+            st.textContent = '@media screen{body{background-image:none !important;background-color:#f8fafc !important}}';
+            (d.head || d.documentElement).appendChild(st);
+        } catch (e) { }
     }
 
     /* Un documento del VAULT nella tela: sola lettura. È un file finito (HTML o
@@ -1786,6 +1956,10 @@
     function _montaFile(box, relPath, opts) {
         var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
         if (!tela) return;
+        /* 0096 (E): lo stato dell'esercizio, se il file è una Catena, vive nel
+           documento aperto ADESSO (il `load` arriva dopo) */
+        var statoCatena = _comandiFonte() ? (_doc || {}) : null;
+        var eCatenaFile = false;      /* si sa al `load`, quando il documento c'è */
         /* l'iframe si ricostruisce da capo a ogni disegno: una lettura in corso
            riguarderebbe un documento che sta per sparire */
         _fermaLettura();
@@ -1929,13 +2103,13 @@
                 barra.appendChild(font);
             }
 
-            bottone(opts && opts.stampa ? t('de_pdf', 'Crea PDF') : t('de_print', 'Stampa')).addEventListener('click', function () {
+            var bStampa = bottone(opts && opts.stampa ? t('de_pdf', 'Crea PDF') : t('de_print', 'Stampa'));
+            bStampa.addEventListener('click', function () {
                 if (opts && opts.stampa) { opts.stampa(); return; }
                 /* 🐛 Prima era `f.contentWindow.print()` dentro un catch muto: con
                    l'iframe a origine opaca lancia SecurityError e il bottone non
                    faceva nulla senza dirlo. */
-                var ok = window.MappAIDocBar && window.MappAIDocBar.stampaIframe
-                    ? window.MappAIDocBar.stampaIframe(fr, nomeFile) : false;
+                var ok = _stampaConNome(fr, eCatenaFile ? _nomeCatena(!!statoCatena.esercizio) : nomeFile);
                 if (!ok) toast(t('ec_stampa_ko', 'Non riesco a stampare questo documento da qui: aprilo dalla cartella.'), 'warning');
             });
 
@@ -2059,11 +2233,25 @@
                     return;
                 }
                 if (!window.MappAIDocBar || !window.MappAIDocBar.nascondiInIframe(fr)) return;
+                /* 0096 (E): una Catena del vault ha la sua barra spenta qui sopra, e
+                   senza l'interruttore l'esercizio non si accendeva più */
+                if (statoCatena && _eCatena(d)) {
+                    eCatenaFile = true;
+                    _fondoPiatto(d);
+                    _interruttoreEsercizio(barra, bStampa, fr, statoCatena);
+                }
                 _montaChip(chipHost, d);
             });
             if (eImg) { _mostraImmagine(host, r.base64, mime, nomeFile); return; }
             if (eHtml) fr.srcdoc = _testoDaBase64(r.base64);
-            else fr.src = 'data:' + mime + ';base64,' + r.base64;
+            else {
+                /* 0100: PDF e audio come `blob:` — un `data:` oltre 2 MiB è bloccato da Chromium */
+                var urlFile = '';
+                if (vistaFile && vistaFile.modo === 'blob' && typeof DFv.blobDaBase64 === 'function') {
+                    try { _revocaFoto(); urlFile = _urlFoto = URL.createObjectURL(DFv.blobDaBase64(r.base64, mime)); } catch (e) { urlFile = ''; }
+                }
+                fr.src = urlFile || ('data:' + mime + ';base64,' + r.base64);
+            }
             host.appendChild(fr);
         }).catch(function () {
             host.innerHTML = '<p style="font-family:monospace;padding:24px">' + t('ec_file_ko', 'Non riesco ad aprire questo file') + '</p>';
@@ -2089,184 +2277,12 @@
         else barra.appendChild(n);
     }
 
-    /* ══ F3 — L'ANTEPRIMA DI UN SET D'ARCHIVIO (v2, D3) ═══════════════════════
-       Una voce d'archivio non è un file: è un set in localStorage. La sua
-       anteprima si GENERA dal builder headless — lo stesso che produce il
-       foglio stampato (`buildQuizSetHtml` / `buildFlashcardSetHtml`, già usati
-       dalla pipeline) — così le due nature mostrano la stessa cosa e il doppio
-       registro si può fondere. Nessun visore nuovo: stesso iframe `srcdoc` e
-       stessa barra `.de-bar` di `_montaFile`.
-       ⚠️ L'anteprima è del DOCENTE: il quiz esce CON il foglio soluzioni
-       (`includeAnswers: true`) — è la revisione, non la copia da consegnare.
-       «Stampa» stampa ciò che si vede; la stampa con/senza soluzioni resta
-       nell'editor, dove c'era già. */
-    /* Il posto dell'ANTEPRIMA nella tela (#ec-file): lo usano i set d'archivio e, dal
-       12/10 (0087 lotto 10-modifica), le sorgenti senza file. */
-    function _hostAnteprima(box) {
-        var tela = (box || document).querySelector('.mm-tela[data-tela="elab"]');
-        if (!tela) return null;
-        _fermaLettura();
-        var vecchio = tela.querySelector('#elab-doc-host'); if (vecchio) vecchio.remove();
-        var vs = tela.querySelector('#ec-src'); if (vs) vs.remove();
-        var vuota = tela.querySelector('.mm-tela__vuota'); if (vuota) vuota.remove();
-        var host = tela.querySelector('#ec-file');
-        if (!host) {
-            host = document.createElement('div');
-            host.id = 'ec-file';
-            host.style.cssText = 'display:flex;flex-direction:column;width:100%;height:100%;min-height:0';
-            tela.appendChild(host);
-        }
-        return host;
-    }
-    function _montaAnteprimaSet(box, setId, opts) {
-        opts = opts || {};
-        var host = _hostAnteprima(box);
-        if (!host) return;
-        var set = _sets().filter(function (x) { return String(x.id) === String(setId); })[0];
-        if (!set) {
-            /* il set può sparire sotto i piedi (mappa ricaricata, set eliminato):
-               si dice, invece di mostrare l'anteprima di ieri */
-            host.innerHTML = '<p style="font-family:monospace;padding:24px">' +
-                t('ec_set_via', 'Questo set non è più nella mappa.') + '</p>';
-            return;
-        }
-        var kind = _kindOf(set);
-        var mappa = (_appState() && _appState().rootNodeLabel) || '';
-        var html = '';
-        try {
-            html = kind === 'flashcards'
-                ? (window.buildFlashcardSetHtml ? window.buildFlashcardSetHtml(set, { includeBar: false, mapName: mappa }) : '')
-                : (window.buildQuizSetHtml ? window.buildQuizSetHtml(set, { includeBar: false, includeAnswers: true, mapName: mappa }) : '');
-        } catch (e) { html = ''; }
-        if (!html) {
-            host.innerHTML = '<p style="font-family:monospace;padding:24px">' +
-                t('ec_anteprima_ko', 'Non riesco a costruire l\'anteprima di questo set.') + '</p>';
-            return;
-        }
-        _barraAnteprima(host, set.title || t('de_quiz', 'Quiz'), html, opts,
-            t('ec_modifica_tip2', 'Apri questo set nell\'editor per correggerlo.'));
-    }
-    /* La barra dell'anteprima («Modifica» · Stampa · «Esci») e l'iframe col documento. */
-    function _barraAnteprima(host, titolo, html, opts, tipModifica) {
-        opts = opts || {};
-        _stiliEditor();
-        host.innerHTML = '';
-
-        var barra = document.createElement('div');
-        barra.className = 'de-bar';
-        var tit = document.createElement('div');
-        tit.className = 'de-bar-t';
-        tit.textContent = titolo;
-        barra.appendChild(tit);
-        var sp = document.createElement('div');
-        sp.className = 'de-spacer';
-        barra.appendChild(sp);
-        function bottone(etichetta, titoloTip, primario) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'de-btn' + (primario ? ' de-primary' : '');
-            b.textContent = etichetta;
-            if (titoloTip) b.title = titoloTip;
-            barra.appendChild(b);
-            return b;
-        }
-        var fr = document.createElement('iframe');
-        if (opts.modifica) {
-            bottone(t('ec_modifica', 'Modifica'),
-                tipModifica || t('ec_modifica_tip3', 'Apri questo documento nell\'editor: il PDF si crea da lì.'), true)
-                .addEventListener('click', function () { opts.modifica(); });
-        }
-        bottone(t('de_print', 'Stampa')).addEventListener('click', function () {
-            var ok = window.MappAIDocBar && window.MappAIDocBar.stampaIframe
-                ? window.MappAIDocBar.stampaIframe(fr, titolo) : false;
-            if (!ok) toast(t('ec_stampa_ko', 'Non riesco a stampare questo documento da qui: aprilo dalla cartella.'), 'warning');
-        });
-        if (opts.esci) {
-            bottone(t('ec_esci', 'Esci'), t('ec_esci_tip', 'Chiudi il documento e torna alle tabelle.'))
-                .addEventListener('click', function () { opts.esci(); });
-        }
-        host.appendChild(barra);
-
-        fr.style.cssText = 'flex:1;min-height:0;width:100%;border:0;background:#fff';
-        fr.setAttribute('title', titolo);
-        /* 0069, giro 11: anche qui un link interno resta nel documento */
-        fr.addEventListener('load', function () {
-            var d = null;
-            try { d = fr.contentDocument; } catch (e) { d = null; }
-            _agganciaNote(d);
-        });
-        fr.srcdoc = html;
-        host.appendChild(fr);
-    }
-
-    /* ── 0087 lotto 10-modifica (Giacomo, 12/10): l'anteprima SENZA file ──────────
-       «ELABORA › Sintesi › Modifica › Editor è il percorso giusto, invece gli altri
-       materiali hanno il percorso ELABORA › Foglio nodi › Editor e manca lo step del
-       bottone Modifica». La console mostrava l'anteprima solo quando il file prodotto
-       esisteva; senza, andava dritta in editor. Ora senza file si GUARDA la sorgente:
-       il documento vero dove c'è un costruttore (catena dei perché dalle catene,
-       domande aperte e sintesi dall'HTML d'archivio), una scheda di presentazione per
-       il foglio dei nodi (esce solo in PDF da jsPDF). «Modifica» apre l'editor come
-       per chi il file ce l'ha; il PDF resta un'istantanea, la sorgente è ciò che si
-       corregge. Se l'anteprima non si costruisce, in editor diritti come prima. */
+    /* 0105 (Giacomo, 16/10): un materiale SENZA file prodotto si apre diritto
+       nell'editor. Qui stavano le due anteprime che lo precedevano — quella dei
+       set d'archivio (v2, D3) e quella al volo dalla sorgente (0087 lotto
+       10-modifica, 12/10) — rimaste senza chiamanti: la storia è in git. */
     function _escHtml(v) {
         return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
-    }
-    function _schedaFoglioNodi(d, saved) {
-        var tp = TIPI.filter(function (x) { return x.id === 'nodesheet'; })[0];
-        var cards = (saved && Array.isArray(saved.cards)) ? saved.cards.length : 0;
-        var righe = [
-            _escHtml(d.titolo || _nomeFunz('Foglio nodi', d.clone)),
-            _escHtml(tp && tp.desc ? tp.desc() : ''),
-            _escHtml(t('ec_ns_scheda_nodi', 'Nodi della mappa: {n}').replace('{n}', _nodi())),
-            cards
-                ? _escHtml(t('ec_ns_scheda_card', 'Card salvate nel progetto: {n} (formato {f})').replace('{n}', cards).replace('{f}', saved.fmt || '2x2'))
-                : _escHtml(t('ec_ns_scheda_nuovo', 'Nessun foglio salvato ancora: l\'editor lo costruisce dalla mappa.')),
-            _escHtml(t('ec_ns_scheda_pdf', 'Il PDF si crea dall\'editor: premi «Modifica».'))
-        ];
-        return '<!doctype html><html><head><meta charset="utf-8"><style>' +
-            'body{font-family:ui-monospace,Menlo,monospace;color:#404040;padding:32px;max-width:720px}' +
-            'h1{font-size:18px;margin:0 0 12px}p{font-size:13px;line-height:1.6;margin:0 0 10px}.k{color:#64748b}' +
-            '</style></head><body><h1>' + righe[0] + '</h1><p>' + righe[1] + '</p><p class="k">' + righe[2] +
-            '</p><p class="k">' + righe[3] + '</p><p>' + righe[4] + '</p></body></html>';
-    }
-    /* L'HTML dell'anteprima per la sorgente in mano (`d` = il documento della console,
-       `voce` la sua voce); null se non si può costruire. */
-    function _htmlSorgente(d, voce) {
-        if (!d) return null;
-        var s = _appState(); var db = s && s.db; var CL = window.MappAIClona;
-        var leggi = function (campo) {
-            try { return (CL && CL.leggiDoc) ? CL.leggiDoc(db, campo, d.clone || '') : ((db && !d.clone) ? db[campo] : null); }
-            catch (e) { return null; }
-        };
-        if (d.dallaMappa === 'causal') {
-            var C = window.MappAICausalCore, CU = window.MappAICausal;
-            if (!C || !CU || !CU.buildDocHtml) return null;
-            var saved = leggi('causalDoc'), chains = null;
-            try {
-                chains = (saved && C.countRows && C.countRows(saved) && C.chainsFromDoc && C.normDoc)
-                    ? C.chainsFromDoc(C.normDoc(saved)) : CU.buildForCurrentMap();
-            } catch (e) { chains = null; }
-            if (!chains) return null;
-            try { return CU.buildDocHtml(chains, CU.mapName ? CU.mapName() : ((s && s.rootNodeLabel) || ''), (saved && saved.font) || '') || null; }
-            catch (e) { return null; }
-        }
-        if (d.dallaMappa === 'nodesheet') return _schedaFoglioNodi(d, leggi('nodeSheet'));
-        if (d.docId || d.natura === 'syn') {
-            var SD = window.MappAIStudyDocs;
-            var id = d.docId || String(voce || '').slice(4);
-            var rec = (SD && SD.get) ? SD.get(id) : null;
-            return (rec && rec.html) || null;
-        }
-        return null;
-    }
-    function _montaAnteprimaSorgente(box, d, voce, opts) {
-        var html = _htmlSorgente(d, voce);
-        if (!html) return false;
-        var host = _hostAnteprima(box);
-        if (!host) return false;
-        _barraAnteprima(host, d.titolo || '', html, opts || {});
-        return true;
     }
 
     /* Il posto della FONTE nella tela. Id `ec-src`: lo cita il foglio di
@@ -2881,43 +2897,11 @@
                 if (hostOq && DEd().render) { try { DEd().render(); } catch (e) { } }
                 return;
             }
-            /* 0087 lotto 10-modifica (12/10): SENZA file prodotto il documento si GUARDA
-               prima — anteprima al volo dalla sorgente — e «Modifica» apre l'editor, come
-               per chi il file ce l'ha. Se l'anteprima non si costruisce, in editor diritti
-               (al giro dopo: `rifai` sta già disegnando). */
-            if (_doc && _doc.editing === false && _doc.natura !== 'disk' && /^(ns|cc|oq|syn):/.test(_voce)) {
-                try { if (DEd().reset) DEd().reset(); } catch (e) { }
-                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
-                var apriEditor = function () {
-                    _fermaLettura();
-                    if (_doc.dallaMappa) { _apriEditorDallaMappa(_doc.dallaMappa, _doc.clone); return; }
-                    _doc.editing = true; rifai();
-                    if (_doc.docId) { _apriEditorAperte(_doc.docId); return; }
-                    try { DEd().openSynthesis(_voce.slice(4)); }
-                    catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
-                };
-                var ok = _montaAnteprimaSorgente(box, _doc, _voce, {
-                    modifica: apriEditor,
-                    esci: function () { _conSalvataggio(_chiudiDocumento); }
-                });
-                if (!ok) setTimeout(apriEditor, 0);
-                return;
-            }
             /* un documento del VAULT: sola lettura, host suo */
             if (_voce.indexOf('disk:') === 0) {
                 try { if (DEd().reset) DEd().reset(); } catch (e) { }
                 try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
                 _montaFile(box, _voce.slice(5), _doc ? _optsDiskV2() : null);
-                return;
-            }
-            /* v2, S2 di un set d'archivio: anteprima dal builder (D3) */
-            if (_doc && !_doc.editing && _voce.indexOf('set:') === 0) {
-                try { if (DEd().reset) DEd().reset(); } catch (e) { }
-                try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
-                _montaAnteprimaSet(box, _voce.slice(4), {
-                    modifica: function () { _apriEditorSet(_voce.slice(4)); },
-                    esci: function () { _conSalvataggio(_chiudiDocumento); }
-                });
                 return;
             }
             /* LA FONTE nella tela: host suo (`#ec-src`), non quello dell'editor —
@@ -2928,12 +2912,14 @@
                 var hs = _montaSrc(box);
                 var E = EL();
                 if (!hs || !E || !E.mountSource) { toast(t('ec_src_ko', 'La vista della fonte non è disponibile.'), 'warning'); return; }
-                var p = _voce.split(':');                 /* ['src','text'|'pdf', idx?] */
+                var p = _voce.split(':');                 /* ['src','text'|'pdf'|'fig', idx?] */
                 /* ⚠️ la vista si passa a `mountSource`, NON con `setSrcView`: quei
                    setter chiamano `render()`, e con l'host del giro precedente già
                    staccato dal documento la chiamata riaprirebbe il workspace a
                    tutto schermo sopra la console. */
-                try { E.mountSource(hs, { view: p[1] === 'pdf' ? 'pdf' : 'text', pdfIdx: p[2] ? +p[2] : 0 }); }
+                /* 0114: `src:fig:<i>` apre la vista «Figure» del PDF i-esimo, per nome */
+                var pdfI = _pdf()[p[2] ? +p[2] : 0];
+                try { E.mountSource(hs, { view: p[1] === 'pdf' ? 'pdf' : (p[1] === 'fig' ? 'figure' : 'text'), pdfIdx: p[2] ? +p[2] : 0, pdfNome: (p[1] === 'fig' && pdfI) ? _nomePdf(pdfI, p[2] ? +p[2] : 0) : undefined }); }
                 catch (e) { toast(t('ec_src_ko', 'La vista della fonte non è disponibile.'), 'warning'); }
                 return;
             }
@@ -3045,11 +3031,14 @@
             _voce = 'set:' + setId;
             try { DEd().openSet(setId); }
             catch (e) { toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning'); }
-            /* l'apertura può RINUNCIARE: allora si resta in anteprima */
+            /* l'apertura può RINUNCIARE: col file si resta nella sua anteprima,
+               senza file si torna all'elenco (0105: un set senza file
+               un'anteprima non ce l'ha più) */
             try {
                 if (DEd().haDocumento && !DEd().haDocumento()) {
+                    if (!_doc.relPath) { _chiudiDocumento(); return; }
                     _doc.editing = false;
-                    _voce = _doc.relPath ? 'disk:' + _doc.relPath : 'set:' + setId;
+                    _voce = 'disk:' + _doc.relPath;
                 }
             } catch (e) { }
             rifai();
@@ -3167,14 +3156,20 @@
             var ok = false;
             try { ok = D.openOpenQuestions(docId); }
             catch (e) { ok = false; }
-            if (!ok) { _doc.editing = false; }   /* ha già avvisato: si resta in anteprima */
+            if (!ok) {
+                /* ha già avvisato: col file si resta nella sua anteprima, senza
+                   file si torna all'elenco (0105) */
+                if (!_doc.relPath) { _chiudiDocumento(); return; }
+                _doc.editing = false;
+            }
             rifai();
         }
         /** C'è un'anteprima dove tornare uscendo dall'editing?
             Ce l'hanno i documenti che vengono da un FILE del vault (`disk:`, si
             rilegge dal disco) e i set d'archivio (`set:`, il builder li
             ridisegna). Non ce l'hanno quelli nati qui (`crea`) né le SINTESI,
-            per cui l'editor È l'unica resa.
+            per cui l'editor È l'unica resa. Dal 0105 (16/10) nemmeno i set
+            senza file: l'anteprima la dà solo un file prodotto.
             🐛 17/8: senza questa domanda, ESC su una sintesi metteva
             `editing = false`, azzerava l'editor e ridisegnava — e siccome
             `_dipingi` non ha un ramo d'anteprima per le sintesi, cadeva su
@@ -3184,7 +3179,7 @@
         function _haAnteprima() {
             if (!_doc) return false;
             if (_doc.natura === 'crea' || _doc.natura === 'syn') return false;
-            return !!_doc.relPath || String(_doc.id || '').indexOf('set:') === 0;
+            return !!_doc.relPath;
         }
 
         function _tornaAnteprima() {
@@ -3299,8 +3294,10 @@
                         _doc = { id: mid, natura: 'disk', relPath: m.relPath, setId: mid.slice(4) };
                         _voce = 'disk:' + m.relPath;
                     } else {
+                        /* 0105: senza file, diritti nell'editor */
                         _doc = { id: mid, natura: 'set', setId: mid.slice(4) };
-                        _voce = mid;
+                        _apriEditorSet(mid.slice(4));
+                        return;
                     }
                 } else if (mid.indexOf('src:') === 0) {
                     _doc = { id: mid, natura: 'src' }; _voce = mid;
@@ -3333,11 +3330,11 @@
                         _doc = { id: mid, natura: 'disk', relPath: mo.relPath, docId: mo.docId };
                         _voce = 'disk:' + mo.relPath;
                     } else {
-                        /* senza PDF si GUARDA la sorgente d'archivio (10-modifica, 12/10):
-                           «Modifica» apre l'editor */
+                        /* senza PDF, diritti nell'editor della sorgente d'archivio
+                           (0105, 16/10; dal 12/10 lo precedeva un'anteprima) */
                         _doc = { id: mid, natura: 'crea', editing: false, docId: mo.docId, titolo: mo.titolo };
                         _voce = mid;
-                        rifai();
+                        _apriEditorAperte(mo.docId);
                         return;
                     }
                 } else if (mid.indexOf('syn:') === 0) {
@@ -3348,12 +3345,17 @@
                         _doc = { id: mid, natura: 'disk', relPath: ms.relPath };
                         _voce = 'disk:' + ms.relPath;
                     } else {
-                        /* solo in archivio: si GUARDA l'HTML d'archivio (10-modifica,
-                           12/10) e «Modifica» apre l'editor (stesso patto di
-                           `natura:'syn'` più sotto) */
-                        _doc = { id: mid, natura: 'syn', editing: false, titolo: ms.titolo };
+                        /* solo in archivio: diritti nell'editor (0105, 16/10; dal
+                           12/10 lo precedeva un'anteprima). Stesso patto di
+                           `natura:'syn'` più sotto: l'editor è l'unica resa */
+                        _doc = { id: mid, natura: 'syn', editing: true, titolo: ms.titolo };
                         _voce = mid;
                         rifai();
+                        try { DEd().openSynthesis(mid.slice(4)); }
+                        catch (e) {
+                            toast(t('ec_apri_ko', 'Non riesco ad aprire questo documento.'), 'warning');
+                            _chiudiDocumento();
+                        }
                         return;
                     }
                 } else if (mid.indexOf('ns:') === 0 || mid.indexOf('cc:') === 0) {
@@ -3375,13 +3377,10 @@
                         rifai();
                         return;
                     }
-                    /* niente ancora sul disco: si GUARDA la sorgente — il documento
-                       vero per la catena, la scheda per il foglio nodi — e «Modifica»
-                       apre l'editor (10-modifica, 12/10; prima si entrava diritti) */
-                    _doc = { id: mid, natura: 'crea', editing: false, dallaMappa: quale, clone: nomeCl,
-                             titolo: riga && riga.titolo };
-                    _voce = mid;
-                    rifai();
+                    /* niente ancora sul disco: diritti nell'editor (0105, 16/10 —
+                       dal 12/10 lo precedeva un'anteprima, prima ancora si entrava
+                       diritti come ora) */
+                    _apriEditorDallaMappa(quale, nomeCl);
                     return;
                 } else return;
                 rifai();
@@ -3470,6 +3469,11 @@
             if (_doc && _doc.editing) _tornaAnteprima();
         }
         document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
+        /* 0114: un gesto sulle figure cambia il numero della tabella «Figure»; mentre la
+           vista è aperta le tabelle non si vedono (la tela le sostituisce), quindi si
+           ridisegna solo l'elenco, quando è lui a schermo */
+        function _suFigure() { if (_aperta && !_doc) { try { rifai(); } catch (e) { } } }
+        document.addEventListener('mappai-figure-cambiata', _suFigure);
 
         /* ── UN DOCUMENTO APERTO DA FUORI ENTRA NELLA TELA (13/8 sera) ────────
            «Crea un documento → Quiz → Le scrivo io» non passa da queste righe:
@@ -3585,6 +3589,7 @@
             _caricaMappe();
             rifaiEsterno = rifai;      /* il disco risponde dopo: serve ridisegnare */
             _caricaDisco();            /* i documenti già prodotti, dal vault */
+            _ripristinaFonti();        /* 0114: le fonti di una mappa già in memoria */
             if (options.letturaId) _apriDocV2(options.letturaId);
         };
         s.suAzione = function (ev, box, ridis) {
@@ -3718,6 +3723,7 @@
             try { if (EL() && EL().unmountSource) EL().unmountSource(); } catch (e) { }
             document.removeEventListener('mappai-doc-uscito', _suUscitaDoc);
             document.removeEventListener('mappai-doc-aperto', _suDocAperto);
+            document.removeEventListener('mappai-figure-cambiata', _suFigure);
             try { _staccaCanale(); } catch (e) { }
             _voce = '';
             _prog = null; _doc = null; _inCorsoV2 = null;
@@ -3746,6 +3752,13 @@
             _disco = null;
             try { rifaiEsterno(); } catch (e) { }
             try { _caricaDisco(); } catch (e) { }
+            return true;
+        },
+        /* 0096 (B): solo il ridisegno, senza rileggere il disco. Lo chiede ELABORA
+           quando un PDF è appena entrato nella fonte: «Aggiungi PDF» si spegne subito. */
+        ridisegna: function () {
+            if (!_aperta) return false;
+            try { rifaiEsterno(); } catch (e) { }
             return true;
         }
     };

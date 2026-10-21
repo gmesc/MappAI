@@ -44,13 +44,13 @@ test('1 · maiuscole e forma Unicode non contano; vince la grafia del docente', 
     assert.equal(p2.materia.nome, 'Educazione civica e società');
 });
 
-test('1 · senza classe: Mappe/Generico/<nome>, e la materia non fa cartella', () => {
+test('1 · senza classe: <base>/Senza classe/<nome> (0104, N5: era Generico), e la materia non fa cartella', () => {
     const p = IV.pianoImport(base({ indice: { classe: '', materia: '' } }));
-    assert.deepEqual(p.destinazione.segmenti, ['Generico', 'La Rivoluzione francese']);
+    assert.deepEqual(p.destinazione.segmenti, ['Senza classe', 'La Rivoluzione francese']);
     assert.equal(p.destinazione.classDir, null);
     assert.deepEqual(p.mancano, []);
     const q = IV.pianoImport(base({ indice: { classe: '', materia: 'Geografia' } }));
-    assert.deepEqual(q.destinazione.segmenti, ['Generico', 'La Rivoluzione francese']);
+    assert.deepEqual(q.destinazione.segmenti, ['Senza classe', 'La Rivoluzione francese']);
     assert.deepEqual(q.mancano, ['materia']);
 });
 
@@ -135,7 +135,7 @@ test('1 · «Scegli tu»: una classe e una materia del docente, o Generico; una 
     assert.deepEqual(d.segmenti, ['4R', 'Italiano', 'La Rivoluzione francese · 02']);
     assert.equal(d.suffisso, true);
     const g = IV.destinazioneScelta(p, { classe: '', materia: 'Italiano' }, q);
-    assert.deepEqual(g.segmenti, ['Generico', 'La Rivoluzione francese']);
+    assert.deepEqual(g.segmenti, ['Senza classe', 'La Rivoluzione francese']);   // 0104, N5: era Generico
     const senzaMateria = IV.destinazioneScelta(p, { classe: '3A', materia: '' }, q);
     assert.deepEqual(senzaMateria.segmenti, ['3A', 'La Rivoluzione francese']);
     assert.throws(() => IV.destinazioneScelta(p, { classe: '2B', materia: 'Storia' }, q), /non del docente/);

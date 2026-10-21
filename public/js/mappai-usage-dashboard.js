@@ -288,7 +288,8 @@
         }).join('');
         const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Consumi AI — ${_esc(docLabel)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<!-- Niente Noto da fonts.googleapis.com (packet 0108, 16/10/2026): questo
+     documento non scrive emoji, e il carattere arriva da _fontDoc(). -->
 <style>
 ${_fontDoc()}
  body{font-family:var(--doc-font, 'Space Mono', monospace);color:var(--mm-testo, #404040);margin:0;background:#fff}

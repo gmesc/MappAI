@@ -501,13 +501,26 @@
     function anteprimaFile(relPath) {
         var p = String(relPath == null ? '' : relPath);
         if (/\.html?$/i.test(p)) return { modo: 'srcdoc', mime: 'text/html' };
-        if (/\.pdf$/i.test(p)) return { modo: 'data', mime: 'application/pdf' };
-        if (/\.(mp3|m4a|wav)$/i.test(p)) return { modo: 'data', mime: 'audio/mpeg' };
+        if (/\.pdf$/i.test(p)) return { modo: 'blob', mime: 'application/pdf' };
+        if (/\.(mp3|m4a|wav)$/i.test(p)) return { modo: 'blob', mime: 'audio/mpeg' };
         if (/\.jpe?g$/i.test(p)) return { modo: 'img', mime: 'image/jpeg' };
         if (/\.png$/i.test(p)) return { modo: 'img', mime: 'image/png' };
         if (/\.webp$/i.test(p)) return { modo: 'img', mime: 'image/webp' };
         if (/\.gif$/i.test(p)) return { modo: 'img', mime: 'image/gif' };
         return { modo: 'data', mime: 'application/octet-stream' };
+    }
+
+    /* 0100 — PDF e audio oltre i 2 MB: un `data:` di più di 2 097 152 caratteri è
+       bloccato da Chromium (about:blank#blocked); un `blob:` si vede a qualunque peso. */
+    function blobDaBase64(b64, mime) {
+        var bin = atob(String(b64 == null ? '' : b64)), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: mime || 'application/octet-stream' });
+    }
+    function blobDaDataUri(uri) {
+        var m = /^data:([^;,]*)((?:;[^;,]*)*?);base64,/i.exec(String(uri == null ? '' : uri));
+        if (!m) return null;
+        try { return blobDaBase64(String(uri).slice(m[0].length), m[1] || 'application/octet-stream'); } catch (e) { return null; }
     }
 
     /* ── IL PANNELLO DELLA FONTE IN G2 ─────────────────────────────────────────
@@ -544,6 +557,8 @@
         richiamiRotti: richiamiRotti,
         fonteDellaHome: fonteDellaHome,
         anteprimaFile: anteprimaFile,
+        blobDaBase64: blobDaBase64,
+        blobDaDataUri: blobDaDataUri,
         soloRiquadro: soloRiquadro,
         campoDelRiquadro: campoDelRiquadro,
         puoConfermare: puoConfermare,

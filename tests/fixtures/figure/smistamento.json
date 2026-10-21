@@ -1,0 +1,1313 @@
+{
+ "nota": "Packet 0113, lotto 7. I 23 ritagli nati digitali e di formule della tornata 4 del banco (16-17/10/2026), Aztechi a parte: soli numeri. Parole di Tesseract 5.5.2 (-l ita) misurate col core (`parole`, `parolaPienaLettere`): tutte, piene (≥ 4 lettere), nuove (piene non presenti nel tipografico della pagina); `doppione` = sequenze di tre parole piene e quante stanno già nel tipografico (`doppione` del core); `tintePiatte` = quota dei pixel negli 8 colori più frequenti a 5 bit per canale, ritaglio a 400 px (0107-smistamento-misura.py); `titolare` = la risposta vera di Gemma 4 31B letta con `lettore` (tipo, «nessun testo»), null se nella tornata non è stato mandato; `nelCore` = il ritaglio resta con la regola del 4 % senza la clausola dei pixel (ADR 0024 §5.3); `atteso` = lo smistamento del §9.1 dell'ADR (caso, chiamate prima della risposta del titolare, motivo). Nessuna trascrizione.",
+ "generato": "2026-10-18",
+ "soglie": {
+  "tintePiatte": 0.7,
+  "doppioneSequenze": 3,
+  "doppioneQuota": 0.9,
+  "parolaPiena": 4
+ },
+ "ritagli": [
+  {
+   "pdf": "UDII4_Lezione3",
+   "nome": "p1-1",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    42.9,
+    264.6,
+    510.9,
+    383.7
+   ],
+   "oggettoPt": [
+    57.3,
+    275.5,
+    482,
+    362
+   ],
+   "areaPct": 34.8,
+   "pixel": [
+    1137,
+    855
+   ],
+   "kB": 231,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 112,
+    "piene": 63,
+    "nuove": 56
+   },
+   "tipografico": {
+    "parole": 192
+   },
+   "doppione": {
+    "sequenze": 61,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.52,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": false,
+    "righe": 4
+   },
+   "controllo": {
+    "righe": 5
+   },
+   "atteso": {
+    "caso": 3,
+    "chiamate": 2,
+    "motivo": "testo",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "UDII4_Lezione3",
+   "nome": "p2-1",
+   "pagina": 2,
+   "sorgente": "xobject",
+   "rettPt": [
+    42.9,
+    198.3,
+    510.9,
+    230
+   ],
+   "oggettoPt": [
+    57.3,
+    204.8,
+    482,
+    217
+   ],
+   "areaPct": 20.9,
+   "pixel": [
+    1135,
+    512
+   ],
+   "kB": 98,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 35,
+    "piene": 20,
+    "nuove": 14
+   },
+   "tipografico": {
+    "parole": 96
+   },
+   "doppione": {
+    "sequenze": 18,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.61,
+   "titolare": {
+    "tipo": "SCHEMA",
+    "nessunTesto": false,
+    "righe": 21
+   },
+   "controllo": {
+    "righe": 21
+   },
+   "atteso": {
+    "caso": 3,
+    "chiamate": 2,
+    "motivo": "testo",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "UDII4_Lezione3",
+   "nome": "p2-2",
+   "pagina": 2,
+   "sorgente": "xobject",
+   "rettPt": [
+    42.9,
+    466.9,
+    509.9,
+    316.9
+   ],
+   "oggettoPt": [
+    57.3,
+    475.8,
+    481,
+    299
+   ],
+   "areaPct": 28.7,
+   "pixel": [
+    1086,
+    675
+   ],
+   "kB": 142,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 114,
+    "piene": 68,
+    "nuove": 64
+   },
+   "tipografico": {
+    "parole": 96
+   },
+   "doppione": {
+    "sequenze": 66,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.7,
+   "titolare": {
+    "tipo": "SCHEMA",
+    "nessunTesto": false,
+    "righe": 14
+   },
+   "controllo": {
+    "righe": 11
+   },
+   "atteso": {
+    "caso": 3,
+    "chiamate": 2,
+    "motivo": "testo",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "UDII4_Lezione3",
+   "nome": "p3-1",
+   "pagina": 3,
+   "sorgente": "xobject",
+   "rettPt": [
+    24.2,
+    69.5,
+    534.2,
+    330.7
+   ],
+   "oggettoPt": [
+    39.3,
+    78.8,
+    504,
+    312
+   ],
+   "areaPct": 31.4,
+   "pixel": [
+    1097,
+    678
+   ],
+   "kB": 197,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 332,
+    "piene": 183,
+    "nuove": 182
+   },
+   "tipografico": {
+    "parole": 26
+   },
+   "doppione": {
+    "sequenze": 181,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.74,
+   "titolare": {
+    "tipo": "ESERCIZIO",
+    "nessunTesto": false,
+    "righe": 14
+   },
+   "controllo": {
+    "righe": 14
+   },
+   "atteso": {
+    "caso": 3,
+    "chiamate": 2,
+    "motivo": "testo",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "2.2-Il-miscuglio-misterioso",
+   "nome": "p1-1",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    91.6,
+    70.2,
+    409.1,
+    73.5
+   ],
+   "oggettoPt": [
+    103.2,
+    72.2,
+    385.9,
+    69.4
+   ],
+   "areaPct": 5.3,
+   "pixel": [
+    1250,
+    225
+   ],
+   "kB": 36,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 3,
+    "piene": 2,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 124
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.67,
+   "titolare": {
+    "tipo": "TESTO",
+    "nessunTesto": false,
+    "righe": 1
+   },
+   "controllo": {
+    "righe": 1
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "2.2-Il-miscuglio-misterioso",
+   "nome": "p1-2",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    25.8,
+    148.2,
+    219,
+    219
+   ],
+   "oggettoPt": [
+    32,
+    154.4,
+    206.7,
+    206.7
+   ],
+   "areaPct": 8.5,
+   "pixel": [
+    669,
+    669
+   ],
+   "kB": 23,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 124
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.75,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "2.2-Il-miscuglio-misterioso",
+   "nome": "p1-3",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    368,
+    405.1,
+    180.6,
+    118.7
+   ],
+   "oggettoPt": [
+    373.1,
+    408.4,
+    170.4,
+    112
+   ],
+   "areaPct": 3.8,
+   "pixel": [
+    551,
+    363
+   ],
+   "kB": 31,
+   "nelCore": false,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 124
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.29,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "2.-Sale-e-saline-in-Svizzera",
+   "nome": "p1-1",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    47.4,
+    238.1,
+    216.4,
+    158.3
+   ],
+   "oggettoPt": [
+    53.5,
+    242.6,
+    204.1,
+    149.4
+   ],
+   "areaPct": 6.1,
+   "pixel": [
+    661,
+    483
+   ],
+   "kB": 62,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 186
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.44,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "2.-Sale-e-saline-in-Svizzera",
+   "nome": "p1-2",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    428.9,
+    387.4,
+    108.2,
+    135.7
+   ],
+   "oggettoPt": [
+    431.9,
+    391.3,
+    102.1,
+    128.1
+   ],
+   "areaPct": 2.6,
+   "pixel": [
+    331,
+    414
+   ],
+   "kB": 14,
+   "nelCore": false,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 186
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.64,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "2.-Sale-e-saline-in-Svizzera",
+   "nome": "p1-3",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    54,
+    551,
+    216.4,
+    144.9
+   ],
+   "oggettoPt": [
+    60.1,
+    555.1,
+    204.1,
+    136.7
+   ],
+   "areaPct": 5.6,
+   "pixel": [
+    331,
+    220
+   ],
+   "kB": 24,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 186
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.18,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "2.-Sale-e-saline-in-Svizzera",
+   "nome": "p2-1",
+   "pagina": 2,
+   "sorgente": "xobject",
+   "rettPt": [
+    134.4,
+    586.2,
+    334.4,
+    204.3
+   ],
+   "oggettoPt": [
+    143.8,
+    592,
+    315.5,
+    192.7
+   ],
+   "areaPct": 12.1,
+   "pixel": [
+    700,
+    427
+   ],
+   "kB": 58,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 158
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.18,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p1-1",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    423,
+    100.2,
+    90.5,
+    90.8
+   ],
+   "oggettoPt": [
+    425.6,
+    102.8,
+    85.3,
+    85.7
+   ],
+   "areaPct": 1.5,
+   "pixel": [
+    276,
+    276
+   ],
+   "kB": 13,
+   "nelCore": false,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 151
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.88,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p1-2",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    30.6,
+    627.2,
+    539.1,
+    64.9
+   ],
+   "oggettoPt": [
+    45.8,
+    629,
+    508.6,
+    61.2
+   ],
+   "areaPct": 6.2,
+   "pixel": [
+    1647,
+    198
+   ],
+   "kB": 36,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 12,
+    "piene": 7,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 151
+   },
+   "doppione": {
+    "sequenze": 5,
+    "presenti": 5,
+    "quota": 1
+   },
+   "tintePiatte": 0.93,
+   "titolare": {
+    "tipo": "TESTO",
+    "nessunTesto": false,
+    "righe": 1
+   },
+   "controllo": {
+    "righe": 1
+   },
+   "atteso": {
+    "caso": 2,
+    "chiamate": 0,
+    "motivo": "doppione",
+    "dopoTitolare": 0
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p3-1",
+   "pagina": 3,
+   "sorgente": "xobject",
+   "rettPt": [
+    49.6,
+    33.3,
+    461.5,
+    188
+   ],
+   "oggettoPt": [
+    62.6,
+    38.6,
+    435.4,
+    177.4
+   ],
+   "areaPct": 15.4,
+   "pixel": [
+    1410,
+    574
+   ],
+   "kB": 87,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 33,
+    "piene": 18,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 129
+   },
+   "doppione": {
+    "sequenze": 16,
+    "presenti": 16,
+    "quota": 1
+   },
+   "tintePiatte": 0.92,
+   "titolare": {
+    "tipo": "TESTO",
+    "nessunTesto": false,
+    "righe": 1
+   },
+   "controllo": {
+    "righe": 1
+   },
+   "atteso": {
+    "caso": 2,
+    "chiamate": 0,
+    "motivo": "doppione",
+    "dopoTitolare": 0
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p4-f1",
+   "pagina": 4,
+   "sorgente": "formule",
+   "rettPt": [
+    29.8,
+    130.7,
+    535.7,
+    565.8
+   ],
+   "oggettoPt": null,
+   "areaPct": 60.5,
+   "pixel": [
+    1488,
+    1572
+   ],
+   "kB": 67,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 34,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 62
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.99,
+   "titolare": {
+    "tipo": "TESTO",
+    "nessunTesto": false,
+    "righe": 6
+   },
+   "controllo": {
+    "righe": 6
+   },
+   "atteso": {
+    "caso": 1,
+    "chiamate": 2,
+    "motivo": "formule",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p5-1",
+   "pagina": 5,
+   "sorgente": "xobject",
+   "rettPt": [
+    442.7,
+    99.6,
+    104.2,
+    75.7
+   ],
+   "oggettoPt": [
+    445.7,
+    101.7,
+    98.3,
+    71.4
+   ],
+   "areaPct": 1.4,
+   "pixel": [
+    318,
+    231
+   ],
+   "kB": 23,
+   "nelCore": false,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 106
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.68,
+   "titolare": {
+    "tipo": "FOTO",
+    "nessunTesto": true,
+    "righe": 0
+   },
+   "controllo": {
+    "righe": 0
+   },
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": 1
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p5-2",
+   "pagina": 5,
+   "sorgente": "xobject",
+   "rettPt": [
+    251.7,
+    475.3,
+    343.6,
+    242.4
+   ],
+   "oggettoPt": [
+    266.2,
+    482.2,
+    481.7,
+    228.7
+   ],
+   "areaPct": 22,
+   "pixel": [
+    1048,
+    741
+   ],
+   "kB": 24,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 1,
+    "piene": 1,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 106
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.99,
+   "titolare": {
+    "tipo": "SCHEMA",
+    "nessunTesto": false,
+    "righe": 9
+   },
+   "controllo": {
+    "righe": 9
+   },
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "Teoria-diseq",
+   "nome": "p5-f1",
+   "pagina": 5,
+   "sorgente": "formule",
+   "rettPt": [
+    29.8,
+    345.2,
+    535.7,
+    301.5
+   ],
+   "oggettoPt": null,
+   "areaPct": 32.2,
+   "pixel": [
+    1488,
+    838
+   ],
+   "kB": 78,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 56,
+    "piene": 21,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 106
+   },
+   "doppione": {
+    "sequenze": 19,
+    "presenti": 19,
+    "quota": 1
+   },
+   "tintePiatte": 0.96,
+   "titolare": {
+    "tipo": "TESTO",
+    "nessunTesto": false,
+    "righe": 3
+   },
+   "controllo": {
+    "righe": 2
+   },
+   "atteso": {
+    "caso": 1,
+    "chiamate": 2,
+    "motivo": "formule",
+    "dopoTitolare": 2
+   }
+  },
+  {
+   "pdf": "3a-Respirazione",
+   "nome": "p1-1",
+   "pagina": 1,
+   "sorgente": "xobject",
+   "rettPt": [
+    215.3,
+    126.8,
+    188.8,
+    185.2
+   ],
+   "oggettoPt": [
+    220.7,
+    132,
+    178.1,
+    174.7
+   ],
+   "areaPct": 6.2,
+   "pixel": [
+    576,
+    566
+   ],
+   "kB": 42,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 5
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.29,
+   "titolare": null,
+   "controllo": null,
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": null
+   }
+  },
+  {
+   "pdf": "3a-Respirazione",
+   "nome": "p5-1",
+   "pagina": 5,
+   "sorgente": "xobject",
+   "rettPt": [
+    21.4,
+    150.3,
+    563.8,
+    293.4
+   ],
+   "oggettoPt": [
+    37.4,
+    158.6,
+    531.8,
+    276.8
+   ],
+   "areaPct": 29.4,
+   "pixel": [
+    1723,
+    64
+   ],
+   "kB": 30,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 10
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.82,
+   "titolare": null,
+   "controllo": null,
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": null
+   }
+  },
+  {
+   "pdf": "3a-Respirazione",
+   "nome": "p7-1",
+   "pagina": 7,
+   "sorgente": "xobject",
+   "rettPt": [
+    388,
+    117.3,
+    148.5,
+    194.7
+   ],
+   "oggettoPt": [
+    392.2,
+    122.8,
+    140.1,
+    183.7
+   ],
+   "areaPct": 5.1,
+   "pixel": [
+    412,
+    541
+   ],
+   "kB": 19,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 7
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.51,
+   "titolare": null,
+   "controllo": null,
+   "atteso": {
+    "caso": 4,
+    "chiamate": 1,
+    "motivo": "foto",
+    "dopoTitolare": null
+   }
+  },
+  {
+   "pdf": "3a-Respirazione",
+   "nome": "p7-2",
+   "pagina": 7,
+   "sorgente": "xobject",
+   "rettPt": [
+    32.5,
+    322.3,
+    547,
+    483.4
+   ],
+   "oggettoPt": [
+    48,
+    336,
+    516,
+    456
+   ],
+   "areaPct": 46.9,
+   "pixel": [
+    836,
+    738
+   ],
+   "kB": 140,
+   "nelCore": false,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 7
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.98,
+   "titolare": null,
+   "controllo": null,
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": null
+   }
+  },
+  {
+   "pdf": "3a-Respirazione",
+   "nome": "p9-1",
+   "pagina": 9,
+   "sorgente": "xobject",
+   "rettPt": [
+    101.8,
+    47.6,
+    419.4,
+    755.8
+   ],
+   "oggettoPt": [
+    113.7,
+    69,
+    395.7,
+    713
+   ],
+   "areaPct": 56.3,
+   "pixel": [
+    811,
+    1462
+   ],
+   "kB": 66,
+   "nelCore": true,
+   "tesseract": {
+    "parole": 0,
+    "piene": 0,
+    "nuove": 0
+   },
+   "tipografico": {
+    "parole": 5
+   },
+   "doppione": {
+    "sequenze": 0,
+    "presenti": 0,
+    "quota": 0
+   },
+   "tintePiatte": 0.96,
+   "titolare": null,
+   "controllo": null,
+   "atteso": {
+    "caso": 5,
+    "chiamate": 1,
+    "motivo": "disegno",
+    "dopoTitolare": null
+   }
+  }
+ ],
+ "r5": {
+  "nota": "Packet 0114, lotto 1 (ADR 0024 rev. 1, punto 2). La FORMA delle due letture dei due schemi di p.2 di UDII4_Lezione3 al gate 3 dello 0113 (19/10, `.figure.json` della casa isolata), senza trascrizione (regola dello 0044): ogni riga è una sequenza di PARTI, `→` è la freccia; `parti` dà quante parole ha ogni parte, e la prova le riempie di parole sintetiche piene. `prima` = l'esito della R5 riga per riga (18/10), `dopo` = l'esito con le righe consecutive e i «forse manca» contenuti tolti.",
+  "casi": [
+   {
+    "nome": "UDII4 p2-2 (schema di destra: freccia e frase, Qwen le spezza su due righe; rosso a torto al gate)",
+    "tipo": "SCHEMA",
+    "parti": {
+     "f": 1,
+     "c": 3,
+     "s1": 41,
+     "s2": 54
+    },
+    "titolare": [
+     "f → c",
+     "f → c",
+     "f → c",
+     "f → c",
+     "f → c",
+     "f → c",
+     "f → c",
+     "f → c",
+     "s1 s2"
+    ],
+    "controllo": [
+     "f",
+     "c",
+     "f",
+     "c",
+     "f",
+     "c",
+     "f",
+     "c",
+     "c",
+     "c",
+     "c",
+     "c",
+     "s1",
+     "s2"
+    ],
+    "prima": {
+     "stato": "rosso",
+     "gialle": 9,
+     "forseManca": 14
+    },
+    "dopo": {
+     "stato": "giallo",
+     "gialle": 4,
+     "forseManca": 0
+    }
+   },
+   {
+    "nome": "UDII4 p2-1 (schema di sinistra: Qwen scrive frecce e frasi su righe LONTANE; resta giallo, senza i «forse manca» che sono metà delle righe del titolare)",
+    "tipo": "SCHEMA",
+    "parti": {
+     "t": 3,
+     "i": 1,
+     "r": 2,
+     "v": 1,
+     "vr": 1,
+     "vn": 1,
+     "s1": 9,
+     "s2": 16,
+     "s3": 22
+    },
+    "titolare": [
+     "t",
+     "i",
+     "r",
+     "v",
+     "vr",
+     "vr",
+     "vn",
+     "vn",
+     "vn",
+     "vn",
+     "i → v s1",
+     "v → i s2",
+     "v → vr s3",
+     "v → vr s3",
+     "vr → vn s3",
+     "vr → vn s3",
+     "vr → vn s3",
+     "vr → vn s3"
+    ],
+    "controllo": [
+     "t",
+     "r",
+     "i",
+     "vn",
+     "vr",
+     "v",
+     "vn",
+     "vr",
+     "vn",
+     "vn",
+     "vr",
+     "vn",
+     "s1",
+     "s2",
+     "s3",
+     "i → vn s1",
+     "vn → i s2",
+     "v → vr",
+     "v → vr",
+     "vr → vn",
+     "vr → vn",
+     "vr → vn",
+     "vr → vn"
+    ],
+    "prima": {
+     "stato": "giallo",
+     "gialle": 8,
+     "forseManca": 10
+    },
+    "dopo": {
+     "stato": "giallo",
+     "gialle": 8,
+     "forseManca": 0
+    }
+   }
+  ]
+ }
+}

@@ -354,8 +354,14 @@ test('il CSS del velo pieno sta sotto html[data-app="docente"].mappai-velo-fines
     assert.match(css, /#loading-overlay \{\s*position: fixed;\s*inset: 0;\s*background: rgba\(255, 255, 255, 0\.95\);\s*backdrop-filter: blur\(16px\);\s*z-index: 9999;/);
 });
 
-test('i ?v= dei file toccati portano il marcatore 0062 in index.html', () => {
+/* Il marcatore c'è, non quale (packet 0111, 19/10): prima chiedeva il prefisso `?v=0062-`, e ogni packet che toccava
+   uno di questi file doveva portarselo dietro (`0062-0091-…`, `0062-0097-0102-0103-0106-…`). Il velo lo provano i
+   test sopra; qui basta che il file sia caricato UNA volta con un `?v=` non vuoto, come in banco-veste.test.js. */
+test('i file toccati dallo 0062 sono caricati una volta in index.html, con un ?v=', () => {
     const html = read('public/index.html');
     ['css/style.css', 'js/mappai-generazione.js', 'js/mappai-ui-canvas.js', 'js/mappai-lavori.js', 'js/mappai-material-pipeline.js']
-        .forEach(f => assert.match(html, new RegExp(f.replace(/[.]/g, '\\.') + '\\?v=0062-'), f));
+        .forEach(f => {
+            const volte = html.match(new RegExp('(?:src|href)="' + f.replace(/[.]/g, '\\.') + '\\?v=[^"\']+"', 'g')) || [];
+            assert.equal(volte.length, 1, f + ': caricato ' + volte.length + ' volte con un ?v=');
+        });
 });
