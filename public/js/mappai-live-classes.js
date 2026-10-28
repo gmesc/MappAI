@@ -322,6 +322,7 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) esci(); });
     ov.querySelector('.cls-close').onclick = function () { esci(); };
     document.body.appendChild(ov);
+    if (window.MappAIVelo) window.MappAIVelo.monta(ov, function () { esci(); });   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
     if (window.safeCreateIcons) window.safeCreateIcons();
     _bindEnter(ov);
     return ov;

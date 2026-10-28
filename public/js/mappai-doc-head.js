@@ -57,8 +57,10 @@
  * silenzio dove non c'è un canvas.
  *
  * FUORI AMBITO, per decisione di Giacomo: il materiale da RITAGLIARE (foglio
- * dei nodi, flashcard) non usa questa cornice e resta com'è; i report (Live,
- * Tutor, Consumi) sono una famiglia a parte.
+ * dei nodi, flashcard) non usa questa cornice e resta com'è; Consumi è una pagina
+ * a parte. I REPORT (Live, Tutor, iPad) usano la cornice dal packet 0132 (Giacomo,
+ * 27/10: «tutti i report devono avere degli stili allineati e coerenti»): titolo
+ * con `stile({ report: true })`, corpo con `stileReport()`, misure in `REPORT`.
  */
 (function (root, factory) {
     if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -103,6 +105,38 @@
     };
 
     var ACCENTO = '#4f46e5';
+
+    /* LE MISURE DEI REPORT (0132). Il modello è il foglio delle domande aperte (`buildOpenQuestionsHtml`): ogni numero
+       viene da lì, scritto una volta perché i report del LIVE, del Tutor e dell'iPad lo leggano da qui invece di averne
+       una copia ciascuno. Di nuovo ci sono il titolo (Giacomo, 27/10: «Il foglio delle aperte ma con un corpo del titolo
+       di 3pt più grandi»: 15 pt → 18 pt = 24 px) e l'interlinea della risposta (D1: «13px ma aumenta l'interlinea»,
+       poi «Interlinea delle risposte: 2,0»; il foglio ha 1,6). */
+    var REPORT = {
+        titolo: 24,                 // px = 18 pt
+        corpo: '12pt',              // il body del foglio delle aperte
+        sezione: 15,                // .oq-section-title
+        occhiello: 11,              // «DOMANDA n»
+        domanda: '13pt',            // h3 della domanda
+        risposta: 13,               // il riquadro della risposta
+        rispostaInterlinea: 2,
+        larghezza: 800,
+        /* IL VERDE DEI REPORT (gate del 28/10, Giacomo): uno solo per le giuste — filo, quadratini, segmenti — e per il filo dei
+           riquadri delle risposte e le barre dei report delle domande aperte, che avevano il verde acqua del genere («alle linee
+           verticali dei campi della risposta e a tutti i quadratini o le barre che usano il verde applica il verde chiaro») */
+        verde: '#16a34a'
+    };
+    /* gli esiti: filo, fondo, testo, quadratino (fondo, segno) — testo e segno ≥ 4,5:1 sul loro fondo (invariante 16),
+       con UNA deroga decisa da Giacomo al gate del 28/10: il quadratino delle giuste ha lo stesso verde del filo delle
+       risposte giuste («devono avere lo stesso tipo di verde applicato alla linea verde verticale», poi «Chiaro per tutti»),
+       e il ✓ bianco su #16a34a fa 3,30:1 */
+    var ESITO = {
+        ok: [REPORT.verde, '#f0fdf4', '#15803d', REPORT.verde, '#fff'],
+        ko: ['#dc2626', '#fef2f2', '#b91c1c', '#dc2626', '#fff'],
+        vuota: ['#94a3b8', '#f8fafc', '#475569', '#e2e8f0', '#475569'],
+        mano: ['#7c3aed', '#f5f3ff', '#6d28d9', '#7c3aed', '#fff']
+    };
+    /* le emoji d'identità nello stack EFFETTIVO del corpo, non solo dichiarate (regola globale del progetto) */
+    var EMOJI = "'MappAI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji'";
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -175,7 +209,75 @@
                resta il filo d'accento, che è ciò che separa la testata dal corpo. */
             '@media print { .mm-dh { box-shadow:none; } }'
         ];
+        /* il titolo dei REPORT (0132): 24 px. I fogli dei materiali restano a 20 */
+        if (o.report) css.push('.mm-dh__t { font-size:' + REPORT.titolo + 'px; }');
         if (o.pagina !== false) css.push(regolePagina(o));
+        return css.join('\n');
+    }
+
+    // ── LA VESTE DEI REPORT (0132) ───────────────────────────────────────────
+    /* o: { accento?, fondoAccento?, filoRisposta? }. Le classi `mm-rp-*`: sezione, scheda col filo d'accento, occhiello «DOMANDA n»,
+     * domanda, riquadro della risposta (+ `--ok`, `--ko`, `--vuota`, `--mano`), esiti, riepilogo coi quadratini.
+     * Va DOPO `stile({ report: true })`, che porta la testata e la pagina. Come `stile`, ritorna le regole senza <style>.
+     */
+    function stileReport(o) {
+        o = o || {};
+        var R = REPORT, acc = o.accento || ACCENTO, fondo = o.fondoAccento || '#f0fdfa', filo = o.filoRisposta || acc;
+        var css = [
+            '*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;box-sizing:border-box}',
+            'body{font-family:var(--doc-font, \'Space Mono\'), ' + EMOJI + ', monospace;font-size:' + R.corpo + ';color:' + COL.inchiostro + ';' +
+                'margin:0 auto;padding:24px 32px;max-width:' + R.larghezza + 'px;background:#f8fafc}',
+            '.no-print{display:block}',
+            '@media print{.no-print{display:none !important}body{background:#fff;padding:10px}}',
+            '.mm-rp-sez{font-size:' + R.sezione + 'px;font-weight:900;color:' + acc + ';margin:20px 0 14px;padding-bottom:5px;' +
+                'border-bottom:2px solid #e2e8f0;page-break-after:avoid;break-after:avoid}',
+            '.mm-rp-card{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:16px;border-left:4px solid ' + acc + ';' +
+                'page-break-inside:avoid;break-inside:avoid}',
+            /* LA STAMPA (gate del 28/10, Giacomo: «nel report allievi l'intestazione della pagina ha un problema di formattazione
+               perché si spezza su due fogli»). La scheda di un allievo è più lunga di una pagina: col «non spezzarti» Chrome la
+               spingeva alla pagina dopo e si portava dietro mezza testata. Le schede lunghe (`--lunga`) si spezzano fra una
+               domanda e l'altra; la testata, il riepilogo e ogni domanda restano interi. */
+            '.mm-dh{page-break-inside:avoid;break-inside:avoid}',
+            '.mm-rp-card--lunga{page-break-inside:auto;break-inside:auto}',
+            '.mm-rp-riep{page-break-inside:avoid;break-inside:avoid}',
+            /* nei report di classe le domande di un allievo stanno nella sua scheda, separate da un filo (D2) */
+            '.mm-rp-voce{border-top:1px solid #e2e8f0;margin-top:16px;padding-top:14px;page-break-inside:avoid;break-inside:avoid}',
+            '.mm-rp-occ{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:' + R.occhiello + 'px;font-weight:700;' +
+                'text-transform:uppercase;letter-spacing:.06em;color:' + acc + ';margin-bottom:8px}',
+            '.mm-rp-chip{font-weight:700;letter-spacing:.04em;color:#475569;background:#f1f5f9;border-radius:999px;padding:2px 9px;text-transform:none}',
+            '.mm-rp-dom{font-size:' + R.domanda + ';font-weight:bold;margin:0 0 14px;color:' + COL.inchiostro + ';line-height:1.55}',
+            '.mm-rp-ris{white-space:pre-wrap;border-left:3px solid ' + filo + ';background:' + fondo + ';padding:8px 12px;' +
+                'font-size:' + R.risposta + 'px;line-height:' + R.rispostaInterlinea + ';color:' + COL.inchiostro + '}',
+            '.mm-rp-ris + .mm-rp-ris{margin-top:8px}',
+            '.mm-rp-et{display:block;font-size:' + R.occhiello + 'px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}',
+            '.mm-rp-spieg{font-size:' + R.risposta + 'px;font-style:italic;line-height:1.6;color:#475569;margin-top:10px}',
+            '.mm-rp-testo{font-size:' + R.risposta + 'px;line-height:1.6;color:#334155}',
+            '.mm-rp-tenue{font-size:' + R.occhiello + 'px;color:#64748b}',
+            /* il riepilogo: chi e la percentuale grandi quanto il titolo, poi i quadratini delle domande */
+            '.mm-rp-riga{display:flex;align-items:center;gap:14px;flex-wrap:wrap}',
+            '.mm-rp-num{font-size:' + R.titolo + 'px;font-weight:900;line-height:1}',
+            '.mm-rp-chi{font-size:' + R.titolo + 'px;font-weight:900;line-height:1;color:' + COL.inchiostro + '}',
+            '.mm-rp-strip{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}',
+            '.mm-rp-pill{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;' +
+                'font-size:' + R.risposta + 'px;font-weight:700;color:#fff}',
+            '.mm-rp-bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin-top:4px}',
+            '.mm-rp-seg{display:flex;align-items:center;justify-content:center;font-size:' + R.occhiello + 'px;font-weight:700;color:#fff;min-width:0}',
+            '.mm-rp-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:' + R.occhiello + 'px;color:#475569;margin:0 0 16px}',
+            '.mm-rp-dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}',
+            '.mm-rp-fila{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:' + R.risposta + 'px;line-height:1.5;' +
+                'page-break-inside:avoid;break-inside:avoid}',
+            '.mm-rp-fila:last-child{border-bottom:0}',
+            '.mm-rp-anno{font-weight:900;color:' + acc + ';flex:0 0 5ch}',
+            '.mm-rp-emoji{display:inline-block;width:1em;height:1em;vertical-align:-0.15em}',
+            '.mm-rp-esito{font-weight:700;letter-spacing:.04em;border-radius:999px;padding:1px 9px;text-transform:none}'
+        ];
+        Object.keys(ESITO).forEach(function (k) {
+            var e = ESITO[k];
+            css.push('.mm-rp-ris--' + k + '{border-left-color:' + e[0] + ';background:' + e[1] + '}');
+            css.push('.mm-rp-ris--' + k + ' .mm-rp-et{color:' + e[2] + '}');
+            css.push('.mm-rp-esito--' + k + '{color:' + e[2] + ';background:' + e[1] + ';border:1px solid ' + e[0] + '}');
+            css.push('.mm-rp-pill--' + k + ',.mm-rp-seg--' + k + ',.mm-rp-dot--' + k + '{background:' + e[3] + ';color:' + e[4] + '}');
+        });
         return css.join('\n');
     }
 
@@ -397,6 +499,8 @@
     return {
         lingua: lingua,
         stile: stile,
+        stileReport: stileReport,
+        REPORT: REPORT,
         regolePagina: regolePagina,
         pieDichiarazioni: pieDichiarazioni,
         testata: testata,

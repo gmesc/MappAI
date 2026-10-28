@@ -457,3 +457,20 @@ test('Cerca: le vecchie <mark> scritte dentro una nota non compaiono nell\'antep
     const p = $('#super-finder-results p').filter((_, e) => $(e).text().includes('ossigeno'));
     assert.equal(p.text(), '"La clorofilla cattura la luce e produce ossigeno"');
 });
+
+/* 0122, lotto 1 (Giacomo, 21/10, variante B del banco): le macro-aree a 18 (`text-lg`) e i
+   figli a 14 (`text-sm`), perché l'Indice si legga anche proiettato */
+test('albero (MindMap): macro-aree a text-lg, figli a text-sm (0122)', () => {
+    const m = modali(mappaOstile());
+    m.g.renderTreeView();
+    const $ = m.$;
+    const bottoni = $('#tree-view-container [data-albero-nodo]').toArray();
+    assert.equal(bottoni.length, 4);
+    const classi = bottoni.map(b => ' ' + (b.attribs.class || '') + ' ');
+    // l'ordine è quello del disegno: L1, il suo L2, L1, il suo L2
+    assert.ok(classi[0].includes(' text-lg ') && classi[0].includes(' font-bold '), 'macro-area a 18: ' + classi[0]);
+    assert.ok(classi[2].includes(' text-lg '), 'seconda macro-area a 18: ' + classi[2]);
+    assert.ok(classi[1].includes(' text-sm ') && !classi[1].includes(' text-xs '), 'figlio a 14: ' + classi[1]);
+    assert.ok(classi[3].includes(' text-sm '), 'secondo figlio a 14: ' + classi[3]);
+    classi.forEach(c => assert.ok(!c.includes(' text-xs '), 'niente 12 nell\'albero: ' + c));
+});

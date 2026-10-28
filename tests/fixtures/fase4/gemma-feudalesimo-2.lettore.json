@@ -1,0 +1,167 @@
+{
+ "file": "gemma-feudalesimo-2.txt",
+ "righe": 235,
+ "intestazioni": 27,
+ "vuote": 115,
+ "merges": 24,
+ "crosslinks": 6,
+ "meta": {
+  "recovered": {
+   "nodes": 0,
+   "links": 0,
+   "merges": 24,
+   "crosslinks": 6
+  },
+  "lost": {
+   "nodes": 0,
+   "links": 0,
+   "merges": 55,
+   "crosslinks": 2
+  },
+  "partial": true,
+  "sections": [
+   {
+    "kind": "merges",
+    "recovered": 4,
+    "lost": 0
+   },
+   {
+    "kind": "crosslinks",
+    "recovered": 6,
+    "lost": 2
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 2
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 2
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 2
+   },
+   {
+    "kind": "merges",
+    "recovered": 0,
+    "lost": 3
+   },
+   {
+    "kind": "merges",
+    "recovered": 0,
+    "lost": 3
+   },
+   {
+    "kind": "merges",
+    "recovered": 0,
+    "lost": 3
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 20
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 2
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 1
+   },
+   {
+    "kind": "merges",
+    "recovered": 1,
+    "lost": 4
+   }
+  ],
+  "lostSamples": [
+   {
+    "kind": "crosslinks",
+    "reason": "json invalido",
+    "sample": "{\"source\":\"L1_0_L3_B1\",\"target\":\"L1_{0}_//CANCELLATO/Sostituito con L1\\_0\\_//CANCELLATO/Sostituito con L1\\_0\\_//CANCELLA"
+   },
+   {
+    "kind": "crosslinks",
+    "reason": "json invalido",
+    "sample": "(Self-correction: Re-generating clean JSON lines)"
+   },
+   {
+    "kind": "merges",
+    "reason": "json invalido",
+    "sample": "(Wait, I must strictly follow the JSON format. Let me restart the output block clearly)."
+   }
+  ]
+ }
+}

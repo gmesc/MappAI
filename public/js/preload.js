@@ -191,6 +191,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAllVaults: () => ipcRenderer.invoke('get-all-vaults'),
     deleteVault: (data) => ipcRenderer.invoke('delete-vault', data),
     vaultRelocate: (data) => ipcRenderer.invoke('vault-relocate', data),
+    vaultCopy: (data) => ipcRenderer.invoke('vault-copy', data),   // 0124 (ADR 0025): «Copia…» dentro «MappAI - file»
     vaultRename: (data) => ipcRenderer.invoke('vault-rename', data),   // 0094: { folderPath, nome, projectId }
     getValidVaultFolders: () => ipcRenderer.invoke('get-valid-vault-folders'),
     loadPrompts: () => ipcRenderer.invoke('load-prompts'),

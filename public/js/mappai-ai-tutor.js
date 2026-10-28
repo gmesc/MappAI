@@ -217,7 +217,7 @@ window.resetSidebarTutor = function () {
             "Hi! I'm your global AI Tutor. How can I help you study this map?";
 
         chatHistory.innerHTML = `
-            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm flex items-start gap-2">
+            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-[15px] leading-normal rounded-tl-none border border-transparent self-start shadow-sm flex items-start gap-2">
                 <div class="markdown-body flex-grow"><p>${firstMsg}</p></div>
                 <button data-tutor-voce="${_escTutor(firstMsg)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
             </div>
@@ -235,8 +235,10 @@ window.sendSidebarTutorMessage = async function () {
     inputEl.value = '';
     const chatHistory = document.getElementById('sidebar-tutor-chat-history');
 
+    // 0122 (Giacomo, 21/10): bolle a 15, bordi senza colore; quella dell'allievo col verde della
+    // card «Genera» (--man-verde, vive su html.manifesto: il ripiego serve a veste spenta) e il testo scuro
     chatHistory.innerHTML += `
-        <div class="bg-emerald-500 text-black p-3 rounded-lg text-xs rounded-tr-none border border-emerald-600 self-end shadow-sm max-w-[90%]">
+        <div class="bg-[var(--man-verde,#41e6aa)] text-[var(--mm-testo,#404040)] p-3 rounded-lg text-[15px] leading-normal rounded-tr-none border border-transparent self-end shadow-sm max-w-[90%]">
             <p>${_escTutor(customQuery)}</p>
         </div>
     `;
@@ -304,7 +306,7 @@ window.sendSidebarTutorMessage = async function () {
         // Update UI
         document.getElementById(loaderId).remove();
         chatHistory.innerHTML += `
-        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-xs rounded-tl-none border border-indigo-100 self-start shadow-sm max-w-[90%] flex items-start gap-2">
+        <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-[15px] leading-normal rounded-tl-none border border-transparent self-start shadow-sm max-w-[90%] flex items-start gap-2">
             <div class="markdown-body flex-grow">${resultHTML}</div>
             <button data-tutor-voce="${_escTutor(rawText)}" class="text-indigo-400 hover:text-indigo-600 shrink-0"><i data-lucide="volume-2" class="w-4 h-4"></i></button>
         </div>
@@ -487,11 +489,15 @@ window.renderSidebarTutorModes = function () {
     const lang = appState.language === 'en' ? 'en' : 'it';
     const free = { id: null, it: 'Libero', en: 'Free', tipIt: 'Chat libera: chiedimi quello che vuoi sulla mappa.', tipEn: 'Free chat: ask me anything about the map.' };
     const list = [free].concat(NODE_TUTOR_MODES);
-    el.innerHTML = list.map(m => {
-        const active = (m.id || null) === cur;
-        const tip = (lang === 'en' ? m.tipEn : m.tipIt).replace(/"/g, '&quot;');
-        return `<button type="button" onclick="window.setSidebarTutorMode(${m.id ? "'" + m.id + "'" : 'null'})" data-tip="${tip}" class="text-[10px] px-2 py-1 rounded-full border transition-colors ${active ? 'bg-indigo-600 text-white border-indigo-600 font-bold' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">${m[lang]}</button>`;
-    }).join('');
+    // 0122 (Giacomo, 21/10): una tendina al posto degli otto chip — «font a 12px e il riquadro
+    // della tendina può essere alto 28px». Stesse voci, stesso ordine; la spiegazione nel title.
+    const eti = lang === 'en' ? 'Tutor mode' : 'Modalità del tutor';
+    el.innerHTML = `<select aria-label="${eti}" title="${eti}" onchange="window.setSidebarTutorMode(this.value || null)" class="w-full h-7 px-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 focus_ring_standard">` +
+        list.map(m => {
+            const active = (m.id || null) === cur;
+            const tip = (lang === 'en' ? m.tipEn : m.tipIt).replace(/"/g, '&quot;');
+            return `<option value="${m.id || ''}" title="${tip}"${active ? ' selected' : ''}>${m[lang]}</option>`;
+        }).join('') + '</select>';
 };
 window.setSidebarTutorMode = function (mode) {
     if (!tutorState.sidebar) tutorState.sidebar = { history: [] };

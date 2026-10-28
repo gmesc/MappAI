@@ -206,13 +206,8 @@
             onGenerico: function () { dopo(function () { CL.setActive(''); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
             onClasse: function (c) { dopo(function () { CL.setActive(c.id); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
             onAllievo: function (p) { dopo(function () { if (CL.setActiveStudent) CL.setActiveStudent(p); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
-            onMateria: function (mm) { dopo(function () { CL.setActiveDiscipline(mm); }); },
-            onNuovaMateria: function () {
-                var q = t('lt_cons_nuova_materia_q', 'Nome della nuova materia');
-                if (window.showPrompt) return window.showPrompt(q, '', function (v) { if (v && String(v).trim()) dopo(function () { CL.setActiveDiscipline(String(v).trim()); }); });
-                var v = null; try { v = window.prompt(q); } catch (e) { }
-                if (v && String(v).trim()) dopo(function () { CL.setActiveDiscipline(String(v).trim()); });
-            }
+            onMateria: function (mm) { dopo(function () { CL.setActiveDiscipline(mm); }); }
+            /* 0124: «+ Nuova materia» non c'è più: le materie nuove nascono in Cabina */
         });
         /* In CREA solo il PRIMO livello: «Cosa» è l'uscita verso Elabora e
            Insegna (col bento il rail non esiste), mentre «A chi?» e «Materia»

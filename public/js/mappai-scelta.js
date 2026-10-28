@@ -194,11 +194,16 @@
            col nome che hanno sul disco, «Domande a scelta» */
         var nome = (q.open && q.mc) ? t('ds_attivita', 'Domande aperte')
             : (q.mc ? t('ds_mc_titolo', 'Quiz a scelta') : t('ds_attivita', 'Domande aperte'));
+        /* 0127: il materiale dei titoli dei report = il genere e l'angolo, se è UNO solo per tutte le domande
+           (niente angolo per «auto», come sull'iPad); nasce qui col nome, e la sessione se lo porta dietro */
+        var ang = (poolIntero[0] && poolIntero[0].angle) || '';
+        var unAngolo = ang && ang !== 'auto' && poolIntero.every(function (v) { return v && v.angle === ang; });
+        var materiale = [nome, (unAngolo && window.quizAngleLabel) ? window.quizAngleLabel(ang) : ''].filter(Boolean).join(' · ');
         /* il pool viaggia intero: il campionamento è del server, e per studente
            (due allievi leggono varianti diverse dello stesso taglio, così la
            classe copre tutto il materiale senza che nessuno legga tutto) */
         window.MappAILive.launchExternal(cls, nome, poolIntero, 0, {
-            mode: 'scelta', scelta: cfg, feedbackImmediato: !!feedback, logActivity: 'scelta',
+            mode: 'scelta', scelta: cfg, feedbackImmediato: !!feedback, logActivity: 'scelta', materiale: materiale,
             reports: [{ which: 'scelta', label: t('ds_report', 'Report domande aperte') }]
         });
     }

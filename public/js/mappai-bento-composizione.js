@@ -365,7 +365,7 @@
           gruppo: 'Motore', seFuori: 'non si vede quanto costerà la generazione (vive anche nella Cabina)' },
 
         /* — aprire e analizzare — */
-        { id: 'mn-apri-vault', aiuto: 'Riapre una mappa già salvata scegliendo la sua cartella.', et: 'Apri Vault', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#qa-apri-vault',
+        { id: 'mn-apri-vault', aiuto: 'Copia in «MappAI - file» la cartella di un progetto, tuo o di un collega, e la apre. L\'originale resta dov\'è.', et: 'Importa vault', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#qa-apri-vault',
           gruppo: 'Apri', seFuori: 'resta fra i TRE AVVII in fondo alla pagina, dov\u0027è sempre stato: non montarlo qui non lo toglie di mezzo' },
         { id: 'mn-apri-json', aiuto: 'Importa una mappa da un file JSON.', et: 'Apri JSON', tipo: 'strumento', forma: 'bottone', chiave: '—', sposta: '#qa-apri-json',
           gruppo: 'Apri', seFuori: 'resta fra i tre avvii in fondo alla pagina: non montarlo qui non lo toglie di mezzo' },

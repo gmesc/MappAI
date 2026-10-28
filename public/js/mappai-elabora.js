@@ -951,9 +951,8 @@
             '<button type="button" id="elab-pdfexp-go" class="elab-btn elab-primary">' + t('el_pdfexp_go', 'Esporta PDF') + '</button></div>' +
             '</div>';
         document.body.appendChild(ov);
-        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        document.addEventListener('keydown', onKey);
+        const close = () => { ov.remove(); };
+        if (window.MappAIVelo) window.MappAIVelo.monta(ov, close);   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
         ov.querySelector('#elab-pdfexp-cancel').onclick = close;
         ov.querySelector('#elab-pdfexp-go').onclick = () => {
@@ -1078,9 +1077,8 @@
             '<button type="button" id="elab-q-create" class="elab-btn elab-primary">' + t('el_q_create', 'Crea set di studio') + '</button></div>' +
             '</div>';
         document.body.appendChild(ov);
-        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
-        const onKey = (e) => { if (e.key === 'Escape') close(); };
-        document.addEventListener('keydown', onKey);
+        const close = () => { ov.remove(); };
+        if (window.MappAIVelo) window.MappAIVelo.monta(ov, close);   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
         ov.querySelector('#elab-q-cancel').onclick = close;
         ov.querySelector('#elab-q-all').onclick = () => ov.querySelectorAll('#elab-q-list input').forEach(c => c.checked = true);

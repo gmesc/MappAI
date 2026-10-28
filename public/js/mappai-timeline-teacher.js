@@ -28,7 +28,9 @@
   }
 
   function closeModal() { var m = document.getElementById('tl-live-modal'); if (m) m.remove(); }
-  function modal(title, subtitle, bodyHtml) {
+  /* 0131 (Giacomo, 27/10: «Sì a (b)»): si esce dalla ×, non più dal clic sullo sfondo — lasciava la sessione
+     «Costruisci» aperta senza dirlo. `onX` è l'uscita del pannello; senza, la × chiude e basta. */
+  function modal(title, subtitle, bodyHtml, onX) {
     closeModal();
     var ov = document.createElement('div');
     ov.id = 'tl-live-modal';
@@ -39,11 +41,12 @@
           '<div style="width:40px;height:40px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center"><i data-lucide="calendar-clock" style="color:#4f46e5"></i></div>' +
           '<div><div style="font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">' + esc(title) + '</div>' +
           '<div style="font-size:12px;color:#64748b">' + esc(subtitle || '') + '</div></div>' +
+          '<button type="button" id="tl-x" class="mm-close" style="margin-left:auto" aria-label="' + esc(_t('tl_x', 'Chiudi')) + '" title="' + esc(_t('tl_x', 'Chiudi')) + '">&times;</button>' +
         '</div>' +
         '<div id="tl-live-body" style="margin-top:14px">' + bodyHtml + '</div>' +
       '</div>';
     document.body.appendChild(ov);
-    ov.addEventListener('click', function (e) { if (e.target === ov) closeModal(); });
+    ov.querySelector('#tl-x').onclick = onX || closeModal;
     if (window.safeCreateIcons) window.safeCreateIcons();
     return ov;
   }
@@ -194,7 +197,8 @@
     if (!built.questions.length) { toast(_t('tl_no_q', 'Pool insufficiente per generare domande.'), 'error'); return; }
     if (built.degraded) toast(_t('tl_degraded', 'Poche date: alcune domande a scelta multipla sono diventate aperte.'), 'info');
     window.MappAILive.launchExternal(cls, 'timeline', built.questions, opts.timer, {
-      mode: 'quiz', loginMode: opts.loginMode, hintMode: opts.hintMode, logActivity: 'timeline'
+      mode: 'quiz', loginMode: opts.loginMode, hintMode: opts.hintMode, logActivity: 'timeline',
+      materiale: _t('tl_materiale', 'Timeline')   // 0127: il titolo dei report
     });
   }
 
@@ -212,6 +216,7 @@
     };
     window.MappAILive.launchExternal(cls, 'timeline', [], opts.timer, {
       mode: 'build', loginMode: opts.loginMode, hintMode: opts.hintMode, logActivity: 'timeline',
+      materiale: _t('tl_materiale', 'Timeline'),   // 0127: il titolo del «Report costruzione»
       build: build, onLaunched: function (info) { TL._info = info; _buildDashboard(info); }
     });
   }
@@ -235,7 +240,9 @@
 
   // ── Dashboard di revisione (polling proposte) ───────────────────────────────
   TL._reviewed = TL._reviewed || {};
-  function _buildDashboard(info) {
+  /* 0131: `chiusa` = la sessione è chiusa ma il server resta acceso, come il quiz dopo «Chiudi sessione» (0127):
+     il report si riapre da qui, e il server si spegne solo dalla × («Chiudi pannello»). */
+  function _buildDashboard(info, chiusa) {
     var url = buildStudentUrl(info);
     var qr = qrUrl(url);
     var body =
@@ -243,9 +250,10 @@
         '<div style="text-align:center">' +
           (qr ? '<img src="' + qr + '" alt="QR" style="width:180px;height:180px;cursor:zoom-in" id="tl-qr">' : '<div class="muted">QR non disponibile</div>') +
           '<div style="font-size:11px;color:#64748b;margin-top:6px;word-break:break-all;max-width:200px">' + esc(url) + '</div>' +
+          (chiusa ? '' :
           '<div style="display:flex;gap:6px;margin-top:10px;justify-content:center">' +
             '<button type="button" id="tl-project" class="tl-toolbtn" style="background:#ede9fe;color:#4f46e5;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700">📽 ' + esc(_t('tl_project', 'Proietta sulla LIM')) + '</button>' +
-          '</div>' +
+          '</div>') +
         '</div>' +
         '<div style="flex:1;min-width:280px">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
@@ -254,23 +262,60 @@
         '</div>' +
       '</div>' +
       '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;border-top:1px solid #f1f5f9;padding-top:14px">' +
-        '<button type="button" id="tl-openfolder" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc(_t('tl_openfolder', 'Apri cartella')) + '</button>' +
-        '<button type="button" id="tl-close" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_close_report', 'Chiudi e apri report')) + '</button></div>';
+        '<button type="button" id="tl-openfolder" style="background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);color:var(--mm-testo, #404040);border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:700">' + esc((window.tApriCartella ? window.tApriCartella() : _t('tl_openfolder', 'Apri cartella'))) + '</button>' +
+        (chiusa
+          ? '<button type="button" id="tl-report" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_rep_build', 'Report costruzione')) + '</button></div>'
+          : '<button type="button" id="tl-close" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 20px;cursor:pointer;font-weight:800">' + esc(_t('tl_close_report', 'Chiudi e apri report')) + '</button></div>');
 
-    var ov = modal(_t('tl_build_title', 'Costruisci la timeline'), esc(info.name || ''), body);
+    var ov = modal(_t('tl_build_title', 'Costruisci la timeline'), esc(info.name || ''), body, function () { _xBuild(info, chiusa); });
     if (ov.querySelector('#tl-qr')) ov.querySelector('#tl-qr').onclick = function () { _fullscreenQr(url); };
-    ov.querySelector('#tl-project').onclick = function () { TL.openProjection(); };
     ov.querySelector('#tl-openfolder').onclick = function () { if (window.electronAPI && window.electronAPI.liveOpenFolder) window.electronAPI.liveOpenFolder(); };
+    if (chiusa) {
+      ov.querySelector('#tl-report').onclick = function () { _openReport(info); };
+      // le proposte della classe restano, da leggere: una lettura sola, la sessione non cambia più
+      adminApi(info, '/api/status?admin=' + info.adminToken).then(function (r) {
+        if (r.body && Array.isArray(r.body.proposals)) _renderProposals(info, r.body.proposals, true);
+      }).catch(function () {});
+      return;
+    }
+    ov.querySelector('#tl-project').onclick = function () { TL.openProjection(); };
     ov.querySelector('#tl-close').onclick = function () { _closeBuild(info); };
 
     _pollProposals(info, ov);
   }
+
+  /* 0131: la × del pannello. Aperta: la scelta del quiz (`chiudiOChiedi`). Chiusa: «Chiudi pannello» del quiz,
+     che spegne il server e azzera la sessione anche là (`MappAILive.chiudiPannello`). */
+  function _xBuild(info, chiusa) {
+    if (chiusa) {
+      var ML = window.MappAILive;
+      if (!ML || !ML.chiudiPannello) { closeModal(); return; }
+      ML.chiudiPannello({ chiusa: true }).then(function (spento) { if (spento) { TL._info = null; closeModal(); } });
+      return;
+    }
+    var MM = window.MappAIModal;
+    if (!MM || !MM.open) { closeModal(); return; }
+    MM.open({
+      titolo: _t('lv_x_t', 'La sessione è ancora attiva'), icona: 'radio', taglia: 's',
+      sezioni: [{ testo: _t('lv_x_d', 'Gli allievi stanno ancora rispondendo. Che cosa vuoi fare?') }],
+      azioni: [{ id: 'annulla', etichetta: _t('ds_annulla', 'Annulla'), ruolo: 'quieto' },
+        { id: 'chiudi', etichetta: _t('lv_close', 'Chiudi sessione'), ruolo: 'primario' }]
+    }).then(function (r) { if (r && r.azione === 'chiudi') _closeBuild(info); });
+  }
+
+  /* 0131 (Giacomo, 27/10: «Sì a (c)»): dalla sidebar («Studio attivo live») si torna a questo pannello, nello stato
+     della sessione; lo chiama `mappai-live-teacher.js` quando il server acceso è una sessione «build». */
+  TL.riaggancia = function (info, fase) {
+    TL._info = info;
+    _buildDashboard(info, fase === 'closed');
+  };
 
   function _pollProposals(info, ov) {
     if (TL._poll) clearInterval(TL._poll);
     var tick = function () {
       if (!document.getElementById('tl-live-modal')) { clearInterval(TL._poll); TL._poll = null; return; }
       adminApi(info, '/api/status?admin=' + info.adminToken).then(function (r) {
+        if (!TL._poll) return;   // 0131: arrivata dopo la chiusura, rimetterebbe ✓ e ✗
         if (!r.body || !Array.isArray(r.body.proposals)) return;
         _renderProposals(info, r.body.proposals);
       }).catch(function () {});
@@ -279,7 +324,7 @@
     TL._poll = setInterval(tick, 3000);
   }
 
-  function _renderProposals(info, proposals) {
+  function _renderProposals(info, proposals, chiusa) {
     var list = document.getElementById('tl-proplist'); if (!list) return;
     document.getElementById('tl-pcount').textContent = proposals.length + ' · ' +
       proposals.filter(function (p) { return p.status === 'approved'; }).length + ' ✓';
@@ -288,7 +333,8 @@
       var flags = '';
       if (p.flags && p.flags.duplicate) flags += ' <span style="font-size:9px;background:#f1f5f9;color:#64748b;border-radius:5px;padding:1px 5px">duplicato</span>';
       if (p.flags && p.flags.yearNotInSources) flags += ' <span style="font-size:9px;background:#fef3c7;color:#b45309;border-radius:5px;padding:1px 5px">anno non nelle fonti</span>';
-      var actions = p.status === 'pending'
+      var actions = p.status === 'pending' && chiusa ? ''   // 0131: a sessione chiusa niente ✓ né ✗
+        : p.status === 'pending'
         ? '<button data-approve="' + p.id + '" style="background:#dcfce7;color:#15803d;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:700;font-size:12px">✓</button>' +
           '<button data-reject="' + p.id + '" style="background:#fee2e2;color:#b91c1c;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:700;font-size:12px;margin-left:4px">✗</button>'
         : '<span style="font-size:11px;font-weight:700;color:' + (p.status === 'approved' ? '#15803d' : '#b91c1c') + '">' + (p.status === 'approved' ? '✓ approvata' : '✗ bocciata') + '</span>';
@@ -314,14 +360,17 @@
       });
   }
 
+  function _openReport(info) {
+    window.open('http://127.0.0.1:' + info.port + '/api/report?which=workshop&admin=' + info.adminToken, '_blank');
+  }
+  /* 0131: qui il server si spegneva subito dopo `window.open`, e la finestra del report trovava la porta chiusa
+     (ERR_CONNECTION_REFUSED, gate dello 0129). Ora resta acceso, come il quiz; lo spegne la × del pannello. */
   function _closeBuild(info) {
     if (TL._poll) { clearInterval(TL._poll); TL._poll = null; }
     adminApi(info, '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: info.adminToken }) })
       .then(function () {
-        var rep = 'http://127.0.0.1:' + info.port + '/api/report?which=workshop&admin=' + info.adminToken;
-        window.open(rep, '_blank');
-        closeModal();
-        if (window.electronAPI && window.electronAPI.liveStopSession) window.electronAPI.liveStopSession();
+        _openReport(info);
+        _buildDashboard(info, true);
         toast(_t('tl_closed', 'Sessione chiusa — report aperto.'), 'success');
       });
   }

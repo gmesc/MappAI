@@ -178,9 +178,13 @@ test('0116: «Scegli prima una classe…» è un avviso, non un toast verde', ()
   assert.ok(l.includes("MM.avviso({ titolo: t('lv_classe_t', 'Manca la classe')"), 'anche dal menu di «Studio attivo live»');
 });
 
-test('0116: il sottotitolo di «Studio attivo live» dice che cosa c\'è nel menu', () => {
-  ['public/js/mappai-collab-teacher.js', 'public/js/mappai-live-teacher.js'].forEach(f => {
-    assert.ok(leggi(f).includes("t('lv_card_quiz_d', 'Quiz a scelta multipla, domande aperte o domande tue')"), f);
+/* dal lotto 1 dello 0122 (21/10) la card della barra laterale ha un sottotitolo suo, e dal lotto 2
+   (Giacomo, 22/10: «le card con i titoli e le desc uguali a quelle visibili nella sidebar») anche il
+   menu di «MappAI Live» legge le stesse chiavi `lim_card_*` (test in finestre-live-0122.test.js);
+   la chiave `lv_card_quiz_d` resta nel dizionario per chi la legge ancora */
+test('0116: il sottotitolo di «Esercizi» è lo stesso nella sidebar e nel menu di «MappAI Live»', () => {
+  ['public/js/mappai-live-teacher.js', 'public/js/mappai-collab-teacher.js'].forEach(f => {
+    assert.ok(leggi(f).includes("t('lim_card_live_d', 'QuizMC, Domande aperte o Domande al volo.')"), f);
   });
 });
 
@@ -220,7 +224,10 @@ test('0116 (gate 21/10): la scheda delle domande aperte segna le risposte scritt
     { date: new Date() });
   assert.ok(!html.includes('✎'), 'niente ✎');
   assert.ok(html.includes('>●<'), 'la risposta scritta ha il pallino');
-  assert.ok(!html.includes('class="lr-acc"'), 'niente percentuale');
+  // dal 0132 (veste comune dei report) la percentuale sta in mm-rp-num: «niente percentuale» si legge lì
+  assert.ok(html.includes('class="mm-rp-riga"'), 'la riga del riepilogo c\'è');
+  assert.ok(!html.includes('class="mm-rp-num"'), 'niente percentuale');
+  assert.ok(!/da correggere/i.test(html), 'niente «da correggere»');
 });
 
 /* gate del 21/10, dopo il gesto 8: i pannelli di gestione uguali, «Ferma server» che chiude
@@ -232,25 +239,59 @@ test('0116 (gate 21/10): pannello di gestione — stessi report per quiz e doman
   assert.ok(corpo.includes("[{ which: 'scelta', label: t('lv_rep_q', 'Report domande') }, { which: 'students', label: t('lv_rep_s', 'Report allievi') }]"), 'domande aperte: Report domande + Report allievi');
 });
 
+// dal 0127 (gate del 27/10) lo spegnimento sta in `_fermaServer`, dopo la conferma di `doStop`
 test('0116 (gate 21/10): «Ferma server» chiude prima la sessione e azzera il pannello', () => {
   const s = leggi('public/js/mappai-live-teacher.js');
-  const i = s.indexOf('function doStop()'); const corpo = s.slice(i, s.indexOf('\n  }\n', i));
+  const i = s.indexOf('function _fermaServer()'); const corpo = s.slice(i, s.indexOf('\n  }\n', i));
   assert.ok(corpo.includes("_fase() !== 'closed'") && corpo.includes('doClose(false)'), 'una sessione aperta si chiude, coi report');
   assert.ok(corpo.includes('LT._lastStatus = null') && corpo.includes('_curPhase = null'), 'la sessione dopo parte da zero');
   assert.ok(/LT\._reports = extra\.reports \|\| null;\n\s*LT\._lastStatus = null; _curPhase = null;/.test(s), 'anche a ogni lancio');
 });
 
-test('0116 (gate 21/10): la × con una sessione attiva chiede «Chiudi sessione / Ferma server / Annulla»', () => {
+// dal 0127 (Giacomo, 27/10) la × non offre più «Ferma server»: a sessione chiusa chiude il pannello, con la sua conferma
+test('0116 (gate 21/10): la × con una sessione attiva chiede «Chiudi sessione / Annulla»', () => {
   const s = leggi('public/js/mappai-live-teacher.js');
   assert.ok(s.includes("ov.querySelector('.lh-close').onclick = chiudiOChiedi;"), 'la ×');
   assert.ok(s.includes("if (e.target === ov) chiudiOChiedi();"), 'il clic sullo sfondo');
   const i = s.indexOf('function chiudiOChiedi()'); const corpo = s.slice(i, s.indexOf('\n  }\n', i));
-  ['annulla', 'chiudi', 'ferma'].forEach(k => assert.ok(corpo.includes("id: '" + k + "'"), k));
-  assert.ok(corpo.includes("if (r.azione === 'chiudi') doClose();") && corpo.includes("else if (r.azione === 'ferma') doStop();"), 'e poi la conferma, in doClose e doStop');
+  ['annulla', 'chiudi'].forEach(k => assert.ok(corpo.includes("id: '" + k + "'"), k));
+  assert.ok(corpo.includes("if (r && r.azione === 'chiudi') doClose();") && corpo.includes("if (_fase() === 'closed') return doStop();"), 'e poi la conferma, in doClose e doStop');
 });
 
 test('0116 (gate 21/10): INSEGNA › «Attività già svolte» apre il report col percorso, non con un oggetto', () => {
   const s = leggi('public/js/mappai-landing-teach.js');
   assert.ok(!s.includes('studyReportOpen({ file: primo.file })'));
   assert.ok(s.includes('window.electronAPI.studyReportOpen(primo.file);'));
+});
+
+/* 0122, lotto 1 (Giacomo, 21/10, sul banco della sidebar): le quattro card della tab
+   «Attività live» coi nomi e i sottotitoli nuovi, «Invia file» con l'icona del QR, titoli a 18 e
+   sottotitoli a 14; il titoletto «Attività live» al posto della prima etichetta di sezione */
+test('0122: barra laterale › «Attività live» — Esercizi, Mappa, Interroga, Invia file (QR), 18/14, titoletto senza doppione', () => {
+  const s = leggi('public/js/mappai-collab-teacher.js');
+  const i = s.indexOf('CT.renderLimSidebarTab');
+  const corpo = s.slice(i, s.indexOf('\n    };\n', i));
+  [
+    "limCard('live', 'radio', t('lim_card_live', 'Esercizi'), t('lim_card_live_d', 'QuizMC, Domande aperte o Domande al volo.'))",
+    "limCard('board', 'presentation', t('lim_card_board', 'Mappa'), t('lim_card_board_d', 'Mappe condivise'))",
+    "limCard('tutor', 'message-circle', t('lim_card_tutor', 'Interroga'), t('lim_card_tutor_d', 'Domanda con risposta assistita'))",
+    "limCard('materials', 'qr-code', t('lim_card_mat', 'Invia file'), t('lim_card_mat_d', 'Scegli dalle risorse salvate'))",
+    "limTitoletto(t('sb_tit_live', 'Attività live'))",
+    "limSection(t('lim_sec_share', 'Condivisione'))",
+  ].forEach(k => assert.ok(corpo.includes(k), 'manca ' + k));
+  assert.ok(!corpo.includes("limSection(t('lim_sec_live'"), 'la prima etichetta di sezione ripeteva il titoletto: via');
+  ["'lv_card_quiz'", "'cl_title'", "'lv_card_tutor'", "'lv_card_mat'", "'folder-down'"].forEach(k => {
+    assert.ok(!corpo.includes(k), 'non c\'è più ' + k + ' (le lv_card_* restano al menu di «MappAI Live»)');
+  });
+  // i corpi delle card (stili inline di limCard): titolo 18, sottotitolo 14
+  const card = s.slice(s.indexOf('function limCard('), s.indexOf('function limTitoletto('));
+  assert.ok(card.includes('font-weight:800;color:var(--mm-testo, #404040);font-size:18px'), 'titolo della card a 18');
+  assert.ok(card.includes('font-size:14px;color:var(--mm-testo-3, #64748b)'), 'sottotitolo della card a 14');
+  assert.ok(!card.includes('13.5px') && !card.includes('11.5px'), 'i mezzi punti di prima non ci sono più');
+  // il titoletto: lo stile del titolo di «Vista studio», senza icona
+  const tit = s.slice(s.indexOf('function limTitoletto('), s.indexOf('CT.renderLimSidebarTab'));
+  assert.ok(tit.includes('class="text-sm font-bold text-slate-600 mb-3"') && !tit.includes('data-lucide'));
+  // il menu di «MappAI Live»: dal 22/10 (Giacomo) le stesse card della sidebar (test in finestre-live-0122.test.js)
+  const hub = leggi('public/js/mappai-live-teacher.js');
+  assert.ok(hub.includes("'lim_card_live'") && hub.includes("'lim_card_mat'"), 'il menu di MappAI Live legge le lim_card_* della sidebar');
 });

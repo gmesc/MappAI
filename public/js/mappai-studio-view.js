@@ -591,8 +591,7 @@
         const scritta = (valL >= maxL) ? t('sv_tutti', 'tutti') : ('0–' + valL);
 
         panel.innerHTML =
-            '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
-            '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
+            '<div class="text-sm font-bold text-slate-600 mb-3">' +   /* 0122: titoletto senza icona */
             t('sv_title', 'Vista studio') + '</div>' +
             fld(t('sv_motore', 'Vista'), seg('mode', MOTORI, USCITA)) +
             '<div class="text-[11px] text-slate-400 leading-snug mb-3">' +
@@ -689,8 +688,7 @@
         const f = S.focus;
         panel.innerHTML =
             (f ? testataFocus(f) :
-                '<div class="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">' +
-                '<i data-lucide="layout-panel-top" class="w-4 h-4 text-indigo-400"></i>' +
+                '<div class="text-sm font-bold text-slate-600 mb-3">' +   /* 0122: titoletto senza icona */
                 t('sv_title', 'Vista studio') + '</div>') +
             fld(t('sv_motore', 'Motore'), seg('mode', MOTORI, p.mode)) +
             fld(t('sv_orient', 'Orientamento'), seg('orient', [['td', t('sv_alto', "dall'alto ↓")], ['lr', t('sv_sinistra', 'da sinistra →')]], g.orient)) +

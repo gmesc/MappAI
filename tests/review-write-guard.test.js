@@ -124,7 +124,11 @@ function gestoreSalvataggio() {
   let gestore = null;
   const ctx = vm.createContext({ fs, path, Buffer, console, ReviewStore: Store,
     FilesCore: require('../public/js/mappai-files-core.js'),
+    /* 0123 lotto 4: i confini del disco — la cartella temporanea del sistema è la radice */
+    Confini: require('../public/js/mappai-confini-core.js'), crypto: require('node:crypto'), process,
+    app: { getPath: () => os.tmpdir() }, mappaiRootDir: () => os.tmpdir(), documentsDir: () => os.tmpdir(),
     ipcMain: { handle: (name, fn) => { if (name === 'save-vault-file') gestore = fn; } } });
+  { const a = source.indexOf('/* ── I CONFINI DEL DISCO'); vm.runInContext(source.slice(a, source.indexOf('const ReviewStore = require(', a)), ctx); }   // 0123 lotto 4
   vm.runInContext(source.slice(start, source.indexOf('\n});', start) + 4), ctx);
   return args => gestore({}, args);
 }

@@ -646,6 +646,28 @@
     if (typeof runtime?.openCurrent !== 'function') throw new Error(t('pl_runtime_missing', 'Il percorso di lettura non è disponibile in questa versione.'));
     return runtime.openCurrent();
   }
+  /* Il controllo nuovo sulla mappa di adesso: il giudice coi modelli del Setup, una revisione nuova, la vecchia in
+     `previous`. `requireApproved` lo fa per la G1 approvata e superata (0097). 0123, lotto 3 (0056): «Ricontrolla la
+     mappa adesso» lo fa anche per la G1 IN ATTESA superata da una modifica vera, e poi chiama `requireApproved` come
+     prima: così nessun chiamante di `requireApproved` fa partire una chiamata AI senza il gesto del docente. Le bozze
+     dei materiali nate sotto quarantena passano alla revisione nuova come in `retryJudge`. */
+  async function ricontrolloNuovo(s, review) {
+    const manifest = s._pipelineManifest, vaultPath = s.activeVaultPath, db = s.db;
+    const previous = clone(review);
+    const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath: s.activeVaultPath, giudice: true });
+    const key = giro ? null : window.getSystemKey && window.getSystemKey();
+    const report = window.executeJudgePass && (giro || key)
+      ? await withJudgeSources(s, review.sources, () => window.executeJudgePass(key, { enabled: true, apply: false }, giro)) : {};
+    assertProject(vaultPath);
+    if (s.db !== db || s._pipelineManifest !== manifest || manifest.review !== review) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
+    if (giro) manifest.modelliGiro = giro.riepilogo();
+    manifest.review = core().createReview({ db: s.db, sources: review.sources, report,
+      generationId: s._generationId, vaultPath: s.activeVaultPath, config: manifest.config });
+    if (review.initial.status === 'awaiting_review') manifest.review = conservaMateriali(review, manifest.review);
+    manifest.review.previous = previous;
+    s._reviewRevision = manifest.review.baseRevision;
+    await R.writeManifest(s.activeVaultPath, manifest);
+  }
   R.requireApproved = async function (opts) {
     const s = state();
     if (s._reviewLoading || s._reviewRestoring || s._reviewRestoreError || busy || committing) return false;
@@ -660,23 +682,8 @@
     if (gate.allowed && (!perQuarantena || (opts && opts.quarantena))) return true;
     const A = opts && opts.quarantena ? window.MappAIAffermazioni : null;
     if (A && A.facoltativa(review)) return true;
-    if (review.initial.status === 'approved') {
-      // A real content edit needs a fresh review; keep the previous decisions.
-      const manifest = s._pipelineManifest, vaultPath = s.activeVaultPath, db = s.db;
-      const previous = clone(review);
-      const giro = window.MappAIModelli && window.MappAIModelli.avvia({ manifest, vaultPath: s.activeVaultPath, giudice: true });
-      const key = giro ? null : window.getSystemKey && window.getSystemKey();
-      const report = window.executeJudgePass && (giro || key)
-        ? await withJudgeSources(s, review.sources, () => window.executeJudgePass(key, { enabled: true, apply: false }, giro)) : {};
-      assertProject(vaultPath);
-      if (s.db !== db || s._pipelineManifest !== manifest || manifest.review !== review) throw new Error(t('rv_conflict', 'Il contenuto è cambiato: riapri il controllo prima di continuare.'));
-      if (giro) manifest.modelliGiro = giro.riepilogo();
-      manifest.review = core().createReview({ db: s.db, sources: review.sources, report,
-        generationId: s._generationId, vaultPath: s.activeVaultPath, config: manifest.config });
-      manifest.review.previous = previous;
-      s._reviewRevision = manifest.review.baseRevision;
-      await R.writeManifest(s.activeVaultPath, manifest);
-    }
+    // A real content edit needs a fresh review; keep the previous decisions.
+    if (review.initial.status === 'approved') await ricontrolloNuovo(s, review);
     /* Trappola 52 anche qui (giro 4 del 26/09, E4): sotto quarantena il Banco
        chiede il suo piano al motore, perché si può arrivare qui da dentro una
        console — la pipeline con l'opzione e, dal gate 3 del 27/09, anche chi
@@ -951,12 +958,25 @@
     /* 0097 (Giacomo, 15/10 sera): G1 approvata e poi superata da una modifica VERA della mappa. «Continua dai contenuti
        approvati» lì dava sempre «Il contenuto è cambiato…»: il bottone diventa «Ricontrolla la mappa adesso» e chiama
        `requireApproved` (controllo nuovo, la revisione approvata in `previous`, si apre la revisione nuova). */
-    const superataDopoApprovazione = () => !isFinal && !reading && getReview().initial.status === 'approved' &&
-      !core().gate(getReview(), currentDb(), getReview().sources).allowed;
+    /* 0123, lotto 3 (0056; Giacomo, 27/09: «Nuovo controllo sulla mappa di adesso»): lo stesso per la G1 IN ATTESA quando
+       la mappa non coincide più con la base. Prima era un vicolo cieco: «Riprova» e «Nuovo controllo» rifiutavano, e
+       riaprire riapriva la stessa revisione. */
+    const superataDopoApprovazione = () => {
+      if (isFinal || reading) return false;
+      const r = getReview();
+      if (r.initial.status === 'approved') return !core().gate(r, currentDb(), r.sources).allowed;
+      return r.initial.status === 'awaiting_review' && !core().coincide(currentDb(), r.sources, r, 'base');
+    };
     async function ricontrollaMappa() {
       close(); busy = false;
       // la revisione è già chiusa: un errore (una chiave che manca, il disco) arriva al docente come avviso, non si perde
-      try { await R.requireApproved(); }
+      try {
+        // 0123, lotto 3: la G1 in attesa superata riceve qui il controllo nuovo; `requireApproved` poi apre il Banco come prima
+        const s = state(), r = R.current();
+        const libero = !R.isBusy() && !s._reviewLoading && !s._reviewRestoring && !s._reviewRestoreError;
+        if (libero && r === getReview() && r.initial.status === 'awaiting_review' && !core().coincide(s.db, r.sources, r, 'base')) await ricontrolloNuovo(s, r);
+        await R.requireApproved();
+      }
       catch (e) { if (window.showToast) window.showToast(e && e.message ? e.message : String(e), 'error'); else console.warn('[Revisione] ricontrollo:', e); }
     }
     if (!getReview() || busy || committing) return;
@@ -1122,6 +1142,9 @@
        non c'è niente da coprire. Una richiesta sola anche con `alza` e una console aperta. */
     const sopraUnaConsole = () => { try { return !!(window.MappAIModal && window.MappAIModal.aperti > 0); } catch (e) { return false; } };
     if (options.alza || sopraUnaConsole()) { try { if (window.MappAIModal && window.MappAIModal.prossimoZ) modal.style.zIndex = String(window.MappAIModal.prossimoZ()); } catch (e) { /* resta z-[3400] */ } }
+    /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js), salvo Esc: quello del Banco resta
+       il suo (dentro un campo annulla, a lavoro in corso non chiude, altrimenti «Salva e continua più tardi») */
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, null, { esc: false });
     /* LO STRATO DELLE AFFERMAZIONI (packet 0042): null con gli interruttori
        spenti e in G2 — allora il Banco è quello di sempre, byte per byte. */
     let strato = null;
@@ -2062,6 +2085,8 @@
         try {
           await pendingSave; if (saveError) throw saveError;
           if (closed || busy) return;
+          // 0123, lotto 3: con la mappa cambiata `prepareSetupJudge` rifiuterebbe; si ricontrolla la mappa di adesso
+          if (superataDopoApprovazione()) return ricontrollaMappa();
           const prepared = R.prepareSetupJudge(vaultPath, manifest);
           preview.replaceChildren();
           const model = document.createElement('p'); model.id = 'mrv-setup-model'; model.className = 'font-bold break-words';
@@ -2801,6 +2826,8 @@
             status.textContent = t('rv_checking', 'Controllo in corso… Le bozze e le decisioni sono conservate.');
             try {
               await pendingSave; if (saveError) throw saveError;
+              // 0123, lotto 3: con la mappa cambiata `retryJudge` rifiuterebbe; si ricontrolla la mappa di adesso (il Banco si chiude)
+              if (superataDopoApprovazione()) { await ricontrollaMappa(); return false; }
               // 0075: in G1 «Riprova il controllo automatico» è quello della mappa (packet 0026, lotto per lotto)
               if (reading) await retryReading(vaultPath, manifest, reading, judgeProgress);
               else if (!isFinal) await R.retryJudge(vaultPath, manifest, { onProgress: judgeProgress });

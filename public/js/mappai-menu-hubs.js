@@ -7,9 +7,8 @@
  *   - window.openStudyMaterialsModal() → 🖨 Materiali di studio
  *       sezioni: Stampati (Foglio nodi, Sintesi ramo, Dossier, Timeline)
  *                JIGSAW  (Esporta, Ricomponi, Revisione lacune)
- *   - window.openGraphManagerModal()  → 🗂 Graph manager
- *       sezioni: Vault (esporta/importa) · File JSON (importa/unisci/dungeon
- *                se kill-switch attivo) · Appunti (esporta MD)
+ *   (il «Graph manager» è uscito il 24/10/2026 col packet 0124: un progetto entra
+ *    solo da «Importa vault» in CREA)
  * Le card sono PULITE (icona + titolo): niente testi grigi esplicativi.
  * Le spiegazioni vivono nei TOOLTIP HOVER (window.MappAITips): qualunque
  * elemento con data-tip="..." in QUALSIASI modale li eredita (delega globale).
@@ -103,7 +102,8 @@
     // titolo con icona Lucide SVG (mai emoji — richiesta utente 11/7/26)
     function buildHubModal(icon, title, bodyHtml, maxWidth) {
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.45);' +
+        /* velo e piano: MappAIVelo, sotto (0122 lotto 4b2; prima .45 senza sfumato a 9990 fisso) */
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;' +
             'display:flex;align-items:center;justify-content:center;padding:18px;';
         overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);
             width:min(${maxWidth || 'var(--mm-l)'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
@@ -116,9 +116,8 @@
         </div>`;
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
         overlay.querySelector('.hub-close').onclick = () => overlay.remove();
-        const escH = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escH); } };
-        document.addEventListener('keydown', escH);
         document.body.appendChild(overlay);
+        if (window.MappAIVelo) window.MappAIVelo.monta(overlay, () => overlay.remove());   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         if (window.safeCreateIcons) window.safeCreateIcons();
         return overlay;
     }
@@ -283,36 +282,9 @@
         });
     };
 
-    /* ── Graph manager ─────────────────────────────────────────────────────── */
-    window.openGraphManagerModal = function () {
-        const clickInput = (id) => { const el = document.getElementById(id); if (el) el.click(); };
-        const offTip = t('hub_fn_missing', 'Funzione non disponibile in questa versione.');
-        const defs = {
-            vexport: { icon: 'archive',     ok: !!window.saveMapVault, fn: () => window.saveMapVault(),
-                       title: t('ui_export_vault', 'Esporta nel Vault'), tip: t('tt_save_vault', 'Salva la mappa come vault Markdown (cartella compatibile Obsidian).') },
-            vimport: { icon: 'folder-open', ok: !!window.loadMapVault, fn: () => window.loadMapVault(),
-                       title: t('ui_import_vault', 'Importa dal Vault'),
-                       /* 0095: con l'interruttore acceso la cartella si copia in «MappAI - file» */
-                       tip: (window.MappAIImportVault && window.MappAIImportVault.attivo())
-                           ? t('iv_tt_vimport', 'Copia un vault in «MappAI - file» e apre la copia; l\'originale resta dov\'è.')
-                           : t('tt_open_vault', 'Riapre una mappa salvata come vault Markdown.') },
-            jimport: { icon: 'upload',      ok: !!document.getElementById('menu-import-json'), fn: () => clickInput('menu-import-json'),
-                       title: t('import_json', 'Importa JSON'),          tip: t('tt_import_json', 'Importa una mappa da file JSON.') },
-            notes:   { icon: 'file-text',   ok: !!window.exportNotesMarkdown, fn: () => window.exportNotesMarkdown(),
-                       title: t('ui_export_notes', 'Esporta Appunti'),   tip: t('tt_export_notes_md', 'Esporta gli appunti della mappa in Markdown.') },
-        };
-        Object.keys(defs).forEach(k => { defs[k].key = k; defs[k].offTip = offTip; });
-        // JIGSAW studente: niente import JSON (bypass dei lock di ramo). «Unisci mappe» è uscito il 12/10/2026 (0087, lotto 10-modali).
-        const jsonCards = jigsawStudentOn() ? [] : [defs.jimport];
-        const body =
-            sectionHeader(t('gm_section_vault', 'Vault (salvataggio consigliato)')) +
-            grid([defs.vexport, defs.vimport]) +
-            (jsonCards.length ? sectionHeader(t('gm_section_json', 'File JSON')) + grid(jsonCards) : '') +
-            sectionHeader(t('gm_section_notes', 'Appunti')) +
-            grid([defs.notes]);
-        const overlay = buildHubModal('folder-cog', t('ui_graph_manager', 'Graph manager'), body, 'var(--mm-l)');
-        wire(overlay, defs);
-    };
+    /* 0124 (ADR 0025): qui c'era il «Graph manager» (Esporta nel Vault, Importa dal Vault, Importa JSON, Esporta
+       Appunti). Giacomo, 24/10: «il Graph manager sparisce del tutto (voce e finestra); «Importa vault» resta solo
+       in CREA. «Apri JSON» di CREA resta.» */
 
-    console.log('[MappAIMenuHubs] hub Materiali di studio + Graph manager + tooltip caricati');
+    console.log('[MappAIMenuHubs] hub Materiali di studio + tooltip caricati');
 })();

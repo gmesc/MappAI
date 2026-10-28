@@ -28,7 +28,33 @@ test('review commit rejects stale autosave and stale manifest, including equal n
   assert.throws(() => S.saveManifest(dir, m, version), /aggiornato/);
   assert.throws(() => S.saveManifest(dir, { steps: {} }, 2), /cancellare/);
   assert.equal(S.readManifest(dir).review.initial.status, 'approved');
-  assert.deepEqual(fs.readdirSync(dir), ['pipeline.json']);
+  // 0123 lotto 4: accanto al manifesto la sua versione precedente, nient'altro (nessun temporaneo)
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['pipeline.json', 'pipeline.prev.json']);
+});
+
+/* 0123 lotto 4 (0032 punto 6, decisione di Giacomo del 23/10): `saveManifest` tiene la versione
+   precedente delle decisioni del docente in `pipeline.prev.json`, byte per byte, prima di scrivere
+   la nuova. Un salvataggio rifiutato non la tocca; il primo salvataggio non ne ha una. */
+test('0123 lotto 4: pipeline.prev.json è il pipeline.json di prima, e un salvataggio rifiutato non lo tocca', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mappai-prev-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'pipeline.json'), prev = path.join(dir, 'pipeline.prev.json');
+  S.saveManifest(dir, { steps: { a: 1 } }, 0);
+  assert.equal(fs.existsSync(prev), false, 'al primo salvataggio non c\'è una versione precedente');
+  const v1 = fs.readFileSync(file);
+  S.saveManifest(dir, { steps: { a: 2 } }, 1);
+  assert.deepEqual(fs.readFileSync(prev), v1, 'la copia è il file di prima, byte per byte');
+  const v2 = fs.readFileSync(file);
+  S.saveManifest(dir, { steps: { a: 3 } }, 2);
+  assert.deepEqual(fs.readFileSync(prev), v2, 'a ogni salvataggio, la versione appena superata');
+  const v3 = fs.readFileSync(file);
+  assert.throws(() => S.saveManifest(dir, { steps: {}, vaultPath: '/altrove/progetto' }, 3));
+  assert.deepEqual(fs.readFileSync(prev), v2, 'rifiutato: la copia resta quella di prima');
+  assert.deepEqual(fs.readFileSync(file), v3);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['pipeline.json', 'pipeline.prev.json']);
+  // lo scrittore dei percorsi dopo uno spostamento non tocca la copia
+  S.saveManifest(dir, { steps: { a: 3 } }, 3, { copia: false });
+  assert.deepEqual(fs.readFileSync(prev), v2);
 });
 
 test('a corrupt review never silently becomes a legacy vault', t => {
@@ -47,9 +73,13 @@ function mainHandlers() {
     yaml: require('js-yaml'), ReviewStore: S, FilesCore: require('../public/js/mappai-files-core'),
     ipcMain: { handle: (name, fn) => { handlers[name] = fn; } },
     _contaNodiInCartella: () => 0,
+    /* 0123 lotto 4: i confini del disco — la cartella temporanea del sistema è la radice */
+    Confini: require('../public/js/mappai-confini-core.js'), crypto: require('node:crypto'), process,
+    app: { getPath: () => os.tmpdir() }, mappaiRootDir: () => os.tmpdir(), documentsDir: () => os.tmpdir(),
     shell: { trashItem: async () => { throw new Error('No trash operations expected in this test'); } }
   });
-  for (const name of ['_vaultWalkMd', '_vaultPruneEmptyDirs']) {
+  { const a = source.indexOf('/* ── I CONFINI DEL DISCO'); vm.runInContext(source.slice(a, source.indexOf('const ReviewStore = require(', a)), ctx); }   // 0123 lotto 4
+  for (const name of ['_vaultWalkMd', '_vaultPruneEmptyDirs', '_fmDellApp', '_notaDellApp']) {
     const start = source.indexOf('function ' + name + '(');
     vm.runInContext(source.slice(start, source.indexOf('\n}', start) + 2), ctx);
   }

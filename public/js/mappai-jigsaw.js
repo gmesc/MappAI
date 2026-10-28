@@ -391,6 +391,7 @@
         if (window.safeCreateIcons) window.safeCreateIcons();
 
         const close = () => modal.remove();
+        if (window.MappAIVelo) window.MappAIVelo.monta(modal, close);   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         modal.addEventListener('click', e => { if (e.target === modal) close(); });
         modal.querySelector('#jigsaw-export-x').addEventListener('click', close);
         modal.querySelector('#jigsaw-export-cancel').addEventListener('click', close);

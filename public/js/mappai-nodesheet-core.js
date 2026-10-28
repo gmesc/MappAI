@@ -65,10 +65,49 @@
     // grande: sono i numeri con cui il PDF disegna davvero.
     var FMT = {
         '3x4': { cols: 3, rows: 4, titlePt: 22, kwPt: 12, descPt: 11, cardTitlePt: 20, titleOnly: true },
-        '2x2': { cols: 2, rows: 2, titlePt: 28, kwPt: 13, descPt: 11, cardTitlePt: 20 },
-        '2x1': { cols: 2, rows: 1, titlePt: 32, kwPt: 15, descPt: 13, cardTitlePt: 24 }
+        /* 0128 (Giacomo, 27/10, sul mockup dei corpi: «+3 nel 2×1, +2 nel 2×2»): descrizioni e parole
+           chiave più grandi; erano 11/13 nel 2×2 e 13/15 nel 2×1 */
+        '2x2': { cols: 2, rows: 2, titlePt: 28, kwPt: 15, descPt: 13, cardTitlePt: 20 },
+        '2x1': { cols: 2, rows: 1, titlePt: 32, kwPt: 18, descPt: 16, cardTitlePt: 24 }
     };
     var LINE = { title: 1.3, titleTop: 1.25, kw: 1.55, cardTitle: 1.2, desc: 1.4 };
+    /* Il passo di riga della DESCRIZIONE è fisso, non un multiplo del corpo (0122, lotto 3;
+       Giacomo sul banco del Foglio, 22/10: «prova interlinea 24px» → «Scelgo la E: interlinea
+       24 px fissa, a sinistra»): 24 px a 96 dpi = 18 pt = 6,35 mm, in tutti i formati. Lo leggono
+       la capacità (qui), l'editor (in frazione di card) e il PDF. `LINE.desc` resta per chi lo
+       legge ancora, ma la descrizione non lo usa più. */
+    var DESC_LINE_MM = 6.35;
+    /* L'interlinea e lo spazio fra le parole della descrizione (0128, allargamento 1: Giacomo,
+       «una spaziatura tra parole che renda facile la lettura»). `DESC_LINE_K` è l'interlinea
+       minima in frazione del corpo: il passo è il più largo fra quello fisso e corpo × K, così un
+       corpo grande (13 pt del 2×1) non sta più stretto del 2×2. `DESC_WORD_EM` è lo spazio IN PIÙ
+       fra le parole, in em. A 0 tutti e due, il passo fisso dello 0122 e lo spazio del carattere. */
+    var DESC_LINE_K = 1.6;
+    var DESC_WORD_EM = 0.25;
+    /* L'INTERLINEA SCELTA DAL DOCENTE (0128, allargamento 5; Giacomo, 27/10, al gate: «vedo i controlli per le
+       impostazioni del carattere di keyword e descrizioni, aggiungi anche l'opzione per l'interlinea»). Vale per la
+       descrizione, in tutti i formati che la hanno, fra 1,2 e 2 volte il corpo. Scelta, il passo è corpo × interlinea,
+       senza il minimo fisso dei 6,35 mm: a 11 pt un'interlinea più stretta deve vedersi. Sta nel computer del docente
+       (localStorage); assente = il passo di serie. */
+    var INTERLINEA_KEY = 'mappai_nodi_interlinea', INTERLINEA_MIN = 1.2, INTERLINEA_MAX = 2, _interlMem = null;
+    function interlinea() {
+        var v = null;
+        try { v = (typeof localStorage !== 'undefined') ? localStorage.getItem(INTERLINEA_KEY) : _interlMem; } catch (e) { v = _interlMem; }
+        var n = Number(v);
+        return (v != null && v !== '' && isFinite(n) && n > 0) ? Math.max(INTERLINEA_MIN, Math.min(INTERLINEA_MAX, Math.round(n * 10) / 10)) : null;
+    }
+    function setInterlinea(k) {
+        var v = (k == null) ? null : String(Math.max(INTERLINEA_MIN, Math.min(INTERLINEA_MAX, Math.round((Number(k) || DESC_LINE_K) * 10) / 10)));
+        _interlMem = v;
+        try {
+            if (typeof localStorage !== 'undefined') { if (v == null) localStorage.removeItem(INTERLINEA_KEY); else localStorage.setItem(INTERLINEA_KEY, v); }
+        } catch (e) { }
+        return interlinea();
+    }
+    function descPasso(pt) {
+        var k = interlinea();
+        return k ? k * (pt || 0) * PT2MM : Math.max(DESC_LINE_MM, DESC_LINE_K * (pt || 0) * PT2MM);
+    }
 
     // Tipi di contenuto della card. `title` = solo il nome del nodo, centrato:
     // è il default, ed è l'unico ammesso dal formato 3×4 (card troppo piccola).
@@ -82,8 +121,39 @@
     function allowsContent(fmt) { return !FMT[fmtOf(fmt)].titleOnly; }
 
     /** Misure della card e corpi del testo per un formato. */
+    /* I CORPI SCELTI DAL DOCENTE (0128, allargamento 3; Giacomo, 27/10: «nell'editor se serve inserisci la
+       modifica della dimensione del font per aiutare il docente a ottimizzare dimensioni e testi»). Per il 2×2 e
+       il 2×1: il corpo delle descrizioni e delle parole chiave, fra 11 e 20 pt. Lo legge `geom`, quindi lo seguono
+       la capacità (le soglie dell'editor), l'anteprima e il PDF. Sta nel computer del docente (localStorage);
+       assente = i corpi di FMT. */
+    var CORPI_KEY = 'mappai_nodi_corpi', _corpiMem = null;
+    function _limita(n) { n = Number(n); return isFinite(n) && n > 0 ? Math.max(11, Math.min(20, n)) : null; }
+    function corpi() {
+        var raw = null;
+        try { raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(CORPI_KEY) : _corpiMem; } catch (e) { raw = _corpiMem; }
+        var o = {};
+        try { o = raw ? JSON.parse(raw) : {}; } catch (e) { o = {}; }
+        var out = {};
+        ['2x2', '2x1'].forEach(function (k) {
+            var c = o && o[k];
+            if (!c) return;
+            var d = _limita(c.desc), w = _limita(c.kw);
+            if (d || w) out[k] = { desc: d, kw: w };
+        });
+        return out;
+    }
+    function setCorpi(o) {
+        var v = o ? JSON.stringify(o) : null;
+        _corpiMem = v;
+        try {
+            if (typeof localStorage !== 'undefined') { if (v == null) localStorage.removeItem(CORPI_KEY); else localStorage.setItem(CORPI_KEY, v); }
+        } catch (e) { }
+        return corpi();
+    }
+
     function geom(fmt) {
         var f = FMT[fmtOf(fmt)];
+        var cs = corpi()[fmtOf(fmt)] || {};
         return {
             fmt: fmtOf(fmt),
             cols: f.cols, rows: f.rows, perPage: f.cols * f.rows,
@@ -91,7 +161,7 @@
             cardW: (PAGE.w - 2 * PAGE.marginX) / f.cols,
             cardH: (PAGE.h - 2 * PAGE.marginY) / f.rows,
             padX: PAD.x,
-            titlePt: f.titlePt, kwPt: f.kwPt, descPt: f.descPt, cardTitlePt: f.cardTitlePt,
+            titlePt: f.titlePt, kwPt: cs.kw || f.kwPt, descPt: cs.desc || f.descPt, cardTitlePt: f.cardTitlePt,
             titleOnly: !!f.titleOnly,
             PT2MM: PT2MM, advance: _adv
         };
@@ -163,9 +233,10 @@
             var tUsed = Math.min(MAX_TITLE_LINES, Math.max(1, lineCount(titleText, tCpl) || 1));
             var titleH = PAD.cardTop + blockH(tUsed, g.cardTitlePt, LINE.cardTitle) + PAD.descGap;
             var dAvail = g.cardH - titleH - PAD.cardBottom;
-            var dStep = g.descPt * PT2MM * LINE.desc;
+            var dStep = descPasso(g.descPt);   /* passo fisso dello 0122 (lotto 3), o corpo × K (0128) */
             var dLines = Math.max(0, Math.floor(dAvail / dStep));
-            var dCpl = charsPerLine(boxW, g.descPt);
+            /* lo spazio in più fra le parole toglie caratteri alla riga: uno spazio ogni sei caratteri */
+            var dCpl = Math.max(1, Math.floor(boxW / ((_adv + DESC_WORD_EM / 6) * g.descPt * PT2MM)));
             return {
                 title: round10(MAX_TITLE_LINES * tCpl * waste), titleLines: MAX_TITLE_LINES, titleCpl: tCpl,
                 keyword: 0, keywords: 0, keywordCpl: 0,
@@ -491,6 +562,8 @@
     return {
         // geometria e soglie
         PT2MM: PT2MM, ADVANCE: ADVANCE_BASE, setFontMetrics: setFontMetrics, fontMetrics: fontMetrics, PAGE: PAGE, PAD: PAD, FMT: FMT, LINE: LINE,
+        DESC_LINE_MM: DESC_LINE_MM, DESC_LINE_K: DESC_LINE_K, DESC_WORD_EM: DESC_WORD_EM, descPasso: descPasso,
+        corpi: corpi, setCorpi: setCorpi, interlinea: interlinea, setInterlinea: setInterlinea,
         LAYOUTS: LAYOUTS, MAX_KEYWORDS: MAX_KEYWORDS, MAX_TITLE_LINES: MAX_TITLE_LINES,
         fmtOf: fmtOf, layoutOf: layoutOf, allowsContent: allowsContent, geom: geom, pages: pages,
         charsPerLine: charsPerLine, lineCount: lineCount, charLimits: charLimits,

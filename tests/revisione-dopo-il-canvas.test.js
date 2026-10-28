@@ -207,7 +207,7 @@ function controller(opts) {
     StorageManager: { currentProjectId: 'project', saveCurrentProject() {} },
     localStorage: { getItem: () => '0' } });
   vm.runInContext(fs.readFileSync(require.resolve('../public/js/mappai-review.js'), 'utf8'), ctx);
-  return { R: window.MappAIReview, st, saved };
+  return { R: window.MappAIReview, st, saved, window };
 }
 
 test('0097 controller: «Salva le decisioni e continua» sul caso 4B arriva ad «approved»', async () => {
@@ -226,6 +226,26 @@ test('0097 controller: requireApproved su una G1 approvata e una mappa solo ridi
   assert.equal(await h.R.requireApproved(), true);
   assert.equal(m.review.final.stage, 'awaiting_review');
   assert.equal(h.saved.manifest, null, 'niente riscritto sul disco');
+});
+
+/* 0123, lotto 3 (0056): con la G1 IN ATTESA `requireApproved` non fa mai partire il giudice — né per la mappa soltanto
+   ridisegnata dal canvas e riletta (coincide con la base, 0097), né per una modifica vera: il controllo nuovo lo fa solo
+   il gesto del docente, «Ricontrolla la mappa adesso» dentro il Banco. Apre il Banco come prima. */
+test('0123 lotto 3 controller: G1 in attesa, mappa ridisegnata o cambiata davvero — requireApproved apre il Banco e non chiama il giudice', async () => {
+  for (const vera of [false, true]) {
+    const db = riletta(); if (vera) db.nodes.find(n => n.id === 'L1_0').desc = 'Altro.';
+    const h = controller({ db }), m = window0097Manifest(R.setDecision(revisione(), 'costi', 'reject'));
+    h.st._pipelineManifest = m;
+    const old = m.review, giudice = [], aperte = [];
+    h.window.getSystemKey = () => 'chiave';
+    h.window.executeJudgePass = async () => { giudice.push(1); return { checkStatus: 'completed', issues: [] }; };
+    h.R.open = (...a) => { aperte.push(a[0]); };
+    assert.equal(R.coincide(db, old.sources, old, 'base'), !vera, vera ? 'la modifica vera supera la base' : 'il ridisegno no');
+    assert.equal(await h.R.requireApproved(), false);
+    assert.deepEqual(aperte, ['/vault'], 'il Banco si apre');
+    assert.equal(giudice.length, 0); assert.equal(m.review, old);
+    assert.equal(h.saved.manifest, null, 'niente riscritto sul disco');
+  }
 });
 
 function window0097Manifest(review) {

@@ -49,7 +49,15 @@
     let _hist = null;          // cronologia annulla (core)
     let _dirty = false;
     const _flashFmt = '2x2v';   // unico formato del foglio flashcard
-    let _flashBack = false;
+    /* 0128, allargamento 10: «1 faccia» (pieghevole) o «2 facce» (fronte/retro) decide anche l'anteprima dell'editor;
+       la ricorda il computer del docente, e la finestra «Foglio flashcard» parte da lì */
+    let _flashBack = (function () { try { return localStorage.getItem('mappai_flash_facce') === '2'; } catch (e) { return false; } })();
+    let _fcSporco = false;      // un campo di una carta è cambiato: lasciandolo, l'anteprima ricalcola i corpi
+    let _flashLato = 'lungo';   // 0128: il lato su cui la stampante gira il foglio, per l'ordine del retro
+    /* 0128, allargamento 12 (Giacomo, 27/10: dopo «PDF» l'anteprima mostrava il file di prima, o «file non trovato»):
+       il file che questo documento ha appena scritto; l'uscita lo annuncia, e la console apre quello */
+    let _ultimoScritto = null;
+    let _ultimoSet = null;     // 0128, allargamento 16: la copia del mazzo nata da «PDF» con un nome nuovo
     let _stylesInjected = false;
     let _mapKey = null;        // mappa da cui viene il documento aperto (vedi _currentMapKey)
 
@@ -102,6 +110,14 @@
         if (_kind === 'nodesheet') return (_sheet && _sheet.font) || '';
         if (_kind === 'causal') return (_cc && _cc.font) || '';
         return (_doc && _doc.font) || '';
+    }
+    /* Il nome del carattere SCELTO per questo documento, come lo scrive il nome del file (« - TM Alt»); senza scelta
+       `undefined`, e `buildFileName` mette quello dell'app. 0128, allargamento 14 (Giacomo, 27/10: «il nome del file a
+       volte conserva il nome del font originale con cui è stato creato») */
+    function _fontNomeFile() {
+        const id = _fontCorrente();
+        const FC = window.MappAIFontCore;
+        try { return (id && FC && FC.valido && FC.valido(id)) ? FC.font(id).etichetta : undefined; } catch (e) { return undefined; }
     }
     function _scriviFontCorrente(val) {
         if (_kind === 'synthesis') { if (!_syn || !_syn.data) return false; _syn.data.font = val; return true; }
@@ -202,6 +218,32 @@
         catch (e) { /* un annuncio mancato non deve impedire l'apertura */ }
     }
 
+    /* LA TIPOGRAFIA DEL MAZZO (0128, allargamento 18; Giacomo, 27/10: corpo, interlinea e «1 / 2 facce» — «Ogni mazzo i
+       suoi»). Si salvano nel set (`set.tipografia = { corpo, interlinea, facce }`): aprendo un mazzo diventano la scelta
+       in vigore — quella che leggono anteprima, soglie, stampa e PDF (`PL.corpo`, `PL.interlinea`, `_flashBack`) — e un
+       passo li riscrive nel mazzo aperto, come una modifica da salvare. Un mazzo che non li ha parte dall'ultima scelta;
+       una copia parte da quelli del mazzo da cui nasce. */
+    function _tipoMazzoApplica(set) {
+        const PL = window.MappAIPrintLayout, tp = set && set.tipografia;
+        if (!PL || !tp) return;
+        if (PL.setCorpo) PL.setCorpo(tp.corpo != null ? tp.corpo : null);
+        if (PL.setInterlinea) PL.setInterlinea(tp.interlinea != null ? tp.interlinea : null);
+        if (tp.facce === 1 || tp.facce === 2) {
+            _flashBack = tp.facce === 2;
+            try { localStorage.setItem('mappai_flash_facce', _flashBack ? '2' : '1'); } catch (e) { }
+        }
+    }
+    function _tipoMazzoCorrente() {
+        const PL = window.MappAIPrintLayout;
+        return { corpo: (PL && PL.corpo) ? PL.corpo() : null, interlinea: (PL && PL.interlinea) ? PL.interlinea() : null, facce: _flashBack ? 2 : 1 };
+    }
+    function _tipoMazzoCambiato() {
+        if (_kind !== 'flashcards' || !_doc) return;
+        _doc.tipografia = _tipoMazzoCorrente();
+        _dirty = true;
+        _paintDirty();
+    }
+
     // ── apertura documenti ──────────────────────────────────────────────────
     function openSet(setId) {
         const set = _sets().find(s => s.id === setId);
@@ -209,6 +251,7 @@
         _srcSet = set;
         _doc = DE().docFromSet(set);
         _kind = _doc.kind;
+        if (_kind === 'flashcards') { _tipoMazzoApplica(set); _doc.tipografia = _tipoMazzoCorrente(); }
         _syn = null;
         _hist = DE().createHistory(20);
         _dirty = false;
@@ -867,7 +910,9 @@
         if (typeof window.printAllNodeLabels !== 'function') { toast(t('de_ns_no_engine', 'Motore di stampa non disponibile.'), 'error'); return; }
         const over = NS().overCards(_sheet.cards, _sheet.fmt);
         if (over.length && !await _chiedi(
-            t('de_ns_over_confirm', '{n} card hanno più testo di quanto entra nella card stampata: uscirebbero tagliate.').replace('{n}', over.length) +
+            (_senzaTagli()
+                ? t('de_ns_over_confirm2', '{n} card hanno più testo di quanto entra al corpo scelto: usciranno più piccole, intere. Per lasciarle grandi accorcia il testo, abbassa il corpo o scegli le card grandi (2 per foglio).')
+                : t('de_ns_over_confirm', '{n} card hanno più testo di quanto entra nella card stampata: uscirebbero tagliate.')).replace('{n}', over.length) +
             '\n\n' + t('de_ns_over_which', 'Card:') + ' ' + over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ') +
             (over.length > 12 ? '…' : '') + '\n\n' + t('de_ns_print_anyway', 'Stampare comunque?'),
             t('de_ns_print_anyway_ok', 'Stampa comunque'))) return;
@@ -884,6 +929,7 @@
         if (_dirty && !await _chiedi(t('de_leave', 'Ci sono modifiche non salvate. Uscire comunque?'),
             t('de_leave_ok', 'Esci senza salvare'))) return;
         _view = 'list'; _doc = null; _syn = null; _sheet = null; _cc = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1;
+        const scritto = _ultimoScritto, setNuovo = _ultimoSet; _ultimoScritto = null; _ultimoSet = null;
         /* ⚠️ Uscire da un documento ANNUNCIA l'uscita (8/8 notte). Nel workspace
            classico la lista dei documenti È la superficie giusta e `render()`
            qui sotto la disegna come sempre. Nella console di ELABORA no: là
@@ -892,7 +938,7 @@
            l'area, cioè due elenchi degli stessi documenti nella stessa
            schermata. L'evento è sincrono e arriva PRIMA del render: chi lo
            ascolta rimuove l'host, e `render()` non trova dove disegnare. */
-        try { document.dispatchEvent(new CustomEvent('mappai-doc-uscito')); } catch (e) { }
+        try { document.dispatchEvent(new CustomEvent('mappai-doc-uscito', { detail: { scritto: scritto, set: setNuovo } })); } catch (e) { }
         render();
     }
 
@@ -951,7 +997,7 @@
         /* Anche qui i problemi si contestano: il PDF finisce fra i materiali
            che la classe vede, ed è l'ultimo momento in cui dirlo. */
         if (!await _problemiAccettati()) return;
-        const esito = await _salvaConNome();
+        const esito = await _salvaConNome({ chiedi: true });
         if (esito === null) return;              // ha rinunciato: nessun file
         if (esito === false) return;             // non si è potuto scrivere: già detto
     }
@@ -1004,8 +1050,10 @@
         /* ⚠️ Le domande aperte hanno le LORO funzioni: `setField` normalizza
            verso la forma del quiz e butterebbe traccia, righe e aree senza
            dire niente (c'è un test che lo fissa). */
+        /* 0050: la regola che divide la traccia in criteri resta una sola
+           (`criteriDaItem`): il core la riceve come funzione. */
         _doc.items = (_kind === 'openq')
-            ? DE().setOpenField(_doc.items, i, path, value)
+            ? DE().setOpenField(_doc.items, i, path, value, { criteriDa: PC() && PC().criteriDaItem })
             : DE().setField(_doc.items, i, path, value);
         _dirty = true;
         _paintDirty();
@@ -1031,8 +1079,8 @@
         _doc.items = DE().insertAt(_doc.items, at, DE().blankItemFor(_doc));
         _dirty = true; render();
         setTimeout(function () {
-            const el = _host() && _host().querySelector('[data-i="' + at + '"][data-f="question"]');
-            if (el) el.focus();
+            const el = _inVista(at);
+            if (el) el.focus({ preventScroll: true });
         }, 30);
     }
     async function delQuestion(i) {
@@ -1042,11 +1090,24 @@
         _snapshot(t('de_op_del_q', 'elimina domanda'));
         _doc.items = DE().removeAt(_doc.items, i);
         _dirty = true; render();
+        _inVista(Math.min(i, _doc.items.length - 1));
     }
     function moveQ(i, dir) {
         _snapshot(t('de_op_move', 'sposta domanda'));
+        const to = (i + dir >= 0 && i + dir < _doc.items.length) ? i + dir : i;
         _doc.items = DE().moveItem(_doc.items, i, i + dir);
         _dirty = true; render();
+        _inVista(to);
+    }
+    /* 0123 lotto 2b: la domanda toccata resta sotto gli occhi. «nearest» non muove
+       niente se si vede già, e scorre il minimo se è fuori. Restituisce il campo
+       della domanda (per il focus di `addQuestion`). */
+    function _inVista(i) {
+        const host = _host();
+        const el = host && host.querySelector('[data-i="' + i + '"][data-f="question"]');
+        const box = el && (el.closest('.de-item') || el);
+        if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
+        return el;
     }
     function addOption(i) {
         _snapshot(t('de_op_add_opt', 'aggiungi opzione'));
@@ -1267,6 +1328,7 @@
         const sets = (s.db.studySets = s.db.studySets || []);
         const idx = sets.findIndex(x => x.id === _srcSet.id);
         const updated = DE().applyToSet(_srcSet, _doc);
+        if (_doc && _doc.tipografia) updated.tipografia = Object.assign({}, _doc.tipografia);   // allargamento 18
         updated.editedAt = Date.now();
         // Set sparito dalla mappa (eliminato altrove, o progetto ricaricato): meglio
         // dirlo che ricrearlo in silenzio dove non era.
@@ -1522,7 +1584,7 @@
        Ricostruire il nome da capo produrrebbe una seconda copia quasi uguale
        accanto alla prima — ed è così che nascono le cartelle in cui non si
        capisce più quale sia la sintesi buona. */
-    function _pezziNome() {
+    function _pezziNome(senzaCopia) {
         const o = _origine();
         let pieno;
         if (o) pieno = o.relPath.split('/').pop();
@@ -1533,7 +1595,7 @@
             // caricato prima di questo file).
             pieno = PC()
                 ? PC().buildFileName(g.kind, null, _tarato(),
-                    { mappa: _mapName(), dettaglio: g.dettaglio, nome: _cloneCorrente() })
+                    { mappa: _mapName(), dettaglio: g.dettaglio, nome: senzaCopia ? '' : _cloneCorrente(), font: _fontNomeFile() })
                 : (g.kind + '-' + (_mapName() || 'mappa') + (g.kind === 'synthesis' ? '.html' : '.pdf'));
         }
         const m = /^(.*?)( -VERDE)?(\.[A-Za-z0-9]+)$/.exec(pieno);
@@ -1550,9 +1612,20 @@
             .replace(/[\/\\:*?"<>|\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim()
             .replace(/[. ]+$/, '');
     }
-    function _componiNome(nome) {
-        const p = _pezziNome();
+    /* `senzaCopia`: il nome della copia non sta nella parte fissa perché è già nel campo (0128, allargamento 12).
+       ⚠️ Il pezzo scritto dal docente si dà a `buildFileName` come `nome`, non si attacca in coda alla parte fissa: la
+       parte fissa finisce col carattere (« - TM Alt»), e attaccato dopo usciva «Flashcard-Mappa - TM Alt-MINISTRAL.pdf»
+       — un nome che la riga del mazzo non riconosce più come suo, così riapriva il file di prima (0128, allargamento 15;
+       Giacomo, 27/10: «se riapro le flashcard le vedo di nuovo con il vecchio layout e il font precedente, e il nome del
+       vecchio file»). Un documento che viene da un file (`_origine`) tiene la parte fissa del file, come prima. */
+    function _componiNome(nome, senzaCopia) {
         const n = _safeParte(nome);
+        if (!_origine() && PC()) {
+            const g = _genereFile();
+            const pezzo = [senzaCopia ? '' : _safeParte(_cloneCorrente()), n].filter(Boolean).join('-');
+            return PC().buildFileName(g.kind, null, _tarato(), { mappa: _mapName(), dettaglio: g.dettaglio, nome: pezzo, font: _fontNomeFile() });
+        }
+        const p = _pezziNome(senzaCopia);
         return p.base + (n ? '-' + n : '') + p.coda;
     }
 
@@ -1583,12 +1656,54 @@
        mentre si scrive — un campo che dice solo «aggiungi un nome» costringe a
        immaginarsi il file che ne esce.
        → Promise<string|null> (null = ha annullato: non si scrive e non si stampa) */
-    function _chiediNomeFile(esistenti) {
+    /* COPIA DEL MAZZO DA UN NOME NUOVO (0128, allargamento 16; Giacomo, 27/10: «permetti anche di salvare e visualizzare
+       nell'elenco dei materiali FLASHCARD più versioni delle carte», poi «Copia del mazzo»). Solo per i documenti che
+       vengono da un set (flashcard e quiz): un nome diverso da quello del mazzo è una COPIA del mazzo, come «Fai una
+       copia» di ELABORA (`MappAIClona.clonaSet`), con la sua riga e il suo PDF. In ELABORA restano solo le sorgenti
+       (decisione dell'11/8): un PDF col nome cambiato e nessun mazzo dietro non si vedeva.
+       → { tipo: 'file' } (non è un mazzo) · 'stesso' · 'copia' (+ nome) · 'duplicato' · 'vuoto' */
+    function _genereCopia() {
+        const k = _genereFile().kind;
+        return k === 'flashcards' ? 'Flashcard' : k === 'quiz_tf' ? 'Quiz V/F' : k === 'quiz_mc' ? 'Quiz MC' : '';
+    }
+    function _cloniDelGenere() {
+        const s = _appState(), mode = _srcSet && _srcSet.mode;
+        return ((s && s.db && s.db.studySets) || []).filter(function (x) { return x && x.id !== (_srcSet && _srcSet.id) && x.mode === mode; })
+            .map(function (x) { return String(x.clone || ''); });
+    }
+    function _esitoNome(prima, scelto) {
+        const CL = window.MappAIClona;
+        if (!_srcSet || !CL || !_genereCopia()) return { tipo: 'file' };
+        const a = CL.pulisci(prima), b = CL.pulisci(scelto);
+        if (a.toLowerCase() === b.toLowerCase()) return { tipo: 'stesso' };
+        if (!b) return { tipo: 'vuoto' };
+        const v = CL.valida(b, _genereCopia(), _cloniDelGenere());
+        return v.ok ? { tipo: 'copia', nome: v.nome } : { tipo: 'duplicato', nome: b };
+    }
+    function _faiCopia(nome) {
+        const s = _appState(), CL = window.MappAIClona;
+        const base = DE().applyToSet(_srcSet, _doc);
+        if (_doc && _doc.tipografia) base.tipografia = Object.assign({}, _doc.tipografia);   // la copia parte dalla tipografia del mazzo
+        const nuovo = CL.clonaSet(base, nome, {
+            id: 'set_' + Date.now() + '_' + Math.floor(Math.random() * 1e4), genere: _genereCopia(), data: new Date().toISOString()
+        });
+        s.db.studySets = s.db.studySets || [];
+        s.db.studySets.push(nuovo);
+        /* da qui l'editor lavora sulla copia: il mazzo di partenza resta com'era all'ultimo salvataggio */
+        _srcSet = nuovo;
+        if (_doc) _doc.title = nuovo.title;
+        _ultimoSet = nuovo.id;
+    }
+
+    /* 0128, allargamento 12 (Giacomo, 27/10: «Sempre «Che nome dai…»»): `proprio` = il nome che il documento ha già;
+       sta nel campo, e lasciato com'è riscrive il file del materiale senza un secondo modale */
+    function _chiediNomeFile(esistenti, proprio) {
+        proprio = proprio || '';
         const MM = window.MappAIModal;
         const ph = t('de_nome_ph', 'ripasso finale, verifica 2B, …');
         if (!MM || !MM.open) {
             const v = window.prompt(t('de_nome_titolo', 'Che nome dai a questo materiale?') +
-                '\n' + _componiNome(''), '');
+                '\n' + _componiNome('', true), proprio);
             return Promise.resolve(v === null ? null : v);
         }
         return MM.open({
@@ -1597,11 +1712,11 @@
             taglia: 's',
             sezioni: [{
                 testo: t('de_nome_testo', 'La prima parte del nome la mette MappAI: dice che materiale è e di quale mappa. Tu aggiungi come lo riconoscerai — puoi anche lasciare vuoto.'),
-                campi: [{ id: 'nome', tipo: 'testo', etichetta: ph, valore: '' }]
+                campi: [{ id: 'nome', tipo: 'testo', etichetta: ph, valore: proprio }]
             }],
             azioni: [
                 { id: 'no', etichetta: t('de_cancel', 'Annulla') },
-                { id: 'si', etichetta: t('de_nome_ok', 'Salva e stampa'), ruolo: 'primario' }
+                { id: 'si', etichetta: t('de_nome_ok', 'Salva'), ruolo: 'primario' }   /* 0128, allargamento 12 (Giacomo, 27/10): «solo il testo 'SALVA' perché il bottone per la stampa è un altro» */
             ],
             /* Il nome finale si aggiorna sotto le dita. `suApertura` e non
                `__campo`: quell'evento nasce da `change`, che su un campo di testo
@@ -1613,10 +1728,17 @@
                 const out = document.createElement('span');
                 out.className = 'mm-hint de-nome-out';
                 const dipingi = function () {
-                    const n = _componiNome(inp.value);
-                    const gia = _collide(n, esistenti);
-                    out.textContent = n + (gia ? '  · ' + t('de_nome_gia', 'un file con questo nome c\'è già') : '');
-                    out.style.color = gia ? '#b45309' : '';
+                    const n = _componiNome(inp.value, true);
+                    const e = _esitoNome(proprio, inp.value);
+                    /* allargamento 16: per un mazzo la riga dice se il nome resta, fa una copia o non si può usare */
+                    let nota = '', avviso = false;
+                    if (e.tipo === 'copia') nota = t('de_nome_copia', 'nome nuovo: nasce una copia, con la sua riga in ELABORA');
+                    else if (e.tipo === 'duplicato') { nota = t('de_nome_dup', 'esiste già una copia con questo nome'); avviso = true; }
+                    else if (e.tipo === 'vuoto') { nota = t('de_nome_vuoto', 'serve un nome: è quello che lega il PDF al mazzo'); avviso = true; }
+                    else if (e.tipo === 'stesso') nota = _collide(n, esistenti) ? t('de_nome_stesso', 'sostituisce il PDF di questo materiale') : '';
+                    else if (_collide(n, esistenti)) { nota = t('de_nome_gia', 'un file con questo nome c\'è già'); avviso = true; }
+                    out.textContent = n + (nota ? '  · ' + nota : '');
+                    out.style.color = avviso ? '#b45309' : '';
                 };
                 inp.addEventListener('input', dipingi);
                 dipingi();
@@ -1670,6 +1792,13 @@
        dopo — sul nome che finisce davvero sul disco. */
     async function _payloadFile(vaultPath, fileName) {
         const rel = 'Materiale Studio/' + fileName;
+        /* I byte del carattere del documento, PRIMA di costruire il foglio (allargamento 14; Giacomo, 27/10: «il font usato
+           per il PDF non appartiene al set di font di MappAI»). Al via si caricano solo quelli del carattere dell'app: per
+           un altro, `styleDocumento` scriveva un indirizzo file:// che la finestra di printToPDF (origine data:) non legge,
+           e il PDF usciva in Helvetica. Con i byte in memoria il carattere entra nel documento. */
+        try {
+            if (window.MappAIFont && window.MappAIFont.precaricaIncorporabile) await window.MappAIFont.precaricaIncorporabile(_fontCorrente() || undefined);
+        } catch (e) { /* senza, il ripiego di prima */ }
         if (_kind === 'nodesheet') {
             const res = await window.printAllNodeLabels(_nsPrintOpts({ toDisk: { vaultPath: vaultPath } }));
             if (!res || !res.ok || !res.base64) { toast(t('de_ns_pdf_ko', 'PDF del foglio nodi non generato.'), 'error'); return null; }
@@ -1723,6 +1852,15 @@
            raggiungibile dalle due strade che partono dal SET, che è la sorgente
            vera: «Stampa» qui nell'editor (modale «senza soluzioni») e la
            condivisione QR, che agli allievi manda sempre la versione muta. */
+        /* 0128, allargamento 12 (Giacomo, 27/10: «Il foglio scelto»): il PDF delle flashcard nella cartella è il foglio
+           dell'anteprima — «1 faccia» il pieghevole, «2 facce» fronte e retro col lato scelto —, lo stesso della stampante.
+           Prima era sempre il foglio HTML pieghevole, e l'anteprima mostrava un formato diverso da quello scelto. */
+        if (_kind === 'flashcards' && typeof window.printFlashcardSheet === 'function') {
+            const fc = await window.printFlashcardSheet(Object.assign(_flashOpzioni(fileName), { toDisk: { vaultPath: vaultPath } }));
+            if (!fc || !fc.ok || !fc.base64) { toast(t('de_fc_pdf_ko', 'PDF delle flashcard non generato.'), 'error'); return null; }
+            if (fc.avvisi && fc.avvisi.messaggio) toast(fc.avvisi.messaggio, 'info');
+            return { vaultPath: vaultPath, relPath: rel, base64: fc.base64 };
+        }
         const html = _quizHtml(true, false);
         if (window.electronAPI.htmlToPdf) {
             // Il foglio flashcard è orizzontale: senza questo flag printToPDF lo
@@ -1758,7 +1896,7 @@
        → Promise<boolean|null>: true = scritto · false = non si è potuto
        scrivere il file (l'utente lo sa, e si stampa lo stesso) · null = si è
        rinunciato, quindi non si stampa nemmeno. */
-    async function _salvaConNome() {
+    async function _salvaConNome(o) {
         const s = _appState();
         const vaultPath = (_origine() && _origine().vaultPath) || (s && s.activeVaultPath);
         const puoScrivere = !!(window.electronAPI && window.electronAPI.saveVaultFile && vaultPath);
@@ -1783,17 +1921,28 @@
            parte fissa che `_pezziNome` compone lo contiene di suo (arriva da
            `_cloneCorrente`), e ripeterlo qui darebbe
            «Quiz-MC-Mappa-test-test.pdf». */
-        const scelto = _cloneCorrente() ? '' : await _chiediNomeFile(esistenti);
+        /* 0128, allargamento 12: con `o.chiedi` («PDF») il nome si chiede SEMPRE, col nome che il documento ha già
+           scritto nel campo; lasciato com'è è il file del materiale, e si riscrive senza «c'è già» */
+        const prima = _cloneCorrente();
+        const chiedi = !!(o && o.chiedi) || !prima;
+        const scelto = chiedi ? await _chiediNomeFile(esistenti, prima) : '';
         if (scelto === null) return null;                    // annullato: niente stampa
+        const suo = !!prima && chiedi && scelto === prima;
+        if (chiedi) {
+            const e = _esitoNome(prima, scelto);
+            if (e.tipo === 'duplicato') { toast(t('ec_clona_dup', 'Esiste già una copia con questo nome.'), 'warning'); return null; }
+            if (e.tipo === 'vuoto') { toast(t('de_nome_vuoto_t', 'Serve un nome: è quello che lega il PDF al mazzo.'), 'warning'); return null; }
+            if (e.tipo === 'copia') _faiCopia(e.nome);
+        }
         if (!await _salvaDoveVive()) return null;            // ha rinunciato: niente stampa
 
-        const payload = await _payloadFile(vaultPath, _componiNome(scelto));
+        const payload = await _payloadFile(vaultPath, _componiNome(scelto, chiedi));
         if (!payload) return false;
 
         // La collisione si controlla sul nome VERO (l'estensione può essere
         // cambiata costruendo il payload).
         let nomeVero = payload.relPath.split('/').pop();
-        if (_collide(nomeVero, esistenti)) {
+        if (!suo && _collide(nomeVero, esistenti)) {
             const deciso = await _risolviCollisione(nomeVero, esistenti);
             if (!deciso) return null;                        // rinuncia: niente stampa
             nomeVero = deciso;
@@ -1832,6 +1981,7 @@
         try {
             if (window.MappAIVaults) window.MappAIVaults.segnala('file-scritto', { vaultPath: vaultPath, relPath: payload.relPath });
         } catch (e) { /* canale assente: la scrittura è comunque avvenuta */ }
+        _ultimoScritto = payload.relPath;
         _dirty = false; _paintDirty();
         toast(t('de_print_saved', '✓ {n} salvato in Materiale Studio').replace('{n}', nomeVero) +
             (audioPerso ? ' — ' + t('de_print_audio', 'il testo è cambiato: la voce naturale va rigenerata') : ''), 'success');
@@ -1987,6 +2137,21 @@
     }
 
     // Modale foglio flashcard: formato + fronte/retro.
+    /* Le opzioni del foglio flashcard: le stesse per la stampante e per «PDF» (0128, allargamento 12) */
+    function _flashOpzioni(nome) {
+        const s = _appState();
+        return {
+            items: _doc.items,
+            title: _doc.title || (_srcSet && _srcSet.title) || 'Flashcard',
+            mapName: (s && s.rootNodeLabel) || '',
+            fmt: _flashFmt,
+            backside: _flashBack,
+            lato: _flashLato,
+            /* il carattere del documento (allargamento 14): senza, il foglio usciva nel carattere dell'app */
+            font: _fontCorrente(),
+            fileName: nome || null
+        };
+    }
     function openFlashModal(nome) {
         // Un solo formato: 2×2 verticale (4 carte da 95×133 mm su A4 in piedi).
         // Niente scelta da fare — il foglio è quello, e le soglie di caratteri
@@ -1994,19 +2159,33 @@
         _modal(t('de_flash_sheet', 'Foglio flashcard'), t('de_flash_sheet_sub', 'A4 verticale, 4 carte per foglio, con linee di taglio.'),
             '<label class="de-radio"><input type="checkbox" id="de-back"' + (_flashBack ? ' checked' : '') + '><span><b>' +
             esc(t('de_duplex', 'Pagina retro separata (stampa fronte/retro)')) + '</b><small>' +
-            esc(t('de_duplex_d', 'Senza: domanda sopra e risposta sotto, con la piega a metà carta.')) + '</small></span></label>',
+            esc(t('de_duplex_d', 'Senza: domanda sopra e risposta sotto, con la piega a metà carta.')) + '</small></span></label>' +
+            /* 0128 (Giacomo, 26/10: il fronte/retro «Riapro e si rifinisce»): il lato su cui la stampante gira il
+               foglio decide dove cade ogni risposta; il foglio di prova lo verifica prima di stampare il mazzo */
+            '<div class="de-sec-title">' + esc(t('de_flip_title', 'Lato di ribaltamento (fronte/retro)')) + '</div>' +
+            '<label class="de-radio"><input type="radio" name="de-lato" value="lungo"' + (_flashLato !== 'corto' ? ' checked' : '') + '><span><b>' +
+            esc(t('de_flip_long', 'Lato lungo')) + '</b><small>' + esc(t('de_flip_long_d', 'Il foglio si gira come un libro: è il modo più comune.')) + '</small></span></label>' +
+            '<label class="de-radio"><input type="radio" name="de-lato" value="corto"' + (_flashLato === 'corto' ? ' checked' : '') + '><span><b>' +
+            esc(t('de_flip_short', 'Lato corto')) + '</b><small>' + esc(t('de_flip_short_d', 'Il foglio si gira come un blocco, dall\'alto in basso.')) + '</small></span></label>' +
+            '<button type="button" class="pm-btn-cancel" id="de-prova">' + esc(t('de_test_sheet', 'Stampa il foglio di prova')) + '</button>' +
+            '<small class="block">' + esc(t('de_test_sheet_d', 'Due pagine con numeri e croci: stampate fronte e retro e guardate in controluce, dicono se il lato è giusto e di quanti millimetri si sposta la stampante.')) + '</small>',
             async function (root) {
+                const prima = _flashBack;
                 _flashBack = !!root.querySelector('#de-back').checked;
-                const s = _appState();
-                await window.printFlashcardSheet({
-                    items: _doc.items,
-                    title: _doc.title || (_srcSet && _srcSet.title) || 'Flashcard',
-                    mapName: (s && s.rootNodeLabel) || '',
-                    fmt: _flashFmt,
-                    backside: _flashBack,
-                    fileName: nome || null
-                });
-            });
+                try { localStorage.setItem('mappai_flash_facce', _flashBack ? '2' : '1'); } catch (e) { }
+                if (prima !== _flashBack) _tipoMazzoCambiato();
+                const l = root.querySelector('input[name="de-lato"]:checked');
+                _flashLato = (l && l.value === 'corto') ? 'corto' : 'lungo';
+                await window.printFlashcardSheet(_flashOpzioni(nome));
+            }, t('de_pdf', 'PDF'));
+        const m = document.getElementById('de-modal');
+        const prova = m && m.querySelector('#de-prova');
+        if (prova && typeof window.printFlashcardTestSheet === 'function') {
+            prova.onclick = function () {
+                const l = m.querySelector('input[name="de-lato"]:checked');
+                window.printFlashcardTestSheet({ fmt: _flashFmt, lato: (l && l.value === 'corto') ? 'corto' : 'lungo' });
+            };
+        }
     }
 
     // ── LA VOCE NATURALE NELL'HTML ──────────────────────────────────────────
@@ -2296,7 +2475,9 @@
     }
 
     // ── modale generico (stile .pm-* dell'app) ──────────────────────────────
-    function _modal(title, sub, bodyHtml, onOk) {
+    /* 0128, allargamento 11 (Giacomo, 27/10: «il bottone con l'icona della stampante e il testo Continua può essere
+       modificato con icona + PDF»): `okTesto` dà il nome al bottone che conclude; senza, «Continua» come prima */
+    function _modal(title, sub, bodyHtml, onOk, okTesto) {
         const old = document.getElementById('de-modal'); if (old) old.remove();
         const m = document.createElement('div');
         m.id = 'de-modal';
@@ -2320,7 +2501,7 @@
         // Struttura canonica dei modali dell'app (index.html §11): card bianca +
         // header con pm-icon-wrap/pm-title + pm-section + footer a due bottoni.
         m.innerHTML =
-            '<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>' +
+            /* 0122 lotto 4b2: il velo è sul contenitore (MappAIVelo) e il clic fuori non chiude (Giacomo, 23/10): il figlio che faceva da velo non c'è più */
             '<div class="relative bg-white rounded-2xl shadow-2xl w-[92vw] max-w-[560px] max-h-[90vh] overflow-y-auto p-6 space-y-5">' +
             '<div class="flex items-center gap-3">' +
             '<div class="pm-icon-wrap"><i data-lucide="printer" class="w-5 h-5 text-indigo-600"></i></div>' +
@@ -2329,20 +2510,17 @@
             '<div class="pm-section space-y-2">' + bodyHtml + '</div>' +
             '<div class="flex gap-3">' +
             '<button type="button" class="pm-btn-cancel" id="de-modal-x">' + esc(t('de_cancel', 'Annulla')) + '</button>' +
-            '<button type="button" class="pm-btn-primary" id="de-modal-ok"><i data-lucide="printer" class="w-4 h-4"></i>' + esc(t('de_ok', 'Continua')) + '</button>' +
+            '<button type="button" class="pm-btn-primary" id="de-modal-ok"><i data-lucide="printer" class="w-4 h-4"></i>' + esc(okTesto || t('de_ok', 'Continua')) + '</button>' +
             '</div></div>';
         document.body.appendChild(m);
         if (window.safeCreateIcons) window.safeCreateIcons({ root: m });
         const prevFocus = document.activeElement;
         function close() {
-            document.removeEventListener('keydown', onKey, true);
             m.remove();
             try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) { }
         }
-        function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
-        document.addEventListener('keydown', onKey, true);
+        if (window.MappAIVelo) window.MappAIVelo.monta(m, close);   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         m.querySelector('#de-modal-x').onclick = close;
-        m.querySelector('.absolute').onclick = close;
         m.querySelector('#de-modal-ok').onclick = function () { const r = m; close(); onOk(r); };
         setTimeout(function () { const b = m.querySelector('#de-modal-ok'); if (b) b.focus(); }, 20);
     }
@@ -2362,12 +2540,23 @@
            Qui si chiude la strada in un punto solo, invece di rincorrere ogni
            apertura che può rinunciare. */
         if (_view !== 'doc' && _inConsole()) { host.innerHTML = ''; return; }
+        /* 0123 lotto 2b: chi scorre è `.de-sheet-wrap`, che sta DENTRO l'HTML
+           riscritto qui sotto: il riquadro nuovo nasceva a scorrimento zero e ogni
+           gesto che ridisegna (aggiungi, sposta, elimina, un'opzione, il livello…)
+           riportava la vista in cima. Si ricorda dov'era e lo si rimette, ma solo
+           se il documento è lo stesso: un documento appena aperto parte dall'alto. */
+        const chi = _doc || _syn || _sheet || _kind;
+        const prima = (host._deChi === chi) && host.querySelector('.de-sheet-wrap');
+        const scorso = prima ? prima.scrollTop : 0;
         host.innerHTML = (_view === 'doc') ? _docHtml() : _listHtml();
+        host._deChi = chi;
         if (window.safeCreateIcons) window.safeCreateIcons({ root: host });
         _bind(host);
         _mountTts(host);
         _paintDirty();
         _paintZoom();
+        const dopo = scorso && host.querySelector('.de-sheet-wrap');
+        if (dopo) dopo.scrollTop = scorso;
     }
 
     /**
@@ -2739,6 +2928,110 @@
     // cambia se cambia il formato. Qui serve a due cose: dirlo al docente mentre
     // scrive, e far capire perché una carta generata in automatico non è stata
     // stampata (la pipeline salta quelle fuori soglia).
+    /* IL CORPO DEL TESTO (0128, allargamento 3; Giacomo, 27/10: «nell'editor se serve inserisci la modifica della
+       dimensione del font per aiutare il docente a ottimizzare dimensioni e testi per limitare le troncature»).
+       Un passo − / + accanto alla regola scritta: il corpo sta nei core della stampa (flashcard: PL.setCorpo;
+       schede: NS.setCorpi), quindi soglie, anteprima e PDF lo seguono insieme. «di serie» lo toglie. */
+    function _senzaTagli() { const PL = window.MappAIPrintLayout; return !!(PL && PL.senzaTagliAttivo && PL.senzaTagliAttivo()); }
+    /* IL PASSO CON L'ICONA (0128, allargamento 7; Giacomo, 27/10: «Ingrandisci la dimensione dei bottoni dei settings
+       dimensione e interlinea per allinearlo al resto dei bottoni dei settings. Al posto del titolo dell'opzione usa due icone
+       del set lucide»). La cornice del − 100% + della barra (il valore in mezzo torna a quello di serie), alta come gli altri
+       comandi del riquadro. Senza `chiamata` il passo è spento e `o.tip` dice perché. */
+    function _passoIcona(icona, aria, valore, chiamata, o) {
+        o = o || {};
+        const off = !chiamata;
+        const v = o.interl ? String(Math.round(Number(valore) * 100) / 100).replace('.', ',') : String(valore).replace('.', ',') + ' pt';
+        const b = function (d, segno, lbl) {
+            return '<button type="button" class="de-zbtn"' + (off ? ' disabled' : ' onclick="' + chiamata.replace('#', d) + '"') +
+                ' aria-label="' + esc(lbl) + '">' + segno + '</button>';
+        };
+        return '<span class="de-passo' + (o.cambiato ? ' changed' : '') + (off ? ' off' : '') + '" role="group" aria-label="' + esc(aria) +
+            '" title="' + esc(o.tip || aria) + '"><i data-lucide="' + icona + '" aria-hidden="true"></i>' +
+            b('-1', '−', o.interl ? t('de_interl_meno', 'Più stretta') : t('de_corpo_meno', 'Più piccolo')) +
+            '<button type="button" class="de-zlbl"' + (off ? ' disabled' : ' onclick="' + chiamata.replace('#', '0') + '"') +
+            ' title="' + esc(t('de_passo_serie', 'Torna al valore di serie')) + '">' + esc(v) + '</button>' +
+            b('1', '+', o.interl ? t('de_interl_piu', 'Più larga') : t('de_corpo_piu', 'Più grande')) +
+            '</span>';
+    }
+    /* IL BLOCCO DELLE IMPOSTAZIONI (0128, allargamento 9; Giacomo, 27/10: «organizza meglio gli elementi per la gestione delle
+       impostazioni di dimensione e interlinea affinche il loro blocco sia simile in tutti gli editor, e, come ti ho già chiesto
+       per l'editor dei fogli dei nodi, fai in modo che le descrizioni dei vincoli e gli avvisi degli eventuali errori siano
+       riportati in maniera chiara e sintetica sotto i bottoni dei setting di layout»). Lo stesso riquadro in ogni editor, sotto
+       la testata: le righe proprie del materiale (il foglio dei nodi: formato, profondità, tipo di card), la riga del testo
+       (dimensione e interlinea, con le icone, sempre in quest'ordine) e sotto una riga corta: i vincoli, poi in grassetto
+       l'avviso, se c'è. */
+    function _impostazioni(o) {
+        return '<div class="de-ns-ctrl de-set">' + (o.righe || '') +
+            (o.testo ? '<div class="de-ns-ctrl-row de-set-testo">' + o.testo + '</div>' : '') +
+            ((o.vincoli || o.avviso)
+                ? '<div class="de-set-info' + (o.avviso ? ' warn' : '') + '">' + esc(o.vincoli || '') +
+                  (o.avviso ? (o.vincoli ? ' ' : '') + '<b>' + esc(o.avviso) + '</b>' : '') + '</div>'
+                : '') +
+            '</div>';
+    }
+    /* La riga del testo per i materiali che non sono il foglio dei nodi (quello ha la dimensione che segue il tipo di card):
+       le flashcard dal loro core (PL.setCorpo / PL.setInterlinea), gli altri dalla scelta per materiale (PL.setTipografia). */
+    function _bloccoTesto() {
+        const PL = window.MappAIPrintLayout;
+        if (!PL) return '';
+        if (_kind === 'flashcards') {
+            if (!PL.setCorpo || !PL.setInterlinea) return '';
+            const g = PL.flashGeom();
+            return _passoIcona('a-large-small', t('de_passo_corpo', 'Dimensione del testo'), g.q, 'MappAIDocEditor.corpoFlash(#)', { cambiato: PL.corpo() != null }) +
+                _passoIcona('list-chevrons-up-down', t('de_interlinea', 'Interlinea'), g.lineH, 'MappAIDocEditor.interlineaFlash(#)', { interl: true, cambiato: PL.interlinea() != null });
+        }
+        const T = PL.tipografia ? PL.tipografia(_kind) : null;
+        if (!T) return '';
+        return _passoIcona('a-large-small', t('de_passo_corpo', 'Dimensione del testo'), T.corpo, 'MappAIDocEditor.tipoDoc(\'corpo\', #)', { cambiato: T.scelto.corpo }) +
+            _passoIcona('list-chevrons-up-down', t('de_interlinea', 'Interlinea'), T.interlinea, 'MappAIDocEditor.tipoDoc(\'interlinea\', #)', { interl: true, cambiato: T.scelto.interlinea });
+    }
+    /* quiz, domande aperte, sintesi, catena (allargamento 7): la scelta nel core della stampa, che i quattro fogli leggono */
+    function tipoDoc(campo, d) {
+        const PL = window.MappAIPrintLayout;
+        const T = (PL && PL.tipografia) ? PL.tipografia(_kind) : null;
+        if (!T) return;
+        if (d === 0) PL.setTipografia(_kind, campo, null);
+        else PL.setTipografia(_kind, campo, campo === 'corpo' ? T.corpo + d : Math.round((T.interlinea + d / 10) * 10) / 10);
+        render();
+    }
+    function _overTesto(nums) {
+        return nums.length ? t('de_set_over', 'Fuori soglia: {n}.').replace('{n}', nums.slice(0, 12).map(function (i) { return '#' + (i + 1); }).join(', ') + (nums.length > 12 ? '…' : '')) : '';
+    }
+    function _notaStampa() { return t('de_set_stampa', 'Dimensione e interlinea valgono per la stampa e il PDF.'); }
+    function corpoFlash(d) {
+        const PL = window.MappAIPrintLayout;
+        if (!PL || !PL.setCorpo) return;
+        const cur = PL.corpo() || PL.flashGeom().q;
+        if (d === 0) PL.setCorpo(null); else PL.setCorpo(cur + d);
+        _tipoMazzoCambiato();
+        render();
+    }
+    function corpoNodi(campo, d) {
+        const N = NS();
+        if (!N || !N.setCorpi || !_sheet || (_sheet.fmt !== '2x2' && _sheet.fmt !== '2x1')) return;
+        const tutti = N.corpi(), g = N.geom(_sheet.fmt);
+        const c = Object.assign({}, tutti[_sheet.fmt] || {});
+        if (d === 0) delete c[campo]; else c[campo] = (campo === 'desc' ? g.descPt : g.kwPt) + d;
+        tutti[_sheet.fmt] = c;
+        N.setCorpi(tutti);
+        render();
+    }
+    /* L'INTERLINEA (0128, allargamento 5; Giacomo, 27/10: «aggiungi anche l'opzione per l'interlinea»): a passi di 0,1,
+       nei core della stampa come il corpo (flashcard: PL.setInterlinea; schede, la descrizione: NS.setInterlinea). */
+    function interlineaFlash(d) {
+        const PL = window.MappAIPrintLayout;
+        if (!PL || !PL.setInterlinea) return;
+        if (d === 0) PL.setInterlinea(null); else PL.setInterlinea(PL.flashGeom().lineH + d / 10);
+        _tipoMazzoCambiato();
+        render();
+    }
+    function interlineaNodi(d) {
+        const N = NS();
+        if (!N || !N.setInterlinea) return;
+        if (d === 0) N.setInterlinea(null); else N.setInterlinea((N.interlinea() || N.DESC_LINE_K) + d / 10);
+        render();
+    }
+
     function _flashLimits() {
         try {
             const PL = window.MappAIPrintLayout;
@@ -2747,23 +3040,28 @@
             const head = (QP && QP.cardHeader)
                 ? QP.cardHeader({ title: _doc.title || (_srcSet && _srcSet.title) || '' }, {})
                 : null;
-            return PL.charLimits(PL.flashGeom(), head);
+            const G = PL.flashGeom();
+            if (!_flashBack) return PL.charLimits(G, head);
+            /* «2 facce» (0128, allargamento 17; Giacomo, 27/10: «perché sono segnalati dei casi di superamento della soglia
+               […] ma se controllo le card tutto il testo ha il suo spazio?»): la domanda ha tutta la carta davanti e la
+               risposta tutta la carta dietro. Le soglie di prima erano quelle del pieghevole, mezza carta ciascuna, e
+               segnavano fuori soglia carte che in fronte e retro ci stanno. */
+            /* col margine del fronte e retro rifinito (`safe`, per lato), come l'anteprima e il foglio: misurato, una carta
+               alla soglia esce al corpo scelto (11, 13, 15, 16 pt) e oltre rimpicciolisce */
+            let rifinito = true;
+            try { rifinito = localStorage.getItem('mappai_fronte_retro_rifinito') !== '0'; } catch (e) { }
+            const m = rifinito ? (G.safe || 0) : 0;
+            const Gs = Object.assign({}, G, { cardW: G.cardW - 2 * m, cardH: G.cardH - 2 * m });
+            const fronte = PL.charLimits(Gs, head, { split: 100 }), retro = PL.charLimits(Gs, head, { split: 0 });
+            return Object.assign({}, fronte, { answer: retro.answer, explanation: retro.explanation, aLines: retro.aLines, duplex: true });
         } catch (e) { return null; }
     }
 
-    // Carte attualmente fuori soglia (indice + quale campo sfora).
+    // Carte attualmente fuori soglia: quelle che farebbero uscire il mazzo sotto il corpo scelto (allargamento 19).
     function _overCards() {
-        const L = _flashLimits();
-        if (!L || _kind !== 'flashcards') return [];
+        if (_kind !== 'flashcards' || !_flashLimits()) return [];
         try {
-            const PL = window.MappAIPrintLayout;
-            const items = _doc.items.map(function (it) {
-                return {
-                    question: DE().plainText(it.question || ''),
-                    answer: DE().plainText(it.answer || '')
-                };
-            });
-            return PL.overLimit(items, L);
+            return _colpevoli(_flashFit()).map(function (i) { return { i: i }; });
         } catch (e) { return []; }
     }
 
@@ -2785,8 +3083,12 @@
         const L = _flashLimits(); if (!L) return;
         const c = _countOf(i);
         el.textContent = c.q + '/' + L.question + ' · ' + c.a + '/' + L.answer;
-        el.className = 'de-count' + ((c.q > L.question || c.a > L.answer) ? ' over' : '');
         el.setAttribute('title', t('de_count_tip', 'Caratteri della domanda e della risposta rispetto al massimo che entra nella carta stampata'));
+        /* il rosso dal calcolo del foglio (allargamento 19); tutti i contatori, perché la piega del pieghevole è del mazzo */
+        const colpa = _colpevoli(_flashFit());
+        host.querySelectorAll('.de-count[data-count]').forEach(function (e) {
+            e.className = 'de-count' + (colpa.indexOf(Number(e.getAttribute('data-count'))) >= 0 ? ' over' : '');
+        });
     }
 
     // Il foglio: stessa gerarchia del PDF (header card, domanda, opzioni A/B/C).
@@ -2862,17 +3164,140 @@
                 '</div>';
         }).join('');
 
-        return '<div class="de-sheet quiz">' +
+        const TO = (window.MappAIPrintLayout && window.MappAIPrintLayout.tipografia) ? window.MappAIPrintLayout.tipografia('openq') : null;
+        return '<div class="de-sheet quiz"' + (TO ? ' style="--de-tk:' + TO.k + ';--de-tlk:' + TO.lk + '"' : '') + '>' +
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title" contenteditable="true" data-f="title" data-ph="' + esc(t('de_ph_title', 'Titolo del documento')) + '">' + esc(_doc.title) + '</div>' +
             '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' + esc(t('de_oq', 'Domande aperte')) + '</div>' +
             _deChip() +
             '<div class="de-badge">' + _doc.items.length + ' ' + esc(t('de_questions', 'domande')) + '</div>' +
             '</div>' +
-            '<div class="de-limit">' + esc(t('de_oq_note', 'Le tracce di correzione non compaiono nella copia degli allievi: le stampi solo tu, in coda al foglio. Le righe sono lo spazio vero che lo studente avrà per rispondere.')) + '</div>' +
+            _impostazioni({ testo: _bloccoTesto(), vincoli: t('de_set_oq', 'Le tracce si stampano solo nella tua copia, in coda; le righe sono lo spazio per rispondere.') + ' ' + _notaStampa() }) +
             items +
             '<button type="button" class="de-addq" onclick="MappAIDocEditor.addQuestion()">+ ' + esc(t('de_add_q', 'domanda')) + '</button>' +
             '</div>';
+    }
+
+    /* L'ANTEPRIMA DELLE FLASHCARD (0128, allargamento 10; Giacomo, 27/10: «l'editor delle flashcard deve mostrare un anteprima
+       uguale a quella del layout di stampa e deve esserci l'opzione 1 faccia 2 faccie per formato pieghevole o formato
+       fronte/retro. Quando lo user sceglie la modalità 2 faccie allora fronte e retro della carta sono disposte una a fianco
+       dell'altra e per ogni riga c'è una flashcard»). Le carte si disegnano con la geometria e i corpi del foglio vero:
+       PL.flashGeom e PL.fitFlash con le opzioni di printFlashcardSheet (testata, senza tagli, fronte/retro rifinito), misure
+       in frazioni della larghezza della carta (cqw). 1 faccia = il pieghevole (domanda sopra, piega, risposta sotto, due carte
+       per riga come sul foglio); 2 facce = fronte e retro affiancati, una carta per riga. I campi restano scrivibili; i corpi
+       si ricalcolano quando si lascia un campo. Se un testo non entra, la carta si allunga: lo dice anche il contatore. */
+    /* Il calcolo del foglio per le carte del mazzo, con le opzioni di printFlashcardSheet: lo leggono l'anteprima e il rosso. */
+    function _flashFit() {
+        const PL = window.MappAIPrintLayout, QP = window.MappAIQuizPrint;
+        if (!PL || !PL.fitFlash || !_doc) return null;
+        const G = PL.flashGeom();
+        const head = (QP && QP.cardHeader) ? QP.cardHeader({ title: _doc.title || (_srcSet && _srcSet.title) || '' }, {}) : { root: '', theme: '' };
+        const pre = String((G.labels && G.labels.themePrefix) || '');
+        const righeTesta = [String(head.root || ''), head.theme ? (pre ? pre + ' ' + head.theme : head.theme) : ''];
+        const senzaTagli = !!(PL.senzaTagliAttivo && PL.senzaTagliAttivo());
+        let rifinito = true;
+        try { rifinito = localStorage.getItem('mappai_fronte_retro_rifinito') !== '0'; } catch (e) { }
+        const due = !!_flashBack, SAFE = (due && rifinito) ? (G.safe || 0) : 0;
+        const carte = _doc.items.map(function (it) {
+            const ex = String(it.explanation || '');
+            return { question: String(it.question || ''), answer: String(it.answer || '—'),
+                explanation: (!senzaTagli && ex.length > G.explMax) ? ex.slice(0, G.explMax) : ex };
+        });
+        let fit = null;
+        try {
+            fit = PL.fitFlash(carte, G, { lines: righeTesta },
+                { policy: 'uniform', withExpl: true, duplex: due, retro: (due && rifinito) ? { safe: SAFE } : null, senzaTagli: senzaTagli });
+        } catch (e) { fit = null; }
+        return { PL: PL, G: G, righeTesta: righeTesta, rifinito: rifinito, due: due, SAFE: SAFE, fit: fit };
+    }
+    /* IL ROSSO SEGUE IL PDF (0128, allargamento 19; Giacomo, 27/10: «il rosso e «Fuori soglia» solo quando una carta farebbe
+       uscire il mazzo più piccolo del corpo scelto»). La soglia in caratteri è una stima prudente (arrotonda per difetto,
+       conta il 10% perso agli a capo, tiene due righe per la spiegazione) e resta come indicazione; il rosso lo decide il
+       calcolo del foglio: una carta è fuori soglia quando da sola, con la piega del mazzo, non arriva al corpo scelto
+       (`G.q`; senza scelta il corpo di serie, anche quando il fronte e retro può crescere oltre). */
+    function _colpevoli(F) {
+        if (!F || !F.fit || !F.fit.perCard) return [];
+        return F.fit.perCard.reduce(function (out, pc, i) { if (pc.q < F.G.q - 0.001) out.push(i); return out; }, []);
+    }
+    function _flashPreview(LIM) {
+        const F = _flashFit();
+        if (!F) return '';
+        const PL = F.PL, G = F.G, righeTesta = F.righeTesta, rifinito = F.rifinito, due = F.due, SAFE = F.SAFE, fit = F.fit;
+        const colpa = _colpevoli(F);
+        const W = G.cardW, MM = PL.PT2MM;
+        const c = function (mm) { return (mm / W * 100).toFixed(3) + 'cqw'; };
+        const corpo = function (i) {
+            if (!fit) return { q: G.q, a: G.aStart, e: G.q * (G.explRatio || .85) };
+            return ((fit.sotto || []).indexOf(i) >= 0 && fit.perCard && fit.perCard[i]) ? fit.perCard[i] : fit;
+        };
+        const testo = function (pt) {
+            return 'font-size:' + c(pt * MM) + ';line-height:' + G.lineH + ';' + (G.wordSpace ? 'word-spacing:' + G.wordSpace + 'em;' : '');
+        };
+        const testata = function (rientro) {
+            const r = 'font-size:' + c(G.head * MM) + ';line-height:' + G.headLineH + ';';
+            return '<div class="de-fc-head" style="margin-bottom:' + c(G.card.headGap) + (rientro ? ';padding:0 ' + c(rientro) : '') + '">' +
+                (righeTesta[0] ? '<div class="de-fc-root" style="' + r + 'color:' + G.colors.accent + '">' + esc(righeTesta[0]) + '</div>' : '') +
+                (righeTesta[1] ? '<div class="de-fc-theme" style="' + r + 'color:' + G.colors.muted + '">' + esc(righeTesta[1]) + '</div>' : '') + '</div>';
+        };
+        const campo = function (i, f, v, pt, cls, ph, extra) {
+            return '<div class="' + cls + '" contenteditable="true" role="textbox" data-i="' + i + '" data-f="' + f + '"' +
+                ' aria-label="' + esc(ph + ' — ' + t('de_card_n', 'Carta') + ' ' + (i + 1)) + '" data-ph="' + esc(ph) + '"' +
+                ' style="' + testo(pt) + (extra || '') + '">' + esc(v) + '</div>';
+        };
+        const bordo = 'border:max(1px,' + c(G.cut.width) + ') dashed ' + G.cut.color + ';border-radius:' + c(G.card.radius) + ';';
+        const domanda = function (it, i, pc) {
+            return '<div class="de-fc-qbox">' + campo(i, 'question', it.question, pc.q, 'de-fc-q', t('de_ph_q', 'Scrivi qui la domanda…'), 'color:' + G.colors.ink) + '</div>';
+        };
+        const risposta = function (it, i, pc) {
+            return campo(i, 'answer', it.answer, pc.a, 'de-fc-a', t('de_ph_a', 'Risposta sul retro…'), 'color:' + G.colors.ink) +
+                campo(i, 'explanation', it.explanation, pc.e, 'de-fc-e', t('de_ph_fc_e', 'Spiegazione (facoltativa)…'),
+                    'color:' + G.colors.expl + ';margin-top:' + c(G.card.explGap));
+        };
+        const testaCarta = function (it, i) {
+            const q = DE().plainText(it.question || '').length, a = DE().plainText(it.answer || '').length;
+            const over = LIM && colpa.indexOf(i) >= 0;
+            return '<div class="de-item-h">' +
+                '<span class="de-qn">' + esc(t('de_card_n', 'Carta')) + ' ' + (i + 1) + '</span>' +
+                (LIM ? '<span class="de-count' + (over ? ' over' : '') + '" data-count="' + i + '" title="' +
+                    esc(t('de_count_tip', 'Caratteri della domanda e della risposta rispetto al massimo che entra nella carta stampata')) + '">' +
+                    q + '/' + LIM.question + ' · ' + a + '/' + LIM.answer + '</span>' : '') +
+                '<span class="de-item-tools">' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',-1)" title="' + esc(t('de_up', 'Sposta su')) + '"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.moveQ(' + i + ',1)" title="' + esc(t('de_down', 'Sposta giù')) + '"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t" onclick="MappAIDocEditor.addQuestion(' + i + ')" title="' + esc(t('de_add_after', 'Aggiungi qui sotto')) + '"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>' +
+                '<button type="button" class="de-t de-del" onclick="MappAIDocEditor.delQuestion(' + i + ')" title="' + esc(t('de_del', 'Elimina')) + '"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' +
+                '</span></div>';
+        };
+        /* la carta è il contenitore dei cqw: bordo e fondo stanno nella scatola di dentro, misurati sulla carta */
+        const carta = function (dentro, fondo) {
+            return '<div class="de-fc-carta" style="aspect-ratio:' + W + ' / ' + G.cardH + '"><div class="de-fc-corpo" style="' + bordo +
+                (fondo ? 'background:' + fondo + ';' : '') + '">' + dentro + '</div></div>';
+        };
+        const pad = function (top, extra) { return 'padding:' + c(top + extra) + ' ' + c(G.card.padX + extra) + ' ' + c(G.card.padBottom + extra) + ';'; };
+        return _doc.items.map(function (it, i) {
+            const pc = corpo(i);
+            if (!due) {
+                const split = fit ? fit.split : 50;
+                return '<div class="de-fc-cella">' + testaCarta(it, i) + carta(
+                    '<div class="de-fc-fronte" style="flex:0 0 auto;min-height:' + c(G.cardH * split / 100) + ';' + pad(G.card.padTop, 0) +
+                    'border-bottom:max(1px,' + c(G.fold.width) + ') dashed ' + G.fold.color + '">' + testata(0) + domanda(it, i, pc) + '</div>' +
+                    '<div class="de-fc-retro" style="background:' + G.colors.back + ';' + pad(G.card.backPadTop, 0) + '">' + risposta(it, i, pc) + '</div>') +
+                    '</div>';
+            }
+            return '<div class="de-fc-riga">' + testaCarta(it, i) +
+                '<div class="de-fc-coppia">' +
+                carta('<div class="de-fc-fronte de-fc-intera" style="' + pad(G.card.padTop, 0) + '">' + testata(0) + domanda(it, i, pc) + '</div>') +
+                carta('<div class="de-fc-retro de-fc-intera" style="' + pad(G.card.padTop, SAFE) + '">' +
+                    (rifinito ? testata(0) : '') + '<div class="de-fc-abox">' + risposta(it, i, pc) + '</div></div>', G.colors.back) +
+                '</div></div>';
+        }).join('');
+    }
+    /* 1 faccia (pieghevole) / 2 facce (fronte/retro) */
+    function setFacce(n) {
+        _flashBack = (n === 2);
+        try { localStorage.setItem('mappai_flash_facce', _flashBack ? '2' : '1'); } catch (e) { }
+        _tipoMazzoCambiato();
+        render();
     }
 
     function _quizSheet() {
@@ -2880,7 +3305,10 @@
         const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
         const isFlash = _kind === 'flashcards';
         const LIM = isFlash ? _flashLimits() : null;
-        const items = _doc.items.map(function (it, i) {
+        /* quiz (allargamento 10: «i campi delle domande e delle risposte devono adattarsi alla dimensione del font»): il corpo
+           e l'interlinea scelti scalano i campi; gli stili restano quelli di sempre */
+        const TQ = (!isFlash && window.MappAIPrintLayout && window.MappAIPrintLayout.tipografia) ? window.MappAIPrintLayout.tipografia('quiz') : null;
+        const items = isFlash ? _flashPreview(LIM) : _doc.items.map(function (it, i) {
             const opts = (it.options || []).map(function (o, oi) {
                 const isCorrect = it.correctIndex === oi;
                 // La risposta corretta non è segnalata SOLO dal colore: la lettera
@@ -2929,26 +3357,33 @@
                 '</div>';
         }).join('');
 
-        return '<div class="de-sheet' + (isFlash ? ' flash' : ' quiz') + '">' +
+        return '<div class="de-sheet' + (isFlash ? ' flash' : ' quiz') + '"' + (TQ ? ' style="--de-tk:' + TQ.k + ';--de-tlk:' + TQ.lk + '"' : '') + '>' +
             '<div class="de-sheet-head">' +
             '<div class="de-sheet-title" contenteditable="true" data-f="title" data-ph="' + esc(t('de_ph_title', 'Titolo del documento')) + '">' + esc(_doc.title) + '</div>' +
             '<div class="de-sheet-sub">' + esc((s && s.rootNodeLabel) || '') + ' · ' + esc(isFlash ? t('de_flash', 'Flashcard') : t('de_quiz', 'Quiz')) + '</div>' +
             (isFlash ? '' : _deChip()) +
             '<div class="de-badge">' + _doc.items.length + ' ' + esc(isFlash ? t('de_cards', 'carte') : t('de_questions', 'domande')) + '</div>' +
             '</div>' +
-            // La regola, scritta: quanto testo entra in una carta e cosa succede
-            // a quelle troppo lunghe generate in automatico.
-            (LIM ? '<div class="de-limit' + (_overCards().length ? ' warn' : '') + '">' +
-                esc(t('de_limit_note', 'Massimo {q} caratteri per la domanda e {a} per la risposta: è quanto entra nella carta stampata. Le carte più lunghe generate in automatico non vengono stampate — accorciale qui.')
-                    .replace('{q}', LIM.question).replace('{a}', LIM.answer)) +
-                (_overCards().length
-                    ? ' <b>' + esc(t('de_limit_over', 'Fuori soglia adesso: {n}.').replace('{n}', _overCards().map(function (o) { return '#' + (o.i + 1); }).join(', '))) + '</b>'
-                    : '') +
-                '</div>' : '') +
+            /* allargamento 9: il blocco delle impostazioni, con la regola corta sotto i passi */
+            _impostazioni({
+                righe: isFlash ? '<div class="de-ns-ctrl-row"><span class="de-ns-lbl">' + esc(t('de_facce', 'Facce')) + '</span>' +
+                    '<button type="button" class="de-ns-fmt' + (_flashBack ? '' : ' active') + '" onclick="MappAIDocEditor.setFacce(1)">' +
+                    esc(t('de_facce_1', '1 faccia')) + '<small>' + esc(t('de_facce_1d', 'pieghevole')) + '</small></button>' +
+                    '<button type="button" class="de-ns-fmt' + (_flashBack ? ' active' : '') + '" onclick="MappAIDocEditor.setFacce(2)">' +
+                    esc(t('de_facce_2', '2 facce')) + '<small>' + esc(t('de_facce_2d', 'fronte e retro')) + '</small></button></div>' : '',
+                testo: _bloccoTesto(),
+                vincoli: LIM
+                    ? (_senzaTagli()
+                        ? t('de_set_flash2', 'Per carta: domanda ~{q} caratteri, risposta ~{a}. Più lunga: esce più piccola; generata in automatico, non si stampa.')
+                        : t('de_set_flash', 'Per carta: domanda ~{q} caratteri, risposta ~{a}. Le più lunghe generate in automatico non si stampano.'))
+                        .replace('{q}', LIM.question).replace('{a}', LIM.answer)
+                    : _notaStampa(),
+                avviso: LIM ? _overTesto(_overCards().map(function (o) { return o.i; })) : ''
+            }) +
             '<div class="de-sec-title">' + esc(isFlash ? t('de_cards_c', 'Carte') : t('de_questions_c', 'Domande')) + '</div>' +
             // Le carte/domande stanno in una griglia: a schermo largo vanno su due
             // colonne (solo la PREVIEW — la stampa resta a una colonna come prima).
-            '<div class="de-items">' + items + '</div>' +
+            (isFlash ? '<div class="de-fc ' + (_flashBack ? 'due' : 'una') + '">' + items + '</div>' : '<div class="de-items">' + items + '</div>') +
             '<button type="button" class="de-add" onclick="MappAIDocEditor.addQuestion()"><i data-lucide="plus" class="w-4 h-4"></i> ' +
             esc(isFlash ? t('de_add_card', 'Aggiungi una carta') : t('de_add_q', 'Aggiungi una domanda')) + '</button>' +
             '</div>';
@@ -2969,6 +3404,8 @@
         return {
             g: g,
             title: pt(g.titlePt), kw: pt(g.kwPt), desc: pt(g.descPt), cardTitle: pt(g.cardTitlePt),
+            descLh: cq(NS().descPasso(g.descPt)),        // il passo della descrizione (0122: 6,35 mm fissi; 0128: almeno corpo × 1,6), in frazione di card
+            descWs: NS().DESC_WORD_EM || 0,              // 0128: lo spazio in più fra le parole, in em del corpo (come nel PDF)
             padX: cq(g.padX), rule: cq(8)                // 8 mm = passo delle righe guida
         };
     }
@@ -3021,16 +3458,51 @@
             '<button type="button" class="de-ns-fmt' + (_sheet.fmt === v ? ' active' : '') + '" onclick="MappAIDocEditor.nsSetFmt(\'' + v + '\')">' +
             esc(label) + '<small>' + esc(sub) + '</small></button>';
 
-        const allBtn = (v, label) =>
-            '<button type="button" class="de-ns-all" onclick="MappAIDocEditor.nsSetAll(\'' + v + '\')"' +
-            (!canContent && v !== 'title' ? ' disabled title="' + esc(t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.')) + '"' : '') +
-            '>' + esc(label) + '</button>';
+        /* IL TIPO DI CARD (0128, allargamento 6; Giacomo, 27/10: «modifica il testo 'A tutte le card' in 'Tipo di card:
+           TITOLO + [menu a tendina per opzioni]', i nomi delle opzioni sono 'SPAZIO VUOTO', 'PAROLE CHIAVE' e
+           'DESCRIZIONI'»; e «NIENTE» in cima, che rimette tutte le card al solo titolo). Il menu mostra il tipo
+           comune; con card di tipi diversi, «—». Col 3 × 4 resta solo NIENTE. */
+        const tipi = [['title', t('de_ns_o_title', 'NIENTE')], ['summary', t('de_ns_o_summary', 'SPAZIO VUOTO')],
+            ['keywords', t('de_ns_o_keywords', 'PAROLE CHIAVE')], ['card', t('de_ns_o_card', 'DESCRIZIONI')]];
+        const tipoComune = tipi.map(function (o) { return o[0]; }).filter(function (v) { return counts[v] === _sheet.cards.length; })[0] || '';
+        const tipoSel = '<select class="de-ns-sel" aria-label="' + esc(t('de_ns_tipo', 'Tipo di card')) + '" onchange="MappAIDocEditor.nsSetAll(this.value)"' +
+            (!canContent ? ' title="' + esc(t('de_ns_only_title', 'Con il formato 3 × 4 nella card entra solo il titolo.')) + '"' : '') + '>' +
+            (tipoComune ? '' : '<option value="" selected disabled hidden>' + esc(t('de_ns_o_misto', '—')) + '</option>') +
+            tipi.map(function (o) {
+                return '<option value="' + o[0] + '"' + (o[0] === tipoComune ? ' selected' : '') +
+                    (!canContent && o[0] !== 'title' ? ' disabled' : '') + '>' + esc(o[1]) + '</option>';
+            }).join('') + '</select>';
+
+        /* LA DIMENSIONE E L'INTERLINEA NEL RIQUADRO (0128, allargamento 7; Giacomo, 27/10: «Riorganizza le opzioni per la
+           dimensione dei caratteri e dell'interlinea in modo da farle stare nel riquadro principale»; «Fondi l'opzione per la
+           dimensione delle desc e delle keyword in modo che sia unica voce e che sia attiva sulla modalità applicata alla
+           selezione fatta nel menu a tendina»). Il passo della dimensione regola le descrizioni con DESCRIZIONI e le parole
+           chiave con PAROLE CHIAVE; con card di tipi diversi, quelle delle più numerose fra le due; NIENTE e SPAZIO VUOTO non
+           hanno testo da regolare. L'interlinea vale per le descrizioni (le parole chiave stanno una per riga). */
+        const campo = !canContent ? null
+            : tipoComune === 'card' ? 'desc' : tipoComune === 'keywords' ? 'kw'
+            : tipoComune ? null
+            : (counts.card || counts.keywords) ? (counts.card >= counts.keywords ? 'desc' : 'kw') : null;
+        const scelti = (NSC.corpi ? NSC.corpi()[_sheet.fmt] : null) || {};
+        const passi = (canContent && NSC.setCorpi
+            ? _passoIcona('a-large-small',
+                campo === 'kw' ? t('de_passo_corpo_kw', 'Dimensione delle parole chiave') : t('de_passo_corpo_desc', 'Dimensione delle descrizioni'),
+                campo === 'kw' ? g.kwPt : g.descPt,
+                campo ? 'MappAIDocEditor.corpoNodi(\'' + campo + '\', #)' : '',
+                { cambiato: !!(campo && scelti[campo]), tip: campo ? '' : t('de_passo_niente', 'NIENTE e SPAZIO VUOTO non hanno testo da regolare') })
+            : '') +
+            (canContent && NSC.setInterlinea
+                ? _passoIcona('list-chevrons-up-down', t('de_interlinea_desc', 'Interlinea delle descrizioni'),
+                    NSC.interlinea() || NSC.DESC_LINE_K,
+                    campo === 'desc' ? 'MappAIDocEditor.interlineaNodi(#)' : '',
+                    { interl: true, cambiato: NSC.interlinea() != null, tip: campo === 'desc' ? '' : t('de_passo_solo_desc', 'L\'interlinea vale per le descrizioni') })
+                : '');
 
         const ctrl =
-            '<div class="de-ns-ctrl">' +
             '<div class="de-ns-ctrl-row">' +
-            '<span class="de-ns-lbl">' + esc(t('de_ns_fmt', 'Formato foglio')) + '</span>' +
-            fmtBtn('3x4', '3 × 4', t('de_ns_fmt_12', '12 per foglio · solo titolo')) +
+            '<span class="de-ns-lbl">' + esc(t('de_ns_fmt', 'Formato')) + '</span>' +
+            /* 0128, allargamento 6 (Giacomo, 27/10): «dal bottone 3x4 elimina il testo 'solo titolo'» */
+            fmtBtn('3x4', '3 × 4', t('de_ns_fmt_12', '12 per foglio')) +
             fmtBtn('2x2', '2 × 2', t('de_ns_fmt_4', '4 per foglio')) +
             fmtBtn('2x1', '2 × 1', t('de_ns_fmt_2', '2 per foglio')) +
             '<span class="de-spacer"></span>' +
@@ -3040,16 +3512,12 @@
             ' onchange="MappAIDocEditor.nsSetBg(this.checked?\'grid\':\'none\')"> ' + esc(t('de_ns_grid', 'Quadretti 5 mm')) + '</label>' +
             '</div>' +
             '<div class="de-ns-ctrl-row">' +
-            '<span class="de-ns-lbl">' + esc(t('de_ns_apply_all', 'A tutte le card')) + '</span>' +
-            allBtn('title', t('de_ns_l_title', 'Solo titolo')) +
-            allBtn('summary', t('de_ns_l_summary', 'Titolo + spazio')) +
-            allBtn('keywords', t('de_ns_l_keywords', 'Titolo + parole chiave')) +
-            allBtn('card', t('de_ns_l_card', 'Titolo + descrizione')) +
+            '<span class="de-ns-lbl">' + esc(t('de_ns_tipo', 'Tipo di card')) + '</span>' +
+            '<span class="de-ns-tipo">' + esc(t('de_ns_tipo_titolo', 'TITOLO +')) + '</span>' + tipoSel +
             '<span class="de-spacer"></span>' +
             '<button type="button" class="de-ns-ai" onclick="MappAIDocEditor.nsKeywordsAI()" title="' +
             esc(t('de_ns_ai_tip', 'Riempie le card «parole chiave» ancora vuote. Se le hanno già — le mette la mappa da sé — chiede se riscriverle con l\'AI, che ne ricava i concetti dalla descrizione.')) + '">' +
             '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> ' + esc(t('de_ns_ai', 'Parole chiave con AI')) + '</button>' +
-            '</div>' +
             '</div>';
 
         const cards = _sheet.cards.map(function (c, i) {
@@ -3075,15 +3543,18 @@
                 body = '<div class="de-ns-desc" contenteditable="true" role="textbox" aria-label="' +
                     esc(t('de_ns_a11y_desc', 'Descrizione') + ' — ' + t('de_ns_a11y_card', 'Card') + ' ' + (i + 1)) + '"' +
                     ' data-i="' + i + '" data-ns="desc" data-ph="' + esc(t('de_ns_ph_desc', 'Descrizione stampata sulla card…')) + '"' +
-                    ' style="font-size:' + P.desc.toFixed(2) + 'cqw">' + esc(c.desc) + '</div>';
+                    ' style="font-size:' + P.desc.toFixed(2) + 'cqw;line-height:' + P.descLh.toFixed(2) + 'cqw;word-spacing:' + P.descWs + 'em">' + esc(c.desc) + '</div>';
             } else if (c.layout === 'summary') {
                 // Righe guida: lo spazio dove lo studente scrive a mano. Passo di
                 // 8 mm come sul PDF, ma espresso in frazione di card (mai sotto
                 // 7px, altrimenti sulle card piccole diventano una campitura).
                 const step = 'max(7px,' + P.rule.toFixed(2) + 'cqw)';
+                /* 0128, allargamento 6 (Giacomo, 27/10: «il colore della quadrettatura e delle linee il 10% più
+                   saturo», +10 punti): il bordo del motore con la saturazione +10, lo stesso colore del PDF */
+                const riga = 'hsl(from var(--mm-bordo, #cbd5e1) h calc(s + 10) l)';
                 body = '<div class="de-ns-rules" aria-hidden="true" style="background-image:' +
                     'repeating-linear-gradient(to bottom,transparent 0,transparent calc(' + step + ' - 1px),' +
-                    'var(--mm-bordo, #cbd5e1) calc(' + step + ' - 1px),var(--mm-bordo, #cbd5e1) ' + step + ')"></div>';
+                    riga + ' calc(' + step + ' - 1px),' + riga + ' ' + step + ')"></div>';
             }
 
             // Menu «+»: dà alla card un contenuto sotto il titolo (o glielo toglie).
@@ -3137,12 +3608,15 @@
 
         const nPages = NSC.pages(_sheet.cards.length, _sheet.fmt);
         const limNote = (function () {
-            // La regola scritta: quanto testo entra, per il tipo di contenuto più
-            // ricco presente sul foglio.
-            const L = NSC.charLimits(_sheet.fmt, canContent ? 'keywords' : 'title', '');
-            const Lc = NSC.charLimits(_sheet.fmt, 'card', '');
-            return t('de_ns_limit', 'In questo formato entrano circa {t} caratteri di titolo, {k} parole chiave (max {kc} caratteri l\'una) e {d} caratteri di descrizione. Le card oltre soglia hanno il badge ambra: sulla carta uscirebbero tagliate.')
-                .replace('{t}', L.title).replace('{k}', L.keywords).replace('{kc}', L.keyword || 0).replace('{d}', Lc.desc);
+            /* 0128, allargamento 7 (Giacomo, 27/10: «Accorcia il testo della descrizione dei limiti tipografici determinati
+               dalla dimensione e dall'interlinea scelte»): solo quel che vale per il tipo di card del passo */
+            const lay = campo === 'desc' ? 'card' : campo === 'kw' ? 'keywords' : (canContent && tipoComune === 'summary' ? 'summary' : 'title');
+            const L = NSC.charLimits(_sheet.fmt, lay, '');
+            const frase = lay === 'card' ? t('de_ns_lim_card', 'Per card: titolo ~{t} caratteri, descrizione ~{d}.')
+                : lay === 'keywords' ? t('de_ns_lim_kw', 'Per card: titolo ~{t} caratteri, {k} parole chiave da ~{kc}.')
+                : t('de_ns_lim_title', 'Per card: titolo ~{t} caratteri.');
+            return frase.replace('{t}', L.title).replace('{d}', L.desc).replace('{k}', L.keywords).replace('{kc}', L.keyword || 0) + ' ' +
+                (_senzaTagli() ? t('de_ns_lim_oltre2', 'Più lunga: badge ambra, esce più piccola.') : t('de_ns_lim_oltre', 'Più lunga: badge ambra, esce tagliata.'));
         })();
 
         // La classe del formato serve al CSS: i fogli a poche card per pagina
@@ -3162,10 +3636,7 @@
             esc(t('de_ns_l_card', 'Titolo + descrizione')) + ' ' + counts.card +
             '</div>' +
             '</div>' +
-            ctrl +
-            '<div class="de-limit' + (over.length ? ' warn' : '') + '">' + esc(limNote) +
-            (over.length ? ' <b>' + esc(t('de_ns_over', 'Fuori soglia adesso: {n}.').replace('{n}', over.slice(0, 12).map(o => '#' + (o.i + 1)).join(', ')) + (over.length > 12 ? '…' : '')) + '</b>' : '') +
-            '</div>' +
+            _impostazioni({ righe: ctrl, testo: passi, vincoli: limNote, avviso: _overTesto(over.map(function (o) { return o.i; })) }) +
             '<div class="de-ns-grid" style="grid-template-columns:repeat(' + g.cols + ',1fr)">' + cards + '</div>' +
             ((_sheet.excluded && _sheet.excluded.length)
                 ? '<button type="button" class="de-add" onclick="MappAIDocEditor.nsRestoreAll()"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> ' +
@@ -3251,7 +3722,7 @@
             '<div class="de-badge">' + n + ' ' + esc(n === 1 ? t('de_cc_nexus', 'nesso') : t('de_cc_nexi', 'nessi')) + '</div>' +
             '<div class="de-cc-legend">' + legend + '</div>' +
             '</div>' +
-            '<div class="de-limit">' + esc(t('de_cc_note', 'I nessi sono estratti alla lettera da link e descrizioni: qualcuno regge, qualcuno no. Sistema i due lati, cambia il connettivo, togli quelli che non tengono e aggiungi i tuoi. Il colore dice di che famiglia è il nesso.')) + '</div>' +
+            _impostazioni({ testo: _bloccoTesto(), vincoli: t('de_set_cc', 'Nessi presi alla lettera: sistema i lati, cambia il connettivo, togli o aggiungi.') + ' ' + _notaStampa() }) +
             secs +
             '<div class="de-note">' + esc(t('de_cc_foot', 'La versione rivista vale per il documento stampabile, per le pagine in coda al foglio dei nodi e per il vault. La mappa non viene toccata.')) + '</div>' +
             '</div>';
@@ -3326,7 +3797,7 @@
             '<div class="de-tts-row"><span class="de-tts-lbl">' + esc(t('de_tts_label', 'Ascolta come suona')) + '</span>' +
             '<span id="de-tts-slot" data-tts-body="#de-blocks"></span></div>' +
             '</div>' +
-            (stale ? '<div class="de-warn">' + esc(t('de_audio_stale', 'Il testo è cambiato: la lettura qui sopra segue sempre le tue parole, ma la VOCE NATURALE (se l\'avevi generata) è una registrazione del testo vecchio — va rifatta a modifiche finite.')) + '</div>' : '') +
+            _impostazioni({ testo: _bloccoTesto(), vincoli: _notaStampa(), avviso: stale ? t('de_set_voce', 'Il testo è cambiato: la voce naturale registrata va rifatta.') : '' }) +
             '<div class="de-blocks" id="de-blocks">' + blocks + '</div>' +
             '<button type="button" class="de-add" onclick="MappAIDocEditor.addBlock(' + (_syn.blocks.length - 1) + ',\'p\')"><i data-lucide="plus" class="w-4 h-4"></i> ' + esc(t('de_add_block', 'Aggiungi un paragrafo')) + '</button>' +
             /* ⚠️ Questa riga diceva solo «non si modificano da qui», ed era vera
@@ -3396,6 +3867,25 @@
             _commitField(i, f, el.innerText.replace(/\n+/g, ' '));
             // il contatore caratteri segue la digitazione (senza re-render)
             if (f === 'question' || f === 'answer') _paintCount(i);
+            if (_kind === 'flashcards' && el.closest && el.closest('.de-fc')) _fcSporco = true;
+        });
+
+        /* 0128, allargamento 10: lasciando un campo di una carta cambiata, l'anteprima ricalcola i corpi come il foglio
+           (PL.fitFlash); se si è passati a un altro campo, il cursore ci torna dopo il ridisegno */
+        host.addEventListener('focusout', function (e) {
+            const el = e.target;
+            if (!_fcSporco || _kind !== 'flashcards' || !el || !el.closest || !el.closest('.de-fc')) return;
+            _fcSporco = false;
+            const rel = e.relatedTarget;
+            const dove = (rel && rel.getAttribute && rel.closest && rel.closest('.de-fc') && rel.hasAttribute('data-f'))
+                ? [rel.getAttribute('data-i'), rel.getAttribute('data-f')] : null;
+            setTimeout(function () {
+                render();
+                if (!dove) return;
+                const h = _host();
+                const n = h && h.querySelector('.de-fc [data-i="' + dove[0] + '"][data-f="' + dove[1] + '"]');
+                if (n) n.focus();
+            }, 0);
         });
 
         // primo tasto su un campo = punto di ripristino per l'annulla
@@ -3471,17 +3961,17 @@ ${_deCornice()}
 #elab-doc-host { height:100%; overflow:auto; background:var(--mm-fondo, #fff); }
 .de-list { max-width:900px; margin:0 auto; padding:26px 22px 60px; }
 .de-list-head { margin-bottom:22px; }
-.de-list-h { font-size:17px; font-weight:900; color:var(--mm-testo, #404040); }
-.de-list-p { font-size:12px; line-height:1.65; color:#64748b; margin-top:6px; max-width:680px; }
+.de-list-h { font-size:var(--de-fs-titolo, var(--mm-fs-titolo, 20px)); font-weight:900; color:var(--mm-testo, #404040); }
+.de-list-p { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); line-height:1.65; color:#64748b; margin-top:6px; max-width:680px; }
 .de-group { background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:calc(var(--mm-r-box, 16px) - 4px); margin-bottom:14px; overflow:hidden; }
-.de-group-h { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; color:#475569; padding:11px 16px; background:#f8fafc; border-bottom:1px solid #eef2f6; }
+.de-group-h { display:flex; align-items:center; gap:8px; font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:800; color:#475569; padding:11px 16px; background:#f8fafc; border-bottom:1px solid #eef2f6; }
 .de-row { display:flex; align-items:center; gap:10px; width:100%; padding:11px 16px; background:#fff; border:0; border-top:1px solid #f1f5f9; cursor:pointer; text-align:left; font:inherit; }
 .de-row:first-of-type { border-top:0; }
 .de-row:hover { background:#eef2ff; }
-.de-row-t { font-size:13px; font-weight:700; color:var(--mm-testo, #404040); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.de-row-b { font-size:10px; font-weight:800; color:var(--mm-accent, #4f46e5); background:var(--mm-accent-soft, #eef2ff); border-radius:999px; padding:2px 9px; flex:0 0 auto; }
-.de-row-m { font-size:11px; color:var(--mm-testo-3, #64748b); flex:0 0 auto; }
-.de-empty-row { padding:14px 16px; font-size:12px; color:var(--mm-testo-3, #64748b); font-style:italic; }
+.de-row-t { font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); font-weight:700; color:var(--mm-testo, #404040); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.de-row-b { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:800; color:var(--mm-accent, #4f46e5); background:var(--mm-accent-soft, #eef2ff); border-radius:999px; padding:2px 9px; flex:0 0 auto; }
+.de-row-m { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:var(--mm-testo-3, #64748b); flex:0 0 auto; }
+.de-empty-row { padding:14px 16px; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:var(--mm-testo-3, #64748b); font-style:italic; }
 
 .de-doc { display:flex; flex-direction:column; height:100%; }
 .de-bar { display:flex; align-items:center; gap:var(--mm-btn-gap, 8px); padding:8px 14px; background:#fff; border-bottom:1px solid var(--mm-bordo, #cbd5e1); flex:0 0 auto; flex-wrap:wrap; }
@@ -3500,7 +3990,7 @@ ${_deCornice()}
    «Esci» a capo. In una barra che va a capo il capo si decide PRIMA della compressione, quindi il titolo
    deve pesare poco nel conto della riga: base flessibile 0 (conta i suoi 120px minimi), poi cresce fino al
    suo testo (max-content) prima dello spazio vuoto. Il titolo intero sta comunque nella testata del foglio. */
-.de-bar-t { font-size:14px; font-weight:700; color:var(--mm-testo, #404040); flex:999 1 0; min-width:120px; max-width:max-content; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.de-bar-t { font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); font-weight:700; color:var(--mm-testo, #404040); flex:999 1 0; min-width:120px; max-width:max-content; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .de-dirty { color:#f59e0b; font-size:20px; line-height:0; margin-left:4px; visibility:hidden; }
 .de-spacer { flex:1 1 auto; }
 /* LO STANDARD DEI CONTROLLI (11/10/26, packet 0087 lotto 10a, banco 10a — Giacomo: «applica V2»):
@@ -3552,6 +4042,22 @@ ${_deCornice()}
            font-size:var(--mm-ctl-fs, 12px); font-weight:700; }
 .de-zoom.changed .de-zlbl { color:var(--mm-accent, #4f46e5); }
 .de-zbtn:focus-visible, .de-zlbl:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
+/* 0128, allargamento 7: il passo della dimensione e dell'interlinea nel riquadro del foglio, con la cornice dello zoom e
+   alto come i comandi del riquadro (che stanno nel foglio ingrandito: le misure si dividono per --de-k) */
+.de-passo { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); display:inline-flex; align-items:center; gap:calc(2px / var(--de-k));
+            height:calc(var(--mm-ctl-h, 40px) / var(--de-k)); padding:0 calc(4px / var(--de-k)); color:var(--mm-testo-2, #475569);
+            background:var(--mm-fondo-sez, #f8fafc); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); }
+.de-passo > svg { width:calc(var(--mm-icona, 20px) / var(--de-k)); height:calc(var(--mm-icona, 20px) / var(--de-k)); margin:0 calc(4px / var(--de-k)); flex:none; }
+.de-passo .de-zbtn { width:calc(32px / var(--de-k)); height:calc(32px / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); }
+.de-passo .de-zlbl { min-width:calc(44px / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); white-space:nowrap; }
+.de-passo.changed { border-color:#a5b4fc; background:var(--mm-accent-soft, #eef2ff); }
+.de-passo.changed .de-zlbl { color:var(--mm-accent, #4f46e5); }
+.de-passo.off { opacity:.45; }
+.de-passo.off button { cursor:not-allowed; }
+.de-passo.off .de-zbtn:hover { background:transparent; color:inherit; }
+/* 0128, allargamento 9: il blocco delle impostazioni — la riga corta dei vincoli e degli avvisi, sotto i passi */
+.de-set-info { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); line-height:1.5; color:var(--mm-testo-2, #475569); margin-top:9px; padding-top:9px; border-top:1px solid #f1f5f9; }
+.de-set-info.warn b { color:#7c2d12; }
 
 /* Il contenitore di misura: le regole responsive guardano LA LARGHEZZA DI QUESTO
    riquadro, non quella della finestra — l'editor vive in un pannello di ELABORA
@@ -3570,6 +4076,17 @@ ${_deCornice()}
    ricalcolare i tetti a mano. Nulla di tutto questo tocca la stampa: i builder
    del PDF non leggono il CSS dell'anteprima. */
 .de-sheet { --de-max:800px; --de-zoom:1; --de-user:1;
+            /* 0128, allargamento 8 (Giacomo, 27/10: «molti testi nell'editor dei fogli nodo hanno una dimensione troppo piccola»;
+               «alcuni sono titoli di opzioni, altri sono sottotitoli della testata, altri sono indicazioni o riferimenti tecnici»;
+               «alliena tutti gli editor affinché i testi abbiano gli stessi token di dimensione e stile»). I testi dell'INTERFACCIA
+               dell'editor stanno sulla famiglia C e restano fermi a ogni ingrandimento del foglio (÷ --de-k, come i comandi): titolo
+               20 · titoli delle opzioni e targhette 12 (sezione) · sottotitoli, indicazioni e riferimenti tecnici 13 · comandi e voci
+               14 · titoli delle parti 16. I testi del DOCUMENTO (domande, carte, paragrafi) crescono ancora col foglio. Fuori dal
+               foglio (elenco, finestre) valgono i token del motore, senza divisione. */
+            --de-k:calc(var(--de-zoom) * var(--de-user));
+            --de-fs-titolo:calc(var(--mm-fs-titolo, 20px) / var(--de-k)); --de-fs-parte:calc(var(--mm-fs-testo, 16px) / var(--de-k));
+            --de-fs-ctl:calc(var(--mm-ctl-fs, 14px) / var(--de-k)); --de-fs-label:calc(var(--mm-fs-label, 13px) / var(--de-k));
+            --de-fs-sez:calc(var(--mm-fs-sez, 12px) / var(--de-k));
             zoom:calc(var(--de-zoom) * var(--de-user));
             width:100%; max-width:min(var(--de-max), 100%); margin:0 auto;
             font-family:var(--doc-font, var(--app-font, 'Space Mono', var(--emoji-font), monospace)); color:var(--mm-testo, #404040); }
@@ -3593,11 +4110,11 @@ ${_deCornice()}
    (.de-opt.correct) resta --mm-ok; gli arancio di avviso (.de-limit.warn, .over) restano: sono l'ambra del 10f. */
 .de-sheet-head { text-align:center; padding:26px 16px 20px; background:#fff; border-radius:var(--mm-r-box, 16px); margin-bottom:24px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-bottom:2px solid var(--mm-genere-quiz, #4f46e5); }
 .de-sheet.flash .de-sheet-head { border-bottom-color:var(--mm-genere-flash, #059669); }
-.de-sheet-title { font-size:20px; font-weight:900; color:var(--mm-testo, #404040); outline:none; }
-.de-sheet-sub { font-size:10px; color:#64748b; margin-top:4px; }
-.de-badge { display:inline-block; margin-top:8px; background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); border-radius:999px; padding:2px 12px; font-size:10px; font-weight:bold; }
+.de-sheet-title { font-size:var(--de-fs-titolo, var(--mm-fs-titolo, 20px)); font-weight:900; color:var(--mm-testo, #404040); outline:none; }
+.de-sheet-sub { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:#64748b; margin-top:4px; }
+.de-badge { display:inline-block; margin-top:8px; background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); border-radius:999px; padding:2px 12px; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:bold; }
 .de-sheet.flash .de-badge { background:var(--mm-genere-flash-soft, #dcfce7); color:var(--mm-genere-flash, #059669); }
-.de-sec-title { font-size:15px; font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:20px 0 14px; padding-bottom:5px; border-bottom:2px solid var(--mm-bordo, #cbd5e1); }
+.de-sec-title { font-size:var(--de-fs-parte, var(--mm-fs-testo, 16px)); font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:20px 0 14px; padding-bottom:5px; border-bottom:2px solid var(--mm-bordo, #cbd5e1); }
 .de-sheet.flash .de-sec-title { color:var(--mm-genere-flash, #059669); }
 /* ── Griglia della preview ────────────────────────────────────────────────
    Una colonna di default; due quando il pannello è largo abbastanza perché
@@ -3606,18 +4123,37 @@ ${_deCornice()}
    L'ordine resta quello di lettura: sinistra→destra, riga per riga, e ogni
    card porta il proprio numero («CARTA 3») — riordinare resta chiaro. */
 .de-items { display:grid; grid-template-columns:1fr; gap:16px; align-items:start; }
+/* 0128, allargamento 10: l'anteprima delle flashcard (misure e corpi dalla geometria del foglio, in cqw della carta) */
+.de-fc.una { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px 10px; align-items:start; }
+.de-fc.due { display:flex; flex-direction:column; gap:22px; }
+.de-fc-coppia { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; align-items:start; }
+.de-fc-carta { container-type:inline-size; display:grid; }
+.de-fc-corpo { box-sizing:border-box; background:#fff; display:flex; flex-direction:column; overflow:clip; min-width:0; }
+.de-fc-fronte, .de-fc-retro { box-sizing:border-box; display:flex; flex-direction:column; }
+.de-fc-retro { flex:1 1 auto; justify-content:center; }
+.de-fc-intera { flex:1 1 auto; }
+.de-fc-qbox { flex:1 1 auto; display:flex; align-items:center; }
+.de-fc-qbox > .de-fc-q { flex:1 1 auto; }
+.de-fc-abox { flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; }
+.de-fc-root, .de-fc-theme { font-weight:700; text-transform:uppercase; letter-spacing:.06em; overflow-wrap:anywhere; }
+.de-fc-q { font-weight:bold; }
+.de-fc-e { font-style:italic; }
+.de-fc-q, .de-fc-a, .de-fc-e { outline:none; overflow-wrap:anywhere; border-radius:4px; }
+.de-fc-q:focus, .de-fc-a:focus, .de-fc-e:focus { box-shadow:0 0 0 2px var(--mm-accent-soft, #eef2ff); }
+.de-fc-e:empty::before { content:attr(data-ph); opacity:.45; }
+/* la spiegazione vuota non occupa il posto che sulla carta stampata non ha: sta in fondo al retro, piccola, e rientra nel
+   flusso appena la si scrive */
+.de-fc-retro { position:relative; }
+.de-fc-e:empty { position:absolute; left:8%; right:8%; bottom:2%; margin:0 !important; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)) !important; line-height:1.4 !important; }
+.de-fc .de-item-h { margin-bottom:6px; }
 .de-item { background:#fff; border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:16px 20px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); border-left:4px solid var(--mm-genere-quiz, #4f46e5); }
 .de-sheet.flash .de-item { border-left-color:var(--mm-genere-flash, #059669); }
 .de-item-h { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.de-qn { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-genere-quiz, #4f46e5); }
+.de-qn { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-genere-quiz, #4f46e5); }
 /* Contatore caratteri della carta: nero finché il testo entra, ambra quando no. */
-.de-count { font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9;
+.de-count { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:700; color:#64748b; background:#f1f5f9;
             border-radius:999px; padding:1px 8px; white-space:nowrap; }
 .de-count.over { color:#7c2d12; background:#ffedd5; }
-/* La regola scritta, in cima al foglio. */
-.de-limit { font-size:11px; line-height:1.5; color:#475569; background:#f8fafc;
-            border-left:3px solid #94a3b8; border-radius:8px; padding:8px 12px; margin-bottom:14px; }
-.de-limit.warn { color:#7c2d12; background:#fff7ed; border-left-color:#f97316; }
 .de-sheet.flash .de-qn { color:var(--mm-genere-flash, #059669); }
 /* Strumenti di riga: attenuati ma SEMPRE presenti (a opacity:0 sparivano per chi
    naviga da tastiera) e pieni su hover o quando il fuoco entra nella riga. */
@@ -3635,19 +4171,19 @@ ${_deCornice()}
 /* 12/10 (lotto 10-editor): i bottoni sugli item (su/giù, aggiungi, elimina) ridotti del 25 % — 30 e icone 15 a zoom 1 */
 .de-t:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
 .de-t.de-del:hover { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
-.de-q { font-size:15px; font-weight:bold; color:var(--mm-testo, #404040); line-height:1.55; margin-bottom:12px; outline:none; border-radius:6px; padding:2px 4px; }
+.de-q { font-size:calc(15px * var(--de-tk, 1)); font-weight:bold; color:var(--mm-testo, #404040); line-height:calc(1.55 * var(--de-tlk, 1)); margin-bottom:12px; outline:none; border-radius:6px; padding:2px 4px; }
 .de-opts { display:flex; flex-direction:column; gap:8px; }
 .de-opt { display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid var(--mm-bordo, #cbd5e1); }
 .de-opt.correct { background:#f0fdf4; border-color:#86efac; }
 .de-letter { flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#e2e8f0; color:#475569; font:bold 12px 'Space Mono',monospace; display:flex; align-items:center; justify-content:center; border:0; cursor:pointer; }
 .de-opt.correct .de-letter { background:var(--mm-ok, #059669); color:#fff; }
-.de-opt-txt { font-size:13px; color:var(--mm-testo, #404040); line-height:1.5; flex:1 1 auto; outline:none; padding:2px 4px; border-radius:5px; }
+.de-opt-txt { font-size:calc(13px * var(--de-tk, 1)); color:var(--mm-testo, #404040); line-height:calc(1.5 * var(--de-tlk, 1)); flex:1 1 auto; outline:none; padding:2px 4px; border-radius:5px; }
 .de-x { border:0; background:transparent; color:#64748b; font-size:15px; cursor:pointer; padding:0 4px; line-height:1; }
 .de-x:hover { color:#dc2626; }
 .de-addopt { align-self:flex-start; margin-top:2px; border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:5px 12px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
 .de-addopt:hover { border-color:#4f46e5; color:#4f46e5; }
 .de-answer, .de-expl-row { margin-top:12px; }
-.de-lbl { display:block; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; margin-bottom:4px; }
+.de-lbl { display:block; font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--mm-testo-3, #64748b); margin-bottom:4px; }
 /* DOMANDE APERTE: le aree (chip che si accendono, max due) e le righe. */
 /* AVVIO / PONTE nella testata della domanda: due chip, uno acceso.
    ⚠️ margin-right:auto spinge gli strumenti (su · giù · + · cestino) a destra
@@ -3657,7 +4193,7 @@ ${_deCornice()}
    difficoltà — il verde lo si legge come una spunta.
    (Niente apici inversi in questo commento: è dentro un template literal.) */
 .de-liv { display:inline-flex; gap:4px; margin-right:auto; }
-.de-liv-b { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+.de-liv-b { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.06em;
     padding:2px 8px; border-radius:999px; border:1px solid var(--mm-bordo, #cbd5e1); background:#fff;
     color:var(--mm-testo-3, #64748b); cursor:pointer; }
 .de-liv-b:hover { border-color:#cbd5e1; color:#475569; }
@@ -3668,18 +4204,18 @@ ${_deCornice()}
 .de-oq-meta .de-lbl { margin-bottom:0; }
 .de-oq-lbl-righe { margin-left:8px; }
 .de-areas { display:inline-flex; gap:6px; flex-wrap:wrap; }
-.de-area { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;
+.de-area { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:700; padding:3px 10px; border-radius:999px;
   border:1px solid var(--mm-bordo, #cbd5e1); background:#f8fafc; color:#475569; cursor:pointer; }
 .de-area:hover:not(:disabled) { border-color:#99f6e4; background:#f0fdfa; }
 .de-area.on { background:var(--mm-genere-aree, #0f766e); border-color:var(--mm-genere-aree, #0f766e); color:#fff; }
 /* spenta e non scegliibile: due aree ci sono già. Non si sostituisce a sorpresa. */
 .de-area:disabled { opacity:.4; cursor:not-allowed; }
 .de-area:focus-visible { outline:2px solid var(--mm-focus, #ea580c); outline-offset:2px; }
-.de-lines { width:56px; font-size:12px; padding:3px 6px; border:1px solid var(--mm-bordo, #cbd5e1);
+.de-lines { width:56px; font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); padding:3px 6px; border:1px solid var(--mm-bordo, #cbd5e1);
   border-radius:8px; font-family:inherit; color:var(--mm-testo, #404040); }
-.de-oq-noaree { font-size:11px; color:var(--mm-testo-3, #64748b); }
-.de-a { font-size:13px; color:#065f46; background:#f0fdf4; border-radius:8px; padding:8px 12px; outline:none; line-height:1.5; }
-.de-expl { font-size:11px; color:#475569; font-style:italic; line-height:1.5; background:#f8fafc; border-radius:8px; padding:7px 11px; outline:none; }
+.de-oq-noaree { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:var(--mm-testo-3, #64748b); }
+.de-a { font-size:calc(13px * var(--de-tk, 1)); color:#065f46; background:#f0fdf4; border-radius:8px; padding:8px 12px; outline:none; line-height:calc(1.5 * var(--de-tlk, 1)); }
+.de-expl { font-size:calc(11px * var(--de-tk, 1)); color:#475569; font-style:italic; line-height:calc(1.5 * var(--de-tlk, 1)); background:#f8fafc; border-radius:8px; padding:7px 11px; outline:none; }
 [contenteditable]:hover { box-shadow:inset 0 0 0 1px var(--mm-bordo, #cbd5e1); }
 [contenteditable]:focus { box-shadow:inset 0 0 0 2px var(--mm-focus, #ea580c); background:#fff; }
 [contenteditable]:empty:before { content:attr(data-ph); color:#64748b; font-style:italic; }
@@ -3720,9 +4256,9 @@ ${_deCornice()}
    ⚠️ Il tetto largo vale SOLO da quando le colonne sono due: a colonna singola
    il foglio resta a 800 come tutti gli altri — misurato: a 1180 la carta
    singola usciva più larga del quiz accanto, e le bande non coincidevano. */
-@container (min-width:1120px) { .de-sheet.flash { --de-max:1180px; }
-                                .de-sheet.flash .de-items { grid-template-columns:1fr 1fr; } }
-@container (min-width:1700px) { .de-sheet.flash .de-items { grid-template-columns:repeat(3,1fr); } }
+@container (min-width:1120px) { .de-sheet.flash { --de-max:1180px; } }
+/* 0128, allargamento 10: le flashcard non stanno più in .de-items (l'anteprima è .de-fc, due carte per riga come sul
+   foglio, o fronte e retro per riga): le due regole a 2 e 3 colonne sono uscite */
 /* ── Il foglio dei NODI è l'eccezione dichiarata: specchia la stampa A4 e i
    corpi DENTRO le card sono calcolati dalla geometria della carta (px/mm) —
    uno zoom sopra quel calcolo scalerebbe due volte. Quindi le card continuano
@@ -3746,12 +4282,12 @@ ${_deCornice()}
 
 /* ── Catena dei perché: stessa resa del documento stampato ───────────────── */
 .de-sheet.causal .de-sheet-head { border-bottom-color:var(--mm-genere-quiz, #4f46e5); }
-.de-cc-legend { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:12px; font-size:10px; color:#475569; }
+.de-cc-legend { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:12px; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:#475569; }
 .de-cc-leg i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
 .de-cc-sec { background:#fff; border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:14px 18px; margin-bottom:14px; border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); }
 .de-cc-sec-cross { border:2px dashed #a5b4fc; }
-.de-cc-sec-title { font-size:14px; font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid #eef2ff; }
-.de-cc-sec-tag { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-testo-3, #64748b); }
+.de-cc-sec-title { font-size:var(--de-fs-parte, var(--mm-fs-testo, 16px)); font-weight:900; color:var(--mm-genere-quiz, #4f46e5); margin:0 0 8px; padding-bottom:6px; border-bottom:1px solid #eef2ff; }
+.de-cc-sec-tag { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-testo-3, #64748b); }
 .de-cc-row { padding:7px 0; border-bottom:1px dashed var(--mm-bordo, #cbd5e1); }
 .de-cc-row:last-of-type { border-bottom:0; }
 .de-cc-line { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.7; font-size:11px; }
@@ -3761,7 +4297,7 @@ ${_deCornice()}
 .de-cc-conn-txt { outline:none; min-width:52px; display:inline-block; }
 .de-cc-arr { font-weight:700; }
 .de-cc-meta { display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap; }
-.de-cc-badge { font-size:8.5px; color:var(--mm-testo-3, #64748b); text-transform:uppercase; letter-spacing:.05em; }
+.de-cc-badge { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); color:var(--mm-testo-3, #64748b); text-transform:uppercase; letter-spacing:.05em; }
 .de-cc-badge-man { color:#4f46e5; }
 .de-cc-fams { display:inline-flex; gap:3px; }
 /* Pallini della famiglia: 14px di colore, ma il bersaglio del clic è 22px
@@ -3773,7 +4309,7 @@ ${_deCornice()}
 .de-cc-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
 .de-cc-row:hover .de-cc-tools, .de-cc-row:focus-within .de-cc-tools { opacity:1; }
 .de-cc-type { font:700 12px 'Space Mono',monospace; }
-.de-cc-trunc { margin-top:6px; font-size:10px; color:var(--mm-testo-3, #64748b); font-style:italic; }
+.de-cc-trunc { margin-top:6px; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:var(--mm-testo-3, #64748b); font-style:italic; }
 .de-cc-addrow { margin-top:8px; border:1px dashed #cbd5e1; background:#fff; color:#64748b;
                 border-radius:8px; padding:4px 12px; font:700 11px 'Space Mono',monospace; cursor:pointer; }
 .de-cc-addrow:hover { border-color:#4f46e5; color:#4f46e5; background:#eef2ff; }
@@ -3806,7 +4342,7 @@ ${_deCornice()}
             flex:0 0 15ch; box-sizing:border-box; min-width:0; white-space:nowrap;
             margin-left:calc(-10px / var(--de-zsum)); padding:0 calc(10px / var(--de-zsum)) 0 0;
             font-family:'Space Mono',monospace; font-weight:700; line-height:1.2;
-            font-size:calc(9px / var(--de-zsum));
+            font-size:calc(var(--mm-fs-sez, 12px) / var(--de-zsum));
             text-align:right; text-transform:uppercase;
             letter-spacing:.05em; color:var(--mm-testo-3, #64748b); background:transparent;
             border:0; border-radius:6px; cursor:pointer; }
@@ -3818,14 +4354,14 @@ ${_deCornice()}
 .de-b-menu { position:absolute; left:0; top:26px; z-index:6; width:min(250px,90%);
              background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px;
              box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
-.de-b-menu .de-ns-mi b { font-size:11px; }
+.de-b-menu .de-ns-mi b { font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); }
 .de-t.de-t-on { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
 /* margin:0 — il campo editabile ora è il tag vero (p/h3/h4/blockquote), che
    porterebbe i margini di default del browser. */
 .de-b-txt { flex:1 1 auto; outline:none; padding:3px 6px; border-radius:6px; min-height:1.2em; margin:0; }
 /* Lettura ad alta voce del testo in editing */
 .de-tts-row { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
-.de-tts-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
+.de-tts-lbl { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--mm-testo-3, #64748b); }
 /* Il lettore audio nella testata della sintesi è un CONTROLLO (10a, Giacomo 11/10: «anche il player audio deve
    avere le dimensioni del chip e delle icone allineate a quelle dei bottoni»). Il suo foglio vive in
    mappai-tts-reader.js, che il reader iPad copia: lo si lascia com'è e qui, dentro il foglio ingrandito, si DIVIDE
@@ -3837,7 +4373,7 @@ ${_deCornice()}
 .de-tts-row .mai-tts-play { min-width:calc(52px / var(--de-k)); }
 .de-tts-row .mai-tts-rate { min-width:calc(54px / var(--de-k)); }
 .de-tts-row .mai-tts-seg i, .de-tts-row .mai-tts-seg svg { width:calc(var(--mm-icona, 20px) / var(--de-k)); height:calc(var(--mm-icona, 20px) / var(--de-k)); }
-.de-tts-row .mai-tts-seg span { font-size:calc(10px / var(--de-k)); }
+.de-tts-row .mai-tts-seg span { font-size:calc(var(--mm-fs-label, 13px) / var(--de-k)); }
 .de-tts-row .mai-tts-progress { height:calc(8px / var(--de-k)); min-width:calc(120px / var(--de-k)); flex-basis:calc(160px / var(--de-k)); }
 .de-tts-row .mai-tts-thumb { width:calc(14px / var(--de-k)); height:calc(14px / var(--de-k)); }
 .de-tts-row .mai-tts-time { font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); min-width:calc(34px / var(--de-k)); }
@@ -3857,8 +4393,8 @@ ${_deCornice()}
 .de-b-blockquote .de-b-txt { font-size:11px; line-height:1.7; color:#475569; border-left:3px solid var(--mm-bordo, #cbd5e1); padding-left:10px; font-style:italic; }
 .de-b-txt sup { color:#4f46e5; font-weight:bold; }
 /* blocchi generati (citazioni, catena dei perché): visibili, non editabili */
-.de-b-locked { flex:1 1 auto; font-size:10px; line-height:1.6; color:#64748b; background:#f8fafc; border:1px dashed var(--mm-bordo, #cbd5e1); border-radius:8px; padding:8px 10px; max-height:140px; overflow:auto; }
-.de-b-locked * { font-size:10px !important; color:#64748b !important; }
+.de-b-locked { flex:1 1 auto; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); line-height:1.6; color:#64748b; background:#f8fafc; border:1px dashed var(--mm-bordo, #cbd5e1); border-radius:8px; padding:8px 10px; max-height:140px; overflow:auto; }
+.de-b-locked * { font-size:inherit !important; color:#64748b !important; }
 /* I quattro comandi del blocco erano in fila in alto a destra, SOPRA il testo:
    156px stesi sulla prima riga (misurato: sconfinavano di 153px dentro il
    riquadro). Ora stanno 2×2 in un CORRIDOIO riservato dentro il riquadro, che
@@ -3876,27 +4412,28 @@ ${_deCornice()}
 .de-b-tools { position:absolute; right:2px; top:2px; width:52px;
     display:grid; grid-template-columns:repeat(2,24px); gap:2px;
     opacity:0; transition:opacity .12s; }
-.de-warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:10px; padding:9px 13px; font-size:11px; line-height:1.5; margin-bottom:14px; }
-.de-note { font-size:10px; color:#64748b; font-style:italic; margin-top:14px; text-align:center; }
+.de-warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:10px; padding:9px 13px; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); line-height:1.5; margin-bottom:14px; }
+.de-note { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:#64748b; font-style:italic; margin-top:14px; text-align:center; }
 
 /* ── Foglio dei nodi: le card hanno le proporzioni della carta ────────────── */
 .de-sheet.ns .de-sheet-head { border-bottom-color:var(--mm-genere-foglio, #f97316); }
 .de-sheet.ns .de-badge { background:var(--mm-genere-foglio-soft, #fff7ed); color:var(--mm-genere-foglio-testo, #c2410c); }
-.de-ns-mix { font-size:10px; color:#64748b; margin-top:7px; }
+.de-ns-mix { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:#64748b; margin-top:7px; }
 .de-ns-ctrl { background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:calc(var(--mm-r-box, 16px) - 4px); padding:10px 12px; margin-bottom:14px; }
 .de-ns-ctrl-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 .de-ns-ctrl-row + .de-ns-ctrl-row { margin-top:9px; padding-top:9px; border-top:1px solid #f1f5f9; }
-.de-ns-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#64748b; }
+.de-ns-lbl { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--mm-testo-3, #64748b); }
 /* I bottoni del pannello del foglio dei nodi: lo standard della barra (10a). Se il pannello sta dentro un foglio
    ingrandito, la misura si divide per il fattore come per .de-t; fuori, il fattore vale 1. */
-.de-ns-fmt, .de-ns-all, .de-ns-ai { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); min-height:calc(var(--mm-ctl-h, 40px) / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); }
+.de-ns-fmt, .de-ns-ai { --de-k:calc(var(--de-zoom, 1) * var(--de-user, 1)); min-height:calc(var(--mm-ctl-h, 40px) / var(--de-k)); font-size:calc(var(--mm-ctl-fs, 12px) / var(--de-k)); border-radius:calc(var(--mm-r-btn, 10px) / var(--de-k)); }
 .de-ns-fmt { border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); padding:0 10px; font-weight:800; cursor:pointer; text-align:left; }
-.de-ns-fmt small { display:block; font-size:9px; font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:1px; }
+.de-ns-fmt small { display:block; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:1px; }
 .de-ns-fmt.active { border-color:var(--mm-genere-foglio, #f97316); background:var(--mm-genere-foglio-soft, #fff7ed); color:var(--mm-genere-foglio-testo, #c2410c); }
 .de-ns-fmt.active small { color:var(--mm-genere-foglio-testo, #c2410c); }
 /* La tendina è il CAMPO del motore (10a; regola dei lotti 2 e 5): neutra senza bordo, al passaggio bianca col bordo. */
 .de-ns-sel { height:var(--mm-ctl-h, 40px); border:var(--mm-bordo-spessore, 1px) solid transparent; border-radius:var(--mm-r-campo, 10px); padding:0 2.25rem 0 12px; font-size:var(--mm-ctl-fs, 12px); font-weight:700; color:var(--mm-testo, #404040); background-color:var(--mm-neutro, #f1f4f8); cursor:pointer; }
 .de-ns-sel:hover { background-color:var(--mm-fondo, #fff); border-color:var(--mm-bordo, #cbd5e1); }
+.de-ns-tipo { font-size:var(--mm-ctl-fs, 12px); font-weight:700; color:var(--mm-testo, #404040); }
 /* La tendina del carattere larga quanto la voce SCELTA, non quanto la più lunga dell'elenco
    («Atkinson Hyperlegible»): misurato a 1470 nella console (0093, G), 239px → 225 col solo
    nome corto, e «Esci» restava a capo per 27px. */
@@ -3915,10 +4452,9 @@ ${_deCornice()}
             flex-direction:column; gap:8px; min-width:210px; padding:10px 12px; background:#fff;
             border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); }
 .de-sez-p .de-ns-check { white-space:nowrap; }
-.de-ns-check { display:inline-flex; align-items:center; gap:6px; font:700 11px 'Space Mono',monospace; color:#475569; cursor:pointer; }
-.de-ns-all { border:var(--mm-bordo-spessore, 1px) dashed var(--mm-bordo, #cbd5e1); background:var(--mm-fondo, #fff); color:var(--mm-testo-3, #64748b); padding:0 10px; font-weight:700; cursor:pointer; }
-.de-ns-all:hover:not(:disabled) { border-color:var(--mm-accent, #4f46e5); color:var(--mm-accent, #4f46e5); background:var(--mm-accent-soft, #eef2ff); }
-.de-ns-all:disabled { opacity:.4; cursor:not-allowed; }
+.de-ns-check { display:inline-flex; align-items:center; gap:6px; font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); font-weight:700; color:#475569; cursor:pointer; }
+/* la casella come quelle del motore (.mm-opz input), ferma a ogni ingrandimento */
+.de-ns-check input { accent-color:var(--mm-accent, #4f46e5); width:calc(16px / var(--de-k, 1)); height:calc(16px / var(--de-k, 1)); margin:0; }
 .de-ns-ai { display:inline-flex; align-items:center; gap:var(--mm-btn-gap, 8px); border:var(--mm-bordo-spessore, 1px) solid var(--mm-bordo, #cbd5e1); background:var(--mm-fondo-sez, #f8fafc); color:var(--mm-testo-2, #475569); padding:0 12px; font-weight:700; cursor:pointer; }
 .de-ns-ai svg { width:calc(var(--mm-icona, 20px) / var(--de-k)); height:calc(var(--mm-icona, 20px) / var(--de-k)); }
 .de-ns-ai:hover { background:var(--mm-accent-soft, #eef2ff); color:var(--mm-accent, #4f46e5); }
@@ -3927,7 +4463,7 @@ ${_deCornice()}
 .de-ns-card { position:relative; background:#fff; border:1px dashed var(--mm-genere-foglio, #f97316); border-radius:calc(var(--mm-r-box, 16px) - 4px); display:flex; flex-direction:column; overflow:hidden; }
 .de-ns-card.over { border-color:#f59e0b; box-shadow:0 0 0 2px #fef3c7 inset; }
 .de-ns-head { display:flex; align-items:center; gap:6px; padding:4px 6px; background:#f8fafc; border-bottom:1px solid #f1f5f9; flex:0 0 auto; }
-.de-ns-n { font-size:10px; font-weight:800; color:var(--mm-genere-foglio-testo, #c2410c); }
+.de-ns-n { font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:800; color:var(--mm-genere-foglio-testo, #c2410c); }
 .de-ns-tools { margin-left:auto; display:inline-flex; gap:2px; opacity:.45; transition:opacity .12s; }
 .de-ns-card:hover .de-ns-tools, .de-ns-card:focus-within .de-ns-tools { opacity:1; }
 .de-ns-plus.active { background:#eef2ff; color:#4f46e5; border-color:#a5b4fc; }
@@ -3955,25 +4491,27 @@ ${_deCornice()}
 .de-ns-kw.over .de-ns-kw-t { background:#ffedd5; color:#7c2d12; }
 .de-ns-addkw { align-self:center; margin-top:3px; border:1px dashed #cbd5e1; background:#fff; color:var(--mm-testo-3, #64748b); border-radius:7px; padding:2px 9px; font:700 10px 'Space Mono',monospace; cursor:pointer; }
 .de-ns-addkw:hover { border-color:#4f46e5; color:#4f46e5; }
-.de-ns-desc { flex:0 1 auto; color:#1e1e1e; line-height:1.4; text-align:justify; outline:none; border-radius:5px; overflow:auto; word-break:break-word; }
+/* 0122, lotto 3 (Giacomo, «E»): a bandiera, niente più giustificazione (su Space Mono allargava gli
+   spazi fra le parole); l'interlinea è il passo fisso del core, scritto inline in cqw accanto al corpo. */
+.de-ns-desc { flex:0 1 auto; color:#1e1e1e; text-align:left; outline:none; border-radius:5px; overflow:auto; word-break:break-word; }
 .de-ns-rules { flex:1 1 auto; margin-top:6px; }
 .de-ns-menu { position:absolute; right:6px; top:30px; z-index:5; width:min(230px,92%); background:#fff; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,.16); padding:4px; }
 .de-ns-mi { display:block; width:100%; text-align:left; border:0; background:transparent; border-radius:7px; padding:6px 8px; cursor:pointer; font:inherit; }
 .de-ns-mi:hover { background:#eef2ff; }
-.de-ns-mi b { display:block; font-size:11px; font-weight:800; color:var(--mm-testo, #404040); }
-.de-ns-mi small { display:block; font-size:10px; color:var(--mm-testo-3, #64748b); margin-top:1px; }
+.de-ns-mi b { display:block; font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); font-weight:800; color:var(--mm-testo, #404040); }
+.de-ns-mi small { display:block; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:var(--mm-testo-3, #64748b); margin-top:1px; }
 .de-ns-mi.active b { color:#4f46e5; }
 .de-ns-mi-off { border-top:1px solid #f1f5f9; margin-top:2px; }
 .de-ns-mi-off b { color:#64748b; }
 
 .de-radio { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; background:#fff; margin-bottom:8px; cursor:pointer; }
 .de-radio:hover { border-color:#a5b4fc; background:#f8fafc; }
-.de-radio b { display:block; font-size:12px; color:var(--mm-testo, #404040); }
-.de-radio small { display:block; font-size:11px; color:#64748b; margin-top:2px; }
-.de-modal-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--mm-testo-3, #64748b); margin:4px 0 8px; }
+.de-radio b { display:block; font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); color:var(--mm-testo, #404040); }
+.de-radio small { display:block; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); color:#64748b; margin-top:2px; }
+.de-modal-lbl { font-size:var(--de-fs-sez, var(--mm-fs-sez, 12px)); font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--mm-testo-3, #64748b); margin:4px 0 8px; }
 .de-fmt-row { display:flex; gap:8px; margin-bottom:12px; }
-.de-fmt { flex:1 1 0; text-align:center; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; padding:10px 6px; cursor:pointer; font-size:13px; font-weight:800; color:var(--mm-testo, #404040); }
-.de-fmt small { display:block; font-size:10px; font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:3px; }
+.de-fmt { flex:1 1 0; text-align:center; border:1px solid var(--mm-bordo, #cbd5e1); border-radius:10px; padding:10px 6px; cursor:pointer; font-size:var(--de-fs-ctl, var(--mm-ctl-fs, 14px)); font-weight:800; color:var(--mm-testo, #404040); }
+.de-fmt small { display:block; font-size:var(--de-fs-label, var(--mm-fs-label, 13px)); font-weight:400; color:var(--mm-testo-3, #64748b); margin-top:3px; }
 .de-fmt input { display:none; }
 .de-fmt:has(input:checked) { border-color:#4f46e5; background:#eef2ff; color:#4f46e5; }
 `;
@@ -3989,7 +4527,7 @@ ${_deCornice()}
         /* l'editor ha davvero un documento aperto? La console lo chiede dopo un
            tentativo di apertura: se ha rinunciato, torna al suo segnaposto. */
         haDocumento: function () { return _view === 'doc'; },
-        reset: function () { _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1; },
+        reset: function () { _ultimoScritto = null; _ultimoSet = null; _view = 'list'; _doc = null; _syn = null; _sheet = null; _kind = null; _dirty = false; _nsMenu = -1; _bMenu = -1; },
         hasUnsaved: function () { return _dirty; },
         // «Il documento aperto appartiene alla mappa che è aperta adesso?» — ELABORA
         // lo chiede all'entrata per non mostrare i documenti di un'altra mappa.
@@ -4026,6 +4564,7 @@ ${_deCornice()}
         addBlock: addBlock, delBlock: delBlock, moveBlock: moveBlock,
         blockMenu: blockMenu, blockAddMenu: blockAddMenu, setBlockTag: setBlockTag,
         zoomStep: zoomStep, zoomReset: zoomReset, setFont: setFont, mostraSezione: mostraSezione,
+        corpoFlash: corpoFlash, corpoNodi: corpoNodi, interlineaFlash: interlineaFlash, interlineaNodi: interlineaNodi, tipoDoc: tipoDoc, setFacce: setFacce,
         fmt: fmt, applyColor: applyColor, eyedropper: eyedropper,
         undo: undo, redo: redo, save: save, print: print, exportHtml: exportHtml, saveToVault: saveToVault,
         voceNaturale: voceNaturale,

@@ -2104,6 +2104,17 @@
             }
 
             var bStampa = bottone(opts && opts.stampa ? t('de_pdf', 'Crea PDF') : t('de_print', 'Stampa'));
+            /* 0128, allargamento 12 (Giacomo, 27/10): «tutte le anteprime dei documenti devono mostrare il bottone di stampa
+               con l'icona stampante e senza il testo 'STAMPA'» — come la stampante della barra dell'editor */
+            if (!(opts && opts.stampa)) {
+                bStampa.textContent = '';
+                bStampa.title = t('de_print', 'Stampa');
+                bStampa.setAttribute('aria-label', t('de_print', 'Stampa'));
+                var icoStampa = document.createElement('i');
+                icoStampa.setAttribute('data-lucide', 'printer');
+                icoStampa.className = 'w-4 h-4';
+                bStampa.appendChild(icoStampa);
+            }
             bStampa.addEventListener('click', function () {
                 if (opts && opts.stampa) { opts.stampa(); return; }
                 /* 🐛 Prima era `f.contentWindow.print()` dentro un catch muto: con
@@ -2146,6 +2157,7 @@
             }
 
             host.appendChild(barra);
+            if (window.safeCreateIcons) window.safeCreateIcons();
 
             /* ── IL DOCUMENTO ────────────────────────────────────────────────
                ⚠️ Gli HTML entrano con `srcdoc`, non con `src="data:…"`: un
@@ -2350,6 +2362,7 @@
             /* «+ Crea nuovo» (0091): lo stesso nome del bottone che lo apre;
                il «+» è l'icona, come sul bottone. */
             titolo: t('ec_crea_t', 'Crea nuovo'), icona: 'plus', taglia: 'xl', invio: false,
+            veste: 'grande',   /* 0122 (Giacomo, 22/10): come le finestre delle Attività live */
             sezioni: sezioni
         }).then(function (r) {
             if (!r || !r.azione || r.azione.indexOf('tipo:') !== 0) return;
@@ -2571,8 +2584,7 @@
                             if (CL.setActiveDiscipline) CL.setActiveDiscipline('');
                         });
                     },
-                    onMateria: function (mm) { dopo(function () { if (CL.setActiveDiscipline) CL.setActiveDiscipline(mm); }); },
-                    onNuovaMateria: function () { }
+                    onMateria: function (mm) { dopo(function () { if (CL.setActiveDiscipline) CL.setActiveDiscipline(mm); }); }
                 };
                 var liv = CB.specContesto(_cbCtx, 'materia');
                 /* Il progetto sta DIETRO la rivelazione progressiva, come gli
@@ -2611,31 +2623,34 @@
                 if (!_scelto) liv = liv.slice(0, 1);
                 /* 0094 (S7): «Rinomina…» in fondo al menu del progetto, ma non per un
                    percorso di lettura: qui la briciola è sempre il progetto aperto, e una
-                   lettura aperta non si rinomina (S2) */
+                   lettura aperta non si rinomina (S2). 0124 (ADR 0025): sotto, «Riassegna…» e
+                   «Copia…»; il menu non elenca più gli altri progetti (Giacomo, 23/10). Dopo il
+                   gesto la console passa al progetto nel posto nuovo (dopo «Copia», alla copia: D4).
+                   Senza azioni la briciola resta un'etichetta. */
                 var _rinE = (_scelto && window.MappAITeach && MappAITeach.perRinomina) ? MappAITeach.perRinomina(_scelto) : null;
                 if (_rinE && _rinE.lettura) _rinE = null;
-                var _nuovoE = _rinE ? { et: t('rn_voce', 'Rinomina…'), onPick: function () { if (window.MappAIRinomina) MappAIRinomina.apri(_rinE); } } : null;
-                /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
-                   l'allineamento il filtro si stringe spesso su UNA mappa, e una
-                   tendina con una voce sola — già spuntata — si legge come rotta. */
+                var _progE = (_scelto && window.MappAITeach && MappAITeach.perProgetto) ? MappAITeach.perProgetto(_scelto) : null;
+                if (_progE && _progE.lettura) _progE = null;
+                var RCe = window.MappAIRiassegnaCopia;
+                var _seguiE = function (r) {
+                    var T = window.MappAITeach;
+                    if (!r || !r.fullPath || !T || !T.mappeDelContesto) return;
+                    T.mappeDelContesto().then(function (list) {
+                        _mappe = list || [];
+                        var m = _mappe.filter(function (x) { return x && x.v && String(x.v.fullPath) === String(r.fullPath); })[0];
+                        if (m) _conSalvataggio(function () { _prog = m.id; _doc = null; _cambiaMappa(m); });
+                        else rifai();
+                    }).catch(function () { rifai(); });
+                };
+                var _azioni = [];
+                if (_rinE) _azioni.push({ et: t('rn_voce', 'Rinomina…'), onPick: function () { if (window.MappAIRinomina) MappAIRinomina.apri(_rinE); } });
+                if (_progE && RCe && RCe.attivo()) {
+                    _azioni.push({ et: t('rc_riassegna_voce', 'Riassegna…'), onPick: function () { RCe.apri('riassegna', _progE, { dopo: _seguiE }); } });
+                    _azioni.push({ et: t('rc_copia_voce', 'Copia…'), onPick: function () { RCe.apri('copia', _progE, { dopo: _seguiE }); } });
+                }
                 if (!_scelto) { /* niente */ }
-                else liv.push(((_mappe || []).length > 1 || _nuovoE)
-                    ? {
-                        et: _scelto.nome,
-                        menu: {
-                            tipo: 'lista',
-                            nuovo: _nuovoE,
-                            voci: (_mappe || []).length < 2 ? [] : (_mappe || []).map(function (m2) {
-                                return {
-                                    et: m2.nome, on: String(m2.id) === String(_scelto.id),
-                                    onPick: function () {
-                                        if (String(m2.id) === String(_scelto.id)) return;
-                                        _conSalvataggio(function () { _prog = m2.id; _doc = null; _cambiaMappa(m2); });
-                                    }
-                                };
-                            })
-                        }
-                    }
+                else liv.push(_azioni.length
+                    ? { et: _scelto.nome, menu: { tipo: 'lista', voci: [], nuovo: _azioni } }
                     : { statico: _scelto.nome, qui: true });
                 CB.montaPercorso(box, { livelli: liv });
                 /* Le stesse due domande, in testa alla COLONNA: là c'è l'elenco
@@ -3182,9 +3197,15 @@
             return !!_doc.relPath;
         }
 
-        function _tornaAnteprima() {
+        /* `scritto` = il file che l'editor ha appena scritto («PDF»): l'anteprima apre quello, non il file da cui si era
+           partiti — che può avere un altro nome, o non esserci più (una variante in un altro carattere va nel Cestino).
+           0128, allargamento 12 (Giacomo, 27/10). */
+        function _tornaAnteprima(scritto, setNuovo) {
             if (!_doc) return;
             if (_doc.letturaId) { _apriPercorso(_doc.letturaId); return; }
+            if (scritto && _doc.natura === 'disk') _doc.relPath = scritto;
+            /* «PDF» con un nome nuovo ha fatto una COPIA del mazzo (allargamento 16): l'anteprima è la sua, e «Modifica» apre lei */
+            if (setNuovo && _doc.setId) { _doc.setId = String(setNuovo); _doc.id = 'set:' + setNuovo; }
             if (!_haAnteprima()) { _chiudiDocumento(); return; }
             _doc.editing = false;
             _fermaLettura();
@@ -3460,13 +3481,13 @@
            ⚠️ L'ascolto si toglie alla chiusura: la console si apre e si chiude
            più volte in una sessione, e un ascoltatore per ogni apertura
            ridisegnerebbe N volte una finestra che non c'è più. */
-        function _suUscitaDoc() {
+        function _suUscitaDoc(ev) {
             if (!_aperta) return;
             /* L'editor annuncia l'uscita (la sua «Esci»/«Salva ed Esci») → si
                torna all'ANTEPRIMA rinfrescata, non all'elenco. L'evento arriva
                PRIMA del render dell'editor: il repaint sincrono toglie l'host e
                quel render non trova dove disegnare. */
-            if (_doc && _doc.editing) _tornaAnteprima();
+            if (_doc && _doc.editing) _tornaAnteprima(ev && ev.detail && ev.detail.scritto, ev && ev.detail && ev.detail.set);
         }
         document.addEventListener('mappai-doc-uscito', _suUscitaDoc);
         /* 0114: un gesto sulle figure cambia il numero della tabella «Figure»; mentre la

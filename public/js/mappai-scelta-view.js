@@ -43,6 +43,8 @@
         '.sc-wrap,.sc-wrap *{box-sizing:border-box}',
         '.sc-wrap{display:flex;flex-direction:column;height:100%;min-height:0;background:#fafbff;color:var(--mm-testo, #404040)}',
         '.sc-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px max(16px,env(safe-area-inset-left));background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1)}',
+        /* 0126: col `contatore` fuori la riga vuota si nasconde, e `display:flex` qui sopra vincerebbe sul [hidden] del browser */
+        '.sc-top[hidden]{display:none}',
         '.sc-cnt{font-size:13px;font-weight:700;color:var(--mm-testo, #404040)}',
         '.sc-cnt b{color:#4f46e5}',
         '.sc-cnt.ko b{color:#b45309}',
@@ -77,6 +79,12 @@
         '.sc-fine__salva{width:54px;border-radius:12px;font-size:24px;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center}',
         '.sc-opt{display:block;width:100%;text-align:left;padding:13px 15px;margin-bottom:8px;min-height:48px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:16px;color:var(--mm-testo, #404040)}',
         '.sc-opt[aria-checked="true"]{border-color:#4f46e5;background:#eef2ff;font-weight:700}',
+        /* 0126: i criteri da leggere (`criteri: 'leggi'`): un elenco, non bottoni — non si toccano */
+        '.sc-crit{margin:0 0 8px;padding-left:22px;list-style:disc;font-size:16px;line-height:1.5;color:var(--mm-testo, #404040)}',
+        /* il pallino e lo spazio dicono dove finisce un criterio che va a capo (l'app azzera gli elenchi) */
+        '.sc-crit li{margin-bottom:8px}',
+        /* gate del 25/10 (Giacomo): in modalità semplice i criteri hanno il corpo della casella (.sc-ta--live) */
+        '.sc-crit--live{font-size:19px}',
         '.sc-chips{display:flex;flex-wrap:wrap;gap:8px}',
         '.sc-chip{min-height:44px;padding:10px 14px;border-radius:999px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:13px;font-weight:700;color:var(--mm-testo, #404040)}',
         '.sc-chip[aria-pressed="true"]{border-color:#4f46e5;background:#eef2ff;color:#4f46e5}',
@@ -123,7 +131,31 @@
         '.sc-nav__b{flex:0 0 auto;width:64px;min-height:48px;border-radius:12px;border:2px solid var(--mm-bordo, #cbd5e1);background:#fff;font-size:22px;font-weight:700;color:#4f46e5}',
         '.sc-nav__b[disabled]{opacity:.4;color:var(--mm-testo-3, #64748b)}',
         '.sc-nav__n{flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--mm-testo, #404040)}',
-        '.sc-go--quieto{background:#fff;color:#4f46e5;border:2px solid var(--mm-bordo, #cbd5e1)}'
+        '.sc-go--quieto{background:#fff;color:#4f46e5;border:2px solid var(--mm-bordo, #cbd5e1)}',
+        /* 0126, allargamento 4: la scelta su misura dell'iPad, solo con le opzioni (`aPagine`,
+           `chipVelo`, `leggiDomande`) — domande e chip a 19 px, il ramo a 25 */
+        '.sc--pagine .sc-txt{font-size:19px;line-height:1.45}',
+        '.sc-ramo--titolo{font-size:25px;font-weight:700;line-height:1.25;color:var(--mm-testo, #404040);margin:4px 0 14px}',
+        '.sc-ramo-testa{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 14px}',
+        '.sc-ramo-testa .sc-ramo--titolo{margin:0}',
+        '.sc-ramo-n{flex:none;font-size:16px;font-weight:700;color:var(--mm-testo-3, #64748b)}',
+        '.sc-q--voce{display:grid;grid-template-columns:1fr auto;align-items:start}',
+        '.sc-q--voce .sc-body{grid-column:1/-1}',
+        /* il 🔊 ha la cornice del quiz (`.qmc .tts` di mappai-quiz-mc-view.js); qui solo dove sta */
+        '.sc-q--voce > .sc-tts{margin:6px 8px 6px 0}',
+        /* `leggiRisposta`: l'elemento e il suo 🔊 sulla stessa riga, come la domanda del quiz (`.q-head`) */
+        '.sc-voce-riga{display:flex;align-items:flex-start;gap:10px}',
+        '.sc-voce-riga > :first-child{flex:1;min-width:0}',
+        /* la casella non sta più in una riga di testo, che le dava lo spazio sotto: «Confermo» lo dichiara */
+        '.sc-voce-riga + .sc-go{margin-top:12px}',
+        /* i criteri da spuntare come le opzioni del quiz (`.opt-row`): il 🔊 alto quanto il riquadro */
+        '.sc-voce-riga--opt{align-items:stretch;gap:8px;margin-bottom:8px}',
+        '.sc-voce-riga--opt > .sc-opt{margin-bottom:0}',
+        '.sc-giudizio{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center}',
+        '.sc-giudizio__fondo{position:absolute;inset:0;background:rgba(15,23,42,.45)}',
+        '.sc-giudizio__box{position:relative;display:flex;flex-direction:column;gap:14px;width:min(560px,88vw);padding:24px;background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(15,23,42,.3)}',
+        '.sc-giudizio__q{font-size:19px;line-height:1.45;font-weight:700;color:var(--mm-testo, #404040);margin-bottom:6px}',
+        '.sc-giudizio .sc-chip{width:100%;min-height:60px;font-size:19px}'
     ].join('\n');
 
     function css() {
@@ -183,9 +215,17 @@
            `criteri`      (16/9) le aperte che portano `criteri` NON mostrano la traccia:
                           dopo «Ho risposto» la risposta si blocca e i criteri compaiono
                           come spunte (`r.criteriVisti`, `r.spunte`), al posto della
-                          scala a tre livelli. Sono la soluzione: mai prima. */
+                          scala a tre livelli. Sono la soluzione: mai prima.
+                          (0126) `'leggi'`: stesso momento e stesso blocco, ma i criteri
+                          si LEGGONO e basta — niente spunte, niente punteggio. Il segno
+                          è `r.criteriLetti`, non `criteriVisti`: con quello
+                          `punteggioCriteri` darebbe 0 a ogni risposta letta.
+           `contatore`    (0126) un elemento di chi monta: il contatore si disegna lì
+                          invece che nella riga in testa, e la riga, rimasta senza
+                          suggerimento né comandi, non si mostra. MappAI Studente lo
+                          mette nella barra della × del pannello accanto alla mappa. */
         var CHIPS = (Array.isArray(o.chip) && o.chip.length)
-            ? o.chip.map(function (c) { return { k: String(c.k), et: c.et || etChip(t, c.k), colore: c.colore || '' }; })
+            ? o.chip.map(function (c) { return { k: String(c.k), et: c.et || etChip(t, c.k), colore: c.colore || '', testo: c.testo || '' }; })
             : S().CHIP.map(function (k) { return { k: k, et: etChip(t, k), colore: '' }; });
         var VOC = (Array.isArray(o.chip) && o.chip.length) ? CHIPS.map(function (c) { return c.k; }) : undefined;
         function etChipDi(k) {
@@ -197,7 +237,9 @@
         function dipingiChip(btn, ch, premuto) {
             btn.setAttribute('aria-pressed', String(!!premuto));
             if (!ch || !ch.colore) return;
-            btn.style.borderColor = ch.colore; btn.style.color = ch.colore;
+            /* `testo` (0126): un colore pieno troppo chiaro per scriverci sul bianco porta il suo colore
+               leggibile; senza, il testo è del colore del chip, come prima */
+            btn.style.borderColor = ch.colore; btn.style.color = ch.testo || ch.colore;
             btn.style.background = premuto ? 'color-mix(in srgb, ' + ch.colore + ' 14%, white)' : '';
         }
         /* le domande LASCIATE: la risposta non si butta, esce dal conteggio.
@@ -229,6 +271,48 @@
 
         var wrap, top, cnt, hint, list, foot;
         var iRisposta = 0;                      /* la domanda corrente nel passo ③ */
+        var contatore = (o.contatore && typeof o.contatore.appendChild === 'function') ? o.contatore : null;
+        /* 0126, allargamento 4 (Giacomo, 26/10, la scelta su misura sull'iPad: «ridurre il carico
+           cognitivo […] rendere più leggibili i testi»). Tutte spente di serie:
+           `aPagine`      con `raggruppa: 'domanda-per-angoli'`: una serie di tagli alla volta, il
+                          ramo in testa, «‹ n / N ›» per ramo
+           `chipVelo`     con `chipPrende`: il tocco su una domanda apre un velo coi chip, uno
+                          sopra l'altro; scelto un chip si chiude
+           `leggiDomande` il 🔊 su ogni domanda da scegliere
+           `senzaTorna`   nella risposta niente «‹ Torna alle domande»
+           `onFase(f)`    a ogni disegno, il passo: 'aree' | 'scegli' | 'rispondi'
+           `confermo`     il bottone sotto la casella dice «Confermo» (i criteri appaiono lo stesso), e
+                          l'invito dei criteri da spuntare «Clicca sui concetti importanti…»
+           `leggiRisposta` il 🔊 accanto alla domanda, alla casella della risposta e a ogni criterio */
+        var aPagine = !!o.aPagine && o.raggruppa === 'domanda-per-angoli';
+        var chipVelo = !!o.chipVelo && !!o.chipPrende;
+        var iSerie = 0;                         /* la serie corrente con `aPagine` */
+        /* il 🔊: legge con la voce del browser (`MappAIQuizMcView.parla`) il testo che `testo()` dà al tocco.
+           Ha la cornice del 🔊 del quiz (Giacomo, 26/10: «un frame uguale a quello che hanno nella modalità
+           semplice e che è uguale anche a quello dei quiz»): la classe `tts` dentro un `.qmc`, col foglio
+           del quiz — che qui si mette se il quiz non l'ha ancora messo (stesso id: non si raddoppia) */
+        function bottoneVoce(testo, etichetta) {
+            var Q = window.MappAIQuizMcView;
+            if (Q && Q.CSS && !document.getElementById('qmc-css')) {
+                var st = document.createElement('style'); st.id = 'qmc-css'; st.textContent = Q.CSS;
+                (document.head || document.documentElement).appendChild(st);
+            }
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'tts sc-tts'; b.textContent = '🔊';
+            b.setAttribute('aria-label', etichetta);
+            b.onclick = function (ev) {
+                if (ev && ev.stopPropagation) ev.stopPropagation();
+                var Q = window.MappAIQuizMcView; if (Q && Q.parla) Q.parla(testo());
+            };
+            return b;
+        }
+        /* `leggiRisposta`: l'elemento e il suo 🔊 sulla stessa riga; senza, l'elemento com'è */
+        function conVoce(el, testo, etichetta, classe) {
+            if (!o.leggiRisposta) return el;
+            var riga = document.createElement('div'); riga.className = 'sc-voce-riga qmc' + (classe ? ' ' + classe : '');
+            riga.appendChild(el); riga.appendChild(bottoneVoce(testo, etichetta));
+            return riga;
+        }
 
         /* ── il salvataggio: si accumula e si manda dopo una pausa ────────────
            Un colpo di rete per tasto premuto è quello che rende una pagina
@@ -260,7 +344,8 @@
             top = document.createElement('div'); top.className = 'sc-top';
             cnt = document.createElement('div'); cnt.className = 'sc-cnt';
             hint = document.createElement('div'); hint.className = 'sc-hint';
-            top.appendChild(cnt); top.appendChild(hint);
+            if (contatore) { contatore.innerHTML = ''; contatore.appendChild(cnt); } else top.appendChild(cnt);
+            top.appendChild(hint);
             list = document.createElement('div'); list.className = 'sc-list';
             foot = document.createElement('div'); foot.className = 'sc-foot';
             wrap.appendChild(top); wrap.appendChild(list); wrap.appendChild(foot);
@@ -347,9 +432,12 @@
             function conta() {
                 var n = S().conteggio(vive, stato, VOC);
                 cnt.className = 'sc-cnt' + (n.scelte < cfg.minimo ? ' ko' : '');
+                /* col velo le prese sono le domande «la so» (il chip che prende): il contatore lo dice
+                   col nome del chip e senza il minimo (Giacomo, 26/10: «Lette: n/36 · la so: n» e togli «su 1») */
+                var prende = chipVelo ? CHIPS.filter(function (x) { return x.k === o.chipPrende; })[0] : null;
                 cnt.innerHTML = esc(_t(t, 'sc_lette', 'Lette')) + ': <b>' + n.lette + '</b>/' + n.totale +
-                    ' · ' + esc(_t(t, 'sc_scelte', 'scelte')) + ': <b>' + n.scelte + '</b>' +
-                    (cfg.minimo ? ' ' + esc(_t(t, 'sc_su_minimo', 'su')) + ' ' + cfg.minimo : '');
+                    ' · ' + esc(prende ? prende.et : _t(t, 'sc_scelte', 'scelte')) + ': <b>' + n.scelte + '</b>' +
+                    (cfg.minimo && !prende ? ' ' + esc(_t(t, 'sc_su_minimo', 'su')) + ' ' + cfg.minimo : '');
                 return n;
             }
             if (conPassi) top.appendChild(comando('‹ ' + _t(t, 'sc_cambia_aree', 'Cambia argomenti'), function () { vaiA('aree'); }));
@@ -360,22 +448,39 @@
                 var take = document.createElement('button');
                 take.type = 'button'; take.className = 'sc-take';
                 take.setAttribute('aria-expanded', 'false');
-                take.innerHTML = '<span class="sc-mark" aria-hidden="true"></span><span class="sc-txt">' +
+                /* `chipVelo`: niente casella della spunta, il giudizio lo dice il colore della
+                   cornice (Giacomo, 26/10: «togli il box per la spunta») */
+                take.innerHTML = (chipVelo ? '' : '<span class="sc-mark" aria-hidden="true"></span>') + '<span class="sc-txt">' +
                     ((o.mostraAngolo && v.angle) ? '<span class="sc-ang">' + esc(etAngolo(t, v.angle)) + '</span>' : '') +
                     esc(v.testo) + '</span>';
                 var body = document.createElement('div'); body.className = 'sc-body'; body.hidden = true;
-                art.appendChild(take); art.appendChild(body);
+                art.appendChild(take);
+                if (o.leggiDomande) {
+                    art.classList.add('sc-q--voce', 'qmc');
+                    art.appendChild(bottoneVoce(function () { return v.testo; }, _t(t, 'qmc_ascolta_domanda', 'Ascolta la domanda')));
+                }
+                art.appendChild(body);
 
                 function dipingi() {
                     var presa = !!stato.risposte[v.id];
                     var l = stato.letture[v.id];
                     art.classList.toggle('on', presa);
                     art.classList.toggle('letta', !!(l && l.chip));
+                    if (chipVelo) {
+                        /* «dopo aver scelto l'opzione la domanda avrà il frame con il colore
+                           dell'opzione scelta» (Giacomo, 26/10) */
+                        var ch = l && l.chip ? CHIPS.filter(function (x) { return x.k === l.chip; })[0] : null;
+                        art.style.borderColor = (ch && ch.colore) || '';
+                        /* «il BG […] ha anche lui il colore dell'opzione ma con opacity 15%» */
+                        art.style.background = (ch && ch.colore) ? 'color-mix(in srgb, ' + ch.colore + ' 15%, transparent)' : '';
+                        return;
+                    }
                     take.querySelector('.sc-mark').textContent = presa ? '✓' : (l && l.chip ? '·' : '');
                 }
                 /* il tocco APRE, non prende: aprire è considerarla, ed è il
                    gesto che questa attività vuole far fare con calma */
                 take.onclick = function () {
+                    if (chipVelo) return velo();
                     var chiuso = body.hidden;
                     if (chiuso && !body.childNodes.length) corpo();
                     body.hidden = !chiuso;
@@ -393,6 +498,40 @@
                         delete stato.risposte[v.id];
                     }
                 }
+                /* il giudizio: il secondo tocco sullo stesso chip lo toglie */
+                function giudica(k) {
+                    var ll = stato.letture[v.id] || (stato.letture[v.id] = {});
+                    ll.chip = (ll.chip === k) ? '' : k;
+                    /* il chip verde PRENDE la domanda (MappAI studente):
+                       qui il giudizio e la scelta sono lo stesso gesto */
+                    if (o.chipPrende) prendi(ll.chip === o.chipPrende);
+                    dipingi(); conta(); salva(v.id, true);
+                    return ll.chip;
+                }
+                /* `chipVelo`: i chip in un velo a centro schermo, uno sopra l'altro; il tocco
+                   fuori chiude senza cambiare niente */
+                function velo() {
+                    var l = stato.letture[v.id] || {};
+                    var ve = document.createElement('div'); ve.className = 'sc-giudizio';
+                    ve.setAttribute('role', 'dialog'); ve.setAttribute('aria-modal', 'true');
+                    ve.setAttribute('aria-label', v.testo);
+                    var fondo = document.createElement('div'); fondo.className = 'sc-giudizio__fondo';
+                    fondo.onclick = function () { ve.remove(); };
+                    var box = document.createElement('div'); box.className = 'sc-giudizio__box';
+                    /* in cima la domanda: il velo copre la carta, si rilegge mentre si sceglie */
+                    var dq = document.createElement('div'); dq.className = 'sc-giudizio__q';
+                    dq.textContent = v.testo; box.appendChild(dq);
+                    CHIPS.forEach(function (ch) {
+                        var c = document.createElement('button');
+                        c.type = 'button'; c.className = 'sc-chip';
+                        c.textContent = ch.et;
+                        dipingiChip(c, ch, l.chip === ch.k);
+                        c.onclick = function () { giudica(ch.k); ve.remove(); };
+                        box.appendChild(c);
+                    });
+                    ve.appendChild(fondo); ve.appendChild(box);
+                    wrap.appendChild(ve);
+                }
                 function corpo() {
                     var l = stato.letture[v.id] || {};
                     var lc = document.createElement('div'); lc.className = 'sc-lbl';
@@ -407,17 +546,12 @@
                         c.textContent = ch.et;
                         dipingiChip(c, ch, l.chip === ch.k);
                         c.onclick = function () {
-                            var ll = stato.letture[v.id] || (stato.letture[v.id] = {});
-                            ll.chip = (ll.chip === ch.k) ? '' : ch.k;      /* secondo tocco = tolgo */
+                            var k = giudica(ch.k);
                             /* per CHIAVE, non per indice: con un vocabolario diverso
                                l'indice accendeva il chip sbagliato */
                             chips.querySelectorAll('.sc-chip').forEach(function (x, xi) {
-                                dipingiChip(x, CHIPS[xi], CHIPS[xi].k === ll.chip);
+                                dipingiChip(x, CHIPS[xi], CHIPS[xi].k === k);
                             });
-                            /* il chip verde PRENDE la domanda (MappAI studente):
-                               qui il giudizio e la scelta sono lo stesso gesto */
-                            if (o.chipPrende) prendi(ll.chip === o.chipPrende);
-                            dipingi(); conta(); salva(v.id, true);
                         };
                         chips.appendChild(c);
                     });
@@ -457,6 +591,8 @@
 
             if (!vive.length) {
                 vuoto(_t(t, 'sc_no_domande', 'Gli argomenti scelti non hanno domande: torna indietro e scegline altri.'));
+            } else if (aPagine) {
+                serie(S().perDomandaPerAngoli(vive));
             } else if (o.raggruppa === 'domanda-per-angoli') {
                 S().perDomandaPerAngoli(vive).forEach(function (g) {
                     var h = document.createElement('div'); h.className = 'sc-ramo';
@@ -479,6 +615,39 @@
                 });
             } else {
                 vive.forEach(function (v) { list.appendChild(card(v)); });
+            }
+            /* `aPagine`: una serie alla volta (i tagli della stessa domanda), il ramo in testa a 25 px,
+               sotto le frecce col numeratore della serie NEL RAMO; dopo l'ultima del ramo, il ramo dopo */
+            function serie(gruppi) {
+                var tutte = [];
+                gruppi.forEach(function (g, gi) {
+                    g.righe.forEach(function (r, i) { tutte.push({ ramo: g.ramo, celle: r.celle, n: i + 1, di: g.righe.length, rn: gi + 1 }); });
+                });
+                if (iSerie >= tutte.length) iSerie = tutte.length - 1;
+                if (iSerie < 0) iSerie = 0;
+                var s = tutte[iSerie];
+                wrap.classList.add('sc--pagine');
+                var h = document.createElement('h2'); h.className = 'sc-ramo--titolo';
+                h.textContent = s.ramo || _t(t, 'sc_senza_ramo', 'Altre domande');
+                /* a destra del titolo, sul margine, il ramo su quanti sono (Giacomo, 26/10: «il contatore
+                   n/N per aiutare a capire lo stato di avanzamento»); le frecce contano le serie nel ramo */
+                var rn = document.createElement('span'); rn.className = 'sc-ramo-n';
+                rn.textContent = s.rn + '/' + gruppi.length;
+                var testa = document.createElement('div'); testa.className = 'sc-ramo-testa';
+                testa.appendChild(h); testa.appendChild(rn);
+                list.appendChild(testa);
+                s.celle.forEach(function (v) { list.appendChild(card(v)); });
+                var nav = document.createElement('div'); nav.className = 'sc-nav';
+                var pre = bottone('‹', function () { iSerie--; disegna(); }, 'sc-nav__b');
+                pre.setAttribute('aria-label', _t(t, 'sc_serie_prec', 'Serie precedente'));
+                pre.disabled = iSerie === 0;
+                var suc = bottone('›', function () { iSerie++; disegna(); }, 'sc-nav__b');
+                suc.setAttribute('aria-label', _t(t, 'sc_serie_succ', 'Serie successiva'));
+                suc.disabled = iSerie >= tutte.length - 1;
+                var qui = document.createElement('span'); qui.className = 'sc-nav__n';
+                qui.textContent = s.n + ' / ' + s.di;
+                nav.appendChild(pre); nav.appendChild(qui); nav.appendChild(suc);
+                foot.appendChild(nav);
             }
             conta();
             foot.appendChild(bottone(_t(t, 'sc_comincia', 'Comincia a rispondere'), function () {
@@ -511,22 +680,26 @@
             hint.textContent = '';
             cnt.innerHTML = esc(_t(t, 'sc_di', 'Domanda')) + ' <b>' + (iRisposta + 1) + '</b> ' +
                 esc(_t(t, 'sc_su', 'di')) + ' ' + mie.length;
-            if (!semplice) top.appendChild(comando('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }));
+            if (!semplice && !o.senzaTorna) top.appendChild(comando('‹ ' + _t(t, 'sc_torna_scegli', 'Torna alle domande'), function () { vaiA('scegli'); }));
 
             /* la scelta multipla ha la veste del quiz LIVE (domanda col 🔊, opzioni grandi, esito sotto):
                la disegna mappai-quiz-mc-view.js, la stessa riga di codice che sta dietro il telefono */
             var QMC = window.MappAIQuizMcView;
             /* 0116, gate del 21/10 (Giacomo): in modalità semplice anche la domanda
                aperta ha la veste del quiz LIVE — stesso corpo e il 🔊 per sentirla */
+            function domandaQuiz() { var qh = document.createElement('div'); list.appendChild(qh); QMC.domanda(qh, v.testo); }
             if (v.tipo === 'mc' || (semplice && QMC)) {
-                var qh = document.createElement('div'); list.appendChild(qh);
-                QMC.domanda(qh, v.testo);
+                domandaQuiz();
+            } else if (o.leggiRisposta && QMC) {
+                /* 0126 `leggiRisposta`: anche in Meta la veste di Semplice, stesso corpo e stesso 🔊 (Giacomo, 26/10) */
+                domandaQuiz();
             } else {
                 var q = document.createElement('div'); q.className = 'sc-dom';
                 q.textContent = v.testo;
                 list.appendChild(q);
             }
             var conCriteri = !!(o.criteri && v.tipo !== 'mc' && v.criteri && v.criteri.length);
+            var daLeggere = conCriteri && o.criteri === 'leggi';    /* 0126: i criteri senza spunte */
             /* 0116: la traccia è la correzione del docente (`guide`): in modalità semplice mai */
             if (v.traccia && !conCriteri && !semplice) {
                 var tr = document.createElement('div'); tr.className = 'sc-lbl';
@@ -547,21 +720,44 @@
                 ta.className = 'sc-ta' + (semplice ? ' sc-ta--live' : ''); ta.value = r.testo || '';
                 ta.setAttribute('aria-label', _t(t, 'sc_aria_risposta', 'La tua risposta'));
                 ta.oninput = function () { r.testo = ta.value; salva(v.id); if (vedi) vedi.disabled = !S().scritta(r); };
-                list.appendChild(ta);
+                /* il 🔊 della risposta legge quello che c'è scritto al momento del tocco */
+                list.appendChild(conVoce(ta, function () { return ta.value; }, _t(t, 'sc_ascolta_risposta', 'Ascolta la tua risposta')));
                 var vedi = null;
-                if (conCriteri && !r.criteriVisti) {
-                    vedi = bottone(_t(t, 'sc_crit_vedi', 'Ho risposto: controlla coi criteri'), function () {
+                if (conCriteri && !(daLeggere ? r.criteriLetti : r.criteriVisti)) {
+                    /* 0126 `confermo` (spenta di serie; Giacomo, 26/10: «da 'Ho risposto: controlla i criteri' in
+                       'Confermo', i criteri appaiono indipendentemente dal testo del bottone») */
+                    vedi = bottone(o.confermo ? _t(t, 'sc_confermo', 'Confermo')
+                        : daLeggere ? _t(t, 'sc_crit_mostra', 'Ho risposto: mostra i criteri') : _t(t, 'sc_crit_vedi', 'Ho risposto: controlla coi criteri'), function () {
                         if (!S().scritta(r)) return;
-                        r.criteriVisti = true; r.spunte = v.criteri.map(function () { return false; });
+                        if (daLeggere) r.criteriLetti = true;
+                        else { r.criteriVisti = true; r.spunte = v.criteri.map(function () { return false; }); }
                         salva(v.id, true); disegna();
                     }, 'sc-go sc-go--quieto');
                     vedi.disabled = !S().scritta(r);
                     list.appendChild(vedi);
+                } else if (daLeggere) {
+                    /* come sotto, la risposta non si ritocca; i criteri si leggono e basta */
+                    ta.readOnly = true;
+                    var ll = document.createElement('div'); ll.className = 'sc-lbl';
+                    ll.textContent = _t(t, 'sc_crit_leggi', 'I criteri della risposta');
+                    list.appendChild(ll);
+                    var ul = document.createElement('ul'); ul.className = 'sc-crit' + (semplice ? ' sc-crit--live' : '');
+                    v.criteri.forEach(function (testo) {
+                        var li = document.createElement('li');
+                        if (o.leggiRisposta) {
+                            var sp = document.createElement('span'); sp.textContent = testo;
+                            li.appendChild(conVoce(sp, function () { return testo; }, _t(t, 'sc_ascolta_criterio', 'Ascolta il criterio')));
+                        } else li.textContent = testo;
+                        ul.appendChild(li);
+                    });
+                    list.appendChild(ul);
                 } else if (conCriteri) {
                     /* visti i criteri, la risposta non si ritocca: sarebbe copiarli */
                     ta.readOnly = true;
                     var lc = document.createElement('div'); lc.className = 'sc-lbl';
-                    lc.textContent = _t(t, 'sc_crit', 'Che cosa c\'è nella tua risposta? Spunta ciò che hai scritto.');
+                    /* con `confermo` l'invito di Giacomo (26/10): «Clicca sui concetti importanti che hai usato anche tu.» */
+                    lc.textContent = o.confermo ? _t(t, 'sc_crit_concetti', 'Clicca sui concetti importanti che hai usato anche tu.')
+                        : _t(t, 'sc_crit', 'Che cosa c\'è nella tua risposta? Spunta ciò che hai scritto.');
                     list.appendChild(lc);
                     v.criteri.forEach(function (testo, ci) {
                         var cb = document.createElement('button');
@@ -574,7 +770,7 @@
                             cb.setAttribute('aria-checked', String(r.spunte[ci]));
                             salva(v.id, true);
                         };
-                        list.appendChild(cb);
+                        list.appendChild(conVoce(cb, function () { return testo; }, _t(t, 'sc_ascolta_criterio', 'Ascolta il criterio'), 'sc-voce-riga--opt'));
                     });
                 }
             }
@@ -646,8 +842,11 @@
                 foot.appendChild(lo); foot.appendChild(oss);
             }
             /* 0116, gate del 21/10 (Giacomo): in modalità semplice «Consegna» c'è solo
-               all'ultima domanda, come nel quiz a scelta multipla */
+               all'ultima domanda, come nel quiz a scelta multipla. 0126 `consegnaAllaFine`
+               (spenta di serie): così anche con la scelta delle domande — Giacomo, in Meta
+               sull'iPad: «solo dopo che sono arrivato all'ultima domanda selezionata» */
             if (semplice && iRisposta < mie.length - 1) return;
+            if (o.consegnaAllaFine && iRisposta < mie.length - 1) return;
             foot.appendChild(bottone(_t(t, 'sc_consegna', 'Consegna'), function () {
                 var v2 = S().validaConsegna(attivo(), stato, cfg);
                 if (v2.ok) { svuotaAttese(); return onConsegna(stato); }
@@ -663,6 +862,12 @@
         }
 
         function disegna() {
+            passo();
+            /* 0126: col contatore fuori, la riga in testa senza suggerimento né comandi è una riga vuota */
+            if (contatore) top.hidden = !hint.textContent && !top.querySelector('button');
+            if (typeof o.onFase === 'function') o.onFase((stato.fase === 'rispondi' || semplice) ? 'rispondi' : stato.fase);
+        }
+        function passo() {
             scheletro();
             if (!pool.length) {
                 vuoto(_t(t, 'sc_pool_vuoto', 'Non ci sono ancora domande per questa mappa. Generale con «Genera materiali», poi torna qui.'));
@@ -714,6 +919,28 @@
                 fine.querySelector('.sc-fine__top').appendChild(salvaB);
             }
             host.appendChild(fine);
+            /* 0126, gate del 25/10 (Giacomo): «Hai finito!» largo la frazione `titoloLargo` di chi
+               monta (sull'iPad il 70% del pannello) e l'emoji cresce nella stessa proporzione; come
+               `fitTitolo` del quiz LIVE (student.html), che lo porta al 90% dello schermo: si misura
+               a 100px e si scala. Senza l'opzione restano le misure del CSS. */
+            if (o.titoloLargo > 0) {
+                var h2 = fine.querySelector('h2'), big = fine.querySelector('.sc-fine__big');
+                var adatta = function () {
+                    if (!fine.isConnected) { window.removeEventListener('resize', adatta); return; }
+                    h2.style.whiteSpace = 'nowrap'; h2.style.fontSize = '100px';
+                    var w = h2.scrollWidth, W = host.clientWidth;
+                    if (!(w > 0 && W > 0)) return;
+                    var fs = Math.max(22, Math.floor(100 * o.titoloLargo * W / w));
+                    h2.style.fontSize = fs + 'px';
+                    /* l'emoji cresce col titolo, ma non oltre un quinto dell'altezza di chi monta (gate
+                       del 25/10: nel pannello in verticale, largo e basso, «Risposte» e il 💾 andavano sotto) */
+                    var e = 64 * fs / 22, H = host.clientHeight;
+                    if (H > 0) e = Math.min(e, H * 0.2);
+                    big.style.fontSize = Math.round(e) + 'px';
+                };
+                adatta();
+                window.addEventListener('resize', adatta);
+            }
             return;
         }
         var wrap = document.createElement('div'); wrap.className = 'sc-wrap';

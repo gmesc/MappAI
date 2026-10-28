@@ -755,8 +755,24 @@
            { et:'Cosa',    menu:{ tipo:'lista',   voci:[{et,on,onPick}], nuovo:{et,onPick} } },
            { et:'A chi?',  menu:{ tipo:'colonne', colonne:[{h,voci:[{et,on,onPick}]}] } },
            { statico:'La Fotosintesi' }
-         ] } */
+         ] }
+       0124: `nuovo` può essere anche un ELENCO di azioni in fondo al menu (il menu del
+       progetto: «Rinomina…», «Riassegna…», «Copia…»). */
     function _escP(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    /* 0124: l'ORDINE degli elenchi di classi, allievi e materie. Giacomo, 24/10: «mostra
+       gli elenchi di calssi e materie sempre e solo in ordine alfabetico o numerico
+       crescente» — nelle briciole, nella sidebar, nel box di CREA e nei modali di
+       Riassegna e Copia: una regola sola (inv. 6). «2A» prima di «10A»; maiuscole e
+       accenti non contano. Si ordina una COPIA: l'ordine salvato non cambia. */
+    var _collatore = null;
+    function ordinaElenco(arr, chiave) {
+        if (!_collatore) {
+            try { _collatore = new Intl.Collator('it', { numeric: true, sensitivity: 'base' }); }
+            catch (e) { _collatore = { compare: function (a, b) { return a < b ? -1 : (a > b ? 1 : 0); } }; }
+        }
+        var et = function (x) { var v = chiave ? (x && x[chiave]) : x; return String(v == null ? '' : v); };
+        return (Array.isArray(arr) ? arr.slice() : []).sort(function (a, b) { return _collatore.compare(et(a), et(b)); });
+    }
     function _chiudiPercorso() {
         var m = document.querySelector('.mn-bric-menu');
         if (m) { if (m._trg) m._trg.setAttribute('aria-expanded', 'false'); m.remove(); }
@@ -764,8 +780,9 @@
     function _voceP(v, fs) {
         var it = document.createElement('button');
         it.type = 'button';
-        it.setAttribute('role', 'menuitemradio');
-        it.setAttribute('aria-checked', v.on ? 'true' : 'false');
+        /* un'azione in fondo al menu (`nuovo`) non è una scelta fra tante: niente «spuntata» */
+        it.setAttribute('role', v.nuovo ? 'menuitem' : 'menuitemradio');
+        if (!v.nuovo) it.setAttribute('aria-checked', v.on ? 'true' : 'false');
         it.className = 'mn-bric-menu__it' + (v.on ? ' is-on' : '') + (v.nuovo ? ' mn-bric-menu__nuovo' : '');
         /* Solo il TESTO. ⚠️ Niente icona decorativa accanto alla voce (Giacomo,
            14/8): l'unica icona che ha titolo di stare qui è il LUCCHETTO, perché
@@ -816,7 +833,9 @@
             });
         } else {
             (menuSpec.voci || []).forEach(function (v) { menu.appendChild(_voceP(v, fs)); });
-            if (menuSpec.nuovo) menu.appendChild(_voceP({ et: menuSpec.nuovo.et, nuovo: true, onPick: menuSpec.nuovo.onPick }, fs));
+            (Array.isArray(menuSpec.nuovo) ? menuSpec.nuovo : (menuSpec.nuovo ? [menuSpec.nuovo] : [])).forEach(function (n) {
+                if (n) menu.appendChild(_voceP({ et: n.et, nuovo: true, onPick: n.onPick }, fs));
+            });
         }
         /* appeso al BOX (non alla testata: la ritaglierebbe e il corpo la coprirebbe);
            posizione = somma degli offset lungo la catena fino al box */
@@ -869,7 +888,7 @@
        è stata FATTA, così «Materia» resta svelata anche dopo. */
     function _stickyAchi() { try { return localStorage.getItem('mappai_bento_achi') === '1'; } catch (e) { return false; } }
     function _setStickyAchi() { try { localStorage.setItem('mappai_bento_achi', '1'); } catch (e) { } }
-    /* cb: { onCosa(modo)?, onGenerico, onClasse(c), onAllievo(p), onMateria(m), onNuovaMateria }
+    /* cb: { onCosa(modo)?, onGenerico, onClasse(c), onAllievo(p), onMateria(m) }
        BRICIOLE PERSISTENTI e PROGRESSIVE (Giacomo, 6/8): ogni livello, una volta
        scelto, mostra il VALORE (non più il prompt «Cosa/A chi?/Materia») e resta;
        il livello successivo appare SOLO dopo aver scelto il precedente. Lo stato è
@@ -920,15 +939,16 @@
         var achiLabel = achiScelto ? (stud || (cls && cls.name) || 'Generico') : 'A chi?';
         livelli.push({ et: achiLabel, menu: { tipo: 'colonne', colonne: [
             { h: '', voci: [{ et: 'Generico', on: achiScelto && !cls && !stud, onPick: function () { _setStickyAchi(); cb.onGenerico(); } }] },
-            { h: '', voci: _classi().map(function (c) { return { et: c.name, on: !!cls && cls.name === c.name, onPick: function () { _setStickyAchi(); cb.onClasse(c); } }; }) },
-            { h: '', voci: _allievi().map(function (p) { return { et: p.nickname + (p.grade ? ' — ' + p.grade : ''), on: !!stud && stud === p.nickname, onPick: function () { _setStickyAchi(); cb.onAllievo(p); } }; }) }
+            { h: '', voci: ordinaElenco(_classi(), 'name').map(function (c) { return { et: c.name, on: !!cls && cls.name === c.name, onPick: function () { _setStickyAchi(); cb.onClasse(c); } }; }) },
+            { h: '', voci: ordinaElenco(_allievi(), 'nickname').map(function (p) { return { et: p.nickname + (p.grade ? ' — ' + p.grade : ''), on: !!stud && stud === p.nickname, onPick: function () { _setStickyAchi(); cb.onAllievo(p); } }; }) }
         ] } });
         if (!achiScelto && !opts.sempre) return livelli;     // «Materia» solo dopo aver scelto «A chi?»
         var materie = (cls && CL.disciplineChoices) ? (CL.disciplineChoices(cls) || [])
             : ((window.MappAITeacherProfile && window.MappAITeacherProfile.disciplineList()) || []);
         livelli.push({ et: mat || 'Materia', menu: { tipo: 'lista',
-            voci: materie.map(function (m) { return { et: m, on: mat === m, onPick: function () { cb.onMateria(m); } }; }),
-            nuovo: cls ? null : { et: '+ Nuova materia', onPick: cb.onNuovaMateria }
+            /* 0124: «+ Nuova materia» non c'è più (Giacomo, 24/10: «le materie nuove devono sempre essere
+               create da profilo dell'insegnante nella CABINA») */
+            voci: ordinaElenco(materie).map(function (m) { return { et: m, on: mat === m, onPick: function () { cb.onMateria(m); } }; })
         } });
         return livelli;
     }
@@ -1102,6 +1122,6 @@
         aspettoDi: aspettoDi, variabili: variabili, contrasto: contrasto,
         valida: valida, larghezza: larghezza, firma: firma,
         montaPercorso: montaPercorso, chiudiPercorso: _chiudiPercorso,
-        specContesto: specContesto, montaFiltriSidebar: montaFiltriSidebar
+        specContesto: specContesto, montaFiltriSidebar: montaFiltriSidebar, ordinaElenco: ordinaElenco
     };
 }));

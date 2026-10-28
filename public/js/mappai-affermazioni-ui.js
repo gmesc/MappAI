@@ -252,11 +252,14 @@
           : t('aff_state_no_text', 'Da decidere · non toglie niente dai materiali: il nodo non ha testo');
         return null;
       },
-      /* una frase in più nel piede: '' = il piede di oggi */
-      piede() {
+      /* una frase in più nel piede: '' = il piede di oggi. 0123, lotto 3b: `breve` quando il piede della veste dice già
+         che la mappa è cambiata dopo il controllo (non si ripetono le stesse parole) */
+      piede(opts) {
         if (!inAttesa() || !A.facoltativa(getReview())) return '';
         const a = analisi();
-        if (a && a.cambiata) return t('aff_footer_changed', 'La mappa è cambiata dopo il controllo: per creare i materiali vale di nuovo la revisione completa.');
+        if (a && a.cambiata) return opts && opts.breve
+          ? t('aff_footer_changed_breve', 'Per creare i materiali vale di nuovo la revisione completa.')
+          : t('aff_footer_changed', 'La mappa è cambiata dopo il controllo: per creare i materiali vale di nuovo la revisione completa.');
         if (a && a.c && a.c.etichetteSegnalate > 0) return t('aff_footer_labels', 'Per creare i materiali prima di aver deciso tutto, decidi le segnalazioni sui titoli dei nodi.');
         /* giro 3 (D4c): quando la frase non si individua esce tutto il nodo, e lo si dice;
            giro 6 (G1): tranne il testo scritto o ritoccato dal docente, che resta nei materiali;

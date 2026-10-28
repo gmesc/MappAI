@@ -25,6 +25,19 @@ window.t = function (key, fallback) {
 };
 
 /*
+ * L'etichetta dei bottoni che aprono una cartella nel gestore dei file del sistema (packet 0122, lotto 4b2 —
+ * Giacomo, 23/10: «tutti i bottoni 'apri la cartela' cambiali in 'apri nel finder' e su windows 'apri in esplora
+ * risorse'»). Su Linux il gestore cambia da una distribuzione all'altra: resta «Apri la cartella».
+ */
+window.tApriCartella = function () {
+    let p = '';
+    try { p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || ''; } catch (e) { }
+    if (/mac/i.test(p)) return window.t('ui_open_finder', 'Apri nel Finder');
+    if (/win/i.test(p)) return window.t('ui_open_explorer', 'Apri in Esplora risorse');
+    return window.t('ui_open_folder', 'Apri la cartella');
+};
+
+/*
  * Lingua delle MAPPE (≠ lingua dell'interfaccia).
  * Impostazione mappai_map_language: 'ui' (default: segue l'interfaccia) |
  * 'it' | 'en' | 'auto' (lingua delle fonti caricate).

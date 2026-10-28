@@ -44,9 +44,8 @@
       '<div class="fx-body">' + innerHtml + '</div></div>';
     ov.addEventListener('click', function (e) { if (e.target === ov) ov.remove(); });
     ov.querySelector('.fx-close').onclick = function () { ov.remove(); };
-    var escH = function (e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', escH); } };
-    document.addEventListener('keydown', escH);
     document.body.appendChild(ov);
+    if (window.MappAIVelo) window.MappAIVelo.monta(ov, function () { ov.remove(); });   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
     if (window.safeCreateIcons) window.safeCreateIcons();
     return ov;
   }
@@ -115,7 +114,7 @@
           esc(_t('fx_current', 'Tutti i documenti di MappAI sono organizzati in una cartella sola:')) +
           '<br><code style="font-size:12px;color:#4f46e5;word-break:break-all">' + esc(st.rootDir || '') + '</code></p>' +
           '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-          '<button type="button" class="fx-open" style="' + btnPrimary + '"><i data-lucide="folder-open" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px"></i>' + esc(_t('fx_open', 'Apri la cartella')) + '</button>' +
+          '<button type="button" class="fx-open" style="' + btnPrimary + ';display:inline-flex;align-items:center;gap:6px"><i data-lucide="folder-open" style="width:15px;height:15px;flex:0 0 auto"></i>' + esc(window.tApriCartella ? window.tApriCartella() : _t('fx_open', 'Apri la cartella')) + '</button>' +   /* 0122 lotto 4b2: icona ed etichetta su una riga (l'svg è un blocco per il Tailwind), «Apri nel Finder» */
           '<button type="button" class="fx-change" style="' + btnGhost + '">' + esc(_t('fx_change', 'Cambia posizione')) + '</button></div>' +
           '<p style="font-size:11.5px;color:#94a3b8;margin-top:14px;line-height:1.5">' + esc(_t('fx_structure', 'Struttura: Mappe · Attività di studio · File condivisi · Classi · Giardini.')) + '</p>';
       } else {
@@ -125,7 +124,7 @@
           esc(_t('fx_intro2', 'Oggi sono sparsi in più cartelle dentro Documenti. Finché non scegli, nulla cambia.')) + '</p>' +
           '<div style="display:flex;justify-content:flex-end"><button type="button" class="fx-choose" style="' + btnPrimary + '"><i data-lucide="folder-plus" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px"></i>' + esc(_t('fx_choose', 'Scegli la posizione')) + '</button></div>';
       }
-      var ov = overlay('folder-cog', _t('fx_title', 'Cartella documenti'), inner, '540px');
+      var ov = overlay('folder-cog', _t('fx_title', 'Cartella progetti'), inner, '540px');   /* 0122 lotto 4b2 (Giacomo, 23/10): era «Cartella documenti» */
       var open = ov.querySelector('.fx-open'); if (open) open.onclick = function () { window.electronAPI.filesOpenRoot(); };
       var choose = ov.querySelector('.fx-choose'); if (choose) choose.onclick = function () { doChoose(ov); };
       var change = ov.querySelector('.fx-change'); if (change) change.onclick = function () { doChoose(ov); };

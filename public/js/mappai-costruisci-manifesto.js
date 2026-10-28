@@ -417,12 +417,19 @@
         return '<label class="mn-campo"' + tip(_voceCorrente) + '><span>' + esc(etichetta) + '</span>' + dentro + '</label>';
     }
 
+    /* 0124: classi, allievi e materie in ordine crescente, con la regola delle briciole
+       (`MappAIConsoleBento.ordinaElenco`, inv. 6); senza il modulo, l'ordine di prima */
+    function ordinaElenco(arr, chiave) {
+        var CB = window.MappAIConsoleBento;
+        return (CB && CB.ordinaElenco) ? CB.ordinaElenco(arr, chiave) : (arr || []).slice();
+    }
+
     function opzioniClassi() {
         var out = '<option value="">' + esc(t('mp_no_class', '— nessuna classe —')) + '</option>';
         try {
             var CL = window.MappAIClasses;
             var att = CL && CL.activeId ? CL.activeId() : '';
-            (CL && CL.list ? CL.list() : []).forEach(function (c) {
+            ordinaElenco(CL && CL.list ? CL.list() : [], 'name').forEach(function (c) {
                 out += '<option value="' + esc(c.id) + '"' + (c.id === att ? ' selected' : '') + '>' + esc(c.name) + '</option>';
             });
         } catch (e) { }
@@ -466,7 +473,7 @@
         try { classi = (CL && CL.list) ? CL.list() : []; } catch (e) { }
         if (classi.length) {
             out += '<optgroup label="' + esc(t('mn_chi_classi', 'Classi')) + '">';
-            classi.forEach(function (c) {
+            ordinaElenco(classi, 'name').forEach(function (c) {
                 out += '<option value="c:' + esc(c.id) + '"' + sel('c:' + c.id) + '>' + esc(c.name) + '</option>';
             });
             out += '</optgroup>';
@@ -475,9 +482,9 @@
         var conNome = allievi.filter(function (p) { return p && p.nickname; });
         if (conNome.length) {
             out += '<optgroup label="' + esc(t('mn_chi_allievi', 'Allievi')) + '">';
-            allievi.forEach(function (p, i) {
-                if (!p || !p.nickname) return;
-                out += '<option value="s:' + i + '"' + sel('s:' + i) + '>' + esc(p.nickname) + '</option>';
+            ordinaElenco(allievi.map(function (p, i) { return { p: p, i: i, nickname: p && p.nickname }; }), 'nickname').forEach(function (x) {
+                if (!x.p || !x.p.nickname) return;
+                out += '<option value="s:' + x.i + '"' + sel('s:' + x.i) + '>' + esc(x.p.nickname) + '</option>';
             });
             out += '</optgroup>';
         }
@@ -505,7 +512,7 @@
         var CL = window.MappAIClasses;
         if (!CL || !CL.disciplineChoices) return [];
         var cls = classeDiChi(val);
-        try { return CL.disciplineChoices(cls || {}) || []; } catch (e) { return []; }
+        try { return ordinaElenco(CL.disciplineChoices(cls || {}) || []); } catch (e) { return []; }
     }
 
     function opzioniLivello() {

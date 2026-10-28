@@ -21,7 +21,7 @@ function atomicWrite(file, text) {
   }
 }
 
-function saveManifest(folder, manifest, expectedVersion) {
+function saveManifest(folder, manifest, expectedVersion, opts) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('review-conflict: manifest non valido');
   const old = readManifest(folder);
   const version = (old && old._storageVersion) || 0;
@@ -36,7 +36,16 @@ function saveManifest(folder, manifest, expectedVersion) {
     if (old && old.review && !manifest.review) throw new Error('review-conflict: la rigenerazione non può cancellare le decisioni');
   }
   const next = Object.assign({}, manifest, { _storageVersion: version + 1 });
-  atomicWrite(path.join(folder, 'pipeline.json'), JSON.stringify(next, null, 2));
+  // La versione precedente delle decisioni del docente (23/10/26, 0123 lotto 4; 0032
+  // punto 6, decisione di Giacomo): il file che c'è, byte per byte, prima di sostituirlo.
+  // Il 25/09 un manifesto di un altro progetto ha preso il posto di quello vero: con
+  // questa copia si ripristina in un gesto. Solo dopo tutte le guardie qui sopra: un
+  // salvataggio rifiutato non la tocca. `opts.copia === false`: lo scrittore dei percorsi
+  // dopo uno spostamento (riordino, vault-relocate), che non cambia nessuna decisione e il
+  // cui «andata e ritorno» deve lasciare la cartella com'era.
+  const file = path.join(folder, 'pipeline.json');
+  if (old && !(opts && opts.copia === false)) atomicWrite(path.join(folder, 'pipeline.prev.json'), fs.readFileSync(file, 'utf8'));
+  atomicWrite(file, JSON.stringify(next, null, 2));
   return next._storageVersion;
 }
 

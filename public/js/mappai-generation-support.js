@@ -814,7 +814,7 @@ window.executeSemanticDedup = async function (options = {}) {
         if (c.b.level < c.a.level) { keep = c.b; drop = c.a; }
         else if (c.b.level === c.a.level && c.b.label.length > c.a.label.length) { keep = c.b; drop = c.a; }
         try {
-            window.executeMerge(drop, keep);
+            window.executeMerge(drop, keep, { inGenerazione: true }); // 0121: come la Fase 4
             consumed.add(drop.id);
             report.applied++;
             console.log(`%c[SemanticDedup] merge: "${drop.label}" → "${keep.label}" (sim=${c.sim.toFixed(3)})`, 'color:#10b981');
@@ -1531,10 +1531,15 @@ Restituisci SOLO un array JSON (1 oggetto se inscindibile, 2 se separabile). Nie
     return result;
 };
 
+// 0121, Lotto 4: accesa di serie. Fino al 21/10 valeva solo con '1' (nessuno la vedeva: i cross link
+// delle mappe nascevano dalla sola pulizia dei doppioni). Ora si spegne con '0' e basta; '1' resta accesa
+// (chi l'aveva accesa dalla console non cambia); mai su un KG. Senza localStorage (prove, reader): accesa.
 window.isPhase4Enabled = function () {
     try {
-        return localStorage.getItem('mappai_mm_phase4_enabled') === '1'
-            && appState?.extractionMode === 'mindmap';
+        if (appState?.extractionMode !== 'mindmap') return false;
+        let v = null;
+        try { v = localStorage.getItem('mappai_mm_phase4_enabled'); } catch (e) { /* senza localStorage */ }
+        return v !== '0';
     } catch (e) { return false; }
 };
 
@@ -1624,8 +1629,11 @@ window.executePhase4Consolidation = async function (giro) {
     const callModelAPI = giro ? payload => giro.chat('mappa', payload) : window.fetchModelAPI;
     const maxOutputTokens = base => window.getMaxOutputTokens(base, giro ? giro.fase('mappa') : undefined);
     if (window.MappAIUsage) window.MappAIUsage.setContext('map', 'mm_phase4');
-    const report = { merges: { applied: 0, skipped: 0, errors: [] },
-                     crosslinks: { applied: 0, skipped: 0, errors: [] },
+    // 0121: `tetto` conta le fusioni buone scartate perché oltre il tetto; `elenco` è la lista leggibile
+    // («"doppione" → "canonico" (motivo)») di quelle applicate, stampata su una riga sua.
+    // 0121, Lotto 3: `crosslinks.fusioni` conta i cross link lasciati dalle fusioni fra rami (forma C).
+    const report = { merges: { applied: 0, skipped: 0, tetto: 0, elenco: [], errors: [] },
+                     crosslinks: { applied: 0, skipped: 0, fusioni: 0, errors: [] },
                      parser: null };
 
     const apiKey = giro ? null : (window.getSystemKey ? window.getSystemKey() : null);
@@ -1664,6 +1672,12 @@ window.executePhase4Consolidation = async function (giro) {
     const text = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const parsed = window.parseJSONLResponse(text);
     report.parser = parsed.meta;
+    // 0121, Lotto 0: quando Gemma degenera parla da sola («(Self-correction: …)», «***RESULT***:») fino al
+    // tetto dei token. Il lettore scarta quelle righe a ragione; qui si contano, per il rapporto.
+    report.parser.prosa = text.split('\n').filter(l => {
+        const s = l.trim();
+        return s && !s.startsWith('{') && !/^(===|##|\[)/.test(s);
+    }).length;
 
     const validIds = new Set(nodes.map(n => n.id));
     const idByNorm = new Map();
@@ -1672,6 +1686,22 @@ window.executePhase4Consolidation = async function (giro) {
     // ── Applica MERGES ──
     // Per ogni merge: valida ID, recupera oggetti nodo, chiama executeMerge(drop, keep)
     // (executeMerge(A, B) fonde A→B: A scompare, B sopravvive — quindi A=drop, B=keep)
+    // 0121: tetto alle fusioni applicate, il più piccolo fra 20 e un quinto dei nodi. Gemma ne ha
+    // proposte 24 su 32 nodi (21/10) e il 9/6 una mappa era collassata da 57 a 25 nodi. Una
+    // fusione con un ID che non esiste si scarta prima e non consuma il tetto.
+    const tettoFusioni = Math.min(20, Math.floor(nodes.length / 5));
+    // 0121, Lotto 3 — forma C (di serie): una fusione fra due rami lascia il cross link che il doppione
+    // portava, «vecchio genitore → nodo tenuto», come fa già `dedupeNodesAsCrossLinks`: i cross link del
+    // 13/10 erano tutti di questo tipo. Niente cross link se il vecchio genitore è la radice o è già il
+    // genitore del nodo tenuto. Forma A: `mappai_mm_phase4_cross_fusioni = '0'` (nessun cross link di
+    // fusione: il secondo genitore lo toglie il sanificatore, come prima del packet).
+    let crossDaFusione = true;
+    try { crossDaFusione = localStorage.getItem('mappai_mm_phase4_cross_fusioni') !== '0'; } catch (e) { /* senza localStorage: forma C */ }
+    const eid = x => (x && typeof x === 'object') ? x.id : x;
+    const levelOf = new Map(nodes.map(n => [n.id, n.level]));
+    const genitoriDi = (id) => appState.db.links
+        .filter(l => eid(l.target) === id && l.isCross !== true && levelOf.get(eid(l.source)) !== 0)
+        .map(l => eid(l.source));
     const consumedDrops = new Set();
     report._dropToKeep = new Map(); // drop_id → keep_id, per resolveId crosslinks
     for (const m of (parsed.merges || [])) {
@@ -1690,10 +1720,22 @@ window.executePhase4Consolidation = async function (giro) {
             if (!keepNode || !dropNode) { report.merges.skipped++; continue; }
             // Non fondere se uno dei due è il root
             if (keepNode.level === 0 || dropNode.level === 0) { report.merges.skipped++; continue; }
-            window.executeMerge(dropNode, keepNode);
+            if (report.merges.applied >= tettoFusioni) { report.merges.tetto++; continue; }
+            const vecchiGenitori = crossDaFusione ? genitoriDi(dropId) : [];
+            const genitoriKeep = new Set(crossDaFusione ? genitoriDi(keepId) : []);
+            window.executeMerge(dropNode, keepNode, { inGenerazione: true }); // 0121: niente disegno a metà generazione
+            vecchiGenitori.forEach(g => {
+                if (g === keepId || genitoriKeep.has(g)) return;
+                const l = appState.db.links.find(x => eid(x.source) === g && eid(x.target) === keepId);
+                if (!l || l.isCross === true) return;
+                l.isCross = true;
+                l._phase4 = 'fusione';
+                report.crosslinks.fusioni++;
+            });
             consumedDrops.add(dropId);
             report._dropToKeep.set(dropId, keepId);
             report.merges.applied++;
+            report.merges.elenco.push(`"${dropNode.label}" → "${keepNode.label}"` + (m.reason ? ` (${m.reason})` : ''));
         } catch (e) { if (giro) giro.verifica();
             report.merges.errors.push(e.message);
             report.merges.skipped++;
@@ -1743,11 +1785,17 @@ window.executePhase4Consolidation = async function (giro) {
     }
 
     const { _dropToKeep, ...reportLog } = report;
+    reportLog.merges = { ...report.merges, elenco: report.merges.elenco.length };
     console.log(
         '%c[Phase4] Consolidamento completato',
         'color:#10b981;font-weight:bold',
         JSON.stringify(reportLog)
     );
+    // 0121: le righe che il registratore non tronca — l'elenco leggibile, il tetto, i campioni delle righe perse.
+    if (report.merges.elenco.length) console.log('[Phase4] fusioni applicate: ' + report.merges.elenco.join(' · '));
+    if (report.merges.tetto) console.warn(`[Phase4] tetto delle fusioni ${tettoFusioni} (20, o un quinto di ${nodes.length} nodi): ${report.merges.tetto} fusioni buone scartate`);
+    const campioni = (parsed.meta && parsed.meta.lostSamples) || [];
+    if (campioni.length) console.warn(`[Phase4] righe perse: fusioni ${parsed.meta.lost.merges}, cross link ${parsed.meta.lost.crosslinks}, prosa ${report.parser.prosa} — campioni: ` + JSON.stringify(campioni));
     return report;
 };
 

@@ -449,14 +449,18 @@ window.openTimelineGeneratorModal = function () {
     // Inizializza icone Lucide nel modal appena inserito
     if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
 
-    // Chiudi con ESC
-    var escHandler = function (e) {
-        if (e.key === 'Escape') {
-            modal.remove();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
+    /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js); l'Esc proprio resta
+       come riserva per chi non carica l'aiutante (il reader copia questo file) */
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { modal.remove(); });
+    else {
+        var escHandler = function (e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
 };
 
 // ── GENERAZIONE TIMELINE CON AI ───────────────────────────────────────────────

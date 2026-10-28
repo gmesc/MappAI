@@ -1,0 +1,13 @@
+===MERGES===
+{"keep":"L1_1_L3_A1","drop":"L1_2_L3_B1","reason":"duplicato cross-ramo (giuramento)"}
+{"keep":"L1_0_L3_B1","drop":"L1_3_L3_A2","reason":"duplicato cross-ramo (valvassori/valvassini)"}
+{"keep":"L1_2_L2_B","drop":"L1_1_L3_A1","reason":"sinonimi (fedeltà/giuramento)"}
+===CROSSLINKS===
+{"source":"L1_1_L2_A","target":"L1_0_L2_B","rel":"determina"}
+{"source":"L1_3_L2_A","target":"L1_2_L2_A","rel":"richiede"}
+{"source":"L1_4_L2_A","target":"L1_3_L2_A","rel":"finanzia"}
+{"source":"L1_0_L2_A","target":"L1_3_L2_A","rel":"governa"}
+{"source":"L1_0_L3_B1","target":"L1_0_L2_B","rel":"deriva da"}
+{"source":"L1_0_L3_B2","target":"L1_{0}_L3_{B}1","rel":"deriva da"}
+{"source":"L1_{2}_L{2}_{A}","target":"L{1}_{0}_{ L{2}_{ A}","rel":"protegge"}
+{"source":"L{1}_{4}_{ L{2}_{ A}","target":" L{1}_{  { 1 }}_{ L{ 2 }}_{ A} ","rel": "legittima"}

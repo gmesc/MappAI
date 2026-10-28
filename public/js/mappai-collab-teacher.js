@@ -79,19 +79,22 @@
     }
 
     // ── Modale base (linguaggio visivo dei modali hub) ─────────────────────
+
+    /* 0122 lotto 4b1: sfondo bloccato, Esc, piano e «un velo solo» li fa `MappAIVelo.monta` (mappai-velo.js),
+       lo stesso per tutti i velini fatti a mano; qui c'era una copia locale di `congela` (lotto 2). */
     function modal(icon, title, bodyHtml, maxWidth) {
         const overlay = document.createElement('div');
         overlay.id = 'collab-hub-modal';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:18px';
-        overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || 'var(--mm-l)'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">
-                    <i data-lucide="${icon}" style="width:22px;height:22px;color:#4f46e5"></i>${title}</div>
-                <button type="button" class="ch-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
-            </div>${bodyHtml}`;
+        overlay.className = 'mm-velo';   /* 0122: il velo del motore, scuro e sfumato */
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;display:flex;align-items:center;justify-content:center;padding:18px';
+        /* 0122 (lotto 2): il box porta il vestito «grande» del motore (mappai-modal-tokens.css) e la
+           testata è quella del motore — icona nuda, titolo alla stessa quota, × da 44 */
+        overlay.innerHTML = `<div class="mm-box--grande" style="background:#f8fafc;border-radius:var(--mm-r-box, 16px);box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || 'var(--mm-l)'},94vw);max-height:88vh;overflow-y:auto;padding:var(--mm-pad, 22px)" role="dialog" aria-modal="true">
+            <div class="mm-head"><div class="mm-head__ico"><i data-lucide="${icon}"></i></div><div class="mm-head__testi"><div class="mm-title">${title}</div></div><button type="button" class="mm-close ch-close" aria-label="Chiudi">&times;</button></div>${bodyHtml}`;
         overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
         overlay.querySelector('.ch-close').onclick = () => overlay.remove();
         document.body.appendChild(overlay);
+        if (window.MappAIVelo) window.MappAIVelo.monta(overlay, function () { overlay.remove(); });
         if (window.safeCreateIcons) window.safeCreateIcons();
         return overlay;
     }
@@ -158,24 +161,24 @@
     function openStart() {
         const name = S().rootNodeLabel || rootLabel();
         modal('presentation', t('cl_title', 'Mappa LIVE'), `
-            <p style="font-size:13px;color:#475569;line-height:1.55;margin:0 0 10px">
+            <p style="font-size:var(--mm-fs-testo);color:#475569;line-height:1.55;margin:0 0 10px">
                 ${t('cl_intro', 'I gruppi entrano dal telefono via QR e propongono nodi attorno al tema. I contributi restano un livello a parte.')}
             </p>
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:14px">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:var(--mm-fs-testo);color:#92400e;margin-bottom:14px">
                 ${t('cl_net_note', 'Rete: usa l\'hotspot del PC o un router d\'aula. Le reti scolastiche spesso bloccano il traffico tra dispositivi.')}
             </div>
-            <div style="font-size:13px;color:var(--mm-testo, #404040);margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
-            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_login', 'Accesso allievi')}</label>
+            <div style="font-size:var(--mm-fs-testo);color:var(--mm-testo, #404040);margin-bottom:10px"><b>${t('cl_map', 'Mappa')}:</b> ${esc(name)}</div>
+            <label style="display:block;font-size:var(--mm-fs-label);font-weight:700;color:#475569;margin-bottom:4px">${t('cl_login', 'Accesso allievi')}</label>
             <select id="cl-login" class="cl-in" style="width:100%;margin-bottom:14px">
                 <option value="group">${t('cl_login_grp', 'A gruppi (3 emoji)')}</option>
                 <option value="individual">${t('cl_login_ind', 'Individuale (roster della classe attiva)')}</option>
             </select>
-            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px">${t('cl_resume', 'Riprendi una sessione precedente')}</label>
+            <label style="display:block;font-size:var(--mm-fs-label);font-weight:700;color:#475569;margin-bottom:4px">${t('cl_resume', 'Riprendi una sessione precedente')}</label>
             <select id="cl-resume" class="cl-in" style="width:100%;margin-bottom:14px">
                 <option value="">${t('cl_resume_new', 'Nuova sessione')}</option>
             </select>
             ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('cl') : ''}
-            <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700;margin-top:14px">
+            <button type="button" id="cl-start" style="background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:700;font-size:var(--mm-btn-fs);margin-top:14px">
                 ${t('cl_start', 'Avvia sessione')}</button>
         `, 'var(--mm-m)');
         const ovStart = document.getElementById('collab-hub-modal');
@@ -316,7 +319,7 @@
             </div>
             <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
                 <button type="button" class="cl-stop" style="background:#7f1d1d;color:#fecaca;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px">${t('cl_stop', 'Ferma sessione')}</button>
-                <button type="button" class="cl-folder" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
+                <button type="button" class="cl-folder" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${window.tApriCartella ? window.tApriCartella() : t('cl_folder', 'Apri cartella')}</button>
                 ${detachBtn}
             </div>`;
     }
@@ -402,11 +405,16 @@
     // Elenco attività (Lavagna / Timeline) + dashboard attive montate qui.
     // La Lavagna resta anche nel tab Struttura (host coesistenti, zero regressioni).
     // act = chiave nel dispatch di renderLimSidebarTab (evita l'indice fragile)
+    /* 0122 (Giacomo, 21/10): «i titoli delle card devono avere i titoli a 18 e la desc a 14» */
     function limCard(act, icon, title, desc) {
         return '<button type="button" class="lim-card" data-act="' + esc(act) + '" style="display:flex;align-items:center;gap:12px;text-align:left;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:12px;padding:12px 14px;cursor:pointer;width:100%;margin-bottom:8px">' +
             '<div style="width:38px;height:38px;border-radius:10px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="' + icon + '" style="width:19px;height:19px;color:#4f46e5"></i></div>' +
-            '<div style="flex:1"><div style="font-weight:800;color:var(--mm-testo, #404040);font-size:13.5px">' + esc(title) + '</div>' +
-            '<div style="font-size:11.5px;color:var(--mm-testo-3, #64748b);margin-top:1px">' + esc(desc) + '</div></div></button>';
+            '<div style="flex:1"><div style="font-weight:800;color:var(--mm-testo, #404040);font-size:18px">' + esc(title) + '</div>' +
+            '<div style="font-size:14px;color:var(--mm-testo-3, #64748b);margin-top:1px">' + esc(desc) + '</div></div></button>';
+    }
+    /* il titoletto della tab: lo stile del titolo di «Vista studio», senza icona (0122) */
+    function limTitoletto(title) {
+        return '<div class="text-sm font-bold text-slate-600 mb-3">' + esc(title) + '</div>';
     }
     function limSection(title) {
         return '<div style="font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin:14px 0 8px">' + esc(title) + '</div>';
@@ -420,15 +428,19 @@
            dentro un progetto che ha una classe e una materia, da questa sidebar non
            si genera nessun tipo di mappa ma si possono solo aprire materiali già
            generati dentro il progetto». */
+        /* 0122 (Giacomo, 21/10): il titoletto «Attività live» al posto della prima etichetta di
+           sezione (la ripeteva); nomi e sottotitoli nuovi, con chiavi loro (le `lv_card_*` sono
+           anche del menu di «MappAI Live», mappai-live-teacher.js:132-137, e non cambiano);
+           «Materiali di studio» diventa «Invia file» con l'icona del QR. */
         panel.innerHTML =
+            limTitoletto(t('sb_tit_live', 'Attività live')) +
             // ── § Attività live (gli allievi entrano col QR) ─────────────────
-            limSection(t('lim_sec_live', 'Attività live')) +
-            limCard('live', 'radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz a scelta multipla, domande aperte o domande tue')) +
-            limCard('board', 'presentation', t('cl_title', 'Mappa LIVE'), t('lim_board_d', 'I gruppi propongono nodi dal telefono')) +
-            limCard('tutor', 'message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor e consegna un testo suo')) +
+            limCard('live', 'radio', t('lim_card_live', 'Esercizi'), t('lim_card_live_d', 'QuizMC, Domande aperte o Domande al volo.')) +
+            limCard('board', 'presentation', t('lim_card_board', 'Mappa'), t('lim_card_board_d', 'Mappe condivise')) +
+            limCard('tutor', 'message-circle', t('lim_card_tutor', 'Interroga'), t('lim_card_tutor_d', 'Domanda con risposta assistita')) +
             // ── § Condivisione ───────────────────────────────────────────────
             limSection(t('lim_sec_share', 'Condivisione')) +
-            limCard('materials', 'folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)')) +
+            limCard('materials', 'qr-code', t('lim_card_mat', 'Invia file'), t('lim_card_mat_d', 'Scegli dalle risorse salvate')) +
             '<div id="lim-active" style="margin-top:6px"></div>';
         // dispatch: data-act → azione (guardia + fallback toast per funzioni assenti)
         const missing = function () { if (window.showToast) window.showToast(t('hub_fn_missing', 'Funzione non disponibile'), 'error'); };

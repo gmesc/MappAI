@@ -165,6 +165,22 @@
         const p = String(cartella || mapName || '').replace(/[\\/:*?"<>|]+/g, '-').trim();
         return (p ? p + ' - ' : '') + t('ec_cc_file', 'catena perché');
     }
+    /* IL CORPO E L'INTERLINEA SCELTI DAL DOCENTE (0128, allargamento 7; Giacomo, 27/10: «Sì, allarga il perimetro a […]
+       mappai-causal-chains.js e porta dimensione e interlinea in tutti gli editor»). Il foglio è in px: il corpo di serie è
+       12 px = 9 pt. Con una scelta si aggiungono le regole che scalano i corpi del documento in proporzione e l'interlinea
+       delle righe; senza scelta non si aggiunge niente e il foglio esce identico. */
+    function _tipoCatena() {
+        const PL = (typeof window !== 'undefined' && window.MappAIPrintLayout) || null;
+        const T = (PL && PL.tipografia) ? PL.tipografia('causal') : null;
+        if (!T || (!T.scelto.corpo && !T.scelto.interlinea)) return '';
+        const px = (v) => Math.round(v * T.k * 100) / 100 + 'px';
+        return (T.scelto.corpo
+            ? 'body{font-size:' + px(12) + '}.cc-sec-title{font-size:' + px(14) + '}.cc-conn{font-size:' + px(11) + '}' +
+              '.cc-legend,.cc-trunc{font-size:' + px(10) + '}.cc-badge{font-size:' + px(8.5) + '}'
+            : '') +
+            (T.scelto.interlinea ? '.cc-line{line-height:' + Math.round(1.7 * T.lk * 100) / 100 + '}' : '');
+    }
+
     function _docHtml(chains, mapName, fontId) {
         const fams = ['trasformazione', 'dipendenza', 'sequenza', 'opposizione'];
         const legend = fams.map(f => {
@@ -221,7 +237,7 @@
             'body.cc-ex .cc-conn-txt{color:transparent!important;border-bottom:1.5px dotted #94a3b8;min-width:64px;display:inline-block}' +
             'body.cc-ex .cc-badge{visibility:hidden}' +
             '.no-print{display:block}@media print{.no-print{display:none!important}body{background:#fff;padding:10px}}' +
-            '</style></head><body>' +
+            _tipoCatena() + '</style></head><body>' +
             '<div class="no-print" style="position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:1px solid var(--mm-bordo, #cbd5e1);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;z-index:100;font-family:\'Space Mono\',monospace;font-size:12px">' +
             '<b>' + _esc(t('cc_doc_title', 'Catena dei perché')) + '</b>' +
             '<span><button data-t="' + _esc(_nomeFile(mapName)) + '" data-te="' + _esc(_nomeFile(mapName) + ' - ' + t('ec_cc_file_es', 'esercizio')) + '"' +

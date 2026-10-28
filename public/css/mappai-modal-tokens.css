@@ -98,21 +98,25 @@
        così il bersaglio scende a ~34px, sopra i 24 di WCAG 2.2 ma sotto i 44
        consigliati per il tocco su iPad. La leva per tornare indietro è UNA:
        questi due valori. */
-    --mm-btn-fs: 12px;
+    /* 0122, lotto 4a (Giacomo, 22/10, sul banco di tutti i modali: «Sì, le console seguono la famiglia C»;
+       «anche in questo caso puoi portare su ipad»): la famiglia C è la RADICE, per ogni finestra del motore,
+       le console e gli statici agganciati ai token — bottoni e controlli 14 (era 12) */
+    --mm-btn-fs: 14px;
     /* ── LA FAMIGLIA DEI CORPI (0087, lotto 10c, 12/10/2026; Giacomo: «per i banchi C2 e C va bene famiglia») ──
        Cinque ruoli al posto di dodici letterali: titolo 15 · testo 13 · etichetta 11 · aiuto 11 (alias) ·
        sezione 10. I mezzi punti muoiono (11,5 → etichetta, 12,5 e 13,5 → testo, 10,5 e 9,5 → sezione) solo
        sotto html[data-app="docente"]: il reader iPad, che copia questo foglio, non cambia. I controlli restano a
        --mm-ctl-fs (12). Decisione di Giacomo sul banco 10c: «per i banchi C2 e C va bene famiglia». */
-    --mm-fs-titolo: 15px;
-    --mm-fs-testo: 13px;
-    --mm-fs-label: 11px;
+    /* 0122, lotto 4a: titolo 20 · testo 16 · etichetta 13 · sezione 12 (erano 15 · 13 · 11 · 10) */
+    --mm-fs-titolo: 20px;
+    --mm-fs-testo: 16px;
+    --mm-fs-label: 13px;
     --mm-fs-aiuto: var(--mm-fs-label);
-    --mm-fs-sez: 10px;
+    --mm-fs-sez: 12px;
     /* il corpo di LETTURA di base (Giacomo, 12/10, dal banco 2: «Un corpo di lettura di base come token = 14px»):
        il testo che il docente legge con attenzione — schede del Banco, item dell'editor, scheda-fonte — a gradino 1
        e zoom 1; cresce col gradino per larghezza del contenitore e con i − / + dell'editor (logica unica, in corso) */
-    --mm-fs-lettura: 14px;
+    --mm-fs-lettura: 16px;   /* 0122, lotto 4a: era 14 */
     /* ── I COLORI DI GENERE DEI MATERIALI (0087 lotto 10d, 12-13/10/2026). Giacomo, ad ADMIN: «ho sbagliato,
        mantieni i colori differenziati per tipi di materiali»; poi in chat: «falli diventare token». Quiz, aperte,
        sintesi e catena stanno sull'accento; le flashcard sul verde (lo stesso valore del «giusto», --mm-ok); il
@@ -130,7 +134,7 @@
     /* DECISA (31/7, verdetti): 20 nei bottoni e nel corpo, 24 in testata.
        Chiude la divergenza 20-vs-22 che il codice si portava dietro. */
     --mm-icona: 20px;
-    --mm-icona-head: 24px;
+    --mm-icona-head: 26px;   /* 0122, lotto 4a: era 24; l'icona di testata è nuda (vedi .mm-head__ico) */
 
     /* CONTROLLI GEMELLI (09/10/26, Giacomo, packet 0087 lotto 2): bottone e
        campo hanno la stessa altezza e lo stesso corpo, e si distinguono al
@@ -165,6 +169,28 @@
     /* alta abbastanza da mostrare ~12 righe */
 }
 
+/* ── Il vestito «grande» (0122, lotto 2) ─────────────────────────────────
+   Giacomo, 21/10, sul banco delle quattro finestre delle Attività live («C»):
+   titolo 20 · testo 16 · etichette 13 · sezioni 12 · controlli e bottoni 14 ·
+   icona di testata 26, NUDA (niente riquadro), al centro del titolo. Lo chiede
+   lo schema con `veste: 'grande'` (o una finestra a mano con la classe sul box).
+   I token si ridefiniscono QUI e si ereditano nel box: nessuna regola di prima
+   cambia, un modale senza il vestito è identico. Quando la famiglia C passerà
+   a tutti i modali (lotto A), questi valori salgono su :root e il blocco muore. */
+.mm-box--grande {
+    /* 0122, lotto 4a: dal 22/10 questi valori sono la radice (sopra). La classe resta per gli schemi
+       e le finestre a mano che la portano: non cambia più nulla. */
+}
+
+/* Il velo per le finestre FUORI dal motore (0122, gate del lotto 2, Giacomo:
+   «tieni il blur + dimmer per tutti i modali di tutta l'app»): lo stesso velo
+   di `.mm-overlay`, scuro e sfumato, come classe da dare a un overlay scritto a
+   mano. `.mm-overlay` resta solo del motore (lo cerca per nome). */
+.mm-velo { background: var(--mm-velo); backdrop-filter: blur(3px); }
+/* Giacomo, 22/10: «Un velo solo» — una finestra a mano aperta sopra un altro velo (la
+   console, un modale) non ne aggiunge uno: lo sfondo resta scuro una volta sola. */
+.mm-velo--sopra { background: transparent; backdrop-filter: none; }
+
 /* ── Involucro ───────────────────────────────────────────────────────── */
 /* z 12000: sopra i modali ancora scritti a mano (account classi e profilo
    insegnante stanno a 9992, altri a 10005) e ben sotto i fumetti, che devono
@@ -186,6 +212,9 @@
 /* modale sopra modale */
 .mm-overlay--sopra {
     z-index: 12100;
+    /* 0122, lotto 4a (Giacomo, 22/10: «Un velo solo»): sopra un velo già aperto il secondo è trasparente */
+    background: transparent;
+    backdrop-filter: none;
 }
 
 /* TASTIERA A SCHERMO (0119): il motore porta il velo sulla parte visibile
@@ -229,11 +258,10 @@
     margin-bottom: 16px;
 }
 
+/* 0122, lotto 4a (Giacomo, 21-22/10, dal banco delle finestre live: «icone senza BG per tutti»): l'icona
+   di testata è NUDA, al centro del titolo — niente riquadro 40×40 su --mm-accent-soft, niente raggio. */
+.mm-head { align-items: center; gap: 10px; }
 .mm-head__ico {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
-    background: var(--mm-accent-soft);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1096,11 +1124,12 @@ html[data-app="docente"] :is(input, textarea, select):focus-visible {
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 4px 12px;
-    font-size: 12px;
+    font-size: var(--mm-ctl-fs);   /* 0122 lotto 4c (22/10): era 12 letterale, fuori dalla famiglia C */
     line-height: 1.5;
 }
 
 .mm-dati dt {
+    font-size: var(--mm-fs-label);
     color: var(--mm-testo-3);
     white-space: nowrap;
 }
@@ -1349,7 +1378,7 @@ html[data-app="docente"] .mm-tela--colonna :is(input.form_input, select):hover:n
 }
 
 .mm-tela__vuota {
-    font-size: 12px;
+    font-size: var(--mm-fs-testo);   /* 0122 lotto 4c (22/10): era 12; un vuoto si legge come gli altri testi */
     color: var(--mm-testo-3);
     text-align: center;
     padding: 24px;
@@ -1975,7 +2004,8 @@ html .border-slate-200\/60 {
 }
 
 .mm-nav__v--segnala .mm-nav__s {
-    font-size: var(--mm-fs-testo);
+    font-size: var(--mm-fs-label);   /* 0122 lotto 4c (22/10): col testo a 16 (4a) superava la voce e si troncava; a 14 con Space Mono
+                                        servono 172 px su 170 (misurato al gate): 13, «Sì, porta «Invia feedback o bug» a 13 px» (Giacomo) */
     font-weight: 700;
     line-height: 20px;
     opacity: .7;
@@ -2315,7 +2345,7 @@ html .border-slate-200\/60 {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 12px;
+    font-size: var(--mm-ctl-fs);   /* 0122 lotto 4c (22/10): celle 12 → 14; le testate restano --mm-fs-sez */
 }
 
 .mm-tab th {
@@ -2610,8 +2640,7 @@ th[aria-sort="descending"] {
 .mappai-ridotta #gen-settings-box>*:not(#step-kg-density-container),
 /* — la stima dei costi vive nella Cabina — */
 .mappai-ridotta #token-cost-estimator-card,
-/* — degli avvii rapidi resta la sola «Mappa manuale» — */
-.mappai-ridotta #qa-apri-vault,
+/* — degli avvii rapidi restano «Mappa manuale» e «Importa vault», l'unica porta dei progetti (0124) — */
 .mappai-ridotta #qa-apri-json,
 /* — «Analisi (docente)»: nascosta qui, intatta nella vista completa — */
 .mappai-ridotta #meta-analisi-docente,
@@ -2822,6 +2851,7 @@ th[aria-sort="descending"] {
 html[data-app="docente"] :is(#alert-modal, #confirm-modal, #prompt-modal, #link-family-modal, #dossier-print-modal, #edit-node-modal, #study-player-modal,
     #ai-modal, #config-ai-modal, #validate-link-modal, #mp-modal) {
     background-color: var(--mm-velo);
+    backdrop-filter: blur(3px);   /* 0122, lotto 4a: lo stesso sfumato del motore (i blur-sm/md di Tailwind erano 4 e 12) */
 }
 html[data-app="docente"] :is(#alert-modal, #confirm-modal, #prompt-modal, #link-family-modal, #dossier-print-modal, #edit-node-modal, #study-player-modal,
     #ai-modal, #config-ai-modal, #validate-link-modal, #mp-modal)
@@ -3061,6 +3091,11 @@ html[data-app="docente"] .mm-box--console:has(.mm-nav__v--segnala) .mm-voce { bo
 html[data-app="docente"] .mm-box--console:has(.mm-nav__v--segnala) .mm-console__area:has(#mmf-nome) :is(.mm-btn--secondario, .mm-elenco__piu) {
     border-color: transparent;
     background: var(--mm-fondo-sez);
+}
+/* 0122 lotto 4b2 (Giacomo, 23/10: «disegna il frame attorno ai bottoni»): in «Gestione cartelle» i secondari riprendono la
+   cornice; il resto del Profilo resta col bordo trasparente dello 0087 */
+html[data-app="docente"] .mm-box--console:has(.mm-nav__v--segnala) .mm-console__area:has(#mmf-nome) .mm-sez__azioni:has([data-azione="cart-cambia"]) .mm-btn--secondario {
+    border-color: var(--mm-bordo);
 }
 html[data-app="docente"] .mm-box--console:has(.mm-nav__v--segnala) .mm-console__area:has(#mmf-ud-vista) :is(.mm-btn--secondario, .mm-tab-wrap) {
     border-color: transparent;

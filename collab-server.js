@@ -63,6 +63,8 @@ const STATIC_ALLOW = [
   '/public/fonts/',
   '/public/collab/',
   '/public/js/mappai-collab-core.js',
+  // L'accesso degli allievi (0134): le sei righe di tutte le pagine d'ingresso, un modulo solo
+  '/public/js/mappai-accesso-allievi.js',
   // Prova del font emoji (0099): decide se `--emoji` tiene 'MappAI Emoji' su questo dispositivo.
   '/public/js/mappai-emoji-prova.js',
   '/public/js/vendor/'
@@ -202,11 +204,14 @@ function createCollabServer(opts) {
         return json(res, 200, {
           schema: 'mappai-collab-session@1',
           session: { name: session.name, rootLabel: session.rootLabel, startedAt: session.startedAt },
+          // 0134: la riga 2 e la riga 3 dell'accesso (classe vuota = la riga 2 non compare)
+          className: session.className || '', attivita: CC.NOME_ATTIVITA,
           palette: CC.PALETTE, sizes: CC.SIZES, limits: CC.LIMITS,
           loginMode: session.loginMode,
           emojiSet: session.loginMode === 'individual' ? LC.EMOJI_SET : undefined,
-          // Group mode: i 3 set (animali/frutti/mezzi) per l'identità a emoji.
-          groupEmoji: session.loginMode === 'individual' ? undefined : CC.GROUP_EMOJI
+          // Group mode: i 3 set, 4 voci per fila (0134, D1) più le nascoste che un gruppo di questa sessione ha già scelto.
+          groupEmoji: session.loginMode === 'individual' ? undefined
+            : CC.grigliaGruppi(Object.keys(groups).map(k => groups[k].nick))
         });
       }
 

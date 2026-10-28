@@ -1032,6 +1032,8 @@ const StorageManager = {
                     }
                 }
                 finally { this._apreDallaCartella = false; }
+                /* 0124: un percorso di lettura salvato fuori da «MappAI - file» sparisce come gli altri progetti */
+                if (disk && disk.success === false && window.avvisaProgettoFuori && window.avvisaProgettoFuori(disk.error)) { window.showLoadingOverlay(false); return false; }
                 if (appState !== previousState || appState.db !== previousDb || appState.activeVaultPath !== previousPath || this.currentProjectId !== previousId) {
                     throw new Error(window.t('pl_stale', 'Il progetto è cambiato. Riapri il percorso prima di continuare.'));
                 }
@@ -1154,6 +1156,15 @@ const StorageManager = {
 
             const loadedState = JSON.parse(data);
             if (!loadedState) return false;
+            /* 0124 (ADR 0025): la cartella della fotografia sta fuori da «MappAI - file» (salvata
+               con «Esporta» o spostata col Finder): il progetto sparisce dall'app. Si chiede a
+               main.js con la lettura più leggera (index.yaml) PRIMA di toccare la sessione:
+               l'avviso, nessuna apertura, la sessione resta com'era, la cartella fuori no. */
+            if (loadedState.activeVaultPath && window.electronAPI && window.electronAPI.readVaultFile && window.avvisaProgettoFuori) {
+                let prova = null;
+                try { prova = await window.electronAPI.readVaultFile({ vaultPath: String(loadedState.activeVaultPath), relPath: 'index.yaml' }); } catch (e) { prova = null; }
+                if (prova && prova.ok === false && window.avvisaProgettoFuori(prova.error)) { window.showLoadingOverlay(false); return false; }
+            }
 
             /* L'identità della voce che si riapre, decisa dalla cartella letta (0061,
                ADR 0013, gesto `voce`). Una funzione sola per la lettura di sempre e per
@@ -1224,6 +1235,9 @@ const StorageManager = {
                         }
                     }
                 } finally { this._apreDallaCartella = false; }
+                /* 0124: la cartella della riga sta fuori da «MappAI - file»: l'avviso, e il progetto non si apre
+                   (nemmeno dalla memoria rapida: sparisce dall'app) */
+                if (motivo && window.avvisaProgettoFuori && window.avvisaProgettoFuori(motivo)) { window.showLoadingOverlay(false); return false; }
                 if (motivo) {
                     if (daResiduo) {
                         console.error('[Storage] riapertura dal residuo non riuscita («' + dallaCartella + '»): ' + motivo);
@@ -1399,15 +1413,6 @@ const StorageManager = {
                 });
             }
 
-            // Mostra tasto Sincronizza se c'è un vault
-            const syncBtn = document.getElementById('sync-vault-btn');
-            if (syncBtn && appState.activeVaultPath) {
-                syncBtn.classList.remove('hidden');
-                syncBtn.classList.add('flex');
-            } else if (syncBtn) {
-                syncBtn.classList.add('hidden');
-            }
-
             window.switchToMapLayout();
             setTimeout(() => {
                 try {
@@ -1482,7 +1487,7 @@ const StorageManager = {
                 prima = null;
             } else if (appState._reviewRestoring) { appState._reviewRestoring = false; appState._reviewRestoreError = e.message; }
             console.error("Critical Load Error:", e);
-            window.showAlert("Errore Caricamento", "Impossibile caricare il progetto: " + e.message);
+            if (!(window.avvisaProgettoFuori && window.avvisaProgettoFuori(e && e.message))) window.showAlert("Errore Caricamento", "Impossibile caricare il progetto: " + e.message);
             window.showLoadingOverlay(false);
             return false;
         }
@@ -1915,6 +1920,9 @@ window.showLanguageOnboarding = function () {
       </div>`;
     document.body.appendChild(modal);
     if (window.safeCreateIcons) window.safeCreateIcons();
+    /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js); qui Esc conferma le scelte già segnate
+       (è la prima scelta della lingua: chiudere senza scegliere la riproporrebbe al prossimo avvio) */
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { var ok = document.getElementById('lang-onb-ok'); if (ok) ok.click(); });
     document.getElementById('lang-onb-ok').onclick = () => {
         const uiLang = (modal.querySelector('input[name="onb-ui-lang"]:checked') || {}).value || 'it';
         const mapLang = (modal.querySelector('input[name="onb-map-lang"]:checked') || {}).value || 'ui';

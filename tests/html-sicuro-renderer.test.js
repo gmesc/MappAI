@@ -313,7 +313,7 @@ test('tutor della barra: l\'HTML chiesto dal prompt resta, quello ostile no; la 
     const chat = t.$('#sidebar-tutor-chat-history');
     soloTemplate(t.$, chat, 'barra del tutor');
     assert.equal(chat.find('img').length, 0);
-    assert.equal(chat.find('.bg-emerald-500 p').text(), '<img src=y onerror=alert(3)> che cos\'è?');
+    assert.equal(chat.find('[class*="man-verde"] p').text(), '<img src=y onerror=alert(3)> che cos\'è?');
     const bolla = chat.find('.markdown-body').last();
     assert.equal(bolla.html(), '<p>Ciao <strong>studente</strong></p><ul><li>uno</li></ul>qui');
     // il contesto mandato al modello: la desc del vault, senza tag e senza passare dal documento vivo

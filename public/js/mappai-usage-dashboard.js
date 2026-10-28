@@ -57,7 +57,7 @@
         if (agg.totals.missingUsage) notes.push(t('usage_missing_tokens', 'Chiamate senza conteggio token:') + ' ' + agg.totals.missingUsage);
         if (agg.totals.assumedModel) notes.push(t('usage_assumed_note', 'Stima sul modello richiesto perché quello effettivo non è dichiarato:') + ' ' + agg.totals.assumedModel);
         if (agg.unknownModels.length) notes.push(t('catalog_price_unknown', 'Prezzo non disponibile') + ': ' + agg.unknownModels.join(', '));
-        return notes.length ? '<p class="mt-2 text-xs text-amber-700">' + notes.map(_esc).join('<br>') + '</p>' : '';
+        return notes.length ? '<p class="mt-2 text-amber-700" style="font-size:var(--mm-fs-label)">' + notes.map(_esc).join('<br>') + '</p>' : '';
     }
     function _agg(records) {
         return Core().aggregate(records, { kbLookup: _kbLookup, usdChf: _rate() });
@@ -93,8 +93,8 @@
                 `><title>${_esc(d.label)} — ${Core().fmtChf(d.value)}</title></path>`;
             a = a1 + 0.004;
         });
-        const center = `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a" font-family="'Space Mono',monospace">${_esc(o.centerValue || '')}</text>` +
-            `<text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="9" fill="#64748b">${_esc(o.centerTitle || '')}</text>`;
+        const center = `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-weight="700" fill="#0f172a" style="font-size:var(--mm-fs-testo)" font-family="'Space Mono',monospace">${_esc(o.centerValue || '')}</text>` +
+            `<text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#64748b" style="font-size:var(--mm-fs-sez)">${_esc(o.centerTitle || '')}</text>`;
         return {
             svg: `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${paths}${center}</svg>`,
             colorOf, total
@@ -106,9 +106,9 @@
             return `<button type="button" ${clickable ? `data-donut-slice="${d.key}"` : 'disabled'} ` +
                 `class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg ${clickable ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'}">` +
                 `<span class="w-3 h-3 rounded-full shrink-0" style="background:${colorOf[d.key]}"></span>` +
-                `<span class="text-xs text-slate-700 flex-1 truncate">${_esc(d.label)}</span>` +
-                `<span class="text-xs font-bold text-slate-900 whitespace-nowrap">${Core().fmtChf(d.value)}</span>` +
-                `<span class="text-[10px] text-slate-400 w-8 text-right">${pct}%</span></button>`;
+                `<span class="text-slate-700 flex-1 truncate" style="font-size:var(--mm-fs-label)">${_esc(d.label)}</span>` +
+                `<span class="font-bold text-slate-900 whitespace-nowrap" style="font-size:var(--mm-fs-label)">${Core().fmtChf(d.value)}</span>` +
+                `<span class="text-slate-400 w-10 text-right" style="font-size:var(--mm-fs-label)">${pct}%</span></button>`;
         }).join('');
     }
     function _esc(s) {
@@ -116,11 +116,16 @@
     }
 
     // ── Tiles riepilogo ──────────────────────────────────────────────────────
+    // 0122 lotto 4c (22/10): da qui a `contentHtml` i corpi sono quelli della famiglia C
+    // (titolo 20 · testo 16 · controlli 14 · etichette 13 · sezioni 12), non più i Tailwind 9-16.
+    // I titoletti («Per categoria», «Per modello», «Dettaglio voci») maiuscoli a 16: Giacomo, 22/10,
+    // «come nella schermata del banco che ho approvato».
+    // `_docsHtml` resta com'era: lo usa solo la finestra a sé (`open`), che nessuno apre più.
     function _tile(label, value, sub) {
         return `<div class="bg-slate-50 border border-slate-200 rounded-xl p-3">` +
-            `<div class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">${_esc(label)}</div>` +
-            `<div class="text-base font-black text-slate-900 mt-0.5" style="font-family:'Space Mono',monospace">${_esc(value)}</div>` +
-            (sub ? `<div class="text-[10px] text-slate-400 mt-0.5">${_esc(sub)}</div>` : '') + `</div>`;
+            `<div class="uppercase tracking-wide text-slate-400 font-bold" style="font-size:var(--mm-fs-sez)">${_esc(label)}</div>` +
+            `<div class="font-bold text-slate-900 mt-0.5" style="font-size:var(--mm-fs-titolo);font-family:'Space Mono',monospace">${_esc(value)}</div>` +
+            (sub ? `<div class="text-slate-400 mt-0.5" style="font-size:var(--mm-fs-label)">${_esc(sub)}</div>` : '') + `</div>`;
     }
 
     function _statsHtml(agg) {
@@ -136,7 +141,7 @@
             _tile(t('ud_cost_out', 'Costo output'), _cost(tt, 'outCost')) +
             _tile(t('ud_cost_total', 'Totale'), _cost(tt, 'total')) +
             `</div>` +
-            `<div class="mt-3 text-xs text-slate-500"><span class="font-bold text-slate-600">${t('ud_providers', 'Provider')}:</span> ${_esc(provs)}` +
+            `<div class="mt-3 text-slate-500" style="font-size:var(--mm-fs-label)"><span class="font-bold text-slate-600">${t('ud_providers', 'Provider')}:</span> ${_esc(provs)}` +
             ` &nbsp;·&nbsp; <span class="font-bold text-slate-600">${t('ud_models', 'Modelli')}:</span> <span style="font-family:'Space Mono',monospace">${_esc(models)}</span></div>` +
             _coverageHtml(agg);
     }
@@ -148,7 +153,7 @@
         if (S.drillCat && agg.byCat[S.drillCat]) {
             catData = C.donutBySub(agg, S.drillCat);
             catTitle = agg.byCat[S.drillCat].label;
-            crumbs = `<button type="button" id="ud-drill-back" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-1">` +
+            crumbs = `<button type="button" id="ud-drill-back" class="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 mb-1" style="font-size:var(--mm-btn-fs)">` +
                 `<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> ${t('ud_back_cats', 'Tutte le categorie')}</button>`;
         } else {
             S.drillCat = null;
@@ -159,16 +164,16 @@
         const modData = C.donutByModel(agg);
         const dm = _donutSvg(modData, { centerValue: _cost(agg.totals, 'total'), centerTitle: t('ud_total', 'totale') });
 
-        const empty = `<div class="text-sm text-slate-400 italic p-6">${t('usage_no_known_cost', 'Nessun costo noto da mostrare.')}</div>`;
+        const empty = `<div class="text-slate-400 italic p-6" style="font-size:var(--mm-fs-testo)">${t('usage_no_known_cost', 'Nessun costo noto da mostrare.')}</div>`;
         return `<div class="flex flex-wrap gap-5 mt-5">` +
             `<div class="flex-1 min-w-[300px] bg-white border border-slate-200 rounded-2xl p-4" id="ud-chart-cat">` +
-            `${crumbs}<h3 class="text-sm font-black text-slate-800 mb-1">${_esc(catTitle)}</h3>` +
-            `<p class="text-[11px] text-slate-400 mb-2">${S.drillCat ? t('ud_hint_sub', 'Dettaglio della categoria selezionata') : t('ud_hint_click', 'Clicca una fetta per il dettaglio')}</p>` +
+            `${crumbs}<h3 class="uppercase font-bold mb-1" style="font-size:var(--mm-fs-testo);letter-spacing:.06em;color:var(--mm-testo-3)">${_esc(catTitle)}</h3>` +
+            `<p class="text-slate-400 mb-2" style="font-size:var(--mm-fs-label)">${S.drillCat ? t('ud_hint_sub', 'Dettaglio della categoria selezionata') : t('ud_hint_click', 'Clicca una fetta per il dettaglio')}</p>` +
             (catData.length ? `<div class="flex flex-wrap items-center gap-4"><div>${dc.svg}</div><div class="flex-1 min-w-[200px]">${_legend(catData, dc.colorOf, dc.total, !S.drillCat)}</div></div>` : empty) +
             `</div>` +
             `<div class="flex-1 min-w-[300px] bg-white border border-slate-200 rounded-2xl p-4">` +
-            `<h3 class="text-sm font-black text-slate-800 mb-1">${t('ud_by_model', 'Per modello')}</h3>` +
-            `<p class="text-[11px] text-slate-400 mb-2">${t('ud_hint_model', 'Costo per ciascun modello usato')}</p>` +
+            `<h3 class="uppercase font-bold mb-1" style="font-size:var(--mm-fs-testo);letter-spacing:.06em;color:var(--mm-testo-3)">${t('ud_by_model', 'Per modello')}</h3>` +
+            `<p class="text-slate-400 mb-2" style="font-size:var(--mm-fs-label)">${t('ud_hint_model', 'Costo per ciascun modello usato')}</p>` +
             (modData.length ? `<div class="flex flex-wrap items-center gap-4"><div>${dm.svg}</div><div class="flex-1 min-w-[200px]">${_legend(modData, dm.colorOf, dm.total, false)}</div></div>` : empty) +
             `</div></div>`;
     }
@@ -199,9 +204,9 @@
         });
         if (!rows) return '';
         return `<div class="mt-5 bg-white border border-slate-200 rounded-2xl overflow-hidden">` +
-            `<h3 class="text-sm font-black text-slate-800 px-4 pt-4">${t('ud_table_title', 'Dettaglio voci')}</h3>` +
-            `<div class="overflow-x-auto mt-2"><table class="w-full text-xs">` +
-            `<thead><tr class="text-slate-400 uppercase text-[10px] tracking-wide border-b border-slate-200">` +
+            `<h3 class="uppercase font-bold px-4 pt-4" style="font-size:var(--mm-fs-testo);letter-spacing:.06em;color:var(--mm-testo-3)">${t('ud_table_title', 'Dettaglio voci')}</h3>` +
+            `<div class="overflow-x-auto mt-2"><table class="w-full" style="font-size:var(--mm-ctl-fs)">` +
+            `<thead><tr class="text-slate-400 uppercase tracking-wide border-b border-slate-200" style="font-size:var(--mm-fs-sez)">` +
             `<th class="px-3 py-2 text-left">${t('ud_col_item', 'Voce')}</th><th class="px-3 py-2 text-right">${t('ud_calls', 'Chiamate AI')}</th>` +
             `<th class="px-3 py-2 text-right">${t('ud_tok_in', 'Token input')}</th><th class="px-3 py-2 text-right">${t('ud_tok_out', 'Token output')}</th>` +
             `<th class="px-3 py-2 text-right">${t('ud_cost_in', 'Costo input')}</th><th class="px-3 py-2 text-right">${t('ud_cost_out', 'Costo output')}</th>` +
@@ -237,8 +242,8 @@
         if (!(records || []).length) {
             return `<div class="flex flex-col items-center justify-center text-center p-10">` +
                 `<i data-lucide="pie-chart" class="w-12 h-12 text-slate-300 mb-3"></i>` +
-                `<p class="text-sm font-bold text-slate-500">${t('ud_empty_title', 'Nessun consumo registrato')}</p>` +
-                `<p class="text-xs text-slate-400 mt-1 max-w-sm">${t('ud_empty_hint', 'Il registro parte da adesso: genera una mappa o un materiale di studio e qui compariranno token e costi di ogni operazione AI.')}</p></div>`;
+                `<p class="font-bold text-slate-500" style="font-size:var(--mm-fs-testo)">${t('ud_empty_title', 'Nessun consumo registrato')}</p>` +
+                `<p class="text-slate-400 mt-1 max-w-sm" style="font-size:var(--mm-btn-fs)">${t('ud_empty_hint', 'Il registro parte da adesso: genera una mappa o un materiale di studio e qui compariranno token e costi di ogni operazione AI.')}</p></div>`;
         }
         // `_chartsHtml` legge S.drillCat: lo si presta per la durata del disegno,
         // così un solo renderer serve la finestra storica e la console.

@@ -47,25 +47,8 @@
   section { flex: 1; display: none; flex-direction: column; min-height: 0; }
   section.on { display: flex; }
 
-  /* ── Login ── */
-  #login { align-items: center; justify-content: flex-start; gap: 14px; padding: 26px 20px;
-           text-align: center; overflow-y: auto; }
-  #login h1 { font-size: 21px; font-weight: 700; margin-top: 6px; }
-  #login .name { color: #4f46e5; font-weight: 700; font-size: 15px; }
-  .lbl { font-size: 12px; font-weight: 700; color: #475569; align-self: flex-start;
-         width: min(360px, 90vw); margin: 6px auto 0; }
-  #login input { width: min(360px, 90vw); padding: 13px 16px; border-radius: 12px;
-                 border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff; color: var(--mm-testo, #404040);
-                 font-size: 17px; text-align: center; outline: none; }
-  #login input:focus { border-color: #6366f1; }
-  #emoji-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-                width: min(360px, 90vw); }
-  .egrid-btn { aspect-ratio: 1; border-radius: 14px; border: 2px solid var(--mm-bordo, #cbd5e1); background: #fff;
-               font-size: 30px; display: flex; align-items: center; justify-content: center; }
-  .egrid-btn.sel { border-color: #4f46e5; background: #eef2ff; transform: scale(1.05); }
-  #enter { width: min(360px, 90vw); padding: 14px; border-radius: 12px; margin-top: 4px;
-           background: #4f46e5; color: #fff; font-size: 17px; font-weight: 700; }
-  .err { color: #dc2626; font-size: 13px; min-height: 18px; }
+  /* ── Login ── le sei righe le disegna mappai-accesso-allievi.js (0134); qui solo lo spazio che scorre */
+  #login { overflow-y: auto; }
 
   /* ── Lobby ── */
   #lobby { align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; }
@@ -168,18 +151,7 @@
 <body>
 
 <!-- ── LOGIN ── -->
-<section id="login" class="on dotbg">
-  <h1>MappAI Live</h1>
-  <div class="name emoji" id="login-activity"></div>
-  <div class="lbl">La tua classe</div>
-  <input id="in-class" autocomplete="off" placeholder="es. 2ª A">
-  <div class="lbl">La tua emoji</div>
-  <div id="emoji-grid"></div>
-  <div class="lbl">Il tuo numero</div>
-  <input id="in-num" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="es. 07">
-  <button id="enter">Entra</button>
-  <div class="err" id="login-err"></div>
-</section>
+<section id="login" class="on"></section>
 
 <!-- ── LOBBY ── -->
 <section id="lobby">
@@ -231,6 +203,9 @@
 <script src="/public/js/mappai-live-font.js?v=0112"></script>
 <script src="/public/js/mappai-quiz-mc-view.js?v=0112"></script>
 <script src="/public/js/mappai-live-core.js"></script>
+<script src="/public/js/mappai-accesso-allievi.js?v=0134"></script>
+<!-- 0132: la veste dei report (testata e misure), per la scheda del 💾 stampata dalla pagina; il modulo dei report la trova già qui -->
+<script src="/public/js/mappai-doc-head.js?v=0132-1"></script>
 <script>
 (function () {
   'use strict';
@@ -256,7 +231,6 @@
   var LSK = null;           // chiave localStorage risposte
   var i = 0;                // domanda corrente
   var qStart = 0;           // ts di visualizzazione domanda corrente
-  var chosenEmoji = null;
   var pollTimer = null, timerTimer = null;
 
   function api(p, opts) {
@@ -264,51 +238,27 @@
   }
   function post(p, obj) { return api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) }); }
 
-  // ── Boot: leggi la sessione, costruisci il login ──
+  // ── Boot: leggi la sessione, monta l'accesso ──
+  // Le sei righe (progetto, classe, nome dell'attività, emoji, numero, Entra) le disegna mappai-accesso-allievi.js
+  // (0134). La classe non si scrive più (D2): la sessione la conosce, ed è la riga 2.
+  var A = window.MappAIAccesso;
   function boot() {
-    if (!TOKEN) { $('login-err').textContent = 'Link non valido. Riscansiona il QR.'; return; }
+    if (!TOKEN) { A.monta($('login'), { errore: 'Link non valido. Riscansiona il QR.' }); return; }
     api('/api/session?s=' + encodeURIComponent(TOKEN)).then(function (r) {
-      if (r.status !== 200) { $('login-err').textContent = 'Sessione non raggiungibile.'; return; }
+      if (r.status !== 200) { A.monta($('login'), { errore: 'Sessione non raggiungibile.' }); return; }
       SESS = r.body;
       MappAILiveFont.daSessione(SESS);   // il carattere scelto dal docente, subito: anche il login
-      $('login-activity').innerHTML = esc(SESS.activity || 'Quiz') + (SESS.className ? ' · ' + esc(SESS.className) : '');
-      if (SESS.className) $('in-class').value = SESS.className;
-      buildEmojiGrid(SESS.emojiSet || (LC ? LC.EMOJI_SET : []));
-    }).catch(function () { $('login-err').textContent = 'Connessione assente. Sei sulla rete della classe?'; });
+      A.monta($('login'), { progetto: SESS.name, classe: SESS.className, attivita: SESS.attivita || SESS.activity,
+        modo: 'singolo', emoji: SESS.emojiSet || (LC ? LC.EMOJI_SET : []), entra: entra });
+    }).catch(function () { A.monta($('login'), { errore: 'Connessione assente. Sei sulla rete della classe?' }); });
   }
 
-  function buildEmojiGrid(set) {
-    var g = $('emoji-grid'); g.innerHTML = '';
-    set.forEach(function (e) {
-      var b = document.createElement('button');
-      b.className = 'egrid-btn emoji'; b.textContent = e.emoji; b.setAttribute('data-key', e.key);
-      b.setAttribute('aria-label', e.label || e.key);
-      b.onclick = function () {
-        chosenEmoji = e.key;
-        g.querySelectorAll('.egrid-btn').forEach(function (x) { x.classList.remove('sel'); });
-        b.classList.add('sel');
-      };
-      g.appendChild(b);
-    });
-  }
-
-  function classMatch(a, b) {
-    if (!LC) return true;
-    return LC.normalizeClassName(a).replace(/\s/g, '') === LC.normalizeClassName(b).replace(/\s/g, '');
-  }
-
-  $('enter').onclick = function () {
-    var cls = ($('in-class').value || '').trim();
-    var num = ($('in-num').value || '').replace(/\D/g, '');
-    $('login-err').textContent = '';
-    if (!cls) { $('login-err').textContent = 'Scrivi la tua classe.'; return; }
-    if (SESS && SESS.className && !classMatch(cls, SESS.className)) { $('login-err').textContent = 'Questa attività è per la classe ' + SESS.className + '.'; return; }
-    if (!chosenEmoji) { $('login-err').textContent = 'Tocca la tua emoji.'; return; }
-    if (num === '') { $('login-err').textContent = 'Scrivi il tuo numero.'; return; }
+  function entra(scelta) {
+    var chosenEmoji = scelta.emojiKey, num = scelta.num;
     post('/api/join', { token: TOKEN, emojiKey: chosenEmoji, num: num, deviceId: deviceId }).then(function (r) {
-      if (r.status === 404) { $('login-err').textContent = 'Emoji e numero non trovati per questa classe.'; return; }
-      if (r.status === 409) { $('login-err').textContent = 'Sei già collegato su un altro dispositivo. Chiedi all\'insegnante di sbloccarti.'; return; }
-      if (r.status !== 200) { $('login-err').textContent = 'Errore di accesso. Riprova.'; return; }
+      if (r.status === 404) { A.errore('Emoji e numero non trovati per questa classe.'); return; }
+      if (r.status === 409) { A.errore('Sei già collegato su un altro dispositivo. Chiedi all\'insegnante di sbloccarti.'); return; }
+      if (r.status !== 200) { A.errore('Errore di accesso. Riprova.'); return; }
       IDENT = { emojiKey: chosenEmoji, num: LC ? LC.pad2(num) : num };
       QUESTIONS = r.body.questions || [];
       LSK = 'mappai_live_ans::' + TOKEN + '::' + (LC ? LC.identityKey(IDENT.emojiKey, IDENT.num) : IDENT.emojiKey + IDENT.num);
@@ -321,8 +271,8 @@
         if (ANSWERS[k] && ANSWERS[k].verdetto) VERDETTI[k] = ANSWERS[k].verdetto;
       });
       enterPhase(r.body.phase, r.body.displayName);
-    }).catch(function () { $('login-err').textContent = 'Connessione assente.'; });
-  };
+    }).catch(function () { A.errore('Connessione assente.'); });
+  }
 
   function loadLocal() { try { return JSON.parse(localStorage.getItem(LSK) || '{}'); } catch (e) { return {}; } }
   function saveLocal() { try { localStorage.setItem(LSK, JSON.stringify(ANSWERS)); } catch (e) {} }
@@ -731,7 +681,8 @@
       var oggi = new Date(), due = function (n) { return String(n).padStart(2, '0'); };
       SCHEDA = {
         meta: { mapTitle: (SESS && SESS.name) || 'MappAI Live', activity: SESS && SESS.activity,
-                className: (SESS && SESS.className) || ($('in-class').value || '').trim(),
+                materiale: SESS && SESS.materiale,   // 0127: il titolo «… · Report allievo»
+                className: (SESS && SESS.className) || '',
                 dateStr: due(oggi.getDate()) + '/' + due(oggi.getMonth() + 1) + '/' + oggi.getFullYear() },
         student: { emoji: lab.emoji || '', emojiLabel: lab.label || '', num: IDENT.num, displayName: (lab.emoji || '') + ' ' + IDENT.num, accuracyPct: acc,
                    answered: res.perQuestion.filter(function (q) { return q.outcome !== 'blank'; }).length,

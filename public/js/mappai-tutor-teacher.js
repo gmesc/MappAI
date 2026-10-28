@@ -44,26 +44,29 @@
     /* `onDismiss` (facoltativo): che cosa fanno la × e il clic sullo sfondo.
        Lo passa solo la DASHBOARD, che con una sessione accesa chiede prima di
        uscire (0036); il modulo di avvio non lo passa e chiude come sempre. */
+
+    /* 0122 lotto 4b1: sfondo bloccato, Esc, piano e «un velo solo» li fa `MappAIVelo.monta` (mappai-velo.js),
+       lo stesso per tutti i velini fatti a mano; qui c'era una copia locale di `congela` (lotto 2). */
     function modal(icon, title, bodyHtml, maxWidth, onDismiss) {
         closeModal();
         const overlay = document.createElement('div');
         overlay.id = 'tutorq-modal';
+        overlay.className = 'mm-velo';   /* 0122: il velo del motore, scuro e sfumato */
         /* ⚠️ Il piano si CHIEDE al motore (`prossimoZ`): un 9990 fisso finisce
            DIETRO la console di INSEGNA, che parte da 12000 — la finestra si
            apriva davvero, invisibile sotto (come il Quiz, mappai-live-teacher.js). */
         let z = 9990;
         try { if (window.MappAIModal && window.MappAIModal.prossimoZ) z = window.MappAIModal.prossimoZ(); } catch (e) { }
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:' + z + ';background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:18px';
-        overlay.innerHTML = `<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || 'var(--mm-m)'},94vw);max-height:88vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-                <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">
-                    <i data-lucide="${icon}" style="width:22px;height:22px;color:#4f46e5"></i>${title}</div>
-                <button type="button" class="tq-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>
-            </div>${bodyHtml}`;
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:' + z + ';display:flex;align-items:center;justify-content:center;padding:18px';
+        /* 0122 (lotto 2): il box porta il vestito «grande» del motore (mappai-modal-tokens.css) e la
+           testata è quella del motore — icona nuda, titolo alla stessa quota, × da 44 */
+        overlay.innerHTML = `<div class="mm-box--grande" style="background:#f8fafc;border-radius:var(--mm-r-box, 16px);box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(${maxWidth || 'var(--mm-m)'},94vw);max-height:88vh;overflow-y:auto;padding:var(--mm-pad, 22px)" role="dialog" aria-modal="true">
+            <div class="mm-head"><div class="mm-head__ico"><i data-lucide="${icon}"></i></div><div class="mm-head__testi"><div class="mm-title">${title}</div></div><button type="button" class="mm-close tq-close" aria-label="Chiudi">&times;</button></div>${bodyHtml}`;
         const chiudi = () => { if (onDismiss) onDismiss(); else overlay.remove(); };
         overlay.addEventListener('click', e => { if (e.target === overlay) chiudi(); });
         overlay.querySelector('.tq-close').onclick = chiudi;
         document.body.appendChild(overlay);
+        if (window.MappAIVelo) window.MappAIVelo.monta(overlay, chiudi);
         if (window.safeCreateIcons) window.safeCreateIcons();
         return overlay;
     }
@@ -224,13 +227,13 @@
         /* 11/10 (0087 lotto 10b): il campo del motore. Il riposo sta nell'attributo; mouse e fuoco in un
            foglio sulla classe, perché inline non si scrivono. */
         const selStyle = 'width:100%';
-        const lblStyle = 'display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mm-testo-3, #64748b);margin:12px 0 5px';
+        const lblStyle = 'display:block;font-size:var(--mm-fs-sez);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin:12px 0 5px';
         // Provider AI: selettore se ≥2 configurati (dati studente!), altrimenti badge
         const provBlock = (avail.length >= 2)
             ? `<label style="${lblStyle}">${t('tq_provider', 'Provider AI (dove passano le risposte degli studenti)')}</label>
                <div id="tq-prov" style="display:flex;gap:8px">${avail.map(p =>
-                    `<button type="button" data-p="${p}" class="tq-prov-btn" style="flex:1;border:2px solid ${p === selectedProvider ? '#4f46e5' : 'var(--mm-bordo, #cbd5e1)'};background:${p === selectedProvider ? '#eef2ff' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:12px;color:var(--mm-testo, #404040)">${window.aiProviderLabel(p)}</button>`).join('')}</div>`
-            : `<div style="margin-top:12px;font-size:11.5px;color:#475569;background:#f1f5f9;border-radius:10px;padding:9px 11px">${t('tq_provider_badge', 'Le risposte degli studenti passano da:')} <b>${window.aiProviderLabel(selectedProvider)}</b></div>`;
+                    `<button type="button" data-p="${p}" class="tq-prov-btn" style="flex:1;border:2px solid ${p === selectedProvider ? '#4f46e5' : 'var(--mm-bordo, #cbd5e1)'};background:${p === selectedProvider ? '#eef2ff' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:var(--mm-ctl-fs);color:var(--mm-testo, #404040)">${window.aiProviderLabel(p)}</button>`).join('')}</div>`
+            : `<div style="margin-top:12px;font-size:var(--mm-fs-label);color:#475569;background:#f1f5f9;border-radius:10px;padding:9px 11px">${t('tq_provider_badge', 'Le risposte degli studenti passano da:')} <b>${window.aiProviderLabel(selectedProvider)}</b></div>`;
         const body = `
             <label style="${lblStyle}">${t('tq_class', 'Classe')}</label>
             <select id="tq-class" class="tq-in" style="${selStyle}">${classes.map(c =>
@@ -247,10 +250,10 @@
             <textarea id="tq-brief" rows="2" style="${selStyle};resize:vertical" placeholder="${esc(t('tq_brief_ph', 'Es. Scrivi 10 righe su ciò che hai capito, con 2 esempi.'))}"></textarea>
             ${provBlock}
             ${window.MappAINetMode ? window.MappAINetMode.fieldHtml('tq') : ''}
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 11px;font-size:11.5px;color:#92400e;margin-top:12px">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 11px;font-size:var(--mm-fs-label);color:#92400e;margin-top:12px">
                 ${t('tq_cost_note', 'Ogni scambio è una chiamata AI con la TUA chiave: il cap tiene i costi sotto controllo. Il tutor non scriverà mai il testo al posto degli studenti.')}
             </div>
-            <button type="button" id="tq-start" style="margin-top:14px;background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:11px 18px;cursor:pointer;font-weight:700;width:100%">
+            <button type="button" id="tq-start" style="margin-top:14px;background:#4f46e5;color:#fff;border:0;border-radius:10px;padding:11px 18px;cursor:pointer;font-weight:700;font-size:var(--mm-btn-fs);width:100%">
                 ${t('tq_start', 'Avvia sessione')}</button>`;
         const ov = modal('message-circle', t('tq_title', 'Chiedi e Rispondi'), body, 'var(--mm-m)');
         if (window.MappAINetMode) window.MappAINetMode.bind(ov, 'tq');
@@ -326,7 +329,7 @@
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
                 <button type="button" id="tq-end" style="background:#7f1d1d;color:#fecaca;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px">${t('tq_end', 'Chiudi e genera report')}</button>
-                <button type="button" id="tq-folder" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${t('cl_folder', 'Apri cartella')}</button>
+                <button type="button" id="tq-folder" style="background:#f1f5f9;color:var(--mm-testo, #404040);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600;font-size:12.5px">${window.tApriCartella ? window.tApriCartella() : t('cl_folder', 'Apri cartella')}</button>
             </div>`;
         const ov = modal('message-circle', t('tq_title', 'Chiedi e Rispondi'), body, 'var(--mm-l)', chiediUscita);
         const qrImg = ov.querySelector('#tq-qr');

@@ -248,6 +248,86 @@ test('rechecking an approved edited map uses its source snapshot and restores th
   }
 });
 
+/* 0123, lotto 3 (0056): G1 IN ATTESA e una modifica vera sulla tela. Prima era un vicolo cieco: «Riprova» e «Nuovo controllo»
+   rifiutavano, riaprire riapriva la stessa revisione. Il controllo nuovo sulla mappa di adesso parte SOLO dal gesto del docente
+   («Ricontrolla la mappa adesso», il bottone in fondo al Banco): `requireApproved` e i suoi chiamanti aprono il Banco come
+   prima, senza una chiamata AI. */
+test('0123 lotto 3: G1 in attesa e mappa cambiata — «Ricontrolla la mappa adesso» fa un controllo nuovo; requireApproved da solo apre il Banco e basta', async () => {
+  for (const gesto of [true, false]) {
+    const h = runtime(), m = manifest(Core.setDecision(initial(), 'issue', 'reject')); h.st._pipelineManifest = m;
+    h.st.db.nodes[1].desc = 'Una modifica vera.';
+    const old = m.review, giudice = [], aperte = [];
+    h.window.executeJudgePass = async (key, opts) => {
+      giudice.push({ key, apply: opts.apply });
+      assert.deepEqual(clone(h.st._generationSources), Core.sourceSnapshot(SOURCES), 'il giudice legge le fonti della revisione');
+      assert.equal(h.st.db.nodes[1].desc, 'Una modifica vera.', 'e la mappa di adesso');
+      return fullSourceReport();
+    };
+    const open = h.R.open; h.R.open = (...a) => { aperte.push(a[0]); return open.apply(h.R, a); };
+    if (gesto) {
+      const modal = h.R.open('/vault', m), bottone = modal.querySelector('#mrv-continue');
+      assert.equal(bottone.hidden, false);
+      await bottone.click(); await tick(); await tick();
+      assert.deepEqual(giudice, [{ key: 'mock-key', apply: false }], 'UNA chiamata al giudice');
+      assert.equal(m.review.initial.status, 'awaiting_review');
+      assert.equal(m.review.initial.report.contratto, 'mappai-giudice@2');
+      assert.equal(Core.coincide(h.st.db, m.review.sources, m.review, 'base'), true, 'la revisione nuova fotografa la mappa di adesso');
+      assert.deepEqual(clone(m.review.previous), clone(old), 'la revisione di prima in previous');
+      assert.equal(h.calls.manifest, 1);
+      assert.equal(h.saved.manifest.review.previous.initial.decisions.issue.choice, 'reject', 'le scelte fatte restano, sul disco');
+      assert.deepEqual(aperte, ['/vault', '/vault'], 'il Banco si riapre, sulla revisione nuova');
+    } else {
+      assert.equal(await h.R.requireApproved(), false);
+      assert.equal(await h.R.requireApproved({ quarantena: true }), false);
+      assert.equal(giudice.length, 0, 'nessuna chiamata AI senza il gesto del docente');
+      assert.equal(m.review, old); assert.equal(h.calls.manifest, 0);
+      assert.deepEqual(aperte, ['/vault', '/vault'], 'il Banco si apre, come prima');
+    }
+    assert.equal(h.calls.map + h.calls.pipeline, 0);
+  }
+});
+
+test('0123 lotto 3: la G1 approvata e superata si ricontrolla come prima (0097); una G1 in attesa che coincide non si ricontrolla', async () => {
+  const h = conStrato(runtime()), begun = Core.beginApproval(initial({ checkStatus: 'completed', issues: [] }), DB);
+  const m = manifest(Core.completeApproval(begun.review, begun.revision)); h.st._pipelineManifest = m;
+  m.review.final = { stage: 'done', items: [] };
+  h.st.db.nodes[0].desc = 'Una modifica successiva.';
+  const old = m.review; let chiamate = 0;
+  h.window.executeJudgePass = async () => { chiamate++; return fullSourceReport(); };
+  assert.equal(await h.R.requireApproved(), false);
+  assert.equal(chiamate, 1); assert.deepEqual(clone(m.review.previous), clone(old));
+  assert.equal(m.review.initial.status, 'awaiting_review');
+  // la strada dello 0097 non cambia: `final` resta solo nella revisione di prima (conservaMateriali vale per la G1 in attesa)
+  assert.equal(m.review.final, undefined); assert.equal(m.review.previous.final.stage, 'done');
+  // in attesa e la mappa com'era: il bottone fa la strada di sempre (approva), niente controllo nuovo
+  const a = runtime(), ma = manifest(); a.st._pipelineManifest = ma;
+  let chiamateA = 0;
+  a.window.executeJudgePass = async () => { chiamateA++; return fullSourceReport(); };
+  const modal = a.R.open('/vault', ma);
+  assert.notEqual(modal.querySelector('#mrv-continue').textContent, 'Ricontrolla la mappa adesso');
+  assert.equal(await a.R.requireApproved(), false);
+  assert.equal(chiamateA, 0); assert.equal(ma.review.previous, undefined); assert.equal(a.calls.manifest, 0);
+});
+
+test('0123 lotto 3: «Ricontrolla la mappa adesso» con la G1 in attesa porta alla revisione nuova bozze, final e consegne nate sotto quarantena (come retryJudge, 0042)', async () => {
+  const h = conStrato(runtime()), m = manifest(); h.st._pipelineManifest = m;
+  const g2 = Core.createReview({ db: { items: [{ id: 'q1', kind: 'mc', question: 'Domanda?' }] }, sources: SOURCES, report: { checkStatus: 'completed', issues: [] } });
+  m.review.drafts = { B: { 'mc-auto': { id: 's1', items: [{ id: 'q1' }], quarantena: { firma: 'f1' } } }, C: {} };
+  m.review.final = { stage: 'awaiting_review', items: [{ id: 'q1', kind: 'mc', question: 'Domanda?' }], review: g2, quarantena: { firma: 'f1' } };
+  m.review.deliveries = [{ final: { stage: 'done' } }];
+  m.review.quarantena = { schema: 'mappai-quarantena@1', firma: 'f1', completo: true };
+  const prima = clone(m.review);
+  h.st.db.nodes[1].desc = 'Una modifica vera.';
+  h.window.executeJudgePass = async () => ({ checkStatus: 'completed', issues: [] });
+  await h.R.open('/vault', m).querySelector('#mrv-continue').click(); await tick(); await tick();
+  assert.equal(m.review.previous.baseRevision, prima.baseRevision, 'il controllo nuovo è avvenuto');
+  assert.deepEqual(clone(m.review.drafts), prima.drafts);
+  assert.deepEqual(clone(m.review.final), prima.final);
+  assert.deepEqual(clone(m.review.deliveries), prima.deliveries);
+  assert.equal(m.review.quarantena, undefined, 'dopo un ricontrollo il record non vale più');
+  assert.deepEqual(clone(h.saved.manifest.review.deliveries), prima.deliveries, 'e sul disco');
+});
+
 test('new Setup check: cancel is inert; preview is frozen, history and decisions survive reload', async () => {
   const h = setupJudge(), before = clone(h.m), pages = h.st._pdfPagine, sources = h.st.sources;
   const modal = h.R.open('/vault', h.m);

@@ -473,7 +473,9 @@
   // ── Registro attività (Part 3) ──────────────────────────────────────────
   var REPORT_FILES = {
     'report-domande.html': { which: 'questions', label: 'Report domande' },
-    'report-studenti.html': { which: 'students', label: 'Report studenti' },
+    // 0127 (Giacomo, 27/10): il nome del bottone; le sessioni di prima tengono «report-studenti.html»
+    'report-allievi.html': { which: 'students', label: 'Report allievi' },
+    'report-studenti.html': { which: 'students', label: 'Report allievi' },
     'report-costruzione.html': { which: 'workshop', label: 'Report costruzione' },
     'report-tutor.html': { which: 'tutor', label: 'Report tutor' },
     'report-scelta.html': { which: 'scelta', label: 'Report domande a scelta' }

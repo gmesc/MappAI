@@ -32,7 +32,7 @@
  *   <dir>/students/<id>.json        — risposte di un allievo (scritte a ogni POST)
  *   <dir>/results.json              — modello dati graduato (a chiusura)
  *   <dir>/report-domande.html       — Report A
- *   <dir>/report-studenti.html      — Report B
+ *   <dir>/report-allievi.html       — Report B (fino allo 0127 «report-studenti.html», che si apre ancora)
  *
  * Sicurezza (rete di classe): token di sessione nel QR per gli studenti;
  * adminToken (mai nel QR) per le operazioni docente; static con allowlist
@@ -52,6 +52,8 @@ const LIVE_FONT = require(path.join(__dirname, 'public', 'js', 'mappai-live-font
 const TC = require(path.join(__dirname, 'public', 'js', 'mappai-timeline-core.js'));   // Timeline Live (008)
 const SC = require(path.join(__dirname, 'public', 'js', 'mappai-scelta-core.js'));      // «Domande a scelta»
 const FC = require(path.join(__dirname, 'public', 'js', 'mappai-files-core.js'));       // scambio con MappAI studente (7/9)
+// 0127 (Giacomo, 27/10): il file si chiama come il bottone, «Report allievi» (fino ad allora «report-studenti.html»)
+const REPORT_ALLIEVI = 'report-allievi.html';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -82,10 +84,14 @@ const STATIC_ALLOW = [
   '/public/js/mappai-quiz-mc-view.js',
   // La scheda che l'allievo salva dal telefono (0112) è la stessa card del report del docente: stessa fonte.
   '/public/js/mappai-live-reports.js',
+  // …e dal 0132 la stessa veste di tutti i report: la testata e le misure stanno qui (se la finestra è negata, la scheda si stampa dalla pagina)
+  '/public/js/mappai-doc-head.js',
   // Il carattere del docente sul telefono (0112): il catalogo e il modulo che lo applica. NON `mappai-font.js` (quello è dell'app).
   '/public/js/mappai-font-core.js',
   '/public/js/mappai-live-font.js',
   '/public/js/mappai-scelta-view.js',   // ⚠️ confronto ESATTO più sotto: un `.bak` accanto non si serve
+  // L'accesso degli allievi (0134): le sei righe di tutte le pagine d'ingresso, un modulo solo
+  '/public/js/mappai-accesso-allievi.js',
   '/public/js/vendor/'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB
@@ -240,6 +246,9 @@ function createLiveServer(opts) {
       schema: 'mappai-live-session@1',
       name: cfg.name || 'Quiz',
       activity: cfg.activity || 'Quiz',
+      // 0127: genere e angolo per i titoli dei report («Scelta multipla · Definizione»), decisi dall'app alla nascita
+      // della sessione; il nome dell'attività resta quello delle cartelle e del registro
+      materiale: LC.sanitizeText(cfg.materiale, 120),
       className: cfg.className || '',
       scope: cfg.scope || '',   // 010: ramo L1 coperto ('' = tutta la mappa)
       durationMin: Number(cfg.durationMin) || 0,
@@ -414,7 +423,7 @@ function createLiveServer(opts) {
     const d = new Date(session.startedAt);
     function p(n) { return String(n).padStart(2, '0'); }
     return {
-      mapTitle: session.name, activity: session.activity, className: session.className,
+      mapTitle: session.name, activity: session.activity, materiale: session.materiale || '', className: session.className,
       dateStr: p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(),
       durationStr: dur
     };
@@ -504,7 +513,7 @@ function createLiveServer(opts) {
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
       fs.writeFileSync(path.join(dir, 'report-scelta.html'), LR.buildSceltaReportHtml(meta(), results));
       // 0116, gate del 21/10: il «Report allievi», come il quiz — una scheda per allievo
-      fs.writeFileSync(path.join(dir, 'report-studenti.html'), LR.buildStudentsReportHtml(meta(), {
+      fs.writeFileSync(path.join(dir, REPORT_ALLIEVI), LR.buildStudentsReportHtml(meta(), {
         joined: Object.keys(students).length,
         perStudent: Object.keys(students).map(id => schedaSceltaDi(id, students[id]))
       }));
@@ -512,7 +521,7 @@ function createLiveServer(opts) {
       const results = LC.computeResults(questions, Object.values(students), roster);
       fs.writeFileSync(path.join(dir, 'results.json'), JSON.stringify(results, null, 2));
       fs.writeFileSync(path.join(dir, 'report-domande.html'), LR.buildQuestionsReportHtml(meta(), results));
-      fs.writeFileSync(path.join(dir, 'report-studenti.html'), LR.buildStudentsReportHtml(meta(), results));
+      fs.writeFileSync(path.join(dir, REPORT_ALLIEVI), LR.buildStudentsReportHtml(meta(), results));
     }
     persist();
     console.log('[live-server] sessione CHIUSA:', session.name, '· report generati');
@@ -544,6 +553,9 @@ function createLiveServer(opts) {
         return json(res, 200, {
           schema: 'mappai-live-session@1',
           name: session.name, activity: session.activity, className: session.className,
+          materiale: session.materiale || '',   // 0127: la seconda strada della scheda lo mette nel titolo
+          // 0134: la riga 3 dell'accesso, la parte di mezzo del titolo dei report (stessa funzione della barra)
+          attivita: LR.titoloLive({ materiale: session.materiale, activity: session.activity }),
           // il carattere scelto dal docente: solo se sta nel catalogo (mai testo libero verso il telefono)
           font: session.font || '',
           phase: session.phase, questionCount: questions.length,
@@ -644,7 +656,7 @@ function createLiveServer(opts) {
             answered: items.filter(q => q.outcome !== 'blank').length, blankCount: r.blank || 0, manualCount: r.manual || 0, items };
         }
         const html = LR.buildStudentSheetHtml(
-          { mapTitle: session.name, activity: session.activity, className: session.className,
+          { mapTitle: session.name, activity: session.activity, materiale: session.materiale || '', className: session.className,
             dateStr: due(oggi.getDate()) + '/' + due(oggi.getMonth() + 1) + '/' + oggi.getFullYear() },
           allievo,
           { date: oggi, autoPrint: true, emojiProva: true,
@@ -657,11 +669,13 @@ function createLiveServer(opts) {
       if (p === '/api/report' && req.method === 'GET') {
         if (!isAdmin(u.searchParams.get('admin'))) { res.writeHead(403); res.end('forbidden'); return; }
         const w = u.searchParams.get('which');
-        const which = w === 'students' ? 'report-studenti.html'
+        const which = w === 'students' ? REPORT_ALLIEVI
           : w === 'workshop' ? 'report-costruzione.html'
           : w === 'scelta' ? 'report-scelta.html'
           : 'report-domande.html';
-        const f = path.join(dir, which);
+        let f = path.join(dir, which);
+        // una sessione chiusa prima dello 0127 ha il nome di prima
+        if (w === 'students' && !fs.existsSync(f)) f = path.join(dir, 'report-studenti.html');
         if (!fs.existsSync(f)) { res.writeHead(404); res.end('report non ancora generato'); return; }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(fs.readFileSync(f)); return;

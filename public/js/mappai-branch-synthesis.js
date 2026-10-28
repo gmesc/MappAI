@@ -412,13 +412,18 @@
         _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
 
-        const escHandler = function (e) {
-            if (e.key === 'Escape') {
-                modal.remove();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
+        /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js); l'Esc proprio resta
+           come riserva per chi non carica l'aiutante (il reader copia questo file) */
+        if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { modal.remove(); });
+        else {
+            const escHandler = function (e) {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        }
     };
 
     // ── Generazione AI ─────────────────────────────────────────────────────
@@ -792,16 +797,34 @@
         _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
 
-        const escHandler = function (e) {
-            if (e.key === 'Escape') {
-                modal.remove();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
+        /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js); l'Esc proprio resta
+           come riserva per chi non carica l'aiutante (il reader copia questo file) */
+        if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { modal.remove(); });
+        else {
+            const escHandler = function (e) {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        }
     }
 
     // ── Costruzione HTML stampabile (condiviso da stampa + salvataggio) ──────
+    /* IL CORPO E L'INTERLINEA SCELTI DAL DOCENTE (0128, allargamento 7; Giacomo, 27/10: «Sì, allarga il perimetro a […]
+       mappai-branch-synthesis.js […] e porta dimensione e interlinea in tutti gli editor»). Con una scelta nel core della
+       stampa si aggiunge una regola sola: il corpo di stampa (--ap-pt, che governa già tutta la scala) e l'interlinea di
+       paragrafi ed elenchi. Senza scelta non si aggiunge niente e il foglio esce identico. */
+    function _tipoSintesi() {
+        const PL = (typeof window !== 'undefined' && window.MappAIPrintLayout) || null;
+        const T = (PL && PL.tipografia) ? PL.tipografia('synthesis') : null;
+        if (!T || (!T.scelto.corpo && !T.scelto.interlinea)) return '';
+        return '\n        /* 0128: la scelta del docente */' +
+            (T.scelto.corpo ? '\n        @media print { :root { --ap-pt: ' + T.corpo + 'pt; } }' : '') +
+            (T.scelto.interlinea ? '\n        .bs-body p, .bs-body li { line-height: ' + T.interlinea + '; }' : '') + '\n';
+    }
+
     function _buildSynthesisPrintHtml(data, opts) {
         data = data || _lastSynthesis;
         opts = opts || {};
@@ -1308,7 +1331,7 @@ ${_bsPie(data.mapName)}
             .bs-cite-row { break-inside:avoid; page-break-inside:avoid; }
             .bs-citations-title { break-after:avoid; page-break-after:avoid; }
         }
-    </style>
+    ${_tipoSintesi()}</style>
 </head>
 <body>
     <div id="ap-topbar" class="no-print">
@@ -2062,6 +2085,7 @@ ${_bsPie(data.mapName)}
         document.body.appendChild(modal);
         _zSopra(modal);
         if (window.safeCreateIcons) window.safeCreateIcons();
+        if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { modal.remove(); });   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
         // Guardia: fra la registrazione e la consegna il testo può essere stato
         // modificato (l'editor documenti è aperto lì accanto). In quel caso
         // l'HTML uscirebbe con parole nuove e voce vecchia, e i cue slittati.

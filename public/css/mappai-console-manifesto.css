@@ -520,7 +520,7 @@ html.manifesto .mm-box--console .mn-filtro__v {
 }
 html.manifesto .mm-box--console .mn-filtri__conto {
     margin: 4px 8px 0;
-    font-size: 11px;
+    font-size: var(--mm-fs-label);   /* 0122 lotto 4c (22/10): era 11 */
     color: #8a8a8a;
     line-height: 1.25;
 }
@@ -821,7 +821,7 @@ html.manifesto .mn-bric-col {
 /* l'intestazione di colonna: piccola, NON è un item (gli item sono al font del
    livello di briciola); dice solo che cosa raccoglie la colonna */
 html.manifesto .mn-bric-col__h {
-    font-size: 11px;
+    font-size: var(--mm-fs-sez);   /* 0122 lotto 4c (22/10): era 11; maiuscola come le sezioni */
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .06em;
@@ -835,6 +835,14 @@ html.manifesto .mn-bric-menu__nuovo {
     border-top: 1px dashed var(--mm-bordo);
     margin-top: 4px;
     padding-top: 8px;
+}
+/* 0124: più azioni in fondo al menu del progetto («Rinomina…», «Riassegna…», «Copia…»):
+   un filetto solo, sopra la prima; nessuno se il menu comincia con le azioni */
+html.manifesto .mn-bric-menu__nuovo + .mn-bric-menu__nuovo,
+html.manifesto .mn-bric-menu__nuovo:first-child {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 4px;
 }
 
 /* ── i pezzi che il bento di una console disegna (e CREA non ha) ─────────── */
@@ -884,7 +892,7 @@ html.manifesto .mn-materiali .mn-materiali-vuoto {
     grid-column: 1 / -1;
     padding: 18px 4px;
     color: #6b7280;
-    font-size: 13px;
+    font-size: var(--mm-fs-testo);   /* 0122 lotto 4c (22/10): era 13; Stampabili dice lo stesso vuoto a 16 */
 }
 /* cap a cinque righe + scorrimento: l'anteprima di un genere non deve diventare
    un muro. Misurato nel banco: intestazione ~33px + righe ~57px l'una (la riga
@@ -922,6 +930,9 @@ html.manifesto {
     --mnc-chip-txt: #404040;
     --mnc-chip-bordo: transparent;
     --mnc-chip-fs: 12px;
+    /* l'etichetta delle tessere-comando (Mappa · Vault su iPad · Invia file ·
+       Cartella), che compare al passaggio: 0122 lotto 4c, Giacomo 22/10 */
+    --mnc-azione-fs: 18px;
     /* campi e tendine: la larghezza è una LEVA, non un caso — una tendina che si
        allarga col testo più lungo fa ballare la riga a ogni scelta.
        L'altezza è quella dei controlli gemelli (09/10, packet 0087 lotto 2):
@@ -1047,8 +1058,10 @@ html.manifesto .mn-bento-area .mn-cmd > span {
     /* ⚠️ `!important` come in CREA (`.mn-card--azione span`): la guardia dello zoom
        della landing impone `.mn-btn { font-size: var(--bn-fs-voce) !important }`
        (12px) e il bottone comando porta anche `.mn-btn` → senza important
-       l'etichetta resterebbe 12/600 invece del corpo azione 15/700. */
-    font-size: var(--bn-fs-azione) !important;
+       l'etichetta resterebbe 12/600 invece del corpo azione 15/700.
+       0122 lotto 4c (Giacomo, 22/10): «puoi aumentare il font a 18px» — il corpo
+       ha un token suo (`--mnc-azione-fs`); il bento di CREA resta a 15. */
+    font-size: var(--mnc-azione-fs) !important;
     font-weight: var(--bn-fw-azione) !important;
 }
 html.manifesto .mn-bento-area .mn-cmd:hover > span,

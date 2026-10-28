@@ -85,6 +85,27 @@
     return { ok: true, keys: keys, nick: keys.join('-'), emojiLabel: emojis.join('') };
   }
 
+  /* LA GRIGLIA dell'accesso a gruppi (packet 0134, D1 di Giacomo: «nascondile»): si vedono le prime 4 voci di ogni
+     fila, così le tre file sono larghe uguali; pizza, carota, autobus ed elicottero restano in GROUP_EMOJI e restano
+     VALIDE (validateGroupCombo, comboEmojiLabel, il font, le immagini). In una sessione ripresa, l'emoji nascosta che
+     un gruppo aveva già scelto torna nella sua fila, dopo le 4: `nickUsati` sono i nick dei gruppi della sessione
+     (un nickname libero, legacy, non c'entra). Chi decide quali emoji si vedono è solo questa funzione. */
+  var GRIGLIA_PER_FILA = 4;
+  function grigliaGruppi(nickUsati) {
+    var usate = GROUP_EMOJI.map(function () { return {}; });
+    (Array.isArray(nickUsati) ? nickUsati : []).forEach(function (nick) {
+      if (!comboEmojiLabel(nick)) return;
+      String(nick).split('-').forEach(function (k, i) { usate[i][k] = true; });
+    });
+    return GROUP_EMOJI.map(function (s, i) {
+      return { set: s.set, items: s.items.filter(function (it, j) { return j < GRIGLIA_PER_FILA || usate[i][it.key]; }) };
+    });
+  }
+
+  // Il nome dell'attività sulla pagina d'accesso (0134, D9): Mappa LIVE non ha un report da cui prenderlo, è il nome
+  // della tessera in INSEGNA.
+  var NOME_ATTIVITA = 'Mappa LIVE';
+
   // Da un nick ASCII "volpe-fragola-razzo" → "🦊🍓🚀" per il display. Ritorna
   // null se il nick non è una combo valida (nickname libero legacy) → il
   // chiamante ripiega sul testo.
@@ -263,6 +284,8 @@
     SIZES: SIZES,
     LIMITS: LIMITS,
     GROUP_EMOJI: GROUP_EMOJI,
+    grigliaGruppi: grigliaGruppi,
+    NOME_ATTIVITA: NOME_ATTIVITA,
     validateGroupCombo: validateGroupCombo,
     comboEmojiLabel: comboEmojiLabel,
     sanitizeNick: sanitizeNick,

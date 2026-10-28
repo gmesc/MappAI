@@ -236,7 +236,7 @@
             l1Validation:     localStorage.getItem('mappai_l1_validation_enabled') === '1',
             l1Checkpoint:     localStorage.getItem('mappai_l1_checkpoint_enabled') === '1',
             branchBoundaries: localStorage.getItem('mappai_branch_boundaries_enabled') === '1',
-            phase4:           localStorage.getItem('mappai_mm_phase4_enabled') === '1',
+            phase4:           localStorage.getItem('mappai_mm_phase4_enabled') !== '0', // 0121: accesa di serie
             phase5:           localStorage.getItem('mappai_mm_phase5_enabled') === '1',
             chunkFreeze:      localStorage.getItem('mappai_freeze_chunks') === '1',
             enrichDescs:      localStorage.getItem('mappai_enrich_descs_enabled') === '1',
@@ -1319,21 +1319,22 @@
         return true;
     }
 
+    // 0121: la Fase 4 è accesa di serie; spegnerla vuol dire scrivere '0' (togliere la chiave la riaccende).
     function disablePhase4() {
-        localStorage.removeItem('mappai_mm_phase4_enabled');
+        localStorage.setItem('mappai_mm_phase4_enabled', '0');
         console.log('%c⛔ PHASE 4 DISATTIVATA', 'color:#6366f1;font-weight:bold');
         return false;
     }
 
     function phase4Status() {
-        const enabled = localStorage.getItem('mappai_mm_phase4_enabled') === '1';
+        const enabled = localStorage.getItem('mappai_mm_phase4_enabled') !== '0';
         const mode = _getAppState()?.extractionMode;
         const active = enabled && mode === 'mindmap';
         const info = {
             flagSet:  enabled,
             mode,
             active,
-            note: !enabled ? 'Flag spento — usa .enablePhase4() per attivare'
+            note: !enabled ? 'Flag spento (\'0\') — usa .enablePhase4() per riattivare'
                 : mode !== 'mindmap' ? `Flag acceso ma extractionMode=${mode} (Phase 4 attivo solo in MindMap)`
                 : 'Phase 4 attivo — la prossima generazione MM userà il consolidamento AI'
         };

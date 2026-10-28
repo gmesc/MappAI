@@ -293,3 +293,74 @@ test('keywordTargets: senza card «parole chiave» non c\'è niente da fare', ()
     const r = NS.keywordTargets([{ id: 'a', label: 'A', layout: 'title' }]);
     assert.deepStrictEqual(r, { conKw: [], vuote: [] });
 });
+
+/* 0122, lotto 3 (Giacomo, 22/10, sul banco del Foglio: «Scelgo la E: interlinea 24 px fissa, a
+   sinistra»): il passo di riga della descrizione era una costante in mm, 6,35, in tutti i formati.
+   0128, allargamento 1 (Giacomo, 27/10, sui due mockup: «C», «+3 nel 2×1, +2 nel 2×2»): il passo è il
+   più largo fra quei 6,35 mm e il corpo × 1,6, lo spazio fra le parole ha +0,25 em, e le descrizioni
+   crescono a 13 pt nel 2×2 e 16 nel 2×1 (le parole chiave a 15 e 18). */
+test('charLimits: il passo della descrizione è il più largo fra 6,35 mm e corpo × 1,6 — 9 righe nel 2x2, 17 nel 2x1', () => {
+    assert.equal(NS.DESC_LINE_MM, 6.35, 'il fisso dello 0122 resta il minimo');
+    assert.equal(NS.DESC_LINE_K, 1.6);
+    assert.equal(NS.DESC_WORD_EM, 0.25);
+    assert.equal(NS.descPasso(11), 6.35, 'a 11 pt il fisso è già più largo (1,64)');
+    assert.ok(Math.abs(NS.descPasso(13) - 1.6 * 13 * NS.PT2MM) < 1e-9, 'a 13 pt: 7,34 mm');
+    assert.ok(Math.abs(NS.descPasso(16) - 1.6 * 16 * NS.PT2MM) < 1e-9, 'a 16 pt: 9,03 mm');
+    const due = NS.charLimits('2x2', 'card', 'Materiali conduttori');
+    const uno = NS.charLimits('2x1', 'card', 'Materiali conduttori');
+    assert.equal(due.descLines, 9, '2x2: 72 mm a passi di 7,34 (prima 11 a passi di 6,35)');
+    assert.equal(uno.descLines, 17, '2x1: 160 mm a passi di 9,03 (prima 25)');
+    assert.equal(due.descCpl, 43, '2x2 a 13 pt, con lo spazio in più (prima 50 a 11 pt)');
+    assert.equal(uno.descCpl, 35, '2x1 a 16 pt, con lo spazio in più (prima 44 a 13 pt)');
+});
+
+test('0128 · i corpi delle schede: descrizioni 13 e 16 pt, parole chiave 15 e 18; il 3x4 non cambia', () => {
+    assert.equal(NS.geom('2x2').descPt, 13);
+    assert.equal(NS.geom('2x2').kwPt, 15);
+    assert.equal(NS.geom('2x1').descPt, 16);
+    assert.equal(NS.geom('2x1').kwPt, 18);
+    assert.equal(NS.geom('3x4').kwPt, 12);
+    assert.equal(NS.geom('3x4').descPt, 11);
+    assert.equal(NS.geom('2x2').titlePt, 28, 'i titoli restano');
+    assert.equal(NS.geom('2x1').cardTitlePt, 24, 'i titoli restano');
+});
+
+/* 0128, allargamento 3: il corpo delle descrizioni e delle parole chiave scelto dal docente nell'editor */
+test('0128 · setCorpi: descrizioni e parole chiave per formato, fra 11 e 20 pt; capacità e geometria lo seguono', () => {
+    try {
+        const prima = NS.charLimits('2x1', 'card', 'Materiali conduttori');
+        assert.deepStrictEqual(NS.corpi(), {}, 'di serie nessuna scelta');
+        NS.setCorpi({ '2x1': { desc: 14, kw: 16 } });
+        assert.strictEqual(NS.geom('2x1').descPt, 14);
+        assert.strictEqual(NS.geom('2x1').kwPt, 16);
+        assert.strictEqual(NS.geom('2x2').descPt, 13, 'l\'altro formato non cambia');
+        const dopo = NS.charLimits('2x1', 'card', 'Materiali conduttori');
+        assert.ok(dopo.desc > prima.desc, 'a 14 pt entra più testo: ' + prima.desc + '→' + dopo.desc);
+        NS.setCorpi({ '2x2': { desc: 40, kw: 2 } });
+        assert.strictEqual(NS.geom('2x2').descPt, 20, 'mai oltre 20');
+        assert.strictEqual(NS.geom('2x2').kwPt, 11, 'mai sotto 11');
+        assert.strictEqual(NS.geom('3x4').kwPt, 12, 'il 3×4 (solo titolo) non si tocca');
+    } finally { NS.setCorpi(null); }
+    assert.strictEqual(NS.geom('2x1').descPt, 16);
+});
+
+/* 0128, allargamento 5 (Giacomo, 27/10, al gate: «aggiungi anche l'opzione per l'interlinea») */
+test('0128 · setInterlinea: il passo della descrizione è corpo × interlinea, fra 1,2 e 2; di serie non cambia nulla', () => {
+    try {
+        const prima = NS.charLimits('2x1', 'card', 'Materiali conduttori');
+        assert.strictEqual(NS.interlinea(), null, 'di serie nessuna scelta');
+        assert.ok(Math.abs(NS.descPasso(16) - 1.6 * 16 * 0.352778) < 1e-9, 'di serie: corpo × 1,6');
+        assert.strictEqual(NS.descPasso(11), 6.35, 'di serie a 11 pt: il minimo fisso dello 0122');
+        NS.setInterlinea(1.4);
+        assert.strictEqual(NS.interlinea(), 1.4);
+        assert.ok(Math.abs(NS.descPasso(16) - 1.4 * 16 * 0.352778) < 1e-9);
+        assert.ok(NS.descPasso(11) < 6.35, 'scelta, il minimo fisso non la ferma');
+        const dopo = NS.charLimits('2x1', 'card', 'Materiali conduttori');
+        assert.ok(dopo.desc > prima.desc && dopo.descLines > prima.descLines, 'più stretta, più righe: ' + prima.desc + '→' + dopo.desc);
+        NS.setInterlinea(1.6 + 0.1); assert.strictEqual(NS.interlinea(), 1.7, 'a passi di 0,1, senza resti');
+        NS.setInterlinea(5); assert.strictEqual(NS.interlinea(), 2, 'mai oltre 2');
+        NS.setInterlinea(0.5); assert.strictEqual(NS.interlinea(), 1.2, 'mai sotto 1,2');
+    } finally { NS.setInterlinea(null); }
+    assert.strictEqual(NS.interlinea(), null);
+    assert.strictEqual(NS.charLimits('2x1', 'card', 'Materiali conduttori').desc, 530, 'si torna al foglio di serie');
+});

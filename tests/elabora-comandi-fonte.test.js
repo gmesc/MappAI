@@ -342,12 +342,14 @@ function console0096(o = {}) {
     g.removeEventListener = (n, fn) => { finestra[n] = (finestra[n] || []).filter(x => x !== fn); };
     vm.runInNewContext(JS('mappai-elabora-console.js'), g);
     const settle = async () => { for (let i = 0; i < 30; i++) await new Promise(r => setTimeout(r, 0)); };
+    const nomeBottone = (e) => e.textContent || (e.getAttribute && e.getAttribute('aria-label')) || '';
     return { ...dom, g, calls, settle,
         async open() { g.MappAIElaboraConsole.open({}); await settle(); },
         async action(id) { schema.suAzione({ azione: id }, box, draw); await settle(); },
         sezione(id) { return J(g.MappAIElaboraConsole.schema().sezioni.find(x => x.id === id) || null); },
-        bottoni() { return dom.document.querySelectorAll('#ec-file .de-bar button').map(b => b.textContent); },
-        bottone(label) { return dom.document.querySelectorAll('#ec-file .de-bar button').find(e => e.textContent === label) || null; },
+        /* 0128, allargamento 12: la stampa è un'icona senza testo, il suo nome sta in `aria-label` */
+        bottoni() { return dom.document.querySelectorAll('#ec-file .de-bar button').map(nomeBottone); },
+        bottone(label) { return dom.document.querySelectorAll('#ec-file .de-bar button').find(e => nomeBottone(e) === label) || null; },
         async premi(label) { const b = this.bottone(label); assert.equal(!!b, true, 'bottone ' + label); for (const fn of b.events.click || []) fn(); await settle(); },
         corpo() { const fr = dom.document.querySelector('#ec-file iframe'); return fr ? fr.contentDocument.body : null; },
         async close() { closeModal(); await settle(); }

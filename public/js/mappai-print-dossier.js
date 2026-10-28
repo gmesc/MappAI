@@ -225,13 +225,18 @@ window.openNodeLabelsPrintModal = function () {
     if (typeof window.safeCreateIcons === 'function') window.safeCreateIcons();
     window._nlSyncContentLock();
 
-    var escHandler = function (e) {
-        if (e.key === 'Escape') {
-            modal.remove();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
+    /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js); l'Esc proprio resta
+       come riserva per chi non carica l'aiutante (il reader copia questo file) */
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, function () { modal.remove(); });
+    else {
+        var escHandler = function (e) {
+            if (e.key === 'Escape') {
+                modal.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
 };
 
 // Blocca "riassunto" e "keyword" quando il formato è 3×4 (solo titolo);
@@ -435,21 +440,92 @@ window.printAllNodeLabels = async function (opts) {
     const KW_PT = G ? G.kwPt : (({ '2x2': 13, '2x1': 15 })[fmt] || 12);
     const CARD_DESC_PT = G ? G.descPt : (({ '2x2': 11, '2x1': 13 })[fmt] || 11); // corpo desc scheda
 
-    // Sfondo pagina: griglia a quadretti 5 mm, linee 0,3 mm cyan al 10%
+    // Sfondo pagina: griglia a quadretti 5 mm, linee 0,3 mm cyan al 20%
+    /* 0128, allargamento 6 (Giacomo, 27/10: «il colore della quadrettatura e delle linee il 10% più saturo»,
+       +10 punti): il ciano dal 10% al 20% (#E6FFFF → #CCFFFF su bianco) */
     function drawPageGrid() {
         if (pageBg !== 'grid') return;
         const step = 5;
         let useG = false;
         try {
-            if (doc.GState && doc.setGState) { doc.setGState(new doc.GState({ 'stroke-opacity': 0.1 })); useG = true; }
+            if (doc.GState && doc.setGState) { doc.setGState(new doc.GState({ 'stroke-opacity': 0.2 })); useG = true; }
         } catch (e) { useG = false; }
-        // con GState = cyan puro al 10%; senza = cyan pre-miscelato al 10% su bianco
-        if (useG) doc.setDrawColor(0, 255, 255); else doc.setDrawColor(230, 255, 255);
+        // con GState = cyan puro al 20%; senza = cyan pre-miscelato al 20% su bianco
+        if (useG) doc.setDrawColor(0, 255, 255); else doc.setDrawColor(204, 255, 255);
         doc.setLineWidth(0.3);
         if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern([], 0);
         for (let gx = 0; gx <= pageWidth + 0.01; gx += step) doc.line(gx, 0, gx, pageHeight);
         for (let gy = 0; gy <= pageHeight + 0.01; gy += step) doc.line(0, gy, pageWidth, gy);
         if (useG) { try { doc.setGState(new doc.GState({ 'stroke-opacity': 1 })); } catch (e) {} }
+    }
+
+    /* SENZA TAGLI (0128, allargamento 2; Giacomo, 27/10: «non troncare il testo», «fino a 11pt», «Più
+       piccola solo lei, e avviso»). Prima di disegnare si sceglie il corpo: le descrizioni (schede) e le
+       parole chiave scendono, uguali per il foglio, fino a 11 pt finché tutte stanno intere; la scheda che
+       neanche lì entra prende il suo corpo, fino a 6 pt, e finisce nell'avviso. Misura e disegno sono lo
+       stesso impaginatore (`_drawJustifiedDesc`, coi grassetti; `splitTextToSize` per le parole chiave).
+       Spento (`mappai_stampa_senza_tagli` = '0'): i corpi fissi di prima, con «...» e le parole chiave
+       che non stanno lasciate fuori. */
+    const PLx = window.MappAIPrintLayout;
+    const senzaTagliN = !!(PLx && PLx.senzaTagliAttivo && PLx.senzaTagliAttivo());
+    const CARD_TITLE_PT = G ? G.cardTitlePt : (({ '2x2': 20, '2x1': 24 })[fmt] || 20);
+    const CARD_GAP = 1.5;
+    const KW_GAP = 3;
+    const corpoDesc = {}, corpoKw = {};
+    let descFoglio = CARD_DESC_PT, kwFoglio = KW_PT;
+    const avvisiN = { sotto: [], troppoLunghe: [], corpoDesc: CARD_DESC_PT, corpoKw: KW_PT, consiglio: '' };
+    const descDi = function (e) { return String(e.desc || e.node.desc || e.node.content || '').trim(); };
+    function descEntra(e, pt) {
+        const boxW = colWidth - 8;
+        doc.setFont(fontName, "bold"); doc.setFontSize(CARD_TITLE_PT);
+        const tl = doc.splitTextToSize(e.label, boxW).slice(0, 3);
+        const cTitleH = CARD_TITLE_PT * PT2MM + tl.length * CARD_TITLE_PT * PT2MM * 1.2;
+        const esito = {};
+        _drawJustifiedDesc(doc, descDi(e), 0, 0, boxW, rowHeight - 8 - cTitleH - CARD_GAP, fontName, pt, _cardBoldSet(e.node), { measureOnly: true, esito: esito });
+        return !esito.troncato;
+    }
+    function kwEntra(e, pt) {
+        const maxW = colWidth - 2 * padX;
+        doc.setFont(fontName, "bold"); doc.setFontSize(TITLE_PT);
+        const tH = TITLE_PT * PT2MM + doc.splitTextToSize(e.label, maxW).slice(0, 3).length * TITLE_PT * PT2MM * 1.25;
+        const maxKw = Math.max(0, Math.floor((rowHeight - 8 - tH - KW_GAP - 3) / (pt * PT2MM * 1.55)));
+        doc.setFont(fontName, "normal"); doc.setFontSize(pt);
+        let n = 0;
+        (e.keywords || []).slice(0, 7).forEach(function (k) { n += doc.splitTextToSize(String(k), maxW).length; });
+        return n <= maxKw;
+    }
+    function scegli(indici, entra, base, mappa, quale) {
+        const min = Math.min((PLx && PLx.MIN_SENZA_TAGLI) || 11, base);
+        const ok = indici.filter(function (i) { return entra(entries[i], min); });
+        let foglio = min;
+        for (let pt = base; pt >= min - 0.001; pt -= 0.5) {
+            if (ok.every(function (i) { return entra(entries[i], pt); })) { foglio = pt; break; }
+        }
+        indici.forEach(function (i) {
+            if (ok.indexOf(i) >= 0) return;
+            let pt = min - 0.5;
+            while (pt > 6 && !entra(entries[i], pt)) pt -= 0.5;
+            mappa[i] = Math.max(6, pt);
+            if (avvisiN.sotto.indexOf(entries[i].label) < 0) avvisiN.sotto.push(entries[i].label);
+            if (!entra(entries[i], mappa[i]) && avvisiN.troppoLunghe.indexOf(entries[i].label) < 0) avvisiN.troppoLunghe.push(entries[i].label);
+        });
+        return foglio;
+    }
+    if (senzaTagliN) {
+        const conDesc = [], conKw = [];
+        entries.forEach(function (e, i) {
+            if (e.layout === 'card' && descDi(e)) conDesc.push(i);
+            if (e.layout === 'keywords' && (e.keywords || []).length) conKw.push(i);
+        });
+        descFoglio = avvisiN.corpoDesc = scegli(conDesc, descEntra, CARD_DESC_PT, corpoDesc);
+        kwFoglio = avvisiN.corpoKw = scegli(conKw, kwEntra, KW_PT, corpoKw);
+        if (avvisiN.sotto.length) {
+            const n = avvisiN.sotto.length;
+            avvisiN.messaggio = n === 1 ? window.t('ns_avv_una', '1 scheda stampata più piccola, per non tagliare il testo.')
+                : window.t('ns_avv_piu', '{n} schede stampate più piccole, per non tagliare il testo.').replace('{n}', n);
+            avvisiN.consiglio = fmt === '2x1' ? window.t('ns_avv_accorcia', 'Per stamparle più grandi accorcia il testo.')
+                : window.t('ns_avv_grandi', 'Per leggerle meglio stampa le schede grandi, 2 per foglio.');
+        }
     }
 
     let currentNodeIndex = 0;
@@ -507,7 +583,7 @@ window.printAllNodeLabels = async function (opts) {
                     // Il GRUPPO titolo+descrizione è centrato in verticale: una
                     // descrizione di una riga sta al centro della card, e il blocco
                     // cresce verso l'alto e verso il basso man mano che si allunga.
-                    const CARD_TITLE_PT = G ? G.cardTitlePt : (({ '2x2': 20, '2x1': 24 })[fmt] || 20);
+                    const descPt = corpoDesc[currentNodeIndex - 1] || descFoglio;   /* 0128: il corpo scelto prima */
                     const boxLeft = x + 4;
                     const boxW = colWidth - 8;
                     doc.setFont(fontName, "bold");
@@ -520,13 +596,14 @@ window.printAllNodeLabels = async function (opts) {
                     // per riga.
                     const cTitleH = cTitleFH + cTitleLines.length * cTitleLH;
                     const descText = String(entry.desc || node.desc || node.content || '').trim();
-                    const CARD_GAP = 1.5;
                     // Quanto è alta davvero la descrizione: la misuriamo con lo stesso
                     // impaginatore che poi la disegna (a vuoto), così il centraggio
                     // non è una stima.
                     const availDesc = rowHeight - 8 - cTitleH - CARD_GAP;
                     const descH = descText
-                        ? _drawJustifiedDesc(doc, descText, boxLeft, 0, boxW, availDesc, fontName, CARD_DESC_PT, null, { measureOnly: true })
+                        /* gli stessi grassetti del disegno (0128): misurata senza, con un carattere proporzionale la
+                           descrizione disegnata col grassetto (più largo) non stava nelle righe misurate e usciva con «...» */
+                        ? _drawJustifiedDesc(doc, descText, boxLeft, 0, boxW, availDesc, fontName, descPt, _cardBoldSet(node), { measureOnly: true })
                         : 0;
                     const blockH = cTitleH + (descH ? CARD_GAP + descH : 0);
                     // Se il blocco è più alto della card, si riparte dall'alto: meglio
@@ -541,7 +618,7 @@ window.printAllNodeLabels = async function (opts) {
                     });
                     if (descText && descH) {
                         doc.setTextColor(30, 30, 30);
-                        _drawJustifiedDesc(doc, descText, boxLeft, top + cTitleH + CARD_GAP, boxW, descH + 0.01, fontName, CARD_DESC_PT, _cardBoldSet(node));
+                        _drawJustifiedDesc(doc, descText, boxLeft, top + cTitleH + CARD_GAP, boxW, descH + 0.01, fontName, descPt, _cardBoldSet(node));
                         doc.setTextColor(0, 0, 0);
                     }
                 } else {
@@ -557,8 +634,8 @@ window.printAllNodeLabels = async function (opts) {
                     const titleLH = titleFH * 1.25;
                     const titleLines = doc.splitTextToSize(labelText, maxTextWidth).slice(0, 3);
                     const titleH = titleFH + titleLines.length * titleLH;
-                    const KW_GAP = 3;
-                    const kwFH = KW_PT * PT2MM;
+                    const kwPt = corpoKw[currentNodeIndex - 1] || kwFoglio;   /* 0128: il corpo scelto prima */
+                    const kwFH = kwPt * PT2MM;
                     const kwLH = kwFH * 1.55;
 
                     // Le parole chiave si impaginano PRIMA di disegnarle: senza sapere
@@ -567,7 +644,7 @@ window.printAllNodeLabels = async function (opts) {
                     if (cardLayout === 'keywords') {
                         const maxKwLines = Math.max(0, Math.floor((rowHeight - 8 - titleH - KW_GAP - 3) / kwLH));
                         doc.setFont(fontName, "normal");
-                        doc.setFontSize(KW_PT);
+                        doc.setFontSize(kwPt);
                         (entry.keywords || []).slice(0, 7).forEach(function (k) {
                             doc.splitTextToSize(String(k), maxTextWidth).forEach(function (ln) {
                                 if (kwLines.length < maxKwLines) kwLines.push(ln);
@@ -591,7 +668,7 @@ window.printAllNodeLabels = async function (opts) {
                     if (cardLayout === 'keywords') {
                         if (kwLines.length) {
                             doc.setFont(fontName, "normal");
-                            doc.setFontSize(KW_PT);
+                            doc.setFontSize(kwPt);
                             doc.setTextColor(90, 90, 90);
                             const maxKwBottom = y + rowHeight - 3;
                             ty = top + titleH + KW_GAP + kwFH;
@@ -604,7 +681,9 @@ window.printAllNodeLabels = async function (opts) {
                         }
                     } else if (pageBg !== 'grid') {
                         // "summary" senza sfondo a quadretti: righe guida per scrivere a mano
-                        doc.setDrawColor(210, 210, 210);
+                        // 0128, allargamento 6: il colore dell'anteprima (--mm-bordo #cbd5e1 con la saturazione
+                        // +10 punti = #c7d5e5), non più il grigio #d2d2d2
+                        doc.setDrawColor(199, 213, 229);
                         doc.setLineWidth(0.1);
                         if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern([], 0);
                         const gStep = 8;
@@ -665,7 +744,7 @@ function _fontDoc(id) {
             ? window.MappAIPipelineCore.buildFileName('nodesheet', null, tuned,
                 { mappa: projectTitle, dettaglio: layoutName })
             : ('Foglio-nodi-' + (projectTitle ? projectTitle + '-' : '') + layoutName + verde + '.pdf');
-        return { ok: true, base64: doc.output('datauristring'), fileName: pipeName };
+        return { ok: true, base64: doc.output('datauristring'), fileName: pipeName, avvisi: senzaTagliN ? avvisiN : null };
     }
 
     /* Come per le flashcard: se il docente ha appena scelto un nome salvando in
@@ -677,6 +756,7 @@ function _fontDoc(id) {
         : `Label-${projectTitle}${verde}.pdf`);
     doc.save(domFileName);
     window.showToast(window.t('tst_labels_pdf', "Download PDF delle etichette avviato!"), "success");
+    if (senzaTagliN && avvisiN.messaggio) window.showToast(avvisiN.messaggio + ' ' + avvisiN.consiglio, 'warning');
 
     // Archivio documenti (005): il Foglio nodi è un PDF → salvato come data-URI,
     // riapribile dalla landing Insegna senza rigenerare.
@@ -704,13 +784,16 @@ function _fontDoc(id) {
 //
 // opts: { items:[{question,answer,explanation}], title, mapName, rootLabel, theme,
 //         fmt:'2x2v'(default)|'2x2'|'2x1'|'3x2'|'4x3'|'2x3'|'2x4',
-//         backside:bool → ❄️ FRONTE-RETRO IN FREEZE (decisione utente, 27/7/26):
-//           il percorso c'è e funziona (pagina domande + pagina risposte
-//           specchiate per riga), ma NON è rifinito né provato su carta. Mancano:
-//           opzione per il lato di ribaltamento (lungo/corto), margine di
-//           sicurezza per la deriva di registro, testata anche sul retro, foglio
-//           di prova con crocini. Non svilupparlo senza riaprire la decisione.
-//         fontMode:'uniform'|'card', bg:'none'|'grid', explanation:bool, toDisk:{} }
+//         backside:bool → FRONTE/RETRO. Il freeze del 27/7/26 l'ha riaperto Giacomo
+//           il 26/10 (packet 0128: «Riapro e si rifinisce»). Rifinito: `lato`
+//           ('lungo' di serie | 'corto') decide l'ordine del retro (PL.backOrder);
+//           sul retro la testata, il testo rientrato del margine per la deriva di
+//           registro (`G.safe`, 3 mm), il fondo che deborda di altrettanto, niente
+//           linee di taglio né piega (si taglia sul fronte); il corpo cresce sulla
+//           carta intera fino al tetto. Il foglio di prova coi crocini è
+//           `printFlashcardTestSheet`. Interruttore `mappai_fronte_retro_rifinito`:
+//           '0' rifà il retro di prima (righe specchiate, nessuna testata).
+//         lato:'lungo'|'corto', fontMode:'uniform'|'card', bg:'none'|'grid', explanation:bool, toDisk:{} }
 // Ritorna Promise<{ok, base64?, fileName}>. Con toDisk: nessun download, nessun toast.
 window.printFlashcardSheet = async function (opts) {
     opts = opts || {};
@@ -729,7 +812,13 @@ window.printFlashcardSheet = async function (opts) {
     const G = PL.flashGeom(opts.fmt);
     const fmt = G.key;
     const duplex = !!opts.backside;
+    let rifinito = false;
+    if (duplex) { try { rifinito = localStorage.getItem('mappai_fronte_retro_rifinito') !== '0'; } catch (e) { rifinito = true; } }
+    const lato = opts.lato === 'corto' ? 'corto' : 'lungo';
+    const SAFE = rifinito ? (G.safe || 0) : 0;
     const withExpl = opts.explanation !== false;
+    // SENZA TAGLI (0128, allargamento 2): testi interi, il corpo scende (PL.fitFlash, `senzaTagli`)
+    const senzaTagli = !!(PL.senzaTagliAttivo && PL.senzaTagliAttivo());
 
     // Testata: stessa risoluzione del foglio HTML (mappa + macro-area del ramo).
     const head = (window.MappAIQuizPrint && window.MappAIQuizPrint.cardHeader)
@@ -746,7 +835,7 @@ window.printFlashcardSheet = async function (opts) {
         return {
             question: String(it.question || ''),
             answer: String(it.answer || '—'),
-            explanation: ex.length > G.explMax
+            explanation: (!senzaTagli && ex.length > G.explMax)
                 ? ex.slice(0, G.explMax).replace(/[\s.,;:]+$/, '') + '…' : ex
         };
     });
@@ -760,7 +849,11 @@ window.printFlashcardSheet = async function (opts) {
         head.theme ? (themeWord ? themeWord + ' ' + head.theme : head.theme) : ''
     ];
     const fit = PL.fitFlash(cards, G, { lines: headLinesDrawn },
-        { policy: fontMode, withExpl: withExpl, duplex: duplex });
+        { policy: fontMode, withExpl: withExpl, duplex: duplex, retro: rifinito ? { safe: SAFE } : null, senzaTagli: senzaTagli });
+    // una carta in `sotto` (senza tagli) disegna col suo corpo, anche nel foglio a corpo uniforme
+    const corpoDi = function (idx) {
+        return ((fontMode === 'card' || (fit.sotto || []).indexOf(idx) >= 0) && fit.perCard[idx]) ? fit.perCard[idx] : fit;
+    };
     // Testi definitivi (spiegazioni tolte dove non stavano, «…» dove serviva):
     // gli stessi che disegna il foglio HTML.
     const finali = fit.items;
@@ -812,8 +905,27 @@ window.printFlashcardSheet = async function (opts) {
         // modello, HTML e PDF mandano a capo nello stesso punto.
         const measure = spacedPt
             ? function (s) { return s.length * (G.headAdvance || G.advance) * pt * PL.PT2MM; }
-            : function (s) { return doc.getTextWidth(s); };
+            : function (s) { return doc.getTextWidth(s) + spaziDi(s) * spazioInPiu(pt); };
         return PL.wrapLines(text, measure, widthMm);
+    }
+    /* LO SPAZIO IN PIÙ FRA LE PAROLE (0128, allargamento 1): `G.wordSpace` em sopra lo spazio del
+       carattere. jsPDF non lo sa allargare coi caratteri incorporati (l'operatore Tw del PDF vale solo
+       per i caratteri a un byte), quindi la riga si disegna parola per parola, con lo stesso metro con
+       cui `lines` ha deciso l'a-capo. A 0 la riga si disegna intera, com'era. */
+    function spazioInPiu(pt) { return (G.wordSpace > 0) ? G.wordSpace * pt * PL.PT2MM : 0; }
+    function spaziDi(s) { return (String(s).match(/ /g) || []).length; }
+    function riga(ln, x, baselineY, pt, italic) {
+        const extra = spazioInPiu(pt);
+        if (!extra || ln.indexOf(' ') < 0) {
+            if (italic) textSlanted(ln, x, baselineY); else doc.text(ln, x, baselineY);
+            return;
+        }
+        const sp = doc.getTextWidth(' ') + extra;
+        let cx = x;
+        ln.split(' ').forEach(function (w) {
+            if (w) { if (italic) textSlanted(w, cx, baselineY); else doc.text(w, cx, baselineY); }
+            cx += doc.getTextWidth(w) + sp;
+        });
     }
     // Righe di un blocco senza disegnarlo (serve per centrarlo verticalmente).
     function blockLines(text, pt, style, widthMm, spaced) {
@@ -853,7 +965,7 @@ window.printFlashcardSheet = async function (opts) {
         const step = pt * PL.PT2MM * (lineH || G.lineH);
         let cy = y + pt * PL.PT2MM;   // baseline della prima riga
         ls.forEach(function (ln) {
-            if (italic) textSlanted(ln, x, cy); else doc.text(ln, x, cy);
+            if (spaced) doc.text(ln, x, cy); else riga(ln, x, cy, pt, italic);
             cy += step;
         });
         if (spaced && typeof doc.setCharSpace === 'function') doc.setCharSpace(0);
@@ -899,11 +1011,37 @@ window.printFlashcardSheet = async function (opts) {
         dash([]);
     }
 
+    // ── il retro rifinito (0128) ─────────────────────────────────────────────
+    // La carta del retro è dove la stampante la mette, con 1-3 mm di scarto: tutto rientra di SAFE.
+    // In cima la stessa testata del fronte (una carta tagliata si riconosce anche dal retro), sotto la
+    // risposta centrata nello spazio che resta. Il fondo verde lo disegna la pagina, debordando.
+    function drawRetro(item, b, idx) {
+        const pc = corpoDi(idx);
+        const x = b.x + G.card.padX + SAFE;
+        const innerW = b.w - 2 * (G.card.padX + SAFE);
+        const H = function (n, pt, lh) { return n * pt * PL.PT2MM * (lh || G.lineH); };
+        let y = b.y + SAFE + G.card.padTop;
+        if (headLinesDrawn[0]) y = write(headLinesDrawn[0], x, y, G.head, 'bold', G.colors.accent, innerW, G.headLineH, true);
+        if (headLinesDrawn[1]) y = write(headLinesDrawn[1], x, y, G.head, 'bold', G.colors.muted, innerW, G.headLineH, true);
+        y += G.card.headGap;
+        const lblLs = answerWord ? blockLines(answerWord, G.head, 'bold', innerW, true) : [];
+        const als = blockLines(item.answer, pc.a, 'normal', innerW);
+        const els = item.explanation ? blockLines(item.explanation, pc.e, 'normal', innerW) : [];
+        const alt = (lblLs.length ? H(lblLs.length, G.head, G.headLineH) + G.card.lblGap : 0)
+            + H(als.length, pc.a)
+            + (els.length ? G.card.explGap + H(els.length, pc.e) : 0);
+        const disp = (b.y + b.h - SAFE - G.card.padBottom) - y;
+        y += Math.max(0, (disp - alt) / 2);
+        if (lblLs.length) y = draw(lblLs, x, y, G.head, 'bold', G.colors.muted, G.headLineH, true) + G.card.lblGap;
+        y = draw(als, x, y, pc.a, 'normal', G.colors.ink);
+        if (els.length) draw(els, x, y + G.card.explGap, pc.e, 'normal', G.colors.expl, null, false, true);
+    }
+
     // ── una carta ────────────────────────────────────────────────────────────
     // face: 'fold' (domanda sopra, risposta sotto) · 'front' · 'back' (duplex)
     function drawCard(item, b, idx, face) {
         const innerW = b.w - 2 * G.card.padX;
-        const pc = (fontMode === 'card' && fit.perCard[idx]) ? fit.perCard[idx] : fit;
+        const pc = corpoDi(idx);
         const frontH = (face === 'fold') ? b.h * fit.split / 100 : b.h;
 
         if (face !== 'front') {
@@ -977,6 +1115,24 @@ window.printFlashcardSheet = async function (opts) {
             drawCard(it, boxes[i], p * perPage + i, duplex ? 'front' : 'fold');
         });
         if (!duplex) continue;
+        if (rifinito) {
+            // RETRO RIFINITO (0128): l'ordine per il lato scelto, nessuna linea di taglio, il fondo che
+            // deborda di SAFE (uno scarto di registro non lascia strisce bianche), poi le risposte.
+            doc.addPage();
+            drawBg();
+            const ordine = PL.backOrder(pageItems.length, G, lato);
+            fill(G.colors.back);
+            ordine.forEach(function (srcIdx, slot) {
+                if (srcIdx == null || !pageItems[srcIdx]) return;
+                const b = boxes[slot];
+                doc.rect(b.x - SAFE, b.y - SAFE, b.w + 2 * SAFE, b.h + 2 * SAFE, 'F');
+            });
+            ordine.forEach(function (srcIdx, slot) {
+                if (srcIdx == null || !pageItems[srcIdx]) return;
+                drawRetro(pageItems[srcIdx], boxes[slot], p * perPage + srcIdx);
+            });
+            continue;
+        }
         // RETRO: ogni riga specchiata, altrimenti con la stampa fronte/retro sul
         // lato lungo la risposta finisce dietro la carta sbagliata.
         doc.addPage();
@@ -996,10 +1152,22 @@ window.printFlashcardSheet = async function (opts) {
        proponeva un nome inventato qui e la parte aggiunta a mano spariva: due
        nomi per lo stesso foglio, e quello che si vede è il peggiore. */
     const fileName = String(opts.fileName || ('Flashcard-' + title + '-' + fmt + '.pdf'));
-    if (opts.toDisk) return { ok: true, base64: doc.output('datauristring'), fileName: fileName };
+    /* L'AVVISO (0128, allargamento 2): quali carte sono uscite sotto il minimo uguale (11 pt) per non
+       tagliarle, e che cosa fare. Nel pieghevole si consiglia il fronte e retro (la domanda ha tutta la
+       carta); in fronte e retro resta solo accorciare. */
+    const avvisi = senzaTagli ? { sotto: fit.sotto.slice(), troppoLunghe: fit.troppoLunghe.slice(), corpo: fit.q, consiglio: '' } : null;
+    if (avvisi && avvisi.sotto.length) {
+        const n = avvisi.sotto.length;
+        avvisi.messaggio = (n === 1 ? window.t('fc_avv_una', '1 carta stampata più piccola, per non tagliare il testo.')
+            : window.t('fc_avv_piu', '{n} carte stampate più piccole, per non tagliare il testo.').replace('{n}', n));
+        avvisi.consiglio = duplex ? window.t('fc_avv_accorcia', 'Per stamparle più grandi accorcia il testo nell\'editor.')
+            : window.t('fc_avv_fr', 'Per leggerle meglio stampale in fronte e retro: la domanda ha tutta la carta.');
+    }
+    if (opts.toDisk) return { ok: true, base64: doc.output('datauristring'), fileName: fileName, avvisi: avvisi };
 
     doc.save(fileName);
     window.showToast(window.t('fc_sheet_done', '✓ Foglio flashcard generato'), 'success');
+    if (avvisi && avvisi.messaggio) window.showToast(avvisi.messaggio + ' ' + avvisi.consiglio, 'warning');
     try {
         if (window.MappAIStudyDocs) {
             window.MappAIStudyDocs.save({
@@ -1010,6 +1178,90 @@ window.printFlashcardSheet = async function (opts) {
             });
         }
     } catch (e) { /* archivio best-effort */ }
+    return { ok: true, fileName: fileName };
+};
+
+// ── IL FOGLIO DI PROVA DEL FRONTE/RETRO (0128) ──────────────────────────────
+// Due pagine sulla griglia vera delle flashcard. Fronte: le linee di taglio, in ogni carta il suo
+// numero e una croce con le tacche da 1 mm. Retro: in ogni posto il numero della carta che gli sta
+// davanti (PL.backOrder per il lato scelto), la croce, e il riquadro tratteggiato del margine di
+// sicurezza. Stampato fronte e retro e guardato in controluce dice due cose: se dietro l'1 c'è l'1 il
+// lato è giusto; lo scarto fra le croci, letto sulle tacche, è la deriva di registro della stampante.
+// opts: { fmt, lato:'lungo'|'corto', fileName, toDisk:{} } → Promise<{ ok, base64?, fileName }>
+window.printFlashcardTestSheet = async function (opts) {
+    opts = opts || {};
+    const PL = window.MappAIPrintLayout;
+    const t = function (k, f) { return window.t ? window.t(k, f) : f; };
+    if (!PL) {
+        if (!opts.toDisk) window.showToast('Layout di stampa non caricato', 'error');
+        return { ok: false, error: 'mappai-print-layout.js mancante' };
+    }
+    const G = PL.flashGeom(opts.fmt);
+    const lato = opts.lato === 'corto' ? 'corto' : 'lungo';
+    const SAFE = G.safe || 0;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: G.landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+    let fontName = 'courier';
+    try {
+        if (window.MappAIFont && window.MappAIFont.registraIn) fontName = (await window.MappAIFont.registraIn(doc, opts.font)) || fontName;
+        else if (window.MappAISpaceMono && window.MappAISpaceMono.registerInto(doc)) fontName = 'Space Mono';
+    } catch (e) { /* ripiego monospazio */ }
+    function rgb(hex) {
+        const h = String(hex || '#000').replace('#', '');
+        const n = h.length === 3 ? h.split('').map(function (c) { return c + c; }).join('') : h;
+        return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+    }
+    function tratto(hex, w, dash) {
+        const c = rgb(hex); doc.setDrawColor(c[0], c[1], c[2]); doc.setLineWidth(w);
+        if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern(dash && dash.length ? dash : [], 0);
+    }
+    function inchiostro(hex) { const c = rgb(hex); doc.setTextColor(c[0], c[1], c[2]); }
+    const boxes = PL.cardBoxes(G);
+    const latoTxt = lato === 'corto' ? t('fc_prova_corto', 'lato corto') : t('fc_prova_lungo', 'lato lungo');
+    function righe(lst, y) {
+        doc.setFont(fontName, 'normal'); doc.setFontSize(8.5); inchiostro(G.colors.muted);
+        lst.forEach(function (r, i) {
+            if (i === 0) doc.setFont(fontName, 'bold'); else doc.setFont(fontName, 'normal');
+            doc.text(r, G.marginX, y + i * 4);
+        });
+    }
+    function numero(k, b) {
+        doc.setFont(fontName, 'bold'); doc.setFontSize(44); inchiostro(G.colors.ink);
+        const s = String(k), w = doc.getTextWidth(s);
+        doc.text(s, b.x + b.w / 2 - w / 2, b.y + b.h / 2 - 14);
+    }
+    function croce(b) {
+        tratto(G.colors.ink, 0.2, []);
+        PL.croce(b).segs.forEach(function (sg) { doc.line(sg.x1, sg.y1, sg.x2, sg.y2); });
+    }
+    // FRONTE
+    righe([
+        t('fc_prova_titolo', 'Foglio di prova · fronte e retro, ') + latoTxt,
+        t('fc_prova_r1', 'In controluce: dietro ogni numero ci deve essere lo stesso numero, croce su croce.'),
+        t('fc_prova_r2', 'Lo scarto fra le croci è la deriva (tacche da 1 mm): oltre 3 mm il testo si avvicina al taglio.')
+    ], 5);
+    tratto(G.cut.color, G.cut.width, G.cut.dash);
+    boxes.forEach(function (b) { doc.roundedRect(b.x, b.y, b.w, b.h, G.card.radius, G.card.radius, 'D'); });
+    boxes.forEach(function (b, i) { numero(i + 1, b); croce(b); });
+    // RETRO
+    doc.addPage();
+    righe([
+        t('fc_prova_retro', 'Retro · ') + latoTxt,
+        t('fc_prova_r3', 'Il riquadro tratteggiato è il margine di sicurezza: il testo del retro sta lì dentro.')
+    ], 5);
+    const ordine = PL.backOrder(G.perPage, G, lato);
+    ordine.forEach(function (srcIdx, slot) {
+        const b = boxes[slot];
+        if (srcIdx == null) return;
+        numero(srcIdx + 1, b); croce(b);
+        tratto(G.colors.muted, 0.2, [1, 1]);
+        doc.rect(b.x + SAFE, b.y + SAFE, b.w - 2 * SAFE, b.h - 2 * SAFE, 'S');
+    });
+    if (typeof doc.setLineDashPattern === 'function') doc.setLineDashPattern([], 0);
+    const fileName = String(opts.fileName || (t('fc_prova_file', 'Foglio di prova flashcard') + ' - ' + latoTxt + '.pdf'));
+    if (opts.toDisk) return { ok: true, base64: doc.output('datauristring'), fileName: fileName };
+    doc.save(fileName);
+    window.showToast(t('fc_prova_fatto', '✓ Foglio di prova generato'), 'success');
     return { ok: true, fileName: fileName };
 };
 
@@ -1254,13 +1506,20 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
     opts = opts || {};
     if (!text || boxH <= 0 || boxW <= 0) return 0;
     var PT2MM = 0.352778;
-    var lineH = sizePt * PT2MM * 1.4;
+    /* 0122, lotto 3 (Giacomo, «E»): il passo di riga è quello FISSO del core del Foglio (6,35 mm =
+       24 px), non un multiplo del corpo — lo stesso che l'editor mostra a schermo; il 6.35 è il
+       ripiego se il core non è caricato. */
+    var NSC = (typeof window !== 'undefined' && window.MappAINodeSheet) || null;
+    /* 0128, allargamento 1: il passo viene dal core (`descPasso`: il fisso dello 0122 o corpo × K) e lo
+       spazio fra le parole ha un di più (`DESC_WORD_EM`, em); l'a-capo e il disegno usano lo stesso
+       `spaceW`, quindi la misura resta quella della resa */
+    var lineH = (NSC && typeof NSC.descPasso === 'function') ? NSC.descPasso(sizePt) : ((NSC && NSC.DESC_LINE_MM) || 6.35);
     var maxLines = Math.max(1, Math.floor(boxH / lineH + 0.001));
     doc.setFontSize(sizePt);
 
     function coreLower(t) { return t.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); }
     function wWidth(str, bold) { doc.setFont(fontName, bold ? 'bold' : 'normal'); return doc.getTextWidth(str); }
-    var spaceW = wWidth(' ', false);
+    var spaceW = wWidth(' ', false) + ((NSC && NSC.DESC_WORD_EM > 0) ? NSC.DESC_WORD_EM * sizePt * PT2MM : 0);
 
     // Tokenizza con flag bold (concetto-figlio, oppure nome proprio a metà frase)
     var prevEndsSentence = true;
@@ -1337,6 +1596,7 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
         last.natural = true; // riga troncata non va giustificata
     }
 
+    if (opts.esito) opts.esito.troncato = truncated;   /* 0128: chi sceglie il corpo deve sapere se è stato tagliato */
     if (opts.measureOnly) return lines.length * lineH;
 
     var yline = boxY + sizePt * PT2MM;
@@ -1345,7 +1605,11 @@ function _drawJustifiedDesc(doc, text, boxX, boxY, boxW, boxH, fontName, sizePt,
         if (!parts.length) { yline += lineH; continue; }
         var gaps = parts.length - 1;
         var sum = parts.reduce(function (a, p) { return a + p.width; }, 0);
-        var gap = (!lines[li].natural && gaps > 0) ? (boxW - sum) / gaps : spaceW;
+        /* 0122, lotto 3: a bandiera — lo spazio fra le parole è sempre quello naturale, mai la
+           distribuzione del residuo (su Space Mono faceva i «fiumi»). `natural` resta per chi
+           misura; la sillabazione delle parole che non entrano (tryHyphen) è l'a-capo, non la
+           giustificazione, e resta. */
+        var gap = spaceW;
         if (gap > spaceW * 4) gap = spaceW; // evita "fiumi" su righe con poche parole
         var cx = boxX;
         for (var pi = 0; pi < parts.length; pi++) {
@@ -2093,6 +2357,10 @@ window.generateDossierPDFFromOptions = async function () {
                        file HTML riaperto dove quel blocco non c'è. */
                     --pdf-font-family: var(--doc-font, 'Space Mono', monospace);
                     --pdf-base-font-size: calc(13px * ${fontScale}); /* Dimensione testo normale */
+                    /* 0122, lotto 3: era usata tre volte (body, .dossier-desc, .citation-text) e mai
+                       definita → il dossier cadeva su «normal» (≈1,2). 1,6: fra la Sintesi (1,7) e le
+                       finestre del motore (1,65). */
+                    --pdf-line-height: 1.6;
                     --pdf-title-font-size: calc(17px * ${fontScale}); /* Dimensione titolo principale */
                     --pdf-section-title-size: calc(9.5px * ${fontScale}); /* Dimensione titoli sezioni */
                     --pdf-citation-font-size: calc(11.5px * ${fontScale}); /* Dimensione testo citazioni */

@@ -1,0 +1,42 @@
+{
+ "file": "qwen-3.txt",
+ "righe": 15,
+ "intestazioni": 2,
+ "vuote": 0,
+ "merges": 6,
+ "crosslinks": 6,
+ "meta": {
+  "recovered": {
+   "nodes": 0,
+   "links": 0,
+   "merges": 6,
+   "crosslinks": 6
+  },
+  "lost": {
+   "nodes": 0,
+   "links": 0,
+   "merges": 0,
+   "crosslinks": 1
+  },
+  "partial": true,
+  "sections": [
+   {
+    "kind": "merges",
+    "recovered": 6,
+    "lost": 0
+   },
+   {
+    "kind": "crosslinks",
+    "recovered": 6,
+    "lost": 1
+   }
+  ],
+  "lostSamples": [
+   {
+    "kind": "crosslinks",
+    "reason": "json invalido",
+    "sample": "{\"source\":\"L1_3_L3_B2\",\"target\":\"L1_0_L2_A\",\"rel=\"negate\"}"
+   }
+  ]
+ }
+}

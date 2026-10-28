@@ -37,6 +37,20 @@ test('JSONL: empty MERGES never consumes the adjacent CROSSLINKS header', () => 
     assert.equal(partial.meta.lost.links, 1);
 });
 
+test('0121: il lettore JSONL legge le tre risposte vere della Fase 4 come il 21/10 (guardia di regressione)', () => {
+    // Lotto 0 del packet 0121: le righe «perse» sono prosa e ID degenerati del modello, non oggetti.
+    // Il lettore non si ripara; se qualcuno lo tocca, questi conteggi lo dicono.
+    const { window } = runtime();
+    const cartella = path.join(__dirname, 'fixtures/fase4');
+    for (const nome of ['gemma-feudi-1', 'gemma-feudalesimo-2', 'qwen-3']) {
+        const atteso = JSON.parse(fs.readFileSync(path.join(cartella, nome + '.lettore.json'), 'utf8'));
+        const r = window.parseJSONLResponse(fs.readFileSync(path.join(cartella, nome + '.txt'), 'utf8'));
+        assert.equal(r.merges.length, atteso.merges, nome + ': fusioni lette');
+        assert.equal(r.crosslinks.length, atteso.crosslinks, nome + ': cross link letti');
+        assert.deepEqual(plain(r.meta.lost), atteso.meta.lost, nome + ': righe perse');
+    }
+});
+
 const GOLD = 'La Germania vende oro alla Svizzera e riceve valuta dalla Banca Nazionale Svizzera.';
 const WRONG = 'La Svizzera vende oro alla Germania e riceve valuta dalla Banca Nazionale Svizzera.';
 const FOOD = 'Il razionamento distribuisce una quantità limitata di alimenti alla popolazione durante la guerra.';

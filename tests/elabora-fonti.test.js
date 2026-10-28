@@ -1125,54 +1125,9 @@ function vaultIo(o = {}) {
 }
 const primaDi = (ev, a, b) => ev.indexOf(a) >= 0 && ev.indexOf(b) >= 0 && ev.indexOf(a) < ev.indexOf(b);
 
-test('«Salva vault» su una cartella con index.yaml: flush con vaultNuovo false, atteso prima che saveMapVault finisca', async () => {
-  const h = vaultIo({ disco: { [VECCHIO]: { 'index.yaml': YAML, 'Allegati/x.pdf': byte('x') } }, cartella: VECCHIO, cancello: true });
-  let finito = false;
-  const p = h.g.saveMapVault().then(() => { finito = true; });
-  await riposo();
-  assert.deepEqual(h.flush, ['{"vaultNuovo":false}']);
-  assert.equal(finito, false, 'saveMapVault aspetta il flush');
-  h.rilascia();
-  await p;
-  assert.equal(finito, true);
-  assert.ok(primaDi(h.eventi, 'read:index.yaml', 'saveVault'), 'index.yaml si guarda PRIMA di salvare: ' + h.eventi.join(' · '));
-  assert.ok(primaDi(h.eventi, 'saveVault', 'flush-inizio') && h.eventi.includes('flush-fine'), 'il flush dopo il salvataggio, e finito');
-  assert.ok(!h.eventi.some(e => /^alert:/.test(e)), h.eventi.join(' · '));
-});
-
-test('«Salva vault» su una cartella senza index.yaml: vaultNuovo true', async () => {
-  const NUOVA = MAPPE + '/4R/Storia/Nuova';
-  const h = vaultIo({ disco: {}, cartella: NUOVA });
-  await h.g.saveMapVault();
-  assert.deepEqual(h.flush, ['{"vaultNuovo":true}']);
-  assert.ok(primaDi(h.eventi, 'read:index.yaml', 'saveVault'), h.eventi.join(' · '));
-  assert.ok(h.eventi.includes('flush-fine'), 'atteso');
-  /* una cartella vuota appena creata dalla finestra di sistema: uguale */
-  const h2 = vaultIo({ disco: { [NUOVA]: {} }, cartella: NUOVA });
-  await h2.g.saveMapVault();
-  assert.deepEqual(h2.flush, ['{"vaultNuovo":true}']);
-});
-
-test('«Salva vault» su una cartella il cui index.yaml non si legge per un altro motivo (permessi, troppo grande, nessuna risposta, canale che lancia): vale «c’era», vaultNuovo false', async () => {
-  /* read-vault-file non lancia: ogni errore torna { ok:false, error } (main.js:1011-1025) */
-  for (const risposta of [
-    { ok: false, error: 'EACCES: permission denied, open \'' + VECCHIO + '/index.yaml\'' },
-    { ok: false, error: 'file troppo grande (51MB)' },
-    undefined,
-    'lancia'
-  ]) {
-    const h = vaultIo({ disco: { [VECCHIO]: { 'index.yaml': YAML, 'Allegati/x.pdf': byte('x') } }, cartella: VECCHIO });
-    const vero = h.D.api.readVaultFile;
-    h.D.api.readVaultFile = async x => {
-      if (x && x.relPath === 'index.yaml') { if (risposta === 'lancia') throw new Error('canale interrotto'); return risposta; }
-      return vero(x);
-    };
-    await h.g.saveMapVault();
-    assert.deepEqual(h.flush, ['{"vaultNuovo":false}'], JSON.stringify(risposta));
-    assert.ok(primaDi(h.eventi, 'read:index.yaml', 'saveVault'));
-  }
-});
-
+/* 0124 (ADR 0025): qui c'erano tre prove di «Salva vault» (`saveMapVault`), uscita col packet: la cartella con
+   index.yaml, quella senza, quella il cui index.yaml non si legge. Il flush delle fonti di chi resta
+   (ensureProjectVault) lo provano i due casi qui sotto. */
 test('ramo 1 di ensureProjectVault: flush atteso con vaultNuovo false a interruttore acceso; con «0» nessun flush', async () => {
   const h = vaultIo({ disco: { [A]: { 'index.yaml': YAML } }, attivo: A, cancello: true });
   let esito = null;
@@ -1217,12 +1172,9 @@ test('ramo 2 di ensureProjectVault: flush atteso con vaultNuovo true; un flush c
   } finally { process.removeListener('unhandledRejection', spia); }
 });
 
-test('senza MappAIElabora (come sull\'iPad): nessuna lettura di index.yaml, e i salvataggi vanno lo stesso', async () => {
-  const h = vaultIo({ disco: { [VECCHIO]: { 'index.yaml': YAML } }, cartella: VECCHIO, senzaElabora: true });
-  await h.g.saveMapVault();
-  assert.ok(h.eventi.includes('saveVault'));
-  assert.ok(!h.eventi.includes('read:index.yaml'), h.eventi.join(' · '));
-  assert.ok(!h.eventi.some(e => /^(alert|error):/.test(e)), h.eventi.join(' · '));
+/* 0124: la prima metà di questo caso provava «Salva vault» (`saveMapVault`, uscita col packet): niente lettura di
+   index.yaml senza MappAIElabora. Resta la metà di ensureProjectVault. */
+test('senza MappAIElabora (come sull\'iPad): i salvataggi di ensureProjectVault vanno lo stesso', async () => {
   const r1 = await vaultIo({ disco: { [A]: { 'index.yaml': YAML } }, attivo: A, senzaElabora: true }).g.ensureProjectVault({});
   assert.equal(J(r1).created, false);
   const r2 = await vaultIo({ senzaElabora: true }).g.ensureProjectVault({});

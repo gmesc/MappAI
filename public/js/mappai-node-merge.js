@@ -34,9 +34,15 @@ window.handleMergeTargetClick = function (targetNode) {
     );
 };
 
-window.executeMerge = function (A, B) {
+// opzioni.inGenerazione (packet 0121): la fusione fatta DENTRO la generazione (Fase 4, dedup semantico)
+// non disegna, non scrive in Annulla, non mostra il toast. Il disegno a metà generazione faceva
+// adottare alla simulazione di d3 l'array vivo dei link, che il sanificatore dell'albero riscrive
+// subito dopo (source/target in stringa): 5239 errori «Cannot create property 'vx'» sul banco del
+// 21/10, e alla mappa dopo «node not found» su ogni fusione. Senza opzioni: tutto come prima.
+window.executeMerge = function (A, B, opzioni) {
+    const inGenerazione = !!(opzioni && opzioni.inGenerazione);
     if (window.MappAIJigsaw && (!window.MappAIJigsaw.guardWrite(A, 'fondi') || !window.MappAIJigsaw.guardWrite(B, 'fondi'))) return;
-    if (typeof window.pushUndoSnapshot === 'function')
+    if (!inGenerazione && typeof window.pushUndoSnapshot === 'function')
         window.pushUndoSnapshot('Fondi: ' + window.cleanLabel(A.label) + ' → ' + window.cleanLabel(B.label));
     const nodes = appState.db.nodes;
     const links = appState.db.links;
@@ -110,6 +116,7 @@ window.executeMerge = function (A, B) {
     appState.db.nodes = nodes.filter(n => n.id !== A.id);
 
     if (typeof window.updateDegreeStats === 'function') window.updateDegreeStats();
+    if (inGenerazione) return;
     renderGraph();
     window.showToast(window.t('tst_merged_into', '"{a}" fuso in "{b}"').replace('{a}', window.cleanLabel(A.label)).replace('{b}', window.cleanLabel(B.label)), 'success');
 };

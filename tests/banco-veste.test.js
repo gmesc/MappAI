@@ -4340,8 +4340,10 @@ test('K5-Z CSS: ogni regola nuova della veste in G1 vale solo sotto la veste; il
 
 test('K5-X06 la veste G1 legge la mappa VIVA: cambiata fuori dal Banco, la revisione è vecchia — lo dicono piede e scheda, e i campi non si scrivono', () => {
   const h = runtime1(); h.st.db.nodes[1].desc = 'Cambiata fuori dal Banco.'; h.apri1();
-  assert.match(q(h, '#mrv-next-step').textContent, /non corrispondono alla versione di questa revisione/);
-  assert.match(q(h, '[data-veste-avvisi]').textContent, /non corrispondono alla versione di questa revisione/);
+  // 0123, lotto 3 (0056): il piè non manda più a «riaprire la revisione» (riaprire non cambiava niente) ma a «Ricontrolla la mappa adesso»
+  assert.match(q(h, '#mrv-next-step').textContent, /^La mappa è cambiata dopo il controllo\. Per continuare premi «Ricontrolla la mappa adesso»/);
+  // 0123, lotto 3b: il riquadro dice la frase del piè
+  assert.match(q(h, '[data-veste-avvisi]').textContent, /La mappa è cambiata dopo il controllo\. Per continuare premi «Ricontrolla la mappa adesso»/);
   assert.equal(campo(h, 'desc').disabled, true);
 });
 
@@ -7586,8 +7588,9 @@ test('0097: «Ricontrolla la mappa adesso» senza chiave — l’errore arriva a
 });
 
 /* 0097 riaperto (Giacomo, 15/10 sera: «Banco: allineare il riquadro giallo della riga al piè»): con la G1 APPROVATA e poi superata il
-   riquadro giallo della riga dice la frase del piè; con la revisione in attesa e la mappa cambiata, quella di prima. */
-test('0097: G1 approvata e superata — il riquadro giallo della riga dice la frase del piè; in attesa quella di prima', async () => {
+   riquadro giallo della riga dice la frase del piè. 0123, lotto 3b (Giacomo, 23/10: «riapri il caso dello 0097»): anche con la
+   revisione IN ATTESA e la mappa cambiata il riquadro dice la frase del piè, non più «…riaprire la revisione…». */
+test('0097: G1 approvata e superata — il riquadro giallo della riga dice la frase del piè; in attesa anche (0123, lotto 3b)', async () => {
   const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'E').label = 'Esercito svizzero';
   const m = decidiTutto(g1Manifest()), begun = Core.beginApproval(m.review, DB1, { sources: SOURCES1, manualReview: true });
   assert.equal(begun.ok, true, JSON.stringify(begun.conflicts));
@@ -7599,8 +7602,102 @@ test('0097: G1 approvata e superata — il riquadro giallo della riga dice la fr
   assert.equal(box.includes(FRASE), true, 'il riquadro: ' + box);
   assert.equal(/riaprire la revisione sulla versione corretta/.test(box), false);
   assert.equal(q(h, '#mrv-next-step').textContent, FRASE, 'riquadro e piè dicono la stessa cosa');
-  // in attesa, mappa cambiata: la frase di prima, nel riquadro come nel piè
+  // in attesa, mappa cambiata (0123, lotto 3b): la frase del piè anche nel riquadro
   const a = runtime1({ manifest: g1Manifest(), db: cambiata }); a.apri1();
   await vaiA(a, rigaG1(a, 'A') ? 'A' : righe1(a)[0].getAttribute('data-veste-riga'));
-  assert.match(q(a, '[data-veste-avvisi]').textContent, /La mappa o le fonti non corrispondono alla versione di questa revisione/);
+  const FRASE_ATTESA = 'La mappa è cambiata dopo il controllo. Per continuare premi «Ricontrolla la mappa adesso»: il controllo riparte sulla mappa di adesso, e le scelte fatte fin qui restano nella revisione di prima.';
+  const boxA = q(a, '[data-veste-avvisi]').textContent;
+  assert.equal(boxA.includes(FRASE_ATTESA), true, 'il riquadro: ' + boxA);
+  assert.equal(/riaprire la revisione sulla versione corretta/.test(boxA), false);
+  assert.equal(q(a, '#mrv-next-step').textContent, FRASE_ATTESA, 'riquadro e piè dicono la stessa cosa');
+});
+
+/* ── 0123, lotto 3 (0056): la G1 IN ATTESA e la mappa cambiata sulla tela ──
+   Prima era un vicolo cieco: il piè diceva «…occorre riaprire la revisione sulla versione corretta del progetto.», il bottone in
+   fondo spariva, «Riprova» e «Nuovo controllo» rispondevano «Il contenuto è cambiato…», e riaprire riapriva la stessa revisione.
+   L'uscita decisa da Giacomo il 27/09 («Nuovo controllo sulla mappa di adesso»), col bottone dello 0097. */
+const FRASE_0123 = 'La mappa è cambiata dopo il controllo. Per continuare premi «Ricontrolla la mappa adesso»: il controllo riparte sulla mappa di adesso, e le scelte fatte fin qui restano nella revisione di prima.';
+function giudiceFinto(h) {
+  const chiamate = [];
+  h.window.executeJudgePass = async (key, o) => { chiamate.push({ key, apply: o.apply }); return { checkStatus: 'completed', issues: [] }; };
+  return chiamate;
+}
+test('0123 lotto 3: G1 in attesa e mappa cambiata — il piè lo dice e «Ricontrolla la mappa adesso» riparte sulla mappa di adesso', async () => {
+  // la mappa com'era: il piè e il bottone di prima
+  const buona = runtime1(); buona.apri1();
+  assert.equal(q(buona, '#mrv-next-step').textContent.includes(FRASE_0123), false);
+  assert.notEqual(q(buona, '#mrv-continue').textContent, 'Ricontrolla la mappa adesso');
+  const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'B').label = 'Banche svizzere';
+  const m = g1Manifest(); m.review = Core.setDecision(m.review, 'a2', 'reject');
+  const h = runtime1({ manifest: m, db: cambiata }), giudice = giudiceFinto(h); h.apri1();
+  assert.equal(q(h, '#mrv-next-step').textContent, FRASE_0123);
+  assert.equal(/riaprire la revisione/.test(q(h, '#mrv-next-step').textContent), false, 'niente più il vicolo cieco nel piè');
+  const bottone = q(h, '#mrv-continue');
+  assert.equal(bottone.hidden, false, 'il bottone in fondo si vede');
+  assert.equal(bottone.textContent, 'Ricontrolla la mappa adesso');
+  const prima = clone(h.rev()), aperte = [], open = h.R.open;
+  h.R.open = (...a) => { aperte.push(a[0]); return open.apply(h.R, a); };
+  await bottone.click(); await tick(); await tick(); await tick();
+  assert.deepEqual(giudice, [{ key: 'mock-key', apply: false }], 'UNA chiamata al giudice');
+  assert.equal(h.rev().initial.status, 'awaiting_review', 'il controllo nuovo sulla mappa di adesso');
+  assert.equal(Core.coincide(cambiata, h.rev().sources, h.rev(), 'base'), true, 'la revisione nuova fotografa la mappa di adesso');
+  assert.equal(h.rev().previous.baseRevision, prima.baseRevision, 'la revisione di prima in previous');
+  assert.equal(h.rev().previous.initial.decisions.a2.choice, 'reject', 'le scelte fatte fin qui restano nella revisione di prima');
+  assert.ok(h.calls.manifest >= 1, 'scritta sul disco');
+  assert.deepEqual(aperte, ['/vault'], 'il Banco si riapre, sulla revisione nuova');
+});
+
+test('0123 lotto 3: «Nuovo controllo con i modelli del Setup» e «Riprova il controllo automatico» con la mappa cambiata ricontrollano la mappa di adesso, non rifiutano', async () => {
+  const cambia = db => { db.nodes.find(n => n.id === 'B').label = 'Banche svizzere'; return db; };
+  // «Nuovo controllo», nella sezione «Il controllo»: si vede anche con la mappa cambiata
+  const h = runtime1({ db: cambia(clone(DB1)) }), giudice = giudiceFinto(h); h.apri1();
+  const nuovo = q(h, '#mrv-setup-judge');
+  assert.ok(!!nuovo, '«Nuovo controllo» c’è');
+  await nuovo.click(); await tick(); await tick(); await tick();
+  assert.equal(/cambiato/.test(q(h, '#mrv-status').textContent), false, 'nessun «Il contenuto è cambiato…»: ' + q(h, '#mrv-status').textContent);
+  assert.equal(giudice.length, 1);
+  assert.ok(!!h.rev().previous, 'revisione nuova, la vecchia in previous');
+  assert.equal(Core.coincide(h.st.db, h.rev().sources, h.rev(), 'base'), true);
+  // «Riprova», nel piè a decisioni finite: la mappa cambia col Banco aperto, poi il docente preme «Riprova»
+  const r = runtime1({ manifest: decidiTutto(g1Manifest()) }), giudiceR = giudiceFinto(r); r.apri1();
+  const riprova = q(r, '#mrv-next-step #mrv-retry-judge');
+  assert.ok(!!riprova, '«Riprova» nel piè');
+  cambia(r.st.db);
+  await riprova.click(); await tick(); await tick(); await tick();
+  assert.equal(/cambiato/.test(q(r, '#mrv-status').textContent), false, 'nessun «Il contenuto è cambiato…»: ' + q(r, '#mrv-status').textContent);
+  assert.equal(giudiceR.length, 1);
+  assert.ok(!!r.rev().previous, 'revisione nuova, la vecchia in previous');
+  assert.equal(r.rev().previous.initial.decisions.a1.choice, 'accept', 'le scelte restano nella revisione di prima');
+  assert.equal(Core.coincide(r.st.db, r.rev().sources, r.rev(), 'base'), true);
+});
+
+/* 0123, lotto 3b (Giacomo, 23/10: «Sistema anche la frase delle affermazioni che ripete le stesse parole»): sotto quarantena lo
+   strato accodava al piè «La mappa è cambiata dopo il controllo: per creare i materiali…», subito dopo la frase della veste che
+   comincia con le stesse parole. Nella veste lo strato dice solo la seconda metà; nel Banco di prima, dove il piè non dice che la
+   mappa è cambiata, la frase resta intera. */
+test('0123 lotto 3b: con lo strato acceso il piè dice una volta sola che la mappa è cambiata; il Banco di prima tiene la frase intera', () => {
+  const cambiata = clone(DB1); cambiata.nodes.find(n => n.id === 'B').label = 'Banche svizzere';
+  const h = conStrato1(runtime1({ storage: STRATO, db: cambiata })); h.apri1();
+  const piede = q(h, '#mrv-next-step').textContent;
+  assert.equal(piede, FRASE_0123 + ' Per creare i materiali vale di nuovo la revisione completa.');
+  assert.equal(piede.split('La mappa è cambiata').length - 1, 1, 'una volta sola: ' + piede);
+  const s = conStrato1(runtime1({ storage: Object.assign({ mappai_banco_veste: '0' }, STRATO), db: cambiata })); s.apri1();
+  assert.ok(!s.modal.className.includes('mrv-veste'));
+  assert.match(q(s, '#mrv-next-step').textContent, /La mappa è cambiata dopo il controllo: per creare i materiali vale di nuovo la revisione completa\.$/);
+  // la chiave nuova: ripiego italiano nel modulo, inglese nel dizionario, niente in it_translations.js
+  const src = fs.readFileSync(require.resolve('../public/js/mappai-affermazioni-ui.js'), 'utf8');
+  const en = fs.readFileSync(require.resolve('../public/traduzioni/en_translations.js'), 'utf8');
+  const it = fs.readFileSync(require.resolve('../public/traduzioni/it_translations.js'), 'utf8');
+  assert.ok(src.includes("t('aff_footer_changed_breve', 'Per creare i materiali vale di nuovo la revisione completa.')"));
+  assert.ok(/\n    aff_footer_changed_breve: "[^"]+",/.test(en));
+  assert.equal(it.includes('aff_footer_changed_breve'), false);
+});
+
+test('0123 lotto 3: la chiave nuova ha il ripiego italiano nel modulo e l’inglese nel dizionario, non in it_translations.js', () => {
+  const src = fs.readFileSync(require.resolve('../public/js/mappai-banco-veste.js'), 'utf8');
+  const en = fs.readFileSync(require.resolve('../public/traduzioni/en_translations.js'), 'utf8');
+  const it = fs.readFileSync(require.resolve('../public/traduzioni/it_translations.js'), 'utf8');
+  assert.ok(src.includes("t('rv_veste_g1_attesa_cambiata', '" + FRASE_0123 + "')"), 't() col ripiego italiano');
+  assert.ok(/\n    rv_veste_g1_attesa_cambiata: "[^"]+",/.test(en), 'la chiave inglese');
+  assert.equal(it.includes('rv_veste_g1_attesa_cambiata'), false);
 });

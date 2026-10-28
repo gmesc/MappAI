@@ -704,3 +704,107 @@ test('togliRichiamiCitazione: regge attributi, spazi e testo senza richiami', ()
     assert.strictEqual(DEC.togliRichiamiCitazione(''), '');
     assert.strictEqual(DEC.togliRichiamiCitazione(null), '');
 });
+
+/* ══ 0050 (packet 0123, lotto 2): le domande aperte non perdono id, prove e criteri ══
+   Due domande vere del foglio «Svizzera e la 2a GM – definizione» (22/10/2026): la
+   seconda ha `ramo` ≠ prima area? No: qui si costruisce apposta con un ramo diverso
+   dalla prima area, 2 prove, 3 criteri e un angolo, per vedere ogni campo. */
+const PCORE = require('../public/js/mappai-pipeline-core.js');
+const APERTA_A = {
+    l1: 'Diplomazia della Neutralità', ramo: 'Diplomazia della Neutralità',
+    question: 'Spiega che cos\'è l\'azione umanitaria della Svizzera verso i profughi.',
+    q: 'Spiega che cos\'è l\'azione umanitaria della Svizzera verso i profughi.',
+    guide: 'Definisce l\'opportunità di aiutare i profughi di guerra. Indica come causa del limite la situazione alimentare precaria. Cita la volontà di evitare conflitti.',
+    criteri: ['Definisce l\'opportunità di aiutare i profughi di guerra.', 'Indica come causa del limite la situazione alimentare precaria.', 'Cita la volontà di evitare conflitti.'],
+    criteria: ['Definisce l\'opportunità di aiutare i profughi di guerra.', 'Indica come causa del limite la situazione alimentare precaria.', 'Cita la volontà di evitare conflitti.'],
+    lines: 5, areas: ['Diplomazia della Neutralità'], livello: 'ponte', angle: 'definizione',
+    prove: ['ev-ee679b818c4fca0b-222', 'ev-36c7096861f90aa2-368'],
+    id: 'set_1791041467741_r0y9k-0', kind: 'open', draftKey: 'open-definizione', step: 'B'
+};
+const APERTA_B = {
+    l1: 'Economia di Guerra', ramo: 'Economia di Guerra',
+    question: 'Che cos\'è il commercio reciproco tra Svizzera e paesi dell\'Asse?',
+    guide: 'Definisce il commercio come uno scambio di beni. Spiega che la Svizzera esportava materiali verso Germania e Italia.',
+    criteri: ['Definisce il commercio come uno scambio di beni.', 'Spiega che la Svizzera esportava materiali verso Germania e Italia.', 'Collega lo scambio alla guerra.'],
+    criteria: ['(corretto in G2) Lo scambio è di beni e risorse.', 'Esportazioni verso l\'Asse.', 'Collega lo scambio alla guerra.'],
+    lines: 5, areas: ['Difesa Militare', 'Economia di Guerra'], livello: 'ponte', angle: 'causa',
+    prove: ['ev-25ebb8fc65c4cf6a-235', 'ev-4063b283dfa4f165-203'],
+    id: 'set_1791041467741_r0y9k-2', kind: 'open', draftKey: 'open-definizione', step: 'B'
+};
+const CAMPI_0050 = ['id', 'kind', 'draftKey', 'step', 'prove', 'ramo', 'criteri', 'criteria', 'angle'];
+
+test('0050: normOpenItem conserva id, kind, draftKey, step, prove, ramo, criteri, criteria e angle; q e l1 restano fuori; copie proprie', () => {
+    [APERTA_A, APERTA_B].forEach(src => {
+        const n = D.normOpenItem(src);
+        CAMPI_0050.forEach(k => assert.deepStrictEqual(n[k], src[k], k));
+        assert.ok(!('q' in n) && !('l1' in n), 'q e l1 sono forme storiche');
+        assert.notStrictEqual(n.prove, src.prove, 'prove è una copia propria');
+        assert.notStrictEqual(n.criteri, src.criteri, 'criteri è una copia propria');
+        assert.notStrictEqual(n.criteria, src.criteria);
+        assert.strictEqual(n.question, src.question); assert.strictEqual(n.guide, src.guide);
+        assert.strictEqual(n.lines, 5); assert.deepStrictEqual(n.areas, src.areas); assert.strictEqual(n.livello, 'ponte');
+        Object.keys(n).forEach(k => assert.notStrictEqual(n[k], undefined, k + ' a undefined'));
+    });
+});
+
+test('0050: un item nudo esce identico a oggi — gli stessi cinque campi, nello stesso ordine, nessun undefined', () => {
+    const n = D.normOpenItem({ question: 'Che cos\'è?', guide: 'Definisce. Spiega.', lines: 4, areas: ['Clima'] });
+    assert.deepStrictEqual(Object.keys(n), ['question', 'guide', 'lines', 'areas', 'livello']);
+    assert.deepStrictEqual(n, { question: 'Che cos\'è?', guide: 'Definisce. Spiega.', lines: 4, areas: ['Clima'], livello: 'ponte' });
+    const vuoto = D.normOpenItem({});
+    assert.deepStrictEqual(Object.keys(vuoto), ['question', 'guide', 'lines', 'areas', 'livello']);
+});
+
+test('0050: normOpenItems è idempotente, anche coi campi in più', () => {
+    const una = D.normOpenItems([APERTA_A, APERTA_B, { question: 'x' }]);
+    assert.deepStrictEqual(D.normOpenItems(una), una);
+});
+
+test('0050: la traccia porta i criteri — (i) cambiata con criteriDa; (ii) senza; (iii) riscritta identica; (iv) item senza criteri; (v) gli altri campi', () => {
+    const opts = { criteriDa: PCORE.criteriDaItem };
+    // (i) traccia cambiata, con la funzione → criteri e criteria si rifanno dalla traccia nuova
+    let out = D.setOpenField([APERTA_A, APERTA_B], 1, 'guide', APERTA_B.guide + ' Cita Guisan.', opts);
+    const attesi = PCORE.criteriDaItem({ guide: APERTA_B.guide + ' Cita Guisan.' });
+    assert.strictEqual(attesi[attesi.length - 1], 'Cita Guisan.');
+    assert.deepStrictEqual(out[1].criteri, attesi); assert.deepStrictEqual(out[1].criteria, attesi);
+    assert.deepStrictEqual(out[0].criteria, APERTA_A.criteria, 'l\'altra domanda non si tocca');
+    assert.deepStrictEqual(out[1].prove, APERTA_B.prove, 'le prove restano');
+    // (ii) traccia cambiata, senza la funzione → i due campi si tolgono (il foglio li ricava da solo)
+    out = D.setOpenField([APERTA_B], 0, 'guide', 'Traccia nuova.');
+    assert.ok(!('criteri' in out[0]) && !('criteria' in out[0]), 'senza criteriDa i criteri vecchi non restano');
+    out = D.setOpenField([APERTA_B], 0, 'guide', 'Traccia nuova.', { criteriDa: () => [] });
+    assert.ok(!('criteri' in out[0]) && !('criteria' in out[0]), 'un elenco vuoto toglie');
+    // (iii) riscritta identica → intatti, anche i criteria corretti in G2 e diversi dalla traccia divisa
+    out = D.setOpenField([APERTA_B], 0, 'guide', APERTA_B.guide, opts);
+    assert.deepStrictEqual(out[0].criteria, APERTA_B.criteria); assert.deepStrictEqual(out[0].criteri, APERTA_B.criteri);
+    // (iv) un item senza criteri non ne acquista
+    out = D.setOpenField([{ question: 'x', guide: 'a. b.' }], 0, 'guide', 'c. d.', opts);
+    assert.ok(!('criteri' in out[0]) && !('criteria' in out[0]));
+    // (v) question, lines, area:X e livello non toccano i criteri
+    let arr = [APERTA_B];
+    arr = D.setOpenField(arr, 0, 'question', 'Altra domanda?', opts);
+    arr = D.setOpenField(arr, 0, 'lines', 8, opts);
+    arr = D.setOpenField(arr, 0, 'area:Difesa Militare', null, opts);
+    arr = D.setOpenField(arr, 0, 'livello', 'base', opts);
+    assert.deepStrictEqual(arr[0].criteria, APERTA_B.criteria); assert.deepStrictEqual(arr[0].criteri, APERTA_B.criteri);
+    assert.deepStrictEqual(arr[0].prove, APERTA_B.prove); assert.strictEqual(arr[0].id, APERTA_B.id);
+});
+
+test('0050: una domanda aggiunta nell\'editor nasce con «<id del foglio>-a<k>», mai la forma numerica, mai un doppione; senza id del foglio niente id', () => {
+    const doc = { id: 'set_1791041467741_r0y9k', kind: 'openq', items: D.normOpenItems([APERTA_A, APERTA_B]) };
+    const n1 = D.blankItemFor(doc);
+    assert.strictEqual(n1.id, 'set_1791041467741_r0y9k-a1');
+    assert.deepStrictEqual(Object.keys(n1).filter(k => k !== 'id'), ['question', 'guide', 'lines', 'areas', 'livello']);
+    doc.items = D.insertAt(doc.items, doc.items.length, n1);
+    assert.strictEqual(D.blankItemFor(doc).id, 'set_1791041467741_r0y9k-a2');
+    doc.items = D.insertAt(doc.items, doc.items.length, D.blankItemFor(doc));
+    doc.items = D.removeAt(doc.items, 2);                       // via «-a1»
+    doc.items = D.insertAt(doc.items, doc.items.length, D.blankItemFor(doc));
+    const ids = doc.items.map(x => x.id);
+    assert.strictEqual(new Set(ids).size, ids.length, 'nessun doppione: ' + ids.join(' '));
+    ids.filter(x => /-a\d+$/.test(x)).forEach(x => assert.ok(!/-\d+$/.test(x.replace(/-a\d+$/, '-x')), x));
+    assert.ok(!('id' in D.blankItemFor({ kind: 'openq', items: [] })), 'senza id del foglio');
+    assert.deepStrictEqual(D.blankItemFor({ kind: 'quiz', items: [] }), D.blankItem('quiz'), 'quiz invariato');
+    assert.deepStrictEqual(D.blankItemFor({ kind: 'flashcards', items: [] }), D.blankItem('flashcards'), 'flashcard invariato');
+    assert.ok(!('id' in D.blankOpenItem()), 'blankOpenItem resta senza id (lo usa la pipeline)');
+});

@@ -29,25 +29,30 @@
   var LT = window.MappAILiveTeacher = { info: null, matInfo: null, _pollTimer: null, _timerTimer: null, _lastStatus: null };
 
   // ── Modale base (stesso linguaggio visivo degli hub) ──────────────────────
+
+  /* 0122 lotto 4b1: sfondo bloccato, Esc, piano e «un velo solo» li fa `MappAIVelo.monta` (mappai-velo.js),
+     lo stesso per tutti i velini fatti a mano; qui c'era una copia locale di `congela` (lotto 2). */
   function modal(icon, title, bodyHtml, maxWidth) {
     closeModal();
     var ov = document.createElement('div');
     ov.id = 'live-hub-modal';
+    ov.className = 'mm-velo';   /* 0122: il velo del motore, scuro e sfumato */
     /* ⚠️ Il piano si CHIEDE al motore (`prossimoZ`): un 9991 fisso finisce
        DIETRO la console di INSEGNA, che parte da 12000 — il QR si apriva
        davvero, invisibile sotto. */
     var _z = 9991;
     try { if (window.MappAIModal && window.MappAIModal.prossimoZ) _z = window.MappAIModal.prossimoZ(); } catch (e) { }
-    ov.style.cssText = 'position:fixed;inset:0;z-index:' + _z + ';background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px';
-    ov.innerHTML = '<div style="background:#f8fafc;border-radius:16px;box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxWidth || 'var(--mm-l)') + ',96vw);max-height:90vh;overflow-y:auto;padding:20px 24px" role="dialog" aria-modal="true">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-      '<div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;color:var(--mm-testo, #404040)">' +
-      '<i data-lucide="' + icon + '" style="width:22px;height:22px;color:#4f46e5"></i>' + esc(title) + '</div>' +
-      '<button type="button" class="lh-close" style="background:none;border:none;cursor:pointer;color:var(--mm-testo-3, #64748b);font-size:22px;line-height:1;padding:4px" aria-label="Chiudi">×</button>' +
-      '</div>' + bodyHtml + '</div>';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:' + _z + ';display:flex;align-items:center;justify-content:center;padding:18px';
+    /* 0122 (lotto 2): il box porta il vestito «grande» del motore (mappai-modal-tokens.css) e la
+       testata è quella del motore — icona nuda, titolo alla stessa quota, × da 44 */
+    ov.innerHTML = '<div class="mm-box--grande" style="background:#f8fafc;border-radius:var(--mm-r-box, 16px);box-shadow:0 25px 60px -12px rgba(0,0,0,.35);width:min(' + (maxWidth || 'var(--mm-l)') + ',96vw);max-height:90vh;overflow-y:auto;padding:var(--mm-pad, 22px)" role="dialog" aria-modal="true">' +
+      '<div class="mm-head"><div class="mm-head__ico"><i data-lucide="' + icon + '"></i></div>' +
+      '<div class="mm-head__testi"><div class="mm-title">' + esc(title) + '</div></div>' +
+      '<button type="button" class="mm-close lh-close" aria-label="Chiudi">&times;</button></div>' + bodyHtml + '</div>';
     ov.addEventListener('click', function (e) { if (e.target === ov) chiudiOChiedi(); });
     ov.querySelector('.lh-close').onclick = chiudiOChiedi;
     document.body.appendChild(ov);
+    if (window.MappAIVelo) window.MappAIVelo.monta(ov, chiudiOChiedi);
     if (window.safeCreateIcons) window.safeCreateIcons();
     return ov;
   }
@@ -61,24 +66,21 @@
   /* 0116, gate del 21/10 (Giacomo): «Se schiaccio il bottone 'x' con una
      sessione aperta deve mostrare un modale con le opzioni 'chiudi sessione',
      'ferma server', 'annulla'; se schiaccio 'chiudi sessione' o 'ferma server'
-     allora chiedi la conferma». Senza sessione la × chiude e basta. */
+     allora chiedi la conferma». Senza sessione la × chiude e basta.
+     0127, gate del 27/10 (Giacomo): via «Ferma server», e dopo «Chiudi sessione» via «Chiudi pannello».
+     A sessione aperta la × offre «Chiudi sessione» o «Annulla»; a sessione chiusa chiude il pannello, cioè
+     spegne il server, con la sua conferma. */
   function chiudiOChiedi() {
     var MM = window.MappAIModal;
     if (!(LT._dashOpen && LT.info) || !MM || !MM.open) return closeModal();
-    var chiusa = _fase() === 'closed';
-    var azioni = [{ id: 'annulla', etichetta: t('ds_annulla', 'Annulla'), ruolo: 'quieto' }];
-    if (!chiusa) azioni.push({ id: 'chiudi', etichetta: t('lv_close', 'Chiudi sessione'), ruolo: 'secondario' });
-    azioni.push({ id: 'ferma', etichetta: t('lv_stop', 'Ferma server'), ruolo: 'primario' });
+    if (_fase() === 'closed') return doStop();
     MM.open({
       titolo: t('lv_x_t', 'La sessione è ancora attiva'), icona: 'radio', taglia: 's',
-      sezioni: [{ testo: chiusa
-        ? t('lv_x_d_chiusa', 'La sessione è chiusa ma il server è acceso: gli allievi vedono ancora l\'esito.')
-        : t('lv_x_d', 'Gli allievi stanno ancora rispondendo. Che cosa vuoi fare?') }],
-      azioni: azioni
+      sezioni: [{ testo: t('lv_x_d', 'Gli allievi stanno ancora rispondendo. Che cosa vuoi fare?') }],
+      azioni: [{ id: 'annulla', etichetta: t('ds_annulla', 'Annulla'), ruolo: 'quieto' },
+        { id: 'chiudi', etichetta: t('lv_close', 'Chiudi sessione'), ruolo: 'primario' }]
     }).then(function (r) {
-      if (!r) return;
-      if (r.azione === 'chiudi') doClose();
-      else if (r.azione === 'ferma') doStop();
+      if (r && r.azione === 'chiudi') doClose();
     });
   }
   function closeModal() {
@@ -109,10 +111,25 @@
     // sessione quiz già attiva? → vai alla dashboard
     if (window.electronAPI && window.electronAPI.liveSessionInfo) {
       var info = await window.electronAPI.liveSessionInfo();
-      if (info && info.success) { LT.info = info; openDashboard(); return; }
+      if (info && info.success) { await _riaggancia(info); return; }
     }
     openHubMenu();
   };
+
+  /* 0131 (Giacomo, 27/10: «Sì a (c)»): una sessione «Costruisci» della Timeline ha il suo pannello. Qui si apriva
+     quello del quiz, coi bottoni del quiz («Avvia domande», «Report domande», «Report allievi»), che la Timeline
+     non ha. La modalità la dice il server (`/api/status` → session.mode), come in `renderActions`. */
+  function _riaggancia(info) {
+    LT.info = info;
+    var TLL = window.MappAITimelineLive;
+    if (!TLL || !TLL.riaggancia) { openDashboard(); return Promise.resolve(); }
+    return fetch('http://127.0.0.1:' + info.port + '/api/status?admin=' + encodeURIComponent(info.adminToken))
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        var ses = s && s.session;
+        if (ses && ses.mode === 'build') TLL.riaggancia(info, ses.phase); else openDashboard();
+      }, function () { openDashboard(); });
+  }
 
   // «Domande a scelta» (19/8): la card compare solo se il modulo c'è ed è
   // acceso — un kill-switch che lascia la card aprirebbe il vuoto.
@@ -125,16 +142,19 @@
     return !!(window.MappAISceltaAttivita && window.MappAISceltaAttivita.attiva());
   }
 
+  /* 0122 (Giacomo, 22/10): «questo modale deve mostrare le card con i titoli e le desc uguali a quelle
+     visibili nella sidebar» — le stesse chiavi `lim_card_*` della tab Attività live; l'ordine resta
+     quello dello 0116 (quiz, board, materials, tutor) */
   function openHubMenu() {
     var body = '<p style="font-size:13px;color:#475569;line-height:1.55;margin:0 0 14px">' +
       t('lv_hub_intro', 'Attività di classe via QR: gli allievi entrano dal telefono sulla rete d\'aula.') + '</p>' +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
-      card('radio', t('lv_card_quiz', 'Studio attivo live'), t('lv_card_quiz_d', 'Quiz a scelta multipla, domande aperte o domande tue'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.'), 'quiz') +
+      card('radio', t('lim_card_live', 'Esercizi'), t('lim_card_live_d', 'QuizMC, Domande aperte o Domande al volo.'), t('lv_card_quiz_tip', 'Ogni allievo risponde dal telefono; a fine sessione due report: heatmap domande e schede individuali.'), 'quiz') +
       /* 0116, gate del 21/10 (Giacomo): via «Domande aperte» (i fogli partono dal menu
          di «Studio attivo live») e via «Timeline» */
-      card('presentation', t('lv_card_board', 'Mappa LIVE'), t('lv_card_board_d', 'I gruppi propongono nodi dal telefono, live sulla mappa'), '', 'board') +
-      card('folder-down', t('lv_card_mat', 'Materiali di studio'), t('lv_card_mat_d', 'Pubblica file scaricabili via QR (senza login)'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.'), 'materials') +
-      card('message-circle', t('lv_card_tutor', 'Chiedi e Rispondi'), t('lv_card_tutor_d', 'Ogni allievo chatta col tutor sull\'argomento e consegna un testo suo'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.'), 'tutor') +
+      card('presentation', t('lim_card_board', 'Mappa'), t('lim_card_board_d', 'Mappe condivise'), '', 'board') +
+      card('qr-code', t('lim_card_mat', 'Invia file'), t('lim_card_mat_d', 'Scegli dalle risorse salvate'), t('lv_card_mat_tip', 'Gli allievi scaricano dispense, sintesi e PDF inquadrando il QR.'), 'materials') +
+      card('message-circle', t('lim_card_tutor', 'Interroga'), t('lim_card_tutor_d', 'Domanda con risposta assistita'), t('lv_card_tutor_tip', 'Il tutor guida senza mai scrivere il testo; al docente arrivano testo + trascrizione. Cap di scambi per contenere i costi.'), 'tutor') +
       '</div>';
     var ov = modal('radio', t('lv_hub_title', 'MappAI Live'), body, 'var(--mm-m)');
     /* i clic vanno per `data-act`, non per posizione: un elenco che perde o
@@ -190,6 +210,21 @@
       return x && Array.isArray(x.items) && x.items.length && (x.mode || 'quiz') === 'quiz';
     });
   }
+  /* 0127: l'angolo di un set con la regola dell'iPad (niente angolo per «auto» e per l'angolo vuoto);
+     lo dicono la riga del set nel menu, il box «Tipo» e il titolo dei report */
+  function _angoloDelSet(set) {
+    return (set && set.angle && set.angle !== 'auto' && window.quizAngleLabel) ? window.quizAngleLabel(set.angle) : '';
+  }
+  /* 0127 (Giacomo, 27/10): nel menu il nome del set senza il progetto, che si ripeteva su ogni riga. I nomi
+     seguono «[progetto] — [tipo] · [nome]» (set nati con la mappa e «Crea un documento»); per i set nati con
+     la mappa il nome è la chiave dell'angolo, e si scrive con la sua etichetta. Un nome fuori regola resta com'è. */
+  function _nomeDelSet(set, tipo, progetto) {
+    var n = String(set.title || '');
+    var pre = progetto + ' — ';
+    if (progetto && n.indexOf(pre) === 0) n = n.slice(pre.length);
+    if (set.angle && n === tipo + ' · ' + set.angle) n = [tipo, _angoloDelSet(set)].filter(Boolean).join(' · ');
+    return n || tipo;
+  }
   /* ⚠️ LA GUARDIA STA QUI, non nei chiamanti (21/8/26). `openLiveHub` la
      faceva già, ma la sidebar LIM e la console di INSEGNA chiamano
      `MappAILive.openSetup()` DIRITTO: con una sessione in corso offrivano di
@@ -198,7 +233,7 @@
   async function openLiveSetup() {
     if (window.electronAPI && window.electronAPI.liveSessionInfo) {
       var att = await window.electronAPI.liveSessionInfo();
-      if (att && att.success) { LT.info = att; openDashboard(); return; }
+      if (att && att.success) { await _riaggancia(att); return; }
     }
     var MM = window.MappAIModal;
     var sets = _setLive();
@@ -214,16 +249,16 @@
       return;
     }
     var sezioni = [];
+    var progetto = rootLabel();
     if (sets.length) sezioni.push({
       titolo: t('lv_sez_mc', 'Quiz a scelta multipla'),
       voci: sets.slice().reverse().map(function (x) {
         var tipo = x.type || t('lv_m_mc', 'Scelta multipla');
-        return {
-          id: 'set:' + x.id, icona: 'list-checks',
-          etichetta: x.title || tipo,
-          sotto: tipo + ' · ' + x.items.length + ' ' + t('lv_questions', 'domande'),
-          badge: x._pipeline ? t('lv_da_pipeline', 'con la mappa') : ''
-        };
+        var nome = _nomeDelSet(x, tipo, progetto);
+        /* la riga grigia dice solo quello che il nome non dice già; «con la mappa» è uscita (Giacomo, 27/10) */
+        var sotto = [tipo, _angoloDelSet(x)].filter(function (p) { return p && nome.toLowerCase().indexOf(p.toLowerCase()) < 0; });
+        sotto.push(x.items.length + ' ' + t('lv_questions', 'domande'));
+        return { id: 'set:' + x.id, icona: 'list-checks', etichetta: nome, sotto: sotto.join(' · ') };
       })
     });
     if (fogli.length) sezioni.push({
@@ -247,6 +282,7 @@
     });
     MM.open({
       titolo: t('lv_scegli_set_t', 'Avvia un\'attività live'), icona: 'radio', taglia: 'm', invio: false,
+      veste: 'grande',   /* 0122: famiglia C e icona nuda, come le altre tre finestre delle Attività live */
       sezioni: [{ testo: t('lv_scegli_set_d', 'Le domande ci sono già: nessuna generazione davanti alla classe.') }].concat(sezioni)
     }).then(function (r) {
       if (!r || !r.azione) return;
@@ -318,6 +354,8 @@
     if (!set || !Array.isArray(set.items) || !set.items.length) { toast(t('lv_set_empty', 'Questo set non ha domande.'), 'error'); return; }
     var mode = /ver|v\/f|\btf\b|true|fals/i.test(String(set.type || set.quizType || '')) ? 'tf' : 'mc';
     var modeLabel = mode === 'tf' ? t('lv_m_tf', 'Vero / Falso') : t('lv_m_mc', 'Scelta multipla');
+    /* 0127: il materiale = il tipo del set e il suo angolo; lo mostra il box «Tipo» e va nei titoli dei report */
+    var materiale = [modeLabel, _angoloDelSet(set)].filter(Boolean).join(' · ');
     var classes = (window.MappAIClasses && window.MappAIClasses.list()) || [];
     /* 0116: la tendina parte sulla classe del progetto aperto, non sulla classe attiva */
     var delProgetto = _classeDelProgetto();
@@ -336,7 +374,7 @@
         t('lv_from_set_hint', 'Avvia una sessione live con le domande GIÀ pronte di questo set — nessuna nuova generazione AI.') + '</div>' +
       '<span class="lv-lab">' + t('lv_class', 'Classe') + '</span>' + classField +
       '<div style="display:flex;gap:12px"><div style="flex:1"><span class="lv-lab">' + t('lv_qtype', 'Tipo') + '</span>' +
-        '<div style="border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:9px 11px;font-weight:700;color:#4f46e5;background:#eef2ff">' + esc(modeLabel) + ' · ' + set.items.length + ' ' + t('lv_questions', 'domande') + '</div></div>' +
+        '<div style="border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:9px 11px;font-weight:700;color:#4f46e5;background:#eef2ff">' + esc(materiale) + ' · ' + set.items.length + ' ' + t('lv_questions', 'domande') + '</div></div>' +
       '<div style="flex:1"><span class="lv-lab">' + t('lv_timer', 'Timer (min, 0 = nessuno)') + '</span><input id="lvs-timer" type="number" class="lv-in" value="0" min="0" inputmode="numeric"></div></div>' +
       '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px;cursor:pointer;font-size:12px;color:#475569;line-height:1.4">' +
         '<input type="checkbox" id="lvs-reveal" checked style="width:16px;height:16px;margin-top:1px;accent-color:#4f46e5;flex-shrink:0">' +
@@ -374,7 +412,9 @@
       LT._scope = '';                       // set = intera mappa
       LT._revealAnswers = !rev || rev.checked;
       var fb = ov.querySelector('#lvs-feedback');
-      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer, (fb && fb.checked) ? { feedbackImmediato: true } : undefined);
+      var opz = (fb && fb.checked) ? { feedbackImmediato: true } : {};
+      opz.materiale = materiale;
+      launch(cls, mode === 'tf' ? 'Vero-Falso' : 'Quiz', qs, timer, opz);
     };
   }
 
@@ -460,6 +500,8 @@
     if (extra.build) payload.build = extra.build;
     if (extra.scelta) payload.scelta = extra.scelta;
     if (extra.feedbackImmediato) payload.feedbackImmediato = true;
+    // 0127: genere e angolo per i titoli dei report («[Progetto] · [Materiale] · Report allievi»)
+    if (extra.materiale) payload.materiale = extra.materiale;
     // quali report sa produrre QUESTA sessione: la dashboard è una sola, ma
     // «domande» e «allievi» non esistono fuori dal quiz
     LT._reports = extra.reports || null;
@@ -612,21 +654,20 @@
         html += actBtn('lv-rep-q', t('lv_rep_q', 'Report domande'), '#4f46e5', '#fff');
         html += actBtn('lv-rep-s', t('lv_rep_s', 'Report allievi'), '#4f46e5', '#fff');
       }
-      html += actBtn('lv-folder', t('lv_folder', 'Apri cartella'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
-      html += actBtn('lv-end', t('lv_end', 'Chiudi pannello'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
+      html += actBtn('lv-folder', (window.tApriCartella ? window.tApriCartella() : t('lv_folder', 'Apri cartella')), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
     }
     /* «Stacca» solo quando la dashboard sta nel modale: dentro il pannello
-       fluttuante il gesto inverso è già la × della sua testata. */
-    if (!document.getElementById('lv-float-panel')) {
-      html += (phase === 'closed' ? '' : '<span style="flex:1"></span>') +
+       fluttuante il gesto inverso è già la × della sua testata. 0127, gate del 27/10 (Giacomo: «quando fermo
+       un'attività il bottone 'stacca' deve sparire»): solo a sessione aperta. */
+    if (phase !== 'closed' && !document.getElementById('lv-float-panel')) {
+      html += '<span style="flex:1"></span>' +
         actBtn('lv-detach', t('lv_detach', 'Stacca'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)');
     }
-    if (phase !== 'closed') { html += '<span style="flex:1"></span>' + actBtn('lv-stop', t('lv_stop', 'Ferma server'), '#f1f5f9', '#64748b'); }
     box.innerHTML = html;
     wire(phase);
   }
   function actBtn(id, label, bg, fg) {
-    return '<button type="button" id="' + id + '" style="background:' + bg + ';color:' + fg + ';border:0;border-radius:10px;padding:9px 15px;cursor:pointer;font-weight:700;font-size:12.5px">' + esc(label) + '</button>';
+    return '<button type="button" id="' + id + '" style="background:' + bg + ';color:' + fg + ';border:0;border-radius:10px;padding:9px 15px;cursor:pointer;font-weight:700;font-size:var(--mm-btn-fs)">' + esc(label) + '</button>';
   }
   function wire(phase) {
     var det = document.getElementById('lv-detach');
@@ -648,16 +689,16 @@
     if (rs) rs.onclick = function () { window.open('http://127.0.0.1:' + LT.info.port + '/api/report?admin=' + encodeURIComponent(LT.info.adminToken) + '&which=students', '_blank'); };
     var folder = document.getElementById('lv-folder');
     if (folder) folder.onclick = function () { if (window.electronAPI.liveOpenFolder) window.electronAPI.liveOpenFolder(); };
-    var stop = document.getElementById('lv-stop');
-    if (stop) stop.onclick = doStop;
-    var end = document.getElementById('lv-end');
-    if (end) end.onclick = doStop;
   }
   /* «Chiudi sessione»: le consegne si fermano e i report si scrivono; il server
-     resta su (gli allievi vedono l'esito, il docente apre i report). */
+     resta su (gli allievi vedono l'esito, il docente apre i report). 0127: la conferma è del motore, come la × */
   function doClose(chiedi) {
     if (!LT.info) return Promise.resolve();
-    if (chiedi !== false && !confirm(t('lv_close_confirm', 'Chiudere la sessione e generare i report?'))) return Promise.resolve(false);
+    var chiesto = chiedi === false ? Promise.resolve(true) : window.MappAIModal.conferma({
+      titolo: t('lv_close_confirm', 'Chiudere la sessione e generare i report?'), icona: 'radio', conferma: t('lv_close', 'Chiudi sessione') });
+    return chiesto.then(function (si) { return si ? _chiudiSessione() : false; });
+  }
+  function _chiudiSessione() {
     return fetch('http://127.0.0.1:' + LT.info.port + '/api/close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: LT.info.adminToken }) })
       .then(function () { renderActions('closed'); toast(t('lv_closed', 'Sessione chiusa — report pronti'), 'success'); return true; })
       .catch(function () { return false; });
@@ -666,9 +707,15 @@
      sessione ancora aperta sul disco — niente report, e rilanciando la stessa
      attività lo stesso giorno l'app la RIPRENDEVA, con le consegne di prima
      (Giacomo: «la riapro la sessione mostra ancora i dati delle consegne»). Ora
-     una sessione non chiusa si chiude, coi suoi report, e poi il server si spegne. */
+     una sessione non chiusa si chiude, coi suoi report, e poi il server si spegne.
+     0127, gate del 27/10: è la × a sessione chiusa, e la conferma è del motore. */
   function doStop() {
-    if (!confirm(t('lv_stop_confirm2', 'Fermare il server? La sessione si chiude e i report restano nella cartella della sessione.'))) return;
+    return window.MappAIModal.conferma({
+      titolo: t('lv_end_t', 'Chiudere il pannello?'), icona: 'radio', conferma: t('lv_end', 'Chiudi pannello'),
+      testo: t('lv_end_d', 'Il server si spegne: gli allievi non vedranno più il risultato e non potranno salvarlo. I report restano nella cartella della sessione.')
+    }).then(function (si) { if (si) _fermaServer(); return !!si; });   // 0131: chi chiede sa se il server si è spento
+  }
+  function _fermaServer() {
     var aperta = LT.info && _fase() !== 'closed';
     var prima = aperta ? doClose(false) : Promise.resolve();
     prima.then(function () {
@@ -765,21 +812,21 @@
     var qrSrc = qrDataUrl(url);
     var files = LT.matInfo.files || [];
     var list = files.length
-      ? files.map(function (f) { return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:7px 10px;font-size:12.5px"><span style="flex:1;word-break:break-all">' + esc(f.file) + '</span><span style="color:var(--mm-testo-3, #64748b)">' + Math.max(1, Math.round(f.size / 1024)) + ' KB</span></div>'; }).join('')
-      : '<div style="color:var(--mm-testo-3, #64748b);font-size:12.5px">' + t('lv_no_files', 'Nessun file. Aggiungine con il bottone qui sotto.') + '</div>';
+      ? files.map(function (f) { return '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--mm-bordo, #cbd5e1);border-radius:10px;padding:7px 10px;font-size:var(--mm-fs-testo)"><span style="flex:1;word-break:break-all">' + esc(f.file) + '</span><span style="color:var(--mm-testo-3, #64748b)">' + Math.max(1, Math.round(f.size / 1024)) + ' KB</span></div>'; }).join('')
+      : '<div style="color:var(--mm-testo-3, #64748b);font-size:var(--mm-fs-testo)">' + t('lv_no_files', 'Nessun file. Aggiungine con il bottone qui sotto.') + '</div>';
     var body = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start">' +
       '<div style="text-align:center">' + (qrSrc ? '<img id="lv-mqr" src="' + qrSrc + '" style="width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--mm-bordo, #cbd5e1);cursor:zoom-in">' : '') +
-      '<div style="font-size:12px;color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
+      '<div style="font-size:var(--mm-ctl-fs);color:#475569;margin-top:6px;word-break:break-all">' + LT.matInfo.urls.map(esc).join('<br>') + '</div>' +
       (window.MappAINetMode ? window.MappAINetMode.lanLineHtml(LT.matInfo) : '') +
-      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div>' +
-      '<div style="font-size:11px;color:var(--mm-testo-3, #64748b);margin-top:2px">' + t('lv_mat_app', 'Questo QR è per i telefoni. Per l\'app MappAI studente usa «Vault su iPad» in INSEGNA.') + '</div></div>' +
-      '<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mm-testo-3, #64748b);margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
+      '<div style="font-size:var(--mm-fs-label);color:var(--mm-testo-3, #64748b);margin-top:4px">' + t('lv_mat_hint', 'Gli allievi scaricano senza login') + '</div>' +
+      '<div style="font-size:var(--mm-fs-label);color:var(--mm-testo-3, #64748b);margin-top:2px">' + t('lv_mat_app', 'Questo QR è per i telefoni. Per l\'app MappAI studente usa «Vault su iPad» in INSEGNA.') + '</div></div>' +
+      '<div><div style="font-size:var(--mm-fs-sez);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--mm-testo-3, #64748b);margin-bottom:8px">' + t('lv_files', 'File pubblicati') + '</div>' +
       '<div id="lv-filelist" style="display:flex;flex-direction:column;gap:5px">' + list + '</div></div></div>' +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
       actBtn('lv-madd', t('lv_add_file', 'Aggiungi file…'), '#4f46e5', '#fff') +
       actBtn('lv-mstop', t('lv_mstop', 'Ferma server materiali'), '#f1f5f9', '#64748b') +
       '<span style="flex:1"></span>' + actBtn('lv-mback', t('lv_back', 'Indietro'), 'var(--mm-neutro, #f1f4f8)', 'var(--mm-testo, #404040)') + '</div>';
-    var ov = modal('folder-down', t('lv_mat_title', 'Materiali di studio'), body, 'var(--mm-m)');
+    var ov = modal('folder-down', t('lv_mat_title', 'Invia file'), body, 'var(--mm-m)');   /* 0122 (Giacomo, 22/10): come la card */
     var qrImg = ov.querySelector('#lv-mqr'); if (qrImg) qrImg.onclick = function () { openQrFull(url); };
     ov.querySelector('#lv-madd').onclick = function () {
       window.electronAPI.liveMaterialsAdd().then(function (r) {
@@ -815,6 +862,13 @@
     return launch(cls, activity, questions, timer, extra);
   };
   window.MappAILive.openDashboard = function () { return openDashboard(); };
+  /* 0131: «Chiudi pannello» per chi ha un pannello suo (la Timeline «Costruisci»): stessa conferma, stesso
+     spegnimento, `LT.info` azzerato. `{ chiusa: true }` = la sessione è già chiusa: `_fermaServer` non la
+     richiude (un secondo /api/close e un secondo toast). Risponde se il server si è spento. */
+  window.MappAILive.chiudiPannello = function (o) {
+    if (o && o.chiusa) { LT._lastStatus = null; _curPhase = 'closed'; }
+    return doStop();
+  };
   window.MappAILive.publishHtml = function (filename, html) {
     if (!window.electronAPI || !window.electronAPI.liveMaterialsAddHtml) { toast(t('lv_electron', 'MappAI Live richiede l\'app desktop.'), 'warning'); return Promise.resolve(); }
     var ensure = ensureMatServer();

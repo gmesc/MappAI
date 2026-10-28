@@ -7,9 +7,9 @@
 // SOTA: MARKDOWN VAULT LOGIC
 // ==========================================
 
-// Assembla l'oggetto mapData del vault dallo stato corrente (stessi campi del
-// salvataggio manuale). Riusato da saveMapVault (con dialog) E dalla pipeline
-// 011 (salvataggio automatico via electronAPI.saveVault, senza dialog).
+// Assembla l'oggetto mapData del vault dallo stato corrente. Lo usano la
+// cartella che nasce a fine generazione (ensureProjectVault) e la pipeline 011
+// (salvataggio automatico via electronAPI.saveVault, senza dialog).
 /* ── IL VAULT DICE DI CHE COSA PARLA (Giacomo, 9/8) ────────────────────────────
    Perché: un vault si passa a un collega. Fino a oggi classe e materia vivevano
    SOLO nei nomi delle cartelle (`Mappe/<classe>/<materia>/<mappa>`) e nel progetto
@@ -138,127 +138,9 @@ window.buildVaultMapData = function () {
     };
 };
 
-window.saveMapVault = async function () {
-    if (!appState.db.nodes.length) return window.showAlert("Errore", "Nessuna mappa da esportare.");
-
-    /* 0061: l'identità com'era prima del gesto (cartella, classe, materia, id, id della
-       cartella), da rimettere se la scrittura fallisce — la cartella scelta non è
-       diventata della mappa. */
-    let prima = null, scritta = false;
-    const rimetti = () => {
-        appState.activeVaultPath = prima.percorso;
-        appState.activeVaultClassDir = prima.classe;
-        appState.activeVaultDiscDir = prima.materia;
-        if (typeof StorageManager !== 'undefined') { StorageManager.currentProjectId = prima.id; StorageManager.idInCartella = prima.idInCartella; }
-    };
-
-    try {
-        if (appState._reviewRestoring || appState._reviewRestoreError) return null;
-        const result = await window.electronAPI.pickFolder({ createOnly: true });
-        if (result.canceled) return;
-
-        window.showLoadingOverlay(true, "Esportazione Vault in corso...");
-
-        /* Fonti/ (0059): la finestra di sistema lascia scegliere anche un vault
-           che c'è già, e lì la fonte si legge e non si scrive (ADR 0011 rev. 1).
-           Se il vault nasce ADESSO lo dice `index.yaml`, guardato PRIMA di
-           salvare. `read-vault-file` non lancia: ogni errore torna come
-           { ok:false, error } (main.js:1011-1025). Vale «nuovo» SOLO se la
-           risposta dice che `index.yaml` non c'è («file non trovato: …») o che
-           la cartella non c'è («vault inesistente»); qualunque altro errore —
-           permessi, file troppo grande, una risposta che non arriva o il canale
-           che lancia — vale «c'era», e lì nel dubbio non si scrive. `var`: la
-           risposta serve al flush più sotto, dentro la stessa guardia — fuori
-           dalla guardia (l'iPad, senza ELABORA) qui non succede niente. */
-        if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
-            var esisteva = true;
-            try {
-                const yaml = await window.electronAPI.readVaultFile({ vaultPath: result.folderPath, relPath: 'index.yaml' });
-                esisteva = !(yaml && yaml.ok === false && /^(file non trovato|vault inesistente)/.test(String(yaml.error || '')));
-            } catch (e) { esisteva = true; }
-        }
-
-        /* Adottare la cartella, non solo scriverne il percorso (11/9): senza,
-           `activeVaultClassDir`/`activeVaultDiscDir` restano quelli della mappa di
-           prima e il progetto si registra in una posizione che non è la sua. Da lì
-           un'altra mappa può rivendicare la stessa cartella e sovrascriverla — è
-           successo davvero.
-           0061 (29/09, D2; ADR 0013): l'adozione viene PRIMA della scrittura, col
-           gesto `per-la-mappa`, così `index.yaml` nasce con l'id della mappa in
-           memoria: la mappa porta la sua identità dove il docente la salva. Prima si
-           scriveva e poi si adottava per NOME, e la mappa in memoria prendeva l'id
-           della mappa che stava sovrascrivendo. Se la mappa è già legata a un'ALTRA
-           cartella (`percorsoPrima`), il gesto è una copia: la cartella scelta riceve
-           un id nuovo, e quella di prima tiene il suo e la sua voce. `activeVaultPath`
-           si scrive DOPO l'adozione (packet 0061 §4, «L'ordine»). */
-        prima = { percorso: appState.activeVaultPath, classe: appState.activeVaultClassDir, materia: appState.activeVaultDiscDir,
-            id: (typeof StorageManager !== 'undefined') ? StorageManager.currentProjectId : undefined,
-            idInCartella: (typeof StorageManager !== 'undefined') ? StorageManager.idInCartella : undefined };
-        try {
-            if (typeof StorageManager !== 'undefined' && StorageManager.adottaVault) {
-                await StorageManager.adottaVault(result.folderPath, appState, { gesto: 'per-la-mappa', percorsoPrima: prima.percorso || null });
-            }
-        } catch (e) { console.warn('[Vault] adozione non riuscita:', e && e.message); }
-        appState.activeVaultPath = result.folderPath;
-
-        const saveRes = await window.electronAPI.saveVault({
-            folderPath: result.folderPath,
-            mapData: window.buildVaultMapData()
-        });
-        scritta = !!(saveRes && saveRes.success);
-
-        window.showLoadingOverlay(false);
-        if (saveRes.success) {
-            window.avvisaIstantanea(saveRes);
-            /* il disco è cambiato: chi mostra elenchi rilegge (9/8) */
-            try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-salvata', { vaultPath: result.folderPath }); } catch (e) { }
-
-            // Fonti/: ora che il vault esiste, salva gli originali PDF delle
-            // sources ancora in memoria (22/7/26 — anteprima ELABORA persistente)
-            /* 0059: ATTESO, e con `vaultNuovo` — su un vault che c'era e senza
-               `Fonti/` non si scrive niente. Un fallimento non fa fallire il
-               salvataggio della mappa, che è già sul disco. */
-            if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
-                try { await window.MappAIElabora.flushSourcesToVault({ vaultNuovo: esisteva === false }); }
-                catch (e) { console.warn('[Vault] fonti non scritte in Fonti/:', e && e.message); }
-            }
-            /* Sorgenti/: i fogli di domande aperte che l'archivio tiene ancora
-               per questa mappa (6/9) — stessa strada di `flushSourcesToVault` */
-            try {
-                if (window.MappAIQuizPrint && window.MappAIQuizPrint.ripescaSorgenti) window.MappAIQuizPrint.ripescaSorgenti(result.folderPath, appState.rootNodeLabel || '');
-            } catch (e) { }
-
-            // Applica upgrade per ripulire il Base64 dalla memoria
-            if (saveRes.upgrades) {
-                saveRes.upgrades.forEach(up => {
-                    const node = appState.db.nodes.find(n => n.id === up.id);
-                    if (node && up.images) {
-                        node.images = up.images;
-                        if (up.images.length > 0) node.image = up.images[0];
-                    }
-                });
-                console.log("Memory Clean: Base64 images replaced with local paths.");
-            }
-
-            // Mostra subito il tasto Sincronizza
-            const syncBtn = document.getElementById('sync-vault-btn');
-            if (syncBtn) {
-                syncBtn.classList.remove('hidden');
-                syncBtn.classList.add('flex');
-            }
-
-            window.showToast(window.t('tst_vault_created', "Vault creato e collegato!"), "success");
-        } else {
-            rimetti();   // 0061: la cartella scelta non è diventata della mappa
-            window.showAlert("Errore Salvataggio", saveRes.error);
-        }
-    } catch (e) {
-        if (prima && !scritta) rimetti();   // 0061: idem, se la scrittura ha lanciato
-        window.showLoadingOverlay(false);
-        console.error(e);
-        window.showAlert("Errore", e.message);
-    }
-};
+/* 0124 (ADR 0025): qui c'era `saveMapVault`, «Esporta nel Vault» e «Sincronizza Vault». Non copiava: la
+   cartella scelta (anche la Scrivania) DIVENTAVA la cartella del progetto, ed è così che nascevano i progetti fuori
+   da «MappAI - file». Un progetto entra solo da «Importa vault» (`loadMapVault` → `MappAIImportVault`). */
 
 // Auto-creazione ORDINATA della cartella vault (riordino su disco, 22/7).
 // A fine generazione (e come backfill dalla sezione Insegna) crea la cartella
@@ -459,7 +341,7 @@ window.ensureProjectVault = async function (opts) {
            riapriva la finestra. Ora lo dice (9/8). */
         try { if (window.MappAIVaults) window.MappAIVaults.segnala('mappa-creata', { vaultPath: folderPath }); } catch (e) { }
 
-        // Fonti/: travasa gli originali PDF ancora in memoria (come saveMapVault).
+        // Fonti/: travasa gli originali PDF ancora in memoria.
         /* 0059: la cartella è nata adesso. ATTESO: prima il `try` stava attorno a
            una funzione async non attesa, e un rifiuto gli sfuggiva. */
         if (window.MappAIElabora && window.MappAIElabora.flushSourcesToVault) {
@@ -473,8 +355,6 @@ window.ensureProjectVault = async function (opts) {
                 if (node && up.images) { node.images = up.images; if (up.images.length > 0) node.image = up.images[0]; }
             });
         }
-        var syncBtn = document.getElementById('sync-vault-btn');
-        if (syncBtn) { syncBtn.classList.remove('hidden'); syncBtn.classList.add('flex'); }
 
         if (typeof StorageManager !== 'undefined' && StorageManager.saveCurrentProject) StorageManager.saveCurrentProject();
         return { created: true, folderPath: folderPath, classDir: classDir, discDir: discDir || null };
@@ -757,13 +637,6 @@ window.loadMapVault = async function () {
             }
 
             window.switchToMapLayout();
-
-            // Mostra tasto Sincronizza Vault
-            const syncBtn = document.getElementById('sync-vault-btn');
-            if (syncBtn) {
-                syncBtn.classList.remove('hidden');
-                syncBtn.classList.add('flex');
-            }
 
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");

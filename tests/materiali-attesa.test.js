@@ -437,8 +437,10 @@ test('0094 S7: la briciola del progetto in ELABORA porta «Rinomina…» in fond
         h.g.MappAITeach.perRinomina = m => ({ vaultPath: m.v.fullPath, nome: m.v.folderName, lettura });
         await h.open();
         const l = h.spec().livelli, ultimo = l[l.length - 1];
-        if (lettura) assert.equal(!!(ultimo.menu && ultimo.menu.nuovo), false, 'lettura: niente «Rinomina…»');
-        else assert.equal(ultimo.menu.nuovo.et, 'Rinomina…');
+        /* 0124: le azioni in fondo al menu sono un elenco («Rinomina…», poi «Riassegna…» e «Copia…») */
+        const azioni = [].concat((ultimo.menu && ultimo.menu.nuovo) || []);
+        if (lettura) assert.equal(azioni.length, 0, 'lettura: niente «Rinomina…»');
+        else assert.equal(azioni[0].et, 'Rinomina…');
         await h.close();
     }
 });

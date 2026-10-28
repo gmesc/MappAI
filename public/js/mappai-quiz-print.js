@@ -142,7 +142,7 @@ function _qpStileCornice(accento, o) {
     o = o || {};
     return DH.stile({
         accento: accento, mappa: o.mappa || '', logo: o.logo || '',
-        pagina: o.pagina
+        pagina: o.pagina, report: !!o.report   // 0132: il foglio compilato dell'iPad è un report → titolo a 24 px
     });
 }
 
@@ -263,6 +263,20 @@ function _qpPrintItems(set) {
 // opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true) }.
 // includeAnswers:false = copia per gli allievi, senza il foglio soluzioni in coda.
 // Non tocca il DOM principale.
+/* IL CORPO E L'INTERLINEA SCELTI DAL DOCENTE (0128, allargamento 7; Giacomo, 27/10: «Sì, allarga il perimetro a
+   mappai-quiz-print.js (quiz e domande aperte) […] e porta dimensione e interlinea in tutti gli editor»). La scelta sta nel
+   core della stampa (`MappAIPrintLayout.tipografia`): `fs` e `lh` scalano i corpi e le interlinee del testo del foglio in
+   proporzione. Senza scelta scrivono i valori di sempre, carattere per carattere: il foglio esce identico. */
+function _qpTipo(kind) {
+    const PL = (typeof window !== 'undefined' && window.MappAIPrintLayout) || (typeof MappAIPrintLayout !== 'undefined' ? MappAIPrintLayout : null);
+    const T = (PL && PL.tipografia) ? PL.tipografia(kind) : null;
+    const k = T ? T.k : 1, lk = T ? T.lk : 1;
+    return {
+        fs: (v, u) => (k === 1 ? v : Math.round(v * k * 100) / 100) + u,
+        lh: (v) => String(lk === 1 ? v : Math.round(v * lk * 100) / 100)
+    };
+}
+
 window.buildQuizSetHtml = function (set, opts) {
     opts = opts || {};
     const mapName = opts.mapName || _qpMapName();
@@ -273,6 +287,7 @@ window.buildQuizSetHtml = function (set, opts) {
     set = Object.assign({}, set, { items: _qpPrintItems(set) });
 
     const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const T = _qpTipo('quiz');
 
     // FOGLIO DOMANDE — versione distribuita agli allievi: NESSUNA risposta evidenziata.
     // Font ingranditi per accessibilità DSA. La spiegazione NON compare qui (svelerebbe
@@ -286,15 +301,15 @@ window.buildQuizSetHtml = function (set, opts) {
             border-left:4px solid ${accentColor};
             page-break-inside:avoid;">
             <p style="
-                font-size:12px; font-weight:700;
+                font-size:${T.fs(12, 'px')}; font-weight:700;
                 text-transform:uppercase; letter-spacing:0.06em;
                 color:${accentColor}; margin-bottom:8px;">
                 ${escHtmlQP(_qpText('qp_question', 'Domanda', 'Question'))} ${idx + 1}
             </p>
             <h3 id="qp-question-${idx + 1}" style="
-                font-size:13pt; font-weight:bold; margin-top:0;
+                font-size:${T.fs(13, 'pt')}; font-weight:bold; margin-top:0;
                 color:#1e293b; margin-bottom:14px;
-                line-height:1.55;">
+                line-height:${T.lh(1.55)};">
                 ${escHtmlQP(item.question)}
             </h3>
             <ol type="A" role="list" class="quiz-options" aria-labelledby="qp-question-${idx + 1}" style="display:flex; flex-direction:column; gap:8px; list-style:none; padding:0; margin:0;">
@@ -305,13 +320,13 @@ window.buildQuizSetHtml = function (set, opts) {
                     border-radius:8px;
                     background:#f8fafc; border:1px solid #e2e8f0;">
                     <span style="
-                        flex-shrink:0; width:24px; height:24px;
+                        flex-shrink:0; width:${T.fs(24, 'px')}; height:${T.fs(24, 'px')};
                         border-radius:50%; background:#e2e8f0;
-                        color:#475569; font-size:12px; font-weight:bold;
+                        color:#475569; font-size:${T.fs(12, 'px')}; font-weight:bold;
                         display:flex; align-items:center; justify-content:center;">
                         ${letters[oi] || (oi + 1)}
                     </span>
-                    <span style="font-size:12pt; color:#1e293b; line-height:1.5; padding-top:2px;">
+                    <span style="font-size:${T.fs(12, 'pt')}; color:#1e293b; line-height:${T.lh(1.5)}; padding-top:2px;">
                         ${escHtmlQP(opt)}
                     </span>
                 </li>`).join('')}
@@ -328,7 +343,7 @@ window.buildQuizSetHtml = function (set, opts) {
         const corrText = (ci >= 0 && opts[ci] != null) ? opts[ci] : (item.answer != null ? item.answer : '—');
         const corrLetter = (ci >= 0 && ci < letters.length) ? letters[ci] + ') ' : '';
         answerKeyHtml += `
-        <li value="${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:14px; line-height:1.5;">
+        <li value="${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:14px; line-height:${T.lh(1.5)};">
             <span aria-hidden="true" style="font-weight:900; color:${accentColor};">${idx + 1}.</span>
             <span style="font-weight:800; color:#0f172a;">${corrLetter}</span><span style="color:#1e293b;">${escHtmlQP(corrText)}</span>
             ${item.explanation ? `<p class="quiz-explanation" style="margin:5px 0 0;"><strong>${escHtmlQP(_qpText('qp_explanation', 'Spiegazione', 'Explanation'))}:</strong> ${escHtmlQP(item.explanation)}</p>` : ''}
@@ -344,15 +359,15 @@ window.buildQuizSetHtml = function (set, opts) {
         ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
         ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
-        body { font-size: 12pt; }
+        body { font-size: ${T.fs(12, 'pt')}; }
         .quiz-section-title {
-            font-size:15px; font-weight:900;
+            font-size:${T.fs(15, 'px')}; font-weight:900;
             color:#4f46e5; margin:20px 0 14px;
             padding-bottom:5px;
             border-bottom:2px solid #e2e8f0;
             page-break-after:avoid;
         }
-        .answer-key-grid { list-style:none; padding:0; font-size:12pt; }
+        .answer-key-grid { list-style:none; padding:0; font-size:${T.fs(12, 'pt')}; }
     </style>
 </head>
 <body>
@@ -408,7 +423,9 @@ window.buildQuizSetHtml = function (set, opts) {
 //    portarsela dietro nemmeno nel sorgente HTML.
 //
 // Forma degli item: { question, guide?, lines?, l1? }.
-// opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true) }.
+// opts: { mapName?, now?, includeBar? (default true), includeAnswers? (default true), report? }.
+// `report` (0132): il foglio COMPILATO che l'allievo salva sull'iPad è un report — titolo a 24 px e risposte con
+// l'interlinea dei report (MappAIDocHead.REPORT, D1: 2,0). Senza, il foglio esce identico a prima.
 //
 // ── LA FONTE ICONOGRAFICA IN TESTA AL FOGLIO (20/8) ─────────────────────────
 // `set.intro = { fotoB64, mime, titolo, contesto, descrizione }` — quando il
@@ -428,6 +445,11 @@ window.buildOpenQuestionsHtml = function (set, opts) {
     const includeBar = opts.includeBar !== false;
     const includeAnswers = opts.includeAnswers !== false;
     const items = (set && set.items) || [];
+    const T = _qpTipo('openq');
+    const _rep = opts.report && _DH() && _DH().REPORT;
+    const lhRisposta = _rep ? _rep.rispostaInterlinea : 1.6;
+    /* nel report (0132, gate del 28/10) il filo della risposta ha il verde dei report, come nei report del LIVE */
+    const filoRisposta = (_rep && _rep.verde) || accentColor, fondoRisposta = _rep ? '#f0fdf4' : '#f0fdfa';
 
     // Le righe su cui scrivere: 3 minimo (una risposta di una frase), 12 massimo
     // (oltre, la domanda non sta più in una pagina insieme alle altre).
@@ -465,11 +487,11 @@ window.buildOpenQuestionsHtml = function (set, opts) {
             page-break-inside:avoid;">
             ${introFoto}
             ${introTit ? `<div style="
-                font-size:11px; font-weight:700; text-transform:uppercase;
+                font-size:${T.fs(11, 'px')}; font-weight:700; text-transform:uppercase;
                 letter-spacing:0.06em; color:${accentColor}; margin-bottom:6px;
                 text-align:center;">${introTit}</div>` : ''}
             ${introCtx ? `<div style="
-                font-size:13px; color:#334155; line-height:1.6;">${introCtx}</div>` : ''}
+                font-size:${T.fs(13, 'px')}; color:#334155; line-height:${T.lh(1.6)};">${introCtx}</div>` : ''}
         </div>` : '';
 
     let questionsHtml = '';
@@ -483,7 +505,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
             page-break-inside:avoid;">
             <div style="
                 display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
-                font-size:11px; font-weight:700;
+                font-size:${T.fs(11, 'px')}; font-weight:700;
                 text-transform:uppercase; letter-spacing:0.06em;
                 color:${accentColor}; margin-bottom:8px;">
                 <span style="margin-right:2px">Domanda ${idx + 1}</span>
@@ -494,9 +516,9 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                     text-transform:none;">${escHtmlQP(a)}</span>`).join('')}
             </div>
             <h3 id="oq-question-${idx + 1}" style="
-                font-size:13pt; font-weight:bold; margin-top:0;
+                font-size:${T.fs(13, 'pt')}; font-weight:bold; margin-top:0;
                 color:#1e293b; margin-bottom:14px;
-                line-height:1.55;">
+                line-height:${T.lh(1.55)};">
                 ${escHtmlQP(item.question)}
             </h3>
             <div style="display:flex; flex-direction:column; gap:0;">
@@ -506,8 +528,8 @@ window.buildOpenQuestionsHtml = function (set, opts) {
                        lo studente rimanda al docente da MappAI studente. Con
                        `includeAnswers:false` non porta né tracce né `qp-set`:
                        «senza soluzioni» è già la forma di questo builder. */
-                    ? `<div class="oq-risposta" style="white-space:pre-wrap; border-left:3px solid ${accentColor};
-                        background:#f0fdfa; padding:8px 12px; font-size:13px; line-height:1.6; color:#1e293b;">${escHtmlQP(item.risposta)}</div>`
+                    ? `<div class="oq-risposta" style="white-space:pre-wrap; border-left:3px solid ${filoRisposta};
+                        background:${fondoRisposta}; padding:8px 12px; font-size:${T.fs(13, 'px')}; line-height:${T.lh(lhRisposta)}; color:#1e293b;">${escHtmlQP(item.risposta)}</div>`
                     : new Array(_righe(item.lines)).fill(rigaVuota).join('')}
             </div>
         </section>`;
@@ -541,13 +563,13 @@ window.buildOpenQuestionsHtml = function (set, opts) {
         const crit = (window.MappAIPipelineCore && window.MappAIPipelineCore.criteriDaItem)
             ? window.MappAIPipelineCore.criteriDaItem(item) : [];
         const corpo = crit.length
-            ? `<ul role="list" class="oq-criteria" style="list-style:none; padding:0; color:#1e293b; font-size:12pt; margin-top:4px;">` +
+            ? `<ul role="list" class="oq-criteria" style="list-style:none; padding:0; color:#1e293b; font-size:${T.fs(12, 'pt')}; margin-top:4px;">` +
               crit.map(c => `<li style="margin:4px 0;"><span aria-hidden="true" style="${_casella}"></span>${escHtmlQP(c)}</li>`).join('') +
               `</ul>`
-            : `<p style="color:#1e293b; font-size:12pt; margin-top:3px;">${escHtmlQP(g)}</p>`;
+            : `<p style="color:#1e293b; font-size:${T.fs(12, 'pt')}; margin-top:3px;">${escHtmlQP(g)}</p>`;
         answerKeyHtml += `
-        <section aria-labelledby="oq-solution-${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:1.5;">
-            <h3 id="oq-solution-${idx + 1}" style="font-weight:900; color:${accentColor}; font-size:12pt;">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
+        <section aria-labelledby="oq-solution-${idx + 1}" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:12px; line-height:${T.lh(1.5)};">
+            <h3 id="oq-solution-${idx + 1}" style="font-weight:900; color:${accentColor}; font-size:${T.fs(12, 'pt')};">${idx + 1}. ${escHtmlQP(item.question)}${avvio ? `<span style="
                 margin-left:7px; font-size:9px; font-weight:700; letter-spacing:0.06em;
                 color:#475569; background:#f1f5f9; border-radius:999px; padding:2px 7px;
                 text-transform:uppercase;">avvio</span>` : ''}</h3>
@@ -569,8 +591,8 @@ window.buildOpenQuestionsHtml = function (set, opts) {
     <style>
         ${_fontDoc(opts.font)}
         ${QP_PAGE_STYLES}
-        ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo })}
-        body { font-size: 12pt; }
+        ${_qpStileCornice(accentColor, { mappa: mapName, logo: opts.logo, report: opts.report })}
+        body { font-size: ${T.fs(12, 'pt')}; }
         /* Il badge di QUESTO foglio è teal come il resto. La testata prende
            l'accento da sola (è un parametro della cornice): la deroga che c'era
            qui — «gli stili condivisi fissano la testata in indigo, si allinea
@@ -579,7 +601,7 @@ window.buildOpenQuestionsHtml = function (set, opts) {
            problema che la cornice condivisa risolve. */
         .mm-dh__b { background:#ccfbf1; color:${accentColor}; }
         .oq-section-title {
-            font-size:15px; font-weight:900;
+            font-size:${T.fs(15, 'px')}; font-weight:900;
             color:${accentColor}; margin:20px 0 14px;
             padding-bottom:5px;
             border-bottom:2px solid #e2e8f0;
@@ -854,9 +876,11 @@ window.buildFlashcardSetHtml = function (set, opts) {
     // Conseguenza importante: la carta esce giusta anche dove JavaScript non
     // gira (anteprime, printToPDF che stampa subito, pagine servite via QR).
     const PL = _PL();
+    // SENZA TAGLI (0128, allargamento 2): testi interi; il corpo scende come nel foglio PDF
+    const senzaTagli = !!(PL.senzaTagliAttivo && PL.senzaTagliAttivo());
     const explCap = s => {
         const t = String(s || '');
-        return t.length > G.explMax ? t.slice(0, G.explMax).replace(/[\s.,;:]+$/, '') + '…' : t;
+        return (!senzaTagli && t.length > G.explMax) ? t.slice(0, G.explMax).replace(/[\s.,;:]+$/, '') + '…' : t;
     };
     const printItems = set.items.map(item => ({
         question: String(item.question || ''),
@@ -864,7 +888,7 @@ window.buildFlashcardSetHtml = function (set, opts) {
         explanation: explCap(item.explanation)
     }));
     const fontMode = (opts.fontMode === 'card') ? 'card' : 'uniform';
-    const fit = PL.fitFlash(printItems, G, { lines: [rootLine, themeLine] }, { policy: fontMode });
+    const fit = PL.fitFlash(printItems, G, { lines: [rootLine, themeLine] }, { policy: fontMode, senzaTagli: senzaTagli });
     // fit.items = i testi definitivi: senza le spiegazioni tolte alle carte che
     // non le reggevano, e già accorciati con «…» dove nemmeno il corpo minimo
     // bastava. Stessa cosa disegna il foglio PDF.
@@ -875,7 +899,8 @@ window.buildFlashcardSetHtml = function (set, opts) {
         // Carta fisica: metà superiore = domanda, metà inferiore = risposta,
         // piega tratteggiata sulla linea di divisione. Bordo arancione
         // tratteggiato = linea di taglio; le carte si toccano, senza spazi.
-        const pc = (fontMode === 'card' && fit.perCard[i]) ? fit.perCard[i] : null;
+        /* una carta in `sotto` (senza tagli) porta il suo corpo anche nel foglio a corpo uniforme, come nel PDF */
+        const pc = ((fontMode === 'card' || (fit.sotto || []).indexOf(i) >= 0) && fit.perCard[i]) ? fit.perCard[i] : null;
         const fStyle = pc ? ` style="--fs:${pc.q}pt"` : '';
         const bStyle = pc ? ` style="--fs:${pc.a}pt"` : '';
         const eStyle = pc ? ` style="font-size:${pc.e}pt"` : '';
@@ -963,9 +988,9 @@ window.buildFlashcardSetHtml = function (set, opts) {
         .fc-lbl { margin-bottom:${G.card.lblGap}mm; }
         /* Testo a bandiera: spaziature regolari (leggibilità DSA) e resa
            identica nel PDF jsPDF, che non sa giustificare. */
-        .fc-q { margin:0; font-size:var(--fs); font-weight:bold; color:${G.colors.ink}; line-height:${G.lineH}; }
-        .fc-a { margin:0; font-size:var(--fs); color:${G.colors.ink}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
-        .fc-e { margin:${G.card.explGap}mm 0 0; font-size:${fit.e}pt; font-style:italic; color:${G.colors.expl}; line-height:${G.lineH};${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-q { margin:0; font-size:var(--fs); font-weight:bold; color:${G.colors.ink}; line-height:${G.lineH};${G.wordSpace ? ' word-spacing:' + G.wordSpace + 'em;' : ''} }
+        .fc-a { margin:0; font-size:var(--fs); color:${G.colors.ink}; line-height:${G.lineH};${G.wordSpace ? ' word-spacing:' + G.wordSpace + 'em;' : ''}${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
+        .fc-e { margin:${G.card.explGap}mm 0 0; font-size:${fit.e}pt; font-style:italic; color:${G.colors.expl}; line-height:${G.lineH};${G.wordSpace ? ' word-spacing:' + G.wordSpace + 'em;' : ''}${G.justify ? ' text-align:justify; hyphens:auto;' : ''} }
         .fc-instructions { background:${G.colors.back}; border-radius:10px; padding:12px 16px;
                 margin:0 auto 16px; max-width:${G.gridW}mm; font-size:10px; color:#374151;
                 border-left:3px solid ${accentColor}; }

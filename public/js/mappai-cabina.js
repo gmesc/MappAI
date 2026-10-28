@@ -685,8 +685,8 @@
         var R = C.riordino, rr = _rigaRiordino(R);
         if (rr) sez.dati.push(rr);
         sez.azioni = [
-            { id: 'cart-apri', etichetta: t('cb_ca_apri', 'Apri la cartella'), ruolo: 'primario', icona: 'folder-open', chiude: false },
-            { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cambia posizione'), icona: 'folder-cog', chiude: false }
+            { id: 'cart-apri', etichetta: (window.tApriCartella ? window.tApriCartella() : t('cb_ca_apri', 'Apri la cartella')), ruolo: 'primario', icona: 'folder-open', chiude: false },
+            { id: 'cart-cambia', etichetta: t('cb_ca_cambia', 'Cartella progetti'), icona: 'folder-cog', chiude: false }   /* 0122 lotto 4b2 (Giacomo, 23/10): era «Cambia posizione» */
         ];
         /* 0104: tornare indietro si può finché c'è un registro della struttura nuova;
            dopo il ritorno, l'interruttore è spento e si può riaccendere */
@@ -1132,7 +1132,7 @@
             { id: 'ctx-generico', etichetta: t('cls_generic', 'Generico'), icona: 'circle-dashed', chiude: false },
             { id: 'nuovo-allievo', etichetta: t('cb_crea_profilo', 'Crea profilo'), icona: 'user-plus', ruolo: 'primario', chiude: false }
         ];
-        s.nota = t('cb_allievi_nota', 'Le schede allievo sono la taratura individuale: si creano qui con «Crea profilo», qualunque sia il tuo ruolo.') +
+        s.nota = t('cb_allievi_nota', 'Le schede allievo sono la taratura individuale: si creano qui con «Crea profilo».') +
             ' · ' + _notaContesto();
         return s;
     }
@@ -1500,8 +1500,6 @@
             }
 
             if (id === '__campo') {
-                if (_st.voce === 'profilo' &&
-                    ['ruolo-materia', 'ruolo-sostegno'].indexOf(ev.campo) >= 0) _ridisegna();
                 if (_st.voce === 'consumi') {
                     var v2 = ev.valori || {};
                     if (ev.campo === 'ud-vista') { _st.ud.storico = v2['ud-vista'] === 'storico'; _st.ud.sel = ''; _st.ud.drill = null; _st.ud.tabella = {}; }
@@ -1521,15 +1519,6 @@
                ridisegna NEL carattere nuovo — che è l'anteprima. */
             if (id.indexOf('fn:') === 0) {
                 if (window.MappAIFont) window.MappAIFont.imposta(id.slice(3));
-                _ridisegna();
-                return;
-            }
-            /* «Gestisci profili», nel riquadro degli allievi del profilo: porta alla voce
-               «Allievi» della STESSA console. Il profilo scritto fin qui è già stato
-               raccolto in testa a questa funzione, quindi tornando indietro è ancora lì
-               e uscendo con modifiche in sospeso scatta «Uscire senza salvare?» (D1). */
-            if (id === 'apri-prof') {
-                _st.voce = 'allievi';
                 _ridisegna();
                 return;
             }

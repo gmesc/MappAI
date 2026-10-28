@@ -178,7 +178,9 @@ if (!SOLO) {
        tipi di materiali» e «falli diventare token»): entrano i colori di genere dei materiali --mm-genere-*
        che l'editor scriveva a mano — flash tenue #dcfce7, foglio #f97316 col testo #c2410c e il tenue #fff7ed,
        aree #0f766e (quiz = accento e flash = --mm-ok sono alias, non contano) */
-    const TETTO = { colore: 46, raggi: 4, fs: 7, ombre: 2, spazi: 16 };
+    /* corpi 7 → 9 il 22/10/26 (packet 0122 lotto 4c): entra --mnc-azione-fs 18, l'etichetta delle tessere di
+       INSEGNA (Giacomo: «puoi aumentare il font a 18px»), col suo «Sì, 7 → 9» del 21/10 (lotto 2, §9.6) */
+    const TETTO = { colore: 46, raggi: 4, fs: 9, ombre: 2, spazi: 16 };
     const perFam = {};
     for (const t of registro) {
         const fam = V.famigliaDi(t.nome);

@@ -2392,8 +2392,7 @@
     modal.querySelector('#mp-preset-del').onclick = () => Pipeline._deletePreset();
     modal.addEventListener('change', event => { if (event.target.id === 'mp-preset') Pipeline._applyPreset(); if (event.target.id === 'mp-class') _adattaSecondoClasse(); Pipeline._syncQuizSelection(event.target.id); _syncSections(); Pipeline._reestimate(); });
     modal.addEventListener('input', () => Pipeline._reestimate());
-    const esc = (e) => { if (e.key === 'Escape') { modal.remove(); document.removeEventListener('keydown', esc); } };
-    document.addEventListener('keydown', esc);
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, () => modal.remove());   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
     Pipeline.assicuraPresetDefault();
     if (currentConfig) {
       _applyOptions(PC().presetFromConfig(currentConfig));
@@ -2872,6 +2871,7 @@
     _icons();
     modal.querySelector('#mps-close').onclick = () => modal.remove();
     modal.querySelector('#mps-ok').onclick = () => modal.remove();
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, () => modal.remove());   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
     modal.querySelector('#mps-folder').onclick = () => { if (window.electronAPI && window.electronAPI.pipelineOpenFolder) window.electronAPI.pipelineOpenFolder({ folderPath: vaultPath }); };
     modal.querySelectorAll('.mp-retry').forEach(btn => {
       btn.onclick = () => { const step = btn.getAttribute('data-step'); modal.remove(); Pipeline.run(config, { only: [step], vaultPath, manifest }); };
@@ -2965,6 +2965,8 @@
     document.body.appendChild(modal);
     _alza(modal);   /* invariante 11: sopra la console che lo ha aperto */
     _icons();
+    /* Esc come «Annulla» (#mpr-no, che ridisegna la console): 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
+    if (window.MappAIVelo) window.MappAIVelo.monta(modal, () => { const no = modal.querySelector('#mpr-no'); if (no) no.click(); else modal.remove(); });
     /* 0106 (D3, gate 3 dello 0096): aperto dalla colonna di ELABORA, «Annulla» lasciava la console senza
        tabelle (lo schema giusto, niente a schermo). Ridisegnarla è il gesto che al gate l'ha sbloccata;
        `ridisegna` non fa niente se la console è chiusa. */

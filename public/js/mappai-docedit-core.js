@@ -115,9 +115,9 @@
      * struttura se ne copia una PROPRIA — il documento editabile non deve
      * condividere memoria con il set d'origine, che qui è immutabile.
      */
-    function _copyService(src, dst) {
-        for (var i = 0; i < SERVICE_FIELDS.length; i++) {
-            var k = SERVICE_FIELDS[i];
+    function _copyFields(src, dst, lista) {
+        for (var i = 0; i < lista.length; i++) {
+            var k = lista[i];
             if (!src || !Object.prototype.hasOwnProperty.call(src, k)) continue;
             var v = src[k];
             if (v === undefined) continue;
@@ -125,6 +125,15 @@
         }
         return dst;
     }
+    function _copyService(src, dst) { return _copyFields(src, dst, SERVICE_FIELDS); }
+
+    /* I campi delle sole domande APERTE che la pipeline scrive e che l'editor
+       deve lasciar passare (0050, 22/10/26): li legge solo `normOpenItem`.
+       `criteri` e `criteria` sono lo stesso dato con due nomi — il disco li
+       porta tutti e due (le bozze scrivono `criteri`, la revisione `criteria`)
+       e i lettori non sono d'accordo su quale guardare: si ricopia ciò che c'è,
+       unificarli sarebbe un cambio di modello con lettori copiati nel reader. */
+    var OPEN_FIELDS = ['criteri', 'criteria', 'angle'];
 
     /** Un item qualsiasi (quiz o flashcard, forma storica o già stampabile) → forma unica. */
     function normItem(it) {
@@ -263,13 +272,29 @@
         return { question: '', options: opts, correctIndex: 0, answer: '', explanation: '' };
     }
 
+    /* 0050: una domanda aperta scritta dal docente nasce con un id SUO,
+       `<id del foglio>-a<k>` (k il più piccolo libero, da 1): mai la forma
+       `<id>-<numero>` della generazione o del ripiego posizionale, così non
+       coincide con quella di un'altra domanda; deterministico, senza orologio;
+       il prefisso dice che l'ha scritta il docente e il rapporto del controllo
+       non la conosce. Senza id del foglio l'item resta senza id, come oggi. */
+    function _idAggiunto(doc, item) {
+        var base = doc && doc.id ? _s(doc.id) : '';
+        if (!base) return item;
+        var presi = {};
+        ((doc && doc.items) || []).forEach(function (x) { if (x && x.id != null) presi[_s(x.id)] = 1; });
+        var k = 1;
+        while (presi[base + '-a' + k]) k++;
+        item.id = base + '-a' + k;
+        return item;
+    }
     /** Nuovo item coerente col documento (V/F → opzioni Vero/Falso, MC → tante opzioni quanto le altre). */
     function blankItemFor(doc) {
         var kind = (doc && doc.kind) || 'quiz';
         /* una domanda aperta nuova NON è un quiz vuoto: ha traccia, righe e
            aree, e senza questa riga «aggiungi domanda» ne creerebbe una con
            tre opzioni da riempire */
-        if (kind === 'openq') return blankOpenItem();
+        if (kind === 'openq') return _idAggiunto(doc, blankOpenItem());
         if (kind === 'flashcards') return blankItem('flashcards');
         if (doc && doc.quizType === 'tf') {
             return { question: '', options: ['Vero', 'Falso'], correctIndex: 0, answer: 'Vero', explanation: '' };
@@ -752,20 +777,36 @@
            Due valori soli: tutto ciò che non è «base» è «ponte» — il caso
            prudente, che non promette un avvio che non c'è. */
         var liv = _s(x.livello || x.level).trim().toLowerCase();
-        return {
+        var out = {
             question: _s(x.question || x.domanda),
             guide: _s(x.guide || x.traccia || x.answer),
             lines: _lines(x.lines != null ? x.lines : x.righe),
             areas: pulite.slice(0, OPEN_AREAS_MAX),
             livello: liv === 'base' ? 'base' : 'ponte'
         };
+        /* 0050 (22/10/26): fino a qui uscivano SOLO i cinque campi, e un giro
+           nell'editor toglieva alle domande aperte id, prove, ramo, criteri e
+           angolo — nelle attività di studio la traccia (cioè la soluzione)
+           compariva prima della risposta, e sull'iPad il punteggio passava
+           all'autovalutazione. I campi di servizio e quelli delle aperte
+           passano SOLO se ci sono: un foglio di ieri esce identico a prima.
+           `q` e `l1` restano fuori, sono forme storiche di question e ramo. */
+        _copyService(x, out);
+        return _copyFields(x, out, OPEN_FIELDS);
     }
     function normOpenItems(items) { return (items || []).map(normOpenItem); }
     /* Una domanda scritta a mano nasce di PONTE: è il livello prudente, e chi
        la scrive sa che cosa sta chiedendo meglio di qualunque default. */
     function blankOpenItem() { return { question: '', guide: '', lines: null, areas: [], livello: 'ponte' }; }
-    /* path: question | guide | lines | area:<nome> (aggiunge o toglie l'area) */
-    function setOpenField(items, index, path, value) {
+    /* path: question | guide | lines | area:<nome> (aggiunge o toglie l'area)
+       opts.criteriDa (0050): la regola che divide la traccia in criteri —
+       `criteriDaItem` di mappai-pipeline-core.js, passata come funzione (questo
+       file si carica prima, e la regola resta una sola). Quando la TRACCIA cambia
+       davvero, i criteri presenti si rifanno da lei: senza, il docente corregge la
+       traccia e il foglio soluzioni continua a stampare i criteri vecchi (simulato
+       il 27/9). Senza la funzione, o con un elenco vuoto, i criteri si tolgono e il
+       foglio li ricava da solo. */
+    function setOpenField(items, index, path, value, opts) {
         var arr = normOpenItems(items);
         if (index < 0 || index >= arr.length) return arr;
         var it = arr[index];
@@ -787,7 +828,20 @@
                aggiunge un collegamento non è più un avvio — e il foglio delle
                tracce lo deve dire. */
             it.livello = _s(value).trim().toLowerCase() === 'base' ? 'base' : 'ponte';
-        } else if (path === 'question' || path === 'guide') {
+        } else if (path === 'guide') {
+            var nuova = _s(value);
+            if (nuova !== it.guide) {
+                var presenti = ['criteri', 'criteria'].filter(function (k) { return Object.prototype.hasOwnProperty.call(it, k); });
+                if (presenti.length) {
+                    var rifatti = (opts && typeof opts.criteriDa === 'function') ? opts.criteriDa({ guide: nuova }) : null;
+                    presenti.forEach(function (k) {
+                        if (Array.isArray(rifatti) && rifatti.length) it[k] = rifatti.slice();
+                        else delete it[k];
+                    });
+                }
+            }
+            it.guide = nuova;
+        } else if (path === 'question') {
             it[path] = _s(value);
         }
         arr[index] = it;

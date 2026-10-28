@@ -9,6 +9,23 @@
 // showVaultManager/loadVaultList) è USCITO — nessuno lo apriva dal 3/8 (ELABORA «Progetti
 // esistenti» e INSEGNA leggono il disco). Restano directLoadVault e resetVaultState.
 
+/* 0124 (ADR 0025): un progetto la cui cartella sta fuori da «MappAI - file» sparisce
+   dall'app (Giacomo, 24/10: «Un progetto portato fuori con il Finder sparisce dall'app.»).
+   Gli sportelli di main.js rispondono «fuori dalle cartelle dell'app»; chi riapre una
+   cartella senza dialogo (questo file, «Riprendi» in mappai-storage-lang.js) lo dice così,
+   con la strada per riaverlo, e non apre niente. → true se l'errore era quello. */
+window.avvisaProgettoFuori = function (errore) {
+    if (!/fuori dalle cartelle dell'app/.test(String(errore || ''))) return false;
+    var t = function (k, f) { return window.t ? window.t(k, f) : f; };
+    var titolo = t('pf_titolo', 'Progetto fuori da «MappAI - file»');
+    var testo = t('pf_fuori', 'Questo progetto non è più in «MappAI - file». Per riaverlo usa «Importa vault» in CREA.');
+    try {
+        if (window.MappAIModal && window.MappAIModal.avviso) window.MappAIModal.avviso({ titolo: titolo, icona: 'folder-x', testo: testo });
+        else if (window.showAlert) window.showAlert(titolo, testo);
+    } catch (e) { }
+    return true;
+};
+
 window.directLoadVault = async function (folderPath) {
     /* ⚠️ Non si cambia mappa mentre la pipeline lavora (13/8): i suoi passi
        leggono `appState` mentre scrivono in una cartella fissata all'inizio —
@@ -222,19 +239,12 @@ window.directLoadVault = async function (folderPath) {
 
             window.switchToMapLayout();
 
-            // Mostra tasto Sincronizza Vault
-            const syncBtn = document.getElementById('sync-vault-btn');
-            if (syncBtn) {
-                syncBtn.classList.remove('hidden');
-                syncBtn.classList.add('flex');
-            }
-
             setTimeout(() => { initD3Visualization(); }, 200);
             window.showToast(window.t('tst_vault_loaded', "Vault caricato con successo!"), "success");
             // 011: pipeline materiali incompleta su questo vault → proponi la ripresa.
             if (window.MappAIPipeline && window.MappAIPipeline.checkResume) window.MappAIPipeline.checkResume(folderPath);
         } else {
-            window.showAlert("Errore Caricamento", loadRes.error);
+            if (!window.avvisaProgettoFuori(loadRes.error)) window.showAlert("Errore Caricamento", loadRes.error);
         }
     } catch (e) {
         if (appState._reviewRestoring) { appState._reviewRestoring = false; appState._reviewRestoreError = e.message; }
@@ -261,10 +271,5 @@ window.resetVaultState = function () {
     if (typeof StorageManager !== 'undefined') {
         StorageManager.currentProjectId = 'proj_' + Date.now();
         StorageManager.idInCartella = null;
-    }
-    const syncBtn = document.getElementById('sync-vault-btn');
-    if (syncBtn) {
-        syncBtn.classList.add('hidden');
-        syncBtn.classList.remove('flex');
     }
 };

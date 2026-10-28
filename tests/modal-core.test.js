@@ -51,7 +51,7 @@ test('normalizza: il contratto tastiera è acceso salvo rinuncia esplicita', () 
     const acceso = MC.normalizzaSchema({ titolo: 'x' });
     assert.strictEqual(acceso.esc, true);
     assert.strictEqual(acceso.invio, true);
-    assert.strictEqual(acceso.veloChiude, true);
+    assert.strictEqual(acceso.veloChiude, false);   // 0122 lotto 4b2 (Giacomo, 23/10): il clic sul velo non chiude più, mai
     const spento = MC.normalizzaSchema({ titolo: 'x', esc: false, invio: false, veloChiude: false });
     assert.strictEqual(spento.esc, false);
     assert.strictEqual(spento.invio, false);
@@ -91,14 +91,16 @@ test('valida: titolo mancante e modale vuoto', () => {
     assert.strictEqual(v.errori.length, 2);
 });
 
-test('valida: dati in scrittura + velo che chiude = avviso, non blocco', () => {
+/* 0122 lotto 4b2 (Giacomo, 23/10): il clic sul velo non chiude più nessuna finestra — i dati in scrittura non si
+   perdono più per un clic fuori, e l'avviso che lo segnalava non ha più motivo di comparire */
+test('valida: dati in scrittura e velo che non chiude = nessun avviso sul velo', () => {
     const v = MC.validaSchema({
         titolo: 'X', sporco: true,
         sezioni: [{ titolo: 'S', campi: [{ etichetta: 'Nome' }] }],
         azioni: [{ etichetta: 'Salva', ruolo: 'primario' }]
     });
     assert.strictEqual(v.ok, true);
-    assert.ok(v.avvisi.some(a => /velo/.test(a)));
+    assert.ok(!v.avvisi.some(a => /velo/.test(a)));
 });
 
 test('valida: taglia S con troppi campi avvisa', () => {

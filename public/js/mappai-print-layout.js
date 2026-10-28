@@ -75,7 +75,14 @@
                 aMaxRatio: 1.25,   // tetto della risposta (mai oltre la domanda)
                 answerRatio: 0.8,  // corpo di partenza della risposta = q × questo
                 explRatio: 1,      // spiegazione: STESSO corpo della risposta (in corsivo)
-                lineH: 1.35,       // interlinea
+                // Interlinea: 1,6 dallo 0128 (Giacomo, 27/10, sul mockup: «C»; era 1,35).
+                lineH: 1.6,
+                // Spazio IN PIÙ fra le parole, in em, sopra quello del carattere
+                // (0128, allargamento 1: Giacomo, «una spaziatura tra parole che
+                // renda facile la lettura»). Vale per domanda, risposta e
+                // spiegazione, non per la testata (che ha già la sua spaziatura).
+                // 0 = lo spazio del carattere, com'era.
+                wordSpace: 0.25,
                 headLineH: 1.3,
                 step: 0.25,        // granularità della ricerca del corpo
                 floor: 6,          // corpo sotto il quale non si scende MAI (leggibilità)
@@ -105,6 +112,11 @@
                 markGap: 1.5       // mm fra fine carta e inizio crocino
             },
             fold: { color: '#cbd5e1', width: 0.2, dash: [0.8, 1.2], inset: 4 },
+            // FRONTE/RETRO (0128; Giacomo, 26/10: «Riapro e si rifinisce»). `safe` = il margine per la
+            // deriva di registro: fra fronte e retro una stampante sposta il foglio di 1-3 mm. Sul retro il
+            // testo rientra di `safe` su ogni lato e il fondo deborda di `safe` oltre la carta: uno scarto
+            // fino a lì non porta il testo sul taglio e non lascia strisce bianche.
+            duplex: { safe: 3 },
             // Etichette della carta. VUOTE = non stampate: la seconda riga della
             // testata è la sola area tematica (senza «TEMA:») e la risposta parte
             // subito, senza la scritta «RISPOSTA». Più aria per il testo.
@@ -215,6 +227,96 @@
     // formato scelto per le flashcard: carta alta, domande lunghe respirano.
     var FLASH_DEFAULT_FMT = '2x2v';
 
+    /* IL CORPO SCELTO DAL DOCENTE (0128, allargamento 3; Giacomo, 27/10: «nell'editor se serve inserisci la
+       modifica della dimensione del font per aiutare il docente a ottimizzare dimensioni e testi per limitare
+       le troncature»). Vale per il formato delle flashcard (2×2 in piedi): domanda e risposta partono da qui,
+       fra 11 e 16 pt, invece che da 13. Lo legge la geometria, quindi lo seguono le soglie dell'editor, il
+       foglio PDF e il foglio HTML. Sta nel computer del docente (localStorage); assente = il corpo di serie. */
+    var CORPO_KEY = 'mappai_flash_corpo', CORPO_MIN = 11, CORPO_MAX = 16, _corpoMem = null;
+    function _corpoRaw() {
+        try { if (typeof localStorage !== 'undefined') return localStorage.getItem(CORPO_KEY); } catch (e) { }
+        return _corpoMem;
+    }
+    function corpo() {
+        var v = _corpoRaw(), n = Number(v);
+        return (v != null && v !== '' && isFinite(n)) ? Math.max(CORPO_MIN, Math.min(CORPO_MAX, n)) : null;
+    }
+    function setCorpo(pt) {
+        var v = (pt == null) ? null : String(Math.max(CORPO_MIN, Math.min(CORPO_MAX, Number(pt) || 13)));
+        _corpoMem = v;
+        try {
+            if (typeof localStorage !== 'undefined') { if (v == null) localStorage.removeItem(CORPO_KEY); else localStorage.setItem(CORPO_KEY, v); }
+        } catch (e) { }
+        return corpo();
+    }
+
+    /* L'INTERLINEA SCELTA DAL DOCENTE (0128, allargamento 5; Giacomo, 27/10, al gate: «aggiungi anche l'opzione per
+       l'interlinea»). Come il corpo: vale per il 2×2 in piedi, fra 1,2 e 2, e la legge la geometria (`lineH`), quindi la
+       seguono soglie, foglio PDF, foglio HTML e pieghevole. Assente = `flash.type.lineH`. */
+    var INTERL_KEY = 'mappai_flash_interlinea', INTERL_MIN = 1.2, INTERL_MAX = 2, _interlMem = null;
+    function interlinea() {
+        var v = null;
+        try { v = (typeof localStorage !== 'undefined') ? localStorage.getItem(INTERL_KEY) : _interlMem; } catch (e) { v = _interlMem; }
+        var n = Number(v);
+        return (v != null && v !== '' && isFinite(n) && n > 0) ? Math.max(INTERL_MIN, Math.min(INTERL_MAX, Math.round(n * 10) / 10)) : null;
+    }
+    function setInterlinea(k) {
+        var v = (k == null) ? null : String(Math.max(INTERL_MIN, Math.min(INTERL_MAX, Math.round((Number(k) || 1.6) * 10) / 10)));
+        _interlMem = v;
+        try {
+            if (typeof localStorage !== 'undefined') { if (v == null) localStorage.removeItem(INTERL_KEY); else localStorage.setItem(INTERL_KEY, v); }
+        } catch (e) { }
+        return interlinea();
+    }
+
+    /* LA SCELTA DEL DOCENTE PER GLI ALTRI MATERIALI (0128, allargamento 7; Giacomo, 27/10: «Inserisci le opzioni che hai
+       costruito in questo editor per la gestione di font e interlinea anche agli editor di tutti gli altri materiali»; «Sì,
+       allarga il perimetro a mappai-quiz-print.js (quiz e domande aperte), mappai-branch-synthesis.js e
+       mappai-causal-chains.js»). Per ogni materiale il corpo del testo principale e la sua interlinea, coi valori di serie
+       dei fogli di oggi; il foglio scala i suoi corpi e le sue interlinee in proporzione (`k`, `lk`). Sta nel computer del
+       docente (localStorage); senza scelta `k` e `lk` valgono 1 e il foglio esce identico. La catena è in px (12 px = 9 pt). */
+    var TIPO_DEF = {
+        quiz: { corpo: 13, interlinea: 1.55 },
+        openq: { corpo: 13, interlinea: 1.55 },
+        synthesis: { corpo: 13, interlinea: 1.7 },
+        causal: { corpo: 9, interlinea: 1.7 }
+    };
+    var TIPO_CORPO = [8, 20], TIPO_INTERL = [1.2, 2], _tipoMem = {};
+    function _tipoRaw(kind) {
+        var k = 'mappai_tipo_' + kind, v = null;
+        try { v = (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : _tipoMem[k]; } catch (e) { v = _tipoMem[k]; }
+        try { return v ? JSON.parse(v) || {} : {}; } catch (e) { return {}; }
+    }
+    function _entro(v, lim, passo) {
+        var n = Number(v);
+        return (isFinite(n) && n > 0) ? Math.max(lim[0], Math.min(lim[1], Math.round(n / passo) * passo)) : null;
+    }
+    function tipografia(kind) {
+        var d = TIPO_DEF[kind];
+        if (!d) return null;
+        var o = _tipoRaw(kind);
+        var c = _entro(o.corpo, TIPO_CORPO, 1), l = _entro(o.interlinea, TIPO_INTERL, 0.1);
+        if (l != null) l = Math.round(l * 10) / 10;
+        return {
+            corpo: c || d.corpo, interlinea: l || d.interlinea,
+            k: c ? c / d.corpo : 1, lk: l ? l / d.interlinea : 1,
+            scelto: { corpo: c != null, interlinea: l != null }
+        };
+    }
+    /** campo: 'corpo' | 'interlinea'; valore null = torna a quello di serie. */
+    function setTipografia(kind, campo, valore) {
+        if (!TIPO_DEF[kind] || (campo !== 'corpo' && campo !== 'interlinea')) return tipografia(kind);
+        var o = _tipoRaw(kind);
+        if (valore == null) delete o[campo];
+        else o[campo] = (campo === 'corpo') ? _entro(valore, TIPO_CORPO, 1) : Math.round(_entro(valore, TIPO_INTERL, 0.1) * 10) / 10;
+        var key = 'mappai_tipo_' + kind, v = Object.keys(o).length ? JSON.stringify(o) : null;
+        _tipoMem[key] = v;
+        try {
+            if (typeof localStorage !== 'undefined') { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, v); }
+        } catch (e) { }
+        return tipografia(kind);
+    }
+
     function r2(n) { return Math.round(n * 100) / 100; }
 
     // Misure derivate di un formato. Sempre definita: chiave sconosciuta → 2x2.
@@ -229,6 +331,8 @@
         var cw = (pageW - 2 * F.margins.x) / f.cols;
         var rh = (pageH - 2 * F.margins.y) / f.rows;
         var type = merge(F.type[key] || F.type[FLASH_DEFAULT_FMT], {});
+        var cp = (key === FLASH_DEFAULT_FMT) ? corpo() : null;   // 0128: il corpo scelto dal docente
+        if (cp) { type.q = cp; type.a = cp; }
         // Corpo della risposta: esplicito (type.a) o derivato dalla domanda.
         var aRatio = (type.a != null) ? (type.a / type.q) : F.type.answerRatio;
         // grow:false → il corpo non cresce mai oltre quello dichiarato.
@@ -244,7 +348,8 @@
             qMax: qMax,
             aStart: r2(type.q * aRatio),
             aMax: r2(type.q * F.type.aMaxRatio),
-            explRatio: F.type.explRatio, lineH: F.type.lineH,
+            explRatio: F.type.explRatio, lineH: ((key === FLASH_DEFAULT_FMT) && interlinea()) || F.type.lineH,
+            wordSpace: F.type.wordSpace || 0,
             headLineH: F.type.headLineH, step: F.type.step,
             // parametri dell'impaginazione deterministica (vedi fitFlash)
             floor: F.type.floor, advance: _adv(F),
@@ -252,6 +357,12 @@
             answerRatio: aRatio,
             splitMode: F.type.split, splitMin: F.type.splitMin, splitMax: F.type.splitMax,
             card: clone(F.card), cut: clone(F.cut), fold: clone(F.fold),
+            safe: (F.duplex && F.duplex.safe) || 0,
+            // in fronte/retro la domanda ha tutta la carta: il corpo può crescere fino al tetto anche dove
+            // il pieghevole lo tiene fermo (grow:false) — «per stamparle più in grande»
+            /* 0128, allargamento 16 (Giacomo, 27/10: «Esce al corpo scelto»): con un corpo scelto dal docente il fronte e
+               retro non cresce più fino al tetto (11 pt usciva a 17,6): esce a quel corpo. Senza scelta cresce come prima. */
+            qMaxDuplex: cp ? cp : r2(type.q * F.type.qMaxRatio),
             colors: clone(F.colors), explMax: F.explMax, limits: clone(F.limits),
             labels: clone(F.labels || { themePrefix: '', answer: '' }),
             justify: !!F.justify,
@@ -419,7 +530,10 @@
 
     // Righe occupate da un testo con a-capo sulle parole (le parole più lunghe
     // della riga vengono spezzate, come fa il browser con word-break).
-    function lineCount(text, cpl) {
+    // `spaceChars` (0128): quanti caratteri vale uno spazio fra le parole. Di
+    // serie 1; con lo spazio in più (`wordSpace`) vale di più — vedi spazioIn.
+    function lineCount(text, cpl, spaceChars) {
+        var sp = spaceChars > 0 ? spaceChars : 1;
         var s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
         if (!s) return 0;
         var words = s.split(' ');
@@ -433,7 +547,7 @@
                 len = w.length - (chunks - 1) * cpl;
                 continue;
             }
-            var need = (len === 0) ? w.length : len + 1 + w.length;
+            var need = (len === 0) ? w.length : len + sp + w.length;
             if (need <= cpl) { len = need; }
             else { lines++; len = w.length; }
         }
@@ -445,10 +559,10 @@
 
     // Taglia un testo alle righe disponibili, con i puntini di sospensione.
     // Ultima spiaggia: si usa solo se nemmeno al corpo minimo il testo ci sta.
-    function clampToLines(text, cpl, maxLines) {
+    function clampToLines(text, cpl, maxLines, spaceChars) {
         var s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
         if (!s || maxLines <= 0) return '';
-        if (lineCount(s, cpl) <= maxLines) return s;
+        if (lineCount(s, cpl, spaceChars) <= maxLines) return s;
         var ell = '…';
         // Il budget in caratteri non basta: l'a-capo sulle parole spreca la coda
         // di ogni riga, e anche il carattere «…» può far nascere una riga in più.
@@ -457,34 +571,52 @@
         var words = s.split(' '), acc = '';
         for (var i = 0; i < words.length; i++) {
             var cand = (acc ? acc + ' ' + words[i] : words[i]).replace(/[\s.,;:]+$/, '');
-            if (lineCount(cand + ell, cpl) > maxLines) break;
+            if (lineCount(cand + ell, cpl, spaceChars) > maxLines) break;
             acc = cand;
         }
         if (!acc) {                       // una sola parola più lunga di tutto lo spazio
             acc = s.slice(0, Math.max(1, cpl * maxLines));
-            while (acc.length > 1 && lineCount(acc + ell, cpl) > maxLines) acc = acc.slice(0, -1);
+            while (acc.length > 1 && lineCount(acc + ell, cpl, spaceChars) > maxLines) acc = acc.slice(0, -1);
         }
         var out = acc + ell;
-        return lineCount(out, cpl) <= maxLines ? out : ell;   // ultima rete
+        return lineCount(out, cpl, spaceChars) <= maxLines ? out : ell;   // ultima rete
     }
 
     // Altezze richieste dalle due metà di una carta, a un dato corpo.
-    function cardNeeds(item, g, headLines, pt) {
+    // Quanti caratteri vale uno spazio fra le parole del corpo (0128): 1 più lo
+    // spazio in più diviso la larghezza di un carattere. Senza `wordSpace`, 1.
+    var PAROLA_MEDIA = 6;
+    // SENZA TAGLI (0128): il corpo minimo uguale per il foglio, e l'interruttore (acceso salvo '0';
+    // spento, il foglio di prima: spiegazioni tolte e «…» dove non entra)
+    var MIN_SENZA_TAGLI = 11;
+    var SENZA_TAGLI_KEY = 'mappai_stampa_senza_tagli';
+    function senzaTagliAttivo() {
+        try { return typeof localStorage === 'undefined' || localStorage.getItem(SENZA_TAGLI_KEY) !== '0'; }
+        catch (e) { return true; }
+    }
+    function spazioIn(g) { return 1 + (g.wordSpace > 0 ? g.wordSpace / (g.advance || 0.612) : 0); }
+
+    // `retro` (0128): { safe } = il retro rifinito del fronte/retro — testata in cima e tutto rientrato
+    // di `safe`; senza, il retro di prima (o la metà risposta del pieghevole).
+    function cardNeeds(item, g, headLines, pt, retro) {
         var innerW = g.cardW - 2 * g.card.padX;
-        var qLines = lineCount(item.question, charsPerLine(innerW, pt.q, g.advance));
-        var aLines = lineCount(item.answer, charsPerLine(innerW, pt.a, g.advance));
+        var s = (retro && retro.safe >= 0) ? retro.safe : null;
+        var backW = s != null ? innerW - 2 * s : innerW;
+        var sp = spazioIn(g);
+        var qLines = lineCount(item.question, charsPerLine(innerW, pt.q, g.advance), sp);
+        var aLines = lineCount(item.answer, charsPerLine(backW, pt.a, g.advance), sp);
         var eLines = pt.e && item.explanation
-            ? lineCount(item.explanation, charsPerLine(innerW, pt.e, g.advance)) : 0;
+            ? lineCount(item.explanation, charsPerLine(backW, pt.e, g.advance), sp) : 0;
         var front = g.card.padTop
             + blockH(headLines, pt.head, g.headLineH) + g.card.headGap
             + blockH(qLines, pt.q, g.lineH) + g.card.padBottom;
         // L'etichetta «RISPOSTA» occupa una riga: se è vuota (default), quella
         // riga va al testo della risposta.
         var lbl = (g.labels && g.labels.answer) ? blockH(1, pt.head, g.headLineH) + g.card.lblGap : 0;
-        var back = g.card.backPadTop + lbl
+        var back = (s != null ? s + g.card.padTop + blockH(headLines, pt.head, g.headLineH) + g.card.headGap : g.card.backPadTop) + lbl
             + blockH(aLines, pt.a, g.lineH)
             + (eLines ? g.card.explGap + blockH(eLines, pt.e, g.lineH) : 0)
-            + g.card.padBottom;
+            + g.card.padBottom + (s != null ? s : 0);
         return { front: front, back: back, qLines: qLines, aLines: aLines, eLines: eLines };
     }
 
@@ -528,9 +660,12 @@
         var backForAnswer = backAvail - (eLines ? g.card.explGap + eLines * eStep : 0);
         var aLines = Math.max(1, Math.floor(backForAnswer / aStep));
 
-        var qCpl = charsPerLine(innerW, g.q, g.advance);
-        var aCpl = charsPerLine(innerW, aPt, g.advance);
-        var eCpl = charsPerLine(innerW, ePt, g.advance);
+        /* lo spazio in più fra le parole (0128) toglie caratteri alla riga: uno spazio ogni
+           PAROLA_MEDIA caratteri (una parola italiana è di cinque lettere in media, più lo spazio) */
+        var advEff = g.advance + (g.wordSpace > 0 ? g.wordSpace / PAROLA_MEDIA : 0);
+        var qCpl = charsPerLine(innerW, g.q, advEff);
+        var aCpl = charsPerLine(innerW, aPt, advEff);
+        var eCpl = charsPerLine(innerW, ePt, advEff);
         var w = L.waste || 0.9;
         // Arrotondati per DIFETTO alla decina: un numero tondo è una regola che
         // il docente ricorda («massimo 180 caratteri»), e sta dal lato sicuro.
@@ -630,6 +765,9 @@
         // Fronte/retro: le due facce stanno su carte INTERE (pagine diverse),
         // non su due metà della stessa carta.
         var duplex = !!opts.duplex;
+        // il retro rifinito (0128): testata e margine sul retro, corpo libero di crescere
+        var retro = (duplex && opts.retro) ? { safe: opts.retro.safe || 0 } : null;
+        var qTop = retro ? g.qMaxDuplex : g.qMax;
 
         function fitsAll(qPt, split, subset) {
             var pt = sizesFor(qPt, g);
@@ -637,14 +775,14 @@
             var bH = duplex ? g.cardH : g.cardH - fH;
             var arr = subset || list;
             for (var i = 0; i < arr.length; i++) {
-                var n = cardNeeds(arr[i], g, headLines, pt);
+                var n = cardNeeds(arr[i], g, headLines, pt, retro);
                 if (n.front > fH || n.back > bH) return false;
             }
             return true;
         }
 
-        function bestFor(split, subset) {
-            var lo = g.floor, hi = g.qMax, st = g.step;
+        function bestFor(split, subset, loMin) {
+            var lo = loMin || g.floor, hi = qTop, st = g.step;
             if (fitsAll(hi, split, subset)) return hi;
             if (!fitsAll(lo, split, subset)) return null;   // non ci sta nemmeno al minimo
             var best = lo;
@@ -658,10 +796,10 @@
 
         // Cerca la coppia (piega, corpo) migliore: prima il corpo più grande,
         // a parità la piega più vicina alla metà (carta più equilibrata).
-        function search(subset) {
+        function search(subset, loMin) {
             var win = null;
             splits.forEach(function (sp) {
-                var q = bestFor(sp, subset);
+                var q = bestFor(sp, subset, loMin);
                 if (q == null) return;
                 if (!win || q > win.q + 0.001 ||
                     (Math.abs(q - win.q) < 0.001 && Math.abs(sp - 50) < Math.abs(win.split - 50))) {
@@ -680,7 +818,7 @@
             var tolte = 0;
             var out2 = subset.map(function (it) {
                 var copia = { question: it.question, answer: it.answer, explanation: it.explanation };
-                if (copia.explanation && cardNeeds(copia, g, headLines, pt).back > bH) {
+                if (copia.explanation && cardNeeds(copia, g, headLines, pt, retro).back > bH) {
                     copia.explanation = ''; tolte++;
                 }
                 return copia;
@@ -689,10 +827,27 @@
         }
 
         var dropExpl = 0;                 // quante carte hanno perso la spiegazione
-        var win = search();
+        /* SENZA TAGLI (0128, allargamento 2; Giacomo, 27/10: «non troncare il testo», «fino a 11pt»,
+           «Più piccola solo lei, e avviso»). Il testo resta intero, spiegazioni comprese: il corpo
+           scende, uguale per il foglio, fino a MIN_SENZA_TAGLI; la carta che neanche lì entra va in
+           `sotto` e prende il suo corpo (perCard) fino al pavimento di 6 pt. Solo una carta che non
+           entra neanche a 6 pt (`troppoLunghe`) passa dall'ultima rete dei «…», e chi stampa lo dice. */
+        var senzaTagli = !!opts.senzaTagli;
+        var sotto = [];
+        var win;
+        if (senzaTagli) {
+            var minUni = Math.min(MIN_SENZA_TAGLI, qTop);
+            var entrano = list.filter(function (it) { return splits.some(function (sp) { return fitsAll(minUni, sp, [it]); }); });
+            win = search(entrano, minUni) || { split: splitFixed != null ? splitFixed : 50, q: minUni };
+            list.forEach(function (it, i) { if (!fitsAll(minUni, win.split, [it])) sotto.push(i); });
+            var restano = list.filter(function (it, i) { return sotto.indexOf(i) < 0; });
+            win.q = (restano.length && bestFor(win.split, restano, minUni)) || minUni;
+        } else {
+            win = search();
+        }
         var conSpiegazioni = list.some(function (it) { return it.explanation; });
-        var target = g.qMax;              // corpo dichiarato (grow:false → è anche il massimo)
-        if (conSpiegazioni && (!win || win.q < target - 0.001)) {
+        var target = qTop;                // corpo dichiarato (grow:false → è anche il massimo; nel retro rifinito il tetto)
+        if (!senzaTagli && conSpiegazioni && (!win || win.q < target - 0.001)) {
             // Il corpo richiesto non si raggiunge con tutte le spiegazioni.
             var alt = null;
             splits.forEach(function (sp) {
@@ -725,7 +880,8 @@
         if (!win) win = { split: splitFixed != null ? splitFixed : 50, q: g.floor };
 
         var out = {
-            split: win.split, dropExpl: dropExpl, clip: [], policy: opts.policy === 'card' ? 'card' : 'uniform'
+            split: win.split, dropExpl: dropExpl, clip: [], policy: opts.policy === 'card' ? 'card' : 'uniform',
+            sotto: sotto, troppoLunghe: []
         };
         var uni = sizesFor(win.q, g);
         out.q = uni.q; out.a = uni.a; out.e = uni.e; out.head = uni.head;
@@ -733,8 +889,9 @@
 
         // Corpo per singola carta: stessa piega (il foglio si piega uguale),
         // ma ogni carta prende il corpo più grande che regge.
-        out.perCard = list.map(function (it) {
+        out.perCard = list.map(function (it, i) {
             var q = bestFor(out.split, [it]);
+            if (q == null && sotto.indexOf(i) >= 0) out.troppoLunghe.push(i);
             var pt = sizesFor(q == null ? g.floor : q, g);
             return { q: pt.q, a: pt.a, e: pt.e };
         });
@@ -745,7 +902,7 @@
         var fH = duplex ? g.cardH : g.cardH * out.split / 100;
         var bH = duplex ? g.cardH : g.cardH - fH;
         list.forEach(function (it, i) {
-            var n = cardNeeds(it, g, headLines, floorPt);
+            var n = cardNeeds(it, g, headLines, floorPt, retro);
             if (n.front > fH) {
                 var availQ = fH - g.card.padTop - blockH(headLines, floorPt.head, g.headLineH)
                     - g.card.headGap - g.card.padBottom;
@@ -756,13 +913,15 @@
                 });
             }
             if (n.back > bH) {
-                var availA = bH - g.card.backPadTop - blockH(1, floorPt.head, g.headLineH)
+                var testaRetro = retro ? 2 * retro.safe + g.card.padTop + blockH(headLines, floorPt.head, g.headLineH) + g.card.headGap
+                    : g.card.backPadTop;
+                var availA = bH - testaRetro - blockH(1, floorPt.head, g.headLineH)
                     - g.card.lblGap - g.card.padBottom
                     - (n.eLines ? g.card.explGap + blockH(n.eLines, floorPt.e, g.lineH) : 0);
                 out.clip.push({
                     i: i, where: 'answer',
                     maxLines: Math.max(1, Math.floor(availA / (floorPt.a * PT2MM * g.lineH))),
-                    cpl: charsPerLine(g.cardW - 2 * g.card.padX, floorPt.a, g.advance)
+                    cpl: charsPerLine(g.cardW - 2 * g.card.padX - (retro ? 2 * retro.safe : 0), floorPt.a, g.advance)
                 });
             }
         });
@@ -777,10 +936,49 @@
         out.clip.forEach(function (c) {
             var it = out.items[c.i];
             if (!it) return;
-            if (c.where === 'question') it.question = clampToLines(it.question, c.cpl, c.maxLines);
-            else it.answer = clampToLines(it.answer, c.cpl, c.maxLines);
+            if (c.where === 'question') it.question = clampToLines(it.question, c.cpl, c.maxLines, spazioIn(g));
+            else it.answer = clampToLines(it.answer, c.cpl, c.maxLines, spazioIn(g));
         });
         return out;
+    }
+
+    /* L'ORDINE DEL RETRO (0128). Dietro la carta che sta in (riga, colonna) sul fronte deve cadere
+       la sua risposta. Girando il foglio sul lato LUNGO di un foglio in piedi le colonne si scambiano
+       (come un libro); sul lato CORTO si scambiano le righe (come un blocco). In orizzontale il lato
+       lungo è quello in alto: il contrario. Ritorna, per ogni posto del retro, l'indice della carta del
+       fronte (o null se quel posto resta vuoto nell'ultima pagina). */
+    function backOrder(n, g, lato) {
+        var corto = lato === 'corto';
+        var colonne = g.landscape ? corto : !corto;
+        var out = [];
+        for (var r = 0; r < g.rows; r++) {
+            for (var c = 0; c < g.cols; c++) {
+                var idx = colonne ? r * g.cols + (g.cols - 1 - c) : (g.rows - 1 - r) * g.cols + c;
+                out.push(idx < n ? idx : null);
+            }
+        }
+        return out;
+    }
+
+    /* LA CROCE DEL FOGLIO DI PROVA (0128): al centro della carta, due bracci e su ciascuno cinque
+       tacche a 1 mm l'una dall'altra (la quinta più lunga). In controluce la croce del retro deve
+       cadere su quella del fronte; le tacche dicono di quanti millimetri si è spostata. */
+    function croce(b, o) {
+        o = o || {};
+        var cx = r2(b.x + b.w / 2), cy = r2(b.y + b.h / 2);
+        var L = o.braccio || 8, max = o.tacche || 5, t = o.tacca || 1.2;
+        var segs = [
+            { x1: r2(cx - L), y1: cy, x2: r2(cx + L), y2: cy, kind: 'braccio' },
+            { x1: cx, y1: r2(cy - L), x2: cx, y2: r2(cy + L), kind: 'braccio' }
+        ];
+        for (var i = 1; i <= max; i++) {
+            var h = (i === max ? 2 * t : t) / 2;
+            [-i, i].forEach(function (d) {
+                segs.push({ x1: r2(cx + d), y1: r2(cy - h), x2: r2(cx + d), y2: r2(cy + h), kind: 'tacca' });
+                segs.push({ x1: r2(cx - h), y1: r2(cy + d), x2: r2(cx + h), y2: r2(cy + d), kind: 'tacca' });
+            });
+        }
+        return { cx: cx, cy: cy, segs: segs };
     }
 
     return {
@@ -792,6 +990,8 @@
         blockH: blockH,
         clampToLines: clampToLines,
         cardNeeds: cardNeeds,
+        spazioIn: spazioIn,
+        MIN_SENZA_TAGLI: MIN_SENZA_TAGLI, senzaTagliAttivo: senzaTagliAttivo,
         fitFlash: fitFlash,
         charLimits: charLimits,
         promptRule: promptRule,
@@ -804,8 +1004,12 @@
         validate: validate,
         merge: merge,
         flashGeom: geom, setFontMetrics: setFontMetrics, fontMetrics: fontMetrics,
+        corpo: corpo, setCorpo: setCorpo, interlinea: interlinea, setInterlinea: setInterlinea,
+        tipografia: tipografia, setTipografia: setTipografia, TIPO_DEF: TIPO_DEF,
         flashFormats: formats,
         cardBoxes: cardBoxes,
+        backOrder: backOrder,
+        croce: croce,
         cutLines: cutLines,
         cropMarks: cropMarks,
         bestPt: bestPt,

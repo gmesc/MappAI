@@ -336,3 +336,55 @@ test('flashcard: ogni carta è un articolo con titolo e testo del retro accessib
     assert.strictEqual($('article .fc-e').text(), 'La BNS acquistò oro dalla Germania.');
     assert.strictEqual($('#' + $('article').attr('aria-labelledby')).length, 1);
 });
+
+/* ══ 0050 (packet 0123, lotto 2): il GIRO VERO dell'editor sulle domande aperte ══
+   Foglio costruito dal builder vero → riletto (`setFromHtml`) → il giro dell'editor
+   (`normOpenItems`, una frase in fondo alla traccia della domanda 1 con `criteriDa`,
+   uno spostamento, una domanda aggiunta) → ricostruito come fa `_openqHtml` → riletto.
+   Prima del 22/10/2026 un solo giro toglieva id, prove, criteri, angolo e ramo. */
+test('0050: il giro dell\'editor conserva id, prove e criteri; la traccia corretta porta una casella in più nel foglio soluzioni', () => {
+    const { load } = require('cheerio');
+    const X = loadQuizPrint();
+    const PC = require('../public/js/mappai-pipeline-core.js');
+    X.MappAIPipelineCore = PC;
+    const item = (n, ramo, prove, criteri, angle) => ({
+        id: 'set_svizzera-' + n, kind: 'open', draftKey: 'open-definizione', step: 'B',
+        question: 'Domanda ' + n + '?', guide: criteri.join(' '), criteri: criteri.slice(), criteria: criteri.slice(),
+        lines: 5, areas: [ramo], ramo, livello: 'ponte', angle, prove, l1: ramo, q: 'Domanda ' + n + '?'
+    });
+    const set = { id: 'set_svizzera', title: 'Domande aperte – Svizzera', type: 'Domande aperte', angle: 'definizione', items: [
+        item(0, 'Diplomazia', ['ev-a-1', 'ev-a-2'], ['Definisce la neutralità.', 'Cita il 1815.', 'Spiega il ruolo del CICR.'], 'definizione'),
+        item(1, 'Economia', ['ev-b-1'], ['Definisce il commercio.', 'Cita le esportazioni.', 'Collega alla guerra.'], 'causa'),
+        item(2, 'Difesa', ['ev-c-1', 'ev-c-2'], ['Definisce il Ridotto.', 'Cita Guisan e il Rütli.', 'Spiega la mobilitazione.'], 'confronto')
+    ] };
+    const letto = X.MappAIQuizPrint.setFromHtml(X.buildOpenQuestionsHtml(set, { includeBar: false }));
+    assert.strictEqual(letto.items.length, 3);
+    // il giro dell'editor
+    let items = D.normOpenItems(letto.items);
+    items = D.setOpenField(items, 0, 'guide', items[0].guide + ' Cita Guisan.', { criteriDa: PC.criteriDaItem });
+    items = D.moveItem(items, 2, 1);
+    items = D.insertAt(items, items.length, D.blankItemFor({ id: letto.id || set.id, kind: 'openq', items }));
+    items = D.setOpenField(items, items.length - 1, 'question', 'Domanda del docente?');
+    items = D.setOpenField(items, items.length - 1, 'guide', 'Nomina il generale. Cita la data.');
+    const html2 = X.buildOpenQuestionsHtml({ id: set.id, title: set.title, type: 'Domande aperte', intro: null, items }, { includeBar: false, includeAnswers: true });
+    const dopo = X.MappAIQuizPrint.setFromHtml(html2);
+    assert.deepStrictEqual(dopo.items.map(x => x.id), ['set_svizzera-0', 'set_svizzera-2', 'set_svizzera-1', 'set_svizzera-a1'], 'gli id seguono le domande');
+    assert.deepStrictEqual(dopo.items.map(x => x.question), ['Domanda 0?', 'Domanda 2?', 'Domanda 1?', 'Domanda del docente?']);
+    assert.deepStrictEqual(dopo.items[0].prove, ['ev-a-1', 'ev-a-2']); assert.deepStrictEqual(dopo.items[1].prove, ['ev-c-1', 'ev-c-2']);
+    assert.deepStrictEqual(dopo.items.slice(0, 3).map(x => x.ramo), ['Diplomazia', 'Difesa', 'Economia']);
+    assert.deepStrictEqual(dopo.items.slice(0, 3).map(x => x.angle), ['definizione', 'confronto', 'causa']);
+    assert.deepStrictEqual(dopo.items.slice(0, 3).map(x => x.kind), ['open', 'open', 'open']);
+    assert.strictEqual(dopo.items[0].criteri.length, 4); assert.strictEqual(dopo.items[0].criteri[3], 'Cita Guisan.');
+    assert.deepStrictEqual(dopo.items[1].criteri, set.items[2].criteri, 'la domanda spostata tiene i suoi criteri');
+    assert.ok(!('criteri' in dopo.items[3]), 'l\'aggiunta non ha criteri: il foglio li ricava dalla traccia');
+    // il foglio soluzioni: le caselle per domanda
+    const $ = load(html2);
+    const soluzioni = $('section[aria-labelledby^="oq-solution-"]');
+    assert.strictEqual(soluzioni.length, 4, 'una sezione del foglio soluzioni per domanda');
+    const caselle = soluzioni.map((i, el) => $(el).find('.oq-criteria li').length).get();
+    assert.deepStrictEqual(caselle, [4, 3, 3, 2], 'caselle per domanda');
+    assert.strictEqual(soluzioni.eq(0).find('.oq-criteria li').last().text().trim(), 'Cita Guisan.');
+    // il secondo giro è identico al primo
+    const terzo = X.MappAIQuizPrint.setFromHtml(X.buildOpenQuestionsHtml({ id: set.id, title: set.title, type: 'Domande aperte', intro: null, items: D.normOpenItems(dopo.items) }, { includeBar: false, includeAnswers: true }));
+    assert.deepStrictEqual(terzo.items, dopo.items);
+});

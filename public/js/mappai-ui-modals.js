@@ -707,7 +707,7 @@ window.renderTreeView = function () {
         const baseColor = _coloreModali(appState.db.customColors && appState.db.customColors[rn.group])
             || _coloreModali(colorScale[rn.group]) || _coloreModali(colorScale[rn.level !== undefined ? rn.level : 1]) || '#4f46e5';
         const mColor = (!isMindmap && !isRootL1) ? '#94a3b8' : baseColor; // slate-400 per hub non-L1 nel KG
-        const degreeInfo = !isMindmap ? ` <span class="text-[9px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${esc(rn.degree)} conn.)</span>` : '';
+        const degreeInfo = !isMindmap ? ` <span class="text-[11px] ${isRootL1 ? 'text-indigo-400' : 'text-slate-400'}">(${esc(rn.degree)} conn.)</span>` : '';
 
         const hasKids = hasChildNodes(rn.id);
         const isCollapsed = window.collapsedTreeNodes.has(rn.id);
@@ -724,7 +724,8 @@ window.renderTreeView = function () {
         } else {
             html += `<span class="tree-dot-static shrink-0" style="background:${mColor}"></span>`;
         }
-        html += `<button data-albero-nodo="${k}" class="text-sm font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left py-1.5">`;
+        // 0122 (Giacomo, 21/10, variante B del banco): macro-aree 18, figli 14 — si leggono anche proiettate
+        html += `<button data-albero-nodo="${k}" class="text-lg font-bold text-slate-700 hover:text-indigo-600 truncate flex-grow text-left py-1.5">`;
         html += `${esc(rn.label)}${degreeInfo}`;
         html += `</button>`;
         html += `</div>`;
@@ -747,7 +748,7 @@ window.renderTreeView = function () {
                         html += `<div class="w-5 h-5 flex-shrink-0"></div>`; // no chevron button for flat child
                         html += `<div class="flex-grow py-1 pr-2 flex items-center gap-1.5 truncate text-left">`;
                         html += `<span class="tree-child-dot flex-shrink-0"></span>`;
-                        html += `<button data-albero-nodo="${segna(c.id)}" class="text-xs text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
+                        html += `<button data-albero-nodo="${segna(c.id)}" class="text-sm text-slate-500 hover:text-indigo-500 truncate flex-grow text-left">`;
                         html += `<span class="font-semibold text-indigo-400 mr-1">L${esc(c.level)}</span> ${esc(c.label)}`;
                         html += `</button>`;
                         html += `</div>`;

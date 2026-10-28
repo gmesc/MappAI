@@ -40,11 +40,22 @@ const RESULTS = {
 };
 const STUDENTE = { emoji: '🐝', emojiLabel: 'Ape', num: '10', displayName: '🐝 10', accuracyPct: 33, answered: 4, blankCount: 1, manualCount: 1, items: ITEMS };
 
-test('il report del docente è identico a prima, carattere per carattere', () => {
-    const h = LR.buildStudentsReportHtml(META, RESULTS).replace(/generato il \d\d\/\d\d\/\d{4} \d\d:\d\d/, 'generato il X');
-    // impronta presa sul codice di partenza, prima di toccare il modulo (20/10/2026)
-    assert.equal(h.length, 102869);
-    assert.equal(crypto.createHash('sha1').update(h).digest('hex'), 'de035a2fb9f05b521dd8b8b8b2e8736065da9f3d');
+/* Fino al 0132 qui si provava che il report del docente restava identico, carattere per carattere (impronta del
+   20/10, con le correzioni dello 0127 e dello 0128). Il packet 0132 (Giacomo, 27/10: «accetto tutte le proposte grafiche
+   della versione 0132»; al «vai» del 28/10: «riallinea le prove vecchie che controllano i valori di prima») gli dà la
+   veste di tutti i report: si prova che il report dice le stesse cose, nella veste nuova. */
+test('il report del docente: una scheda per allievo, nell\'ordine di accuratezza, con le stesse cose di prima (veste dello 0132)', () => {
+    const h = LR.buildStudentsReportHtml(META, RESULTS);
+    assert.ok(h.includes('<title>1a Guerra Mondiale · Quiz · Report allievi</title>'), 'il <title> dello 0128');
+    assert.ok(h.includes('<h1 class="mm-dh__t">1a Guerra Mondiale · Quiz · Report allievi</h1>'), 'il titolo dello 0127');
+    const schede = h.split(/<section class="mm-rp-card[^"]*">/).slice(1).map(x => x.split('</section>')[0]);
+    assert.equal(schede.length, 2);
+    // in ordine di accuratezza: prima Anna (90%), poi 🐝 10 (33%)
+    assert.ok(schede[0].includes('02 · Anna') && schede[0].includes('>90%</span>') && schede[0].includes('fluenza —'));
+    assert.ok(schede[1].includes('>33%</span>') && schede[1].includes('risposte 4/5 · 1 in bianco · 1 da correggere · 💡 2 indizi · fluenza 30.0/min'));
+    // 0127, gate del 27/10: la domanda senza risposta dice solo «VUOTO», senza la correzione
+    assert.ok(schede[1].includes('<span class="mm-rp-et">Risposta</span><b>VUOTO</b></div>') && !schede[1].includes('Quella'));
+    assert.ok(schede[1].includes('Punti di forza') && schede[1].includes('Cause') && schede[1].includes('Date'), 'forti e deboli: misure del docente');
 });
 
 test('il nome del file: [classe] [nome emoji] [numero] [tipo e nome dei quiz]', () => {
@@ -56,58 +67,57 @@ test('il nome del file: [classe] [nome emoji] [numero] [tipo e nome dei quiz]', 
     assert.equal(LR.studentSheetName({ className: '', emojiLabel: 'Volpe', num: '07', activity: '', title: 'Clima' }), 'Volpe 07 Clima');
 });
 
-test('la scheda dell\'allievo: la card del report del docente, senza fluenza né punti di forza e deboli', () => {
+test('la scheda dell\'allievo: la sua scheda come nel report (veste dello 0132), senza fluenza né punti di forza e deboli', () => {
     assert.equal(typeof LR.studentSheetParts, 'function');
     const p = LR.studentSheetParts(META, STUDENTE);
     const $ = cheerio.load('<div class="lr-root">' + p.body + '</div>');
-    assert.equal($('.lr-header').length, 1);
-    assert.equal($('.lr-title').text(), '1a Guerra Mondiale');
-    assert.match($('.lr-sub').text(), /Quiz · 2A · 20\/10\/2026/);
+    assert.equal($('.mm-dh').length, 1);
+    // dal 0127 (Giacomo, 26/10: «Al posto del titolo»): il titolo è «[progetto] · [materiale] · Report allievo», sotto classe e data
+    assert.equal($('.mm-dh__t').text(), '1a Guerra Mondiale · Quiz · Report allievo');
+    assert.equal($('.mm-dh__s').text(), '20/10/2026', 'la data; la durata è del docente');
+    assert.equal($('.mm-dh__c--cls').text(), '2A');
     assert.equal(/Schede individuali/.test(p.body), false, 'è la scheda di UN allievo');
-    assert.equal($('.lr-card').length, 1);
-    assert.equal($('.lr-strip .lr-pill').length, 5, 'un quadratino per domanda');
-    assert.equal($('.lr-pill-r').length, 1);
-    assert.equal($('.lr-pill-w').length, 2);
-    assert.equal($('.lr-di-row').length, 5);
-    // la struttura di ogni risposta: titoletto · testo · (titoletto verde · testo verde) · spiegazione
-    const r2 = $('.lr-di-row').eq(1);
-    assert.match(r2.find('.lr-sa-q').text(), /^D2\./);
-    assert.equal(r2.find('.lr-sa-t').eq(0).text(), 'Tua risposta');
-    assert.equal(r2.find('.lr-sa-a').text(), 'Sbagliata');
-    assert.equal(r2.find('.lr-sa-t.lr-sa-tc').text(), 'Risposta corretta:');
-    assert.equal(r2.find('.lr-sa-c').text(), 'Giusta');
-    assert.equal(r2.find('.lr-sa-e').text(), 'Perché sì.');
-    // una risposta giusta non ha il blocco verde
-    assert.equal($('.lr-di-row').eq(0).find('.lr-sa-c').length, 0);
-    // una in bianco dice «— vuoto» e porta la risposta corretta
-    assert.match($('.lr-di-row').eq(2).find('.lr-sa-a').text(), /— vuoto/);
-    assert.equal($('.lr-di-row').eq(2).find('.lr-sa-c').text(), 'Quella');
-    assert.equal($('.lr-acc').text(), '33%');
+    assert.equal($('.mm-rp-card').length, 6, 'il riepilogo e una scheda per domanda');
+    assert.equal($('.mm-rp-strip .mm-rp-pill').length, 5, 'un quadratino per domanda');
+    assert.equal($('.mm-rp-pill--ok').length, 1);
+    assert.equal($('.mm-rp-pill--ko').length, 2);
+    // la struttura di ogni risposta: occhiello · domanda · riquadro della risposta · (riquadro della risposta corretta) · spiegazione
+    const r2 = $('.mm-rp-card').eq(2);
+    assert.equal(r2.find('.mm-rp-occ span').eq(0).text(), 'Domanda 2');
+    assert.equal(r2.find('.mm-rp-et').eq(0).text(), 'Risposta');
+    assert.equal(r2.find('.mm-rp-ris--ko').text(), 'RispostaSbagliata');
+    assert.equal(r2.find('.mm-rp-ris--ok').text(), 'Risposta correttaGiusta');
+    assert.equal(r2.find('.mm-rp-spieg').text(), 'Perché sì.');
+    // una risposta giusta non ha il riquadro della risposta corretta
+    assert.equal($('.mm-rp-card').eq(1).find('.mm-rp-ris').length, 1);
+    // una in bianco dice «— vuoto» e porta la risposta corretta («VUOTO» senza correzione è solo del report del docente, 0127)
+    assert.equal($('.mm-rp-card').eq(3).find('.mm-rp-ris--vuota').text(), 'Risposta— vuoto');
+    assert.equal($('.mm-rp-card').eq(3).find('.mm-rp-ris--ok').text(), 'Risposta correttaQuella');
+    assert.equal($('.mm-rp-num').text(), '33%');
     assert.equal(/fluenza/i.test(p.body), false, 'niente fluenza');
-    assert.equal(/Punti di forza|Punti deboli|lr-topics/.test(p.body), false, 'niente punti di forza e deboli');
-    assert.match($('.lr-acc-sub').text(), /accuratezza/);
+    assert.equal(/Punti di forza|Punti deboli/.test(p.body), false, 'niente punti di forza e deboli');
+    assert.match($('.mm-rp-riga .mm-rp-testo').text(), /accuratezza/);
     // il testo è testo, mai HTML
-    assert.equal($('.lr-sa-q b').length, 5, 'solo i cinque «D1.», «D2.»…: il <b> della domanda è rimasto testo');
-    assert.ok($('.lr-sa-q').eq(1).text().includes('Domanda due <b>?</b>'));
+    assert.equal($('.mm-rp-dom b').length, 0, 'il <b> della domanda è rimasto testo');
+    assert.ok($('.mm-rp-dom').eq(1).text().includes('Domanda due <b>?</b>'));
     // il piè c'è
-    assert.equal($('.lr-footer').length, 1);
+    assert.equal($('.mm-dh-pie').length, 1);
 });
 
 test('lo stile della scheda sta sotto .lr-root: sulla pagina del telefono non si tocca il body', () => {
     const p = LR.studentSheetParts(META, STUDENTE);
-    assert.equal(/(^|\})\s*body\s*\{/.test(p.css), false, 'una regola su body si applicherebbe a tutta la pagina');
+    assert.equal(/(^|[}\s])body\s*\{/.test(p.css), false, 'una regola su body si applicherebbe a tutta la pagina');
     assert.match(p.css, /\.lr-root\{/);
-    assert.match(p.css, /\.lr-card\{/);
-    // le misure del PDF: titoletti 14px, testi 18px, spiegazione 14px
+    assert.match(p.css, /\.mm-rp-card\{/);
+    // le misure della veste dei report (0132): etichette 11 px maiuscole, risposte 13 px a interlinea 2, spiegazione 13 px in corsivo
     const cl = (sel) => (p.css.match(new RegExp('\\' + sel + '\\{([^}]*)\\}')) || [])[1] || '';
-    assert.match(cl('.lr-sa-t'), /font-size:14px/);
-    assert.match(cl('.lr-sa-t'), /text-transform:uppercase/);
-    assert.match(cl('.lr-sa-t'), /font-weight:700/);
-    assert.match(cl('.lr-sa-a'), /font-size:18px/);
-    assert.match(cl('.lr-sa-c'), /font-size:18px/);
-    assert.match(cl('.lr-sa-c'), /color:#16a34a/);
-    assert.match(cl('.lr-sa-e'), /font-size:14px/);
-    assert.match(cl('.lr-sa-e'), /font-style:italic/);
+    assert.match(cl('.mm-rp-et'), /font-size:11px/);
+    assert.match(cl('.mm-rp-et'), /text-transform:uppercase/);
+    assert.match(cl('.mm-rp-et'), /font-weight:700/);
+    assert.match(cl('.mm-rp-ris'), /font-size:13px;line-height:2;/);
+    assert.match(cl('.mm-rp-ris--ok .mm-rp-et'), /color:#15803d/);
+    assert.match(cl('.mm-rp-spieg'), /font-size:13px/);
+    assert.match(cl('.mm-rp-spieg'), /font-style:italic/);
     assert.match(p.title, /^2A Ape 10 Quiz 1a Guerra Mondiale$/);
 });
 
@@ -115,8 +125,8 @@ test('la scheda come documento intero: titolo = nome del file, nessuna barra dei
     const h = LR.buildStudentSheetHtml(META, STUDENTE);
     const $ = cheerio.load(h);
     assert.match($('title').text(), /^2A Ape 10 Quiz 1a Guerra Mondiale$/);
-    assert.equal($('.no-print').length, 0, 'in un PDF non si clicca');
-    assert.equal($('.lr-card').length, 1);
+    assert.equal($('button').length, 0, 'in un PDF non si clicca');
+    assert.equal($('.mm-dh').length, 1);
 });
 
 test('la pagina dello studente stampa la scheda, col nome giusto, non la pagina intera', () => {

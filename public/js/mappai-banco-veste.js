@@ -1563,7 +1563,9 @@
           : t('rv_veste_in_corso', 'Le decisioni si stanno salvando nel progetto: la revisione si legge e non si modifica.');
       } else {
         const g = globale(), n = q.daRivedere, inConflitto = out.righe.some(x => x.conflitto);
-        const avanzamento = stantia() ? t('rv_veste_g1_stantia', 'La mappa o le fonti non corrispondono alla versione di questa revisione: prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.')
+        /* 0123, lotto 3 (0056): in attesa e la mappa cambiata, il bottone accanto è «Ricontrolla la mappa adesso»
+           (`testoChiusura` in mappai-review.js): il piè dice che cosa fa, e che le scelte restano nella revisione di prima */
+        const avanzamento = stantia() ? t('rv_veste_g1_attesa_cambiata', 'La mappa è cambiata dopo il controllo. Per continuare premi «Ricontrolla la mappa adesso»: il controllo riparte sulla mappa di adesso, e le scelte fatte fin qui restano nella revisione di prima.')
           // D2: fra le righe da rivedere ce n'è una con le scelte in conflitto
           : n && inConflitto ? plurale(n, t('rv_veste_g1_resta_conflitto', 'Resta 1 fra nodi e collegamenti con note aperte o scelte in conflitto.'), t('rv_veste_g1_restano_conflitto', 'Restano {n} fra nodi e collegamenti con note aperte o scelte in conflitto.'))
           : n ? plurale(n, t('rv_veste_g1_resta_una', 'Resta 1 fra nodi e collegamenti con note aperte.'), t('rv_veste_g1_restano_righe', 'Restano {n} fra nodi e collegamenti con note aperte.'))
@@ -1573,7 +1575,8 @@
             : !g.ok ? t('rv_veste_g1_sospese_senza_riga', 'Le decisioni non si possono ancora applicare alla mappa, ma nessuna riga dell’elenco ne è la causa: chiudi con {piu_tardi} e riapri la revisione. Le decisioni prese restano salvate.').replace('{piu_tardi}', () => PIU_TARDI())
               : serveConferma() ? '' : t('rv_dashboard_can_finish', 'Hai deciso tutto: puoi concludere col bottone in fondo.');
         let piedeStrato = '';
-        try { piedeStrato = E.strato ? E.strato.piede() : ''; } catch (e) { piedeStrato = ''; }
+        // 0123, lotto 3b: con la mappa cambiata il piè lo ha già detto, lo strato dice solo che cosa vale per i materiali
+        try { piedeStrato = E.strato ? E.strato.piede({ breve: stantia() }) : ''; } catch (e) { piedeStrato = ''; }
         frase = [avanzamento, piedeStrato].filter(Boolean).join(' ');
       }
       piede(frase);
@@ -1584,6 +1587,8 @@
     // «Salva le decisioni e completa i materiali»: nessuna riga da rivedere e `preview` globale riuscito (§4.10); con R5 la casella.
     function puoChiudere() {
       if (!editabile()) return true;
+      // 0123, lotto 3: G1 in attesa e la mappa cambiata — il bottone è «Ricontrolla la mappa adesso», sempre premibile
+      if (G1 && stantia()) return true;
       if (serveConferma() && !st.confermato) return false;
       return righe().riepilogo.daRivedere === 0 && !!globale().ok;
     }
@@ -2021,10 +2026,11 @@
        una correzione, quali note ha chiuso (§4.4). */
     function avvisiG1(escluso, vecchia) {
       const righeAvviso = [];
-      // 0097 riaperto: approvata e superata, il riquadro dice la frase del piè (e il bottone «Ricontrolla la mappa adesso»)
+      // 0097 riaperto: approvata e superata, il riquadro dice la frase del piè (e il bottone «Ricontrolla la mappa adesso»);
+      // 0123, lotto 3b (Giacomo, 23/10): in attesa e superata anche, non più «…riaprire la revisione…»
       if (vecchia) righeAvviso.push(review().initial.status === 'approved'
         ? t('rv_veste_g1_approvata_cambiata', 'La mappa è cambiata, per continuare premi «Ricontrolla la mappa adesso». Le decisioni approvate restano salvate.')
-        : t('rv_veste_g1_stantia', 'La mappa o le fonti non corrispondono alla versione di questa revisione: prima di continuare occorre riaprire la revisione sulla versione corretta del progetto.'));
+        : t('rv_veste_g1_attesa_cambiata', 'La mappa è cambiata dopo il controllo. Per continuare premi «Ricontrolla la mappa adesso»: il controllo riparte sulla mappa di adesso, e le scelte fatte fin qui restano nella revisione di prima.'));
       else if (escluso) righeAvviso.push(t('rv_veste_g1_tolto', 'Hai scelto di togliere questo collegamento: non arriverà ai materiali. Per rimetterlo premi {annulla}.').replace('{annulla}', ANNULLA));
       // 0086, giro 3c (D37.7): le scelte salvate prima che si contraddicono le sostituisce il bottone in fondo
       else if (conflittiDi(st.info).size > 0) righeAvviso.push(CONFLITTO_PRIMA());

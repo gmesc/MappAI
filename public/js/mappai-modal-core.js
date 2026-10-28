@@ -402,6 +402,11 @@
                «Chiudi» in fondo. Il titolo resta il NOME della finestra
                (`aria-label`): chi legge con lo schermo deve sapere dove si trova. */
             senzaTestata: !!s.senzaTestata,
+            /* VESTE (0122, Giacomo sul banco delle finestre live, 21/10: famiglia C):
+               `'grande'` = corpi grandi e icona nuda in testata, una classe sul box
+               (`mm-box--grande`) coi token ridefiniti nel foglio. Vuota = com'è sempre
+               stato; un valore sconosciuto lo ferma `validaSchema`. */
+            veste: s.veste === 'grande' ? 'grande' : '',
             taglia: t,
             layout: layoutValido(s.layout, t),
             /* vista piena: la console occupa la finestra invece di essere un
@@ -502,7 +507,9 @@
             /* contratto tastiera: i valori di default SONO la decisione presa */
             esc: s.esc !== false,
             invio: s.invio !== false,
-            veloChiude: s.veloChiude !== false,
+            /* 0122 lotto 4b2 («[…] devono avere veloChiude spento e chiudersi solo con 'x' e ESC», Giacomo, 23/10):
+               il clic sul velo non chiude più nessuna finestra; si esce con la × o con Esc */
+            veloChiude: false,
             /* un modale con dati in scrittura non si chiude per sbaglio */
             sporco: (typeof s.sporco === 'function') ? s.sporco : !!s.sporco,   /* funzione = si chiede al momento di uscire */
             nota: s.nota ? String(s.nota) : ''
@@ -516,6 +523,8 @@
         var n = normalizzaSchema(s), errori = [], avvisi = [];
 
         if (!n.titolo) errori.push('titolo mancante: un modale senza titolo non è annunciabile a un lettore di schermo');
+        /* una veste sconosciuta non si disegna «quasi»: si ferma (0122) */
+        if (s && s.veste !== undefined && s.veste !== '' && s.veste !== 'grande') errori.push('veste «' + s.veste + '» sconosciuta: le vesti sono «grande» o nessuna');
         /* «vuoto» significa senza CONTENUTO: una console porta il suo nella
            navigazione e nella tabella, non necessariamente in sezioni o azioni */
         var haCorpo = n.sezioni.length || n.azioni.length || n.azioniTestata.length || n.nav.length ||

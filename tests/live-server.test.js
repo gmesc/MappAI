@@ -139,7 +139,7 @@ test('ciclo completo: join, autosave, indietro, finish, close, report', async ()
   assert.strictEqual(close.body.phase, 'closed');
   assert.ok(fs.existsSync(path.join(dir, 'results.json')));
   assert.ok(fs.existsSync(path.join(dir, 'report-domande.html')));
-  assert.ok(fs.existsSync(path.join(dir, 'report-studenti.html')));
+  assert.ok(fs.existsSync(path.join(dir, 'report-allievi.html')));
 
   const results = JSON.parse(fs.readFileSync(path.join(dir, 'results.json'), 'utf8'));
   // Q0: volpe giusto (corretto dopo indietro), panda giusto → 2 giuste
@@ -654,7 +654,7 @@ test('live loginMode group: join per nickname, 409 altro device, report per grup
   await api('/api/phase', { method: 'POST', body: JSON.stringify({ adminToken: admin, phase: 'running' }) });
   await api('/api/answer', { method: 'POST', body: JSON.stringify({ token: tok, nick: 'I Galli', deviceId: 'd1', qIdx: 0, text: 'Piano Marshall', ms: 900 }) });
   await api('/api/close', { method: 'POST', body: JSON.stringify({ adminToken: admin }) });
-  const rep = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
+  const rep = fs.readFileSync(path.join(dir, 'report-allievi.html'), 'utf8');
   assert.ok(rep.includes('I Galli'));   // report aggregato per gruppo
   await srv.stop();
 });
@@ -915,7 +915,8 @@ test('scheda dell\'allievo (0112): /api/my-sheet è una pagina vera, col nome de
     assert.match(h, /<title>2A Volpe 00 Quiz 1a Guerra Mondiale<\/title>/);
     assert.ok(h.includes('/public/js/mappai-emoji-prova.js'), 'le emoji di identità come immagini (iOS disegna male il font): la scheda con la coccinella usciva a pixel');
     assert.ok(h.includes('Capitale?') && h.includes('Fiume di Roma?'));
-    assert.ok(h.includes('Tua risposta') && h.includes('Risposta corretta:') && h.includes('Roma.'));
+    // dal 0132 (veste comune dei report; Giacomo, 28/10: «Sì, allarga») le etichette dei riquadri: «Risposta», «Risposta corretta»
+    assert.ok(h.includes('<span class="mm-rp-et">Risposta</span>') && h.includes('<span class="mm-rp-et">Risposta corretta</span>') && h.includes('Roma.'));
     assert.ok(h.includes("font-family:'Atkinson Hyperlegible'"), 'il carattere del docente, con i file serviti dal server');
     assert.ok(h.includes('/public/fonts/Atkinson-Regular.ttf'));
     assert.ok(h.includes('window.print()'), 'la stampa parte da sola');
@@ -1461,7 +1462,7 @@ test('0116 (gate 21/10): domande a scelta — alla chiusura anche il «Report al
       const r = await fetch('http://127.0.0.1:' + port + '/api/report?admin=' + admin + '&which=' + w);
       assert.strictEqual(r.status, 200, 'report ' + w);
     }
-    const allievi = fs.readFileSync(path.join(dir, 'report-studenti.html'), 'utf8');
+    const allievi = fs.readFileSync(path.join(dir, 'report-allievi.html'), 'utf8');
     assert.ok(allievi.includes('RISPOSTA-DELLA-VOLPE'), 'la risposta dell\'allievo nel report allievi');
     assert.ok(!allievi.includes('class="lr-acc"'), 'niente percentuale per le aperte');
   } finally { await srv.stop(); }

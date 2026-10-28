@@ -978,6 +978,21 @@ html[data-font="space-mono"] #ai-modal-body {
     text-align-last: left !important;
 }
 
+/* 0122 (Giacomo, 21/10, sul banco della giustificazione: «Sinistra con sillabazione con tutti
+   e quattro i caratteri»): i pannelli della barra laterale a bandiera, sillabati, con OGNI
+   carattere. Con Space Mono la regola sopra giustificava le bolle della chat (spazi allargati
+   fra le parole, i «fiumi»); con TestMe e Atkinson erano a sinistra senza sillabazione. Le
+   `!important` vincono quelle della regola sopra; l'id le batte a parità. Vale anche per la
+   sidebar del reader, che copia questo foglio: scelta di Giacomo («porta tutto su iPad»). */
+#sidebar .modal-scroll,
+#sidebar .modal-scroll * {
+    -webkit-hyphens: auto !important;
+    -ms-hyphens: auto !important;
+    hyphens: auto !important;
+    text-align: left !important;
+    text-align-last: auto !important;
+}
+
 /* ==========================================
            1. LANDING PAGE – Luminous Theme
            ========================================== */

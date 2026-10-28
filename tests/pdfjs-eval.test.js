@@ -7,11 +7,12 @@ const path = require('node:path');
 // CVE-2024-4367: pdf.js fino alla 4.1 compila i glifi dei font con `new Function`
 // quando `isEvalSupported` è vero (il default), e un PDF costruito ad arte esegue
 // JavaScript con l'origine dell'app. L'app ha la 3.4.120: ogni `getDocument` lo
-// spegne. app.js è DEBITO DICHIARATO (25/9/2026): è fuori dal perimetro di chi ha
-// scritto questa guardia, non una svista — quando lo si corregge, va tolto di qui.
+// spegne. app.js era DEBITO DICHIARATO dal 25/9/2026 (fuori dal perimetro di chi ha
+// scritto questa guardia): corretto dal packet 0123, lotto 1 (22/10/2026). L'elenco
+// resta per il prossimo file che dovesse entrarci con un motivo scritto.
 
 const ROOT = path.join(__dirname, '..');
-const DEBITO = ['public/js/app.js'];
+const DEBITO = [];
 
 function chiamate() {
     const dir = path.join(ROOT, 'public', 'js');

@@ -62,7 +62,9 @@ const STATIC_ALLOW = [
   '/public/fonts/',
   '/public/tutor/',
   // Prova del font emoji (0099): decide se `--emoji` tiene 'MappAI Emoji' su questo dispositivo.
-  '/public/js/mappai-emoji-prova.js'
+  '/public/js/mappai-emoji-prova.js',
+  // L'accesso degli allievi (0134): le sei righe di tutte le pagine d'ingresso, un modulo solo
+  '/public/js/mappai-accesso-allievi.js'
 ];
 const BODY_CAP = 1024 * 1024;   // 1 MB
 
@@ -107,6 +109,7 @@ function createTutorServer(opts) {
 
   const LC = require(path.join(repoRoot, 'public', 'js', 'mappai-live-core.js'));
   const TC = require(path.join(repoRoot, 'public', 'js', 'mappai-tutor-core.js'));
+  const TR = require(path.join(repoRoot, 'public', 'js', 'mappai-tutor-reports.js'));
 
   // Segreti SOLO in memoria (mai su disco, mai in risposta HTTP):
   // ri-forniti a ogni avvio anche in caso di RIPRESA da disco.
@@ -261,7 +264,9 @@ function createTutorServer(opts) {
         // SOLO campi pubblici (whitelist nel core) + emoji per il login
         return json(res, 200, Object.assign(TC.publicState(session), {
           schema: 'mappai-tutor-session@1',
-          emojiSet: LC.EMOJI_SET
+          emojiSet: LC.EMOJI_SET,
+          // 0134: la riga 3 dell'accesso, il nome che usa la barra del report (titoloTutor)
+          attivita: TR.NOME_ATTIVITA
         }));
       }
 

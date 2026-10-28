@@ -310,3 +310,21 @@ test('prove è un campo di SERVIZIO: un giro nell editor non se lo porta via', (
     const vecchio = DE.normItem({ q: 'x', options: ['a', 'b'], correct: 1 });
     assert.ok(!('prove' in vecchio), 'niente chiave a undefined sul disco');
 });
+
+/* 0050 (packet 0123, lotto 2): il test sopra passa per la scelta multipla, ma le
+   domande APERTE non passano da `normItem`: hanno `normOpenItem`/`setOpenField`,
+   che fino al 22/10/2026 restituivano cinque campi e buttavano la prova. */
+test('0050: anche per le domande APERTE la prova sopravvive al giro apri → correggi → salva', () => {
+    const ID = ['ev-ee679b818c4fca0b-222', 'ev-36c7096861f90aa2-368'];
+    const item = { question: 'Spiega l\'azione umanitaria verso i profughi.', guide: 'Definisce. Indica la causa.', lines: 5, areas: ['Diplomazia'],
+        ramo: 'Diplomazia', prove: ID.slice(), id: 'set_1-0', kind: 'open', draftKey: 'open-definizione', step: 'B' };
+    let items = DE.normOpenItems([item]);
+    assert.deepStrictEqual(items[0].prove, ID, 'sopravvive all apertura');
+    assert.notStrictEqual(items[0].prove, item.prove, 'copia PROPRIA');
+    items = DE.setOpenField(items, 0, 'question', 'Domanda riscritta dal docente?');
+    items = DE.setOpenField(items, 0, 'guide', 'Traccia riscritta.', { criteriDa: PC.criteriDaItem });
+    assert.strictEqual(items[0].question, 'Domanda riscritta dal docente?');
+    assert.deepStrictEqual(items[0].prove, ID, 'e la prova pure, dopo due correzioni');
+    assert.strictEqual(items[0].id, 'set_1-0'); assert.strictEqual(items[0].ramo, 'Diplomazia');
+    assert.ok(!('prove' in DE.normOpenItem({ question: 'x', guide: 'y' })), 'un foglio di ieri non si inventa la prova');
+});

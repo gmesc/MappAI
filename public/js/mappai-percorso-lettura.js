@@ -1497,7 +1497,7 @@
             opzioni: records.map((row, i) => ({ valore: row.versioneId, etichetta: row.title + ' · ' + (i + 1) + ' · ' +
               (row.status === 'done' ? t('pl_version_done', 'salvata') : t('pl_version_pending', 'da completare')) })) }] : [] }],
         azioni: [{ id: '__chiudi', etichetta: t('mm_chiudi', 'Chiudi') },
-          { id: 'folder', etichetta: t('pl_open_folder', 'Apri la cartella'), chiude: false },
+          { id: 'folder', etichetta: (window.tApriCartella ? window.tApriCartella() : t('pl_open_folder', 'Apri la cartella')), chiude: false },
           ...(enabled() && records.length ? [{ id: 'resume', etichetta: t('pl_resume_export', 'Verifica o riprendi la versione'), chiude: false }] : [])],
         async suAzione(event, box, redraw) {
           try {

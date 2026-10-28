@@ -598,7 +598,10 @@ window.extractPdfPages = async function (file, opzioni) {
             localStorage.getItem('mappai_strip_boilerplate') !== '0';
     } catch (e) { senzaIntestazioni = true; }
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    /* CVE-2024-4367 (pdf.js 3.4.120): senza questa riga un PDF costruito ad arte esegue
+       JavaScript con i poteri dell'app. Era l'ultima delle sette chiamate senza
+       (`tests/pdfjs-eval.test.js`; packet 0123, lotto 1). */
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
     const pages = [];
     const altezze = [];
     const grezzi = [];
@@ -2044,7 +2047,7 @@ window.MappAITune = {
     // Nome del contesto attivo ('' se generico) — per la UI del toggle
     activeContextName: function () {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = (typeof appState !== 'undefined') ? appState : (window.appState || null);
             if (a && a.userProfile && a.userProfile.nickname) return a.userProfile.nickname;
             var c = window.MappAIClasses && window.MappAIClasses.getActive && window.MappAIClasses.getActive();
             return c ? c.name : '';
@@ -2053,7 +2056,7 @@ window.MappAITune = {
     // Riga "livello di lettura" dal contesto attivo (studente prioritario). '' se generico.
     levelBlock: function () {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = (typeof appState !== 'undefined') ? appState : (window.appState || null);
             var grade = '', system = '';
             var up = a && a.userProfile;
             if (up && up.nickname) { grade = up.grade || ''; system = up.system || ''; }
@@ -2104,7 +2107,7 @@ window.MappAITune = {
         var c = null, nome = '', disc = '';
         try {
             var CL = window.MappAIClasses;
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = (typeof appState !== 'undefined') ? appState : (window.appState || null);
             var up = a && a.userProfile;
             c = (CL && CL.getActive) ? CL.getActive() : null;
             nome = (up && up.nickname) ? up.nickname : ((c && c.name) || '');
@@ -2125,7 +2128,7 @@ window.MappAITune = {
     // C'è un contesto attivo con taratura SPECIALE? (governa il suffisso [VERDE])
     isSpecialActive: function () {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = (typeof appState !== 'undefined') ? appState : (window.appState || null);
             var up = a && a.userProfile;
             /* «speciale» = si scosta dallo standard: il registro medio È lo
                standard, come già per le classi qui sotto. */
@@ -2137,7 +2140,7 @@ window.MappAITune = {
     // Blocco taratura del contesto attivo (studente ha priorità, poi classe). '' se generico.
     activeTuningBlock: function () {
         try {
-            var a = window.appState || (typeof appState !== 'undefined' ? appState : null);
+            var a = (typeof appState !== 'undefined') ? appState : (window.appState || null);
             var up = a && a.userProfile;
             if (up && up.nickname) {
                 var bits = [];
@@ -2382,7 +2385,10 @@ window.showGenerationReport = function () {
                 window.MappAIGen.segnaNuovo({
                     nome: appState.rootNodeLabel || '',
                     vault: _cart,
-                    id: (window.StorageManager && window.StorageManager.currentProjectId) || ''
+                    /* `window.StorageManager` è la classe NATIVA del browser (navigator.storage):
+                       l'id usciva sempre vuoto. Il nostro è la `const` di mappai-storage-lang.js
+                       (invariante 3; packet 0123, lotto 1). */
+                    id: (typeof StorageManager !== 'undefined' && StorageManager.currentProjectId) || ''
                 });
             }).catch(function () { });
         }

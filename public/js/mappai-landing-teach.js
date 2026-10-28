@@ -336,6 +336,10 @@
   function assignElab(i) {
     var rec = _elabRec(i);
     if (!rec) return;
+    /* 0124 (ADR 0025): il chip della classe apre «Riassegna…», come la briciola (inv. 21:
+       un comando per cosa); con `mappai_riassegna_copia` a '0' il modale di prima */
+    var RC = window.MappAIRiassegnaCopia, d = _perProgetto(rec);
+    if (RC && RC.attivo() && d) { RC.apri('riassegna', d, { dopo: function () { renderElaboraProjects(_elabContainer); } }); return; }
     _openAssignModal(rec, function () { renderElaboraProjects(_elabContainer); });
   }
   // Variante localStorage-only (browser senza Electron): stesso modale, ma senza
@@ -1370,7 +1374,8 @@
        «Stampa» sui quiz in ELABORA, e questa è la stessa forma, raggiungibile
        da «Quiz cartacei» nella console INSEGNA. */
     try { if (window.MappAIModal && MappAIModal.prossimoZ) m.style.zIndex = String(MappAIModal.prossimoZ()); } catch (e) { }
-    m.innerHTML = '<div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>' +
+    /* 0122 lotto 4b2: il velo è sul contenitore (MappAIVelo) e il clic fuori non chiude (Giacomo, 23/10): il figlio che faceva da velo non c'è più */
+    m.innerHTML =
       '<div class="relative bg-white rounded-2xl shadow-2xl w-[92vw] max-w-[520px] p-6 space-y-5">' +
       '<div class="flex items-center gap-3">' +
       '<div class="pm-icon-wrap"><i data-lucide="printer" class="w-5 h-5 text-indigo-600"></i></div>' +
@@ -1386,15 +1391,12 @@
     document.body.appendChild(m);
     if (window.safeCreateIcons) window.safeCreateIcons();
     var prevFocus = document.activeElement;
-    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
     function close() {
-      document.removeEventListener('keydown', onKey, true);
       m.remove();
       try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) { }
     }
-    document.addEventListener('keydown', onKey, true);
+    if (window.MappAIVelo) window.MappAIVelo.monta(m, close);   /* 0122 lotto 4b2: velo, piano, sfondo bloccato ed Esc li fa MappAIVelo (mappai-velo.js) */
     m.querySelector('#qp-x').onclick = close;
-    m.querySelector('.absolute').onclick = close;
     m.querySelector('#qp-with').onclick = function () { close(); onPick(true); };
     m.querySelector('#qp-without').onclick = function () { close(); onPick(false); };
     setTimeout(function () { var b = m.querySelector('#qp-with'); if (b) b.focus(); }, 20);
@@ -1948,13 +1950,6 @@
       });
     } catch (e) { return []; }
   }
-  /* «+ Nuova materia»: chiede il label e procede. Usa il prompt dell'app se c'è. */
-  function _promptNuovaMateria(cb) {
-    var q = _t('lt_cons_nuova_materia_q', 'Nome della nuova materia');
-    if (window.showPrompt) { try { return window.showPrompt(q, '', function (v) { if (v && String(v).trim()) cb(String(v).trim()); }); } catch (e) { } }
-    var v = null; try { v = window.prompt(q); } catch (e) { }
-    if (v && String(v).trim()) cb(String(v).trim());
-  }
   /* Le mappe della console vengono dal DISCO, non da localStorage.
      ⚠️ Era il difetto della prima versione, visto da Giacomo in Electron: i
      materiali comparivano per una classe sola. Motivo: partivo dai progetti in
@@ -1972,9 +1967,14 @@
   function _nomeDi(v, ripiego) {
     return (_nomeDaCartella() && v && v.folderName) ? v.folderName : ripiego;
   }
-  /* la descrizione di un progetto della lista per «Rinomina…» (mappai-rinomina.js) */
+  /* la descrizione di un progetto della lista per «Rinomina…» (mappai-rinomina.js); dallo
+     0124 anche per «Riassegna…» e «Copia…» (mappai-riassegna-copia.js), che non
+     dipendono da `mappai_nome_da_cartella` */
   function _perRinomina(m) {
-    if (!m || !m.v || !m.v.fullPath || !_nomeDaCartella()) return null;
+    return _nomeDaCartella() ? _perProgetto(m) : null;
+  }
+  function _perProgetto(m) {
+    if (!m || !m.v || !m.v.fullPath) return null;
     return { vaultPath: m.v.fullPath, nome: m.v.folderName, titolo: m.v.rootNodeLabel || '',
       projectId: m.v.projectId || null, idRiga: m.p ? m.p.id : null, lettura: _letturaDi(m) };
   }
@@ -2594,8 +2594,9 @@
     /* «Allievi» (Giacomo, 17/9): UN clic, subito il QR del progetto per MappAI studente —
        senza il menu dei materiali. Viaggia solo l'elenco chiuso (`relVaultStudente`):
        mai Studio Attivo, Consegne, chat o i profili (che stanno fuori dal vault). */
-    if (_scambioOn()) az.push({ id: 'invia-allievi', et: _t('lt_cons_allievi', 'Vault su iPad'), forma: 'azione', icona: 'send', chiude: false, aiuto: _t('lt_cons_tip_allievi', 'Un clic: il QR per mandare la mappa e i materiali all\'app MappAI studente.') });
-    az.push({ id: 'qr', et: _t('lt_cons_qr_btn', 'Invia file'), forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Invia un file via QR ai telefoni degli allievi. Per mandare tutto il vault all\'iPad usa «Vault su iPad».') });
+    if (_scambioOn()) az.push({ id: 'invia-allievi', et: _t('lt_cons_allievi', 'Vault su iPad'), forma: 'azione', icona: 'qr-code', chiude: false, aiuto: _t('lt_cons_tip_allievi', 'Un clic: il QR per mandare la mappa e i materiali all\'app MappAI studente.') });
+    /* 0122 lotto 4c (Giacomo, 22/10): «'Vault su iPad'=icona QR e 'Invia file'= aeroplano di carta» — erano scambiate */
+    az.push({ id: 'qr', et: _t('lt_cons_qr_btn', 'Invia file'), forma: 'azione', icona: 'send', chiude: false, aiuto: _t('lt_cons_tip_qr', 'Invia un file via QR ai telefoni degli allievi. Per mandare tutto il vault all\'iPad usa «Vault su iPad».') });
     az.push({ id: 'cartella', et: _t('lt_cons_cartella', 'Cartella'), forma: 'azione', icona: 'folder', chiude: false, aiuto: _t('lt_cons_tip_folder', 'Apre la cartella del vault nel Finder.') });
     var vuoto = _cons.materiali === null
       ? _t('lt_cons_carico_mat', 'Cerco i materiali di questa mappa…')
@@ -3178,8 +3179,7 @@
         onGenerico: function () { reset(function () { CL.setActive(''); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
         onClasse: function (c) { reset(function () { CL.setActive(c.id); if (CL.setActiveStudent) CL.setActiveStudent(null); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
         onAllievo: function (pp) { reset(function () { if (CL.setActiveStudent) CL.setActiveStudent(pp); if (CL.setActiveDiscipline) CL.setActiveDiscipline(''); }); },
-        onMateria: function (m) { reset(function () { CL.setActiveDiscipline(m); }); },
-        onNuovaMateria: function () { _promptNuovaMateria(function (v) { reset(function () { CL.setActiveDiscipline(v); }); }); }
+        onMateria: function (m) { reset(function () { CL.setActiveDiscipline(m); }); }
       };
       var livelli = CB.specContesto(_cbCtx);
       /* ── LA BRICIOLA SI COMPLETA QUANDO SCEGLI UN PROGETTO (Giacomo, 14/8) ──
@@ -3188,34 +3188,30 @@
          anche qui sarebbe lo stesso comando in due posti mentre si sta ancora
          cercando. Scelto il progetto, la testata dice il percorso INTERO —
          Insegna › classe › materia › progetto — e ogni pezzo resta cliccabile.
-         L'ultima briciola ha un MENU (le mappe del filtro): è la via breve per
-         passare da una mappa all'altra senza tornare alla colonna. */
+         L'ultima briciola ha un MENU con le azioni sul progetto (0124). */
       if (!p) livelli = livelli.slice(0, 1);
       else {
-        var _altre = _consFiltrate();
-        /* 0094 (S7): «Rinomina…» in fondo al menu della briciola, come «+ Nuova
-           materia»; con una mappa sola il pezzo diventa un menu con lei sola */
-        var _rin = _perRinomina(p);
-        var _nuovoRin = _rin ? { et: _t('rn_voce', 'Rinomina…'), onPick: function () { _consRinomina(p); } } : null;
-        /* ⚠️ Il menu solo se c'è davvero altro fra cui scegliere: dopo
-           l'allineamento il filtro si stringe spesso su UNA mappa, e una
-           tendina con una voce sola — già spuntata — si legge come rotta.
-           Con una sola mappa la briciola resta un'etichetta; per allargare c'è
-           «mostra tutti» in fondo ai filtri. */
-        livelli.push((_altre.length > 1 || _nuovoRin)
-          ? {
-            et: p.nome,
-            menu: {
-              tipo: 'lista',
-              voci: _altre.length > 1 ? _altre.map(function (mm2) {
-                return {
-                  et: mm2.nome, on: mm2.id === p.id,
-                  onPick: function () { if (mm2.id !== p.id) scegliMappa(mm2.id); }
-                };
-              }) : [],
-              nuovo: _nuovoRin
-            }
-          }
+        /* 0094 (S7): «Rinomina…» in fondo al menu della briciola. 0124 (ADR 0025): sotto,
+           «Riassegna…» e «Copia…»; il menu non elenca più gli altri progetti (Giacomo, 23/10:
+           «nel menu della briciola puoi eliminare i nomi degli altri progetti e sotto 'rinomina'
+           puoi inserire 'riassegna' e 'copia'»). Dopo il gesto la console segue il progetto
+           nel posto nuovo (dopo «Copia», la copia: D4). Senza azioni la briciola resta un'etichetta. */
+        var _rin = _perRinomina(p), _prog = _perProgetto(p), RCi = window.MappAIRiassegnaCopia;
+        var _segui = function (r) {
+          if (!r || !r.fullPath) return;
+          _consRileggi(function (list) {
+            var m = (list || []).filter(function (x) { return x && x.v && String(x.v.fullPath) === String(r.fullPath); })[0];
+            if (m) scegliMappa(m.id); else rifai();
+          });
+        };
+        var _azioni = [];
+        if (_rin) _azioni.push({ et: _t('rn_voce', 'Rinomina…'), onPick: function () { _consRinomina(p); } });
+        if (_prog && RCi && RCi.attivo()) {
+          _azioni.push({ et: _t('rc_riassegna_voce', 'Riassegna…'), onPick: function () { RCi.apri('riassegna', _prog, { dopo: _segui }); } });
+          _azioni.push({ et: _t('rc_copia_voce', 'Copia…'), onPick: function () { RCi.apri('copia', _prog, { dopo: _segui }); } });
+        }
+        livelli.push(_azioni.length
+          ? { et: p.nome, menu: { tipo: 'lista', voci: [], nuovo: _azioni } }
           : { statico: p.nome, qui: true });
       }
       /* ⚠️ `node` = il BOX: montaPercorso marca il box `mn-percorso` (la veste
@@ -3915,6 +3911,7 @@
     /* 0094: la descrizione per «Rinomina…» e la proposta per un nome provvisorio,
        per la console di ELABORA (una regola sola, qui) */
     perRinomina: function (m) { return _perRinomina(m); },
+    perProgetto: function (m) { return _perProgetto(m); },
     propostaNome: function (m) { return _proposta(m); },
     mappeDelContesto: function () {
       return _consCaricaMappe().then(function (all) { return _filtraContesto(all); });

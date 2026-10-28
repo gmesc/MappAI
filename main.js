@@ -18,7 +18,7 @@
  * I componenti di terze parti inclusi (font, librerie) restano sotto le loro
  * licenze: vedi THIRD-PARTY-NOTICES.md.
  */
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -33,6 +33,8 @@ const yaml = require('js-yaml');
 const FilesCore = require('./public/js/mappai-files-core.js');
 // 0094 (ADR 0021): il nome del progetto è la sua cartella — nome libero, riparazione dei percorsi.
 const NomeCartellaCore = require('./public/js/mappai-nome-cartella-core.js');
+// 0124 (ADR 0025): «Riassegna…» e «Copia…» — i pezzi del percorso di destinazione, index.yaml con classe e materia.
+const RiassegnaCopiaCore = require('./public/js/mappai-riassegna-copia-core.js');
 // 0104 (ADR 0023): il piano della riorganizzazione di «MappAI - file» (Allievi, Classi, Sistema).
 const RiordinoCore = require('./public/js/mappai-riordino-core.js');
 // Leggere un'immagine con un modello di visione locale (20/8): formati, misure,
@@ -41,6 +43,10 @@ const VisioneCore = require('./public/js/mappai-visione-core.js');
 // Lo stream SSE di Infomaniak (25/9): righe spezzate fra due pezzi, lettere UTF-8
 // tagliate e finish_reason perso stanno nel core; qui restano rete e log.
 const SseCore = require('./public/js/mappai-sse-core.js');
+// Dove può andare una finestra e che cosa può chiedere (22/10, packet 0123 lotto 1; 0028):
+// le regole stanno nel core, qui `guardiaFinestre`, `impostaPermessi` e il filtro di `open-external`.
+const Confini = require('./public/js/mappai-confini-core.js');
+const { pathToFileURL } = require('url');
 
 let mainWindow;
 let launcherWindow;
@@ -128,12 +134,9 @@ function createWindow() {
         });
     }
 
-    // Permette window.open() dal renderer (usato per Stampa Dossier)
-    // Senza questo, in Electron 30+ con contextIsolation:true i popup
-    // vengono bloccati → window.open() ritorna null → il dossier non si apre
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        return { action: 'allow' };
-    });
+    // window.open() dal renderer (Stampa Dossier, i PDF in blob:, i resoconti LIVE) lo
+    // decide `guardiaFinestre`, agganciata a ogni finestra da `web-contents-created`:
+    // fino al 22/10 qui si rispondeva `allow` a qualunque indirizzo (packet 0028).
 }
 
 function copyRecursiveSync(src, dest) {
@@ -329,7 +332,56 @@ function adottaRootEsistente() {
     } catch (e) { console.warn('[files] adozione fallita:', e.message); return false; }
 }
 
+// ── Confini delle finestre (0123, lotto 1; packet 0028) ──────────────────────
+// Le regole stanno in `mappai-confini-core.js`; qui si applicano a OGNI webContents che
+// nasce (finestra principale, avvio, Studio, i popup delle stampe, le finestre nascoste
+// delle stampe in PDF):
+//  - una finestra nuova: dell'app → si apre; esterna → browser di sistema; altro → niente;
+//  - una navigazione del riquadro principale: solo un file sotto la radice dell'app (la
+//    ricarica di HOME); il resto si ferma, e l'esterno va al browser — la finestra col
+//    ponte `electronAPI` non lascia mai l'app. Una figlia (window.open: ha `opener` alla
+//    nascita, nasce senza ponte) carica anche i report LIVE su 127.0.0.1, i PDF in
+//    blob: e le stampe su about: (packet 0129: prima restava bianca);
+//  - una cornice interna (iframe): si ferma solo ciò che è esterno o che non si apre.
+// Prima: `allow` a tutto in createWindow, nessun will-navigate, nessun gestore dei permessi.
+const RADICE_APP = pathToFileURL(__dirname).href;
+function guardiaFinestre(contents) {
+    const apriFuori = (url) => shell.openExternal(url).catch(e => console.warn('[finestre] apertura esterna fallita:', url, e.message));
+    contents.setWindowOpenHandler(({ url }) => {
+        const esito = Confini.apertura(url);
+        if (esito === 'app') return { action: 'allow' };
+        if (esito === 'esterno') apriFuori(url);
+        else console.warn('[finestre] finestra rifiutata:', url);
+        return { action: 'deny' };
+    });
+    const ferma = (event, url, cornice) => {
+        event.preventDefault();
+        if (Confini.apertura(url) === 'esterno') apriFuori(url);
+        else console.warn('[finestre] navigazione rifiutata' + (cornice ? ' (cornice)' : '') + ':', url);
+    };
+    const figlia = !!contents.opener;
+    contents.on('will-navigate', (event, url) => {
+        if (!Confini.navigazioneAmmessa(url, { radiceApp: RADICE_APP, figlia })) ferma(event, url, false);
+    });
+    contents.on('will-frame-navigate', (event) => {
+        if (event.isMainFrame) return;                       // il riquadro principale lo tratta will-navigate
+        if (Confini.apertura(event.url) !== 'app') ferma(event, event.url, true);
+    });
+}
+app.on('web-contents-created', (_event, contents) => guardiaFinestre(contents));
+
+// I permessi del browser (microfono, notifiche, posizione…): negati, salvo gli appunti.
+// Ogni negato si legge nella console di main, così al gate si vede se una funzione ne chiedeva uno.
+function impostaPermessi() {
+    session.defaultSession.setPermissionRequestHandler((_contents, permesso, rispondi) => {
+        const ok = Confini.permessoAmmesso(permesso);
+        if (!ok) console.warn('[permessi] negato:', permesso);
+        rispondi(ok);
+    });
+}
+
 app.whenReady().then(() => {
+    impostaPermessi();       // 0123: la sessione esiste solo da qui
     adottaRootEsistente();
     try { riorganizzaStruttura(); } catch (e) { console.warn('[files] riorganizzazione beta.8 fallita:', e.message); }   // 0104, prima della finestra
     apriSessione();          // e registra la chiusura improvvisa di quella prima
@@ -717,6 +769,12 @@ ipcMain.handle('list-models', async (event, { apiKey }) => {
 });
 
 ipcMain.handle('open-external', async (event, url) => {
+    // 0123 (lotto 1; packet 0027): solo http, https e mailto — un `file:` o uno schema
+    // come `smb:` lancerebbe ciò che indica, col renderer che decide che cosa.
+    if (!Confini.schemaEsterno(url)) {
+        console.warn('[finestre] open-external rifiutato:', url);
+        return { success: false, error: 'indirizzo non ammesso: si aprono solo http, https e mailto' };
+    }
     try {
         await shell.openExternal(url);
         return { success: true };
@@ -754,6 +812,8 @@ ipcMain.handle('immagine-prepara', async (event, { path: filePath, quale }) => {
         if (!filePath || typeof filePath !== 'string') return { ok: false, motivo: 'percorso-mancante' };
         const nome = path.basename(filePath);
         if (!VisioneCore.accetta(nome)) return { ok: false, motivo: 'formato-non-supportato' };
+        // 0123 lotto 4: la foto viene dalla finestra di sistema; mai da una cartella nascosta
+        if (!fonteAmmessa(filePath, VisioneCore.ESTENSIONI)) return { ok: false, motivo: 'fuori' };
 
         let st;
         try { st = fs.statSync(filePath); }
@@ -857,28 +917,9 @@ ipcMain.handle('open-pipeline-folder', async (event, { runId } = {}) => {
     }
 });
 
-// IPC Handler to save PDF binary files directly to the Vault
-ipcMain.handle('save-pdf-to-vault', async (event, { base64Data, fileName, vaultPath }) => {
-    try {
-        let destDir;
-        if (vaultPath && fs.existsSync(vaultPath)) {
-            destDir = vaultPath;
-        } else {
-            destDir = mapsBaseDir();   // 010
-        }
-
-        if (!fs.existsSync(destDir)) {
-            fs.mkdirSync(destDir, { recursive: true });
-        }
-
-        const filePath = path.join(destDir, fileName);
-        const buffer = Buffer.from(base64Data, 'base64');
-        fs.writeFileSync(filePath, buffer);
-        return { success: true, path: filePath };
-    } catch (err) {
-        return { success: false, error: err.message };
-    }
-});
+/* `save-pdf-to-vault` TOLTO il 23/10/26 (0123 lotto 4, 0027): il preload non lo
+   espone dal 25/9 e nessuno lo chiamava; con un `../` nel nome scriveva ovunque.
+   Un PDF nel vault passa da `save-vault-file` (percorso relativo sanificato). */
 
 // ── Pipeline «Genera materiali» (011) — 3 handler sottili (I/O + finestra) ──
 // Nessuna logica di dominio qui: naming/sanitizzazione/manifest vivono nei moduli
@@ -1014,15 +1055,114 @@ async function potaSorgentiOrfane(vaultPath) {
     return orfani;
 }
 
+/* ── I CONFINI DEL DISCO (23/10/26, packet 0123 lotto 4; 0027) ──────────────────
+   Gli sportelli che leggono, scrivono, aprono o copiano un file lo fanno solo
+   sotto una di queste radici. La regola è `Confini.sottoRadice` (pura); qui la
+   lista, in un punto solo. Le radici: «MappAI - file» (sotto la posizione
+   scelta o Documenti: Classi, Allievi, Sistema e le cartelle di prima),
+   Documenti (le cartelle storiche «MappAI - Vault», «MappAI - Classi»…, che
+   valgono quando i file non sono organizzati) e le cartelle che il docente
+   sceglie col dialogo in questa sessione (`radiciScelte`). userData NO, anche se
+   il packet la elencava: nessuno sportello riceve dal renderer un percorso lì
+   (censimento del 23/10; ci scrive solo main.js, coi percorsi suoi), e come
+   radice esporrebbe `mappai-settings.json` a `save-vault-file`.
+   `veroPercorso`: il realpath dell'antenato che esiste, più il resto — un
+   percorso che sta per nascere (save-vault crea la cartella) si confronta con
+   le radici risolte allo stesso modo (/tmp è /private/tmp). */
+const radiciScelte = new Set();
+function radiciAmmesse() {
+    const r = [mappaiRootDir(), documentsDir()];
+    radiciScelte.forEach(x => r.push(x));
+    return r;
+}
+function veroPercorso(p) {
+    let su = path.resolve(String(p)), resto = [];
+    for (;;) {
+        try { return path.join(fs.realpathSync.native(su), ...resto); }
+        catch (e) {
+            const padre = path.dirname(su);
+            if (padre === su) return path.resolve(String(p));
+            resto.unshift(path.basename(su)); su = padre;
+        }
+    }
+}
+const _opzConfini = { vero: veroPercorso, windows: process.platform === 'win32', ignoraMaiuscole: process.platform === 'darwin' || process.platform === 'win32' };
+function dentroDi(p, basi) { return typeof p === 'string' && !!p && Confini.sottoRadice(path.resolve(p), basi.filter(Boolean).map(b => path.resolve(b)), _opzConfini); }
+function dentroRadici(p) { return dentroDi(p, radiciAmmesse()); }
+// la stessa cartella con la stessa regola (link, maiuscole), non per confronto di stringhe
+function stessaCartella(a, b) { return dentroDi(a, [b]) && dentroDi(b, [a]); }
+const FUORI = 'fuori dalle cartelle dell\'app';
+/* IL PONTE (0123 lotto 4) — CHIUSO dallo 0124 (ADR 0025). Un progetto poteva stare fuori
+   dalle radici: «Esporta nel Vault» adottava la cartella scelta (la Scrivania, «Analisi»…)
+   e l'app la riapriva da sola nelle sessioni dopo; il ponte la riconosceva dall'`index.yaml`
+   che scrive `save-vault` (almeno una delle sue chiavi in colonna 0). Con «Esporta» uscito
+   (0124 lotto 1) un progetto entra solo da «Importa vault», la cui cartella è scelta col
+   dialogo (`radiciScelte`): il ponte non serve più. Giacomo, 24/10: «Un progetto portato
+   fuori con il Finder sparisce dall'app.» Torna solo con `ponteFuori: true` in
+   mappai-settings.json (interruttore, inv. 1). */
+function vaultDellApp(dir) {
+    try {
+        const t = fs.readFileSync(path.join(String(dir), 'index.yaml'), 'utf-8').slice(0, 8192);
+        return /^(projectId|extractionMode|rootNodeLabel):/m.test(t);
+    } catch (e) { return false; }
+}
+function cartellaAmmessa(dir) {
+    if (typeof dir !== 'string' || !dir) return false;
+    if (dentroRadici(dir)) return true;
+    return readSettings().ponteFuori === true && vaultDellApp(dir);
+}
+/* Le fonti di CREA: dalla finestra di sistema, da qualunque cartella; il confine è il tipo. */
+const EST_DOCX = ['.docx'];
+const EST_CARICA = ['.pdf', '.mp3', '.wav', '.aac', '.m4a', '.ogg', '.oga', '.flac', '.aif', '.aiff', '.opus', '.weba', '.amr',
+    '.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi', '.mpeg', '.mpg', '.3gp', '.wmv', '.flv'];
+function fonteAmmessa(p, estensioni) {
+    if (typeof p !== 'string' || !path.isAbsolute(p)) return false;
+    return Confini.fonteLeggibile(p, estensioni, _opzConfini);
+}
+
+/* Scrittura atomica (0032): il file nuovo nasce accanto, nascosto, e prende il
+   posto del vecchio con un rename. Se qualcosa va storto a metà (disco pieno,
+   nome troppo lungo, l'app chiusa) resta il file di prima, intero, e nessun
+   temporaneo orfano. Stessa forma di `_scriviRegistroRiordino` e di
+   `ReviewStore.atomicWrite`; il contenuto (testo utf-8 o Buffer) non cambia. */
+function scriviAtomico(file, dati) {
+    // nome corto e fisso, non quello del file + un suffisso: un nodo dal nome lungo (fino al limite
+    // di 255 byte del disco) si scriveva prima e deve scriversi ancora
+    const tmp = path.join(path.dirname(file), '.mappai-' + process.pid + '-' + crypto.randomBytes(4).toString('hex') + '.tmp');
+    try {
+        if (Buffer.isBuffer(dati)) fs.writeFileSync(tmp, dati, { flag: 'wx' });
+        else fs.writeFileSync(tmp, String(dati), { encoding: 'utf-8', flag: 'wx' });
+        fs.renameSync(tmp, file);
+    } finally {
+        try { if (fs.existsSync(tmp)) fs.rmSync(tmp, { force: true }); } catch (e) { /* è solo il nostro temporaneo */ }
+    }
+}
+/* Un file dell'utente che l'app toglie non si cancella (inv. 13): va in
+   `<cartella>/.vecchi/<percorso relativo>`, una cartella nascosta che gli elenchi
+   non leggono, col suffisso « (2)» se c'è già. `cartella` è il vault: i nodi
+   tolti finiscono FUORI da Nodi/, che `load-vault` legge tutta. */
+function mettiDaParte(cartella, abs) {
+    const rel = path.relative(cartella, abs);
+    let dest = path.join(cartella, '.vecchi', rel), k = 2;
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    while (fs.existsSync(dest)) { dest = path.join(cartella, '.vecchi', rel.replace(/(\.[^./\\]+)?$/, ' (' + k + ')$1')); k++; }
+    fs.renameSync(abs, dest);
+    return dest;
+}
+
 const ReviewStore = require('./public/js/mappai-review-store.js');
 
 ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, text, ifAbsent, potaVarianti, expectedVersion } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        // 0123 lotto 4: la cartella sta sotto le radici o è un progetto dell'app
+        if (!cartellaAmmessa(vaultPath)) return { ok: false, error: FUORI };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         if (base64 == null && text == null) return { ok: false, error: 'nessun contenuto' };
         const dest = path.join(vaultPath, safe);
+        // e il file resta nel vault anche dopo i link simbolici (una sottocartella che porta fuori)
+        if (!dentroDi(dest, [vaultPath])) return { ok: false, error: FUORI };
         if (safe === 'pipeline.json') {
             if (ifAbsent && fs.existsSync(dest)) return { ok: false, error: 'exists', exists: true };
             const manifestText = text != null ? String(text) : Buffer.from(String(base64).replace(/^data:[^,]*,/, ''), 'base64').toString('utf8');
@@ -1034,9 +1174,9 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         if (base64 != null) {
             const b = (/^data:/i.test(base64) && base64.indexOf(',') >= 0) ? base64.slice(base64.indexOf(',') + 1) : base64;
-            fs.writeFileSync(dest, Buffer.from(b, 'base64'));
+            scriviAtomico(dest, Buffer.from(b, 'base64'));
         } else {
-            fs.writeFileSync(dest, String(text), 'utf-8');
+            scriviAtomico(dest, String(text));
         }
         const potate = potaVarianti === true ? await potaVariantiCarattere(vaultPath, safe) : [];
         /* Con la stessa autorizzazione si tolgono i gemelli rimasti senza il loro
@@ -1055,9 +1195,11 @@ ipcMain.handle('save-vault-file', async (event, { vaultPath, relPath, base64, te
 ipcMain.handle('read-vault-file', async (event, { vaultPath, relPath } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        if (!cartellaAmmessa(vaultPath)) return { ok: false, error: FUORI };   // 0123 lotto 4
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         const src = path.join(vaultPath, safe);
+        if (!dentroDi(src, [vaultPath])) return { ok: false, error: FUORI };
         if (!fs.existsSync(src)) return { ok: false, error: 'file non trovato: ' + safe };
         const stat = fs.statSync(src);
         const MAX = 50 * 1024 * 1024; // cap 50MB: evita payload IPC enormi
@@ -1075,7 +1217,7 @@ ipcMain.handle('pipeline-open-folder', async (event, { folderPath } = {}) => {
         if (!folderPath) return { ok: false, error: 'percorso mancante' };
         const base = mapsBaseDir();
         const resolved = path.resolve(folderPath);
-        if (resolved !== path.resolve(base) && !resolved.startsWith(path.resolve(base) + path.sep)) {
+        if (!dentroDi(resolved, [base])) {   // 0123 lotto 4: la regola unica, stesso esito
             return { ok: false, error: 'fuori da Mappe' };
         }
         if (!fs.existsSync(resolved)) return { ok: false, error: 'cartella-non-trovata' };
@@ -1095,7 +1237,7 @@ ipcMain.handle('delete-vault-file', async (event, { vaultPath, relPath } = {}) =
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const base = path.resolve(mapsBaseDir());
         const vault = path.resolve(vaultPath);
-        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!dentroDi(vault, [base])) return { ok: false, error: 'fuori da Mappe' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         const target = path.join(vault, safe);
@@ -1123,7 +1265,7 @@ ipcMain.handle('vault-file-download', async (event, { vaultPath, relPath } = {})
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const base = path.resolve(mapsBaseDir());
         const vault = path.resolve(vaultPath);
-        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!dentroDi(vault, [base])) return { ok: false, error: 'fuori da Mappe' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         const sorgente = path.join(vault, safe);
@@ -1159,17 +1301,18 @@ ipcMain.handle('vault-file-download', async (event, { vaultPath, relPath } = {})
    Guardie identiche a `delete-vault-file`: percorso risolto e verificato sotto
    `Mappe`, mai una loro variante. */
 ipcMain.handle('vault-file-print', async (event, { vaultPath, relPath } = {}) => {
-    let win = null;
+    let win = null, daAprire = null;
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
         const base = path.resolve(mapsBaseDir());
         const vault = path.resolve(vaultPath);
-        if (vault !== base && !vault.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!dentroDi(vault, [base])) return { ok: false, error: 'fuori da Mappe' };
         const safe = FilesCore.sanitizeVaultRelPath(relPath);
         if (!safe) return { ok: false, error: 'percorso non valido: ' + relPath };
         const file = path.join(vault, safe);
         if (!fs.existsSync(file)) return { ok: false, error: 'file-non-trovato', missing: true };
         if (fs.statSync(file).isDirectory()) return { ok: false, error: 'è una cartella, non un file' };
+        daAprire = file;
 
         const padre = BrowserWindow.fromWebContents(event.sender);
         win = new BrowserWindow({
@@ -1189,7 +1332,8 @@ ipcMain.handle('vault-file-print', async (event, { vaultPath, relPath } = {}) =>
         await shell.openPath(file);
         return { ok: true, aperto: true };
     } catch (err) {
-        try { if (relPath && vaultPath) await shell.openPath(path.join(vaultPath, relPath)); } catch (e) { /* noop */ }
+        // 0123 lotto 4: il ripiego apre solo il file già verificato, mai `relPath` così com'è
+        try { if (daAprire) await shell.openPath(daAprire); } catch (e) { /* noop */ }
         return { ok: false, error: err.message };
     } finally {
         /* ⚠️ la finestra si chiude DOPO: distruggerla subito annullerebbe la
@@ -1207,7 +1351,7 @@ ipcMain.handle('delete-vault', async (event, { folderPath } = {}) => {
         if (!folderPath) return { success: false, error: 'percorso mancante' };
         const base = path.resolve(mapsBaseDir());
         const resolved = path.resolve(folderPath);
-        if (resolved === base || (!resolved.startsWith(base + path.sep))) {
+        if (stessaCartella(resolved, base) || !dentroDi(resolved, [base])) {
             return { success: false, error: 'fuori da Mappe' };
         }
         if (!fs.existsSync(resolved)) return { success: false, error: 'cartella-non-trovata' };
@@ -1222,16 +1366,40 @@ ipcMain.handle('delete-vault', async (event, { folderPath } = {}) => {
 // localStorage che le contraddice. Il nesting lo decide FilesCore.mapVaultParents;
 // qui solo I/O. Collisione di nome → suffisso « · 0N » (stessa regola dell'auto-vault).
 // Le cartelle-genitore rimaste vuote vengono rimosse: nessun contenitore fantasma.
-ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir } = {}) => {
+/* 0124 (ADR 0025, «Riassegna…»): anche da e verso un allievo. Con `parti` (e
+   `base`: 'maps' | 'students') la destinazione l'ha calcolata il core
+   (`MappAIRiassegnaCopiaCore.destinazione`) e qui si ricontrolla pezzo per pezzo
+   (`partiSicure`): mai un percorso furbo, che prima finiva in «Senza classe». Con
+   `dichiara` index.yaml dice la classe e la materia nuove (il resto byte per
+   byte); la cartella vecchia entra fra le rinominate, così un salvataggio partito
+   prima dello spostamento non la fa rinascere (`_scritturaSuRinominata`). La
+   chiamata di prima ({ classDir, discDir }) resta com'era. */
+ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir, base: baseDest, parti, dichiara, projectId } = {}) => {
+    function _idDellIndice(cartella) {
+        try {
+            const r = fs.readFileSync(path.join(cartella, 'index.yaml'), 'utf-8').split(/\r?\n/).find(l => /^projectId\s*:/.test(l));
+            const id = r ? r.replace(/^projectId\s*:/, '').trim().replace(/^["']|["']$/g, '') : '';
+            return FilesCore.idProgettoValido(id) ? id : null;
+        } catch (e) { return null; }
+    }
     try {
         if (!folderPath) return { success: false, error: 'percorso mancante' };
-        const base = path.resolve(mapsBaseDir());
+        const basi = [path.resolve(mapsBaseDir()), path.resolve(studentsBaseDir())];
         const from = path.resolve(folderPath);
-        if (from === base || !from.startsWith(base + path.sep)) return { success: false, error: 'fuori da Mappe' };
+        const base = basi.find(b => !stessaCartella(from, b) && dentroDi(from, [b]));
+        if (!base) return { success: false, error: 'fuori da Mappe' };
         if (!fs.existsSync(from)) return { success: false, error: 'cartella-non-trovata' };
 
-        const parents = FilesCore.mapVaultParents(classDir || '', discDir || '');
-        const destDir = path.join(base, ...parents);
+        let destDir;
+        if (parti !== undefined) {
+            const segs = RiassegnaCopiaCore.partiSicure(parti);
+            if (!segs) return { success: false, error: 'destinazione non valida' };
+            const b = baseDest === 'students' ? basi[1] : basi[0];
+            destDir = path.join(b, ...segs);
+            if (!dentroDi(destDir, [b]) || stessaCartella(destDir, b)) return { success: false, error: 'destinazione non valida' };
+        } else {
+            destDir = path.join(basi[0], ...FilesCore.mapVaultParents(classDir || '', discDir || ''));
+        }
         const folderName = path.basename(from);
 
         // Già al posto giusto → non toccare nulla (idempotente).
@@ -1247,16 +1415,31 @@ ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir }
             finalName = folderName + ' · ' + String(Math.max(2, (seq.maxSeq || 0) + 1)).padStart(2, '0');
         }
         const to = path.join(destDir, finalName);
+        const idPrima = _idDellIndice(from);
         try {
             fs.renameSync(from, to);
         } catch (e) {
             // EXDEV (volumi diversi) → copia + rimozione, come nella migrazione 010.
             if (e.code !== 'EXDEV') throw e;
-            fs.cpSync(from, to, { recursive: true });
+            /* 0123 lotto 4 (0032 punto 4): se la copia si ferma a metà (disco pieno),
+               via la copia parziale e l'origine resta com'era; si toglie l'origine
+               solo a copia finita */
+            try { fs.cpSync(from, to, { recursive: true }); }
+            catch (e2) { try { fs.rmSync(to, { recursive: true, force: true }); } catch (e3) { /* resta da togliere a mano */ } throw e2; }
             fs.rmSync(from, { recursive: true, force: true });
         }
+        _cartelleRinominate.set(from, { nuovo: to, ids: [idPrima, projectId].filter(x => FilesCore.idProgettoValido(x)) });
+        /* 0032 punto 5 (pipeline.json col percorso nuovo) NON qui (0123 lotto 4): se la
+           mappa spostata è quella aperta, il manifesto in memoria dice ancora il percorso
+           vecchio e la versione di prima, e `conflittoDiScrittura` rifiuterebbe ogni
+           scrittura dopo, finché il docente non riapre. Dallo 0124 lo ripara il renderer
+           dopo «Riassegna…» (`MappAIRinomina.riparaRiferimenti`, col manifesto in memoria). */
+        if (dichiara && typeof dichiara === 'object') {
+            const ip = path.join(to, 'index.yaml');
+            if (fs.existsSync(ip)) scriviAtomico(ip, RiassegnaCopiaCore.indiceConContesto(fs.readFileSync(ip, 'utf-8'), dichiara));
+        }
 
-        // Ripulisci i contenitori rimasti vuoti risalendo fino a Mappe (mai la radice).
+        // Ripulisci i contenitori rimasti vuoti risalendo fino alla base (mai la radice).
         let up = path.dirname(from);
         while (up !== base && up.startsWith(base + path.sep)) {
             let left; try { left = fs.readdirSync(up); } catch (e2) { break; }
@@ -1264,7 +1447,7 @@ ipcMain.handle('vault-relocate', async (event, { folderPath, classDir, discDir }
             try { fs.rmSync(up, { recursive: true, force: true }); } catch (e2) { break; }
             up = path.dirname(up);
         }
-        return { success: true, fullPath: to, folderName: finalName, classDir: classDir || null, discDir: discDir || null, moved: true };
+        return { success: true, fullPath: to, folderName: finalName, classDir: classDir || null, discDir: discDir || null, moved: true, projectId: idPrima };
     } catch (err) {
         console.error('vault-relocate:', err);
         return { success: false, error: err.message };
@@ -1308,7 +1491,11 @@ function _scriviIdSeManca(cartella, id) {
         return FilesCore.idProgettoValido(c) ? c : null;
     }
     if (!FilesCore.idProgettoValido(id)) return null;
-    fs.writeFileSync(file, 'projectId: ' + id + '\n' + testo, 'utf-8');
+    /* 0123 lotto 4: atomico (tmp + rename, come `_scriviRegistroRiordino`); qui a
+       mano e non con `scriviAtomico`, perché tests/rinomina-vault.test.js (fuori dal
+       perimetro dello 0123) ritaglia questo tratto con i soli fs e path */
+    fs.writeFileSync(file + '.tmp', 'projectId: ' + id + '\n' + testo, 'utf-8');
+    fs.renameSync(file + '.tmp', file);
     return id;
 }
 ipcMain.handle('vault-rename', async (event, { folderPath, nome, projectId } = {}) => {
@@ -1350,6 +1537,13 @@ ipcMain.handle('vault-rename', async (event, { folderPath, nome, projectId } = {
 
 // pipeline-open-file: apre nel programma di sistema un file dentro un vault di Mappe
 // (materiali della pipeline dalla sezione Insegna). Validazione sotto mapsBaseDir.
+/* 0123 lotto 4 (decisione di Giacomo del 23/10): dallo stesso sportello passano
+   le CONSEGNE degli allievi, file che arrivano da fuori. «Apri» li passava al
+   sistema così com'erano: un `.command`, un `.app` o un `.sh` sarebbe partito
+   coi permessi del docente. Si aprono solo i tipi che si leggono e non si
+   eseguono; tutto il resto si MOSTRA nel Finder (`mostrato: true`), e chi
+   chiama sa quale delle due è successa. */
+const EST_APRIBILI = ['.pdf', '.html', '.htm', '.txt', '.md', '.csv', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'];
 ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) => {
     try {
         if (!vaultPath || !relPath) return { ok: false, error: 'parametri mancanti' };
@@ -1357,8 +1551,11 @@ ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) 
         if (!safe) return { ok: false, error: 'percorso non valido' };
         const base = path.resolve(mapsBaseDir());
         const target = path.resolve(path.join(vaultPath, safe));
-        if (target !== base && !target.startsWith(base + path.sep)) return { ok: false, error: 'fuori da Mappe' };
+        if (!dentroDi(target, [base])) return { ok: false, error: 'fuori da Mappe' };
         if (!fs.existsSync(target)) return { ok: false, error: 'file-non-trovato' };
+        let st = null; try { st = fs.lstatSync(target); } catch (e) { st = null; }
+        const apribile = !!st && st.isFile() && EST_APRIBILI.indexOf(path.extname(target).toLowerCase()) >= 0;
+        if (!apribile) { shell.showItemInFolder(target); return { ok: true, mostrato: true }; }
         await shell.openPath(target);
         return { ok: true };
     } catch (err) { return { ok: false, error: err.message }; }
@@ -1368,6 +1565,7 @@ ipcMain.handle('pipeline-open-file', async (event, { vaultPath, relPath } = {}) 
 ipcMain.handle('vault-materials-list', async (event, { vaultPath, dir: dirName } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        if (!cartellaAmmessa(vaultPath)) return { ok: false, error: FUORI };   // 0123 lotto 4
         let manifest = null;
         try {
             const mp = path.join(vaultPath, 'pipeline.json');
@@ -1406,6 +1604,7 @@ ipcMain.handle('vault-materials-list', async (event, { vaultPath, dir: dirName }
 ipcMain.handle('vault-sources-list', async (event, { vaultPath } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente' };
+        if (!cartellaAmmessa(vaultPath)) return { ok: false, error: FUORI };   // 0123 lotto 4
         const dir = path.join(vaultPath, 'Fonti');
         const files = [];
         if (fs.existsSync(dir)) {
@@ -1431,8 +1630,11 @@ ipcMain.handle('vault-sources-list', async (event, { vaultPath } = {}) => {
 ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, textContent, vaultPath, subFolder }) => {
     try {
         let chatDir;
-        const targetSubFolder = subFolder || 'Chat';
+        /* 0123 lotto 4: la sottocartella è UN nome (niente `../`), il vault sta sotto le
+           radici o è un progetto dell'app, il nome del file non porta separatori */
+        const targetSubFolder = FilesCore.safeName(subFolder, 'Chat').replace(/^[.\s]+/, '') || 'Chat';
         if (vaultPath && fs.existsSync(vaultPath)) {
+            if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };
             chatDir = path.join(vaultPath, targetSubFolder);
         } else {
             chatDir = ripiegoDir(targetSubFolder);   // 010; 0104: Sistema/<nome> con la struttura nuova
@@ -1444,8 +1646,9 @@ ipcMain.handle('save-chat-transcript', async (event, { projectName, targetName, 
 
         const now = new Date();
         const dateStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
-        const fileName = `${projectName}_${targetName}_${dateStr}.txt`.replace(/\s+/g, '_');
+        const fileName = FilesCore.safeName(`${projectName}_${targetName}_${dateStr}`, 'chat').replace(/\s+/g, '_').replace(/^\.+/, '') + '.txt';
         const filePath = path.join(chatDir, fileName);
+        if (!dentroDi(filePath, [chatDir]) || filePath === chatDir) return { success: false, error: FUORI };
 
         const exists = fs.existsSync(filePath);
         const header = `RIFERIMENTO MAPPA: ${projectName}\nDOCUMENTO: ${targetName}\nDATA: ${dateStr}\n------------------------------------------\n\n`;
@@ -1463,6 +1666,7 @@ ipcMain.handle('save-quiz-text-response', async (event, { title, textContent, va
     try {
         let quizDir;
         if (vaultPath && fs.existsSync(vaultPath)) {
+            if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
             quizDir = path.join(vaultPath, 'Quiz e Flashcard');
         } else {
             quizDir = ripiegoDir('Quiz e Flashcard');   // 010; 0104
@@ -1488,6 +1692,7 @@ ipcMain.handle('save-study-record', async (event, { vaultPath, dateStr, markdown
     try {
         let dir;
         if (vaultPath && fs.existsSync(vaultPath)) {
+            if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
             dir = path.join(vaultPath, 'Studio Attivo');
         } else {
             dir = ripiegoDir('Studio Attivo');   // 010; 0104
@@ -1547,6 +1752,20 @@ function _vaultWalkMd(dir) {
         else if (ent.name.endsWith('.md')) out.push(full);
     }
     return out;
+}
+/* Un `.md` di Nodi/ è un NODO se il suo frontmatter porta `id` e `label` in
+   colonna 0: `save-vault` li scrive da sempre, una nota di Obsidian del docente
+   non li ha (0123 lotto 4). Una regola sola per i due lati: `load-vault` legge
+   come nodi solo questi (una nota diventava un nodo senza id né etichetta, e il
+   salvataggio dopo si rompeva), la pulizia degli orfani sposta solo questi. */
+function _fmDellApp(fm) {
+    return typeof fm === 'string' && /^id:[ \t]*\S/m.test(fm) && /^label:/m.test(fm);
+}
+function _notaDellApp(abs) {
+    let t = '';
+    try { t = fs.readFileSync(abs, 'utf-8'); } catch (e) { return false; }   // intero: reviewMeta può essere lungo
+    const fm = t.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+    return !!fm && _fmDellApp(fm[1]);
 }
 // Rimuove ricorsivamente le sottocartelle vuote sotto dir (non dir stessa).
 function _vaultPruneEmptyDirs(dir) {
@@ -1624,6 +1843,8 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
     try {
         // 0094: non far rinascere la cartella appena rinominata dallo stesso progetto
         if (typeof _scritturaSuRinominata === 'function' && _scritturaSuRinominata(folderPath, mapData)) return { success: false, error: 'cartella-rinominata' };
+        // 0123 lotto 4: sotto le radici (anche una cartella nuova) o un progetto dell'app che c'è già
+        if (!cartellaAmmessa(folderPath)) return { success: false, error: FUORI };
         ReviewStore.checkMapWrite(folderPath, mapData);
         if (!fs.existsSync(folderPath)) {
             fs.mkdirSync(folderPath, { recursive: true });
@@ -1690,7 +1911,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             lastUpdated: new Date().toISOString()
         };
         const indexYaml = yaml.dump(indexData, { lineWidth: -1, quotingType: '"', forceQuotes: false });
-        fs.writeFileSync(path.join(folderPath, 'index.yaml'), indexYaml, 'utf-8');
+        scriviAtomico(path.join(folderPath, 'index.yaml'), indexYaml);
 
         /* 1-bis. vista.json (15/8): le quattro cose che vivevano SOLO nello
            snapshot in localStorage — Vista studio, focus/lenti, timeline,
@@ -1704,9 +1925,10 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         if (mapData.vista !== undefined) {
             if (mapData.vista) {
                 const v = Object.assign({}, mapData.vista, { salvato: new Date().toISOString() });
-                fs.writeFileSync(vistaPath, JSON.stringify(v, null, 2), 'utf-8');
+                scriviAtomico(vistaPath, JSON.stringify(v, null, 2));
             } else if (fs.existsSync(vistaPath)) {
-                try { fs.unlinkSync(vistaPath); } catch (e) { /* resta stantio: pazienza */ }
+                // 0123 lotto 4: in .vecchi/, mai cancellato (inv. 13)
+                try { mettiDaParte(folderPath, vistaPath); } catch (e) { /* resta stantio: pazienza */ }
             }
         }
 
@@ -1727,7 +1949,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             justification: l.justification || ''
         }));
         const linksData = (mapData.links || []).filter(l => !l.isBridge).map(_mapLink);
-        fs.writeFileSync(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2), 'utf-8');
+        scriviAtomico(path.join(folderPath, 'links.json'), JSON.stringify(linksData, null, 2));
 
         // 3. Save Nodes & Allegati directory (Updated)
         const nodesDir = path.join(folderPath, 'Nodi');
@@ -1740,7 +1962,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         if (_bridgesData.length > 0 || fs.existsSync(_pontiBridgesPath)) {
             const _pontiDir = path.join(nodesDir, '_ponti');
             if (!fs.existsSync(_pontiDir)) fs.mkdirSync(_pontiDir, { recursive: true });
-            fs.writeFileSync(_pontiBridgesPath, JSON.stringify(_bridgesData, null, 2), 'utf-8');
+            scriviAtomico(_pontiBridgesPath, JSON.stringify(_bridgesData, null, 2));
         }
 
         // Collect all links for the summary file
@@ -1766,23 +1988,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const _nodeFolder = (node) => _useBranchFolders ? _vaultBranchFolder(node, _nodesById) : '';
         const _nodeFileName = (node) => `${node.label.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${node.id}.md`;
 
-        // 4a. Pulizia orfani + migrazione layout — chiave = PATH RELATIVO (posix), non basename.
-        //     Così i vecchi file piatti vengono rimossi quando un nodo migra in sottocartella (e viceversa
-        //     quando il flag viene spento), in un solo passaggio insieme agli orfani di merge/relink.
-        const validRelPaths = new Set(
-            (mapData.nodes || []).map(node => {
-                const folder = _nodeFolder(node);
-                return (folder ? folder + '/' : '') + _nodeFileName(node);
-            })
-        );
-        try {
-            _vaultWalkMd(nodesDir).forEach(abs => {
-                const rel = path.relative(nodesDir, abs).split(path.sep).join('/');
-                if (!validRelPaths.has(rel)) fs.unlinkSync(abs);
-            });
-        } catch(e) {
-            console.warn('[Vault] Pulizia file orfani fallita:', e.message);
-        }
+        // 4a. La pulizia degli orfani sta DOPO il ciclo dei nodi (4b-bis, 0123 lotto 4).
 
         // 4b. Save each node as a Markdown file
         (mapData.nodes || []).forEach(node => {
@@ -1849,7 +2055,8 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                     let cleanPath = img.replace('file://', '');
                     try { cleanPath = decodeURIComponent(cleanPath); } catch(e) {}
                     
-                    if (fs.existsSync(cleanPath)) {
+                    // 0123 lotto 4: si copia solo un'immagine delle cartelle dell'app o del vault stesso
+                    if (fs.existsSync(cleanPath) && (dentroRadici(cleanPath) || dentroDi(cleanPath, [folderPath]))) {
                         const ext = path.extname(cleanPath) || '.jpg';
                         const newFileName = `${node.id}_${idx}${ext}`;
                         const destPath = path.join(allegatiDir, newFileName);
@@ -1889,8 +2096,33 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                 });
             }
 
-            fs.writeFileSync(path.join(nodeTargetDir, fileName), frontmatter + content, 'utf-8');
+            scriviAtomico(path.join(nodeTargetDir, fileName), frontmatter + content);
         });
+
+        /* 4b-bis. Pulizia orfani + migrazione layout — chiave = PATH RELATIVO (posix), non basename.
+           Così i vecchi file piatti escono quando un nodo migra in sottocartella (e viceversa
+           quando il flag viene spento), in un solo passaggio insieme agli orfani di merge/relink.
+           0123 lotto 4 (0032 punto 1): prima stava PRIMA del ciclo e cancellava con `unlink`;
+           un nodo che non si scriveva (un nome oltre il limite del disco: ENAMETOOLONG)
+           lasciava senza file i nodi rinominati, e se ne andavano anche le note di Obsidian
+           del docente. Ora: solo se il ciclo è arrivato in fondo (un errore lì salta qui),
+           solo i `.md` che l'app ha scritto (`_notaDellApp`), e in `.vecchi/Nodi/`, fuori
+           da Nodi/ che `load-vault` legge tutta. */
+        const validRelPaths = new Set(
+            (mapData.nodes || []).map(node => {
+                const folder = _nodeFolder(node);
+                return (folder ? folder + '/' : '') + _nodeFileName(node);
+            })
+        );
+        try {
+            _vaultWalkMd(nodesDir).forEach(abs => {
+                const rel = path.relative(nodesDir, abs).split(path.sep).join('/');
+                if (validRelPaths.has(rel) || !_notaDellApp(abs)) return;
+                try { mettiDaParte(folderPath, abs); } catch (e) { console.warn('[Vault] orfano non spostato:', rel, e.message); }
+            });
+        } catch(e) {
+            console.warn('[Vault] Pulizia file orfani fallita:', e.message);
+        }
 
         // 4c. Rimuovi le sottocartelle ramo rimaste vuote (rinomina L1 / flag spento)
         _vaultPruneEmptyDirs(nodesDir);
@@ -1899,18 +2131,18 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
         const summaryHeader = `INDICE FONTI E LINK - ${mapData.rootNodeLabel}\n`;
         const summaryTxt = summaryHeader + "=".repeat(summaryHeader.length) + "\n\n" + 
                           (globalLinks.length > 0 ? globalLinks.join('\n') : "Nessun link esterno trovato.");
-        fs.writeFileSync(path.join(folderPath, 'fonti_e_link.txt'), summaryTxt, 'utf-8');
+        scriviAtomico(path.join(folderPath, 'fonti_e_link.txt'), summaryTxt);
 
         // 6. Save Tutor Chat State
         if (mapData.tutorState) {
-            fs.writeFileSync(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2), 'utf-8');
+            scriviAtomico(path.join(folderPath, 'chat_state.json'), JSON.stringify(mapData.tutorState, null, 2));
         }
 
         // 6b. Save Mastery store (padronanza per pinpoint) → Studio Attivo/mastery.json (per meta-analisi docente)
         if (mapData.masteryStore && Object.keys(mapData.masteryStore).length > 0) {
             const studioDir = path.join(folderPath, 'Studio Attivo');
             if (!fs.existsSync(studioDir)) fs.mkdirSync(studioDir, { recursive: true });
-            fs.writeFileSync(path.join(studioDir, 'mastery.json'), JSON.stringify(mapData.masteryStore, null, 2), 'utf-8');
+            scriviAtomico(path.join(studioDir, 'mastery.json'), JSON.stringify(mapData.masteryStore, null, 2));
         }
 
         /* 7. I SET DI STUDIO (quiz e flashcard) — vedi `mappai-files-core.js`,
@@ -1930,8 +2162,7 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
             if (!fs.existsSync(studyDir)) fs.mkdirSync(studyDir, { recursive: true });
             setsDaScrivere.forEach(set => {
                 const daScrivere = Object.assign({}, set, { _mappa: mapData.rootNodeLabel || '' });
-                fs.writeFileSync(path.join(studyDir, FilesCore.nomeFileSet(set)),
-                    JSON.stringify(daScrivere, null, 2), 'utf-8');
+                scriviAtomico(path.join(studyDir, FilesCore.nomeFileSet(set)), JSON.stringify(daScrivere, null, 2));
             });
             /* La potatura legge gli id dai file: un `.json` che non è un set
                (nessun `id`) non entra nell'elenco e non si tocca. */
@@ -1945,7 +2176,8 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
                     .filter(x => x && x.id);
                 FilesCore.setFileDaPotare(esistenti, setsDaScrivere).forEach(nome => {
                     const p = path.join(studyDir, nome);
-                    shell.trashItem(p).catch(() => { try { fs.unlinkSync(p); } catch (e) { } });
+                    // 0123 lotto 4: Cestino negato → .vecchi/, mai `unlink` (inv. 13)
+                    shell.trashItem(p).catch(() => { try { mettiDaParte(folderPath, p); } catch (e) { console.warn('[Vault] set non spostato:', nome, e.message); } });
                 });
             } catch (e) { /* la potatura è igiene: se fallisce, i set sono comunque scritti */ }
         }
@@ -1987,13 +2219,15 @@ ipcMain.handle('save-vault', async (event, { folderPath, mapData }) => {
 // (con branchFolders:true) su ciascuna copia esportata dal docente.
 ipcMain.handle('write-branch-locks', async (event, { folderPath, locks }) => {
     try {
+        if (!cartellaAmmessa(folderPath)) return { success: false, error: FUORI };   // 0123 lotto 4
         const nodesDir = path.join(folderPath, 'Nodi');
         if (!fs.existsSync(nodesDir)) return { success: false, error: 'Cartella Nodi assente' };
         Object.keys(locks || {}).forEach(branchKey => {
             const dir = path.join(nodesDir, branchKey);
-            if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+            // la chiave del ramo è una cartella DENTRO Nodi/, mai `../`
+            if (dir !== nodesDir && dentroDi(dir, [nodesDir]) && fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
                 const yml = yaml.dump(locks[branchKey], { lineWidth: -1, quotingType: '"', forceQuotes: false });
-                fs.writeFileSync(path.join(dir, '_lock.yaml'), yml, 'utf-8');
+                scriviAtomico(path.join(dir, '_lock.yaml'), yml);
             }
         });
         // Cartella ponti (contributi inter-area dello studente) — sempre presente, anche vuota.
@@ -2008,6 +2242,7 @@ ipcMain.handle('write-branch-locks', async (event, { folderPath, locks }) => {
 ipcMain.handle('load-vault', async (event, folderPath) => {
     try {
         if (!fs.existsSync(folderPath)) throw new Error("Cartella non trovata");
+        if (!cartellaAmmessa(folderPath)) throw new Error(FUORI);   // 0123 lotto 4
 
         // Load index.yaml — parsing robusto con js-yaml
         const indexPath = path.join(folderPath, 'index.yaml');
@@ -2074,11 +2309,26 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
         // Load Nodes
         const nodesDir = path.join(folderPath, 'Nodi');
         if (fs.existsSync(nodesDir)) {
+            /* 0123 lotto 4: due file con lo stesso id (un salvataggio fermato a metà
+               lascia il file del nome vecchio accanto a quello nuovo, finché il primo
+               salvataggio riuscito non lo mette da parte) → vale il più recente */
+            const _idDi = (testo) => { const m = testo.match(/^id:[ \t]*"?([^"\r\n]*)"?[ \t]*$/m); return m ? m[1] : null; };
+            const _scelto = new Map();
+            _vaultWalkMd(nodesDir).forEach(abs => {
+                let id = null, t = 0;
+                try { id = _idDi(fs.readFileSync(abs, 'utf-8')); t = fs.statSync(abs).mtimeMs; } catch (e) { return; }
+                if (id == null) return;
+                const c = _scelto.get(id);
+                if (!c || t > c.t) _scelto.set(id, { abs, t });
+            });
+            const _daLeggere = new Set(Array.from(_scelto.values(), x => x.abs));
             _vaultWalkMd(nodesDir).forEach(absPath => {
+                if (!_daLeggere.has(absPath)) return;
                 const content = fs.readFileSync(absPath, 'utf-8');
                 const fmMatch = content.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/);
                 const parts = fmMatch ? ['', fmMatch[1], fmMatch[2]] : content.split('---');
-                if (parts.length >= 3) {
+                // 0123 lotto 4: solo i nodi dell'app; le note del docente restano in Nodi/ e non entrano in mappa
+                if (parts.length >= 3 && _fmDellApp(parts[1])) {
                     const fmLines = parts[1].trim().split('\n');
                     const node = { chunks: [] };
                     let parsedFm = null;
@@ -2214,6 +2464,7 @@ ipcMain.handle('load-vault', async (event, folderPath) => {
 ipcMain.handle('list-vault-subfolders', async (event, parentPath) => {
     try {
         if (!parentPath || !fs.existsSync(parentPath)) return { folders: [] };
+        if (!cartellaAmmessa(parentPath)) return { folders: [], error: FUORI };   // 0123 lotto 4
         const folders = fs.readdirSync(parentPath, { withFileTypes: true })
             .filter(e => e.isDirectory())
             .map(e => ({ name: e.name, path: path.join(parentPath, e.name) }))
@@ -2227,6 +2478,7 @@ ipcMain.handle('list-vault-subfolders', async (event, parentPath) => {
 // META-ANALISI: legge Studio Attivo/sessioni.jsonl di un vault → array di record sessione.
 ipcMain.handle('read-study-sessions', async (event, vaultPath) => {
     try {
+        if (!cartellaAmmessa(vaultPath)) return { sessions: [], mastery: null, error: FUORI };   // 0123 lotto 4
         let sessions = [];
         const p = path.join(vaultPath, 'Studio Attivo', 'sessioni.jsonl');
         if (fs.existsSync(p)) {
@@ -2256,6 +2508,7 @@ ipcMain.handle('read-study-sessions', async (event, vaultPath) => {
 ipcMain.handle('load-dungeon-floors', async (event, vaultPath) => {
     try {
         if (!vaultPath) return { success: false, error: 'vaultPath mancante' };
+        if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
         const dir = path.join(vaultPath, 'Memory Dungeon');
         const pianiDir = path.join(dir, 'piani');
         const out = { success: true, plans: {}, ruleset: null, materials: null };
@@ -2316,9 +2569,10 @@ ipcMain.handle('load-dungeon-floors', async (event, vaultPath) => {
 ipcMain.handle('save-dungeon-materials', async (event, { vaultPath, materials }) => {
     try {
         if (!vaultPath || !materials) return { success: false, error: 'vaultPath o materials mancante' };
+        if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
         const dir = path.join(vaultPath, 'Memory Dungeon');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, 'materiali.json'), JSON.stringify(materials, null, 2), 'utf-8');
+        scriviAtomico(path.join(dir, 'materiali.json'), JSON.stringify(materials, null, 2));
         return { success: true };
     } catch (err) {
         console.error('Errore save-dungeon-materials:', err);
@@ -2331,9 +2585,10 @@ ipcMain.handle('save-dungeon-materials', async (event, { vaultPath, materials })
 ipcMain.handle('save-dungeon-ruleset', async (event, { vaultPath, ruleset }) => {
     try {
         if (!vaultPath || !ruleset) return { success: false, error: 'vaultPath o ruleset mancante' };
+        if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
         const dir = path.join(vaultPath, 'Memory Dungeon');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, 'ruleset.json'), JSON.stringify(ruleset, null, 2), 'utf-8');
+        scriviAtomico(path.join(dir, 'ruleset.json'), JSON.stringify(ruleset, null, 2));
         return { success: true };
     } catch (err) {
         console.error('Errore save-dungeon-ruleset:', err);
@@ -2346,6 +2601,8 @@ ipcMain.handle('save-dungeon-ruleset', async (event, { vaultPath, ruleset }) => 
 ipcMain.handle('export-dungeon-bundle', async (event, { vaultPath, ids, title, author }) => {
     try {
         if (!vaultPath || !Array.isArray(ids) || !ids.length) return { success: false, error: 'vaultPath o ids mancanti' };
+        if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
+        if (!ids.every(id => /^\d+$/.test(String(id)))) return { success: false, error: 'ids non validi' };
         const pianiDir = path.join(vaultPath, 'Memory Dungeon', 'piani');
         const floors = [];
         for (const id of ids) {
@@ -2529,6 +2786,7 @@ ipcMain.handle('collab-start-session', async (event, opts) => {
         // naming progressivo. Il loginMode effettivo lo detta il session.json su disco.
         let dir, resuming;
         const resumeDir = opts && opts.resumeDir ? String(opts.resumeDir) : '';
+        if (resumeDir && !dentroRadici(resumeDir)) return { success: false, error: FUORI };   // 0123 lotto 4
         if (resumeDir && fs.existsSync(path.join(resumeDir, 'session.json'))) {
             dir = resumeDir; resuming = true;
         } else {
@@ -2724,6 +2982,7 @@ ipcMain.handle('live-start-session', async (event, opts) => {
             // Timeline Live (008): mode/loginMode/hintMode/build pass-through (default = quiz storico)
             session: {
                 name, activity: o.activity || 'Quiz', className: o.className || '',
+                materiale: typeof o.materiale === 'string' ? o.materiale : '',   // 0127: genere e angolo per i titoli dei report
                 scope: o.scope || '',   // 010: ramo L1 coperto
                 durationMin: Number(o.durationMin) || 0,
                 mode: o.mode || 'quiz', loginMode: o.loginMode || 'individual',
@@ -2874,14 +3133,14 @@ ipcMain.handle('live-classes-save', async (event, data) => {
     try {
         const f = classiFile();
         fs.mkdirSync(path.dirname(f), { recursive: true });
-        fs.writeFileSync(f, JSON.stringify(data || { schema: 'mappai-classes@1', classes: [] }, null, 2));
+        scriviAtomico(f, JSON.stringify(data || { schema: 'mappai-classes@1', classes: [] }, null, 2));   // 0123 lotto 4
         return { success: true };
     } catch (err) { return { success: false, error: err.message }; }
 });
 
 // class-doc-save (2/8): scrive un documento nella cartella di UNA classe o di
 // UN allievo — oggi il foglio delle credenziali, generato da solo quando la
-// classe si salva. Non riusa `save-pdf-to-vault`: quello, senza vaultPath,
+// classe si salva. Non riusava `save-pdf-to-vault` (tolto il 23/10): quello, senza vaultPath,
 // scrive dentro Mappe e NON sanitizza il nome del file.
 ipcMain.handle('class-doc-save', async (event, { scope, name, fileName, base64 } = {}) => {
     try {
@@ -2932,10 +3191,7 @@ ipcMain.handle('class-doc-open', async (event, { dir } = {}) => {
     try {
         if (!dir) return { success: false, error: 'percorso mancante' };
         const risolto = path.resolve(dir);
-        const ok = [classesBaseDir(), studentsBaseDir()].some(b => {
-            const rb = path.resolve(b);
-            return risolto === rb || risolto.startsWith(rb + path.sep);
-        });
+        const ok = dentroDi(risolto, [classesBaseDir(), studentsBaseDir()]);   // 0123 lotto 4: la regola unica
         if (!ok) return { success: false, error: 'fuori da Classi/Allievi' };
         if (!fs.existsSync(risolto)) return { success: false, error: 'cartella-non-trovata' };
         await shell.openPath(risolto);
@@ -3325,13 +3581,14 @@ ipcMain.handle('tutor-open-folder', async () => {
 ipcMain.handle('save-dungeon-floor', async (event, { vaultPath, plan }) => {
     try {
         if (!vaultPath || !plan) return { success: false, error: 'vaultPath o plan mancante' };
+        if (!cartellaAmmessa(vaultPath)) return { success: false, error: FUORI };   // 0123 lotto 4
         const m = typeof plan.id === 'string' ? plan.id.match(/^piano-(\d+)$/) : null;
         if (!m) return { success: false, error: 'campo "id" non valido (atteso "piano-N")' };
         const pianiDir = path.join(vaultPath, 'Memory Dungeon', 'piani');
         if (!fs.existsSync(pianiDir)) fs.mkdirSync(pianiDir, { recursive: true });
         const target = path.join(pianiDir, 'piano-' + m[1] + '.json');
         const existed = fs.existsSync(target);
-        fs.writeFileSync(target, JSON.stringify(plan, null, 2), 'utf-8');
+        scriviAtomico(target, JSON.stringify(plan, null, 2));
         return { success: true, file: 'piano-' + m[1] + '.json', overwritten: existed };
     } catch (err) {
         console.error('Errore save-dungeon-floor:', err);
@@ -3537,6 +3794,7 @@ ipcMain.handle('pick-folder', async () => {
         title: 'Seleziona la cartella del Vault (Second Brain)'
     });
     if (!result.canceled && result.filePaths.length > 0) {
+        radiciScelte.add(result.filePaths[0]);   // 0123 lotto 4: scelta dal docente, vale per la sessione
         return { canceled: false, folderPath: result.filePaths[0] };
     }
     return { canceled: true };
@@ -3584,7 +3842,6 @@ function importaVaultInfo(src, dove) {
 
 // La copia: { src, classDir, discDir, nome, projectId } → { ok, folderPath, percorsi } | { ok:false, error }
 async function importaVaultCopia(o, dove) {
-    const IV = require('./public/js/mappai-import-vault-core.js');
     o = o || {};
     const src = String(o.src || '');
     if (!src || !fs.existsSync(path.join(src, 'index.yaml'))) return { ok: false, error: 'non-vault' };
@@ -3597,6 +3854,15 @@ async function importaVaultCopia(o, dove) {
     // una cartella scelta che contiene Mappe/ si copierebbe dentro se stessa
     let baseVera; try { baseVera = fs.realpathSync.native(dove.maps); } catch (e) { baseVera = path.resolve(dove.maps); }
     if (importaDentroDi(src, path.join(baseVera, ...segs))) return { ok: false, error: 'dentro-se-stessa' };
+    return _copiaInCartella(src, dest, o.projectId);
+}
+
+/* La copia vera, una sola per l'import (0095) e per «Copia…» (0124, ADR 0025): la
+   cartella di destinazione si prende, si copia voce per voce, l'id vecchio si
+   sostituisce nei file di testo, index.yaml prende l'id nuovo, i percorsi di
+   pipeline.json passano sulla copia; a metà strada si toglie la copia parziale. */
+async function _copiaInCartella(src, dest, projectId) {
+    const IV = require('./public/js/mappai-import-vault-core.js');
     /* la cartella si PRENDE con un mkdir non ricorsivo: se c'è già (anche nata
        fra il piano e questo istante) non si scrive niente, e una cartella che
        esisteva prima non viene mai tolta dal ripulisti */
@@ -3620,19 +3886,19 @@ async function importaVaultCopia(o, dove) {
         let idCambiati = 0;
         const rigaId = fs.readFileSync(ip, 'utf-8').split(/\r?\n/).find(l => /^projectId\s*:/.test(l));
         const idIndice = rigaId ? rigaId.replace(/^projectId\s*:/, '').trim().replace(/^["']|["']$/g, '') : '';
-        const vecchiId = IV.idVecchiDelVault(idIndice, leggiMan(), o.projectId);
+        const vecchiId = IV.idVecchiDelVault(idIndice, leggiMan(), projectId);
         if (vecchiId.length) {
             const TESTO = /\.(json|html?|md|ya?ml|txt|csv)$/i;
             const giro = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
                 const p = path.join(d, e.name);
                 if (e.isDirectory()) return giro(p);
                 if (!e.isFile() || !TESTO.test(e.name)) return;
-                const r = IV.sostituisciId(fs.readFileSync(p, 'utf-8'), vecchiId, o.projectId);
+                const r = IV.sostituisciId(fs.readFileSync(p, 'utf-8'), vecchiId, projectId);
                 if (r.cambi) { fs.writeFileSync(p, r.testo, 'utf-8'); idCambiati++; }
             });
             giro(dest);
         }
-        fs.writeFileSync(ip, IV.indiceConId(fs.readFileSync(ip, 'utf-8'), o.projectId), 'utf-8');
+        fs.writeFileSync(ip, IV.indiceConId(fs.readFileSync(ip, 'utf-8'), projectId), 'utf-8');
         /* D6: i percorsi di pipeline.json sulla copia; un manifesto illeggibile resta com'è.
            Quali sono i percorsi vecchi lo dice il core dell'import (la sorgente e il
            `vaultPath` in cima, mai gli altri); la riscrittura è quella della rinomina,
@@ -3654,6 +3920,33 @@ async function importaVaultCopia(o, dove) {
     }
 }
 
+/* «Copia…» (0124, ADR 0025): un progetto DENTRO «MappAI - file» va in un'altra classe
+   o in un allievo, e la materia scelta: { src, base, parti, nome, projectId, dichiara }.
+   La sorgente deve stare in Classi/ o in Allievi/ (fuori è il lavoro dell'import);
+   i pezzi della destinazione li ricontrolla il core; il nome libero col suffisso
+   « · 0N» è la regola della rinomina; index.yaml dice la classe e la materia nuove. */
+async function copiaVaultInterna(o, dove) {
+    o = o || {};
+    const src = String(o.src || '');
+    if (!src || !fs.existsSync(path.join(src, 'index.yaml'))) return { ok: false, error: 'non-vault' };
+    if (!importaDentroDi(dove.maps, src) && !importaDentroDi(dove.students, src)) return { ok: false, error: 'fuori' };
+    const segs = RiassegnaCopiaCore.partiSicure(o.parti);
+    if (!segs) return { ok: false, error: 'destinazione' };
+    if (!FilesCore.idProgettoValido(o.projectId)) return { ok: false, error: 'id' };
+    const madre = path.join(o.base === 'students' ? dove.students : dove.maps, ...segs);
+    if (importaDentroDi(src, madre)) return { ok: false, error: 'dentro-se-stessa' };
+    let fratelli = [];
+    try { fratelli = fs.readdirSync(madre).filter(n => { try { return fs.statSync(path.join(madre, n)).isDirectory(); } catch (e) { return false; } }); } catch (e) { fratelli = []; }
+    const libero = NomeCartellaCore.nomeLibero(FilesCore.vaultFolderName(o.nome || path.basename(src)), fratelli, []);
+    const r = await _copiaInCartella(src, path.join(madre, libero.nome), o.projectId);
+    if (!r.ok) return r;
+    if (o.dichiara && typeof o.dichiara === 'object') {
+        const ip = path.join(r.folderPath, 'index.yaml');
+        fs.writeFileSync(ip, RiassegnaCopiaCore.indiceConContesto(fs.readFileSync(ip, 'utf-8'), o.dichiara), 'utf-8');
+    }
+    return Object.assign(r, { folderName: libero.nome, suffisso: libero.suffisso });
+}
+
 ipcMain.handle('import-vault-info', async (event, data) => {
     try { return importaVaultInfo(data && data.src, { maps: mapsBaseDir(), students: studentsBaseDir() }); }
     catch (e) { return { ok: false, error: e.message }; }
@@ -3661,6 +3954,12 @@ ipcMain.handle('import-vault-info', async (event, data) => {
 
 ipcMain.handle('import-vault-copy', async (event, data) => {
     try { return await importaVaultCopia(data, { maps: mapsBaseDir(), students: studentsBaseDir() }); }
+    catch (e) { return { ok: false, error: e.message }; }
+});
+
+// 0124 (ADR 0025): «Copia…» dal menu della briciola
+ipcMain.handle('vault-copy', async (event, data) => {
+    try { return await copiaVaultInterna(data, { maps: mapsBaseDir(), students: studentsBaseDir() }); }
     catch (e) { return { ok: false, error: e.message }; }
 });
 
@@ -3748,6 +4047,7 @@ ipcMain.handle('zip-vault-to-materials', async (event, { vaultName } = {}) => {
 ipcMain.handle('vault-consegne-list', async (event, { vaultPath } = {}) => {
     try {
         if (!vaultPath || !fs.existsSync(vaultPath)) return { ok: false, error: 'vault inesistente', files: [] };
+        if (!cartellaAmmessa(vaultPath)) return { ok: false, error: FUORI, files: [] };   // 0123 lotto 4
         const base = path.join(vaultPath, FilesCore.CONSEGNE);
         if (!fs.existsSync(base)) return { ok: true, files: [] };
         const files = [];
@@ -3770,7 +4070,7 @@ ipcMain.handle('study-session-open-folder', async (event, { dir } = {}) => {
     try {
         const abs = path.resolve(String(dir || ''));
         const roots = studyRootsForListing().map(r => path.resolve(r.dir));
-        const ok = roots.some(root => abs === root || abs.startsWith(root + path.sep)) && fs.existsSync(abs);
+        const ok = dentroDi(abs, roots) && fs.existsSync(abs);   // 0123 lotto 4: la regola unica
         if (!ok) return { success: false, error: 'percorso-non-consentito' };
         await shell.openPath(abs);
         return { success: true };
@@ -3803,6 +4103,8 @@ ipcMain.handle('files-root-choose', async () => {
         title: 'Scegli dove creare la cartella "MappAI - file"'
     });
     if (result.canceled || !result.filePaths.length) return { canceled: true };
+    // 0123 lotto 4: radice per la sessione la sola «MappAI - file» che nascerà lì, non tutta la posizione
+    radiciScelte.add(path.join(result.filePaths[0], FilesCore.ROOT_FOLDER));
     return { canceled: false, filesRoot: result.filePaths[0] };
 });
 
@@ -3849,8 +4151,11 @@ function moveDirSafe(from, to) {
     try {
         fs.renameSync(from, to);
     } catch (e) {
-        if (e.code === 'EXDEV') { copyRecursiveSync(from, to); fs.rmSync(from, { recursive: true, force: true }); }
-        else throw e;
+        if (e.code !== 'EXDEV') throw e;
+        // 0123 lotto 4: copia fermata a metà → via la copia parziale, l'origine resta, l'errore sale
+        try { copyRecursiveSync(from, to); }
+        catch (e2) { try { fs.rmSync(to, { recursive: true, force: true }); } catch (e3) { /* resta da togliere a mano */ } throw e2; }
+        fs.rmSync(from, { recursive: true, force: true });
     }
     return 'moved';
 }
@@ -3863,6 +4168,9 @@ ipcMain.handle('files-setup', async (event, opts) => {
         const filesRoot = String(o.filesRoot || '').trim();
         if (!filesRoot || !fs.existsSync(filesRoot)) return { success: false, error: 'posizione-non-valida' };
         const root = path.join(filesRoot, FilesCore.ROOT_FOLDER);
+        /* 0123 lotto 4: la posizione è quella scelta col dialogo (`files-root-choose`
+           registra la sua «MappAI - file»), Documenti o quella già salvata */
+        if (!dentroRadici(root)) return { success: false, error: 'posizione-non-valida' };
         fs.mkdirSync(root, { recursive: true });
         Object.keys(FilesCore.SUB).forEach(k => fs.mkdirSync(path.join(root, FilesCore.SUB[k]), { recursive: true }));
 
@@ -3889,6 +4197,12 @@ ipcMain.handle('files-setup', async (event, opts) => {
             try { fs.writeFileSync(path.join(root, 'migrazione-log.json'), JSON.stringify({ date: Date.now(), moved, skipped, log }, null, 2)); } catch (e) { }
         }
 
+        /* 0123 lotto 4 (0032 punto 4): con uno spostamento fallito la cartella resta
+           intera al suo posto (moveDirSafe toglie la copia parziale). «Organizzato» si
+           scrive lo stesso: NON scriverlo nasconderebbe le cartelle già spostate (le
+           basi tornerebbero a Documenti) mentre la mappa aperta salverebbe una copia
+           nel posto vecchio. Le non spostate si dicono (`falliti`, e il registro). */
+        const falliti = log.filter(x => x.error).length;
         writeSettings({ filesRoot: filesRoot, filesOrganized: true });
         /* 0104 (N6): chi fa il setup adesso riceve subito la struttura nuova —
            prima la 010 (qui sopra), poi la riorganizzazione. vaultMap segue i
@@ -3900,7 +4214,7 @@ ipcMain.handle('files-setup', async (event, opts) => {
             Object.keys(vaultMap).forEach(k => { const n = RiordinoCore.riparaDir(vaultMap[k], coppie); if (n) vaultMap[k] = n; });
         } catch (e) { console.warn('[files] riorganizzazione dopo il setup:', e.message); }
         initDefaultVaultFolder(); // assicura il vault demo in Mappe se vuoto
-        return { success: true, rootDir: root, moved, skipped, vaultMap };
+        return { success: true, rootDir: root, moved, skipped, vaultMap, falliti };
     } catch (err) {
         console.error('[files] files-setup', err);
         return { success: false, error: err.message };
@@ -4003,7 +4317,8 @@ function _riparaPipelineSpostata(nuovo, vecchio) {
     let r = { manifest: m, cambiati: 0 };
     vecchi.forEach(v => { const x = NomeCartellaCore.riparaPercorsi(r.manifest, nuovo, v); r = { manifest: x.manifest, cambiati: r.cambiati + x.cambiati }; });
     if (!r.cambiati) return 0;
-    ReviewStore.saveManifest(nuovo, r.manifest, (m && m._storageVersion) || 0);
+    // 0123 lotto 4: senza pipeline.prev.json — cambiano i percorsi, non le decisioni del docente
+    ReviewStore.saveManifest(nuovo, r.manifest, (m && m._storageVersion) || 0, { copia: false });
     return r.cambiati;
 }
 // vault.json delle sessioni «materiali» del server di rete locale: il `dir` assoluto segue il progetto.
@@ -4218,7 +4533,7 @@ ipcMain.handle('study-report-open', async (event, filePath) => {
     try {
         const abs = path.resolve(String(filePath || ''));
         const roots = studyRootsForListing().map(r => path.resolve(r.dir));
-        const ok = roots.some(root => abs === root || abs.startsWith(root + path.sep)) && /\.html?$/i.test(abs) && fs.existsSync(abs);
+        const ok = dentroDi(abs, roots) && /\.html?$/i.test(abs) && fs.existsSync(abs);   // 0123 lotto 4: la regola unica
         if (!ok) return { success: false, error: 'percorso-non-consentito' };
         await shell.openPath(abs);
         return { success: true };
@@ -4227,6 +4542,8 @@ ipcMain.handle('study-report-open', async (event, filePath) => {
 
 // IPC Handler for Google File API Upload (for Audio/Video)
 ipcMain.handle('upload-file-gemini', async (event, { apiKey, filePath, mimeType, displayName }) => {
+    // 0123 lotto 4: il file va a Google — solo i tipi delle fonti, mai da una cartella nascosta
+    if (!fonteAmmessa(filePath, EST_CARICA)) throw new Error('Tipo di file non ammesso per il caricamento: ' + path.basename(String(filePath || '')));
     return new Promise((resolve, reject) => {
         const stats = fs.statSync(filePath);
         const fileSize = stats.size;
@@ -4294,6 +4611,7 @@ ipcMain.handle('pick-file', async () => {
     });
     
     if (!result.canceled && result.filePaths.length > 0) {
+        radiciScelte.add(result.filePaths[0]);   // 0123 lotto 4: il solo file scelto
         return { canceled: false, filePath: result.filePaths[0] };
     }
     return { canceled: true };
@@ -4302,6 +4620,7 @@ ipcMain.handle('pick-file', async () => {
 // IPC Handler to extract text from DOCX
 ipcMain.handle('parse-docx', async (event, filePath) => {
     try {
+        if (!fonteAmmessa(filePath, EST_DOCX)) throw new Error('non è un documento Word ammesso');   // 0123 lotto 4
         const result = await mammoth.extractRawText({ path: filePath });
         return result.value;
     } catch (err) {

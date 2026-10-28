@@ -56,9 +56,13 @@ function mainHandlers(base) {
     ipcMain: { handle: (name, fn) => { handlers[name] = fn; } },
     _contaNodiInCartella: () => 0,
     mapsBaseDir: () => path.join(base, 'Mappe'), studentsBaseDir: () => path.join(base, 'Allievi'),
+    /* 0123 lotto 4: i confini del disco — la cartella temporanea del sistema è la radice */
+    Confini: require('../public/js/mappai-confini-core.js'), crypto: require('node:crypto'), process,
+    app: { getPath: () => os.tmpdir() }, mappaiRootDir: () => os.tmpdir(), documentsDir: () => os.tmpdir(),
     shell: { trashItem: async () => { throw new Error('Nessun cestino atteso in questo test'); } }
   });
-  for (const name of ['_vaultWalkMd', '_vaultPruneEmptyDirs', 'walkMappe']) {
+  { const a = source.indexOf('/* ── I CONFINI DEL DISCO'); vm.runInContext(source.slice(a, source.indexOf('const ReviewStore = require(', a)), ctx); }   // 0123 lotto 4
+  for (const name of ['_vaultWalkMd', '_vaultPruneEmptyDirs', '_fmDellApp', '_notaDellApp', 'walkMappe']) {
     const start = source.indexOf('function ' + name + '(');
     assert.ok(start >= 0, 'main.js: function ' + name);
     vm.runInContext(source.slice(start, source.indexOf('\n}', start) + 2), ctx);
@@ -549,54 +553,10 @@ test('0061: R12. la copia di una cartella riceve un id nuovo e lo scrive', async
   assert.deepEqual(h.scritture.at(-1), { folderPath: B, projectId: id }, 'il salvataggio seguente lo porta');
 });
 
-test('0061: R13. «Esporta nel Vault» tiene l\'id della mappa in memoria (D2)', async () => {
-  const P = ID(16);
-  const h = rendererHarness({
-    cassetto: cassetto([VOCE_VECCHIA, voce(P, null, { name: SVIZZERA })], { [ID_VECCHIO]: FOTO_VECCHIA, [P]: fotografia(SVIZZERA) }),
-    cartelle: [], appState: mappa(SVIZZERA, { activeVaultPath: null }), scelta: PERCORSO_28 });
-  h.ctx._storage.currentProjectId = P;
-  await h.window.saveMapVault(); h.sano();
-  assert.equal(h.id(), P, 'l\'id resta quello della mappa in memoria');
-  assert.deepEqual(h.scritture, [{ folderPath: PERCORSO_28, projectId: P }], 'e la scrittura lo porta');
-});
-
-/* La mappa X è legata alla sua cartella, che però non dichiara ancora il suo id (un vault
-   vecchio aperto per nome e non ancora risalvato): nell'elenco nessuna cartella dice X, e
-   solo `percorsoPrima` sa che esportare altrove è una copia (è la prova di MU19). */
-function casoR13b(extra) {
-  const X = ID(17), dir = '/M/4R/Storia/X';
-  const voceX = voce(X, 'X');
-  const h = rendererHarness(Object.assign({ cassetto: cassetto([voceX], { [X]: fotografia('X', { activeVaultPath: dir }) }),
-    cartelle: [cartella(dir)], disco: { [dir]: datiVault('X') } }, extra));
-  return { h, X, dir, voceX };
-}
-
-test('0061: R13b. esportare una mappa legata altrove è una copia', async () => {
-  const { h, X, dir, voceX } = casoR13b();
-  await h.window.directLoadVault(dir); h.sano();
-  assert.equal(h.id(), X, 'la mappa X, legata alla sua cartella');
-  h.caso.scelta = '/Scrivania/Y';
-  const da = h.emessi.length;
-  await h.window.saveMapVault(); h.sano();
-  const suY = h.scritture.filter(s => s.folderPath === '/Scrivania/Y');
-  assert.equal(suY.length, 1);
-  assert.ok(h.natoDopo(suY[0].projectId, da), 'la scrittura su Y porta un id nuovo e noto: ' + suY[0].projectId);
-  assert.notEqual(suY[0].projectId, X);
-  assert.equal(JSON.stringify(h.voce(X)), JSON.stringify(voceX), 'la voce X resta com\'era');
-});
-
+/* 0124 (ADR 0025): qui c'erano R13 («Esporta nel Vault» tiene l'id della mappa in memoria) e R13b (esportare una
+   mappa legata altrove è una copia), con l'aiutante `casoR13b`: provavano `saveMapVault`, uscita col packet. Di R13c
+   restano i sottocasi di ensureProjectVault. */
 test('0061: R13c. un salvataggio fallito lascia tutto com\'era', async t => {
-  await t.test('saveMapVault', async () => {
-    const { h, dir } = casoR13b();
-    await h.window.directLoadVault(dir); h.sano();
-    h.caso.scelta = '/Scrivania/Y';
-    h.caso.esitoSave = { success: false, error: 'disco pieno' };
-    const prima = statoIdentita(h);
-    await h.window.saveMapVault();
-    assert.equal(statoIdentita(h), prima);
-    assert.deepEqual(h.allarmi, ['Errore Salvataggio: disco pieno'], 'il fallimento è quello della scrittura');
-    assert.ok(!h.avvisi.some(a => /ensureProjectVault fallito/.test(a)), h.avvisi.join(' | '));
-  });
   await t.test('ensureProjectVault', async () => {
     const V = ID(18);
     const h = rendererHarness({ cassetto: cassetto([voce(V, 'Altra')], { [V]: fotografia('Altra') }), cartelle: [],
@@ -613,16 +573,6 @@ test('0061: R13c. un salvataggio fallito lascia tutto com\'era', async t => {
 
 // Aggiunta del 30/09 (§6): la scrittura che LANCIA, non solo { success: false } — il ripristino nel `catch`.
 test('0061: R13c (sottocasi: saveVault che lancia). l\'identità torna com\'era anche quando la scrittura lancia', async t => {
-  await t.test('saveMapVault', async () => {
-    const { h, dir } = casoR13b();
-    await h.window.directLoadVault(dir); h.sano();
-    h.caso.scelta = '/Scrivania/Y';
-    h.caso.saveLancia = 'disco staccato';
-    const prima = statoIdentita(h);
-    await h.window.saveMapVault();
-    assert.equal(statoIdentita(h), prima, 'i cinque valori come prima del gesto');
-    assert.deepEqual(h.allarmi, ['Errore: disco staccato'], 'l\'errore è quello della scrittura, come prima');
-  });
   await t.test('ensureProjectVault, ramo (2)', async () => {
     const V = ID(27);
     const h = rendererHarness({ cassetto: cassetto([voce(V, 'Altra')], { [V]: fotografia('Altra') }), cartelle: [],

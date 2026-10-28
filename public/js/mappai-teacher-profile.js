@@ -12,9 +12,8 @@
  *   - «Ora di classe» stava FUORI dalle materie — non ha contenuti disciplinari e
  *     produce materiali di altro genere. Dal 12/10/26 (0088, D3) non è più sullo
  *     schermo, come «Servizio o istituto di riferimento»: nessuno leggeva quei dati;
- *   - RUOLO «Docente di sostegno / OPI»: dal 12/10/26 non sblocca più niente (le
- *     schede allievo si creano con qualunque ruolo), mostra solo la scorciatoia
- *     «Gestisci profili».
+ *   - il RUOLO (materia o sostegno) non c'è più dal 27/10/26 (0130): dallo 0088
+ *     non sbloccava niente, e le schede degli allievi stanno in Cabina › «Allievi».
  * `STORE.sezioni()` restituisce le sezioni: la console «Cabina» le monterà così
  * come sono, senza riscriverle.
  *
@@ -34,8 +33,7 @@
     nickname: '', anno: '',
     sediMode: 'multi', sedi: [],
     disciplineMode: 'multi', discipline: [],
-    oraDiClasse: false, oraDiClasseCls: '',
-    ruolo: 'materia', sostegnoEnte: ''
+    oraDiClasse: false, oraDiClasseCls: ''
   };
 
   function lista(v) {
@@ -58,9 +56,9 @@
       disciplineMode: d.disciplineMode === 'single' ? 'single' : 'multi',
       discipline: lista(d.discipline),
       oraDiClasse: !!d.oraDiClasse,
-      oraDiClasseCls: d.oraDiClasseCls != null ? String(d.oraDiClasseCls) : '',
-      ruolo: d.ruolo === 'sostegno' ? 'sostegno' : 'materia',
-      sostegnoEnte: d.sostegnoEnte != null ? String(d.sostegnoEnte) : ''
+      oraDiClasseCls: d.oraDiClasseCls != null ? String(d.oraDiClasseCls) : ''
+      /* il ruolo e il servizio di riferimento NON passano più (0130, Giacomo: «Pulirli al
+         salvataggio»): caricare non scrive, quindi spariscono dal disco al primo salvataggio */
     };
   }
 
@@ -80,8 +78,6 @@
   STORE.disciplineList = function () { return lista(STORE.get().discipline); };
   STORE.hasOraDiClasse = function () { return !!STORE.get().oraDiClasse; };
   STORE.hasMultiSedi = function () { return STORE.sediList().length > 1; };
-  /* Il ruolo dichiarato non è più un gate (0088): resta la scorciatoia alle schede. */
-  STORE.isSostegno = function () { return STORE.get().ruolo === 'sostegno'; };
 
   // ── Lo schema ─────────────────────────────────────────────────────────────
 
@@ -104,26 +100,12 @@
   /* ⚠️ «Ora di classe» (spunta e classe) e «Servizio o istituto di riferimento»
      NON sono più sullo schermo (0088, D3): promettevano effetti — le materie con
      l'«Ora di classe», l'intestazione dei materiali individuali — che nessuno
-     legge. I dati restano in `DEFAULT` e in `clean`, così un profilo già su
-     disco non perde niente: è il precedente di `sediMode` e `disciplineMode`. */
+     legge. I dati dell'«Ora di classe» restano in `DEFAULT` e in `clean`, così un
+     profilo già su disco non li perde: è il precedente di `sediMode` e
+     `disciplineMode`. Quelli del servizio, col ruolo, escono al salvataggio (0130). */
   STORE.sezioni = function (S) {
     S = S || STORE.get();
-    var sostegno = S.ruolo === 'sostegno';
-
-    var ruoloCampi = [
-      {
-        id: 'ruolo-materia', tipo: 'radio', gruppo: 'ruolo', valore: !sostegno,
-        etichetta: t('tp_ruolo_materia', 'Docente di materia'),
-        aiuto: t('tp_ruolo_materia_aiuto', 'Si lavora per classe: mappe, materiali e attività sono della classe.')
-      },
-      {
-        id: 'ruolo-sostegno', tipo: 'radio', gruppo: 'ruolo', valore: sostegno,
-        etichetta: t('tp_ruolo_sostegno', 'Docente di sostegno / OPI'),
-        aiuto: t('tp_ruolo_sostegno_aiuto', 'Mostra qui la scorciatoia alle schede dei singoli allievi. Le schede si creano comunque dalla voce «Allievi», con qualunque ruolo.')
-      }
-    ];
-
-    var sez = [
+    return [
       {
         /* «Chi sei» è larga, coi due campi affiancati: tolta «Ora di classe» (0088, D3) le tre sezioni piccole
            lasciavano un buco a destra di «Materie». Così «Sedi» e «Materie», i due elenchi, stanno in riga. */
@@ -153,32 +135,17 @@
           aggiungi: t('tp_materie_add', 'Aggiungi materia'),
           aiuto: t('tp_materie_aiuto', 'Da qui vengono i nomi che compaiono in tutta l’app: nelle classi, nel chip di contesto e nelle cartelle su disco.')
         }]
-      },
-      { id: 'ruolo', titolo: t('tp_ruolo', 'Ruolo professionale'), largo: true, campi: ruoloCampi }
+      }
+      /* Qui stavano il «Ruolo professionale» e, per il sostegno, il riquadro «Gestisci profili»
+         (0130): le schede degli allievi si aprono dalla voce «Allievi» della Cabina, e che cosa
+         ne entra nel prompt lo dice la voce «Privacy». */
     ];
-
-    if (sostegno) {
-      sez.push({
-        id: 'allievi', accento: true, largo: true,
-        titolo: t('tp_allievi', 'Profili individuali degli allievi'),
-        /* ⚠️ Prima diceva «non entrano mai nelle chiamate all'AI»: non è vero
-           delle NOTE, che con la taratura attiva finiscono nel prompt
-           (app.js → MappAITune.activeTuningBlock). Il nome dell'allievo, quello
-           sì, non parte mai. Su una frase che parla di dati sensibili la
-           precisione non è un dettaglio di stile. */
-        testo: t('tp_allievi_testo', 'I profili vivono sul tuo computer. Quando la taratura è attiva, nel prompt entrano età, grado e le note che scrivi qui — mai il nome dell’allievo.'),
-        /* `chiude:false`: senza, il motore conclude la finestra al clic e il «Uscire
-           senza salvare?» non scatta mai. La Cabina porta alla voce «Allievi» (D1). */
-        azioni: [{ id: 'apri-prof', etichetta: t('tp_allievi_apri', 'Gestisci profili'), icona: 'user-round', chiude: false }]
-      });
-    }
-    return sez;
   };
 
   function schema(S) {
     return {
       titolo: t('tp_title', 'Profilo insegnante'),
-      sottotitolo: t('tp_sub', 'Sedi, materie e ruolo: da qui vengono i nomi che il resto dell’app usa'),
+      sottotitolo: t('tp_sub', 'Sedi e materie: da qui vengono i nomi che il resto dell’app usa'),
       icona: 'id-card',
       taglia: 'l', layout: 'due',
       /* dati in scrittura: il clic sul velo non deve buttare via il profilo */
@@ -198,7 +165,6 @@
     if (!v) return S;
     if (v.nome !== undefined) S.nickname = v.nome;
     if (v.anno !== undefined) S.anno = v.anno;
-    S.ruolo = v['ruolo-sostegno'] ? 'sostegno' : 'materia';
     return S;
   }
 
@@ -242,14 +208,9 @@
       var id = ev.azione;
       assorbi(S, ev.valori);
 
-      if (id === '__campo') {
-        /* solo i campi che cambiano la FORMA della finestra la ridisegnano:
-           farlo a ogni uscita da un campo la farebbe ballare sotto le dita */
-        if (ev.campo === 'ruolo-materia' || ev.campo === 'ruolo-sostegno') {
-          ridisegna(schema(S));
-        }
-        return;
-      }
+      /* nessun campo cambia più la FORMA della finestra (il ruolo è uscito, 0130):
+         ridisegnare a ogni uscita da un campo la farebbe ballare sotto le dita */
+      if (id === '__campo') return;
       if (id.indexOf('__piu-') === 0) {
         var k = id.slice(6);
         window.MappAIModal.chiedi({

@@ -57,17 +57,8 @@
   .btn-ok { background: #16a34a; color: #fff; }
   .btn[disabled] { opacity: .45; cursor: default; }
 
-  /* ── login ── */
-  #login { max-width: 420px; margin: 24px auto; padding: 0 14px; width: 100%; }
-  #login h1 { font-size: 19px; margin: 8px 0 2px; }
-  #login .sub { color: #64748b; font-size: 12px; margin-bottom: 14px; }
-  .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 10px 0; }
-  .emoji-cell { font-size: 26px; text-align: center; padding: 8px 0; border: 2px solid var(--mm-bordo, #cbd5e1);
-                border-radius: 12px; background: #fff; cursor: pointer; }
-  .emoji-cell.sel { border-color: #4f46e5; background: #eef2ff; }
-  #num-input { width: 100%; border: 2px solid var(--mm-bordo, #cbd5e1); border-radius: 12px; padding: 12px;
-               font: inherit; font-size: 18px; text-align: center; letter-spacing: .3em; }
-  #login-err { color: #b91c1c; font-size: 12px; min-height: 18px; margin-top: 8px; }
+  /* ── login ── le sei righe le disegna mappai-accesso-allievi.js (0134) */
+  #login { width: 100%; }
 
   /* ── header attività ── */
   #topbar { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid var(--mm-bordo, #cbd5e1);
@@ -121,16 +112,8 @@
 <body>
 
 <!-- ══ LOGIN ══ -->
-<div id="login">
-  <div class="card">
-    <h1 id="login-title">Chiedi e Rispondi</h1>
-    <div class="sub" id="login-sub">Scegli il tuo animale e scrivi il tuo numero.</div>
-    <div class="emoji-grid" id="emoji-grid"></div>
-    <input id="num-input" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="numero (es. 03)">
-    <div id="login-err"></div>
-    <button class="btn btn-primary" id="join-btn" type="button" style="width:100%;margin-top:8px">Entra</button>
-  </div>
-</div>
+<!-- l'accesso: progetto, classe, «Chiedi e Rispondi», emoji, numero, Entra — mappai-accesso-allievi.js -->
+<div id="login"></div>
 
 <!-- ══ ATTIVITÀ ══ -->
 <div id="app" class="hidden" style="display:flex;flex-direction:column;flex:1">
@@ -170,6 +153,7 @@
 
 <div id="toast"></div>
 
+<script src="/public/js/mappai-accesso-allievi.js?v=0134"></script>
 <script>
 (function () {
   'use strict';
@@ -205,56 +189,41 @@
   }
 
   // ── boot: sessione pubblica ──
+  var A = window.MappAIAccesso;
   fetch('/api/session?s=' + encodeURIComponent(TOKEN))
     .then(function (r) { if (!r.ok) throw new Error('token'); return r.json(); })
     .then(function (sess) {
       S.session = sess;
       S.cap = sess.cap || 10;
-      $('login-title').textContent = 'Chiedi e Rispondi — ' + (sess.name || '');
       $('topic').textContent = (sess.topic ? sess.topic.label : '') + (sess.className ? ' · ' + sess.className : '');
       $('brief').textContent = sess.writingBrief || 'Scrivi il tuo testo personale su quello che hai capito.';
       $('msg-input').maxLength = sess.msgMax || 600;
-      // griglia emoji
-      var grid = $('emoji-grid');
-      (sess.emojiSet || []).forEach(function (e) {
-        var c = document.createElement('div');
-        c.className = 'emoji-cell'; c.textContent = e.emoji; c.dataset.key = e.key;
-        c.onclick = function () {
-          grid.querySelectorAll('.emoji-cell').forEach(function (x) { x.classList.remove('sel'); });
-          c.classList.add('sel'); S.emojiKey = e.key;
-        };
-        grid.appendChild(c);
-      });
-      // rientro rapido: identità salvata per questo token
-      try {
-        var saved = JSON.parse(localStorage.getItem('tutorq_id::' + TOKEN) || 'null');
-        if (saved && saved.emojiKey) {
-          S.emojiKey = saved.emojiKey;
-          var cell = grid.querySelector('[data-key="' + saved.emojiKey + '"]');
-          if (cell) cell.classList.add('sel');
-          $('num-input').value = saved.num || '';
-        }
-      } catch (e) { }
+      // 0134: le sei righe (progetto, classe, «Chiedi e Rispondi», emoji, numero, Entra), col rientro rapido di sempre:
+      // emoji e numero già scelti su un telefono che è già entrato con questo token
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem('tutorq_id::' + TOKEN) || 'null'); } catch (e) { }
+      A.monta($('login'), { progetto: sess.name, classe: sess.className, attivita: sess.attivita || 'Chiedi e Rispondi',
+        modo: 'singolo', emoji: sess.emojiSet || [], entra: entra,
+        preseleziona: saved && saved.emojiKey ? { emojiKey: saved.emojiKey, num: saved.num || '' } : null });
     })
     .catch(function () {
-      $('login').innerHTML = '<div class="card">Link non valido o sessione terminata. Inquadra di nuovo il QR del docente.</div>';
+      A.monta($('login'), { errore: 'Link non valido o sessione terminata. Inquadra di nuovo il QR del docente.' });
     });
 
   // ── join ──
-  $('join-btn').onclick = function () {
-    var num = ($('num-input').value || '').trim();
+  function entra(scelta) {
+    var num = scelta.num;
     if (num.length === 1) num = '0' + num;
-    if (!S.emojiKey) { $('login-err').textContent = 'Scegli il tuo animale.'; return; }
-    if (!/^\d{2}$/.test(num)) { $('login-err').textContent = 'Scrivi il tuo numero (due cifre, es. 03).'; return; }
-    S.num = num;
+    if (!/^\d{2}$/.test(num)) { A.errore('Scrivi il tuo numero (due cifre, es. 07).'); return; }
+    S.emojiKey = scelta.emojiKey; S.num = num;
     api('/api/join').then(function (r) {
-      if (r.status === 409) { $('login-err').textContent = 'Questa identità è già usata da un altro telefono. Chiedi al docente.'; return; }
-      if (r.status === 404) { $('login-err').textContent = 'Credenziale non trovata: controlla animale e numero.'; return; }
-      if (r.status !== 200) { $('login-err').textContent = 'Errore di rete: riprova.'; return; }
+      if (r.status === 409) { A.errore('Questa identità è già usata da un altro telefono. Chiedi al docente.'); return; }
+      if (r.status === 404) { A.errore('Credenziale non trovata: controlla animale e numero.'); return; }
+      if (r.status !== 200) { A.errore('Errore di rete: riprova.'); return; }
       try { localStorage.setItem('tutorq_id::' + TOKEN, JSON.stringify({ emojiKey: S.emojiKey, num: S.num })); } catch (e) { }
       enterApp(r.body);
-    }).catch(function () { $('login-err').textContent = 'Rete assente: controlla il Wi-Fi di classe.'; });
-  };
+    }).catch(function () { A.errore('Rete assente: controlla il Wi-Fi di classe.'); });
+  }
 
   function enterApp(joined) {
     S.used = joined.used || 0;

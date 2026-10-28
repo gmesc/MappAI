@@ -38,7 +38,9 @@ const vm = require('node:vm');
 const RADICE = path.join(__dirname, '..');
 
 const ECCEZIONI = {
-    'public/js/app.js': 'vietato fuori da un packet dedicato (divieto fisso di Giacomo)',
+    /* `public/js/app.js` è uscito di qui col packet 0123, lotto 1 (22/10/2026): la riga
+       2385 legge `StorageManager` con `typeof`, e i cinque `window.appState ||` sono
+       diventati il ripiego dopo `typeof appState`. */
     'public/js/mappai-review.js': 'lavoro in volo di un altro packet (il ripiego su window.StorageManager)'
 };
 
